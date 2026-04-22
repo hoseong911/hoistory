@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IDY 삼국시대 문화유산 굿즈 온라인 기획전</title>
+<style>
+  @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+    background-color: #f8f9fa;
+    color: #212529;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  header {
+    background: #ffffff;
+    padding: 40px 20px 24px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+  }
+
+  header h1 {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #1a1b1e;
+    margin-bottom: 8px;
+  }
+
+  header p { font-size: 15px; color: #868e96; font-weight: 500; }
+
+  .filters {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px 40px;
+    background: #ffffff;
+    flex-wrap: wrap;
+    border-bottom: 1px solid #f1f3f5;
+  }
+
+  @media (max-width: 599px) {
+    .filters {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      justify-content: flex-start;
+      padding: 14px 16px;
+      gap: 8px;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .filters::-webkit-scrollbar { display: none; }
+    .filters select {
+      flex-shrink: 0;
+      font-size: 13px;
+      padding: 8px 28px 8px 12px;
+    }
+    .filters button { flex-shrink: 0; }
+  }
+
+  .filters select {
+    padding: 10px 36px 10px 16px;
+    border: 1px solid #e9ecef;
+    border-radius: 30px;
+    font-size: 14px;
+    font-family: inherit;
+    font-weight: 600;
+    background: #f8f9fa;
+    color: #495057;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23adb5bd' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    transition: all 0.2s ease;
+  }
+
+  .filters select:hover { background: #f1f3f5; }
+  .filters select:focus { outline: none; border-color: #4dabf7; box-shadow: 0 0 0 3px rgba(77,171,247,0.15); background: #fff; }
+
+  .filters button {
+    background: #fff !important;
+    border: 1px solid #e9ecef !important;
+    border-radius: 50% !important;
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 !important;
+    color: #868e96 !important;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  }
+  .filters button:hover { background: #f8f9fa !important; color: #495057 !important; transform: rotate(-15deg); }
+
+  .result-count { padding: 24px 40px 8px; font-size: 14px; color: #868e96; font-weight: 500; }
+
+  #galleryArea {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 24px;
+    padding: 16px 40px 60px;
+  }
+
+  @media (max-width: 599px) {
+    #galleryArea {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      padding: 12px 16px 60px;
+    }
+    .goods-card { padding: 12px; border-radius: 14px; }
+    .goods-title { font-size: 14px; margin-bottom: 8px; }
+    .tag { font-size: 11px; padding: 4px 8px; }
+    .result-count { padding: 16px 16px 6px; }
+  }
+
+  .goods-card {
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.03);
+    border-radius: 20px;
+    padding: 20px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    transition: transform 0.25s cubic-bezier(0.075,0.82,0.165,1), box-shadow 0.25s ease;
+  }
+
+  .goods-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+  }
+
+  .goods-img-placeholder {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    background: transparent;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: #adb5bd;
+    margin-bottom: 16px;
+    overflow: hidden;
+  }
+
+  .goods-img-placeholder img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 12px;
+    transition: transform 0.3s ease;
+  }
+
+  .goods-card:hover .goods-img-placeholder img { transform: scale(1.03); }
+
+  .goods-title { font-size: 18px; font-weight: 700; margin-bottom: 12px; color: #212529; letter-spacing: -0.01em; }
+
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { font-size: 12px; padding: 5px 12px; border-radius: 20px; font-weight: 600; letter-spacing: -0.01em; }
+  .tag.clickable { cursor: pointer; transition: transform 0.1s; }
+  .tag.clickable:active { transform: scale(0.95); }
+  .tag.clickable:hover { opacity: 0.85; }
+  .tag.nation  { background: #fff0f6; color: #c2255c; }
+  .tag.culture { background: #e7f5ff; color: #1c7ed6; }
+  .tag.usage   { background: #ebfbee; color: #2b8a3e; }
+
+  .empty-msg, .loading-msg {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #868e96;
+    padding: 80px 0;
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 100;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0;
+  }
+
+  @media (min-width: 600px) {
+    .modal-overlay {
+      align-items: center;
+      padding: 20px;
+    }
+    .modal-box {
+      border-radius: 24px !important;
+      max-height: 90vh !important;
+    }
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal-box {
+    background: #ffffff;
+    border-radius: 24px 24px 0 0;
+    width: 100%;
+    max-width: 600px;
+    max-height: 92vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 -8px 40px rgba(0,0,0,0.15);
+    animation: modalUp 0.35s cubic-bezier(0.175,0.885,0.32,1.1);
+  }
+
+  @keyframes modalUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+
+  @media (min-width: 600px) {
+    .modal-box { animation: modalIn 0.3s cubic-bezier(0.175,0.885,0.32,1.275); }
+    @keyframes modalIn {
+      from { transform: translateY(30px) scale(0.95); opacity: 0; }
+      to   { transform: translateY(0) scale(1); opacity: 1; }
+    }
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    z-index: 10;
+    background: rgba(255,255,255,0.9);
+    border: none;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    font-size: 16px;
+    cursor: pointer;
+    color: #495057;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.2s;
+  }
+
+  .modal-close:hover { background: #fff; transform: scale(1.1); }
+
+  .modal-img-area {
+    width: 100%;
+    background: #f8f9fa;
+    border-radius: 24px 24px 0 0;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0;
+    min-height: 280px;
+  }
+
+  .modal-img-area img {
+    width: 100%;
+    max-height: 45vw;
+    object-fit: contain;
+    display: block;
+  }
+
+  @media (min-width: 600px) {
+    .modal-img-area {
+      padding: 16px;
+      min-height: 320px;
+    }
+    .modal-img-area img {
+      max-height: 400px;
+    }
+  }
+
+  .modal-img-fallback {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: #adb5bd;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 40px;
+  }
+
+  .artifact-badge {
+    background: #f8f9fa;
+    border-bottom: 1px solid #f1f3f5;
+    padding: 12px 24px;
+    font-size: 13px;
+    color: #495057;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .modal-body { padding: 24px 24px 40px; }
+
+  .modal-name { font-size: 22px; font-weight: 800; margin-bottom: 12px; color: #1a1b1e; letter-spacing: -0.02em; }
+  .modal-tags { margin-bottom: 24px; }
+  .divider { border: none; border-top: 1px solid #f1f3f5; margin: 0 0 20px; }
+
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .info-item { background: #f8f9fa; border-radius: 16px; padding: 14px 18px; }
+  .info-item.full { grid-column: 1 / -1; }
+
+  .info-label {
+    font-size: 11px;
+    color: #adb5bd;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  .info-value { font-size: 15px; color: #343a40; font-weight: 600; line-height: 1.6; }
+  .info-value.light { font-weight: 500; font-size: 14px; color: #495057; }
+
+  .price-badge {
+    display: inline-block;
+    background: #212529;
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 15px;
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🏛️ IDY 삼국시대 문화유산 굿즈 온라인 기획전</h1>
+  <p>카드를 클릭하면 상세 정보를 확인할 수 있습니다</p>
+</header>
+
+<div class="filters">
+  <select id="cultureFilter">
+    <option value="all">문화별 전체</option>
+    <option value="불교">불교</option>
+    <option value="도교">도교</option>
+    <option value="유학">유학</option>
+    <option value="고분">고분</option>
+    <option value="교류사">교류사</option>
+    <option value="기타">기타</option>
+  </select>
+  <select id="nationFilter">
+    <option value="all">국가별 전체</option>
+    <option value="고구려">고구려</option>
+    <option value="백제">백제</option>
+    <option value="신라">신라</option>
+    <option value="가야">가야</option>
+    <option value="기타">기타</option>
+  </select>
+  <select id="usageFilter">
+    <option value="all">용도별 전체</option>
+    <option value="문구/사무">문구/사무</option>
+    <option value="패션/생활용품">패션/생활용품</option>
+    <option value="인테리어 소품">인테리어 소품</option>
+    <option value="주방/식기">주방/식기</option>
+    <option value="디지털/모바일">디지털/모바일</option>
+    <option value="취미/완구">취미/완구</option>
+    <option value="도서">도서</option>
+    <option value="공예품">공예품</option>
+    <option value="기타">기타</option>
+  </select>
+  <select id="classFilter">
+    <option value="all">학급별 전체</option>
+    <option value="301">1반</option>
+    <option value="302">2반</option>
+    <option value="303">3반</option>
+    <option value="304">4반</option>
+    <option value="305">5반</option>
+    <option value="306">6반</option>
+  </select>
+  <button onclick="resetFilters()" title="필터 초기화">↺</button>
+</div>
+
+<div class="result-count" id="resultCount"></div>
+<div id="galleryArea"><p class="loading-msg">데이터를 불러오는 중...</p></div>
+
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-img-area" id="mImgArea"></div>
+    <div class="artifact-badge" id="mArtifactBadge"></div>
+    <div class="modal-body">
+      <p class="modal-name" id="mName"></p>
+      <div class="tags modal-tags" id="mTags"></div>
+      <hr class="divider">
+      <div class="info-grid">
+        <div class="info-item">
+          <p class="info-label">제작자</p>
+          <p class="info-value" id="mMaker"></p>
+        </div>
+        <div class="info-item">
+          <p class="info-label">가격</p>
+          <p class="info-value"><span class="price-badge" id="mPrice"></span></p>
+        </div>
+        <div class="info-item full">
+          <p class="info-label">굿즈 판매 대상</p>
+          <p class="info-value" id="mTarget"></p>
+        </div>
+        <div class="info-item full">
+          <p class="info-label">굿즈 설명 및 특징</p>
+          <p class="info-value light" id="mDesc"></p>
+        </div>
+        <div class="info-item full">
+          <p class="info-label">굿즈 제작 제안 이유</p>
+          <p class="info-value light" id="mReason"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const API_URL = "https://script.google.com/macros/s/AKfycbx7CSfknCaG9v6HVRLV8xyUh43vWcpPbyenSnXVnUmUBEWE7bCTHUbyRIEtDNVVWPci/exec";
+
+  let goods = [];
+
+  fetch(API_URL)
+    .then(r => r.json())
+    .then(rows => {
+      goods = rows.map(row => ({
+        name:      row["굿즈 이름"]           || "",
+        culture:   row["활용 유물 문화"]       || "",
+        nation:    row["활용 유물 국가"]       || "",
+        usage:     row["굿즈 용도"]            || "",
+        maker:     (row["학번"] || "") + " " + (row["본인 이름"] || ""),
+        studentId: String(row["학번"] || "").trim().split(".")[0],
+        classCode: String(row["학번"] || "").trim().split(".")[0].slice(0, 3),
+        price:     row["굿즈 가격"]            || "",
+        artifact:  row["활용 유물"]            || "",
+        target:    row["굿즈 판매 대상"]       || "",
+        desc:      row["굿즈 설명 및 특징"]    || "",
+        reason:    row["굿즈 제작 제안 이유"]  || "",
+      }));
+
+      const p = getParams();
+      document.getElementById("cultureFilter").value = p.c;
+      document.getElementById("nationFilter").value  = p.n;
+      document.getElementById("usageFilter").value   = p.u;
+      document.getElementById("classFilter").value   = p.cl;
+
+      filterAndRender();
+    })
+    .catch(() => {
+      document.getElementById("galleryArea").innerHTML =
+        "<p class='empty-msg'>데이터를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.</p>";
+    });
+
+  function getParams() {
+    const p = new URLSearchParams(window.location.search);
+    return {
+      c:  p.get("culture") || "all",
+      n:  p.get("nation")  || "all",
+      u:  p.get("usage")   || "all",
+      cl: p.get("class")   || "all",
+    };
+  }
+
+  function saveParams() {
+    const p = new URLSearchParams();
+    const c  = document.getElementById("cultureFilter").value;
+    const n  = document.getElementById("nationFilter").value;
+    const u  = document.getElementById("usageFilter").value;
+    const cl = document.getElementById("classFilter").value;
+    if (c  !== "all") p.set("culture", c);
+    if (n  !== "all") p.set("nation",  n);
+    if (u  !== "all") p.set("usage",   u);
+    if (cl !== "all") p.set("class",   cl);
+    const newUrl = p.toString()
+      ? `${location.pathname}?${p.toString()}`
+      : location.pathname;
+    history.replaceState(null, "", newUrl);
+  }
+
+  function filterAndRender() {
+    const c  = document.getElementById("cultureFilter").value;
+    const n  = document.getElementById("nationFilter").value;
+    const u  = document.getElementById("usageFilter").value;
+    const cl = document.getElementById("classFilter").value;
+
+    saveParams();
+
+    const filtered = goods.filter(item =>
+      (c  === "all" || item.culture   === c)  &&
+      (n  === "all" || item.nation    === n)  &&
+      (u  === "all" || item.usage     === u)  &&
+      (cl === "all" || item.classCode === cl)
+    );
+
+    document.getElementById("resultCount").textContent = `총 ${filtered.length}개의 굿즈`;
+
+    const area = document.getElementById("galleryArea");
+    area.innerHTML = "";
+
+    if (filtered.length === 0) {
+      area.innerHTML = "<p class='empty-msg'>조건에 맞는 굿즈가 없습니다.</p>";
+      return;
+    }
+
+    filtered.forEach(item => {
+      const idx    = goods.indexOf(item);
+      const imgSrc = `goods/${item.studentId}.jpg`;
+      const card   = document.createElement("div");
+      card.className = "goods-card";
+      card.onclick   = () => openModal(idx);
+      card.innerHTML = `
+        <div class="goods-img-placeholder">
+          <img src="${imgSrc}" alt="${item.name}"
+            onerror="this.parentElement.innerHTML='이미지 준비중'">
+        </div>
+        <h3 class="goods-title">${item.name}</h3>
+        <div class="tags">
+          <span class="tag nation">${item.nation}</span>
+          <span class="tag culture">${item.culture}</span>
+          <span class="tag usage">${item.usage}</span>
+        </div>
+      `;
+      area.appendChild(card);
+    });
+  }
+
+  function openModal(idx) {
+    const d      = goods[idx];
+    const imgSrc = `goods/${d.studentId}.jpg`;
+
+    const imgArea = document.getElementById("mImgArea");
+    imgArea.innerHTML = `<img src="${imgSrc}" alt="${d.artifact}"
+      onerror="this.parentElement.innerHTML='<div class=modal-img-fallback>이미지 준비중</div>'">`;
+
+    document.getElementById("mArtifactBadge").textContent = "📜 " + d.artifact;
+    document.getElementById("mName").textContent    = d.name;
+    document.getElementById("mTags").innerHTML = `
+      <span class="tag nation clickable"  onclick="applyFilterFromModal('nationFilter','${d.nation}')">${d.nation}</span>
+      <span class="tag culture clickable" onclick="applyFilterFromModal('cultureFilter','${d.culture}')">${d.culture}</span>
+      <span class="tag usage clickable"   onclick="applyFilterFromModal('usageFilter','${d.usage}')">${d.usage}</span>`;
+    document.getElementById("mMaker").textContent  = d.maker;
+    document.getElementById("mPrice").textContent  = d.price;
+    document.getElementById("mTarget").textContent = d.target;
+    document.getElementById("mDesc").textContent   = d.desc;
+    document.getElementById("mReason").textContent = d.reason;
+
+    document.getElementById("modalOverlay").classList.add("open");
+    document.querySelector(".modal-box").scrollTop = 0;
+  }
+
+  function resetFilters() {
+    ["cultureFilter","nationFilter","usageFilter","classFilter"]
+      .forEach(id => document.getElementById(id).value = "all");
+    filterAndRender();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function applyFilterFromModal(filterId, value) {
+    closeModal();
+    ["cultureFilter","nationFilter","usageFilter","classFilter"]
+      .forEach(id => document.getElementById(id).value = "all");
+    document.getElementById(filterId).value = value;
+    filterAndRender();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function applyFilter(filterId, value, event) {
+    event.stopPropagation();
+    document.getElementById(filterId).value = value;
+    filterAndRender();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function closeModal() {
+    document.getElementById("modalOverlay").classList.remove("open");
+  }
+
+  function handleOverlayClick(e) {
+    if (e.target === document.getElementById("modalOverlay")) closeModal();
+  }
+
+  ["cultureFilter","nationFilter","usageFilter","classFilter"].forEach(id =>
+    document.getElementById(id).addEventListener("change", filterAndRender)
+  );
+</script>
+</body>
+</html>
