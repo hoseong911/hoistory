@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>신라 포털 - 통일 신라를 검색하세요</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background-color: #f5f6f7; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { width: 1000px; background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05); }
+        
+        /* 공통 스타일 */
+        h1 { text-align: center; color: #03c75a; }
+        .section-title { color: #03c75a; font-weight: 700; font-size: 18px; margin-bottom: 15px; border-bottom: 2px solid #03c75a; padding-bottom: 5px; display: inline-block; }
+        .box { border: 1px solid #e3e5e8; border-radius: 8px; padding: 20px; background-color: #fff; margin-bottom: 20px; }
+        
+        /* 입력 화면 (Input View) */
+        #input-view { display: block; }
+        .search-bar { width: 600px; height: 50px; border: 2px solid #03c75a; border-radius: 25px; margin: 0 auto 30px; display: flex; align-items: center; padding: 0 20px; }
+        .search-bar span { color: #03c75a; font-weight: 900; font-size: 24px; margin-right: 15px; }
+        .search-bar input { border: none; outline: none; width: 100%; font-size: 18px; font-family: 'Pretendard', sans-serif; }
+        
+        .input-row { display: flex; margin-bottom: 10px; align-items: center; }
+        .input-row label { width: 100px; font-weight: 600; }
+        .input-row input { flex: 1; height: 35px; border: 1px solid #dadada; border-radius: 6px; padding: 0 10px; font-family: 'Pretendard', sans-serif; }
+        textarea { width: 100%; height: 80px; border: 1px solid #dadada; border-radius: 6px; padding: 10px; resize: none; font-family: 'Pretendard', sans-serif; box-sizing: border-box; }
+        
+        .submit-btn { display: block; width: 200px; margin: 30px auto 0; padding: 15px; background-color: #03c75a; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .submit-btn:hover { background-color: #02a34a; }
+
+        /* 결과 화면 (Result View) */
+        #result-view { display: none; }
+        .layout { display: flex; gap: 20px; }
+        .left-col { flex: 2; }
+        .right-col { flex: 1; }
+        
+        /* 실시간 검색어 */
+        .trend-list { list-style: none; padding: 0; margin: 0; }
+        .trend-list li { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+        .trend-list .rank { color: #03c75a; font-weight: bold; width: 20px; margin-right: 10px; }
+        .trend-list .word { font-weight: 600; flex: 1; }
+        .trend-list .count { color: #888; font-size: 12px; }
+
+        /* 피드(갤러리) 카드 */
+        .feed-card { border: 1px solid #e0e0e0; border-radius: 10px; padding: 15px; margin-bottom: 15px; background-color: #fafafa; }
+        .feed-card .ad-text { font-size: 16px; font-weight: bold; color: #333; margin-bottom: 10px; }
+        .feed-card .news-item { font-size: 14px; margin-bottom: 4px; color: #555; }
+        .feed-card .news-item span { font-weight: bold; color: #2c3e50; margin-right: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="input-view">
+        <h1>N 통일 신라 포털</h1>
+        
+        <div class="search-bar">
+            <span>N</span>
+            <input type="text" id="keywords" placeholder="실시간 검색어 입력 (쉼표로 구분, 최대 3개. 예: 신문왕, 관료전, 9서당)">
+        </div>
+
+        <div class="box">
+            <div class="section-title">광고 배너 만들기</div>
+            <textarea id="ad-banner" placeholder="통일 신라의 정책을 홍보하거나 어울리는 물건의 광고 문구를 작성해 봅시다."></textarea>
+        </div>
+
+        <div class="box">
+            <div class="section-title">주요 뉴스 헤드라인 작성</div>
+            <div class="input-row"><label>정치</label><input type="text" id="hl-politics" placeholder="헤드라인을 입력하세요"></div>
+            <div class="input-row"><label>중앙제도</label><input type="text" id="hl-central" placeholder="헤드라인을 입력하세요"></div>
+            <div class="input-row"><label>지방행정</label><input type="text" id="hl-local" placeholder="헤드라인을 입력하세요"></div>
+            <div class="input-row"><label>군사</label><input type="text" id="hl-military" placeholder="헤드라인을 입력하세요"></div>
+            <div class="input-row"><label>토지</label><input type="text" id="hl-land" placeholder="헤드라인을 입력하세요"></div>
+        </div>
+
+        <button class="submit-btn" onclick="submitData()">제출 및 결과 보기</button>
+    </div>
+
+    <div id="result-view">
+        <h1>N 통일 신라 포털 - 라이브 갤러리</h1>
+        
+        <div class="layout">
+            <div class="left-col">
+                <div class="section-title">친구들의 뉴스 & 광고</div>
+                <div id="feed-container">
+                    <p>데이터를 불러오는 중입니다...</p>
+                </div>
+            </div>
+
+            <div class="right-col">
+                <div class="box">
+                    <div class="section-title">실시간 검색어</div>
+                    <ul class="trend-list" id="trend-container">
+                        </ul>
+                </div>
+                <button class="submit-btn" style="width:100%; margin-top:20px; background-color:#666;" onclick="location.reload()">새로 작성하기</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+    // 선생님의 파이어베이스 설정값
+    const firebaseConfig = {
+        apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+        authDomain: "ho0911seong-56638.firebaseapp.com",
+        projectId: "ho0911seong-56638",
+        storageBucket: "ho0911seong-56638.firebasestorage.app",
+        messagingSenderId: "994509567071",
+        appId: "1:994509567071:web:778c95931e95e9cbf557ea"
+    };
+
+    // Firebase 초기화
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // 전역 함수로 만들기 위해 window 객체에 할당
+    window.submitData = async function() {
+        const keywordsInput = document.getElementById('keywords').value;
+        const adBanner = document.getElementById('ad-banner').value;
+        const politics = document.getElementById('hl-politics').value;
+        const central = document.getElementById('hl-central').value;
+        const local = document.getElementById('hl-local').value;
+        const military = document.getElementById('hl-military').value;
+        const land = document.getElementById('hl-land').value;
+
+        // 검색어 다듬기 (쉼표 기준 자르고 공백 제거)
+        let keywordsArray = keywordsInput.split(',').map(word => word.trim()).filter(word => word.length > 0);
+        if(keywordsArray.length > 3) keywordsArray = keywordsArray.slice(0, 3); // 최대 3개 제한
+
+        // Firestore에 데이터 저장 ('silla_posts' 컬렉션)
+        try {
+            await addDoc(collection(db, "silla_posts"), {
+                keywords: keywordsArray,
+                adBanner: adBanner,
+                headlines: {
+                    politics: politics, central: central, local: local, military: military, land: land
+                },
+                timestamp: serverTimestamp() // 작성 시간
+            });
+            
+            // 저장 성공 시 화면 전환
+            document.getElementById('input-view').style.display = 'none';
+            document.getElementById('result-view').style.display = 'block';
+            
+            // 실시간 데이터 불러오기 시작
+            startRealtimeListener();
+
+        } catch (e) {
+            console.error("Error adding document: ", e);
+            alert("저장에 실패했습니다. 관리자에게 문의하세요.");
+        }
+    };
+
+    // 실시간 데이터 감시 함수
+    function startRealtimeListener() {
+        const q = query(collection(db, "silla_posts"), orderBy("timestamp", "desc"));
+        
+        onSnapshot(q, (querySnapshot) => {
+            const feedContainer = document.getElementById('feed-container');
+            const trendContainer = document.getElementById('trend-container');
+            
+            feedContainer.innerHTML = ''; // 초기화
+            let keywordCounts = {}; // 단어 빈도수 저장 객체
+
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                
+                // 1. 피드 카드 생성
+                // 배너나 헤드라인 중 하나라도 입력된 것이 있다면 표시
+                if(data.adBanner || data.headlines.politics) {
+                    const card = document.createElement('div');
+                    card.className = 'feed-card';
+                    card.innerHTML = `
+                        ${data.adBanner ? `<div class="ad-text">[광고] ${data.adBanner}</div>` : ''}
+                        ${data.headlines.politics ? `<div class="news-item"><span>[정치]</span> ${data.headlines.politics}</div>` : ''}
+                        ${data.headlines.central ? `<div class="news-item"><span>[중앙제도]</span> ${data.headlines.central}</div>` : ''}
+                        ${data.headlines.local ? `<div class="news-item"><span>[지방행정]</span> ${data.headlines.local}</div>` : ''}
+                        ${data.headlines.military ? `<div class="news-item"><span>[군사]</span> ${data.headlines.military}</div>` : ''}
+                        ${data.headlines.land ? `<div class="news-item"><span>[토지]</span> ${data.headlines.land}</div>` : ''}
+                    `;
+                    feedContainer.appendChild(card);
+                }
+
+                // 2. 검색어 빈도수 집계
+                if(data.keywords && data.keywords.length > 0) {
+                    data.keywords.forEach(word => {
+                        keywordCounts[word] = (keywordCounts[word] || 0) + 1;
+                    });
+                }
+            });
+
+            if(feedContainer.innerHTML === '') {
+                feedContainer.innerHTML = '<p>아직 등록된 뉴스가 없습니다.</p>';
+            }
+
+            // 3. 실시간 검색어 정렬 및 화면 표시
+            // 객체를 배열로 변환 후 횟수(count) 기준으로 내림차순 정렬
+            const sortedKeywords = Object.keys(keywordCounts).map(word => {
+                return { word: word, count: keywordCounts[word] };
+            }).sort((a, b) => b.count - a.count);
+
+            trendContainer.innerHTML = '';
+            // 상위 8개만 표시
+            sortedKeywords.slice(0, 8).forEach((item, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <span class="rank">${index + 1}</span>
+                    <span class="word">${item.word}</span>
+                    <span class="count">${item.count}회</span>
+                `;
+                trendContainer.appendChild(li);
+            });
+        });
+    }
+</script>
+
+</body>
+</html>
