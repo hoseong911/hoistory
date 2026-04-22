@@ -1,0 +1,2474 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+    <title>나 역사 속에 떨어졌는데 집에 갈 수 있겠지?</title>
+    <style>
+
+/* ════════════════════════════════════════════
+   통합 CSS 시스템 — 한국사 방탈출 퀴즈
+   ════════════════════════════════════════════ */
+
+/* ── UNIVERSAL ── */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+input, textarea, select { touch-action: auto; user-select: text; -webkit-user-select: text; }
+html { font-size: 14px; }
+
+/* ── GLOBAL FONT & BODY ── */
+body {
+    margin: 0; padding: 0;
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 14px; line-height: 1.85;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; overflow-x: hidden; transition: background 0.5s ease;
+}
+button { font-family: 'Pretendard', sans-serif; }
+
+/* ── TOAST (오답 알림) ── */
+#toast-wrong {
+    position: fixed; top: 28px; left: 50%; transform: translateX(-50%) translateY(-80px);
+    background: #c0392b; color: #fff;
+    padding: 13px 24px; border-radius: 30px;
+    font-size: 14px; font-weight: bold; text-align: center;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.45);
+    z-index: 99999; pointer-events: none;
+    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s ease;
+    opacity: 0; white-space: pre-line; word-break: keep-all; max-width: 88vw;
+}
+
+/* ── FADE OVERLAY ── */
+#fade-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #000; opacity: 0; pointer-events: none; z-index: 9998;
+    transition: opacity 0.35s ease;
+}
+#fade-overlay.fading { opacity: 1; pointer-events: all; }
+
+/* ── BACKGROUND THEMES ── */
+body.bg-prologue  { background-color: #050505; color: #ffffff; }
+body.bg-stage1 {
+    background-color: #f3e5ab; color: #3e2723;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cpath d='M10 20a10 10 0 0 1 10-10h2a10 10 0 0 1 10 10v2a10 10 0 0 1-10 10h-2a10 10 0 0 1-10-10v-2zM50 30a10 10 0 0 1 10-10h2a10 10 0 0 1 10 10v2a10 10 0 0 1-10 10h-2a10 10 0 0 1-10-10v-2zM80 70a10 10 0 0 1 10-10h2a10 10 0 0 1 10 10v2a10 10 0 0 1-10 10h-2a10 10 0 0 1-10-10v-2zM20 80a10 10 0 0 1 10-10h2a10 10 0 0 1 10 10v2a10 10 0 0 1-10 10h-2a10 10 0 0 1-10-10v-2z' fill='%23a57134' fill-opacity='0.15'/%3E%3C/svg%3E");
+}
+body.bg-stage2  { background: linear-gradient(135deg, #134e5e 0%, #71b280 100%); color: #ffffff; }
+body.bg-stage3  { background: linear-gradient(135deg, #2d1a0e 0%, #4a2f1a 40%, #1e3a1e 100%); color: #ffffff; }
+body.bg-stage4  { background: radial-gradient(circle at top, #2b1055 0%, #0b0726 80%, #000 100%); color: #fff; }
+body.bg-stage5  { background: linear-gradient(135deg, #2b1313 0%, #1a1a1a 100%); color: #fff; }
+body.bg-stage6  { background: linear-gradient(135deg, #1a2a22 0%, #2c3e2d 50%, #4a4023 100%); color: #fff; }
+body.bg-stage7  { background: linear-gradient(180deg, #3498db 0%, #ecf0f1 100%); color: #333; }
+body.bg-stage8  { background: #1a1a2e; color: #ecf0f1; }
+body.bg-stage9  { background: #000; color: #fff; }
+body.bg-stage10 { background: #0d0d0d; color: #fff; }
+
+/* stage5 배경 텍스처 */
+body.bg-stage5::after {
+    content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background-image: url('https://www.transparenttextures.com/patterns/concrete-wall.png');
+    opacity: 0.3; pointer-events: none; z-index: 0;
+}
+/* stage6 배경 광원 */
+body.bg-stage6::after {
+    content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background-image: radial-gradient(circle at 50% 50%, rgba(241,196,15,0.05) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+}
+
+/* ── ANIMATIONS ── */
+@keyframes fadeIn   { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes twinkle  { 0% { opacity: 0.2; } 100% { opacity: 0.6; } }
+@keyframes burn     { 0% { transform: scale(0.95); opacity: 0.8; } 100% { transform: scale(1.05); opacity: 1; } }
+@keyframes shake    { 0%,100% { transform: translateX(0); } 20%,60% { transform: translateX(-5px); } 40%,80% { transform: translateX(5px); } }
+
+/* ── STAGE WRAPPER ── */
+.stage-wrapper {
+    width: 100%; min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    position: relative; z-index: 2;
+}
+
+/* ── STAGE CONTAINER (prologue / s1~s3) ── */
+.stage-container {
+    width: 100%; max-width: 480px; padding: 20px;
+    display: none; flex-direction: column; text-align: center;
+    animation: fadeIn 0.8s;
+    font-size: 14px;
+}
+.stage-container.active { display: flex; }
+
+/* ── 공통 구획 클래스 ── */
+.sec-story,
+.sec-title,
+.sec-mission,
+.sec-action {
+    width: 100%; box-sizing: border-box;
+    border-radius: 12px; padding: 12px 15px;
+    margin-bottom: 10px; word-break: keep-all;
+}
+
+/* 스토리 멘트 */
+.sec-story {
+    font-family: 'Noto Serif KR', 'Georgia', serif;
+    font-size: 14px; line-height: 2.0; text-align: justify;
+    letter-spacing: 0.01em;
+    border: 1.5px solid rgba(255,255,255,0.2);
+    background: rgba(0,0,0,0.18);
+}
+
+/* 제목(시스템 알림) */
+.sec-title {
+    display: block; text-align: center;
+    font-family: 'Pretendard', sans-serif;
+    font-size: 14px; font-weight: bold; line-height: 1.6;
+    letter-spacing: 0.02em;
+}
+
+/* 미션 내용 */
+.sec-mission {
+    font-family: 'Pretendard', sans-serif;
+    font-size: 14px; line-height: 1.85; text-align: center;
+    border: 1.5px solid rgba(255,255,255,0.15);
+    background: rgba(0,0,0,0.15);
+}
+
+/* 미션 수행 영역 */
+.sec-action {
+    font-family: 'Pretendard', sans-serif;
+    font-size: 14px; line-height: 1.85;
+    border: 1.5px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.1);
+}
+
+/* ── 공통 팝업 ── */
+#custom-popup {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center;
+}
+.popup-box {
+    background: #fff; color: #222; padding: 25px; border-radius: 15px;
+    width: 85%; max-width: 350px; text-align: center; font-size: 14px; line-height: 1.6;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5); word-break: keep-all;
+}
+.popup-btn {
+    margin-top: 20px; padding: 12px 0; background: #134e5e; color: #fff;
+    border: none; border-radius: 8px; font-weight: bold; font-size: 14px; width: 100%; cursor: pointer;
+}
+
+/* blackout */
+#blackout {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #000; color: #fff; display: none;
+    flex-direction: column; justify-content: center; align-items: center; z-index: 9999; text-align: center;
+}
+
+/* ── PROLOGUE / LOGIN ── */
+.classroom-img-wrap { width: 100%; border-radius: 15px; overflow: hidden; box-shadow: 0 0 25px rgba(255,255,255,0.15); margin-bottom: 25px; border: 1px solid #333; }
+.classroom-img-wrap img { width: 100%; display: block; filter: brightness(0.8); }
+.monitor-screen { background: #ffffff; color: #111; padding: 35px 20px; border-radius: 20px; box-shadow: 0 0 40px rgba(255,255,255,0.7); position: relative; }
+.monitor-screen::before { content: ""; position: absolute; top: -10px; left: -10px; right: -10px; bottom: -10px; border: 10px solid #222; border-radius: 25px; z-index: -1; }
+.login-input { width: 100%; height: 55px; padding: 0 15px; margin-bottom: 12px; border: 2px solid #eee; border-radius: 12px; font-size: 14px; background-color: #f9f9f9; outline: none; }
+.login-btn { width: 100%; height: 60px; background-color: #111; color: #fff; border: none; border-radius: 12px; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+
+/* ── STAGE 1: 매머드 ── */
+.mammoth-name { display: block; background: #5d4037; color: #fff; padding: 2px 10px; border-radius: 5px; font-size: 14px; margin-bottom: 14px; }
+#artifact-zone {
+    display: flex; flex-wrap: nowrap; gap: 12px; padding: 15px 10px;
+    overflow-x: auto; min-height: 115px; background: rgba(255,255,255,0.4);
+    border-radius: 12px; -ms-overflow-style: none; scrollbar-width: none;
+    margin-bottom: 15px; border: 2px dashed #a1887f;
+}
+#artifact-zone::-webkit-scrollbar { display: none; }
+.artifact {
+    flex: 0 0 auto; width: 90px; height: 90px; background: #fff;
+    border: 2px solid #a1887f; border-radius: 12px;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    font-size: 14px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1); cursor: pointer;
+}
+#drop-zone-s1 { display: flex; justify-content: space-between; gap: 10px; width: 100%; }
+.bucket {
+    flex: 1; min-height: 280px; background: rgba(255,255,255,0.7);
+    border: 3px solid #5d4037; border-radius: 15px; padding: 10px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.bucket.drag-over { background-color: #efebe9; border-style: dashed; }
+.bucket .artifact { width: 100%; height: 45px; font-size: 13px; flex: 0 0 auto; }
+.btn-s1 { width: 100%; height: 60px; margin-top: 20px; background: #5d4037; color: #fff; border: none; border-radius: 12px; font-size: 14px; font-weight: bold; box-shadow: 0 4px 0 #3e2723; cursor: pointer; }
+
+/* ── STAGE 2: 고인돌 ── */
+#assembly-zone {
+    width: 100%; height: 310px;
+    background: rgba(0,0,0,0.15); border-radius: 15px;
+    position: relative; margin-bottom: 12px;
+    border: 2px dashed rgba(255,255,255,0.3);
+    overflow: hidden;
+}
+.target { position: absolute; pointer-events: none; border-radius: 4px; }
+#target3 { width: 82%; height: 58px; top: 36px; left: 50%; transform: translateX(-50%); }
+#target1 { width: 70px; height: 130px; top: 94px; left: calc(18%); }
+#target2 { width: 70px; height: 130px; top: 94px; right: calc(18%); }
+
+.stone { position: absolute; cursor: grab; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)); touch-action: none; z-index: 10; user-select: none; -webkit-user-select: none; }
+#stone3 { width: 82%; height: 58px;  bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 5; }
+#stone1 { width: 70px; height: 130px; bottom: 16px; left: calc(18%); }
+#stone2 { width: 70px; height: 130px; bottom: 16px; right: calc(18%); }
+.stone.snapped { cursor: default; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
+
+/* S2 퀴즈 섹션 */
+#quiz-section {
+    display: none; width: 100%; background: rgba(255,255,255,0.95);
+    padding: 25px 20px; border-radius: 15px; text-align: left;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2); animation: fadeIn 0.8s;
+    color: #222; margin-top: 10px; font-size: 14px; line-height: 1.85;
+}
+.blank-box {
+    border: 2px solid #71b280; border-radius: 6px; height: 34px;
+    text-align: center; font-size: 14px; font-weight: bold; color: #134e5e;
+    background: #fff; display: inline-block; vertical-align: middle;
+    margin: 0 3px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); outline: none;
+}
+.w2 { width: 45px; } .w4 { width: 75px; }
+.btn-s2 { width: 100%; height: 55px; margin-top: 25px; background: #134e5e; color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: bold; box-shadow: 0 4px 0 #0c313b; cursor: pointer; }
+
+/* ── STAGE 3: 고조선 ── */
+#sequence-puzzle {
+    display: flex; flex-direction: column; gap: 15px;
+    width: 100%; z-index: 10; position: relative; margin-top: 0;
+}
+.sequence-item {
+    background: rgba(255,255,255,0.95); border: 2px solid #bdc3c7; border-radius: 10px;
+    padding: 15px; line-height: 1.85; text-align: justify; word-break: keep-all;
+    font-size: 14px; color: #333; cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.sequence-item.selected {
+    border-color: #e74c3c; box-shadow: 0 0 15px rgba(231,76,60,0.6);
+    transform: scale(1.02); background: #fff;
+}
+.w-ans-lg { width: 90px; } .w-ans-sm { width: 60px; }
+
+/* ── STAGE 4: 제천행사 ── */
+/* 별 배경 */
+body.bg-stage4::before {
+    content: ""; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background-image:
+        radial-gradient(2px 2px at 20px 30px, #eee, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 50px 160px, #ddd, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 130px 80px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 160px 120px, #ddd, rgba(0,0,0,0));
+    background-repeat: repeat; background-size: 200px 200px; opacity: 0.3;
+    pointer-events: none; animation: twinkle 4s infinite alternate;
+}
+#s4-stars {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background-image:
+        radial-gradient(2px 2px at 20px 30px, #eee, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0)),
+        radial-gradient(2px 2px at 160px 120px, #ddd, rgba(0,0,0,0));
+    background-repeat: repeat; background-size: 200px 200px; opacity: 0.3;
+    pointer-events: none; z-index: 0; animation: twinkle 4s infinite alternate; display: none;
+}
+#s4-altar-zone {
+    background: rgba(0,0,0,0.5); border: 3px solid #f39c12; border-radius: 20px;
+    padding: 25px 15px; margin-bottom: 25px; box-shadow: 0 0 20px rgba(243,156,18,0.3);
+    transition: all 0.5s ease; position: relative;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+}
+#s4-altar-zone.flare {
+    box-shadow: 0 0 60px #f1c40f, inset 0 0 30px #f1c40f; border-color: #f1c40f; transform: scale(1.02);
+}
+.fire-icon { font-size: 40px; margin-bottom: 10px; text-shadow: 0 0 20px #e67e22; animation: burn 1s infinite alternate; }
+.festival-name { font-size: 20px; font-weight: bold; color: #f1c40f; margin-bottom: 15px; }
+.country-name {
+    font-size: 14px; color: #bdc3c7; background: rgba(255,255,255,0.1);
+    padding: 5px 15px; border-radius: 20px; display: inline-block;
+}
+.country-name.solved { color: #2ecc71; font-weight: bold; border: 1px solid #2ecc71; background: rgba(46,204,113,0.1); }
+.interaction-title { font-size: 14px; font-weight: bold; margin-bottom: 15px; color: #3498db; word-break: keep-all; line-height: 1.85; }
+.progress-dots { display: flex; justify-content: center; gap: 8px; margin-bottom: 15px; }
+.dot { width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: 0.3s; }
+.dot.active { background: #f1c40f; box-shadow: 0 0 10px #f1c40f; }
+#country-buttons { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.country-btn {
+    background: rgba(255,255,255,0.9); color: #2c3e50; border: none; padding: 12px 20px;
+    border-radius: 10px; font-size: 14px; font-weight: bold; cursor: pointer;
+    box-shadow: 0 4px 0 #95a5a6; transition: 0.2s; flex: 1 1 calc(33% - 10px);
+}
+.country-btn:active { transform: translateY(4px); box-shadow: none; }
+.country-btn.wrong { animation: shake 0.4s; background: #e74c3c !important; color: #fff !important; box-shadow: 0 4px 0 #c0392b !important; }
+.country-btn.correct { background: #2ecc71 !important; color: #fff !important; box-shadow: 0 4px 0 #27ae60 !important; transform: scale(1.05); }
+#lifestyle-cards { display: none; flex-wrap: wrap; gap: 12px; justify-content: center; position: relative; }
+.lifestyle-card {
+    background: #ecf0f1; color: #2c3e50; border: 2px solid #bdc3c7; border-radius: 12px;
+    padding: 18px 10px; font-size: 14px; font-weight: bold; cursor: pointer;
+    box-shadow: 0 5px 10px rgba(0,0,0,0.3); touch-action: none; position: relative; z-index: 20;
+    width: calc(50% - 6px); display: flex; flex-direction: column; align-items: center; justify-content: center;
+    transition: opacity 0.3s; text-align: center;
+}
+.lifestyle-card.dragging { z-index: 100; box-shadow: 0 15px 25px rgba(0,0,0,0.5); opacity: 0.95; border-color: #f39c12; }
+#desc-buttons { display: flex; flex-direction: column; gap: 10px; }
+.desc-btn {
+    background: rgba(255,255,255,0.95); color: #2c3e50; border: 2px solid #bdc3c7; padding: 15px;
+    border-radius: 10px; font-size: 14px; font-weight: bold; cursor: pointer; text-align: left;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.2); transition: 0.2s; word-break: keep-all; line-height: 1.85;
+}
+.desc-btn:active { transform: scale(0.98); }
+.desc-btn.wrong { animation: shake 0.4s; background: #e74c3c; color: #fff; border-color: #c0392b; }
+.desc-btn.correct { background: #2ecc71; color: #fff; border-color: #27ae60; }
+
+/* ── STAGE 5: 고구려 비석 ── */
+.s5-container { width: 100%; max-width: 480px; padding: 20px; display: flex; flex-direction: column; position: relative; z-index: 10; }
+.s5-slot {
+    flex: 1; max-width: 30%; height: 45px; border: none; border-radius: 6px;
+    display: flex; justify-content: center; align-items: center;
+    background: transparent; transition: 0.3s;
+}
+.s5-slot.s5-drag-over { border-color: #f1c40f; background: rgba(241,196,15,0.2); }
+.stone-piece {
+    background: #34495e; color: #ecf0f1; border: 2px solid #2c3e50;
+    padding: 10px 5px; border-radius: 6px; font-size: 13px; font-weight: bold;
+    box-shadow: 2px 4px 8px rgba(0,0,0,0.6); cursor: pointer; text-align: center;
+    touch-action: none; position: absolute; z-index: 20;
+    display: flex; justify-content: center; align-items: center;
+}
+.stone-piece.s5-embedded {
+    position: relative !important; width: 100% !important; height: 100% !important;
+    left: 0 !important; top: 0 !important; box-shadow: none; border: none; padding: 0;
+    background: transparent; color: #f1c40f; font-size: 14px;
+    text-shadow: 0 0 10px rgba(241,196,15,0.5); z-index: 1;
+}
+.stone-piece.s5-dragging {
+    z-index: 100; opacity: 0.9; transform: scale(1.05);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.8); border-color: #e74c3c; transition: none;
+}
+
+/* ── STAGE 6: 백제 연설 ── */
+.s6-container { width: 100%; max-width: 480px; padding: 20px; display: flex; flex-direction: column; position: relative; z-index: 10; }
+#text-puzzle-area {
+    background: rgba(255,255,255,0.95); border: 2px solid #d4af37;
+    border-radius: 12px; padding: 20px 15px; margin-bottom: 20px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    font-size: 14px; line-height: 2.8; color: #2c3e50; text-align: justify; word-break: keep-all;
+}
+.inline-slot {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 80px; height: 28px; vertical-align: middle;
+    border: 2px dashed #95a5a6; border-radius: 6px; background: #ecf0f1;
+    margin: 0 3px; position: relative; transition: 0.3s; overflow: hidden;
+}
+.inline-slot.drag-over { border-color: #d4af37; background: rgba(212,175,55,0.2); }
+#word-bank {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-content: flex-start;
+    background: rgba(0,0,0,0.4); padding: 15px; border-radius: 12px; border: 1px solid #d4af37;
+    min-height: 120px;
+}
+.word-card {
+    background: #2c3e50; color: #f1c40f; border: 2px solid #34495e;
+    padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: bold;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.4); cursor: grab; text-align: center;
+    touch-action: none; display: inline-flex; justify-content: center; align-items: center;
+    user-select: none;
+}
+.word-card.s6-used { opacity: 0.25; pointer-events: none; }
+.word-card.s6-embedded {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    padding: 0; box-shadow: none; border: none;
+    background: #d4af37; color: #fff; font-size: 13px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    border-radius: 4px; pointer-events: none;
+}
+.s6-ghost {
+    position: fixed; pointer-events: none; z-index: 9000;
+    background: #2c3e50; color: #f1c40f; border: 2px solid #f1c40f;
+    padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: bold;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.8); opacity: 0.95; transform: scale(1.08);
+}
+
+/* ── STAGE 7: 신라 탑 쌓기 ── */
+.s7-container { width: 100%; max-width: 480px; padding: 20px; display: flex; flex-direction: column; z-index: 10; }
+#tower-area { display: flex; flex-direction: column-reverse; gap: 8px; margin-bottom: 20px; align-items: center; }
+.floor {
+    background: rgba(149,165,166,0.3); border: 2px dashed #7f8c8d; border-radius: 8px;
+    min-height: 60px; display: flex; flex-wrap: wrap; justify-content: center; align-items: center;
+    gap: 6px; padding: 8px; transition: 0.3s; position: relative; width: 100%;
+}
+.floor::before {
+    content: attr(data-title); position: absolute; left: 8px; top: -11px;
+    font-size: 12px; font-weight: bold; color: #2c3e50;
+    background: #fff; padding: 1px 6px; border-radius: 4px; border: 1px solid #bdc3c7;
+}
+.floor.active-floor { border: 2px solid #27ae60; background: rgba(46,204,113,0.15); }
+#bricks-area {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    background: rgba(0,0,0,0.1); padding: 15px; border-radius: 12px; min-height: 120px;
+}
+.brick {
+    background: #7f8c8d; color: #fff; border: 2px solid #34495e;
+    padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: bold;
+    text-align: center; cursor: grab; box-shadow: 0 4px 0 #2c3e50;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+.brick.s7-used { opacity: 0.25; pointer-events: none; }
+.brick.s7-embedded {
+    background: #95a5a6; border-color: #ecf0f1; box-shadow: none;
+    padding: 6px 10px; pointer-events: none; cursor: default;
+}
+.s7-ghost {
+    position: fixed; left: 0; top: 0; pointer-events: none; z-index: 9000;
+    background: #7f8c8d; color: #fff; border: 2px solid #f1c40f;
+    padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: bold;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5); opacity: 0.95; transform: scale(1.08);
+    user-select: none; touch-action: none;
+}
+
+/* ── STAGE 8: 외교 체스판 ── */
+.s8-container { width: 100%; max-width: 450px; display: flex; flex-direction: column; padding: 15px; position: relative; z-index: 10; }
+#diplomacy-map {
+    position: relative; width: 100%; aspect-ratio: 1 / 1.1;
+    background: rgba(255,255,255,0.03); border-radius: 15px;
+    border: 1px solid rgba(255,255,255,0.1); margin-bottom: 15px; overflow: hidden;
+}
+.axis-v {
+    position: absolute; width: 3px; height: 80%; background: #e74c3c;
+    left: 50%; top: 10%; transform: translateX(-50%);
+    box-shadow: 0 0 8px #e74c3c; opacity: 0.7;
+}
+.axis-h {
+    position: absolute; width: 80%; height: 3px; background: #3498db;
+    top: 50%; left: 10%; transform: translateY(-50%);
+    box-shadow: 0 0 8px #3498db; opacity: 0.7;
+}
+.axis-label {
+    position: absolute; font-size: 12px; color: rgba(255,255,255,0.75);
+    font-weight: bold; pointer-events: none; z-index: 20;
+    background: rgba(0,0,0,0.5); padding: 2px 5px; border-radius: 4px;
+}
+.s8-slot {
+    position: absolute; width: 68px; height: 38px;
+    border: 2px dashed #95a5a6; border-radius: 8px;
+    background: rgba(0,0,0,0.6);
+    display: flex; justify-content: center; align-items: center;
+    transform: translate(-50%, -50%); z-index: 5;
+    transition: border-color 0.2s, background 0.2s; overflow: hidden;
+}
+.s8-slot::after { content: '?'; color: #666; font-size: 14px; font-weight: bold; }
+.s8-slot.s8-filled::after { content: ''; }
+.s8-slot[data-ans="돌궐"]  { top: 14%; left: 50%; }
+.s8-slot[data-ans="고구려"] { top: 33%; left: 50%; }
+.s8-slot[data-ans="수·당"] { top: 50%; left: 16%; }
+.s8-slot[data-ans="신라"]  { top: 50%; left: 84%; }
+.s8-slot[data-ans="백제"]  { top: 67%; left: 50%; }
+.s8-slot[data-ans="왜"]    { top: 86%; left: 50%; }
+#cards-area {
+    background: rgba(0,0,0,0.4); padding: 12px; border-radius: 12px;
+    min-height: 100px; display: flex; flex-wrap: wrap; gap: 8px;
+    justify-content: center; border: 1px solid #555;
+}
+.nation-card {
+    padding: 8px 12px; background: #2c3e50; color: #fff;
+    border: 2px solid #7f8c8d; border-radius: 6px; font-size: 13px; font-weight: bold;
+    display: inline-flex; justify-content: center; align-items: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.nation-card.s8-used { opacity: 0.25; pointer-events: none; }
+.nation-card.s8-embedded {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    padding: 0; border: none; box-shadow: none; border-radius: 6px;
+    background: #1a252f; color: #f1c40f; pointer-events: none;
+}
+.s8-ghost {
+    position: fixed; left: 0; top: 0; pointer-events: none; z-index: 9000;
+    padding: 8px 12px; background: #2c3e50; color: #f1c40f;
+    border: 2px solid #f1c40f; border-radius: 6px; font-size: 13px; font-weight: bold;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.6); opacity: 0.95;
+    user-select: none; touch-action: none; will-change: transform;
+}
+
+/* ── STAGE 9: 역사 분기점 ── */
+.s9-container {
+    width: 100%; max-width: 450px;
+    display: flex; flex-direction: column;
+    padding: 16px; gap: 14px; position: relative; z-index: 10;
+}
+.s9-progress-wrap { width: 100%; height: 6px; background: #222; border-radius: 3px; overflow: hidden; }
+.s9-progress-fill {
+    height: 100%; background: linear-gradient(90deg, #e74c3c, #f39c12);
+    width: 0%; transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.s9-bridge {
+    background: rgba(44,62,80,0.85); border-left: 4px solid #e74c3c;
+    padding: 12px 14px; border-radius: 6px;
+    font-size: 14px; line-height: 1.85; color: #ccc;
+    word-break: keep-all; animation: s9fadeIn 0.6s ease; text-align: center;
+}
+.s9-dialogue {
+    background: rgba(15,15,15,0.97); border: 1px solid #444;
+    border-radius: 14px; padding: 22px 18px 18px;
+    position: relative; animation: s9fadeIn 0.5s ease;
+}
+.s9-speaker {
+    position: absolute; top: -14px; left: 16px;
+    background: #c0392b; color: #fff;
+    padding: 3px 16px; border-radius: 20px;
+    font-weight: bold; font-size: 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+.s9-text { font-size: 14px; line-height: 1.85; word-break: keep-all; color: #eee; margin-top: 4px; }
+.s9-choices { display: flex; flex-direction: column; gap: 10px; }
+.choice-btn {
+    background: rgba(255,255,255,0.05); border: 1px solid #555;
+    color: #ddd; padding: 15px 16px; border-radius: 12px;
+    text-align: left; font-size: 14px; cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+    line-height: 1.85; word-break: keep-all; user-select: none;
+}
+.choice-btn:active { transform: scale(0.98); }
+@keyframes s9correct {
+    0%   { background: rgba(241,196,15,0.1); border-color: #f1c40f; box-shadow: 0 0 0 rgba(241,196,15,0); }
+    40%  { background: rgba(241,196,15,0.4); border-color: #f1c40f; box-shadow: 0 0 30px rgba(241,196,15,0.8); }
+    100% { background: rgba(241,196,15,0.15); border-color: #f1c40f; box-shadow: 0 0 10px rgba(241,196,15,0.3); }
+}
+.choice-btn.s9-correct { animation: s9correct 0.7s ease forwards; color: #f1c40f; pointer-events: none; }
+@keyframes s9wrong {
+    0%   { background: rgba(231,76,60,0.1); border-color: #e74c3c; box-shadow: 0 0 0 rgba(231,76,60,0); }
+    20%  { background: rgba(231,76,60,0.5); border-color: #e74c3c; box-shadow: 0 0 30px rgba(231,76,60,0.9); transform: translateX(-4px); }
+    40%  { transform: translateX(4px); box-shadow: 0 0 40px rgba(241,100,20,0.9); }
+    60%  { transform: translateX(-3px); }
+    80%  { transform: translateX(2px); }
+    100% { background: rgba(231,76,60,0.15); border-color: #e74c3c; box-shadow: 0 0 8px rgba(231,76,60,0.4); transform: translateX(0); }
+}
+.choice-btn.s9-wrong { animation: s9wrong 0.7s ease forwards; color: #e74c3c; pointer-events: none; }
+@keyframes s9fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+/* S9 팝업 */
+#custom-popup-s9 { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9999; justify-content: center; align-items: center; }
+
+/* ── STAGE 10: 통일 타임라인 ── */
+.s10-container {
+    width: 100%; max-width: 480px;
+    display: flex; flex-direction: column; padding: 14px; gap: 12px; z-index: 10;
+}
+.highlight { color: #f1c40f; font-weight: bold; }
+.game-area { display: flex; gap: 12px; align-items: flex-start; }
+.timeline-wrap { flex: 1.1; display: flex; flex-direction: column; position: relative; padding-left: 20px; }
+.timeline-line {
+    position: absolute; left: 4px; top: 0; bottom: 0;
+    width: 3px; background: linear-gradient(to bottom, #d4af37, #f1c40f, #d4af37);
+    border-radius: 2px; z-index: 0; box-shadow: 0 0 6px rgba(212,175,55,0.5);
+}
+.timeline-year {
+    align-self: flex-start; position: relative; z-index: 2;
+    font-size: 12px; font-weight: bold; color: #f1c40f;
+    background: #1a1200; border: 1px solid #d4af37;
+    padding: 2px 7px; border-radius: 10px; margin: 2px 0;
+    transform: translateX(calc(-20px + 5.5px - 50%));
+    height: 22px; display: flex; align-items: center;
+}
+.time-slot {
+    width: 100%; height: 68px;
+    border: 2px dashed #444; border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+    display: flex; align-items: center; justify-content: center;
+    transition: 0.3s; position: relative; z-index: 2;
+    margin: 4px 0; padding: 6px;
+    font-size: 14px; color: #666; text-align: center; box-sizing: border-box;
+}
+.time-slot.filled { border: 2px solid #2ecc71; background: rgba(46,204,113,0.15); }
+.pieces-column {
+    flex: 1; display: flex; flex-direction: column;
+    background: rgba(0,0,0,0.3); border-radius: 10px;
+    padding: 26px 8px 0; border: 1px solid #333;
+}
+.event-piece {
+    width: 100%; height: 68px; background: #2c3e50; color: #ecf0f1;
+    border: 1px solid #555; border-radius: 7px;
+    font-size: 13px; font-weight: bold;
+    display: flex; justify-content: center; align-items: center;
+    text-align: center; word-break: keep-all; padding: 6px 8px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+    cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+    line-height: 1.4; box-sizing: border-box; flex-shrink: 0; margin: 4px 0;
+}
+.event-piece.s10-used { opacity: 0.25; pointer-events: none; }
+.event-piece.s10-embedded {
+    background: transparent; color: #2ecc71;
+    font-size: 12px; border: none; box-shadow: none;
+    padding: 4px; pointer-events: none; cursor: default;
+}
+
+/* S10 팝업 */
+#custom-popup-s10 { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9999; justify-content: center; align-items: center; padding: 20px; }
+.popup-msg { font-size: 14px; line-height: 1.7; word-break: keep-all; margin-bottom: 20px; }
+.form-link-btn { background: #673ab7 !important; display: none; }
+
+/* ── 각 스테이지별 팝업 오버라이드 ── */
+#custom-popup-s5 .popup-inner { background: #2a1200; color: #f5c97a; border: 2px solid #c8821a; }
+#stage9-wrapper .popup-box { background: #1a1a1a; color: #eee; border: 1px solid #e74c3c; }
+#stage9-wrapper .popup-btn { background: #e74c3c; }
+#stage8-wrapper .popup-box { background: #1a252f; color: #ecf0f1; border: 3px solid #e74c3c; }
+#stage8-wrapper .popup-btn { background: #e74c3c; }
+</style>
+</head>
+<body class="bg-prologue">
+
+<div id="toast-wrong"></div>
+<div id="fade-overlay"></div>
+
+<div id="s4-stars" style="position:fixed;top:0;left:0;width:100%;height:100%;
+background-image:radial-gradient(2px 2px at 20px 30px,#eee,rgba(0,0,0,0)),
+radial-gradient(2px 2px at 40px 70px,#fff,rgba(0,0,0,0)),
+radial-gradient(2px 2px at 90px 40px,#fff,rgba(0,0,0,0)),
+radial-gradient(2px 2px at 160px 120px,#ddd,rgba(0,0,0,0));
+background-repeat:repeat;background-size:200px 200px;opacity:0.3;pointer-events:none;z-index:0;
+animation:twinkle 4s infinite alternate;display:none;"></div>
+
+<!-- ══ STAGES 3 (includes prologue, stage1, stage2, stage3) ══ -->
+
+    <div id="blackout">
+        <h2 style="font-size:1.8rem; margin-bottom: 10px;">🌑 깜깜한 동굴에 갇히고 말았습니다.</h2>
+        <p style="color: #ccc; line-height:1.85; padding: 0 20px; word-break:keep-all;">🐘 매머드가 발을 쿵쿵 구르며 당신을 동굴 안으로 몰아넣었습니다.<br><span style="color:#aaa;">유물을 올바른 시대에 분류해야 동굴에서 나올 수 있습니다.</span></p>
+        <button id="blackout-retry-btn" style="margin-top:24px;padding:14px 28px;background:#5d4037;color:#fff;border:none;border-radius:12px;font-weight:bold;cursor:pointer;" onclick="document.getElementById('blackout').style.display='none'; initStage1();">다시 시대를 증명하기</button>
+    </div>
+
+    <div id="custom-popup">
+        <div class="popup-box">
+            <div id="popup-msg"></div>
+            <button class="popup-btn" id="popup-confirm">확인</button>
+        </div>
+    </div>
+
+    <audio id="bellSound" src="https://actions.google.com/sounds/v1/ambiences/wind_chimes_light.ogg"></audio>
+
+    <div id="prologue" class="stage-container active">
+        <div class="classroom-img-wrap">
+            <img src="images/classroom.jpg" alt="불꺼진 교실" style="width:100%;display:block;">
+        </div>
+
+        <div style="line-height: 1.85; color: #ddd; margin-bottom: 30px; padding: 0 10px; word-break: keep-all;">
+            방과 후, 청소를 하러 들어간 텅 빈 역사 교실.<br>
+            어두운 교실 속 교탁 위 <span style="color: #00e5ff; font-weight: 700;">의문의 모니터</span>가<br>
+            차가운 하얀 빛을 내뿜고 있다.
+        </div>
+        <div class="monitor-screen">
+            <h3 style="margin: 0 0 10px 0; font-size: 1.2rem; line-height: 1.5;">"역사를 바로 아는 자,<br>큰 성공을 이루리라."</h3>
+            <p style="color: #666; margin-bottom: 25px;">시간 여행을 떠나려는 자, 당신은 누구십니까</p>
+            <input type="text" id="player-id" class="login-input" placeholder="학번 5자리 (예: 30101)" inputmode="numeric" maxlength="5" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,5)">
+            <input type="text" id="player-name" class="login-input" placeholder="이름">
+            <button class="login-btn" onclick="startJourney()">시간의 문을 열어라</button>
+        </div>
+    </div>
+
+    <div id="stage1" class="stage-container">
+        <!-- 스토리 멘트 -->
+        <div class="sec-story" style="color:#3e2723;border-color:#a1887f;background:rgba(255,255,255,0.7);">정신을 차려보니 거대한 <strong>매머드</strong>가 나를 내려다보고 있다!</div>
+        <!-- 제목 -->
+        <span class="sec-title" style="background:#5d4037;color:#fff;border:1px solid #8d6e63">시스템 알림: 매머드가 당신을 부르고 있다</span>
+        <!-- 미션 내용 -->
+        <div class="sec-mission" style="border-color:#a1887f;background:rgba(255,255,255,0.6);color:#3e2723;">🐘 <strong>매머드:</strong> "인간아, 이 유물들이 어느 시대 것인지 증명하지 못하면 동굴에 갇히게 될 거야!"</div>
+        <div id="artifact-zone"></div>
+        <div id="drop-zone-s1">
+            <div class="bucket" id="paleo" data-era="paleo"><h3 style="margin: 5px 0; border-bottom: 2px solid #5d4037; width: 100%;">구석기 시대</h3></div>
+            <div class="bucket" id="neo" data-era="neo"><h3 style="margin: 5px 0; border-bottom: 2px solid #5d4037; width: 100%;">신석기 시대</h3></div>
+        </div>
+        <button class="btn-s1" onclick="validateStage1()">그대가 시대를 증명하리라</button>
+    </div>
+
+    <div id="stage2" class="stage-container">
+        <div class="sec-story" style="color:#a8d8ea;border-color:rgba(79,195,247,0.4);">빛이 나는 움집 안으로 발을 들이자 딸랑딸랑 청아한 방울 소리가 울려 퍼집니다. 어둠 속 모닥불이 일렁이고 바람이 스치자 고인돌 그림자가 길게 드리워집니다. 저 멀리, 누군가 당신을 기다리고 있습니다.</div>
+        <span class="sec-title" style="background:#1a6b85;color:#fff;border:1px solid #4fc3f7">시스템 알림: 무너진 돌 위에 권위를 세워라</span>
+        <div class="sec-mission" style="border-color:rgba(79,195,247,0.3);color:#e0f7ff;">무너진 거대한 돌덩이 앞에서 사람들이 주저앉아 울고 있습니다.<br>부족의 상징인 족장의 무덤이 무너진 것입니다.<br><br><strong>무너진 지배자의 권위를 다시 세워주세요.</strong></div>
+        <div id="assembly-zone">
+            <div style="position:absolute;top:12px;width:100%;color:rgba(255,255,255,0.5);text-align:center;pointer-events:none;">돌을 드래그해서 고인돌을 완성하세요</div>
+            <div id="target1" class="target"></div>
+            <div id="target2" class="target"></div>
+            <div id="target3" class="target"></div>
+            <img src="images/pillar1.png" alt="왼쪽 기둥" id="stone1" class="stone" data-target="target1">
+            <img src="images/pillar2.png" alt="오른쪽 기둥" id="stone2" class="stone" data-target="target2">
+            <img src="images/capstone.png" alt="덮개돌" id="stone3" class="stone" data-target="target3">
+        </div>
+        <div id="quiz-section">
+            <div style="font-weight: bold; color: #134e5e; margin-bottom: 15px; border-bottom: 2px solid #134e5e; padding-bottom: 8px;">📜 우리가 사는 이 곳은 말이야.</div>
+            <div style="line-height:1.85;">
+                농업이 본격적으로 이루어지면서 농업 생산력이 높아져서 인구도 늘어났고, 사유 재산도 생겨났어. 그러다 보니 빈부의 격차가 커지고 주변 부족을 정복하는 과정에서 <input type="text" class="blank-box w2" id="ans1" maxlength="2" placeholder="??">이(가) 발생했어. 한편 세력이 강한 부족은 다른 부족을 정복하여 <input type="text" class="blank-box w2" id="ans2" maxlength="2" placeholder="??">하기도 했지. 이 과정에서 권력과 재산이 많은 사람은 <input type="text" class="blank-box w2" id="ans3" maxlength="2" placeholder="??">이(가) 되어 부족을 이끌고 제사를 주관하였는데, 이러한 사회를 <input type="text" class="blank-box w4" id="ans4" maxlength="4" placeholder="????"> 사회라고 해.
+            </div>
+            <button class="btn-s2" onclick="validateStage2()">이제 우리가 사는 곳이 어딘지 알겠어?</button>
+        </div>
+    </div>
+
+    <div id="stage3" class="stage-container">
+        <div class="sec-story" style="color:#6b3a1f;border-color:rgba(107,58,31,0.5);background:rgba(255,255,255,0.75);">고인돌의 빛이 사라지고 짙은 안개 속에서 낯선 숲 향기가 밀려옵니다. 발아래엔 이슬 맺힌 풀밭, 머리 위엔 별이 총총한 밤하늘. 그리고 안개 사이로 — 거대한 형체가 서서히 모습을 드러냅니다.</div>
+        <span class="sec-title" style="background:#5c3317;color:#f5e6c8;border:1px solid #a0522d">시스템 알림: 곰의 후손이 묻고 있다</span>
+        <div class="sec-mission" style="border-color:rgba(107,58,31,0.4);color:#3e2723;background:rgba(255,255,255,0.6);">🐻 <strong>신성한 곰</strong>이 나타났다.<br>"내 아이가 만든 <strong>우리 민족 최초의 국가, 고조선</strong>... 너는 그 찬란한 역사를 제대로 알고 있느냐?"</div>
+        <div id="sequence-puzzle"></div>
+        <div class="sec-action" style="color:#c8a96e;font-weight:bold;background:rgba(0,0,0,0.3);text-align:center;border-color:rgba(107,58,31,0.4);">
+            💡 바꿀 두 개의 사료를 차례대로 터치해서 순서를 맞추세요!
+        </div>
+        <button class="btn-s2" onclick="validateStage3()" style="background: #6b3a1f; box-shadow: 0 4px 0 #3e1f08; color: #f5e6c8;">모든 시간의 조각을 맞췄어!</button>
+    </div>
+
+    
+
+
+<!-- ══ STAGE 4 ══ -->
+<div id="stage4-wrapper" class="stage-wrapper" style="display:none;">
+
+    <div id="s4-popup" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;justify-content:center;align-items:center;">
+        <div style="background:#fff;color:#222;padding:25px;border-radius:15px;width:85%;max-width:350px;text-align:center;line-height:1.6;box-shadow:0 10px 30px rgba(0,0,0,0.5);word-break:keep-all;font-weight:bold;">
+            <div id="s4-popup-msg"></div>
+            <button id="s4-popup-btn" style="margin-top:20px;padding:12px 0;background:#2c3e50;color:#fff;border:none;border-radius:8px;font-weight:bold;width:100%;cursor:pointer;">확인</button>
+        </div>
+    </div>
+
+    <audio id="s4-correct-snd" src="https://actions.google.com/sounds/v1/magic/magic_chime.ogg"></audio>
+    <audio id="s4-wrong-snd" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
+
+    <div class="s4-container" style="width:100%;max-width:480px;padding:20px;display:flex;flex-direction:column;position:relative;z-index:10;">
+        <div class="sec-story" style="color:#f39c12;border-color:rgba(243,156,18,0.5);background:rgba(0,0,0,0.3);">고조선의 빛이 스러지고 한반도 곳곳에서 모닥불이 하나둘 피어오릅니다. 북쪽엔 부여와 고구려, 동쪽엔 옥저와 동예, 남쪽엔 삼한이 자리를 잡고 있습니다. 밤하늘 아래 각 나라에서 제천행사의 북소리가 울려 퍼지기 시작합니다.</div>
+        <span class="sec-title" style="background:#4a235a;color:#f5c6ff;border:1px solid #a569bd;">시스템 알림: 북소리가 밤하늘을 깨운다</span>
+        <div class="sec-mission" style="border-color:rgba(162,90,189,0.5);color:#ecf0f1;">✨ 밤하늘의 별빛이 쏟아지는 신성한 제단에 도착했습니다. 사람들과 함께 제천행사에 참여해보세요.<br><br>각 나라의 <strong style="color:#f1c40f;">제천행사</strong>를 보고 어느 나라인지 맞힌 뒤,<br>알맞은 <strong style="color:#f1c40f;">풍습 카드</strong>를 제단에 바치고 그 의미를 증명하세요.</div>
+
+        <div id="s4-dots" style="display:flex;justify-content:center;gap:8px;margin-bottom:15px;">
+            <div class="dot active" id="s4-dot-0"></div>
+            <div class="dot" id="s4-dot-1"></div>
+            <div class="dot" id="s4-dot-2"></div>
+            <div class="dot" id="s4-dot-3"></div>
+        </div>
+
+        <div id="s4-altar-zone">
+            <div class="fire-icon">🔥</div>
+            <div class="festival-name" id="s4-altar-fest">영고 (12월)</div>
+            <div class="country-name" id="s4-altar-country">나라: ?</div>
+        </div>
+
+        <div id="s4-step1">
+            <div class="interaction-title" style="margin-bottom:12px;">👇 이 제천행사를 여는 나라는 어디인가요?</div>
+            <div id="s4-country-btns" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;"></div>
+        </div>
+
+        <div id="s4-step2" style="display:none;">
+            <div class="interaction-title" style="margin-bottom:12px;">👇 알맞은 풍습 카드를 제단(🔥)으로 드래그하세요!</div>
+            <div id="s4-cards" style="display:flex;flex-wrap:wrap;gap:12px;justify-content:center;position:relative;"></div>
+        </div>
+
+        <div id="s4-step3" style="display:none;">
+            <div class="interaction-title" style="margin-bottom:12px;">👇 제단에 바친 풍습은 어떤 내용인가요?</div>
+            <div id="s4-descs" style="display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
+    </div>
+
+</div><!-- /#stage4-wrapper -->
+
+<!-- ══ STAGE 5 ══ -->
+<div id="stage5-wrapper" class="stage-wrapper" style="display:none;">
+
+    <div id="custom-popup-s5" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;justify-content:center;align-items:center;">
+        <div style="background:#2a1200;color:#f5c97a;padding:25px;border-radius:15px;border:2px solid #c8821a;width:85%;max-width:350px;text-align:center;line-height:1.6;box-shadow:0 10px 40px rgba(0,0,0,0.9);word-break:keep-all;font-weight:bold;">
+            <div id="popup-msg-s5"></div>
+            <button id="popup-confirm-s5" style="margin-top:20px;padding:12px 0;background:#c8821a;color:#fff;border:none;border-radius:8px;font-weight:bold;width:100%;cursor:pointer;">확인</button>
+        </div>
+    </div>
+
+    <!-- S6 스타일 브릿지 팝업 (S5→S6 전환용) -->
+    <div id="custom-popup-s5b" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;justify-content:center;align-items:center;">
+        <div class="popup-box" style="background:#fff;color:#2c3e50;border:3px solid #c8821a;">
+            <div id="popup-msg-s5b"></div>
+            <button id="popup-confirm-s5b" style="margin-top:20px;padding:12px 0;background:#c8821a;color:#fff;border:none;border-radius:8px;font-weight:bold;width:100%;cursor:pointer;">확인</button>
+        </div>
+    </div>
+
+    <audio id="s5_stoneHitSound" src="https://actions.google.com/sounds/v1/foley/stone_block_impact.ogg"></audio>
+    <audio id="s5_correctSound" src="https://actions.google.com/sounds/v1/magic/magic_chime.ogg"></audio>
+    <audio id="s5_wrongSound" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
+
+    <div class="s5-container">
+        <div class="sec-story" style="color:#c0a080;border-color:rgba(139,0,0,0.6);background:rgba(43,19,19,0.7);">시간의 문이 열리며 광활한 만주 벌판 앞에 도착했습니다. 북풍이 몰아치는 벌판에는 고구려의 기운이 사방에 가득하고, 그때 한 왕이 당신에게 천천히 다가옵니다.</div>
+        <span class="sec-title" style="background:#5c1a1a;color:#ffb3b3;border:1px solid #c0392b;">시스템 알림: 흩어진 비석 조각을 되새겨라</span>
+        <div class="sec-mission" style="border-color:rgba(192,57,43,0.5);color:#ecf0f1;"><span style="color:#e74c3c;font-weight:bold;">👑 문자명왕의 부탁</span><br><br>"고구려의 기상이 하늘을 찌르고 있소! 선대왕들의 업적이 적힌 비석 조각들이 뒤섞여 버렸소. 알맞은 왕의 자리에 끼워 넣어 역사를 완성해 주시오."</div>
+
+        <div id="monument-area" style="display:flex;flex-direction:column;gap:15px;margin-bottom:25px;">
+            <div style="background:rgba(255,255,255,0.05);border:2px solid #555;border-radius:8px;padding:10px;display:flex;flex-direction:column;min-height:110px;box-shadow:inset 0 0 20px rgba(0,0,0,0.5);">
+                <div style="font-weight:bold;color:#e74c3c;border-bottom:1px solid #555;padding-bottom:5px;margin-bottom:10px;text-align:center;letter-spacing:2px;">소수림왕</div>
+                <div style="display:flex;gap:8px;width:100%;justify-content:center;align-items:center;flex-grow:1;">
+                    <div class="s5-slot" data-king="sosurim"></div>
+                    <div class="s5-slot" data-king="sosurim"></div>
+                    <div class="s5-slot" data-king="sosurim"></div>
+                </div>
+            </div>
+            <div style="background:rgba(255,255,255,0.05);border:2px solid #555;border-radius:8px;padding:10px;display:flex;flex-direction:column;min-height:110px;box-shadow:inset 0 0 20px rgba(0,0,0,0.5);">
+                <div style="font-weight:bold;color:#e74c3c;border-bottom:1px solid #555;padding-bottom:5px;margin-bottom:10px;text-align:center;letter-spacing:2px;">광개토대왕</div>
+                <div style="display:flex;gap:8px;width:100%;justify-content:center;align-items:center;flex-grow:1;">
+                    <div class="s5-slot" data-king="gwanggaeto"></div>
+                    <div class="s5-slot" data-king="gwanggaeto"></div>
+                </div>
+            </div>
+            <div style="background:rgba(255,255,255,0.05);border:2px solid #555;border-radius:8px;padding:10px;display:flex;flex-direction:column;min-height:110px;box-shadow:inset 0 0 20px rgba(0,0,0,0.5);">
+                <div style="font-weight:bold;color:#e74c3c;border-bottom:1px solid #555;padding-bottom:5px;margin-bottom:10px;text-align:center;letter-spacing:2px;">장수왕</div>
+                <div style="display:flex;gap:8px;width:100%;justify-content:center;align-items:center;flex-grow:1;">
+                    <div class="s5-slot" data-king="jangsu"></div>
+                    <div class="s5-slot" data-king="jangsu"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="sec-action" style="border-color:rgba(241,196,15,0.3);color:#f1c40f;font-weight:bold;text-align:center;">👇 흩어진 조각을 드래그하여 비석의 빈칸에 끼워 넣으세요!</div>
+
+        <div id="pieces-area" style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;background:rgba(0,0,0,0.4);padding:15px;border-radius:12px;border:1px solid #333;min-height:150px;position:relative;"></div>
+    </div>
+
+</div><!-- /#stage5-wrapper -->
+
+<!-- ══ STAGE 6 ══ -->
+<div id="stage6-wrapper" class="stage-wrapper" style="display:none;">
+
+
+
+    <div id="custom-popup-s6" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;justify-content:center;align-items:center;">
+        <div class="popup-box">
+            <div id="popup-msg-s6"></div>
+            <button class="popup-btn" id="popup-confirm-s6">확인</button>
+        </div>
+    </div>
+
+    <!-- S7 스타일 브릿지 팝업 (S6→S7 전환용) -->
+    <div id="custom-popup-s6b" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;justify-content:center;align-items:center;">
+        <div class="popup-box" style="border:3px solid #2980b9;color:#2c3e50;">
+            <div id="popup-msg-s6b"></div>
+            <button id="popup-confirm-s6b" style="margin-top:20px;padding:12px 0;background:#2980b9;color:#fff;border:none;border-radius:8px;font-weight:bold;width:100%;cursor:pointer;">확인</button>
+        </div>
+    </div>
+
+    <audio id="s6_clickSound" src="https://actions.google.com/sounds/v1/foley/wood_desk_tap.ogg"></audio>
+    <audio id="s6_correctSound" src="https://actions.google.com/sounds/v1/magic/magic_chime.ogg"></audio>
+    <audio id="s6_wrongSound" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
+
+    <div class="s6-container">
+        <div class="sec-story" style="color:#e8c98a;border-color:rgba(200,130,26,0.5);background:rgba(90,26,0,0.4);">장수왕의 비석 앞을 떠나자 어디선가 구슬픈 피리 소리가 들려옵니다. 남쪽으로 발길을 옮기니 드넓은 강가에 백제의 깃발이 나부끼고 있습니다. 한강을 빼앗긴 채 웅진으로 내려온 백제, 그 한(恨)을 품은 왕이 당신을 기다리고 있습니다.</div>
+        <span class="sec-title" style="background:#5a1a00;color:#f5c97a;border:1px solid #c8821a;">시스템 알림: 한강의 눈물, 절치부심의 연설</span>
+        <div class="sec-mission" style="border-color:rgba(200,130,26,0.4);color:#e8c98a;">백제의 아련한 목소리를 따라 가보니, 성왕이 비장한 표정으로 군사들 앞에 서서 연설을 하고 있었다.<br><br>👇 단어를 드래그하여 왕의 연설을 완성하세요!</div>
+
+        <div id="text-puzzle-area">
+            "과거 <div class="inline-slot" data-answer="근초고왕"></div>이(가) 고구려의 왕을 전사시키고 한강 이북까지 진출했을 때 우리 백제는 참으로 찬란했다. 
+            하지만 저 무도한 장수왕의 남진에 맞서 신라와 <div class="inline-slot" data-answer="나제동맹"></div>을(를) 맺었음에도, 
+            결국 선왕이신 <div class="inline-slot" data-answer="개로왕"></div>께서 전사하시고 한강마저 빼앗긴 채 이곳 <div class="inline-slot" data-answer="웅진"></div>(으)로 쫓기듯 내려오고 말았다.<br><br>
+            허나 더 이상 이 좁은 땅에 머물 수는 없다! 내가 수도를 더 넓고 기름진 땅인 <div class="inline-slot" data-answer="사비"></div>(으)로 천도하여 백제의 위대한 부흥을 이끌 것이다. 
+            신라의 국왕인 <div class="inline-slot" data-answer="진흥왕"></div>(와)과 힘을 합쳐 빼앗긴 한강을 되찾고 고구려를 칠 것이니, 그대들도 힘을 보태라!"
+        </div>
+
+        <div id="word-bank">
+            </div>
+    </div>
+
+    
+
+</div>
+
+<!-- ══ STAGE 7 ══ -->
+<div id="stage7-wrapper" class="stage-wrapper" style="display:none;">
+
+
+    <div id="custom-popup-s7" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:9999;justify-content:center;align-items:center;"><div class="popup-box"><div id="popup-msg-s7"></div><button class="popup-btn" id="popup-confirm-s7">확인</button></div></div>
+    
+    <audio id="s7_stoneSound" src="https://actions.google.com/sounds/v1/foley/stone_block_impact.ogg"></audio>
+    <audio id="s7_wrongSound" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
+    <audio id="s7_chimeSound" src="https://actions.google.com/sounds/v1/magic/magic_chime.ogg"></audio>
+
+    <div class="s7-container">
+        <div class="sec-story" style="color:#5d6d7e;border-color:#bdc3c7;background:rgba(255,255,255,0.85);">성왕의 연설이 끝나자마자 발 아래가 흔들립니다. 눈을 떠보니 낯선 산기슭, 저 멀리 반짝이는 금관이 보입니다. 늦게 출발했지만 묵묵히 성장해온 나라, 신라의 기운이 느껴집니다.</div>
+        <span class="sec-title" style="background:#1a4a7a;color:#aed6f1;border:1px solid #2980b9;">시스템 알림: 대기만성, 계단을 쌓아 정상으로</span>
+        <div class="sec-mission" style="border-color:rgba(41,128,185,0.4);color:#2c3e50;background:rgba(255,255,255,0.75);">진흥왕을 홀린 듯 따라가 보니, 진흥왕이 군사들을 굽어보며 다음과 같이 말하고 있었다.<br><br>🧱 "신라는 늦었지만 포기하지 않고 차곡차곡 성장의 계단을 밟았소. 지증왕부터 순서대로 업적의 돌을 쌓아 정상을 향한 길을 열어주시오."</div>
+        
+        <div id="tower-area">
+            <div class="floor active-floor" data-king="지증왕" data-title="1층: 기반 다지기" data-target="3"></div>
+            <div class="floor" data-king="법흥왕" data-title="2층: 체제 정비" data-target="3"></div>
+            <div class="floor" data-king="진흥왕" data-title="3층: 전성기 도약" data-target="4"></div>
+        </div>
+        
+        <div id="bricks-area"></div>
+    </div>
+
+    
+
+</div>
+
+<!-- ══ STAGE 8 ══ -->
+<div id="stage8-wrapper" class="stage-wrapper" style="display:none;">
+
+
+    <div id="custom-popup-s8" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);z-index:9999;justify-content:center;align-items:center;"><div class="popup-box"><div id="popup-msg-s8"></div><button class="popup-btn" id="popup-confirm-s8">확인</button></div></div>
+    
+    <audio id="s8_stoneSnd" src="https://actions.google.com/sounds/v1/foley/stone_block_impact.ogg"></audio>
+    <audio id="s8_wrongSnd" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
+    <audio id="s8_chimeSnd" src="https://actions.google.com/sounds/v1/magic/magic_chime.ogg"></audio>
+
+    <div class="s8-container">
+        <div class="sec-story" style="color:#aaa;border-color:#555;font-weight:normal;">진흥왕의 탑이 하늘을 찌르는 순간 주변 공기가 싸늘하게 식어갑니다. 삼국이 서로를 향해 칼을 겨누고 그 너머엔 수·당과 돌궐이 호시탐탐 노리고 있습니다. 동아시아 전체가 하나의 거대한 체스판이 된 지금, 누가 어디에 서 있는지 밝혀내야 합니다.</div>
+        <span class="sec-title" style="background:#5c1010;color:#f5b8b8;border:1px solid #c0392b;">시스템 알림: 교차하는 칼날, 동아시아 체스판</span>
+        <div class="sec-mission" style="border-color:rgba(192,57,43,0.5);color:#ecf0f1;">신라가 한강을 차지하며 삼국의 대립은 극에 달했다. 각국은 살아남기 위해 바다와 대륙을 넘나드는 치열한 외교전을 펼치기 시작하는데...<br><br>🗺️ "남북으로 이어진 붉은 동맹과 동서로 이어진 푸른 동맹이 십자(十字) 형태로 팽팽하게 맞서고 있소. 세력의 올바른 위치를 찾아 외교 지도를 완성하시오!"</div>
+        
+        <div id="diplomacy-map">
+            <div class="axis-v"></div>
+            <div class="axis-h"></div>
+            <span class="axis-label" style="top:4%;left:50%;transform:translateX(-50%);">북</span>
+            <span class="axis-label" style="top:50%;left:1%;transform:translateY(-50%);">서</span>
+            <span class="axis-label" style="top:50%;right:1%;transform:translateY(-50%);">동</span>
+            <span class="axis-label" style="bottom:2%;left:50%;transform:translateX(-50%);">남</span>
+            <div class="s8-slot" data-ans="돌궐"></div>
+            <div class="s8-slot" data-ans="고구려"></div>
+            <div class="s8-slot" data-ans="수·당"></div>
+            <div class="s8-slot" data-ans="신라"></div>
+            <div class="s8-slot" data-ans="백제"></div>
+            <div class="s8-slot" data-ans="왜"></div>
+        </div>
+        
+        <div id="cards-area"></div>
+    </div>
+
+    
+
+</div>
+
+<!-- ══ STAGE 9 ══ -->
+<div id="stage9-wrapper" class="stage-wrapper" style="display:none;">
+
+
+    <div id="custom-popup-s9" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:9999;justify-content:center;align-items:center;"><div class="popup-box"><div id="popup-msg-s9"></div><button class="popup-btn" id="popup-confirm-s9">확인</button></div></div>
+
+    <audio id="s9_correctSnd" src="https://actions.google.com/sounds/v1/magic/magic_chime.ogg"></audio>
+    <audio id="s9_wrongSnd" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
+
+    <div class="s9-container">
+        <!-- 스토리 멘트 -->
+        <div class="sec-story" style="color:#eee;border-color:#e74c3c;background:rgba(44,62,80,0.9);">동쪽엔 신라가 팽창하고 서쪽엔 백제가 도사리고 북쪽엔 고구려가 버티고 있다. 삼국은 각자의 생존을 위해 선택의 기로에 놓였다. 그 선택 하나하나가 한반도의 운명을 바꿀 것이다. <span style="color:#f1c40f;">당신이 그 역사의 주인공이다.</span></div>
+        <!-- 제목 -->
+        <span class="sec-title" style="background:#3d0000;color:#ff9999;border:1px solid #c0392b;">시스템 알림: 역사의 분기점, 당신의 선택이 운명을 가른다</span>
+        <!-- 미션 내용 -->
+        <div class="sec-mission" style="border-color:rgba(192,57,43,0.5);color:#ecf0f1;">삼국의 역사적 순간마다 올바른 선택을 하라.<br>잘못된 선택은 역사를 비극으로 물들일 것이다.</div>
+        <!-- 진행 바 -->
+        <div class="s9-progress-wrap"><div class="s9-progress-fill" id="p-fill"></div></div>
+        <div class="s9-bridge" id="bridge-text" style="margin-top:16px;margin-bottom:8px;"></div>
+        <div class="s9-dialogue" style="margin-top:10px;">
+            <div class="s9-speaker" id="speaker-name"></div>
+            <div class="s9-text" id="dialogue-text"></div>
+        </div>
+        <div class="s9-choices" id="choice-area"></div>
+    </div>
+
+    
+
+</div>
+
+<!-- ══ STAGE 10 ══ -->
+<div id="stage10-wrapper" class="stage-wrapper" style="display:none;">
+
+
+    <div id="custom-popup-s10" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:9999;justify-content:center;align-items:center;padding:20px;">
+        <div class="popup-box">
+            <div class="popup-msg" id="popup-msg-s10"></div>
+            <button class="popup-btn" id="popup-confirm-s10">확인</button>
+        </div>
+    </div>
+
+    <!-- 엔딩 스크린 -->
+    <div id="ending-screen" style="display:none;width:100%;max-width:480px;padding:24px;flex-direction:column;align-items:center;gap:20px;text-align:center;animation:s9fadeIn 0.8s ease;">
+        <div id="ending-phase1" style="display:flex;flex-direction:column;gap:16px;align-items:center;">
+            <div style="font-size:44px;">✨</div>
+            <div style="font-weight:bold;color:#f1c40f;line-height:1.7;word-break:keep-all;text-align:center;">
+                676년, 신라가 마침내 당나라군을 몰아내고<br>삼국 통일의 마침표를 찍었습니다!
+            </div>
+            <div style="color:#ccc;line-height:1.9;word-break:keep-all;text-align:center;">
+                신라 사람들의 환호와 웃음소리가 온 땅에 가득합니다.<br>
+                당신은 역사의 흐름을 올바르게 완성했습니다.
+            </div>
+            <button onclick="
+                const p1 = document.getElementById('ending-phase1');
+                const p2 = document.getElementById('ending-phase2');
+                p1.style.transition = 'opacity 0.4s ease';
+                p1.style.opacity = '0';
+                setTimeout(() => {
+                    p1.style.display = 'none';
+                    p2.style.display = 'flex';
+                    p2.style.opacity = '0';
+                    p2.style.transition = 'opacity 0.5s ease';
+                    requestAnimationFrame(() => { requestAnimationFrame(() => { p2.style.opacity = '1'; }); });
+                }, 400);"
+                style="margin-top:8px;padding:14px;background:#d4af37;color:#000;border:none;border-radius:12px;font-weight:bold;cursor:pointer;width:100%;">
+                그 꿈에서 깨어나...
+            </button>
+        </div>
+        <div id="ending-phase2" style="display:none;flex-direction:column;gap:16px;align-items:center;width:100%;">
+            <img src="images/classroom2.jpg" alt="교실" style="width:100%;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.5);">
+            <div style="width:100%;background:rgba(255,255,255,0.07);border:1px solid #444;border-radius:14px;padding:20px;color:#eee;line-height:1.9;word-break:keep-all;text-align:center;box-sizing:border-box;">
+                신라 사람들의 웃음소리가 점점 멀어집니다...<br>
+                눈을 떠보니 익숙한 칠판과 교실이 보입니다.<br><br>
+                <strong style="color:#f1c40f;">"야! 너 수행평가 시간에 자면 어떡해!"</strong><br><br>
+                알고 보니 호성쌤의 역사 수행평가 시간...<br>
+                잠결에 시간을 다 놓쳐버렸습니다!<br><br>
+                <span style="font-size:1.3rem;">으악~~ 나 다시 돌아갈래~~!!!</span>
+            </div>
+            <button onclick="window.open('https://forms.gle/rbpbozVuxSsEc4k68','_blank')"
+                style="display:block;width:100%;padding:16px;background:#c0392b;color:#fff;border-radius:12px;font-weight:bold;text-decoration:none;box-sizing:border-box;border:none;cursor:pointer;">
+                ✍️ 역사를 바로잡은 소감 쓰기
+            </button>
+        </div>
+    </div>
+    
+    <audio id="s10_successSnd" src="https://actions.google.com/sounds/v1/magic/magic_chime.ogg"></audio>
+    <audio id="s10_failSnd" src="https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg"></audio>
+    <audio id="s10_lockSnd" src="https://actions.google.com/sounds/v1/foley/stone_block_impact.ogg"></audio>
+
+    <div class="s10-container">
+        <!-- 스토리 멘트 -->
+        <div class="sec-story" style="color:#aaa;border-color:#555;background:rgba(0,0,0,0.3);">나당 연합이 맺어진 그 순간부터 한반도는 7년간의 거대한 폭풍 속으로 빨려 들어갑니다. 660년 백제가 무너지고 668년 고구려가 쓰러지고, 그리고 676년 신라는 당나라마저 몰아내며 마침내 하나의 나라를 이룹니다.</div>
+        <!-- 제목 -->
+        <span class="sec-title" style="background:linear-gradient(135deg,#1a1200,#2a1f00);color:#f1c40f;border:1px solid #d4af37;">시스템 알림: 7년의 폭풍, 마침내 하나로</span>
+        <!-- 미션 내용 -->
+        <div class="sec-mission" style="border-color:rgba(212,175,55,0.5);color:#ecf0f1;">삼국의 명운을 건 <span class="highlight">최후의 전쟁</span>이 한반도를 뒤흔듭니다.<br><span class="highlight">통일의 마침표</span>를 찍어 역사의 물줄기를 완성하십시오!<br><br>👇 카드를 드래그해서 순서대로 타임라인에 놓으세요</div>
+
+        <div class="game-area">
+            <!-- 좌측: 타임라인 -->
+            <div class="timeline-wrap">
+                <div class="timeline-line"></div>
+                <div class="timeline-year">660년</div>
+                <div class="time-slot" data-step="1" data-ans="hwangsan"></div>
+                <div class="time-slot" data-step="2" data-ans="baekje_fall"></div>
+                <div class="time-slot" data-step="3" data-ans="baekgang"></div>
+                <div class="time-slot" data-step="4" data-ans="goguryeo_fall"></div>
+                <div class="time-slot" data-step="5" data-ans="maeso"></div>
+                <div class="time-slot" data-step="6" data-ans="gibeolpo"></div>
+                <div class="time-slot" data-step="7" data-ans="unification"></div>
+                <div class="timeline-year">676년</div>
+            </div>
+
+            <!-- 우측: 카드 뱅크 -->
+            <div class="pieces-column" id="piece-box"></div>
+        </div>
+    </div>
+
+    
+
+</div>
+
+<script>
+/* ── TOAST (오답용 자동 사라짐) ── */
+let _toastTimer = null;
+function showToast(msg) {
+    const t = document.getElementById('toast-wrong');
+    t.textContent = msg;
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    t.style.opacity = '1';
+    if (_toastTimer) clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => {
+        t.style.transform = 'translateX(-50%) translateY(-80px)';
+        t.style.opacity = '0';
+    }, 2200);
+}
+
+/* ── FADE HELPER ── */
+function fadeTransition(cb) {
+    const ov = document.getElementById('fade-overlay');
+    ov.classList.add('fade-in');
+    setTimeout(() => {
+        cb();
+        window.scrollTo(0, 0);
+        setTimeout(() => { ov.classList.remove('fade-in'); }, 80);
+    }, 350);
+}
+
+/* ── STAGE ROUTER ── */
+function goToStage(n) {
+    fadeTransition(() => {
+        document.querySelectorAll('.stage-wrapper').forEach(el => { el.style.display = 'none'; });
+        document.querySelectorAll('.stage-container').forEach(el => { el.classList.remove('active'); });
+        const wrappers = {4:'stage4-wrapper',5:'stage5-wrapper',6:'stage6-wrapper',
+                           7:'stage7-wrapper',8:'stage8-wrapper',9:'stage9-wrapper',10:'stage10-wrapper'};
+        const bodyClasses = {4:'bg-stage4',5:'bg-stage5',6:'bg-stage6',7:'bg-stage7',
+                              8:'bg-stage8',9:'bg-stage9',10:'bg-stage10'};
+        const w = document.getElementById(wrappers[n]);
+        if (w) { w.style.display = 'flex'; }
+        document.body.className = bodyClasses[n] || '';
+        const sf = document.getElementById('s4-stars');
+        if (sf) sf.style.display = (n === 4) ? 'block' : 'none';
+        if (n === 4)  s4_initGame();
+        if (n === 5) {
+            const w5 = document.getElementById('stage5-wrapper');
+            w5.setAttribute('style', 'display:flex;flex-direction:column;align-items:center;width:100%;min-height:100vh;background:linear-gradient(135deg,#2b1313,#1a1a1a);position:relative;z-index:2;');
+            s5_initGame();
+        }
+        if (n === 6)  s6_initGame();
+        if (n === 7)  s7_init();
+        if (n === 8)  s8_init();
+        if (n === 9)  { s9_currentStep = 0; s9_renderScenario(); }
+        if (n === 10) s10_init();
+    });
+}
+
+/* ── STAGE 3 JS ── */
+
+        let studentInfo = { id: '', name: '' };
+        let popupCallback = null;
+
+        function showPopup(message, callback) {
+            document.getElementById('popup-msg').innerText = message;
+            document.getElementById('custom-popup').style.display = 'flex';
+            popupCallback = callback;
+        }
+        document.getElementById('popup-confirm').onclick = function() {
+            document.getElementById('custom-popup').style.display = 'none';
+            if (popupCallback) popupCallback();
+        };
+
+        function changeStage(fromId, toId, bodyClass) {
+            fadeTransition(() => {
+                document.getElementById(fromId).classList.remove('active');
+                document.getElementById(toId).classList.add('active');
+                document.body.className = bodyClass;
+            });
+        }
+
+        // --- 프롤로그 ---
+        function startJourney() {
+            const idInput = document.getElementById('player-id').value;
+            const nameInput = document.getElementById('player-name').value;
+            if (!idInput || !nameInput) { showPopup('학번과 이름을 입력해주세요.', null); return; }
+            studentInfo.id = idInput; studentInfo.name = nameInput;
+            showPopup(`✨ ${nameInput}님, 시간의 문이 열립니다. 돌아올 수 없을지도 모릅니다.`, () => {
+                changeStage('prologue', 'stage1', 'bg-stage1'); initStage1();
+            });
+        }
+
+        // --- 1스테이지 ---
+        const stage1Data = [
+            { id: 'p1', text: '주먹도끼', era: 'paleo' }, { id: 'p2', text: '사냥&채집', era: 'paleo' },
+            { id: 'p3', text: '연천 전곡리', era: 'paleo' }, { id: 'p4', text: '이동생활', era: 'paleo' },
+            { id: 'n1', text: '빗살무늬토기', era: 'neo' }, { id: 'n2', text: '갈판과 갈돌', era: 'neo' },
+            { id: 'n3', text: '농경&목축', era: 'neo' }, { id: 'n4', text: '서울 암사동', era: 'neo' },
+            { id: 'n5', text: '정착생활', era: 'neo' }, { id: 'n6', text: '장신구 제작', era: 'neo' }
+        ];
+
+        function initStage1() {
+            const artifactZone = document.getElementById('artifact-zone');
+            artifactZone.innerHTML = '';
+            document.querySelectorAll('.bucket .artifact').forEach(el => el.remove());
+            [...stage1Data].sort(() => Math.random() - 0.5).forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'artifact'; div.id = item.id;
+                div.innerText = item.text; div.dataset.era = item.era;
+                div.style.touchAction = 'none';
+                s1_makeDraggable(div);
+                artifactZone.appendChild(div);
+            });
+        }
+
+        function s1_makeDraggable(el) {
+            let ghost = null, startX, startY, initLeft, initTop;
+
+            el.addEventListener('pointerdown', e => {
+                e.preventDefault(); e.stopPropagation();
+                el.setPointerCapture(e.pointerId);
+                const rect = el.getBoundingClientRect();
+                startX = e.clientX; startY = e.clientY;
+                initLeft = rect.left; initTop = rect.top;
+
+                ghost = document.createElement('div');
+                ghost.className = 'artifact';
+                ghost.innerText = el.innerText;
+                ghost.style.cssText = `
+                    position:fixed; left:0; top:0; margin:0; pointer-events:none; z-index:9000;
+                    width:${rect.width}px; height:${rect.height}px;
+                    transform:translate(${initLeft}px,${initTop}px) scale(1.08);
+                    opacity:0.9; box-shadow:0 8px 20px rgba(0,0,0,0.3);
+                    will-change:transform;
+                `;
+                document.body.appendChild(ghost);
+                el.style.opacity = '0.3';
+            });
+
+            el.addEventListener('pointermove', e => {
+                if (!ghost) return;
+                e.preventDefault();
+                ghost.style.transform = `translate(${initLeft + e.clientX - startX}px,${initTop + e.clientY - startY}px) scale(1.08)`;
+                // 버킷 하이라이트
+                document.querySelectorAll('.bucket').forEach(b => {
+                    const r = b.getBoundingClientRect();
+                    b.classList.toggle('drag-over', e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom);
+                });
+            });
+
+            el.addEventListener('pointerup', e => {
+                if (!ghost) return;
+                ghost.remove(); ghost = null;
+                el.style.opacity = '';
+                document.querySelectorAll('.bucket').forEach(b => b.classList.remove('drag-over'));
+
+                let dropped = false;
+                document.querySelectorAll('.bucket').forEach(bucket => {
+                    const r = bucket.getBoundingClientRect();
+                    if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+                        bucket.appendChild(el);
+                        dropped = true;
+                    }
+                });
+                // 아무 버킷에도 없으면 원래 위치(artifact-zone)로
+                if (!dropped && !el.closest('.bucket')) {
+                    document.getElementById('artifact-zone').appendChild(el);
+                }
+            });
+        }
+
+        function validateStage1() {
+            const inBuckets = document.querySelectorAll('.bucket .artifact');
+            if (inBuckets.length !== stage1Data.length) { showToast("모든 유물을 분류해주세요!"); return; }
+            let correct = true;
+            inBuckets.forEach(art => { if (art.dataset.era !== art.parentElement.dataset.era) correct = false; });
+            if (correct) {
+                document.getElementById('popup-confirm').innerText = '들어가기';
+                showPopup("저 멀리 움집에서 빛이 뿜어져 나옵니다. 움집으로 들어가시겠습니까?", () => {
+                    document.getElementById('popup-confirm').innerText = '확인';
+                    changeStage('stage1', 'stage2', 'bg-stage2'); initStage2();
+                });
+            } else {
+                document.getElementById('popup-confirm').innerText = '확인';
+                showToast("🐘 매머드가 미쳐 날뜁니다!"); setTimeout(() => { document.getElementById('blackout').style.display = 'flex'; }, 1200);
+            }
+        }
+
+        // --- 2스테이지 ---
+        let stage2AssembledCount = 0;
+        function initStage2() {
+            stage2AssembledCount = 0;
+            document.getElementById('assembly-zone').style.display = 'block';
+            document.getElementById('quiz-section').style.display = 'none';
+
+            const positionZones = [
+                { leftRange: [4,  14], topRange: [57, 68] },
+                { leftRange: [28, 42], topRange: [60, 72] },
+                { leftRange: [58, 70], topRange: [57, 68] }
+            ];
+            const shuffled = positionZones.sort(() => Math.random() - 0.5);
+
+            ['stone1', 'stone2', 'stone3'].forEach((id, i) => {
+                const el = document.getElementById(id);
+                el.classList.remove('snapped');
+                el._dragInited = false;
+
+                const z = shuffled[i];
+                const l = z.leftRange[0] + Math.random() * (z.leftRange[1] - z.leftRange[0]);
+                const t = z.topRange[0]  + Math.random() * (z.topRange[1]  - z.topRange[0]);
+
+                el.style.left      = l + '%';
+                el.style.right     = '';
+                el.style.top       = t + '%';
+                el.style.bottom    = '';
+                el.style.transform = '';
+            });
+
+            document.querySelectorAll('.stone').forEach(makeDraggable2);
+        }
+
+        function makeDraggable2(el) {
+            if (el._dragInited) return;
+            el._dragInited = true;
+            let ghost = null, startX, startY, initLeft, initTop;
+
+            el.addEventListener('pointerdown', e => {
+                if (el.classList.contains('snapped')) return;
+                e.preventDefault(); e.stopPropagation();
+                el.setPointerCapture(e.pointerId);
+
+                const rect = el.getBoundingClientRect();
+                startX = e.clientX; startY = e.clientY;
+                initLeft = rect.left; initTop = rect.top;
+
+                ghost = document.createElement('img');
+                ghost.src = el.src;
+                ghost.style.cssText = `
+                    position:fixed; left:0; top:0; pointer-events:none; z-index:9000;
+                    width:${rect.width}px; height:${rect.height}px;
+                    transform:translate(${initLeft}px,${initTop}px) scale(1.05);
+                    opacity:0.85; filter:drop-shadow(0 12px 16px rgba(0,0,0,0.6));
+                    will-change:transform;
+                `;
+                document.body.appendChild(ghost);
+                el.style.opacity = '0.3';
+            });
+
+            el.addEventListener('pointermove', e => {
+                if (!ghost) return;
+                e.preventDefault();
+                ghost.style.transform = `translate(${initLeft + e.clientX - startX}px, ${initTop + e.clientY - startY}px) scale(1.05)`;
+            });
+
+            el.addEventListener('pointerup', e => {
+                if (!ghost) return;
+                const gx = e.clientX, gy = e.clientY;
+                ghost.remove(); ghost = null;
+                el.style.opacity = '';
+
+                const targetId = el.getAttribute('data-target');
+                const target = document.getElementById(targetId);
+                const tr = target.getBoundingClientRect();
+                const cx = tr.left + tr.width / 2;
+                const cy = tr.top + tr.height / 2;
+
+                if (Math.hypot(gx - cx, gy - cy) < Math.max(tr.width, tr.height) * 0.8) {
+                    const zone = document.getElementById('assembly-zone');
+                    const zr = zone.getBoundingClientRect();
+                    el.style.left   = (tr.left - zr.left) + 'px';
+                    el.style.top    = (tr.top  - zr.top)  + 'px';
+                    el.style.bottom = 'auto';
+                    el.style.right  = 'auto';
+                    el.style.transform = 'none';
+                    el.classList.add('snapped');
+
+                    document.getElementById('bellSound')?.play();
+                    stage2AssembledCount++;
+                    if (stage2AssembledCount === 3) {
+                        setTimeout(() => {
+                            document.getElementById('assembly-zone').style.display = 'none';
+                            document.getElementById('quiz-section').style.display = 'block';
+                        }, 600);
+                    }
+                }
+            });
+        }
+        function validateStage2() {
+            if (document.getElementById('ans1').value.replace(/\s+/g, '') === '계급' && document.getElementById('ans2').value.replace(/\s+/g, '') === '지배' && document.getElementById('ans3').value.replace(/\s+/g, '') === '족장' && document.getElementById('ans4').value.replace(/\s+/g, '') === '제정일치') {
+                document.getElementById('popup-confirm').innerText = '다음 시대로 나아가기';
+                showPopup("다시 세운 지배자의 권위가 빛이 납니다.\n\n고인돌 위로 새벽빛이 쏟아지며, 짙은 안개 너머 낯선 숲의 향기가 밀려옵니다. 다음 시대로 나아가시겠습니까?", () => {
+                    document.getElementById('popup-confirm').innerText = '확인';
+                    initStage3();
+                });
+            } else showToast("무엇이 잘못되었을까요? 다시 확인해보세요!");
+        }
+
+        // --- 3스테이지 (고조선) ---
+        const gojoseonEvents = [
+            { id: 1, htmlText: '환웅이 여자가 된 곰과 혼인하여 아들을 낳았으니, 그 이름을 <input type="text" class="blank-box w-ans-lg" id="s3-ans1" maxlength="4" placeholder="????">이라 하였다. ????은 아사달에 도읍을 정하고 나라 이름을 조선이라 불렀다.' },
+            { id: 2, htmlText: '연나라 사람 <input type="text" class="blank-box w-ans-sm" id="s3-ans2" maxlength="2" placeholder="??">도 망명하여 준왕에게 투항하였다. ??은 무리를 꾀어내어 준왕을 공격하였다.' },
+            { id: 3, htmlText: '기원전 108년 여름, 한은 마침내 조선을 평정하고, 4군을 세웠다.' }
+        ];
+        let selectedNode = null;
+        function initStage3() {
+            changeStage('stage2', 'stage3', 'bg-stage3');
+            const puzzleZone = document.getElementById('sequence-puzzle');
+            puzzleZone.innerHTML = '';
+            let shuffled;
+            do {
+                shuffled = [...gojoseonEvents].sort(() => Math.random() - 0.5);
+            } while (shuffled.every((item, i) => item.id === i + 1));
+            shuffled.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'sequence-item'; div.dataset.eventId = item.id; div.innerHTML = item.htmlText;
+                div.onclick = (e) => {
+                    if (e.target.tagName === 'INPUT') return;
+                    if (!selectedNode) { selectedNode = div; div.classList.add('selected'); }
+                    else if (selectedNode === div) { selectedNode.classList.remove('selected'); selectedNode = null; }
+                    else {
+                        const p = div.parentNode, sib = selectedNode.nextSibling === div ? selectedNode : selectedNode.nextSibling;
+                        div.parentNode.insertBefore(selectedNode, div); p.insertBefore(div, sib);
+                        selectedNode.classList.remove('selected'); selectedNode = null;
+                    }
+                };
+                puzzleZone.appendChild(div);
+            });
+        }
+        function validateStage3() {
+            const items = document.querySelectorAll('.sequence-item');
+            let orderCorrect = true;
+            items.forEach((item, i) => { if (Number(item.dataset.eventId) !== i + 1) orderCorrect = false; });
+            if (orderCorrect && document.getElementById('s3-ans1').value.replace(/\s+/g, '') === '단군왕검' && document.getElementById('s3-ans2').value.replace(/\s+/g, '') === '위만') {
+                document.getElementById('popup-confirm').innerText = '바람이 불어오는 길을 따라 가기';
+                showPopup("곰이 미소 지으며 길을 열어줍니다. 새로운 시대의 바람이 불어옵니다.", () => {
+                    document.getElementById('popup-confirm').innerText = '확인';
+                    goToStage(4);
+                });
+            } else showToast("순서나 이름이 아직 제자리를 찾지 못했습니다!");
+        }
+    
+
+/* ── STAGE 4 JS ── */
+        const s4_gameData = [
+            { fest: '영고 (12월)', country: '부여', lifeId: 'l_buyeo', desc: '왕이 죽으면 껴묻거리와 함께 노비 등을 같이 묻었다.' },
+            { fest: '동맹 (10월)', country: '고구려', lifeId: 'l_goguryeo', desc: '혼인을 약속한 뒤 신부 집 뒤에 작은 집을 짓고 살았다.' },
+            { fest: '무천 (10월)', country: '동예', lifeId: 'l_dongye', desc: '다른 부족의 영역을 침범하면 노비나 소, 말로 갚게 하였다.' },
+            { fest: '계절제 (5월, 10월)', country: '삼한', lifeId: 'l_samhan', desc: '제사장인 천군이 다스리는 신성한 구역이 따로 존재했다.' }
+        ];
+        const s4_lifeStyles = [
+            { id: 'l_buyeo', title: '순장' }, { id: 'l_goguryeo', title: '서옥제' },
+            { id: 'l_okjeo', title: '민며느리제' }, { id: 'l_dongye', title: '책화' }, { id: 'l_samhan', title: '소도' }
+        ];
+        const s4_descPool = [
+            '왕이 죽으면 껴묻거리와 함께 노비 등을 같이 묻었다.',
+            '혼인을 약속한 뒤 신부 집 뒤에 작은 집을 짓고 살았다.',
+            '어릴 때 혼인을 약속하고 신랑 집에서 자란 뒤 혼인하였다.',
+            '다른 부족의 영역을 침범하면 노비나 소, 말로 갚게 하였다.',
+            '제사장인 천군이 다스리는 신성한 구역이 따로 존재했다.',
+            '가족이 죽으면 시체를 가매장했다가 뼈만 추려 목곽에 함께 안치했다.'
+        ];
+        let s4_idx = 0;
+        let s4_popupCb = null;
+
+        function s4_popup(msg, btnText, cb) {
+            document.getElementById('s4-popup-msg').innerText = msg;
+            document.getElementById('s4-popup-btn').innerText = btnText || '확인';
+            document.getElementById('s4-popup').style.display = 'flex';
+            s4_popupCb = cb;
+            document.getElementById('s4-popup-btn').onclick = () => {
+                document.getElementById('s4-popup').style.display = 'none';
+                if (s4_popupCb) s4_popupCb();
+            };
+        }
+        function s4_ok() { document.getElementById('s4-correct-snd').currentTime=0; document.getElementById('s4-correct-snd').play().catch(()=>{}); }
+        function s4_ng() { document.getElementById('s4-wrong-snd').currentTime=0; document.getElementById('s4-wrong-snd').play().catch(()=>{}); }
+
+        function s4_initGame() {
+            s4_idx = 0;
+            s4_load();
+        }
+
+        function s4_load() {
+            if (s4_idx >= s4_gameData.length) {
+                s4_popup('✨ 제단이 찬란한 황금빛으로 물들며, 밤하늘에 별빛 길이 열립니다.', '별빛 길을 따라 가기', () => goToStage(5));
+                return;
+            }
+            const d = s4_gameData[s4_idx];
+            document.getElementById('s4-altar-fest').innerText = d.fest;
+            document.getElementById('s4-altar-country').innerText = '나라: ?';
+            document.getElementById('s4-altar-country').className = 'country-name';
+            document.getElementById('s4-step1').style.display = 'block';
+            document.getElementById('s4-step2').style.display = 'none';
+            document.getElementById('s4-step3').style.display = 'none';
+
+            const countryBtns = document.getElementById('s4-country-btns');
+            countryBtns.innerHTML = '';
+            const countries = ['부여','고구려','옥저','동예','삼한'].sort(() => Math.random() - 0.5);
+            countries.forEach(c => {
+                const btn = document.createElement('button');
+                btn.className = 'country-btn';
+                btn.innerText = c;
+                btn.onclick = function() { s4_checkCountry(c, btn); };
+                countryBtns.appendChild(btn);
+            });
+
+            for (let i = 0; i < 4; i++) {
+                const dot = document.getElementById('s4-dot-' + i);
+                if (dot) dot.classList.toggle('active', i === s4_idx);
+            }
+
+            const cards = document.getElementById('s4-cards');
+            cards.innerHTML = '';
+            [...s4_lifeStyles].sort(() => Math.random() - 0.5).forEach(life => {
+                const card = document.createElement('div');
+                card.className = 'lifestyle-card';
+                card.dataset.id = life.id;
+                card.innerText = life.title;
+                cards.appendChild(card);
+                s4_drag(card);
+            });
+        }
+
+        function s4_checkCountry(selected, btn) {
+            if (selected === s4_gameData[s4_idx].country) {
+                btn.classList.add('correct');
+                const box = document.getElementById('s4-altar-country');
+                box.innerText = '나라: ' + selected;
+                box.classList.add('solved');
+                s4_ok();
+                setTimeout(() => {
+                    document.getElementById('s4-step1').style.display = 'none';
+                    document.getElementById('s4-step2').style.display = 'block';
+                }, 600);
+            } else {
+                btn.classList.add('wrong');
+                s4_ng();
+                setTimeout(() => btn.classList.remove('wrong'), 400);
+            }
+        }
+
+        function s4_drag(el) {
+            let dragging = false, sx, sy, cx = 0, cy = 0, ix = 0, iy = 0;
+            const altar = document.getElementById('s4-altar-zone');
+            el.addEventListener('pointerdown', e => {
+                dragging = true; el.setPointerCapture(e.pointerId);
+                sx = e.clientX; sy = e.clientY;
+                el.style.transition = 'none'; el.classList.add('dragging');
+            });
+            el.addEventListener('pointermove', e => {
+                if (!dragging) return; e.preventDefault();
+                cx = ix + e.clientX - sx; cy = iy + e.clientY - sy;
+                el.style.transform = `translate3d(${cx}px,${cy}px,0)`;
+            });
+            el.addEventListener('pointerup', e => {
+                if (!dragging) return;
+                dragging = false; el.releasePointerCapture(e.pointerId); el.classList.remove('dragging');
+                ix = cx; iy = cy;
+                const cr = el.getBoundingClientRect();
+                const ar = altar.getBoundingClientRect();
+                const dist = Math.hypot(
+                    (cr.left + cr.width/2) - (ar.left + ar.width/2),
+                    (cr.top + cr.height/2) - (ar.top + ar.height/2)
+                );
+                if (dist < 120) {
+                    if (el.dataset.id === s4_gameData[s4_idx].lifeId) {
+                        const ox = (ar.left + ar.width/2) - (cr.left - cx) - cr.width/2;
+                        const oy = (ar.top + ar.height/2) - (cr.top - cy) - cr.height/2;
+                        el.style.transition = 'all 0.4s ease-in';
+                        el.style.transform = `translate3d(${ox}px,${oy}px,0) scale(0.1)`;
+                        el.style.opacity = '0'; el.style.pointerEvents = 'none';
+                        altar.classList.add('flare'); s4_ok();
+                        setTimeout(() => {
+                            altar.classList.remove('flare');
+                            document.getElementById('s4-step2').style.display = 'none';
+                            s4_step3();
+                        }, 1000);
+                    } else {
+                        showToast('이 풍습은 이 나라의 것이 아닙니다!');
+                        s4_ng();
+                        el.style.transition = 'transform 0.4s ease'; el.style.transform = 'translate3d(0,0,0)';
+                        ix = 0; iy = 0;
+                    }
+                } else {
+                    el.style.transition = 'transform 0.4s ease'; el.style.transform = 'translate3d(0,0,0)';
+                    ix = 0; iy = 0;
+                }
+            });
+        }
+
+        function s4_step3() {
+            document.getElementById('s4-step3').style.display = 'block';
+            const descs = document.getElementById('s4-descs');
+            descs.innerHTML = '';
+            const correct = s4_gameData[s4_idx].desc;
+            const wrongs = s4_descPool.filter(d => d !== correct).sort(() => Math.random()-0.5).slice(0,2);
+            [...[correct, ...wrongs]].sort(() => Math.random()-0.5).forEach(desc => {
+                const btn = document.createElement('button');
+                btn.className = 'desc-btn'; btn.innerText = desc;
+                btn.onclick = () => {
+                    if (desc === correct) {
+                        btn.classList.add('correct'); s4_ok();
+                        setTimeout(() => { s4_idx++; s4_load(); }, 800);
+                    } else {
+                        btn.classList.add('wrong'); s4_ng();
+                        setTimeout(() => btn.classList.remove('wrong'), 400);
+                    }
+                };
+                descs.appendChild(btn);
+            });
+        }
+
+/* ── STAGE 5 JS ── */
+const s5_piecesData = [
+    { text: '불교 수용', king: 'sosurim' },
+    { text: '율령 반포', king: 'sosurim' },
+    { text: '태학 설립', king: 'sosurim' },
+    { text: '만주 정복', king: 'gwanggaeto' },
+    { text: '신라 구원', king: 'gwanggaeto' },
+    { text: '평양 천도', king: 'jangsu' },
+    { text: '한성 함락', king: 'jangsu' }
+];
+let s5_placedCount = 0;
+let s5_popupCallback = null;
+
+function s5_showPopup(msg, cb) {
+    document.getElementById('popup-msg-s5').innerHTML = msg;
+    document.getElementById('custom-popup-s5').style.display = 'flex';
+    s5_popupCallback = cb;
+    document.getElementById('popup-confirm-s5').onclick = function() {
+        document.getElementById('custom-popup-s5').style.display = 'none';
+        if (s5_popupCallback) s5_popupCallback();
+    };
+}
+
+function s6_stylePopup(msg, cb) {
+    document.getElementById('popup-msg-s5b').innerHTML = msg;
+    document.getElementById('custom-popup-s5b').style.display = 'flex';
+    document.getElementById('popup-confirm-s5b').onclick = function() {
+        document.getElementById('custom-popup-s5b').style.display = 'none';
+        if (cb) cb();
+    };
+}
+
+function s5_initGame() {
+    const piecesArea = document.getElementById('pieces-area');
+    piecesArea.innerHTML = '';
+    piecesArea.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;justify-content:center;background:rgba(0,0,0,0.4);padding:15px;border-radius:12px;border:1px solid #333;min-height:80px;position:relative;';
+    s5_placedCount = 0;
+
+    document.querySelectorAll('#stage5-wrapper .s5-slot').forEach(slot => {
+        slot.innerHTML = '';
+    });
+
+    const shuffled = [...s5_piecesData].sort(() => Math.random() - 0.5);
+
+    shuffled.forEach((piece) => {
+        const el = document.createElement('div');
+        el.style.cssText = 'background:#34495e;color:#ecf0f1;border:2px solid #2c3e50;padding:8px 12px;border-radius:6px;font-size:15px;font-weight:bold;box-shadow:2px 4px 8px rgba(0,0,0,0.6);cursor:pointer;text-align:center;touch-action:none;display:inline-flex;justify-content:center;align-items:center;';
+        el.innerText = piece.text;
+        el.dataset.king = piece.king;
+        el.dataset.placed = 'false';
+        piecesArea.appendChild(el);
+        s5_makeDraggable(el);
+    });
+}
+
+function s5_makeDraggable(el) {
+    let isDragging = false;
+    let startX, startY, cx = 0, cy = 0, ix = 0, iy = 0;
+
+    el.addEventListener('pointerdown', e => {
+        if (el.dataset.placed === 'true') return;
+        isDragging = true;
+        el.setPointerCapture(e.pointerId);
+        startX = e.clientX; startY = e.clientY;
+        el.style.transition = 'none';
+        el.style.zIndex = '100';
+        el.style.position = 'relative';
+    });
+
+    el.addEventListener('pointermove', e => {
+        if (!isDragging) return;
+        e.preventDefault();
+        cx = ix + e.clientX - startX;
+        cy = iy + e.clientY - startY;
+        el.style.transform = `translate3d(${cx}px,${cy}px,0)`;
+    });
+
+    el.addEventListener('pointerup', e => {
+        if (!isDragging) return;
+        isDragging = false;
+        el.releasePointerCapture(e.pointerId);
+        el.style.zIndex = '';
+        ix = cx; iy = cy;
+
+        let dropped = false;
+        document.querySelectorAll('#stage5-wrapper .s5-slot').forEach(slot => {
+            if (slot.children.length > 0) return;
+            const r = slot.getBoundingClientRect();
+            if (e.clientX >= r.left && e.clientX <= r.right &&
+                e.clientY >= r.top  && e.clientY <= r.bottom) {
+
+                if (el.dataset.king === slot.dataset.king) {
+                    slot.appendChild(el);
+                    el.dataset.placed = 'true';
+                    el.style.cssText = 'width:100%;height:100%;background:transparent;color:#f1c40f;font-size:16px;font-weight:bold;border:none;box-shadow:none;padding:0;display:flex;justify-content:center;align-items:center;text-shadow:0 0 10px rgba(241,196,15,0.5);transform:none;cursor:default;';
+                    try { document.getElementById('s5_stoneHitSound').currentTime=0; document.getElementById('s5_stoneHitSound').play(); } catch(err){}
+                    s5_placedCount++;
+                    if (s5_placedCount === s5_piecesData.length) {
+                        setTimeout(() => {
+                            try { document.getElementById('s5_correctSound').play(); } catch(err){}
+                            s5_showPopup("⚔️ 고구려 왕들의 기상이 비석 위로 되살아납니다!<br><br>드넓은 만주 벌판을 가로지른 고구려의 함성이 하늘을 찌릅니다.<br>저 멀리 웅진의 땅에서 아련한 목소리가 들려옵니다.", () => {
+                                s6_stylePopup("저 멀리 웅진의 땅에서 아련한 목소리가 들려옵니다.", () => { goToStage(6); });
+                            });
+                        }, 500);
+                    }
+                } else {
+                    try { document.getElementById('s5_wrongSound').currentTime=0; document.getElementById('s5_wrongSound').play(); } catch(err){}
+                    showToast('장수왕이 고개를 젓습니다. 그것은 그 분의 업적이 아닙니다!');
+                    el.style.transition = 'transform 0.4s ease';
+                    el.style.transform = 'translate3d(0,0,0)';
+                    ix = 0; iy = 0;
+                    setTimeout(() => { el.style.transition = 'none'; }, 400);
+                }
+                dropped = true;
+            }
+        });
+
+        if (!dropped) {
+            el.style.transition = 'transform 0.4s ease';
+            el.style.transform = 'translate3d(0,0,0)';
+            ix = 0; iy = 0;
+            setTimeout(() => { el.style.transition = 'none'; }, 400);
+        }
+    });
+}
+
+/* ── STAGE 6 JS ── */
+
+        let s6_popupCallback = null; 
+        function s6_showPopup(message, callback) {
+            document.getElementById('popup-msg-s6').innerHTML = message;
+            document.getElementById('custom-popup-s6').style.display = 'flex';
+            s6_popupCallback = callback;
+        }
+
+        function s7_stylePopup(msg, cb) {
+            document.getElementById('popup-msg-s6b').innerHTML = msg;
+            document.getElementById('custom-popup-s6b').style.display = 'flex';
+            document.getElementById('popup-confirm-s6b').onclick = function() {
+                document.getElementById('custom-popup-s6b').style.display = 'none';
+                if (cb) cb();
+            };
+        }
+
+        let s6_clickSound;
+        let s6_correctSound;
+        let s6_wrongSound;
+
+        const s6_wordsData = [
+            '근초고왕', '나제동맹', '개로왕', '웅진', '사비', '진흥왕', 
+            '고국원왕', '무령왕', '한성', '소수림왕' 
+        ];
+
+        let s6_placedCount = 0;
+        const s6_totalBlanks = 6;
+
+        function s6_initGame() {
+            s6_clickSound = document.getElementById('s6_clickSound');
+            s6_correctSound = document.getElementById('s6_correctSound');
+            s6_wrongSound = document.getElementById('s6_wrongSound');
+            document.getElementById('popup-confirm-s6').onclick = function() {
+                document.getElementById('custom-popup-s6').style.display = 'none';
+                if (s6_popupCallback) s6_popupCallback();
+            };
+            const wordBank = document.getElementById('word-bank');
+            wordBank.innerHTML = '';
+            s6_placedCount = 0;
+
+            const shuffledWords = [...s6_wordsData].sort(() => Math.random() - 0.5);
+            shuffledWords.forEach(word => {
+                const el = document.createElement('div');
+                el.className = 'word-card';
+                el.innerText = word;
+                el.dataset.word = word;
+                wordBank.appendChild(el);
+                s6_makeDraggable(el);
+            });
+        }
+
+        function s6_makeDraggable(el) {
+            let ghost = null, startX, startY, initLeft, initTop;
+
+            el.addEventListener('pointerdown', e => {
+                if (el.classList.contains('s6-used') || el.classList.contains('s6-embedded')) return;
+                e.preventDefault(); e.stopPropagation();
+                el.setPointerCapture(e.pointerId);
+                s6_clickSound.currentTime = 0; s6_clickSound.play().catch(() => {});
+
+                const rect = el.getBoundingClientRect();
+                startX = e.clientX; startY = e.clientY;
+                initLeft = rect.left; initTop = rect.top;
+
+                ghost = document.createElement('div');
+                ghost.innerText = el.innerText;
+                ghost.style.cssText = `
+                    position:fixed; left:0; top:0; margin:0; z-index:9000;
+                    width:${rect.width}px; height:${rect.height}px;
+                    transform:translate(${initLeft}px,${initTop}px) scale(1.08);
+                    background:#2c3e50; color:#f1c40f;
+                    border:2px solid #f1c40f; border-radius:6px;
+                    font-size:13px; font-weight:bold;
+                    display:flex; align-items:center; justify-content:center;
+                    box-shadow:0 10px 25px rgba(0,0,0,0.7);
+                    pointer-events:none; will-change:transform;
+                    user-select:none;
+                `;
+                document.body.appendChild(ghost);
+                el.style.opacity = '0.3';
+            });
+
+            el.addEventListener('pointermove', e => {
+                if (!ghost) return;
+                e.preventDefault();
+                const dx = e.clientX - startX, dy = e.clientY - startY;
+                ghost.style.transform = `translate(${initLeft+dx}px,${initTop+dy}px) scale(1.08)`;
+            });
+
+            el.addEventListener('pointerup', e => {
+                if (!ghost) return;
+                const gx = e.clientX, gy = e.clientY;
+                ghost.remove(); ghost = null;
+                el.style.opacity = '';
+
+                let target = null;
+                document.querySelectorAll('.inline-slot').forEach(slot => {
+                    const r = slot.getBoundingClientRect();
+                    if (!slot.querySelector('.s6-embedded') &&
+                        gx >= r.left && gx <= r.right && gy >= r.top && gy <= r.bottom) target = slot;
+                });
+
+                if (target) {
+                    if (el.dataset.word === target.dataset.answer) {
+                        const embed = document.createElement('div');
+                        embed.className = 'word-card s6-embedded';
+                        embed.innerText = el.innerText;
+                        target.appendChild(embed);
+                        el.classList.add('s6-used');
+                        s6_clickSound.currentTime = 0; s6_clickSound.play().catch(() => {});
+                        s6_placedCount++;
+                        if (s6_placedCount === s6_totalBlanks) {
+                            setTimeout(() => {
+                                s6_correctSound.play().catch(() => {});
+                                s6_showPopup("🏯 한강의 눈물이 금강 물결에 씻겨 내려갑니다.<br><br>백제의 의지가 사비성의 성벽처럼 굳건하게 되살아납니다. 백제의 기운이 온 땅을 감쌉니다.", () => {
+                                    s7_stylePopup("진흥왕의 은은한 미소가 무언가 두려움을 불러옵니다.", () => { goToStage(7); });
+                                });
+                            }, 500);
+                        }
+                    } else {
+                        s6_wrongSound.currentTime = 0; s6_wrongSound.play().catch(() => {});
+                        showToast('❌ 그 자리가 아닙니다! 다시 확인해보세요.');
+                        target.style.borderColor = '#e74c3c';
+                        target.style.backgroundColor = 'rgba(231,76,60,0.2)';
+                        setTimeout(() => {
+                            target.style.borderColor = '#95a5a6';
+                            target.style.backgroundColor = '#ecf0f1';
+                        }, 500);
+                    }
+                }
+            });
+
+            el.addEventListener('pointercancel', () => {
+                if (ghost) { ghost.remove(); ghost = null; }
+                el.style.opacity = '';
+            });
+        }
+
+        /* s6 init by router */
+    
+
+/* ── STAGE 7 JS ── */
+
+        let s7_popupCb = null;
+        function s7_showPopup(msg, cb) { document.getElementById('popup-msg-s7').innerHTML = msg; document.getElementById('custom-popup-s7').style.display = 'flex'; s7_popupCb = cb; }
+
+        let s7_stoneSnd; 
+        let s7_boingSnd;
+        let s7_chimeSnd;
+
+        const s7_data = [
+            { text: '국호 신라 사용', k: '지증왕' }, { text: '왕 칭호 사용', k: '지증왕' }, { text: '우산국 정벌', k: '지증왕' },
+            { text: '율령 반포', k: '법흥왕' }, { text: '불교 공인', k: '법흥왕' }, { text: '금관가야 병합', k: '법흥왕' },
+            { text: '화랑도 개편', k: '진흥왕' }, { text: '황룡사 건립', k: '진흥왕' }, { text: '한강 차지', k: '진흥왕' }, { text: '대가야 병합', k: '진흥왕' }
+        ];
+        
+        let s7_currentKingStage = '지증왕';
+
+        function s7_init() {
+            s7_stoneSnd = document.getElementById('s7_stoneSound');
+            s7_boingSnd = document.getElementById('s7_wrongSound');
+            s7_chimeSnd = document.getElementById('s7_chimeSound');
+            s7_currentKingStage = '지증왕';
+            document.getElementById('popup-confirm-s7').onclick = () => {
+                document.getElementById('custom-popup-s7').style.display = 'none';
+                if(s7_popupCb) s7_popupCb();
+            };
+            document.querySelectorAll('.floor').forEach(fl => {
+                fl.innerHTML = '';
+                fl.style.background = '';
+                fl.style.borderStyle = '';
+                fl.classList.remove('active-floor');
+            });
+            document.querySelector('.floor[data-king="지증왕"]').classList.add('active-floor');
+
+            const area = document.getElementById('bricks-area');
+            area.innerHTML = '';
+            const shuffled = [...s7_data].sort(() => Math.random() - 0.5);
+            shuffled.forEach(d => {
+                const el = document.createElement('div');
+                el.className = 'brick';
+                el.innerText = d.text;
+                el.dataset.k = d.k;
+                area.appendChild(el);
+                s7_makeDrag(el);
+            });
+        }
+
+        function s7_makeDrag(el) {
+            let isDragging = false;
+            let startX, startY, cx = 0, cy = 0, ix = 0, iy = 0;
+
+            el.addEventListener('pointerdown', e => {
+                if (el.classList.contains('s7-used')) return;
+                e.preventDefault(); e.stopPropagation();
+                isDragging = true;
+                el.setPointerCapture(e.pointerId);
+                startX = e.clientX; startY = e.clientY;
+                el.style.transition = 'none';
+                el.style.zIndex = '100';
+                s7_stoneSnd.currentTime = 0; s7_stoneSnd.play().catch(() => {});
+            });
+
+            el.addEventListener('pointermove', e => {
+                if (!isDragging) return;
+                e.preventDefault();
+                cx = ix + e.clientX - startX;
+                cy = iy + e.clientY - startY;
+                el.style.transform = `translate3d(${cx}px,${cy}px,0)`;
+            });
+
+            el.addEventListener('pointerup', e => {
+                if (!isDragging) return;
+                isDragging = false;
+                el.releasePointerCapture(e.pointerId);
+                el.style.zIndex = '';
+                ix = cx; iy = cy;
+
+                let target = null;
+                document.querySelectorAll('.floor').forEach(fl => {
+                    const r = fl.getBoundingClientRect();
+                    if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) target = fl;
+                });
+
+                if (!target) return;
+
+                if (target.dataset.king !== s7_currentKingStage) {
+                    s7_boingSnd.currentTime = 0; s7_boingSnd.play().catch(() => {});
+                    showToast('돌이 굴러떨어집니다! 아래층부터 탄탄하게 쌓아 올리세요.');
+                    el.style.transition = 'transform 0.4s ease';
+                    el.style.transform = 'translate3d(0,0,0)'; ix = 0; iy = 0;
+                    setTimeout(() => { el.style.transition = 'none'; }, 400);
+                    return;
+                }
+
+                if (target.dataset.king !== el.dataset.k) {
+                    s7_boingSnd.currentTime = 0; s7_boingSnd.play().catch(() => {});
+                    showToast('맞지 않는 돌입니다! 이 시대의 업적이 아닙니다.');
+                    el.style.transition = 'transform 0.4s ease';
+                    el.style.transform = 'translate3d(0,0,0)'; ix = 0; iy = 0;
+                    setTimeout(() => { el.style.transition = 'none'; }, 400);
+                    return;
+                }
+
+                const embed = document.createElement('div');
+                embed.className = 'brick s7-embedded';
+                embed.innerText = el.innerText;
+                target.appendChild(embed);
+                el.classList.add('s7-used');
+                el.style.transform = 'none'; ix = 0; iy = 0;
+                s7_stoneSnd.currentTime = 0; s7_stoneSnd.play().catch(() => {});
+
+                const filled = target.querySelectorAll('.s7-embedded').length;
+                if (filled >= parseInt(target.dataset.target)) {
+                    target.classList.remove('active-floor');
+                    target.style.background = 'rgba(46,204,113,0.35)';
+                    target.style.borderStyle = 'solid';
+
+                    if (s7_currentKingStage === '지증왕') {
+                        s7_currentKingStage = '법흥왕';
+                        document.querySelector('.floor[data-king="법흥왕"]').classList.add('active-floor');
+                    } else if (s7_currentKingStage === '법흥왕') {
+                        s7_currentKingStage = '진흥왕';
+                        document.querySelector('.floor[data-king="진흥왕"]').classList.add('active-floor');
+                    } else if (s7_currentKingStage === '진흥왕') {
+                        setTimeout(() => {
+                            s7_chimeSnd.play().catch(() => {});
+                            s7_showPopup("우뚝 솟은 탑 꼭대기에 진흥왕 순수비가 세워지며, 대기만성의 역사가 마침내 완성되었습니다.", (cb) => { goToStage(8); });
+                            document.getElementById('popup-confirm-s7').innerText = '신라의 운명은 어찌될 것인가?';
+                            document.getElementById('popup-confirm-s7').onclick = () => {
+                                document.getElementById('custom-popup-s7').style.display = 'none';
+                                goToStage(8);
+                            };
+                        }, 500);
+                    }
+                }
+            });
+        }
+    
+
+/* ── STAGE 8 JS ── */
+
+        let s8_popupCb = null;
+        function s8_showPopup(msg, cb) { document.getElementById('popup-msg-s8').innerHTML = msg; document.getElementById('custom-popup-s8').style.display = 'flex'; s8_popupCb = cb; }
+
+        let s8_stoneSnd; 
+        let s8_wrongSnd;
+        let s8_chimeSnd;
+
+        const s8_nations = ['돌궐', '고구려', '백제', '왜', '수·당', '신라', '거란', '말갈'];
+        let s8_placedCount = 0;
+
+        function s8_init() {
+            s8_stoneSnd = document.getElementById('s8_stoneSnd');
+            s8_wrongSnd = document.getElementById('s8_wrongSnd');
+            s8_chimeSnd = document.getElementById('s8_chimeSnd');
+            s8_placedCount = 0;
+            document.getElementById('popup-confirm-s8').onclick = () => {
+                document.getElementById('custom-popup-s8').style.display = 'none';
+                if(s8_popupCb) s8_popupCb();
+            };
+            document.querySelectorAll('.s8-slot').forEach(sl => {
+                sl.innerHTML = ''; sl.classList.remove('s8-filled');
+            });
+            const area = document.getElementById('cards-area');
+            area.innerHTML = '';
+            const shuffled = [...s8_nations].sort(() => Math.random() - 0.5);
+            shuffled.forEach(nation => {
+                const el = document.createElement('div');
+                el.className = 'nation-card';
+                el.innerText = nation;
+                el.dataset.nation = nation;
+                area.appendChild(el);
+                s8_makeDrag(el);
+            });
+        }
+
+        function s8_makeDrag(el) {
+            let ghost = null, startX, startY, initLeft, initTop;
+
+            el.addEventListener('pointerdown', e => {
+                if (el.classList.contains('s8-used')) return;
+                e.preventDefault(); e.stopPropagation();
+                el.setPointerCapture(e.pointerId);
+
+                const rect = el.getBoundingClientRect();
+                startX = e.clientX; startY = e.clientY;
+                initLeft = rect.left; initTop = rect.top;
+
+                ghost = document.createElement('div');
+                ghost.innerText = el.innerText;
+                ghost.style.cssText = `
+                    position:fixed; left:0; top:0; margin:0; z-index:9000;
+                    width:${rect.width}px; height:${rect.height}px;
+                    transform:translate(${initLeft}px,${initTop}px) scale(1.08);
+                    background:#2c3e50; color:#fff;
+                    border:2px solid #f1c40f; border-radius:6px;
+                    font-size:15px; font-weight:bold;
+                    display:flex; align-items:center; justify-content:center;
+                    box-shadow:0 10px 25px rgba(0,0,0,0.7);
+                    pointer-events:none; will-change:transform;
+                    user-select:none;
+                `;
+                document.body.appendChild(ghost);
+                el.style.opacity = '0.3';
+            });
+
+            el.addEventListener('pointermove', e => {
+                if (!ghost) return;
+                e.preventDefault();
+                const dx = e.clientX - startX, dy = e.clientY - startY;
+                ghost.style.transform = `translate(${initLeft+dx}px,${initTop+dy}px) scale(1.08)`;
+            });
+
+            el.addEventListener('pointerup', e => {
+                if (!ghost) return;
+                const gx = e.clientX, gy = e.clientY;
+                ghost.remove(); ghost = null;
+                el.style.opacity = '';
+
+                let target = null;
+                document.querySelectorAll('.s8-slot').forEach(slot => {
+                    const r = slot.getBoundingClientRect();
+                    if (!slot.classList.contains('s8-filled') &&
+                        gx >= r.left && gx <= r.right && gy >= r.top && gy <= r.bottom) target = slot;
+                });
+
+                if (target && target.dataset.ans === el.dataset.nation) {
+                    const embed = document.createElement('div');
+                    embed.className = 'nation-card s8-embedded';
+                    embed.innerText = el.innerText;
+                    target.appendChild(embed);
+                    target.classList.add('s8-filled');
+                    el.classList.add('s8-used');
+                    s8_stoneSnd.currentTime = 0; s8_stoneSnd.play().catch(() => {});
+                    s8_placedCount++;
+                    if (s8_placedCount === 6) {
+                        setTimeout(() => {
+                            s8_chimeSnd.play().catch(() => {});
+                            s8_showPopup("동서와 남북으로 교차하는 거대한 동아시아의 외교망이 완성되었습니다. 전운이 감도는 가운데, 거대한 전쟁의 서막이 오릅니다.", () => { goToStage(9); });
+                            document.getElementById('popup-confirm-s8').innerText = '당신의 선택이 역사를 좌우할 것이다';
+                            document.getElementById('popup-confirm-s8').onclick = () => {
+                                document.getElementById('custom-popup-s8').style.display = 'none';
+                                goToStage(9);
+                            };
+                        }, 500);
+                    }
+                } else if (target) {
+                    s8_wrongSnd.currentTime = 0; s8_wrongSnd.play().catch(() => {});
+                    showToast('외교축이 엇갈렸소! 그 위치는 잘못되었습니다.');
+                }
+            });
+        }
+    
+
+/* ── STAGE 9 JS ── */
+
+        const s9_scenarios = [
+            {
+                bridge: "🌋 589년 — 수나라가 중국을 통일하더니, 고구려에 무례한 복속 요구 국서를 보내왔습니다. 고구려 조정에 긴장이 감돕니다.",
+                speaker: "영양왕",
+                text: "\"저들이 전열을 가다듬고 우리를 압박해오기 전에, 우리가 먼저 행동을 보여주어야 한다. 어찌 하겠느냐?\"",
+                choices: [
+                    { text: "국경을 굳게 닫고 저들이 화가 풀릴 때까지 기다린다.", correct: false },
+                    { text: "저들의 준비가 끝나기 전, 먼저 국경을 넘어 요서 지방을 공격한다.", correct: true },
+                    { text: "화친의 의미로 요동 땅 일부를 떼어주는 문서를 보낸다.", correct: false }
+                ]
+            },
+            {
+                bridge: "⚔️ 612년 — 분노한 수 양제가 무려 113만 대군을 몰고 고구려 땅을 밟았습니다. 하지만 견고한 성벽에 막히고 식량마저 떨어지자, 30만 별동대를 따로 편성해 평양성을 직접 노리기 시작합니다. 을지문덕이 눈을 빛냅니다.",
+                speaker: "을지문덕",
+                text: "\"적들이 굶주림에 지쳐 후퇴하고 있습니다. 지형지물을 이용해 저들을 한꺼번에 칠 기회입니다. 어디서 승부를 보겠습니까?\"",
+                choices: [
+                    { text: "산맥 속에 매복하여 적들이 지나갈 때 화살을 퍼붓는다.", correct: false },
+                    { text: "평양성 앞 벌판에서 정면으로 맞서 싸워 기개를 보여준다.", correct: false },
+                    { text: "적들이 큰 강을 절반쯤 건너 방비가 허술해진 틈을 노린다.", correct: true }
+                ]
+            },
+            {
+                bridge: "🏰 631년 — 살수에서의 대패로 수나라는 무너졌습니다. 그러나 새롭게 들어선 당나라는 전임자보다 훨씬 치밀하고 냉혹합니다. 연개소문이 정변을 일으켜 권력을 잡고, 요동 벌판에 서서 하늘을 올려다봅니다.",
+                speaker: "연개소문",
+                text: "\"당나라의 침략에 대비해 요동의 주요 거점들을 잇는 거대한 방어벽을 세워야 하오. 장기전을 준비해야 하네.\"",
+                choices: [
+                    { text: "천 리에 달하는 거대한 성벽을 쌓아 국경 수비를 강화한다.", correct: true },
+                    { text: "성벽을 허물고 적을 영토 깊숙이 유인하여 싸운다.", correct: false },
+                    { text: "당나라 태종에게 충성을 맹세하고 조공을 늘려 마음을 돌린다.", correct: false }
+                ]
+            },
+            {
+                bridge: "🔥 645년 — 당 태종이 직접 갑옷을 입고 대군을 이끌어 쳐들어왔습니다. 요동의 성들이 하나둘 무너지고, 마지막 거점 안시성에 다다랐습니다. 성 안의 군민들이 숨을 죽이고 성주의 명령을 기다립니다.",
+                speaker: "안시성 성주",
+                text: "\"적들이 성 높이보다 높은 흙산을 쌓아 우리를 내려다보려 합니다. 절체절명의 위기입니다.\"",
+                choices: [
+                    { text: "밤을 틈타 성문을 열고 적진으로 돌격하여 자폭한다.", correct: false },
+                    { text: "적의 흙산을 빼앗아 오히려 우리의 방어 기지로 삼고 저항한다.", correct: true },
+                    { text: "더 높은 성벽을 쌓아 올리며 적이 지치기를 기다린다.", correct: false }
+                ]
+            },
+            {
+                bridge: "💔 648년 — 고구려가 당나라를 막아내는 사이, 한반도 남쪽에선 백제의 의자왕이 신라를 향해 파죽지세로 밀어붙이고 있습니다. 신라는 40여 개의 성을 빼앗기고 절벽 끝에 몰렸습니다. 김춘추가 홀로 밤바다를 바라봅니다.",
+                speaker: "김춘추",
+                text: "\"백제에게 빼앗긴 땅을 되찾지 못하면 신라의 미래는 없습니다. 어제의 적일지라도 도움을 청해야 합니다.\"",
+                choices: [
+                    { text: "백제의 의자왕을 찾아가 무릎을 꿇고 화친을 간청한다.", correct: false },
+                    { text: "가야의 옛 땅으로 숨어 들어가 훗날을 기약한다.", correct: false },
+                    { text: "북쪽의 고구려로 건너가 군사 원조를 요청하는 협상을 한다.", correct: true }
+                ]
+            },
+            {
+                bridge: "🌊 648년 겨울 — 고구려는 영토 반환이라는 조건을 내걸며 협상을 냉정히 거절했습니다. 홀로 돌아온 김춘추, 그의 눈빛이 달라졌습니다. 이제 선택지는 단 하나, 대륙의 거인과 손을 잡는 것뿐입니다.",
+                speaker: "김춘추 (독백)",
+                text: "\"고구려마저 우리를 외면했구나. 이제 바다 건너 대국과 손을 잡아 새로운 세력을 형성해야만 한다.\"",
+                choices: [
+                    { text: "당나라와 손을 잡고 백제와 고구려를 압박하는 나당 연합을 맺는다.", correct: true },
+                    { text: "왜(일본)에 사신을 보내 신라를 보호해달라고 요청한다.", correct: false },
+                    { text: "혼자만의 힘으로 고구려와 백제를 동시에 상대하기로 결심한다.", correct: false }
+                ]
+            }
+        ];
+
+        let s9_currentStep = 0;
+        let s9_correctSnd;
+        let s9_wrongSnd;
+
+        function s9_showPopup(msg, cb) {
+            document.getElementById('popup-msg-s9').innerHTML = msg;
+            document.getElementById('custom-popup-s9').style.display = 'flex';
+            document.getElementById('popup-confirm-s9').onclick = () => {
+                document.getElementById('custom-popup-s9').style.display = 'none';
+                if(cb) cb();
+            };
+        }
+
+        function s9_renderScenario() {
+            if(!s9_correctSnd) s9_correctSnd = document.getElementById('s9_correctSnd');
+            if(!s9_wrongSnd)   s9_wrongSnd   = document.getElementById('s9_wrongSnd');
+            if(s9_currentStep >= s9_scenarios.length) {
+                s9_showPopup("🌟 당나라와의 연합이 성사되었습니다.<br><br>이제 한반도에는 거대한 통일 전쟁의 폭풍이 휘몰아칠 것입니다.", () => { goToStage(10); });
+                document.getElementById('popup-confirm-s9').innerText = '통일의 올바른 길로 나아가기';
+                document.getElementById('popup-confirm-s9').onclick = () => {
+                    document.getElementById('custom-popup-s9').style.display = 'none';
+                    goToStage(10);
+                };
+                return;
+            }
+
+            const s = s9_scenarios[s9_currentStep];
+            document.getElementById('p-fill').style.width = `${(s9_currentStep / s9_scenarios.length) * 100}%`;
+            
+            const bridgeEl = document.getElementById('bridge-text');
+            bridgeEl.style.animation = 'none';
+            bridgeEl.offsetHeight;
+            bridgeEl.style.animation = '';
+            bridgeEl.innerText = s.bridge;
+
+            document.getElementById('speaker-name').innerText = s.speaker;
+            document.getElementById('dialogue-text').innerText = s.text;
+
+            const choiceArea = document.getElementById('choice-area');
+            choiceArea.innerHTML = '';
+
+            s.choices.forEach(c => {
+                const btn = document.createElement('div');
+                btn.className = 'choice-btn';
+                btn.innerText = c.text;
+                btn.onclick = () => {
+                    choiceArea.querySelectorAll('.choice-btn').forEach(b => b.style.pointerEvents = 'none');
+
+                    if(c.correct) {
+                        btn.classList.add('s9-correct');
+                        s9_correctSnd.currentTime = 0; s9_correctSnd.play().catch(()=>{});
+                        setTimeout(() => {
+                            s9_currentStep++;
+                            s9_renderScenario();
+                        }, 800);
+                    } else {
+                        btn.classList.add('s9-wrong');
+                        s9_wrongSnd.currentTime = 0; s9_wrongSnd.play().catch(()=>{});
+                        setTimeout(() => {
+                            choiceArea.querySelectorAll('.choice-btn').forEach(b => {
+                                b.style.pointerEvents = '';
+                                b.classList.remove('s9-wrong');
+                            });
+                            showToast('그 선택은 역사를 비극으로 몰아넣었습니다. 다시 판단하세요!');
+                        }, 800);
+                    }
+                };
+                choiceArea.appendChild(btn);
+            });
+        }
+    
+
+/* ── STAGE 10 JS ── */
+
+        let s10_currentStep = 1;
+        let s10_successSnd;
+        let s10_failSnd;
+        let s10_lockSnd;
+
+        const s10_piecesData = [
+            { text: "신라·당 연합군이 계백의 결사대를 황산벌에서 물리쳤다.", ans: "hwangsan" },
+            { text: "나·당 연합군이 사비성을 함락하고 백제를 멸망시켰다.", ans: "baekje_fall" },
+            { text: "백제 부흥군과 왜의 연합 수군이 백강에서 당나라 수군에 패배했다.", ans: "baekgang" },
+            { text: "나·당 연합군이 평양성을 함락하고 고구려를 멸망시켰다.", ans: "goguryeo_fall" },
+            { text: "신라군이 매소성에서 당나라 20만 대군을 격파했다.", ans: "maeso" },
+            { text: "신라 수군이 기벌포에서 당나라 수군을 크게 물리쳤다.", ans: "gibeolpo" },
+            { text: "신라가 당나라 세력을 완전히 몰아내고 삼국통일을 이룩했다.", ans: "unification" }
+        ];
+
+        function s10_showPopup(msg, btnText, cb, showForm = false) {
+            document.getElementById('popup-msg-s10').innerHTML = msg;
+            const confirmBtn = document.getElementById('popup-confirm-s10');
+            confirmBtn.innerText = btnText;
+            document.getElementById('custom-popup-s10').style.display = 'flex';
+            
+            if(showForm) { const fb = document.getElementById('form-btn'); if(fb) fb.style.display = 'block'; }
+
+            confirmBtn.onclick = () => {
+                document.getElementById('custom-popup-s10').style.display = 'none';
+                if(cb) cb();
+            };
+        }
+
+        function s10_init() {
+            s10_successSnd = document.getElementById('s10_successSnd');
+            s10_failSnd    = document.getElementById('s10_failSnd');
+            s10_lockSnd    = document.getElementById('s10_lockSnd');
+            s10_currentStep = 1;
+            document.querySelector('.s10-container').style.display = '';
+            document.getElementById('ending-screen').style.display = 'none';
+            document.querySelectorAll('.time-slot').forEach(sl => {
+                sl.innerHTML = ''; sl.classList.remove('filled');
+            });
+            const box = document.getElementById('piece-box');
+            box.innerHTML = '';
+
+            requestAnimationFrame(() => {
+                const firstSlot = document.querySelector('.time-slot');
+                const piecesCol = document.getElementById('piece-box');
+                if (firstSlot && piecesCol) {
+                    const slotTop = firstSlot.getBoundingClientRect().top;
+                    const colTop  = piecesCol.getBoundingClientRect().top;
+                    const diff = slotTop - colTop;
+                    piecesCol.style.paddingTop = Math.max(0, diff) + 'px';
+                }
+
+                const shuffled = [...s10_piecesData].sort(() => Math.random() - 0.5);
+                shuffled.forEach(p => {
+                    const el = document.createElement('div');
+                    el.className = 'event-piece';
+                    el.innerText = p.text;
+                    el.dataset.ans = p.ans;
+                    box.appendChild(el);
+                    s10_makeDrag(el);
+                });
+            });
+        }
+
+        function s10_makeDrag(el) {
+            let ghost = null, startX, startY, initLeft, initTop;
+
+            el.addEventListener('pointerdown', e => {
+                if (el.classList.contains('s10-used')) return;
+                e.preventDefault(); e.stopPropagation();
+                el.setPointerCapture(e.pointerId);
+
+                const rect = el.getBoundingClientRect();
+                startX = e.clientX; startY = e.clientY;
+                initLeft = rect.left; initTop = rect.top;
+
+                ghost = document.createElement('div');
+                ghost.innerText = el.innerText;
+                ghost.style.cssText = `
+                    position:fixed; left:0; top:0; margin:0; pointer-events:none; z-index:9000;
+                    width:${rect.width}px; height:${rect.height}px;
+                    transform:translate(${initLeft}px,${initTop}px) scale(1.05);
+                    background:#2c3e50; color:#ecf0f1;
+                    border:2px solid #f1c40f; border-radius:6px;
+                    font-size:14px; font-weight:bold;
+                    display:flex; align-items:center; justify-content:center;
+                    text-align:center; word-break:keep-all; padding:6px 8px;
+                    box-shadow:0 10px 25px rgba(0,0,0,0.7);
+                    will-change:transform; user-select:none; line-height:1.4;
+                `;
+                document.body.appendChild(ghost);
+                el.style.opacity = '0.3';
+            });
+
+            el.addEventListener('pointermove', e => {
+                if (!ghost) return;
+                e.preventDefault();
+                ghost.style.transform = `translate(${initLeft + e.clientX - startX}px,${initTop + e.clientY - startY}px) scale(1.05)`;
+            });
+
+            el.addEventListener('pointerup', e => {
+                if (!ghost) return;
+                const gx = e.clientX, gy = e.clientY;
+                ghost.remove(); ghost = null;
+                el.style.opacity = '';
+                s10_checkDrop(el, gx, gy);
+            });
+        }
+
+        function s10_checkDrop(el, px, py) {
+            let target = null;
+            document.querySelectorAll('.time-slot').forEach(slot => {
+                const r = slot.getBoundingClientRect();
+                if(px >= r.left && px <= r.right && py >= r.top && py <= r.bottom) target = slot;
+            });
+
+            if(target && !target.classList.contains('filled')) {
+                if(parseInt(target.dataset.step) !== s10_currentStep) {
+                    s10_failSnd.play();
+                    showToast("아직 때가 아닙니다! 역사는 순서대로 흐릅니다.");
+                    return;
+                }
+                if(target.dataset.ans === el.dataset.ans) {
+                    s10_lockSnd.play();
+                    const embed = document.createElement('div');
+                    embed.className = 'event-piece s10-embedded';
+                    embed.innerText = el.innerText;
+                    target.appendChild(embed);
+                    target.classList.add('filled');
+                    el.classList.add('s10-used');
+                    s10_currentStep++;
+                    if(s10_currentStep > s10_piecesData.length) s10_triggerEnding();
+                } else {
+                    s10_failSnd.play();
+                    showToast("그 사건은 이 시점이 아닙니다. 다시 생각해보세요!");
+                }
+            }
+        }
+
+        function s10_triggerEnding() {
+            setTimeout(() => {
+                try { s10_successSnd.play(); } catch(e) {}
+                const container = document.querySelector('.s10-container');
+                const ending = document.getElementById('ending-screen');
+
+                container.style.transition = 'opacity 0.5s ease';
+                container.style.opacity = '0';
+                setTimeout(() => {
+                    container.style.display = 'none';
+                    container.style.transition = '';
+                    document.getElementById('ending-phase1').style.display = 'flex';
+                    document.getElementById('ending-phase1').style.opacity = '1';
+                    document.getElementById('ending-phase2').style.display = 'none';
+                    ending.style.opacity = '0';
+                    ending.style.transition = 'none';
+                    ending.style.display = 'flex';
+                    requestAnimationFrame(() => {
+                        ending.style.transition = 'opacity 0.6s ease';
+                        requestAnimationFrame(() => { ending.style.opacity = '1'; });
+                    });
+                }, 500);
+            }, 500);
+        }
+
+/* ── PREVIEW NAV (활성화: URL에 ?preview=true 추가) ── */
+(function() {
+    if (new URLSearchParams(location.search).get('preview') !== 'true') return;
+
+    const stages = [
+        { label: '프롤로그', action: () => {
+            document.querySelectorAll('.stage-wrapper').forEach(w => w.style.display='none');
+            document.querySelectorAll('.stage-container').forEach(c => c.classList.remove('active'));
+            document.body.className = 'bg-prologue';
+            document.getElementById('prologue').classList.add('active');
+            document.getElementById('s4-stars').style.display = 'none';
+            window.scrollTo(0,0);
+        }},
+        { label: 'S1 매머드',  action: () => { document.querySelectorAll('.stage-wrapper').forEach(w=>w.style.display='none'); document.querySelectorAll('.stage-container').forEach(c=>c.classList.remove('active')); document.body.className='bg-stage1'; document.getElementById('stage1').classList.add('active'); initStage1(); window.scrollTo(0,0); }},
+        { label: 'S2 고인돌',  action: () => { document.querySelectorAll('.stage-wrapper').forEach(w=>w.style.display='none'); document.querySelectorAll('.stage-container').forEach(c=>c.classList.remove('active')); document.body.className='bg-stage2'; document.getElementById('stage2').classList.add('active'); initStage2(); window.scrollTo(0,0); }},
+        { label: 'S3 고조선',  action: () => { document.querySelectorAll('.stage-wrapper').forEach(w=>w.style.display='none'); document.querySelectorAll('.stage-container').forEach(c=>c.classList.remove('active')); document.body.className='bg-stage3'; document.getElementById('stage3').classList.add('active'); initStage3(); window.scrollTo(0,0); }},
+        { label: 'S4 제천행사', action: () => goToStage(4) },
+        { label: 'S5 고구려',  action: () => goToStage(5) },
+        { label: 'S6 백제',    action: () => goToStage(6) },
+        { label: 'S7 신라',    action: () => goToStage(7) },
+        { label: 'S8 외교',    action: () => goToStage(8) },
+        { label: 'S9 분기점',  action: () => goToStage(9) },
+        { label: 'S10 통일',   action: () => goToStage(10) },
+        { label: '엔딩',       action: () => {
+            goToStage(10);
+            setTimeout(() => {
+                const container = document.querySelector('.s10-container');
+                const ending = document.getElementById('ending-screen');
+                container.style.display = 'none';
+                ending.style.opacity = '0';
+                ending.style.display = 'flex';
+                ending.style.transition = 'opacity 0.6s ease';
+                document.getElementById('ending-phase1').style.display = 'flex';
+                document.getElementById('ending-phase2').style.display = 'none';
+                requestAnimationFrame(() => { requestAnimationFrame(() => { ending.style.opacity = '1'; }); });
+            }, 400);
+        }},
+    ];
+
+    const nav = document.createElement('div');
+    nav.id = 'preview-nav';
+    nav.style.cssText = `
+        position: fixed; bottom: 0; left: 0; width: 100%; z-index: 99999;
+        background: rgba(0,0,0,0.88); backdrop-filter: blur(6px);
+        display: flex; flex-wrap: wrap; gap: 6px;
+        padding: 8px 10px; justify-content: center;
+        border-top: 1px solid #444;
+    `;
+
+    stages.forEach(s => {
+        const btn = document.createElement('button');
+        btn.innerText = s.label;
+        btn.style.cssText = `
+            background: #2c3e50; color: #f1c40f; border: 1px solid #555;
+            border-radius: 6px; padding: 6px 10px; font-size:14px; font-weight: bold;
+            cursor: pointer; white-space: nowrap;
+        `;
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#preview-nav button').forEach(b => b.style.background = '#2c3e50');
+            btn.style.background = '#8e44ad';
+            s.action();
+        });
+        nav.appendChild(btn);
+    });
+
+    const badge = document.createElement('div');
+    badge.innerText = '🔧 PREVIEW MODE';
+    badge.style.cssText = `
+        position: fixed; top: 8px; right: 8px; z-index: 99999;
+        background: #8e44ad; color: #fff; font-size:12px; font-weight: bold;
+        padding: 4px 10px; border-radius: 20px; pointer-events: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    `;
+    document.body.appendChild(badge);
+    document.body.appendChild(nav);
+
+    document.body.style.paddingBottom = '60px';
+})();
+</script>
+</body>
+</html>
