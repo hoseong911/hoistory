@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>역사 OX 퀴즈 - 관리자 모드</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #ffd1dc, #e0f7fa, #d5ecd4);
+            --glass-bg: rgba(255,255,255,0.45);
+            --glass-border: rgba(255,255,255,0.6);
+            --text-main: #222;
+            --primary-blue: #4a90e2;
+            --primary-red: #e74c3c;
+        }
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background: var(--bg-gradient);
+            min-height: 100vh; margin: 0;
+            display: flex; justify-content: center; align-items: center;
+            color: var(--text-main);
+        }
+        .glass-card {
+            background: var(--glass-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            border-radius: 30px; border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px 0 rgba(31,38,135,0.15);
+            padding: 40px; width: 90%; max-width: 600px;
+            text-align: center; position: relative;
+            max-height: 90vh; overflow-y: auto;
+        }
+        .glass-card::-webkit-scrollbar { display: none; }
+        h1, h2, .jua-font { font-family: 'Jua', sans-serif; font-weight: normal; }
+        h1 { font-size: 1.8rem; margin-bottom: 30px; color: #333; }
+        h1 span.sub-title { font-size: 2.2rem; display: block; margin-top: 8px; color: var(--primary-red); }
+        
+        input[type="password"] {
+            width: 90%; padding: 15px; border-radius: 15px; border: 1px solid #ddd;
+            font-family: 'Pretendard', sans-serif; margin-bottom: 20px; font-size: 1rem;
+            text-align: center; background: rgba(255,255,255,0.9); box-sizing: border-box;
+        }
+        .main-btn {
+            font-family: 'Pretendard', sans-serif; font-size: 1.1rem; font-weight: 800;
+            padding: 15px 30px; border: none; border-radius: 50px; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: all 0.2s ease;
+            color: white; background: linear-gradient(45deg, #a8e6cf, #dcedc1); color: #444;
+        }
+        .main-btn:hover { transform: translateY(-3px); }
+
+        /* 탭 UI 스타일 */
+        .tab-container { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .admin-tab-btn {
+            padding: 10px 20px; border-radius: 20px; border: none;
+            background: rgba(255,255,255,0.6); color: #555;
+            font-family: 'Pretendard', sans-serif; font-weight: 700; cursor: pointer;
+            transition: all 0.2s; font-size: 1rem;
+        }
+        .admin-tab-btn.active { background: #a29bfe; color: white; box-shadow: 0 4px 10px rgba(162, 155, 254, 0.4); }
+        .tab-content { display: none; text-align: left; background: rgba(255,255,255,0.7); border-radius: 20px; padding: 20px; }
+        .tab-content.active { display: block; }
+
+        /* 오답노트 & 랭킹 리스트 스타일 */
+        .list-container { max-height: 400px; overflow-y: auto; }
+        .admin-item {
+            background: rgba(255,255,255,0.9); border-radius: 12px; padding: 12px;
+            margin-bottom: 10px; font-size: 0.95rem; border: 1px solid #eee;
+            display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+        }
+        .admin-note-q { font-size: 0.85rem; color: #888; margin-bottom: 4px; }
+        .admin-note-author { font-weight: bold; color: var(--primary-blue); margin-bottom: 2px; }
+        .del-btn {
+            background: var(--primary-red); color: white; border: none; border-radius: 8px;
+            font-size: 0.8rem; padding: 6px 12px; cursor: pointer; white-space: nowrap; font-weight: 700;
+        }
+        
+        .danger-btn { background: #fab1a0; color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: bold; width: 100%; margin-bottom: 10px; }
+        
+        /* 랭킹 서브 탭 */
+        .rank-tab-btn {
+            font-size:0.85rem; padding:7px 14px; border-radius:20px;
+            border:2px solid #a29bfe; background:white; color:#a29bfe;
+            cursor:pointer; font-weight:700; margin: 0 3px 10px 3px;
+        }
+        .rank-tab-btn.active { background:#a29bfe; color:white; }
+        .admin-rank-num { font-weight:800; color:#a29bfe; width:28px; display:inline-block; }
+
+    </style>
+</head>
+<body>
+
+<div class="glass-card">
+    <div id="login-section">
+        <h1>관리자 모드 <span class="sub-title">인증이 필요합니다 🔑</span></h1>
+        <input type="password" id="admin-pwd" placeholder="비밀번호를 입력하세요" onkeypress="if(event.key === 'Enter') checkPassword()">
+        <button class="main-btn" onclick="checkPassword()">로그인</button>
+        <div style="margin-top:20px;">
+            <button class="main-btn" style="background:#e0e0e0; font-size:0.9rem; padding:10px 20px;" onclick="location.href='index.html'">퀴즈로 돌아가기</button>
+        </div>
+    </div>
+
+    <div id="dashboard-section" style="display: none;">
+        <h1 style="margin-bottom: 20px;">관리자 대시보드 ⚙️</h1>
+        
+        <div class="tab-container">
+            <button class="admin-tab-btn active" onclick="switchTab('tab-notes', this)">X 바로잡기 관리</button>
+            <button class="admin-tab-btn" onclick="switchTab('tab-ranking', this)">랭킹 조회</button>
+            <button class="admin-tab-btn" onclick="switchTab('tab-settings', this)">시스템 설정</button>
+        </div>
+
+        <div id="tab-notes" class="tab-content active">
+            <p style="font-weight:bold; color:#555; margin-top:0;">📋 등록된 친구들의 X 바로잡기</p>
+            <div id="admin-note-list" class="list-container"><p style="color:#aaa;">불러오는 중...</p></div>
+        </div>
+
+        <div id="tab-ranking" class="tab-content">
+            <p style="font-weight:bold; color:#555; margin-top:0; text-align:center;">🏆 문제 수별 랭킹 조회</p>
+            <div style="text-align: center;">
+                <button onclick="loadRanking(30)" id="rank-tab-30" class="rank-tab-btn active">30문제</button>
+                <button onclick="loadRanking(50)" id="rank-tab-50" class="rank-tab-btn">50문제</button>
+                <button onclick="loadRanking(100)" id="rank-tab-100" class="rank-tab-btn">100문제</button>
+                <button onclick="loadRanking(200)" id="rank-tab-200" class="rank-tab-btn">200문제</button>
+            </div>
+            <div id="admin-ranking-list" class="list-container" style="margin-top: 10px;">
+                <p style="color:#aaa; text-align:center;">불러오는 중...</p>
+            </div>
+        </div>
+
+        <div id="tab-settings" class="tab-content">
+            <p style="font-weight:bold; color:#555; margin-top:0;">🚨 데이터 초기화 (주의)</p>
+            <button class="danger-btn" onclick="resetData('quiz_notes', '오답노트')">X 바로잡기 전체 삭제</button>
+            <button class="danger-btn" onclick="resetData('quiz_rankings', '랭킹')">명예의 전당 랭킹 초기화</button>
+            
+            <hr style="border:0; border-top:1px dashed #ccc; margin:20px 0;">
+            <button class="main-btn" style="width:100%; background:#b2bec3; color:white;" onclick="location.href='index.html'">퀴즈 창고로 돌아가기 🏠</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Firebase 초기화 (기존 정보 동일)
+    const firebaseConfig = {
+        apiKey: "AIzaSyDOsvNxPNjYto92hfzGXyrRLce5F1sHtiQ",
+        authDomain: "historyoxquiz.firebaseapp.com",
+        projectId: "historyoxquiz",
+        storageBucket: "historyoxquiz.firebasestorage.app",
+        messagingSenderId: "353431656454",
+        appId: "1:353431656454:web:4ae6d8bb9a59fe0902cb87"
+    };
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.firestore();
+
+    // 로그인 확인
+    function checkPassword() {
+        const pwd = document.getElementById('admin-pwd').value;
+        if (pwd === "ghtjd12!@") {
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('dashboard-section').style.display = 'block';
+            loadNotes(); // 기본 탭 데이터 로드
+            loadRanking(30); // 랭킹 기본 데이터 로드
+        } else {
+            alert("비밀번호가 일치하지 않습니다. 😅");
+        }
+    }
+
+    // 탭 전환 로직
+    function switchTab(tabId, btnElement) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.admin-tab-btn').forEach(el => el.classList.remove('active'));
+        
+        document.getElementById(tabId).classList.add('active');
+        btnElement.classList.add('active');
+    }
+
+    // [탭 1] 오답노트 불러오기
+    function loadNotes() {
+        const listEl = document.getElementById('admin-note-list');
+        listEl.innerHTML = "<p style='color:#aaa; text-align:center;'>불러오는 중... ⏳</p>";
+        db.collection("quiz_notes").orderBy("timestamp", "desc").get().then(snap => {
+            if (snap.empty) { listEl.innerHTML = "<p style='color:#aaa; text-align:center;'>등록된 오답노트가 없습니다.</p>"; return; }
+            listEl.innerHTML = "";
+            snap.forEach(doc => {
+                const n = doc.data();
+                const questionText = n.question || `문제 #${n.quizId}`;
+                const div = document.createElement('div');
+                div.className = 'admin-item';
+                div.id = `note-${doc.id}`;
+                div.innerHTML = `
+                    <div style="flex: 1;">
+                        <div class="admin-note-q">📌 ${questionText}</div>
+                        <div class="admin-note-author">${n.author}</div>
+                        <div style="color:#333; line-height:1.4;">${n.text}</div>
+                    </div>
+                    <button class="del-btn" onclick="deleteDoc('quiz_notes', '${doc.id}', 'note-${doc.id}')">삭제</button>
+                `;
+                listEl.appendChild(div);
+            });
+        }).catch(err => { listEl.innerHTML = "<p style='color:red;'>불러오기 실패</p>"; console.error(err); });
+    }
+
+    // [탭 2] 랭킹 불러오기
+    function loadRanking(count) {
+        // 서브 탭 스타일 변경
+        [30, 50, 100, 200].forEach(n => {
+            const btn = document.getElementById(`rank-tab-${n}`);
+            if (btn) btn.classList.toggle('active', n === count);
+        });
+
+        const listEl = document.getElementById('admin-ranking-list');
+        listEl.innerHTML = "<p style='color:#aaa; text-align:center;'>불러오는 중... ⏳</p>";
+
+        db.collection("quiz_rankings").where("count", "==", count).orderBy("score", "desc").get().then(snap => {
+            if (snap.empty) {
+                listEl.innerHTML = "<p style='color:#aaa; text-align:center;'>아직 기록이 없습니다.</p>"; return;
+            }
+            listEl.innerHTML = "";
+            let r = 1;
+            snap.forEach(doc => {
+                const d = doc.data();
+                const icon = r===1?"🥇":(r===2?"🥈":(r===3?"🥉":""));
+                const div = document.createElement('div');
+                div.className = 'admin-item';
+                div.style.alignItems = 'center';
+                div.id = `rank-${doc.id}`;
+                div.innerHTML = `
+                    <div style="flex: 1; display:flex; align-items:center;">
+                        <span class="admin-rank-num">${r}${icon}</span>
+                        <span style="font-weight:600; color:#333; flex:1;">${d.author}</span>
+                        <span style="font-weight:800; color:#4a90e2; margin-right:15px;">${d.score}%</span>
+                    </div>
+                    <button class="del-btn" onclick="deleteDoc('quiz_rankings', '${doc.id}', 'rank-${doc.id}')">기록 삭제</button>
+                `;
+                listEl.appendChild(div);
+                r++;
+            });
+        }).catch(err => { listEl.innerHTML = "<p style='color:red;'>불러오기 실패</p>"; console.error(err); });
+    }
+
+    // 개별 문서 삭제 함수
+    function deleteDoc(collectionName, docId, elementId) {
+        if (!confirm("정말 삭제하시겠습니까?")) return;
+        db.collection(collectionName).doc(docId).delete().then(() => {
+            const el = document.getElementById(elementId);
+            if (el) el.remove();
+        }).catch(err => { alert("삭제 실패 😥"); console.error(err); });
+    }
+
+    // [탭 3] 전체 데이터 초기화 함수
+    function resetData(collectionName, label) {
+        if(!confirm(`정말 모든 ${label} 데이터를 삭제할까요?\n이 작업은 되돌릴 수 없습니다!`)) return;
+        
+        db.collection(collectionName).get().then(s => {
+            const b = db.batch(); 
+            s.forEach(d => b.delete(d.ref)); 
+            return b.commit();
+        }).then(() => { 
+            alert(`${label} 삭제 완료 ✔️`); 
+            if(collectionName === 'quiz_notes') loadNotes();
+            if(collectionName === 'quiz_rankings') loadRanking(30);
+        }).catch(err => {
+            alert("삭제 중 오류가 발생했습니다."); console.error(err);
+        });
+    }
+</script>
+</body>
+</html>
