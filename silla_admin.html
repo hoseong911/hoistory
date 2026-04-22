@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>신라버 관리자 모드</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background-color: #333; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .admin-container { background: white; width: 100%; max-width: 500px; padding: 40px 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; }
+        h1 { color: #d32f2f; font-size: 24px; margin-bottom: 10px; }
+        p { color: #666; font-size: 15px; margin-bottom: 30px; line-height: 1.5; }
+        .danger-btn { background-color: #d32f2f; color: white; border: none; padding: 15px 30px; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.2s; margin-bottom: 15px; }
+        .danger-btn:hover { background-color: #b71c1c; }
+        .back-btn { background-color: #f5f6f7; color: #333; border: 1px solid #ccc; padding: 15px 30px; border-radius: 8px; font-size: 16px; cursor: pointer; width: 100%; font-weight: bold; }
+        #status { margin-top: 15px; font-weight: bold; color: #d32f2f; }
+    </style>
+</head>
+<body>
+
+<div class="admin-container">
+    <h1>⚠️ SILLAVER 관리자 모드</h1>
+    <p>이곳은 선생님을 위한 데이터 관리 페이지입니다.<br>데이터를 초기화하면 <strong>모든 학생의 기사와 검색어가 완전히 삭제</strong>되며 복구할 수 없습니다. (새로운 반 수업을 시작할 때 사용하세요.)</p>
+    
+    <button class="danger-btn" onclick="deleteAllData()">전체 데이터 초기화 (삭제)</button>
+    <button class="back-btn" onclick="location.href='index.html'">메인 포털로 돌아가기</button>
+    
+    <div id="status"></div>
+</div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getFirestore, collection, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+        authDomain: "ho0911seong-56638.firebaseapp.com",
+        projectId: "ho0911seong-56638",
+        storageBucket: "ho0911seong-56638.firebasestorage.app",
+        messagingSenderId: "994509567071",
+        appId: "1:994509567071:web:778c95931e95e9cbf557ea"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    window.deleteAllData = async function() {
+        // 관리자 비밀번호 (기본값 1234. 필요시 변경하세요)
+        const password = prompt("관리자 비밀번호를 입력하세요.");
+        if (password !== "1234") { 
+            alert("비밀번호가 일치하지 않습니다.");
+            return;
+        }
+
+        const confirmDelete = confirm("정말로 SILLAVER의 모든 데이터를 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다!");
+        if (!confirmDelete) return;
+
+        const statusText = document.getElementById('status');
+        statusText.innerText = "데이터를 삭제하는 중입니다. 잠시만 기다려주세요...";
+
+        try {
+            const querySnapshot = await getDocs(collection(db, "silla_v3"));
+            
+            if(querySnapshot.empty) {
+                statusText.innerText = "삭제할 데이터가 없습니다 (이미 초기화 상태).";
+                return;
+            }
+
+            const deletePromises = [];
+            querySnapshot.forEach((document) => {
+                deletePromises.push(deleteDoc(doc(db, "silla_v3", document.id)));
+            });
+
+            await Promise.all(deletePromises);
+            
+            statusText.innerText = "";
+            alert("✅ 모든 데이터가 성공적으로 초기화되었습니다.");
+            
+        } catch (error) {
+            console.error("삭제 중 오류 발생:", error);
+            statusText.innerText = "오류가 발생했습니다: " + error.message;
+        }
+    };
+</script>
+
+</body>
+</html>
