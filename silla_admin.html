@@ -3,34 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>신라버 관리자 모드</title>
+    <title>SILLAVER 관리자 센터</title>
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
     <style>
-        body { font-family: 'Pretendard', sans-serif; background-color: #333; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        .admin-container { background: white; width: 100%; max-width: 500px; padding: 40px 30px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); text-align: center; }
-        h1 { color: #d32f2f; font-size: 24px; margin-bottom: 10px; }
-        p { color: #666; font-size: 15px; margin-bottom: 30px; line-height: 1.5; }
-        .danger-btn { background-color: #d32f2f; color: white; border: none; padding: 15px 30px; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.2s; margin-bottom: 15px; }
-        .danger-btn:hover { background-color: #b71c1c; }
-        .back-btn { background-color: #f5f6f7; color: #333; border: 1px solid #ccc; padding: 15px 30px; border-radius: 8px; font-size: 16px; cursor: pointer; width: 100%; font-weight: bold; }
-        #status { margin-top: 15px; font-weight: bold; color: #d32f2f; }
+        :root { --admin-red: #d32f2f; --naver-green: #03c75a; }
+        body { font-family: 'Pretendard', sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        
+        /* 로그인 화면 */
+        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 2000; }
+        .login-box { background: white; padding: 40px; border-radius: 12px; text-align: center; }
+        .login-box input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 18px; width: 200px; text-align: center; display: block; margin: 15px auto; }
+        
+        /* 메인 대시보드 */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        h1 { margin: 0; font-size: 22px; color: #333; }
+        .btn { padding: 10px 20px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; font-size: 14px; }
+        .btn-red { background: var(--admin-red); color: white; }
+        .btn-green { background: var(--naver-green); color: white; }
+        .btn-gray { background: #eee; color: #666; }
+
+        /* 데이터 테이블 */
+        .data-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .data-table th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #eee; font-size: 14px; color: #666; }
+        .data-table td { padding: 15px; border-bottom: 1px solid #eee; vertical-align: top; font-size: 14px; }
+        
+        .student-info { font-weight: bold; color: #333; }
+        .tag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-right: 4px; margin-bottom: 4px; }
+        .tag-keyword { background: #e8f5e9; color: #2e7d32; }
+        .tag-news { background: #e3f2fd; color: #1565c0; }
+        .tag-ad { background: #fff3e0; color: #ef6c00; }
+        
+        .del-btn { color: var(--admin-red); cursor: pointer; font-weight: bold; text-decoration: underline; font-size: 12px; }
+        .loading { text-align: center; padding: 50px; font-weight: bold; color: #999; }
     </style>
 </head>
 <body>
 
-<div class="admin-container">
-    <h1>⚠️ SILLAVER 관리자 모드</h1>
-    <p>이곳은 선생님을 위한 데이터 관리 페이지입니다.<br>데이터를 초기화하면 <strong>모든 학생의 기사와 검색어가 완전히 삭제</strong>되며 복구할 수 없습니다. (새로운 반 수업을 시작할 때 사용하세요.)</p>
-    
-    <button class="danger-btn" onclick="deleteAllData()">전체 데이터 초기화 (삭제)</button>
-    <button class="back-btn" onclick="location.href='index.html'">메인 포털로 돌아가기</button>
-    
-    <div id="status"></div>
+<div id="login-overlay">
+    <div class="login-box">
+        <h2>관리자 비밀번호</h2>
+        <input type="password" id="admin-pw" placeholder="비밀번호 입력">
+        <button class="btn btn-green" onclick="checkLogin()">로그인</button>
+    </div>
+</div>
+
+<div class="container" id="admin-main" style="display:none;">
+    <div class="header">
+        <h1>SILLAVER 관리 대시보드</h1>
+        <div>
+            <button class="btn btn-gray" onclick="location.href='index.html'">포털 가기</button>
+            <button class="btn btn-red" onclick="resetAll()">전체 데이터 초기화</button>
+        </div>
+    </div>
+
+    <div class="box">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th width="15%">학생 정보</th>
+                    <th width="20%">실시간 검색어</th>
+                    <th width="30%">뉴스 헤드라인</th>
+                    <th width="25%">광고 배너</th>
+                    <th width="10%">관리</th>
+                </tr>
+            </thead>
+            <tbody id="data-list">
+                </tbody>
+        </table>
+        <div id="loading-msg" class="loading">데이터를 불러오는 중입니다...</div>
+    </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-    import { getFirestore, collection, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+    import { getFirestore, collection, onSnapshot, query, orderBy, deleteDoc, doc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -44,41 +91,73 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    window.deleteAllData = async function() {
-        // 관리자 비밀번호 (기본값 1234. 필요시 변경하세요)
-        const password = prompt("관리자 비밀번호를 입력하세요.");
-        if (password !== "1234") { 
-            alert("비밀번호가 일치하지 않습니다.");
-            return;
+    // 로그인 체크
+    window.checkLogin = function() {
+        const pw = document.getElementById('admin-pw').value;
+        if(pw === "1234") { // 비밀번호 설정
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('admin-main').style.display = 'block';
+            startAdminListener();
+        } else {
+            alert("비밀번호가 틀렸습니다.");
         }
+    };
 
-        const confirmDelete = confirm("정말로 SILLAVER의 모든 데이터를 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다!");
-        if (!confirmDelete) return;
+    // 실시간 데이터 리스너
+    function startAdminListener() {
+        const q = query(collection(db, "silla_v3"), orderBy("timestamp", "desc"));
+        onSnapshot(q, (snapshot) => {
+            const list = document.getElementById('data-list');
+            document.getElementById('loading-msg').style.display = 'none';
+            list.innerHTML = "";
 
-        const statusText = document.getElementById('status');
-        statusText.innerText = "데이터를 삭제하는 중입니다. 잠시만 기다려주세요...";
+            snapshot.forEach(docSnap => {
+                const data = docSnap.data();
+                const id = docSnap.id;
 
-        try {
-            const querySnapshot = await getDocs(collection(db, "silla_v3"));
-            
-            if(querySnapshot.empty) {
-                statusText.innerText = "삭제할 데이터가 없습니다 (이미 초기화 상태).";
-                return;
-            }
+                let keywordTags = (data.keywords || []).map(k => `<span class="tag tag-keyword">${k}</span>`).join('');
+                let newsList = (data.news || []).map(n => `<div style="margin-bottom:5px;"><span class="tag tag-news">${n.category}</span> ${n.title}</div>`).join('');
+                let adContent = data.ad ? `<div class="tag-ad" style="padding:5px; border-radius:4px; font-size:13px;">${data.ad}</div>` : '-';
 
-            const deletePromises = [];
-            querySnapshot.forEach((document) => {
-                deletePromises.push(deleteDoc(doc(db, "silla_v3", document.id)));
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="student-info">${data.studentId}<br>${data.studentName}</td>
+                    <td>${keywordTags || '-'}</td>
+                    <td>${newsList || '-'}</td>
+                    <td>${adContent}</td>
+                    <td><span class="del-btn" onclick="deleteEntry('${id}')">삭제</span></td>
+                `;
+                list.appendChild(tr);
             });
+            
+            if(snapshot.empty) {
+                list.innerHTML = "<tr><td colspan='5' style='text-align:center; padding:50px; color:#999;'>등록된 기록이 없습니다.</td></tr>";
+            }
+        });
+    }
 
-            await Promise.all(deletePromises);
-            
-            statusText.innerText = "";
-            alert("✅ 모든 데이터가 성공적으로 초기화되었습니다.");
-            
-        } catch (error) {
-            console.error("삭제 중 오류 발생:", error);
-            statusText.innerText = "오류가 발생했습니다: " + error.message;
+    // 개별 삭제 함수
+    window.deleteEntry = async function(docId) {
+        if(confirm("이 학생의 모든 기록(검색어, 뉴스, 광고)을 삭제하시겠습니까?")) {
+            try {
+                await deleteDoc(doc(db, "silla_v3", docId));
+                alert("삭제되었습니다.");
+            } catch (e) {
+                alert("삭제 실패: " + e.message);
+            }
+        }
+    };
+
+    // 전체 초기화 함수
+    window.resetAll = async function() {
+        if(confirm("경고! 현재 포털에 있는 모든 데이터를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")) {
+            const querySnapshot = await getDocs(collection(db, "silla_v3"));
+            const promises = [];
+            querySnapshot.forEach((docSnap) => {
+                promises.push(deleteDoc(doc(db, "silla_v3", docSnap.id)));
+            });
+            await Promise.all(promises);
+            alert("전체 데이터가 초기화되었습니다.");
         }
     };
 </script>
