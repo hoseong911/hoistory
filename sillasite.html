@@ -37,6 +37,7 @@
 
         .btn-submit { background: var(--naver-green); color: white; border: none; width: 100%; padding: 18px; border-radius: 10px; font-size: 19px; font-weight: 800; cursor: pointer; transition: 0.2s; margin-top: 10px; box-shadow: 0 4px 10px rgba(3, 199, 90, 0.2); }
         .btn-submit:active { transform: scale(0.97); }
+        .btn-submit:disabled { background: #aaa; box-shadow: none; cursor: not-allowed; }
 
         #result-view { display: none; }
         .rank-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #f2f2f2; }
@@ -45,6 +46,7 @@
         .rank-word { font-weight: 600; font-size: 16px; color: #333; }
         .rank-count { font-size: 13px; color: #a1a1a1; font-weight: 500; }
 
+        /* ✅ FIX: 탭 data-category 기반으로 변경하기 위한 스타일 유지 */
         .tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 15px; padding-bottom: 8px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
         .tabs::-webkit-scrollbar { display: none; }
         .tab-btn { padding: 9px 18px; border-radius: 20px; border: 1px solid var(--border-gray); background: white; white-space: nowrap; font-size: 14px; cursor: pointer; }
@@ -58,6 +60,10 @@
         .ad-feed-content { font-size: 16px; font-weight: 500; line-height: 1.6; color: #444; }
         
         .loading-text { text-align: center; padding: 30px; color: var(--naver-green); font-weight: 700; }
+
+        /* ✅ 학번 입력 오류 표시 */
+        input.input-error { border-color: #ff4444 !important; }
+        .error-msg { font-size: 12px; color: #ff4444; margin-top: -8px; margin-bottom: 10px; padding-left: 4px; }
     </style>
 </head>
 <body>
@@ -69,12 +75,13 @@
 <div class="container">
     <div id="input-view">
         <div class="user-info">
-            <input type="number" id="user-id" placeholder="학번 (5자리)">
+            <!-- ✅ FIX: number → text로 변경해 maxlength 적용, 5자리 검증 가능하게 -->
+            <input type="text" id="user-id" placeholder="학번 (5자리)" maxlength="5" inputmode="numeric" pattern="[0-9]{5}">
             <input type="text" id="user-name" placeholder="이름">
         </div>
 
         <div class="search-area">
-            <span>N</span>
+            <span>S</span>
             <input type="text" id="keywords" placeholder="검색어 3~5개 입력 (쉼표로 구분)">
         </div>
 
@@ -105,13 +112,14 @@
 
         <div class="box">
             <div class="section-title">분야별 실시간 뉴스</div>
+            <!-- ✅ FIX: innerText 비교 대신 data-category 속성 기반으로 탭 관리 -->
             <div class="tabs" id="tab-container">
-                <button class="tab-btn active" onclick="filterNews('전체')">전체</button>
-                <button class="tab-btn" onclick="filterNews('정치')">정치</button>
-                <button class="tab-btn" onclick="filterNews('중앙제도')">중앙</button>
-                <button class="tab-btn" onclick="filterNews('지방행정')">지방</button>
-                <button class="tab-btn" onclick="filterNews('군사')">군사</button>
-                <button class="tab-btn" onclick="filterNews('토지')">토지</button>
+                <button class="tab-btn active" data-category="전체" onclick="filterNews('전체')">전체</button>
+                <button class="tab-btn" data-category="정치" onclick="filterNews('정치')">정치</button>
+                <button class="tab-btn" data-category="중앙제도" onclick="filterNews('중앙제도')">중앙</button>
+                <button class="tab-btn" data-category="지방행정" onclick="filterNews('지방행정')">지방</button>
+                <button class="tab-btn" data-category="군사" onclick="filterNews('군사')">군사</button>
+                <button class="tab-btn" data-category="토지" onclick="filterNews('토지')">토지</button>
             </div>
             <div id="news-feed"></div>
         </div>
@@ -125,14 +133,14 @@
     </div>
 
     <div style="text-align: center; margin-top: 40px; padding-bottom: 20px; color: #999;">
-        <div style="font-size: 14px; font-weight: bold;">SILLAVER v1.1.1</div>
-        <button onclick="location.href='silla_admin.html'" style="background: none; border: none; color: #bbb; cursor: pointer; text-decoration: underline; margin-top: 8px; font-size: 13px;">관리자 모드 (데이터 초기화)</button>
+        <div style="font-size: 14px; font-weight: bold;">SILLAVER v1.1.2</div>
+        <button onclick="location.href='silla_admin.html'" style="background: none; border: none; color: #bbb; cursor: pointer; text-decoration: underline; margin-top: 8px; font-size: 13px;">관리자 모드</button>
     </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, getDocs, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -148,38 +156,85 @@
 
     let allNewsData = [];
 
-    window.submitSilla = async function() {
-        const userId = document.getElementById('user-id').value;
-        const userName = document.getElementById('user-name').value;
-        const keywords = document.getElementById('keywords').value;
-        const adContent = document.getElementById('ad-banner').value;
+    // ✅ FIX: XSS 방어용 이스케이프 함수
+    function escapeHtml(str) {
+        if (typeof str !== 'string') return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;');
+    }
 
-        if(!userId || !userName || !keywords) { alert("학번, 이름, 검색어를 모두 입력해주세요!"); return; }
+    window.submitSilla = async function() {
+        const userIdInput = document.getElementById('user-id');
+        const userId = userIdInput.value.trim();
+        const userName = document.getElementById('user-name').value.trim();
+        const keywords = document.getElementById('keywords').value;
+        const adContent = document.getElementById('ad-banner').value.trim();
+
+        // ✅ FIX: 학번 5자리 숫자 검증
+        if (!userId || !userName || !keywords || !adContent) {
+            alert("모든 항목을 빠짐없이 작성해주세요!");
+            return;
+        }
+        if (!/^\d{5}$/.test(userId)) {
+            alert("학번은 숫자 5자리로 입력해주세요!");
+            userIdInput.focus();
+            return;
+        }
 
         const rawArr = keywords.split(',').map(v => v.trim()).filter(v => v !== "");
-        if(rawArr.length < 3) { alert("검색어를 3개 이상 입력해주세요!"); return; }
-        
+        if (rawArr.length < 3) {
+            alert("검색어를 3개 이상 입력해주세요!");
+            return;
+        }
+
         const btn = document.getElementById('main-btn');
         btn.innerText = "발행 및 연결 중...";
         btn.disabled = true;
 
+        // ✅ FIX: 같은 학번으로 중복 제출 방지
+        try {
+            const existingQuery = query(collection(db, "silla_v3"), where("studentId", "==", userId));
+            const existingSnap = await getDocs(existingQuery);
+            if (!existingSnap.empty) {
+                const confirmed = confirm(`학번 ${userId}로 이미 제출된 내용이 있습니다. 그래도 다시 제출하시겠습니까?`);
+                if (!confirmed) {
+                    btn.innerText = "기사 발행 및 포털 접속";
+                    btn.disabled = false;
+                    return;
+                }
+            }
+        } catch (e) {
+            // 중복 확인 실패 시 그냥 진행
+        }
+
         const newsArr = [];
         document.querySelectorAll('.news-input').forEach(input => {
-            if(input.value.trim() !== "") {
+            if (input.value.trim() !== "") {
                 newsArr.push({ category: input.dataset.cat, title: input.value.trim() });
             }
         });
 
+        // ✅ FIX: 검색어 공백 정규화 — 저장 시 trim만 적용, 표시/집계 모두 동일한 값 사용
+        const normalizedKeywords = rawArr.slice(0, 5).map(v => v.replace(/\s+/g, ' ').trim());
+
         try {
             await addDoc(collection(db, "silla_v3"), {
-                studentId: userId, studentName: userName, keywords: rawArr.slice(0, 5),
-                news: newsArr, ad: adContent, timestamp: serverTimestamp()
+                studentId: userId,
+                studentName: userName,
+                keywords: normalizedKeywords,
+                news: newsArr,
+                ad: adContent,
+                timestamp: serverTimestamp()
             });
 
             document.getElementById('input-view').style.display = 'none';
             document.getElementById('result-view').style.display = 'block';
             window.scrollTo(0, 0);
-            
+
             startListening();
         } catch (e) {
             alert("저장 오류: " + e.message);
@@ -192,54 +247,92 @@
         const q = query(collection(db, "silla_v3"), orderBy("timestamp", "desc"));
         onSnapshot(q, (snapshot) => {
             let trendMap = {};
-            let adHtml = "";
+            let adItems = [];
             allNewsData = [];
 
             snapshot.forEach(doc => {
                 const data = doc.data();
+
+                // ✅ FIX: 트렌드 집계 시 공백 제거 후 집계하되, 표시용 원본도 보존
                 data.keywords.forEach(word => {
-                    const clean = word.replace(/\s+/g, ""); 
-                    trendMap[clean] = (trendMap[clean] || 0) + 1;
+                    const key = word.replace(/\s+/g, '');
+                    if (!trendMap[key]) {
+                        trendMap[key] = { display: word, count: 0 };
+                    }
+                    trendMap[key].count += 1;
                 });
-                if(data.news) {
-                    // 기자 이름 처리를 위해 studentId도 함께 배열에 저장합니다.
-                    data.news.forEach(n => { allNewsData.push({ ...n, author: data.studentName, studentId: data.studentId }); });
+
+                if (data.news) {
+                    data.news.forEach(n => {
+                        allNewsData.push({
+                            ...n,
+                            author: data.studentName,
+                            studentId: data.studentId
+                        });
+                    });
                 }
-                if(data.ad) {
-                    adHtml += `<div class="ad-feed-item"><div class="ad-feed-content">${data.ad}</div><div style="font-size:12px; color:#999; margin-top:8px;">AD BY. ${data.studentId} ${data.studentName}</div></div>`;
+
+                if (data.ad) {
+                    // ✅ FIX: XSS 방어 — escapeHtml 적용
+                    adItems.push({
+                        content: escapeHtml(data.ad),
+                        studentId: escapeHtml(data.studentId),
+                        studentName: escapeHtml(data.studentName)
+                    });
                 }
             });
 
             renderTrends(trendMap);
             filterNews('전체');
+
+            const adHtml = adItems.map(ad =>
+                `<div class="ad-feed-item">
+                    <div class="ad-feed-content">${ad.content}</div>
+                    <div style="font-size:12px; color:#999; margin-top:8px;">AD BY. ${ad.studentId} ${ad.studentName}</div>
+                </div>`
+            ).join('');
             document.getElementById('ad-feed').innerHTML = adHtml || "등록된 광고가 없습니다.";
         });
     }
 
     function renderTrends(map) {
-        const sorted = Object.keys(map).map(word => ({ word, count: map[word] }))
-                        .sort((a, b) => b.count - a.count).slice(0, 10);
+        const sorted = Object.values(map)
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+
         let html = "";
         sorted.forEach((item, i) => {
-            html += `<div class="rank-item"><div class="rank-left"><span class="rank-num">${i+1}</span><span class="rank-word">${item.word}</span></div><span class="rank-count">${item.count}회 검색</span></div>`;
+            // ✅ FIX: XSS 방어 — escapeHtml 적용
+            html += `<div class="rank-item">
+                <div class="rank-left">
+                    <span class="rank-num">${i + 1}</span>
+                    <span class="rank-word">${escapeHtml(item.display)}</span>
+                </div>
+                <span class="rank-count">${item.count}회 검색</span>
+            </div>`;
         });
         document.getElementById('trend-list').innerHTML = html || "데이터가 없습니다.";
     }
 
     window.filterNews = function(category) {
+        // ✅ FIX: innerText 비교 대신 data-category 속성으로 정확히 비교
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.innerText === category || (category === '전체' && btn.innerText === '전체'));
+            btn.classList.toggle('active', btn.dataset.category === category);
         });
+
         const target = document.getElementById('news-feed');
         const filtered = category === '전체' ? allNewsData : allNewsData.filter(n => n.category === category);
+
         let html = "";
-        
         filtered.forEach(n => {
-            // 카테고리가 '전체'일 때만 ' | 정치' 등의 분야 텍스트를 추가합니다.
-            const categoryLabel = category === '전체' ? ` | ${n.category}` : '';
-            html += `<div class="news-card"><div class="news-title">${n.title}</div><div class="news-reporter">${n.studentId} ${n.author} 기자${categoryLabel}</div></div>`;
+            const categoryLabel = category === '전체' ? ` | ${escapeHtml(n.category)}` : '';
+            // ✅ FIX: XSS 방어 — escapeHtml 적용
+            html += `<div class="news-card">
+                <div class="news-title">${escapeHtml(n.title)}</div>
+                <div class="news-reporter">${escapeHtml(n.studentId)} ${escapeHtml(n.author)} 기자${categoryLabel}</div>
+            </div>`;
         });
-        
+
         target.innerHTML = html || `<p style="padding:20px; color:#999; text-align:center;">작성된 기사가 없습니다.</p>`;
     };
 </script>
