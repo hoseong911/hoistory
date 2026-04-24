@@ -5,80 +5,123 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SILLAVER 관리자 센터</title>
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root { --admin-red: #d32f2f; --naver-green: #03c75a; }
         body { font-family: 'Pretendard', sans-serif; background-color: #f4f7f6; margin: 0; padding: 20px; }
-        .container { max-width: 1000px; margin: 0 auto; }
-        
-        /* 1. 로그인 화면 (비밀번호 입력창) */
+        .container { max-width: 1100px; margin: 0 auto; }
+
+        /* 로그인 */
         #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: flex; justify-content: center; align-items: center; z-index: 2000; }
         .login-box { background: white; padding: 40px; border-radius: 12px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
-        .login-box h2 { color: var(--admin-red); margin-top: 0; }
+        .login-box h2 { color: var(--naver-green); margin-top: 0; }
         .login-box input { padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 18px; width: 220px; text-align: center; display: block; margin: 20px auto; outline: none; }
         .login-box input:focus { border-color: var(--naver-green); }
-        
-        /* 2. 메인 대시보드 */
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+
+        /* 헤더 */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 12px; }
         h1 { margin: 0; font-size: 22px; color: #333; }
         .btn { padding: 10px 20px; border-radius: 6px; border: none; font-weight: bold; cursor: pointer; font-size: 15px; transition: 0.2s; }
         .btn-red { background: var(--admin-red); color: white; }
         .btn-red:hover { background: #b71c1c; }
-        .btn-green { background: var(--naver-green); color: white; width: 100%; padding: 15px; font-size: 18px; }
+        .btn-green { background: var(--naver-green); color: white; }
         .btn-green:hover { background: #02a34a; }
-        .btn-gray { background: #eee; color: #666; margin-right: 10px; }
+        .btn-blue { background: #1565c0; color: white; }
+        .btn-blue:hover { background: #0d47a1; }
+        .btn-gray { background: #eee; color: #666; }
         .btn-gray:hover { background: #ddd; }
 
-        /* 데이터 테이블 */
-        .data-table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
-        .data-table th { background: #f8f9fa; padding: 15px; text-align: left; border-bottom: 2px solid #eee; font-size: 14px; color: #666; }
-        .data-table td { padding: 15px; border-bottom: 1px solid #eee; vertical-align: top; font-size: 14px; }
-        
-        .student-info { font-weight: bold; color: #333; font-size: 15px; }
-        .student-info span { font-size: 12px; color: #888; display: block; margin-top: 4px; }
-        
-        .tag { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-right: 5px; margin-bottom: 5px; }
+        /* 통계 카드 */
+        .stats-bar { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; }
+        .stat-card { background: white; border-radius: 10px; padding: 16px 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); flex: 1; min-width: 140px; }
+        .stat-label { font-size: 12px; color: #999; font-weight: 600; margin-bottom: 4px; }
+        .stat-value { font-size: 26px; font-weight: 900; color: #333; }
+        .stat-value.green { color: var(--naver-green); }
+        .stat-value.red { color: var(--admin-red); }
+
+        /* 테이블 */
+        .table-wrap { background: white; border-radius: 12px; overflow: auto; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .data-table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        .data-table th { background: #f8f9fa; padding: 14px 15px; text-align: left; border-bottom: 2px solid #eee; font-size: 13px; color: #666; white-space: nowrap; }
+        .data-table td { padding: 14px 15px; border-bottom: 1px solid #eee; vertical-align: top; font-size: 13px; }
+        .data-table tr:last-child td { border-bottom: none; }
+
+        .student-name { font-weight: 800; color: #222; font-size: 15px; }
+        .student-id { font-size: 12px; color: #999; margin-top: 3px; }
+
+        /* 타임스탬프 */
+        .timestamp { font-size: 12px; color: #aaa; white-space: nowrap; }
+
+        .tag { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 12px; margin: 2px 3px 2px 0; }
         .tag-keyword { background: #e8f5e9; color: #2e7d32; font-weight: 600; }
-        .tag-news { background: #e3f2fd; color: #1565c0; }
-        .tag-ad { background: #fff3e0; color: #ef6c00; border-left: 3px solid #ff9800; padding: 8px; font-size: 13px; line-height: 1.4; }
-        
-        .del-btn { color: var(--admin-red); cursor: pointer; font-weight: bold; padding: 6px 12px; border: 1px solid var(--admin-red); border-radius: 4px; display: inline-block; text-align: center; }
+        .tag-cat { background: #e3f2fd; color: #1565c0; font-size: 11px; padding: 2px 6px; border-radius: 3px; }
+        .news-row { margin-bottom: 5px; font-size: 13px; line-height: 1.4; }
+        .ad-text { background: #fff8e1; border-left: 3px solid #ffc107; padding: 8px 10px; border-radius: 4px; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+
+        .del-btn { color: var(--admin-red); cursor: pointer; font-weight: bold; padding: 5px 10px; border: 1px solid var(--admin-red); border-radius: 4px; font-size: 12px; white-space: nowrap; }
         .del-btn:hover { background: #ffebee; }
         .loading { text-align: center; padding: 50px; font-weight: bold; color: #999; }
+
+        .btn-row { display: flex; gap: 10px; flex-wrap: wrap; }
     </style>
 </head>
 <body>
 
 <div id="login-overlay">
     <div class="login-box">
-        <h2>⚠️ SILLAVER 관리자 접속</h2>
+        <h2>SILLAVER 관리자 접속</h2>
         <p style="color:#666; font-size:14px; margin-bottom:10px;">데이터 관리를 위해 비밀번호를 입력해주세요.</p>
         <input type="password" id="admin-pw" placeholder="비밀번호 입력" onkeypress="if(event.keyCode==13) checkLogin()">
-        <button class="btn btn-green" onclick="checkLogin()">관리자 모드 진입</button>
+        <button class="btn btn-green" style="width:220px; padding:14px; font-size:16px; margin: 0 auto; display:block;" onclick="checkLogin()">관리자 모드 진입</button>
     </div>
 </div>
 
 <div class="container" id="admin-main" style="display:none;">
     <div class="header">
         <h1>SILLAVER 관리 대시보드</h1>
-        <div>
-            <button class="btn btn-gray" onclick="location.href='sillasite.html'">포털 메인으로 돌아가기</button>
-            <button class="btn btn-red" onclick="resetAll()">전체 데이터 초기화 (새 수업 시작용)</button>
+        <div class="btn-row">
+            <button class="btn btn-gray" onclick="location.href='sillasite.html'">포털 메인으로</button>
+            <button class="btn btn-blue" onclick="exportToExcel()">📥 엑셀로 저장</button>
+            <button class="btn btn-red" onclick="resetAll()">전체 데이터 초기화</button>
         </div>
     </div>
 
-    <div class="box">
+    <!-- 통계 카드 -->
+    <div class="stats-bar">
+        <div class="stat-card">
+            <div class="stat-label">총 제출 학생 수</div>
+            <div class="stat-value green" id="stat-total">-</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">뉴스 헤드라인 작성</div>
+            <div class="stat-value" id="stat-news">-</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">광고 배너 작성</div>
+            <div class="stat-value" id="stat-ad">-</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">총 검색어 수</div>
+            <div class="stat-value" id="stat-keywords">-</div>
+        </div>
+    </div>
+
+    <!-- 데이터 테이블 -->
+    <div class="table-wrap">
         <table class="data-table">
             <thead>
                 <tr>
-                    <th width="15%">학생 정보 (학번/이름)</th>
-                    <th width="20%">실시간 검색어</th>
-                    <th width="30%">작성한 뉴스 헤드라인</th>
-                    <th width="25%">작성한 광고 배너</th>
-                    <th width="10%">개별 관리</th>
+                    <th width="5%">#</th>
+                    <th width="12%">학생 정보</th>
+                    <th width="12%">제출 시각</th>
+                    <th width="18%">검색어</th>
+                    <th width="28%">뉴스 헤드라인</th>
+                    <th width="18%">광고 배너</th>
+                    <th width="7%">관리</th>
                 </tr>
             </thead>
-            <tbody id="data-list">
-                </tbody>
+            <tbody id="data-list"></tbody>
         </table>
         <div id="loading-msg" class="loading">데이터를 불러오는 중입니다...</div>
     </div>
@@ -88,7 +131,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
     import { getFirestore, collection, onSnapshot, query, orderBy, deleteDoc, doc, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-    // 파이어베이스 설정
     const firebaseConfig = {
         apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
         authDomain: "ho0911seong-56638.firebaseapp.com",
@@ -101,10 +143,24 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // 로그인 확인
+    // XSS 방어
+    function esc(str) {
+        if (typeof str !== 'string') return '';
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
+    }
+
+    // 타임스탬프 포맷
+    function formatTime(ts) {
+        if (!ts) return '-';
+        const d = ts.toDate ? ts.toDate() : new Date(ts);
+        const pad = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())}<br>${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    // 로그인
     window.checkLogin = function() {
         const pw = document.getElementById('admin-pw').value;
-        if(pw === "1234") { 
+        if (pw === "1234") {
             document.getElementById('login-overlay').style.display = 'none';
             document.getElementById('admin-main').style.display = 'block';
             startAdminListener();
@@ -113,65 +169,137 @@
         }
     };
 
-    // 실시간 데이터 불러오기
+    // 전역 데이터 저장 (엑셀 export용)
+    window._allData = [];
+
     function startAdminListener() {
         const q = query(collection(db, "silla_v3"), orderBy("timestamp", "desc"));
         onSnapshot(q, (snapshot) => {
-            const list = document.getElementById('data-list');
             document.getElementById('loading-msg').style.display = 'none';
+            const list = document.getElementById('data-list');
             list.innerHTML = "";
+            window._allData = [];
+
+            let totalNews = 0, totalAd = 0, totalKeywords = 0;
+            let idx = 1;
 
             snapshot.forEach(docSnap => {
                 const data = docSnap.data();
                 const id = docSnap.id;
+                window._allData.push({ id, data });
 
-                let keywordTags = (data.keywords || []).map(k => `<span class="tag tag-keyword">🔍 ${k}</span>`).join('');
-                let newsList = (data.news || []).map(n => `<div style="margin-bottom:6px;"><span class="tag tag-news">${n.category}</span> ${n.title}</div>`).join('');
-                let adContent = data.ad ? `<div class="tag-ad">${data.ad}</div>` : '<span style="color:#ccc;">(작성안함)</span>';
+                const newsCount = (data.news || []).length;
+                totalNews += newsCount > 0 ? 1 : 0;
+                totalAd += data.ad ? 1 : 0;
+                totalKeywords += (data.keywords || []).length;
+
+                const keywordTags = (data.keywords || []).map(k => `<span class="tag tag-keyword">🔍 ${esc(k)}</span>`).join('');
+                const newsList = (data.news || []).map(n =>
+                    `<div class="news-row"><span class="tag tag-cat">${esc(n.category)}</span> ${esc(n.title)}</div>`
+                ).join('');
+                const adHtml = data.ad ? `<div class="ad-text">${esc(data.ad)}</div>` : '<span style="color:#ccc;">-</span>';
 
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td class="student-info">${data.studentName} <span>(${data.studentId})</span></td>
-                    <td>${keywordTags || '<span style="color:#ccc;">(작성안함)</span>'}</td>
-                    <td>${newsList || '<span style="color:#ccc;">(작성안함)</span>'}</td>
-                    <td>${adContent}</td>
-                    <td><div class="del-btn" onclick="deleteEntry('${id}')">기록 삭제</div></td>
+                    <td style="color:#aaa; font-weight:600;">${idx}</td>
+                    <td>
+                        <div class="student-name">${esc(data.studentName)}</div>
+                        <div class="student-id">${esc(data.studentId)}</div>
+                    </td>
+                    <td class="timestamp">${formatTime(data.timestamp)}</td>
+                    <td>${keywordTags || '<span style="color:#ccc;">-</span>'}</td>
+                    <td>${newsList || '<span style="color:#ccc;">-</span>'}</td>
+                    <td>${adHtml}</td>
+                    <td><span class="del-btn" onclick="deleteEntry('${esc(id)}')">삭제</span></td>
                 `;
                 list.appendChild(tr);
+                idx++;
             });
-            
-            if(snapshot.empty) {
-                list.innerHTML = "<tr><td colspan='5' style='text-align:center; padding:50px; color:#999;'>아직 등록된 학생 기록이 없습니다.</td></tr>";
+
+            // 통계 업데이트
+            document.getElementById('stat-total').textContent = snapshot.size;
+            document.getElementById('stat-news').textContent = totalNews;
+            document.getElementById('stat-ad').textContent = totalAd;
+            document.getElementById('stat-keywords').textContent = totalKeywords;
+
+            if (snapshot.empty) {
+                list.innerHTML = "<tr><td colspan='7' style='text-align:center; padding:50px; color:#999;'>아직 등록된 학생 기록이 없습니다.</td></tr>";
             }
         });
     }
 
     // 개별 삭제
     window.deleteEntry = async function(docId) {
-        if(confirm("이 학생이 작성한 [검색어, 뉴스, 광고]를 모두 삭제하시겠습니까?\n삭제 즉시 메인 포털 화면에서도 사라집니다.")) {
+        if (confirm("이 학생의 기록을 삭제하시겠습니까?\n삭제 즉시 메인 포털에서도 사라집니다.")) {
             try {
                 await deleteDoc(doc(db, "silla_v3", docId));
             } catch (e) {
-                alert("삭제 중 오류가 발생했습니다: " + e.message);
+                alert("삭제 중 오류: " + e.message);
             }
         }
     };
 
     // 전체 초기화
     window.resetAll = async function() {
-        if(confirm("🚨 경고! SILLAVER 포털에 있는 모든 학생의 데이터를 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")) {
+        if (confirm("🚨 경고! 모든 학생 데이터를 완전히 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.")) {
             try {
-                const querySnapshot = await getDocs(collection(db, "silla_v3"));
-                const promises = [];
-                querySnapshot.forEach((docSnap) => {
-                    promises.push(deleteDoc(doc(db, "silla_v3", docSnap.id)));
-                });
-                await Promise.all(promises);
-                alert("모든 데이터가 성공적으로 초기화되었습니다.");
+                const snap = await getDocs(collection(db, "silla_v3"));
+                await Promise.all(snap.docs.map(d => deleteDoc(doc(db, "silla_v3", d.id))));
+                alert("모든 데이터가 초기화되었습니다.");
             } catch (e) {
-                alert("초기화 중 오류가 발생했습니다.");
+                alert("초기화 중 오류: " + e.message);
             }
         }
+    };
+
+    // 엑셀 저장
+    window.exportToExcel = function() {
+        if (!window._allData || window._allData.length === 0) {
+            alert("저장할 데이터가 없습니다.");
+            return;
+        }
+
+        const rows = window._allData.map(({ data }, i) => {
+            const ts = data.timestamp ? (() => {
+                const d = data.timestamp.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
+                const pad = n => String(n).padStart(2, '0');
+                return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+            })() : '-';
+
+            const keywords = (data.keywords || []).join(', ');
+            const newsMap = {};
+            (data.news || []).forEach(n => { newsMap[n.category] = n.title; });
+
+            return {
+                '번호': i + 1,
+                '학번': data.studentId || '',
+                '이름': data.studentName || '',
+                '제출 시각': ts,
+                '검색어': keywords,
+                '뉴스_정치': newsMap['정치'] || '',
+                '뉴스_중앙제도': newsMap['중앙제도'] || '',
+                '뉴스_지방행정': newsMap['지방행정'] || '',
+                '뉴스_군사': newsMap['군사'] || '',
+                '뉴스_토지경제': newsMap['토지'] || '',
+                '광고 배너': data.ad || '',
+            };
+        });
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+
+        // 컬럼 너비 설정
+        ws['!cols'] = [
+            { wch: 6 }, { wch: 10 }, { wch: 10 }, { wch: 22 }, { wch: 30 },
+            { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 40 }
+        ];
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '학생 제출 데이터');
+
+        const now = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const filename = `SILLAVER_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.xlsx`;
+        XLSX.writeFile(wb, filename);
     };
 </script>
 
