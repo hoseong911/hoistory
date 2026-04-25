@@ -87,6 +87,15 @@
         .rank-tab-btn.active { background:#a29bfe; color:white; }
         .admin-rank-num { font-weight:800; color:#a29bfe; width:28px; display:inline-block; }
 
+        /* 새로 추가: 셀렉트 박스 스타일 */
+        #question-filter {
+            width: 100%; padding: 10px 15px; margin-bottom: 15px; 
+            border-radius: 10px; border: 1px solid #ddd; 
+            font-family: 'Pretendard', sans-serif; font-size: 0.9rem; 
+            outline: none; background: rgba(255,255,255,0.9);
+            color: #333; font-weight: 500; cursor: pointer;
+        }
+
     </style>
 </head>
 <body>
@@ -112,6 +121,9 @@
 
         <div id="tab-notes" class="tab-content active">
             <p style="font-weight:bold; color:#555; margin-top:0;">📋 등록된 친구들의 X 바로잡기</p>
+            
+            <select id="question-filter" style="display: none;" onchange="renderNotes(this.value)"></select>
+
             <div id="admin-note-list" class="list-container"><p style="color:#aaa;">불러오는 중...</p></div>
         </div>
 
@@ -154,6 +166,9 @@
     }
     const db = firebase.firestore();
 
+    // 전역 변수: 모든 오답노트 데이터를 저장 (필터링용)
+    let allNotesData = [];
+
     // 로그인 확인
     function checkPassword() {
         const pwd = document.getElementById('admin-pwd').value;
@@ -176,30 +191,74 @@
         btnElement.classList.add('active');
     }
 
-    // [탭 1] 오답노트 불러오기
+    // [탭 1] 오답노트 데이터 불러오기
     function loadNotes() {
         const listEl = document.getElementById('admin-note-list');
+        const filterEl = document.getElementById('question-filter');
         listEl.innerHTML = "<p style='color:#aaa; text-align:center;'>불러오는 중... ⏳</p>";
+        
         db.collection("quiz_notes").orderBy("timestamp", "desc").get().then(snap => {
-            if (snap.empty) { listEl.innerHTML = "<p style='color:#aaa; text-align:center;'>등록된 오답노트가 없습니다.</p>"; return; }
-            listEl.innerHTML = "";
+            if (snap.empty) { 
+                listEl.innerHTML = "<p style='color:#aaa; text-align:center;'>등록된 오답노트가 없습니다.</p>"; 
+                filterEl.style.display = 'none';
+                return; 
+            }
+            
+            allNotesData = [];
+            const uniqueQuestions = new Set(); // 중복 없는 문제 목록 추출용
+
             snap.forEach(doc => {
                 const n = doc.data();
-                const questionText = n.question || `문제 #${n.quizId}`;
-                const div = document.createElement('div');
-                div.className = 'admin-item';
-                div.id = `note-${doc.id}`;
-                div.innerHTML = `
-                    <div style="flex: 1;">
-                        <div class="admin-note-q">📌 ${questionText}</div>
-                        <div class="admin-note-author">${n.author}</div>
-                        <div style="color:#333; line-height:1.4;">${n.text}</div>
-                    </div>
-                    <button class="del-btn" onclick="deleteDoc('quiz_notes', '${doc.id}', 'note-${doc.id}')">삭제</button>
-                `;
-                listEl.appendChild(div);
+                n.id = doc.id;
+                n.questionText = n.question || `문제 #${n.quizId}`;
+                allNotesData.push(n);
+                uniqueQuestions.add(n.questionText);
             });
+
+            // 셀렉트 박스 옵션 만들기
+            filterEl.style.display = 'block';
+            filterEl.innerHTML = '<option value="all">전체 문제 보기</option>';
+            uniqueQuestions.forEach(q => {
+                const option = document.createElement('option');
+                option.value = q;
+                option.textContent = q;
+                filterEl.appendChild(option);
+            });
+
+            // 화면에 리스트 렌더링 (초기엔 'all')
+            renderNotes('all');
+
         }).catch(err => { listEl.innerHTML = "<p style='color:red;'>불러오기 실패</p>"; console.error(err); });
+    }
+
+    // [추가된 함수] 선택한 필터에 맞춰 오답노트 렌더링
+    function renderNotes(filterValue) {
+        const listEl = document.getElementById('admin-note-list');
+        listEl.innerHTML = "";
+
+        const filteredList = filterValue === 'all' 
+            ? allNotesData 
+            : allNotesData.filter(n => n.questionText === filterValue);
+
+        if (filteredList.length === 0) {
+            listEl.innerHTML = "<p style='color:#aaa; text-align:center;'>해당 문제의 오답노트가 없습니다.</p>";
+            return;
+        }
+
+        filteredList.forEach(n => {
+            const div = document.createElement('div');
+            div.className = 'admin-item';
+            div.id = `note-${n.id}`;
+            div.innerHTML = `
+                <div style="flex: 1;">
+                    <div class="admin-note-q">📌 ${n.questionText}</div>
+                    <div class="admin-note-author">${n.author}</div>
+                    <div style="color:#333; line-height:1.4;">${n.text}</div>
+                </div>
+                <button class="del-btn" onclick="deleteDoc('quiz_notes', '${n.id}', 'note-${n.id}')">삭제</button>
+            `;
+            listEl.appendChild(div);
+        });
     }
 
     // [탭 2] 랭킹 불러오기
@@ -246,6 +305,11 @@
         db.collection(collectionName).doc(docId).delete().then(() => {
             const el = document.getElementById(elementId);
             if (el) el.remove();
+            
+            // 삭제 시 로컬 데이터 배열(allNotesData)에서도 제거 (필터 변경 시 안 나타나게 방지)
+            if (collectionName === 'quiz_notes') {
+                allNotesData = allNotesData.filter(note => note.id !== docId);
+            }
         }).catch(err => { alert("삭제 실패 😥"); console.error(err); });
     }
 
