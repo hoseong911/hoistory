@@ -16,6 +16,7 @@
             --text-main: #222;
             --primary-blue: #4a90e2;
             --primary-red: #e74c3c;
+            --primary-green: #2ecc71;
         }
         body {
             font-family: 'Pretendard', sans-serif;
@@ -87,15 +88,25 @@
         .rank-tab-btn.active { background:#a29bfe; color:white; }
         .admin-rank-num { font-weight:800; color:#a29bfe; width:28px; display:inline-block; }
 
-        /* 셀렉트 박스 및 검색창 스타일 */
-        #question-filter, #ranking-search {
+        /* 셀렉트 박스 스타일 */
+        #question-filter {
             width: 100%; padding: 10px 15px; margin-bottom: 15px; 
             border-radius: 10px; border: 1px solid #ddd; 
             font-family: 'Pretendard', sans-serif; font-size: 0.9rem; 
             outline: none; background: rgba(255,255,255,0.9);
-            color: #333; font-weight: 500; box-sizing: border-box;
+            color: #333; font-weight: 500; cursor: pointer; box-sizing: border-box;
         }
-        #question-filter { cursor: pointer; }
+
+        /* 참여자 추출 버튼 스타일 */
+        .extract-btn {
+            background: var(--primary-green); color: white; border: none; 
+            padding: 12px; border-radius: 12px; cursor: pointer; 
+            font-weight: bold; width: 100%; margin-bottom: 15px;
+            font-family: 'Pretendard', sans-serif; font-size: 1rem;
+            box-shadow: 0 4px 6px rgba(46, 204, 113, 0.2);
+            transition: transform 0.1s;
+        }
+        .extract-btn:active { transform: scale(0.98); }
 
     </style>
 </head>
@@ -128,16 +139,14 @@
 
         <div id="tab-ranking" class="tab-content">
             <p style="font-weight:bold; color:#555; margin-top:0; text-align:center;">🏆 문제 수별 랭킹 조회</p>
+            
+            <button class="extract-btn" onclick="extractAllParticipants()">📋 전체 참여 학생 명단 복사 (중복 제외)</button>
+
             <div style="text-align: center;">
                 <button onclick="loadRanking(30)" id="rank-tab-30" class="rank-tab-btn active">30문제</button>
                 <button onclick="loadRanking(50)" id="rank-tab-50" class="rank-tab-btn">50문제</button>
                 <button onclick="loadRanking(100)" id="rank-tab-100" class="rank-tab-btn">100문제</button>
                 <button onclick="loadRanking(200)" id="rank-tab-200" class="rank-tab-btn">200문제</button>
-            </div>
-            
-            <div style="display: flex; gap: 8px; margin-top: 15px; margin-bottom: 5px;">
-                <input type="text" id="ranking-search" placeholder="학반/이름 검색 (예: 1반)" style="margin-bottom: 0;" oninput="renderRanking()">
-                <button onclick="extractRankingList()" style="background: var(--primary-blue); color: white; border: none; padding: 0 15px; border-radius: 10px; cursor: pointer; font-family: 'Pretendard'; font-weight: 700; white-space: nowrap; font-size: 0.9rem;">명단 복사</button>
             </div>
 
             <div id="admin-ranking-list" class="list-container" style="margin-top: 15px;">
@@ -171,11 +180,8 @@
     }
     const db = firebase.firestore();
 
-    // 전역 변수: 필터링 및 추출을 위한 데이터 임시 저장소
     let allNotesData = [];
-    let allRankingData = [];
 
-    // 로그인 확인
     function checkPassword() {
         const pwd = document.getElementById('admin-pwd').value;
         if (pwd === "ghtjd12!@") {
@@ -188,16 +194,14 @@
         }
     }
 
-    // 탭 전환 로직
     function switchTab(tabId, btnElement) {
         document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.admin-tab-btn').forEach(el => el.classList.remove('active'));
-        
         document.getElementById(tabId).classList.add('active');
         btnElement.classList.add('active');
     }
 
-    // [탭 1] 오답노트 데이터 불러오기
+    // [탭 1] 오답노트 
     function loadNotes() {
         const listEl = document.getElementById('admin-note-list');
         const filterEl = document.getElementById('question-filter');
@@ -209,10 +213,8 @@
                 filterEl.style.display = 'none';
                 return; 
             }
-            
             allNotesData = [];
             const uniqueQuestions = new Set();
-
             snap.forEach(doc => {
                 const n = doc.data();
                 n.id = doc.id;
@@ -220,7 +222,6 @@
                 allNotesData.push(n);
                 uniqueQuestions.add(n.questionText);
             });
-
             filterEl.style.display = 'block';
             filterEl.innerHTML = '<option value="all">전체 문제 보기</option>';
             uniqueQuestions.forEach(q => {
@@ -229,26 +230,18 @@
                 option.textContent = q;
                 filterEl.appendChild(option);
             });
-
             renderNotes('all');
-
         }).catch(err => { listEl.innerHTML = "<p style='color:red;'>불러오기 실패</p>"; console.error(err); });
     }
 
-    // [탭 1] 선택한 필터에 맞춰 오답노트 렌더링
     function renderNotes(filterValue) {
         const listEl = document.getElementById('admin-note-list');
         listEl.innerHTML = "";
-
-        const filteredList = filterValue === 'all' 
-            ? allNotesData 
-            : allNotesData.filter(n => n.questionText === filterValue);
-
+        const filteredList = filterValue === 'all' ? allNotesData : allNotesData.filter(n => n.questionText === filterValue);
         if (filteredList.length === 0) {
             listEl.innerHTML = "<p style='color:#aaa; text-align:center;'>해당 문제의 오답노트가 없습니다.</p>";
             return;
         }
-
         filteredList.forEach(n => {
             const div = document.createElement('div');
             div.className = 'admin-item';
@@ -265,7 +258,7 @@
         });
     }
 
-    // [탭 2] 랭킹 불러오기 (데이터 저장 방식 변경)
+    // [탭 2] 랭킹 리스트 화면 출력
     function loadRanking(count) {
         [30, 50, 100, 200].forEach(n => {
             const btn = document.getElementById(`rank-tab-${n}`);
@@ -274,106 +267,84 @@
 
         const listEl = document.getElementById('admin-ranking-list');
         listEl.innerHTML = "<p style='color:#aaa; text-align:center;'>불러오는 중... ⏳</p>";
-        document.getElementById('ranking-search').value = ""; // 탭 이동 시 검색어 초기화
 
         db.collection("quiz_rankings").where("count", "==", count).orderBy("score", "desc").get().then(snap => {
             if (snap.empty) {
                 listEl.innerHTML = "<p style='color:#aaa; text-align:center;'>아직 기록이 없습니다.</p>"; 
-                allRankingData = [];
                 return;
             }
-            
-            allRankingData = [];
+            listEl.innerHTML = "";
             let r = 1;
             snap.forEach(doc => {
                 const d = doc.data();
-                d.id = doc.id;
-                d.rank = r++;
-                allRankingData.push(d);
+                const icon = r===1?"🥇":(r===2?"🥈":(r===3?"🥉":""));
+                const div = document.createElement('div');
+                div.className = 'admin-item';
+                div.style.alignItems = 'center';
+                div.id = `rank-${doc.id}`;
+                div.innerHTML = `
+                    <div style="flex: 1; display:flex; align-items:center;">
+                        <span class="admin-rank-num">${r}${icon}</span>
+                        <span style="font-weight:600; color:#333; flex:1;">${d.author}</span>
+                        <span style="font-weight:800; color:#4a90e2; margin-right:15px;">${d.score}%</span>
+                    </div>
+                    <button class="del-btn" onclick="deleteDoc('quiz_rankings', '${doc.id}', 'rank-${doc.id}')">기록 삭제</button>
+                `;
+                listEl.appendChild(div);
+                r++;
             });
-
-            // 화면 렌더링 함수 호출
-            renderRanking();
-
         }).catch(err => { listEl.innerHTML = "<p style='color:red;'>불러오기 실패</p>"; console.error(err); });
     }
 
-    // [탭 2] 검색어에 맞춰 랭킹 화면에 렌더링
-    function renderRanking() {
-        const listEl = document.getElementById('admin-ranking-list');
-        const searchTerm = document.getElementById('ranking-search').value.trim().toLowerCase();
-        listEl.innerHTML = "";
+    // [핵심 추가 기능] 전체 참여 학생 명단만 긁어서 복사하기
+    function extractAllParticipants() {
+        // 문제 수, 점수에 상관없이 전체 랭킹 데이터를 가져옵니다.
+        db.collection("quiz_rankings").get().then(snap => {
+            if (snap.empty) {
+                alert("아직 퀴즈에 참여한 학생이 없습니다.");
+                return;
+            }
 
-        const filteredList = allRankingData.filter(d => d.author.toLowerCase().includes(searchTerm));
+            const participants = new Set(); // 중복 제거를 위한 Set 객체
 
-        if (filteredList.length === 0) {
-            listEl.innerHTML = "<p style='color:#aaa; text-align:center;'>검색 결과가 없습니다.</p>";
-            return;
-        }
+            snap.forEach(doc => {
+                const author = doc.data().author;
+                if (author) {
+                    participants.add(author.trim()); // 이름/학반 추가 (공백 제거)
+                }
+            });
 
-        filteredList.forEach(d => {
-            const icon = d.rank===1?"🥇":(d.rank===2?"🥈":(d.rank===3?"🥉":""));
-            const div = document.createElement('div');
-            div.className = 'admin-item';
-            div.style.alignItems = 'center';
-            div.id = `rank-${d.id}`;
-            div.innerHTML = `
-                <div style="flex: 1; display:flex; align-items:center;">
-                    <span class="admin-rank-num">${d.rank}${icon}</span>
-                    <span style="font-weight:600; color:#333; flex:1;">${d.author}</span>
-                    <span style="font-weight:800; color:#4a90e2; margin-right:15px;">${d.score}%</span>
-                </div>
-                <button class="del-btn" onclick="deleteDoc('quiz_rankings', '${d.id}', 'rank-${d.id}')">기록 삭제</button>
-            `;
-            listEl.appendChild(div);
-        });
-    }
+            // Set에 담긴 중복 없는 이름들을 줄바꿈(\n)으로 연결
+            const extractText = Array.from(participants).join('\n');
 
-    // [새 기능] 검색된 명단을 클립보드에 복사(추출)하여 엑셀에 붙여넣기 좋게 만듦
-    function extractRankingList() {
-        const searchTerm = document.getElementById('ranking-search').value.trim().toLowerCase();
-        const filteredList = allRankingData.filter(d => d.author.toLowerCase().includes(searchTerm));
-        
-        if (filteredList.length === 0) {
-            alert("추출할 명단이 없습니다.");
-            return;
-        }
+            // 클립보드에 복사
+            navigator.clipboard.writeText(extractText).then(() => {
+                alert(`✅ 총 ${participants.size}명의 참여 학생 명단이 복사되었습니다!\n엑셀이나 한글, 메모장에 바로 붙여넣기(Ctrl+V) 하세요.`);
+            }).catch(err => {
+                alert("명단 복사에 실패했습니다. 브라우저 권한을 확인해주세요.");
+                console.error(err);
+            });
 
-        // 엑셀에 붙여넣기 좋게 탭(\t)으로 구분된 텍스트 생성
-        let extractText = "순위\t이름/학반\t점수\n";
-        filteredList.forEach(d => {
-            extractText += `${d.rank}위\t${d.author}\t${d.score}%\n`;
-        });
-
-        // 클립보드에 복사
-        navigator.clipboard.writeText(extractText).then(() => {
-            alert("✅ 명단이 클립보드에 복사되었습니다!\n엑셀(Excel)이나 한글, 메모장에 붙여넣기(Ctrl+V) 하세요.");
         }).catch(err => {
-            alert("복사에 실패했습니다. 브라우저 권한 설정을 확인해주세요.");
+            alert("데이터베이스에서 명단을 불러오는 중 오류가 발생했습니다.");
             console.error(err);
         });
     }
 
-    // 개별 문서 삭제 함수
+    // 데이터 삭제
     function deleteDoc(collectionName, docId, elementId) {
         if (!confirm("정말 삭제하시겠습니까?")) return;
         db.collection(collectionName).doc(docId).delete().then(() => {
             const el = document.getElementById(elementId);
             if (el) el.remove();
-            
-            // 로컬 데이터에서도 제거 (검색/필터 시 다시 안 나타나게)
             if (collectionName === 'quiz_notes') {
                 allNotesData = allNotesData.filter(note => note.id !== docId);
-            } else if (collectionName === 'quiz_rankings') {
-                allRankingData = allRankingData.filter(rank => rank.id !== docId);
             }
         }).catch(err => { alert("삭제 실패 😥"); console.error(err); });
     }
 
-    // [탭 3] 전체 데이터 초기화 함수
     function resetData(collectionName, label) {
         if(!confirm(`정말 모든 ${label} 데이터를 삭제할까요?\n이 작업은 되돌릴 수 없습니다!`)) return;
-        
         db.collection(collectionName).get().then(s => {
             const b = db.batch(); 
             s.forEach(d => b.delete(d.ref)); 
