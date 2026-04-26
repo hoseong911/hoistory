@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0, user-scalable=yes">
     <title>IDY — Back to the 1883</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Noto+Serif+KR:wght@400;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
@@ -89,25 +89,19 @@
         #map-wrap {
             position: relative;
             display: inline-block;
-            min-width: 100%;
-            min-height: calc(100vh - 78px);
         }
-        /* 가로모드(landscape): 높이 기준으로 꽉 채우고 좌우 스크롤 */
+        /* 기본(가로모드): 높이 기준으로 꽉 채우고 좌우 스크롤 */
         #map-image {
             display: block;
             height: calc(100vh - 78px);
             width: auto;
             max-width: none;
         }
-        /* 세로모드(portrait): 가로 100%로 맞추고 위아래 스크롤 */
+        /* 세로모드(portrait): 가로를 200vw로 키워서 크게 보이게 + 스크롤 */
         @media (orientation: portrait) {
             #map-image {
-                width: 100vw;
+                width: 200vw;
                 height: auto;
-                min-height: unset;
-            }
-            #map-wrap {
-                min-height: unset;
             }
         }
 
@@ -121,23 +115,63 @@
             transform: translate(-50%, -100%);
             transition: transform 0.15s;
             user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
         .marker:active { transform: translate(-50%, -100%) scale(0.88); }
-        .marker-pin { width: 28px; height: 40px; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.55)); }
-        .marker-pin svg { width: 100%; height: 100%; }
-        .marker-label {
-            position: absolute; bottom: 42px; left: 50%; transform: translateX(-50%);
-            background: rgba(26,18,8,0.88);
-            backdrop-filter: blur(4px);
-            color: var(--parchment);
-            padding: 3px 8px; border-radius: 2px;
-            font-family: 'Noto Serif KR', serif; font-size: 10px; font-weight: 700;
-            white-space: nowrap; border-bottom: 2px solid var(--sepia-light);
-            pointer-events: none;
+
+        /* 핀 본체 - 번호 포함한 작은 원형 핀 */
+        .marker-pin {
+            width: 28px; height: 28px;
+            background: var(--rust);
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            border: 2.5px solid white;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.45);
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s;
+            position: relative;
         }
-        .marker.completed .marker-label { background: rgba(42,107,60,0.9); border-bottom-color: #5aad74; }
-        .marker-label::after { content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); border: 3px solid transparent; border-top-color: rgba(26,18,8,0.88); }
-        .marker.completed .marker-label::after { border-top-color: rgba(42,107,60,0.9); }
+        .marker.completed .marker-pin { background: var(--green-done); }
+
+        /* 번호 텍스트 */
+        .marker-num {
+            transform: rotate(45deg);
+            font-family: 'DM Mono', monospace;
+            font-size: 11px; font-weight: 700;
+            color: white;
+            line-height: 1;
+            position: absolute;
+        }
+
+        /* 말풍선 라벨 - 평소엔 숨김, .show 클래스일 때만 표시 */
+        .marker-label {
+            position: absolute;
+            bottom: 36px; left: 50%; transform: translateX(-50%);
+            background: rgba(26,18,8,0.92);
+            backdrop-filter: blur(6px);
+            color: var(--parchment);
+            padding: 5px 10px; border-radius: 4px;
+            font-family: 'Noto Serif KR', serif; font-size: 12px; font-weight: 700;
+            white-space: nowrap;
+            border-bottom: 2px solid var(--sepia-light);
+            pointer-events: none;
+            /* 기본: 숨김 */
+            opacity: 0;
+            transform: translateX(-50%) translateY(6px);
+            transition: opacity 0.18s, transform 0.18s;
+        }
+        .marker.completed .marker-label { border-bottom-color: #5aad74; }
+        .marker-label::after {
+            content: ''; position: absolute; bottom: -7px; left: 50%;
+            transform: translateX(-50%);
+            border: 4px solid transparent;
+            border-top-color: rgba(26,18,8,0.92);
+        }
+        /* 탭시 라벨 표시 */
+        .marker.label-show .marker-label {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
 
         /* ══════════════════════════════
            반투명 사이드 퀘스트 패널
@@ -318,50 +352,50 @@
         <div class="marker" id="marker-자유공원"
              data-key="자유공원" data-default-x="49.9" data-default-y="48.2"
              style="left:49.9%;top:48.2%;" onclick="window.openMission('자유공원')">
-            <div class="marker-label">① 자유공원</div>
-            <div class="marker-pin"><svg viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path class="pin-body" d="M14 0C6.268 0 0 6.268 0 14c0 9.8 14 26 14 26s14-16.2 14-26C28 6.268 21.732 0 14 0z" fill="#9b3a1a"/><circle cx="14" cy="14" r="5.5" fill="white" opacity="0.9"/></svg></div>
+            <div class="marker-pin"><span class="marker-num">①</span></div>
+            <div class="marker-label">자유공원</div>
         </div>
 
         <div class="marker" id="marker-인천개항박물관"
              data-key="인천개항박물관" data-default-x="40.6" data-default-y="75.9"
              style="left:40.6%;top:75.9%;" onclick="window.openMission('인천개항박물관')">
-            <div class="marker-label">② 인천개항박물관</div>
-            <div class="marker-pin"><svg viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path class="pin-body" d="M14 0C6.268 0 0 6.268 0 14c0 9.8 14 26 14 26s14-16.2 14-26C28 6.268 21.732 0 14 0z" fill="#9b3a1a"/><circle cx="14" cy="14" r="5.5" fill="white" opacity="0.9"/></svg></div>
+            <div class="marker-pin"><span class="marker-num">②</span></div>
+            <div class="marker-label">인천개항박물관</div>
         </div>
 
         <div class="marker" id="marker-대불호텔전시관"
              data-key="대불호텔전시관" data-default-x="35.4" data-default-y="69.6"
              style="left:35.4%;top:69.6%;" onclick="window.openMission('대불호텔전시관')">
-            <div class="marker-label">③ 대불호텔 전시관</div>
-            <div class="marker-pin"><svg viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path class="pin-body" d="M14 0C6.268 0 0 6.268 0 14c0 9.8 14 26 14 26s14-16.2 14-26C28 6.268 21.732 0 14 0z" fill="#9b3a1a"/><circle cx="14" cy="14" r="5.5" fill="white" opacity="0.9"/></svg></div>
+            <div class="marker-pin"><span class="marker-num">③</span></div>
+            <div class="marker-label">대불호텔 전시관</div>
         </div>
 
         <div class="marker" id="marker-청일조계지경계계단"
              data-key="청일조계지경계계단" data-default-x="42.9" data-default-y="66.0"
              style="left:42.9%;top:66.0%;" onclick="window.openMission('청일조계지경계계단')">
-            <div class="marker-label">④ 청일 조계지 경계계단</div>
-            <div class="marker-pin"><svg viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path class="pin-body" d="M14 0C6.268 0 0 6.268 0 14c0 9.8 14 26 14 26s14-16.2 14-26C28 6.268 21.732 0 14 0z" fill="#9b3a1a"/><circle cx="14" cy="14" r="5.5" fill="white" opacity="0.9"/></svg></div>
+            <div class="marker-pin"><span class="marker-num">④</span></div>
+            <div class="marker-label">청일 조계지 경계계단</div>
         </div>
 
         <div class="marker" id="marker-제물포구락부"
              data-key="제물포구락부" data-default-x="64.4" data-default-y="62.0"
              style="left:64.4%;top:62.0%;" onclick="window.openMission('제물포구락부')">
-            <div class="marker-label">⑤ 제물포 구락부</div>
-            <div class="marker-pin"><svg viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path class="pin-body" d="M14 0C6.268 0 0 6.268 0 14c0 9.8 14 26 14 26s14-16.2 14-26C28 6.268 21.732 0 14 0z" fill="#9b3a1a"/><circle cx="14" cy="14" r="5.5" fill="white" opacity="0.9"/></svg></div>
+            <div class="marker-pin"><span class="marker-num">⑤</span></div>
+            <div class="marker-label">제물포 구락부</div>
         </div>
 
         <div class="marker" id="marker-짜장면박물관"
              data-key="짜장면박물관" data-default-x="21.3" data-default-y="62.4"
              style="left:21.3%;top:62.4%;" onclick="window.openMission('짜장면박물관')">
-            <div class="marker-label">⑥ 짜장면 박물관</div>
-            <div class="marker-pin"><svg viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path class="pin-body" d="M14 0C6.268 0 0 6.268 0 14c0 9.8 14 26 14 26s14-16.2 14-26C28 6.268 21.732 0 14 0z" fill="#9b3a1a"/><circle cx="14" cy="14" r="5.5" fill="white" opacity="0.9"/></svg></div>
+            <div class="marker-pin"><span class="marker-num">⑥</span></div>
+            <div class="marker-label">짜장면 박물관</div>
         </div>
 
         <div class="marker" id="marker-삼국지벽화거리"
              data-key="삼국지벽화거리" data-default-x="27.2" data-default-y="52.0"
              style="left:27.2%;top:52.0%;" onclick="window.openMission('삼국지벽화거리')">
-            <div class="marker-label">⑦ 삼국지 벽화거리</div>
-            <div class="marker-pin"><svg viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg"><path class="pin-body" d="M14 0C6.268 0 0 6.268 0 14c0 9.8 14 26 14 26s14-16.2 14-26C28 6.268 21.732 0 14 0z" fill="#9b3a1a"/><circle cx="14" cy="14" r="5.5" fill="white" opacity="0.9"/></svg></div>
+            <div class="marker-pin"><span class="marker-num">⑦</span></div>
+            <div class="marker-label">삼국지 벽화거리</div>
         </div>
     </div>
 </div>
@@ -545,9 +579,21 @@
     };
 
     /* ─── 바텀 시트 ─── */
+    // 마커 라벨 타이머
+    let labelTimer = null;
+
     window.openMission = function(key) {
         const m = MISSIONS[key]; if (!m) return;
         currentMission = key;
+
+        // 라벨 잠깐 표시 후 바텀시트 열기
+        document.querySelectorAll('.marker').forEach(el => el.classList.remove('label-show'));
+        const markerEl = document.getElementById(`marker-${key}`);
+        if (markerEl) {
+            markerEl.classList.add('label-show');
+            if (labelTimer) clearTimeout(labelTimer);
+            labelTimer = setTimeout(() => markerEl.classList.remove('label-show'), 1500);
+        }
         document.getElementById('mission-type-label').textContent = m.label;
         document.getElementById('mission-title').textContent      = m.title;
         document.getElementById('mission-desc').textContent       = m.desc;
