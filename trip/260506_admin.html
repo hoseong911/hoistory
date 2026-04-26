@@ -7,671 +7,483 @@
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Noto+Serif+KR:wght@400;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --ink: #1a1208;
-            --parchment: #f5edd8;
-            --parchment-dark: #e8d9b8;
-            --sepia: #8b6914;
-            --sepia-light: #c4973a;
-            --rust: #9b3a1a;
+            --ink: #1a1208; --parchment: #f5edd8; --parchment-dark: #e8d9b8;
+            --sepia: #8b6914; --sepia-light: #c4973a; --rust: #9b3a1a;
             --green-done: #2a6b3c;
-            --green-light: rgba(42,107,60,0.1);
-            --red-light: rgba(155,58,26,0.1);
         }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Noto Serif KR',serif; background:var(--parchment); min-height:100vh; }
 
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* ── 로그인 ── */
+        #admin-login { position:fixed; inset:0; z-index:5000; background:var(--ink); display:flex; flex-direction:column; justify-content:center; align-items:center; padding:32px 24px; }
+        .admin-login-eyebrow { font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.2em; color:var(--sepia-light); margin-bottom:12px; }
+        .admin-login-title { font-family:'Playfair Display',serif; font-size:28px; font-weight:700; color:var(--parchment); margin-bottom:4px; text-align:center; }
+        .admin-login-title span { font-style:italic; color:var(--sepia-light); font-weight:400; }
+        .admin-login-sub { font-family:'DM Mono',monospace; font-size:12px; color:#6b5a3a; margin-bottom:36px; }
+        .admin-input { width:100%; max-width:300px; padding:14px 18px; background:rgba(255,255,255,0.07); border:1.5px solid #3a2e1a; border-radius:4px; font-family:'DM Mono',monospace; font-size:16px; color:var(--parchment); outline:none; margin-bottom:12px; transition:border-color 0.2s; letter-spacing:0.15em; }
+        .admin-input:focus { border-color:var(--sepia-light); }
+        .admin-input::placeholder { color:#5a4a2a; letter-spacing:0.05em; }
+        #admin-login-btn { width:100%; max-width:300px; padding:15px; background:var(--sepia); color:var(--parchment); border:none; border-radius:4px; font-family:'Playfair Display',serif; font-size:17px; font-weight:700; cursor:pointer; transition:background 0.2s; }
+        #admin-login-btn:hover { background:var(--sepia-light); }
+        .admin-login-err { margin-top:14px; font-family:'DM Mono',monospace; font-size:13px; color:#c0522b; display:none; }
 
-        body {
-            font-family: 'Noto Serif KR', serif;
-            background: var(--parchment);
-            min-height: 100vh;
-        }
+        /* ── 헤더 ── */
+        #admin-header { background:var(--ink); padding:14px 20px; display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid var(--sepia); position:sticky; top:0; z-index:100; display:none; }
+        .admin-header-title { font-family:'Playfair Display',serif; font-size:17px; font-weight:700; color:var(--parchment); }
+        .admin-header-title span { font-style:italic; color:var(--sepia-light); font-weight:400; }
+        .admin-badge { font-family:'DM Mono',monospace; font-size:11px; color:var(--ink); background:var(--sepia-light); padding:4px 10px; border-radius:99px; font-weight:500; }
 
-        /* ── 노이즈 텍스처 ── */
-        body::before {
-            content: '';
-            position: fixed; inset: 0;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
-            pointer-events: none; z-index: 9999; opacity: 0.5;
-        }
+        /* ── 탭 내비 ── */
+        #tab-nav { display:none; background:var(--parchment-dark); border-bottom:2px solid #d4b87a; padding:0 20px; }
+        .tab-btn { display:inline-block; padding:12px 20px; font-family:'DM Mono',monospace; font-size:13px; color:var(--sepia); cursor:pointer; border-bottom:3px solid transparent; transition:all 0.2s; background:none; border-top:none; border-left:none; border-right:none; }
+        .tab-btn.active { color:var(--ink); border-bottom-color:var(--ink); font-weight:700; }
 
-        /* ════════════════════
-           로그인 화면
-        ════════════════════ */
-        #admin-login {
-            position: fixed; inset: 0; z-index: 5000;
-            background: var(--ink);
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
-            padding: 32px 24px;
-        }
+        /* ── 대시보드 탭 ── */
+        #tab-dashboard { display:none; padding:20px 16px; max-width:700px; margin:0 auto; }
+        .summary-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:24px; margin-top:20px; }
+        .summary-card { background:white; border-radius:8px; padding:16px 12px; text-align:center; border:1px solid var(--parchment-dark); box-shadow:0 2px 8px rgba(26,18,8,0.06); }
+        .summary-num { font-family:'Playfair Display',serif; font-size:32px; font-weight:700; color:var(--ink); line-height:1; }
+        .summary-label { font-family:'DM Mono',monospace; font-size:10px; color:var(--sepia); margin-top:6px; letter-spacing:0.08em; }
 
-        .admin-login-eyebrow {
-            font-family: 'DM Mono', monospace;
-            font-size: 12px; letter-spacing: 0.2em;
-            color: var(--sepia-light);
-            margin-bottom: 12px;
-        }
+        .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+        .section-title { font-family:'Playfair Display',serif; font-size:17px; font-weight:700; color:var(--ink); }
+        .refresh-btn { font-family:'DM Mono',monospace; font-size:12px; color:var(--sepia); background:none; border:1px solid var(--parchment-dark); padding:6px 12px; border-radius:4px; cursor:pointer; transition:background 0.15s; }
+        .refresh-btn:hover { background:var(--parchment-dark); }
 
-        .admin-login-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 28px; font-weight: 700;
-            color: var(--parchment);
-            margin-bottom: 4px;
-            text-align: center;
-        }
-        .admin-login-title span { font-style: italic; color: var(--sepia-light); font-weight: 400; }
+        #search-input { width:100%; padding:11px 14px; border:1.5px solid var(--parchment-dark); border-radius:6px; font-family:'Noto Serif KR',serif; font-size:15px; color:var(--ink); background:white; outline:none; margin-bottom:14px; transition:border-color 0.2s; }
+        #search-input:focus { border-color:var(--sepia); }
+        #search-input::placeholder { color:#b0956a; }
 
-        .admin-login-sub {
-            font-family: 'DM Mono', monospace;
-            font-size: 12px; color: #6b5a3a;
-            margin-bottom: 36px;
-        }
+        .student-card { background:white; border-radius:10px; border:1px solid var(--parchment-dark); margin-bottom:10px; overflow:hidden; box-shadow:0 2px 8px rgba(26,18,8,0.05); }
+        .student-card-header { padding:14px 16px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; border-bottom:1px solid transparent; transition:border-color 0.2s; }
+        .student-card.open .student-card-header { border-bottom-color:var(--parchment-dark); }
+        .student-info { display:flex; align-items:center; gap:12px; }
+        .student-avatar { width:38px; height:38px; background:var(--parchment-dark); border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Playfair Display',serif; font-size:16px; font-weight:700; color:var(--sepia); flex-shrink:0; }
+        .student-name { font-weight:700; font-size:15px; color:var(--ink); }
+        .student-id { font-family:'DM Mono',monospace; font-size:11px; color:var(--sepia); margin-top:2px; }
+        .mission-pills { display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
+        .pill { font-family:'DM Mono',monospace; font-size:10px; padding:3px 8px; border-radius:99px; font-weight:500; }
+        .pill.done { background:rgba(42,107,60,0.12); color:var(--green-done); border:1px solid rgba(42,107,60,0.25); }
+        .pill.todo { background:rgba(139,105,20,0.08); color:var(--sepia); border:1px solid rgba(139,105,20,0.2); }
+        .student-card-detail { display:none; padding:14px 16px; }
+        .student-card.open .student-card-detail { display:block; }
+        .mission-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--parchment-dark); }
+        .mission-row:last-child { border-bottom:none; }
+        .mission-row-left { display:flex; align-items:center; gap:10px; }
+        .mission-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+        .mission-dot.done { background:var(--green-done); }
+        .mission-dot.todo { background:var(--parchment-dark); border:1px solid #c4a060; }
+        .mission-row-name { font-size:14px; color:var(--ink); font-weight:700; }
+        .mission-row-time { font-family:'DM Mono',monospace; font-size:11px; color:#a08050; }
+        .photo-btn { font-family:'DM Mono',monospace; font-size:11px; color:var(--sepia); background:var(--parchment-dark); border:none; border-radius:4px; padding:5px 10px; cursor:pointer; transition:background 0.15s; text-decoration:none; }
+        .photo-btn:hover { background:#d4b87a; }
+        .empty-state { text-align:center; padding:48px 20px; color:var(--sepia); }
+        .empty-icon { font-size:36px; margin-bottom:12px; }
+        .empty-text { font-family:'DM Mono',monospace; font-size:13px; }
+        .loading-state { text-align:center; padding:40px; font-family:'DM Mono',monospace; font-size:13px; color:var(--sepia); }
 
-        .admin-input {
-            width: 100%; max-width: 300px;
-            padding: 14px 18px;
-            background: rgba(255,255,255,0.07);
-            border: 1.5px solid #3a2e1a;
-            border-radius: 4px;
-            font-family: 'DM Mono', monospace;
-            font-size: 16px; color: var(--parchment);
-            outline: none; margin-bottom: 12px;
-            transition: border-color 0.2s;
-            letter-spacing: 0.15em;
-        }
-        .admin-input:focus { border-color: var(--sepia-light); }
-        .admin-input::placeholder { color: #5a4a2a; letter-spacing: 0.05em; }
+        /* ── 마커 편집 탭 ── */
+        #tab-markers { display:none; padding:20px 16px; max-width:700px; margin:0 auto; }
 
-        #admin-login-btn {
-            width: 100%; max-width: 300px;
-            padding: 15px;
-            background: var(--sepia);
-            color: var(--parchment);
-            border: none; border-radius: 4px;
-            font-family: 'Playfair Display', serif;
-            font-size: 17px; font-weight: 700;
-            cursor: pointer;
-            transition: background 0.2s;
+        .marker-edit-intro {
+            background: white; border-radius:10px; border:1px solid var(--parchment-dark);
+            padding:16px; margin-bottom:20px; margin-top:20px;
+            font-family:'DM Mono',monospace; font-size:13px; color:var(--sepia); line-height:1.7;
         }
-        #admin-login-btn:hover { background: var(--sepia-light); }
+        .marker-edit-intro strong { color:var(--ink); }
 
-        .admin-login-err {
-            margin-top: 14px;
-            font-family: 'DM Mono', monospace;
-            font-size: 13px; color: #c0522b;
-            display: none;
+        /* 지도 편집 영역 */
+        #marker-map-wrap {
+            position:relative; overflow:auto;
+            border:2px solid var(--sepia); border-radius:10px;
+            margin-bottom:20px; background:#2a1f0e;
+            max-height:60vh;
+            cursor:crosshair;
         }
+        #marker-map-img { display:block; height:60vh; width:auto; max-width:none; pointer-events:none; }
 
-        /* ════════════════════
-           메인 헤더
-        ════════════════════ */
-        #admin-header {
-            background: var(--ink);
-            padding: 14px 20px;
-            display: flex; align-items: center; justify-content: space-between;
-            border-bottom: 2px solid var(--sepia);
-            position: sticky; top: 0; z-index: 100;
+        .edit-marker {
+            position:absolute; transform:translate(-50%,-100%);
+            cursor:grab; z-index:10; user-select:none;
         }
+        .edit-marker:active { cursor:grabbing; }
+        .edit-marker-pin { width:24px; height:34px; filter:drop-shadow(0 3px 5px rgba(0,0,0,0.5)); }
+        .edit-marker-pin svg { width:100%; height:100%; }
+        .edit-marker-label {
+            position:absolute; bottom:36px; left:50%; transform:translateX(-50%);
+            background:rgba(26,18,8,0.9); color:var(--parchment);
+            padding:2px 7px; border-radius:2px; font-family:'DM Mono',monospace;
+            font-size:9px; font-weight:700; white-space:nowrap;
+            border-bottom:2px solid var(--sepia-light); pointer-events:none;
+        }
+        .edit-marker-label::after { content:''; position:absolute; bottom:-5px; left:50%; transform:translateX(-50%); border:3px solid transparent; border-top-color:rgba(26,18,8,0.9); }
 
-        .admin-header-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 17px; font-weight: 700;
-            color: var(--parchment);
-        }
-        .admin-header-title span { font-style: italic; color: var(--sepia-light); font-weight: 400; }
+        /* 좌표 목록 */
+        .marker-coord-list { background:white; border-radius:10px; border:1px solid var(--parchment-dark); overflow:hidden; }
+        .coord-row { display:flex; align-items:center; padding:12px 16px; border-bottom:1px solid var(--parchment-dark); gap:12px; }
+        .coord-row:last-child { border-bottom:none; }
+        .coord-name { font-weight:700; font-size:13px; color:var(--ink); flex:1; }
+        .coord-val { font-family:'DM Mono',monospace; font-size:12px; color:var(--sepia); background:var(--parchment-dark); padding:4px 10px; border-radius:4px; white-space:nowrap; }
+        .coord-reset { font-family:'DM Mono',monospace; font-size:11px; color:var(--rust); background:none; border:1px solid rgba(155,58,26,0.3); padding:4px 8px; border-radius:4px; cursor:pointer; transition:background 0.15s; }
+        .coord-reset:hover { background:rgba(155,58,26,0.08); }
 
-        .admin-badge {
-            font-family: 'DM Mono', monospace;
-            font-size: 11px; color: var(--ink);
-            background: var(--sepia-light);
-            padding: 4px 10px; border-radius: 99px;
-            font-weight: 500;
-        }
+        .save-all-btn { width:100%; padding:15px; background:var(--ink); color:var(--parchment); border:none; border-radius:6px; font-family:'Playfair Display',serif; font-size:17px; font-weight:700; cursor:pointer; margin-top:16px; transition:background 0.2s; }
+        .save-all-btn:hover { background:#2e1f06; }
 
-        /* ════════════════════
-           대시보드
-        ════════════════════ */
-        #admin-body {
-            padding: 20px 16px;
-            max-width: 700px;
-            margin: 0 auto;
-        }
+        /* 안내 배지 */
+        .edit-hint { position:absolute; top:10px; left:10px; background:rgba(26,18,8,0.8); backdrop-filter:blur(4px); color:var(--parchment); font-family:'DM Mono',monospace; font-size:11px; padding:6px 12px; border-radius:4px; border:1px solid rgba(139,105,20,0.4); pointer-events:none; }
 
-        /* 요약 카드 */
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-bottom: 24px;
-        }
+        /* ── 사진 모달 ── */
+        #photo-modal { display:none; position:fixed; inset:0; background:rgba(26,18,8,0.85); z-index:8000; justify-content:center; align-items:center; padding:20px; }
+        #photo-modal.show { display:flex; }
+        .photo-modal-inner { background:var(--parchment); border-radius:12px; padding:16px; max-width:500px; width:100%; }
+        .photo-modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+        .photo-modal-title { font-family:'Playfair Display',serif; font-size:16px; font-weight:700; color:var(--ink); }
+        .photo-modal-close { background:var(--parchment-dark); border:none; border-radius:50%; width:30px; height:30px; font-size:16px; cursor:pointer; color:var(--sepia); display:flex; align-items:center; justify-content:center; }
+        #modal-img { width:100%; border-radius:8px; max-height:60vh; object-fit:contain; background:var(--parchment-dark); }
+        .modal-loading { text-align:center; padding:40px; font-family:'DM Mono',monospace; font-size:13px; color:var(--sepia); }
 
-        .summary-card {
-            background: white;
-            border-radius: 8px;
-            padding: 16px 12px;
-            text-align: center;
-            border: 1px solid var(--parchment-dark);
-            box-shadow: 0 2px 8px rgba(26,18,8,0.06);
-        }
-
-        .summary-num {
-            font-family: 'Playfair Display', serif;
-            font-size: 32px; font-weight: 700;
-            color: var(--ink); line-height: 1;
-        }
-
-        .summary-label {
-            font-family: 'DM Mono', monospace;
-            font-size: 10px; color: var(--sepia);
-            margin-top: 6px; letter-spacing: 0.08em;
-        }
-
-        /* 섹션 헤더 */
-        .section-header {
-            display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 12px;
-        }
-
-        .section-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 17px; font-weight: 700;
-            color: var(--ink);
-        }
-
-        .refresh-btn {
-            font-family: 'DM Mono', monospace;
-            font-size: 12px; color: var(--sepia);
-            background: none; border: 1px solid var(--parchment-dark);
-            padding: 6px 12px; border-radius: 4px;
-            cursor: pointer; transition: background 0.15s;
-        }
-        .refresh-btn:hover { background: var(--parchment-dark); }
-
-        /* 검색 */
-        #search-input {
-            width: 100%;
-            padding: 11px 14px;
-            border: 1.5px solid var(--parchment-dark);
-            border-radius: 6px;
-            font-family: 'Noto Serif KR', serif;
-            font-size: 15px; color: var(--ink);
-            background: white; outline: none;
-            margin-bottom: 14px;
-            transition: border-color 0.2s;
-        }
-        #search-input:focus { border-color: var(--sepia); }
-        #search-input::placeholder { color: #b0956a; }
-
-        /* 학생 카드 */
-        .student-card {
-            background: white;
-            border-radius: 10px;
-            border: 1px solid var(--parchment-dark);
-            margin-bottom: 10px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(26,18,8,0.05);
-            transition: box-shadow 0.2s;
-        }
-        .student-card:hover { box-shadow: 0 4px 16px rgba(26,18,8,0.1); }
-
-        .student-card-header {
-            padding: 14px 16px;
-            display: flex; align-items: center; justify-content: space-between;
-            cursor: pointer;
-            border-bottom: 1px solid transparent;
-            transition: border-color 0.2s;
-        }
-        .student-card.open .student-card-header {
-            border-bottom-color: var(--parchment-dark);
-        }
-
-        .student-info { display: flex; align-items: center; gap: 12px; }
-
-        .student-avatar {
-            width: 38px; height: 38px;
-            background: var(--parchment-dark);
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-family: 'Playfair Display', serif;
-            font-size: 16px; font-weight: 700;
-            color: var(--sepia);
-            flex-shrink: 0;
-        }
-
-        .student-name {
-            font-weight: 700; font-size: 15px; color: var(--ink);
-        }
-        .student-id {
-            font-family: 'DM Mono', monospace;
-            font-size: 11px; color: var(--sepia);
-            margin-top: 2px;
-        }
-
-        .mission-pills {
-            display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end;
-        }
-
-        .pill {
-            font-family: 'DM Mono', monospace;
-            font-size: 10px; padding: 3px 8px;
-            border-radius: 99px; font-weight: 500;
-        }
-        .pill.done {
-            background: rgba(42,107,60,0.12);
-            color: var(--green-done);
-            border: 1px solid rgba(42,107,60,0.25);
-        }
-        .pill.todo {
-            background: rgba(139,105,20,0.08);
-            color: var(--sepia);
-            border: 1px solid rgba(139,105,20,0.2);
-        }
-
-        /* 카드 상세 */
-        .student-card-detail {
-            display: none;
-            padding: 14px 16px;
-        }
-        .student-card.open .student-card-detail { display: block; }
-
-        .mission-row {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid var(--parchment-dark);
-        }
-        .mission-row:last-child { border-bottom: none; }
-
-        .mission-row-left { display: flex; align-items: center; gap: 10px; }
-        .mission-dot {
-            width: 10px; height: 10px; border-radius: 50%;
-            flex-shrink: 0;
-        }
-        .mission-dot.done { background: var(--green-done); }
-        .mission-dot.todo { background: var(--parchment-dark); border: 1px solid #c4a060; }
-
-        .mission-row-name {
-            font-size: 14px; color: var(--ink); font-weight: 700;
-        }
-
-        .mission-row-time {
-            font-family: 'DM Mono', monospace;
-            font-size: 11px; color: #a08050;
-        }
-
-        .photo-btn {
-            font-family: 'DM Mono', monospace;
-            font-size: 11px; color: var(--sepia);
-            background: var(--parchment-dark);
-            border: none; border-radius: 4px;
-            padding: 5px 10px; cursor: pointer;
-            transition: background 0.15s;
-            text-decoration: none;
-        }
-        .photo-btn:hover { background: #d4b87a; }
-
-        /* 빈 상태 */
-        .empty-state {
-            text-align: center;
-            padding: 48px 20px;
-            color: var(--sepia);
-        }
-        .empty-icon { font-size: 36px; margin-bottom: 12px; }
-        .empty-text { font-family: 'DM Mono', monospace; font-size: 13px; }
-
-        /* 로딩 */
-        .loading-state {
-            text-align: center; padding: 40px;
-            font-family: 'DM Mono', monospace;
-            font-size: 13px; color: var(--sepia);
-        }
-
-        /* 사진 모달 */
-        #photo-modal {
-            display: none; position: fixed; inset: 0;
-            background: rgba(26,18,8,0.85);
-            z-index: 8000;
-            justify-content: center; align-items: center;
-            padding: 20px;
-        }
-        #photo-modal.show { display: flex; }
-
-        .photo-modal-inner {
-            background: var(--parchment);
-            border-radius: 12px;
-            padding: 16px;
-            max-width: 500px; width: 100%;
-        }
-
-        .photo-modal-header {
-            display: flex; align-items: center; justify-content: space-between;
-            margin-bottom: 12px;
-        }
-
-        .photo-modal-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 16px; font-weight: 700; color: var(--ink);
-        }
-
-        .photo-modal-close {
-            background: var(--parchment-dark);
-            border: none; border-radius: 50%;
-            width: 30px; height: 30px;
-            font-size: 16px; cursor: pointer; color: var(--sepia);
-            display: flex; align-items: center; justify-content: center;
-        }
-
-        #modal-img {
-            width: 100%; border-radius: 8px;
-            max-height: 60vh; object-fit: contain;
-            background: var(--parchment-dark);
-        }
-
-        .modal-loading {
-            text-align: center; padding: 40px;
-            font-family: 'DM Mono', monospace;
-            font-size: 13px; color: var(--sepia);
-        }
-
-        /* 토스트 */
-        #toast {
-            position: fixed; bottom: 30px; left: 50%;
-            transform: translateX(-50%) translateY(20px);
-            background: var(--ink); color: var(--parchment);
-            padding: 11px 22px; border-radius: 99px;
-            font-family: 'DM Mono', monospace; font-size: 13px;
-            opacity: 0; transition: opacity 0.3s, transform 0.3s;
-            z-index: 9000; white-space: nowrap;
-            border: 1px solid var(--sepia); pointer-events: none;
-        }
-        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        /* ── 토스트 ── */
+        #toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--parchment); padding:11px 22px; border-radius:99px; font-family:'DM Mono',monospace; font-size:13px; opacity:0; transition:opacity 0.3s, transform 0.3s; z-index:9000; white-space:nowrap; border:1px solid var(--sepia); pointer-events:none; }
+        #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
     </style>
 </head>
 <body>
 
-<!-- ──────── 관리자 로그인 ──────── -->
+<!-- ── 로그인 ── -->
 <div id="admin-login">
     <div class="admin-login-eyebrow">ADMINISTRATOR ACCESS</div>
     <div class="admin-login-title">IDY &nbsp;<span>관리자</span></div>
     <div class="admin-login-sub">Back to the 1883 · 인천동양중학교 3학년</div>
-    <input type="password" class="admin-input" id="admin-pw" placeholder="관리자 비밀번호 입력" />
+    <input type="password" class="admin-input" id="admin-pw" placeholder="관리자 비밀번호 입력">
     <button id="admin-login-btn">접속하기</button>
     <div class="admin-login-err" id="admin-err">⚠ 비밀번호가 올바르지 않습니다</div>
 </div>
 
-<!-- ──────── 헤더 ──────── -->
-<div id="admin-header" style="display:none;">
+<!-- ── 헤더 ── -->
+<div id="admin-header">
     <div class="admin-header-title">IDY &nbsp;<span>관리자 대시보드</span></div>
     <span class="admin-badge">ADMIN</span>
 </div>
 
-<!-- ──────── 대시보드 본문 ──────── -->
-<div id="admin-body" style="display:none;">
+<!-- ── 탭 ── -->
+<div id="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('dashboard')">📊 학생 현황</button>
+    <button class="tab-btn" onclick="switchTab('markers')">📍 마커 위치 편집</button>
+</div>
 
-    <!-- 요약 카드 -->
-    <div class="summary-grid" style="margin-top:20px;">
-        <div class="summary-card">
-            <div class="summary-num" id="stat-students">–</div>
-            <div class="summary-label">참여 학생</div>
-        </div>
-        <div class="summary-card">
-            <div class="summary-num" id="stat-completions">–</div>
-            <div class="summary-label">총 완료 미션</div>
-        </div>
-        <div class="summary-card">
-            <div class="summary-num" id="stat-full">–</div>
-            <div class="summary-label">전체 완료</div>
-        </div>
+<!-- ══ 탭1: 대시보드 ══ -->
+<div id="tab-dashboard">
+    <div class="summary-grid">
+        <div class="summary-card"><div class="summary-num" id="stat-students">–</div><div class="summary-label">참여 학생</div></div>
+        <div class="summary-card"><div class="summary-num" id="stat-completions">–</div><div class="summary-label">총 완료 미션</div></div>
+        <div class="summary-card"><div class="summary-num" id="stat-full">–</div><div class="summary-label">전체 완료</div></div>
     </div>
-
-    <!-- 학생 목록 -->
     <div class="section-header">
         <div class="section-title">학생별 현황</div>
         <button class="refresh-btn" id="refresh-btn">↻ 새로고침</button>
     </div>
-
-    <input type="text" id="search-input" placeholder="학번 또는 이름으로 검색..." />
-
-    <div id="student-list">
-        <div class="loading-state">데이터를 불러오는 중...</div>
-    </div>
+    <input type="text" id="search-input" placeholder="학번 또는 이름으로 검색...">
+    <div id="student-list"><div class="loading-state">데이터를 불러오는 중...</div></div>
 </div>
 
-<!-- ──────── 사진 모달 ──────── -->
+<!-- ══ 탭2: 마커 위치 편집 ══ -->
+<div id="tab-markers">
+    <div class="marker-edit-intro">
+        <strong>마커 위치 편집 방법</strong><br>
+        지도 위의 마커를 <strong>드래그</strong>해서 원하는 위치로 옮기세요.<br>
+        다 옮긴 후 <strong>"저장하기"</strong> 버튼을 누르면 학생 화면에 즉시 반영됩니다.
+    </div>
+
+    <div id="marker-map-wrap">
+        <div class="edit-hint">📍 마커를 드래그하여 위치를 조정하세요</div>
+        <img id="marker-map-img" src="map_image.png" alt="지도">
+        <!-- 편집용 마커는 JS로 생성 -->
+    </div>
+
+    <div class="marker-coord-list" id="coord-list"></div>
+    <button class="save-all-btn" onclick="saveMarkers()">💾 마커 위치 저장하기</button>
+</div>
+
+<!-- ── 사진 모달 ── -->
 <div id="photo-modal">
     <div class="photo-modal-inner">
         <div class="photo-modal-header">
             <div class="photo-modal-title" id="modal-title">인증 사진</div>
             <button class="photo-modal-close" onclick="closeModal()">✕</button>
         </div>
-        <div id="modal-content">
-            <div class="modal-loading">사진 불러오는 중...</div>
-        </div>
+        <div id="modal-content"><div class="modal-loading">사진 불러오는 중...</div></div>
     </div>
 </div>
 
 <div id="toast"></div>
 
 <script type="module">
-    import { initializeApp }   from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-    import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
+    import { initializeApp }     from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+    import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
     import { getStorage, ref as sRef, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-storage.js";
 
-    /* ── Firebase ── */
     const firebaseConfig = {
-        apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
-        authDomain: "ho0911seong-56638.firebaseapp.com",
-        databaseURL: "https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "ho0911seong-56638",
-        storageBucket: "ho0911seong-56638.firebasestorage.app",
-        messagingSenderId: "994509567071",
-        appId: "1:994509567071:web:2bc0f31f542bf8c3f557ea"
+        apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+        authDomain:"ho0911seong-56638.firebaseapp.com",
+        databaseURL:"https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId:"ho0911seong-56638",
+        storageBucket:"ho0911seong-56638.firebasestorage.app",
+        messagingSenderId:"994509567071",
+        appId:"1:994509567071:web:2bc0f31f542bf8c3f557ea"
     };
     const app     = initializeApp(firebaseConfig);
     const db      = getDatabase(app);
     const storage = getStorage(app);
 
-    /* ── 설정 ── */
-    const ADMIN_PASSWORD  = "idy1883";   // ← 비밀번호 여기서 변경
-    const ALL_MISSIONS = ['자유공원','인천개항박물관','대불호텔전시관','청일조계지경계계단','제물포구락부','짜장면박물관','삼국지벽화거리','개항기미식회','한자간판수집가','선생님을찾아라'];
+    const ADMIN_PASSWORD = "idy1883";  // ← 비밀번호 변경 여기서
+    const ALL_MISSIONS   = ['자유공원','인천개항박물관','대불호텔전시관','청일조계지경계계단','제물포구락부','짜장면박물관','삼국지벽화거리','개항기미식회','한자간판수집가','선생님을찾아라'];
     const TOTAL_MISSIONS = ALL_MISSIONS.length;
 
-    let allData = {};   // Firebase 전체 데이터 캐시
+    // 마커 기본 좌표 (index.html과 동일)
+    const DEFAULT_POSITIONS = {
+        '자유공원':           { x:79, y:17 },
+        '인천개항박물관':     { x:52, y:54 },
+        '대불호텔전시관':     { x:44, y:57 },
+        '청일조계지경계계단': { x:41, y:41 },
+        '제물포구락부':       { x:70, y:36 },
+        '짜장면박물관':       { x:33, y:63 },
+        '삼국지벽화거리':     { x:25, y:49 }
+    };
+    const PLACE_MISSIONS = Object.keys(DEFAULT_POSITIONS);
 
-    /* ── 유틸 ── */
+    // 현재 편집 중인 마커 위치
+    let editPositions = JSON.parse(JSON.stringify(DEFAULT_POSITIONS));
+
+    let allData = {};
+
     function showToast(msg) {
         const el = document.getElementById('toast');
-        el.textContent = msg;
-        el.classList.add('show');
+        el.textContent = msg; el.classList.add('show');
         setTimeout(() => el.classList.remove('show'), 2500);
     }
-
     function formatTime(iso) {
         if (!iso) return '';
         const d = new Date(iso);
         return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     }
 
-    /* ════════════════════════
-       관리자 로그인
-    ════════════════════════ */
+    /* ════════════════ 로그인 ════════════════ */
     document.getElementById('admin-login-btn').addEventListener('click', tryLogin);
-    document.getElementById('admin-pw').addEventListener('keydown', e => { if(e.key === 'Enter') tryLogin(); });
+    document.getElementById('admin-pw').addEventListener('keydown', e => { if(e.key==='Enter') tryLogin(); });
 
     function tryLogin() {
-        const pw = document.getElementById('admin-pw').value;
-        if (pw === ADMIN_PASSWORD) {
-            document.getElementById('admin-login').style.display = 'none';
+        if (document.getElementById('admin-pw').value === ADMIN_PASSWORD) {
+            document.getElementById('admin-login').style.display  = 'none';
             document.getElementById('admin-header').style.display = 'flex';
-            document.getElementById('admin-body').style.display   = 'block';
-            loadData();
+            document.getElementById('tab-nav').style.display      = 'block';
+            document.getElementById('tab-dashboard').style.display = 'block';
+            loadDashboard();
+            loadMarkerPositions();
+            buildMarkerEditor();
         } else {
             document.getElementById('admin-err').style.display = 'block';
             document.getElementById('admin-pw').value = '';
         }
     }
 
-    /* ════════════════════════
-       데이터 로드 (실시간)
-    ════════════════════════ */
-    function loadData() {
-        onValue(ref(db, 'status'), snapshot => {
-            if (snapshot.exists()) {
-                allData = snapshot.val();
-            } else {
-                allData = {};
-            }
+    /* ════════════════ 탭 전환 ════════════════ */
+    window.switchTab = function(tab) {
+        document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.toggle('active', (i===0&&tab==='dashboard')||(i===1&&tab==='markers')));
+        document.getElementById('tab-dashboard').style.display = tab==='dashboard' ? 'block' : 'none';
+        document.getElementById('tab-markers').style.display   = tab==='markers'   ? 'block' : 'none';
+    };
+
+    /* ════════════════ 대시보드 ════════════════ */
+    function loadDashboard() {
+        onValue(ref(db, 'status'), snap => {
+            allData = snap.exists() ? snap.val() : {};
             renderDashboard();
         });
     }
 
-    document.getElementById('refresh-btn').addEventListener('click', () => {
-        showToast('새로고침 완료 (실시간 연동 중)');
-    });
+    document.getElementById('refresh-btn').addEventListener('click', () => showToast('실시간 연동 중 — 자동 반영됩니다'));
 
-    /* ════════════════════════
-       렌더링
-    ════════════════════════ */
     function renderDashboard() {
         const entries = Object.entries(allData);
-        let totalCompletions = 0;
-        let fullCount = 0;
-
-        entries.forEach(([key, missions]) => {
-            const done = Object.values(missions).filter(m => m.status === '완료').length;
-            totalCompletions += done;
+        let totalComp = 0, fullCount = 0;
+        entries.forEach(([,m]) => {
+            const done = Object.values(m).filter(v=>v.status==='완료').length;
+            totalComp += done;
             if (done >= TOTAL_MISSIONS) fullCount++;
         });
-
         document.getElementById('stat-students').textContent    = entries.length;
-        document.getElementById('stat-completions').textContent = totalCompletions;
+        document.getElementById('stat-completions').textContent = totalComp;
         document.getElementById('stat-full').textContent        = fullCount;
-
         renderList('');
     }
 
     function renderList(query) {
-        const list    = document.getElementById('student-list');
-        const entries = Object.entries(allData);
-
-        const filtered = entries.filter(([key]) => {
-            const [id, ...nameParts] = key.split('_');
-            const name = nameParts.join('_');
-            return key.includes(query) || id.includes(query) || name.includes(query);
-        });
-
-        if (filtered.length === 0) {
-            list.innerHTML = `
-                <div class="empty-state">
-                    <div class="empty-icon">🗺️</div>
-                    <div class="empty-text">${Object.keys(allData).length === 0 ? '아직 제출한 학생이 없습니다' : '검색 결과가 없습니다'}</div>
-                </div>`;
+        const list = document.getElementById('student-list');
+        const entries = Object.entries(allData).filter(([k]) => k.includes(query));
+        if (!entries.length) {
+            list.innerHTML = `<div class="empty-state"><div class="empty-icon">🗺️</div><div class="empty-text">${Object.keys(allData).length===0?'아직 제출한 학생이 없습니다':'검색 결과가 없습니다'}</div></div>`;
             return;
         }
-
-        // 완료 미션 수 내림차순 정렬
-        filtered.sort(([, a], [, b]) => {
-            const da = Object.values(a).filter(m => m.status === '완료').length;
-            const db2 = Object.values(b).filter(m => m.status === '완료').length;
-            return db2 - da;
-        });
-
-        list.innerHTML = filtered.map(([key, missions]) => {
-            const [id, ...nameParts] = key.split('_');
-            const name    = nameParts.join(' ');
-            const initial = name.charAt(0) || '?';
-
-            const missionStatus = ALL_MISSIONS.map(mName => {
-                const mKey  = mName.replace(/\s/g, '');
-                const entry = missions[mKey] || missions[mName];
-                return { name: mName, key: mKey, done: !!(entry && entry.status === '완료'), time: entry?.time || '' };
+        entries.sort(([,a],[,b]) => Object.values(b).filter(v=>v.status==='완료').length - Object.values(a).filter(v=>v.status==='완료').length);
+        list.innerHTML = entries.map(([key, missions]) => {
+            const [id,...np] = key.split('_'); const name = np.join(' ');
+            const mStatus = ALL_MISSIONS.map(mn => {
+                const e = missions[mn.replace(/\s/g,'')] || missions[mn];
+                return { name:mn, done:!!(e&&e.status==='완료'), time:e?.time||'' };
             });
-
-            const doneCount = missionStatus.filter(m => m.done).length;
-
-            const pills = missionStatus.map(m =>
-                `<span class="pill ${m.done ? 'done' : 'todo'}">${m.done ? '✓' : '○'} ${m.name}</span>`
-            ).join('');
-
-            const rows = missionStatus.map(m => `
+            const doneCount = mStatus.filter(m=>m.done).length;
+            const pills = mStatus.slice(0,7).map(m=>`<span class="pill ${m.done?'done':'todo'}">${m.done?'✓':'○'} ${m.name}</span>`).join('');
+            const rows = mStatus.map(m=>`
                 <div class="mission-row">
                     <div class="mission-row-left">
-                        <div class="mission-dot ${m.done ? 'done' : 'todo'}"></div>
-                        <div>
-                            <div class="mission-row-name">${m.name}</div>
-                            ${m.done ? `<div class="mission-row-time">${formatTime(m.time)}</div>` : '<div class="mission-row-time">미완료</div>'}
-                        </div>
+                        <div class="mission-dot ${m.done?'done':'todo'}"></div>
+                        <div><div class="mission-row-name">${m.name}</div><div class="mission-row-time">${m.done?formatTime(m.time):'미완료'}</div></div>
                     </div>
-                    ${m.done
-                        ? `<button class="photo-btn" onclick="window.viewPhoto('${id}', '${name}', '${m.key}', '${m.name}')">📷 사진 보기</button>`
-                        : '<span style="font-size:12px;color:#c4a060;font-family:DM Mono,monospace;">–</span>'
-                    }
+                    ${m.done?`<button class="photo-btn" onclick="window.viewPhoto('${id}','${name}','${m.name.replace(/\s/g,'')}','${m.name}')">📷 사진</button>`:'<span style="font-size:12px;color:#c4a060;font-family:DM Mono,monospace;">–</span>'}
+                </div>`).join('');
+            return `<div class="student-card" id="card-${key}">
+                <div class="student-card-header" onclick="toggleCard('${key}')">
+                    <div class="student-info">
+                        <div class="student-avatar">${name.charAt(0)||'?'}</div>
+                        <div><div class="student-name">${name}</div><div class="student-id">${id} · ${doneCount}/${TOTAL_MISSIONS} 완료</div></div>
+                    </div>
+                    <div class="mission-pills">${pills}</div>
                 </div>
-            `).join('');
-
-            return `
-                <div class="student-card" id="card-${key}">
-                    <div class="student-card-header" onclick="toggleCard('${key}')">
-                        <div class="student-info">
-                            <div class="student-avatar">${initial}</div>
-                            <div>
-                                <div class="student-name">${name}</div>
-                                <div class="student-id">${id} &nbsp;·&nbsp; ${doneCount}/${TOTAL_MISSIONS} 완료</div>
-                            </div>
-                        </div>
-                        <div class="mission-pills">${pills}</div>
-                    </div>
-                    <div class="student-card-detail">${rows}</div>
-                </div>`;
+                <div class="student-card-detail">${rows}</div>
+            </div>`;
         }).join('');
     }
 
-    /* 카드 토글 */
-    window.toggleCard = function(key) {
-        document.getElementById(`card-${key}`)?.classList.toggle('open');
-    };
+    window.toggleCard = k => document.getElementById(`card-${k}`)?.classList.toggle('open');
+    document.getElementById('search-input').addEventListener('input', e => renderList(e.target.value.trim()));
 
-    /* 검색 */
-    document.getElementById('search-input').addEventListener('input', e => {
-        renderList(e.target.value.trim());
-    });
-
-    /* ════════════════════════
-       사진 보기
-    ════════════════════════ */
-    window.viewPhoto = async function(id, name, missionKey, missionName) {
-        document.getElementById('modal-title').textContent = `${name} · ${missionName}`;
+    /* ════════════════ 사진 보기 ════════════════ */
+    window.viewPhoto = async function(id, name, mKey, mName) {
+        document.getElementById('modal-title').textContent = `${name} · ${mName}`;
         document.getElementById('modal-content').innerHTML = '<div class="modal-loading">📷 사진 불러오는 중...</div>';
         document.getElementById('photo-modal').classList.add('show');
-
-        // 확장자 시도 순서
-        const exts = ['jpg', 'jpeg', 'png', 'heic', 'webp'];
-        let found  = false;
-
-        for (const ext of exts) {
+        for (const ext of ['jpg','jpeg','png','heic','webp']) {
             try {
-                const path = `missions/${id}_${name}_${missionKey}.${ext}`;
-                const url  = await getDownloadURL(sRef(storage, path));
-                document.getElementById('modal-content').innerHTML =
-                    `<img id="modal-img" src="${url}" alt="인증 사진" />`;
-                found = true;
-                break;
-            } catch (_) { /* 다음 확장자 시도 */ }
+                const url = await getDownloadURL(sRef(storage, `missions/${id}_${name}_${mKey}.${ext}`));
+                document.getElementById('modal-content').innerHTML = `<img id="modal-img" src="${url}" alt="인증 사진">`;
+                return;
+            } catch(_) {}
         }
+        document.getElementById('modal-content').innerHTML = '<div class="modal-loading">사진을 찾을 수 없습니다.</div>';
+    };
+    window.closeModal = () => document.getElementById('photo-modal').classList.remove('show');
+    document.getElementById('photo-modal').addEventListener('click', function(e) { if(e.target===this) closeModal(); });
 
-        if (!found) {
-            document.getElementById('modal-content').innerHTML =
-                `<div class="modal-loading">사진을 찾을 수 없습니다.<br><span style="font-size:11px;color:#a08050;">파일이 존재하지 않거나 삭제되었을 수 있습니다.</span></div>`;
+    /* ════════════════ 마커 편집 ════════════════ */
+
+    // Firebase에서 저장된 좌표 불러오기
+    async function loadMarkerPositions() {
+        try {
+            const snap = await get(ref(db, 'markerPositions'));
+            if (snap.exists()) {
+                const saved = snap.val();
+                Object.keys(saved).forEach(k => { if(editPositions[k]) editPositions[k] = saved[k]; });
+            }
+        } catch(e) { console.warn(e); }
+    }
+
+    function buildMarkerEditor() {
+        const wrap = document.getElementById('marker-map-wrap');
+        const img  = document.getElementById('marker-map-img');
+
+        // 기존 편집 마커 제거
+        wrap.querySelectorAll('.edit-marker').forEach(el => el.remove());
+
+        PLACE_MISSIONS.forEach(key => {
+            const pos = editPositions[key];
+            const el  = document.createElement('div');
+            el.className   = 'edit-marker';
+            el.id          = `edit-${key}`;
+            el.style.left  = pos.x + '%';
+            el.style.top   = pos.y + '%';
+            el.innerHTML   = `
+                <div class="edit-marker-label">${key}</div>
+                <div class="edit-marker-pin">
+                    <svg viewBox="0 0 28 40" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M14 0C6.268 0 0 6.268 0 14c0 9.8 14 26 14 26s14-16.2 14-26C28 6.268 21.732 0 14 0z" fill="#c4973a"/>
+                        <circle cx="14" cy="14" r="5.5" fill="white" opacity="0.9"/>
+                    </svg>
+                </div>`;
+            makeDraggable(el, key, wrap);
+            wrap.appendChild(el);
+        });
+
+        renderCoordList();
+    }
+
+    function makeDraggable(el, key, wrap) {
+        let dragging = false, startX, startY, startLeft, startTop;
+
+        function onStart(e) {
+            dragging = true;
+            const pt = e.touches ? e.touches[0] : e;
+            startX = pt.clientX; startY = pt.clientY;
+            const rect = wrap.getBoundingClientRect();
+            startLeft = (parseFloat(el.style.left) / 100) * wrap.scrollWidth;
+            startTop  = (parseFloat(el.style.top)  / 100) * wrap.scrollHeight;
+            e.preventDefault();
         }
+        function onMove(e) {
+            if (!dragging) return;
+            const pt = e.touches ? e.touches[0] : e;
+            const dx = pt.clientX - startX;
+            const dy = pt.clientY - startY;
+            const ww = wrap.scrollWidth, wh = wrap.scrollHeight;
+            const newLeft = Math.max(0, Math.min(100, ((startLeft + dx) / ww) * 100));
+            const newTop  = Math.max(0, Math.min(100, ((startTop  + dy) / wh) * 100));
+            el.style.left = newLeft + '%';
+            el.style.top  = newTop  + '%';
+            editPositions[key] = { x: parseFloat(newLeft.toFixed(2)), y: parseFloat(newTop.toFixed(2)) };
+            updateCoordRow(key);
+            e.preventDefault();
+        }
+        function onEnd() { dragging = false; }
+
+        el.addEventListener('mousedown',  onStart);
+        el.addEventListener('touchstart', onStart, { passive:false });
+        document.addEventListener('mousemove',  onMove);
+        document.addEventListener('touchmove',  onMove, { passive:false });
+        document.addEventListener('mouseup',    onEnd);
+        document.addEventListener('touchend',   onEnd);
+    }
+
+    function renderCoordList() {
+        const list = document.getElementById('coord-list');
+        list.innerHTML = PLACE_MISSIONS.map(key => `
+            <div class="coord-row" id="coord-row-${key}">
+                <div class="coord-name">${key}</div>
+                <div class="coord-val" id="coord-val-${key}">X: ${editPositions[key].x}% / Y: ${editPositions[key].y}%</div>
+                <button class="coord-reset" onclick="resetMarker('${key}')">초기화</button>
+            </div>`).join('');
+    }
+
+    function updateCoordRow(key) {
+        const el = document.getElementById(`coord-val-${key}`);
+        if (el) el.textContent = `X: ${editPositions[key].x}% / Y: ${editPositions[key].y}%`;
+    }
+
+    window.resetMarker = function(key) {
+        editPositions[key] = { ...DEFAULT_POSITIONS[key] };
+        const el = document.getElementById(`edit-${key}`);
+        if (el) { el.style.left = editPositions[key].x + '%'; el.style.top = editPositions[key].y + '%'; }
+        updateCoordRow(key);
+        showToast(`${key} 위치를 초기값으로 되돌렸습니다`);
     };
 
-    window.closeModal = function() {
-        document.getElementById('photo-modal').classList.remove('show');
+    window.saveMarkers = async function() {
+        try {
+            await set(ref(db, 'markerPositions'), editPositions);
+            showToast('✅ 마커 위치가 저장되었습니다! 학생 화면에 즉시 반영됩니다.');
+        } catch(e) {
+            showToast('저장 실패: ' + e.message);
+        }
     };
-
-    // 모달 바깥 클릭 시 닫기
-    document.getElementById('photo-modal').addEventListener('click', function(e) {
-        if (e.target === this) closeModal();
-    });
 </script>
 </body>
 </html>
