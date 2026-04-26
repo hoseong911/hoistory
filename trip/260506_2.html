@@ -441,9 +441,11 @@
 
     /* ─── 로그인 ─── */
     async function init(id, name) {
-        // 미션 데이터를 Firebase에서 먼저 불러옴
-        await loadMissionData();
         document.getElementById('hud-user').textContent = `${id} · ${name}`;
+        // 미션 데이터 + 완료 상태 병렬 로드
+        try {
+            await loadMissionData();
+        } catch(e) { console.warn('미션 데이터 로드 실패, 기본값 사용:', e); }
         try {
             const snap = await get(dbRef(db,`status/${id}_${name}`));
             if (snap.exists()) {
@@ -454,17 +456,39 @@
     }
 
     const loginScreen = document.getElementById('login-screen');
-    const savedId = localStorage.getItem('studentId'), savedName = localStorage.getItem('studentName');
-    if (savedId && savedName) { loginScreen.style.display='none'; init(savedId,savedName); }
 
-    document.getElementById('login-btn').addEventListener('click', async () => {
+    // 로그인 처리 함수
+    async function doLogin(id, name) {
+        if (!id || !name) { showToast('학번과 이름을 모두 입력해주세요'); return; }
+        if (!/^\d+$/.test(id)) { showToast('학번은 숫자만 입력해주세요'); return; }
+        localStorage.setItem('studentId', id);
+        localStorage.setItem('studentName', name);
+        loginScreen.style.display = 'none';
+        await init(id, name);
+    }
+
+    // 저장된 로그인 정보 확인
+    const savedId = localStorage.getItem('studentId');
+    const savedName = localStorage.getItem('studentName');
+    if (savedId && savedName) {
+        loginScreen.style.display = 'none';
+        init(savedId, savedName);
+    }
+
+    // 버튼 클릭
+    document.getElementById('login-btn').addEventListener('click', () => {
         const id   = document.getElementById('student-id').value.trim();
         const name = document.getElementById('student-name').value.trim();
-        if (!id||!name) { showToast('학번과 이름을 모두 입력해주세요'); return; }
-        if (!/^\d+$/.test(id)) { showToast('학번은 숫자만 입력해주세요'); return; }
-        localStorage.setItem('studentId',id); localStorage.setItem('studentName',name);
-        loginScreen.style.display='none';
-        await init(id,name);
+        doLogin(id, name);
+    });
+
+    // 엔터키 지원
+    document.getElementById('student-name').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const id   = document.getElementById('student-id').value.trim();
+            const name = document.getElementById('student-name').value.trim();
+            doLogin(id, name);
+        }
     });
 
     /* ─── 미션 열기 ─── */
