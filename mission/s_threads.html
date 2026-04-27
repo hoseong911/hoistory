@@ -11,51 +11,43 @@
       --bg: #000; --card: #121212; --text: #fff; --sub: #777;
       --border: #262626; --accent: #fff; --danger: #f91880;
     }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background: var(--bg); color: var(--text);
       font-family: 'Pretendard', sans-serif;
-      margin: 0; padding: 0;
       display: flex; justify-content: center;
       min-height: 100vh; overflow-x: hidden;
     }
 
-    /* ── 모달 공통 ── */
-    #loginOverlay, #profileModal, #adminAuthModal, #adminOverlay {
+    /* ── 로그인 ── */
+    #loginOverlay {
       position: fixed; inset: 0; background: #000; z-index: 1000;
       display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;
     }
-    #profileModal, #adminAuthModal, #adminOverlay {
-      display: none; background: rgba(0,0,0,0.97);
-    }
-    #adminOverlay {
-      z-index: 1900; overflow-y: auto;
-      display: none; align-items: flex-start; justify-content: flex-start; padding-top: 60px;
-    }
-
     .box { width: 100%; max-width: 400px; text-align: center; }
     h1 { font-family: 'Jua', sans-serif; font-size: 3rem; margin-bottom: 20px; }
 
-    input, select, textarea {
+    input, select {
       width: 100%; padding: 15px;
       background: #1e1e1e; border: 1px solid #333; border-radius: 12px;
-      color: #fff; margin-bottom: 8px; box-sizing: border-box;
+      color: #fff; margin-bottom: 8px;
       font-size: 16px; font-family: 'Pretendard';
     }
-    textarea::placeholder {
-      font-family: 'Pretendard'; font-weight: 300;
-      font-style: italic; color: #555; font-size: 16px;
-    }
-
     .btn-main {
       width: 100%; padding: 15px; background: #fff; color: #000;
       border: none; border-radius: 30px; font-weight: bold;
       cursor: pointer; font-size: 16px; margin-top: 5px;
     }
-    .btn-sub { background: #333; color: #fff; margin-top: 10px; }
     .btn-header {
       background: transparent; border: 1px solid #444; color: #eee;
       padding: 5px 10px; border-radius: 8px; font-size: 11px;
       cursor: pointer; margin-left: 4px;
+    }
+
+    /* ── 프로필 모달 ── */
+    #profileModal {
+      position: fixed; inset: 0; background: #000; z-index: 1000;
+      display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px;
     }
 
     /* ── 메인 앱 ── */
@@ -69,9 +61,27 @@
       position: sticky; top: 0;
       background: rgba(0,0,0,0.8); backdrop-filter: blur(15px);
       z-index: 100; border-bottom: 1px solid var(--border);
+      flex-direction: column; gap: 0;
     }
-    header h1 { font-size: 1.4rem; margin: 0; }
-    .header-btns { display: flex; align-items: center; }
+    .header-top {
+      display: flex; justify-content: space-between; align-items: center;
+      width: 100%;
+    }
+    .header-top h1 { font-size: 1.4rem; margin: 0; font-family: 'Jua', sans-serif; }
+
+    /* 신분 탭 */
+    .role-tabs {
+      display: flex; overflow-x: auto; scrollbar-width: none;
+      width: 100%; border-top: 1px solid var(--border); padding-top: 2px;
+    }
+    .role-tabs::-webkit-scrollbar { display: none; }
+    .role-tab {
+      flex-shrink: 0; padding: 8px 14px; border: none; background: none;
+      font-size: 12px; font-weight: 500; color: var(--sub);
+      cursor: pointer; border-bottom: 2px solid transparent;
+      font-family: 'Pretendard', sans-serif; white-space: nowrap; transition: 0.12s;
+    }
+    .role-tab.active { color: #fff; border-bottom-color: #fff; font-weight: 700; }
 
     .sort-container {
       display: flex; justify-content: flex-end;
@@ -95,8 +105,10 @@
     textarea {
       background: transparent; border: none;
       font-size: 17px; height: 50px; outline: none;
+      width: 100%; resize: none; color: #fff;
+      font-family: 'Pretendard', sans-serif;
     }
-    #postInput { resize: none; }
+    textarea::placeholder { color: #555; font-style: italic; font-size: 15px; }
 
     #feed { flex: 1; }
     .thread-card { padding: 15px 16px; border-bottom: 1px solid var(--border); display: flex; gap: 12px; }
@@ -108,65 +120,54 @@
     .time { color: var(--sub); font-size: 11px; margin-left: auto; }
     .content-text { font-size: 15px; line-height: 1.5; margin: 6px 0; color: #efefef; white-space: pre-wrap; }
 
+    /* 픽 배지 */
+    .pick-badge-dark {
+      display: inline-block; background: #2a2000; color: #f5a623;
+      border: 1px solid #6a5000; border-radius: 4px; padding: 1px 7px;
+      font-size: 10px; font-weight: 700; margin-bottom: 4px;
+    }
+
+    .empty-state {
+      padding: 60px 20px; text-align: center; color: var(--sub);
+      font-size: 14px; line-height: 1.7;
+    }
+
     footer { padding: 30px 20px; text-align: center; color: #333; font-size: 11px; }
 
-    /* ── 관리자 패널 ── */
-    .admin-content { padding: 20px; max-width: 700px; margin: 0 auto; width: 100%; }
-    .admin-content h2 { text-align: center; font-family: 'Jua', sans-serif; }
-    .admin-btn-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
-    .admin-btn {
-      padding: 8px 16px; border: none; border-radius: 8px;
-      color: #fff; cursor: pointer; font-size: 13px; font-family: 'Pretendard';
+    /* ── 토스트 팝업 ── */
+    #toastContainer {
+      position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+      z-index: 9999; display: flex; flex-direction: column; gap: 8px;
+      pointer-events: none; width: 90%; max-width: 420px;
     }
-    .admin-tabs { display: flex; border-bottom: 1px solid #333; margin-bottom: 16px; }
-    .admin-tab {
-      padding: 8px 16px; border: none; background: none;
-      color: #777; font-size: 13px; cursor: pointer; border-bottom: 2px solid transparent;
-      font-family: 'Pretendard';
+    .toast {
+      background: linear-gradient(135deg, #1a1200, #2a2000);
+      border: 1.5px solid #6a5000; border-radius: 14px;
+      padding: 14px 18px; display: flex; align-items: flex-start; gap: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      animation: toastIn 0.35s cubic-bezier(.34,1.56,.64,1) forwards;
+      pointer-events: auto;
     }
-    .admin-tab.active { color: #fff; border-bottom-color: #fff; }
-    .admin-panel { display: none; }
-    .admin-panel.active { display: block; }
-
-    /* 검색창 */
-    #adminSearch {
-      width: 100%; padding: 10px 14px; background: #1a1a1a;
-      border: 1px solid #333; border-radius: 10px; color: #fff;
-      font-size: 13px; margin-bottom: 12px; box-sizing: border-box;
+    .toast.out { animation: toastOut 0.3s ease forwards; }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-16px) scale(0.95); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
     }
-
-    /* 관리자 테이블 */
-    .admin-table { width: 100%; border-collapse: collapse; font-size: 12px; color: #ddd; }
-    .admin-table th { background: #1a1a1a; padding: 10px 8px; text-align: left; border-bottom: 1px solid #333; }
-    .admin-table td { padding: 8px; border-bottom: 1px solid #1e1e1e; vertical-align: top; }
-    .admin-table tr:hover td { background: #111; }
-    .del-btn {
-      background: #c0392b; color: #fff; border: none;
-      border-radius: 5px; padding: 3px 8px; cursor: pointer; font-size: 11px;
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateY(0) scale(1); }
+      to   { opacity: 0; transform: translateY(-10px) scale(0.95); }
     }
-
-    /* 통계 카드 */
-    .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
-    .stat-card {
-      background: #111; border: 1px solid #2a2a2a; border-radius: 12px;
-      padding: 16px; text-align: center;
-    }
-    .stat-card .num { font-size: 28px; font-weight: bold; font-family: 'Jua', sans-serif; }
-    .stat-card .label { font-size: 11px; color: #777; margin-top: 4px; }
-
-    .role-bar-wrap { margin-bottom: 8px; }
-    .role-bar-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 3px; }
-    .role-bar-bg { background: #1e1e1e; border-radius: 4px; height: 8px; }
-    .role-bar-fill { background: #fff; height: 8px; border-radius: 4px; transition: width 0.5s; }
-
-    .notice-box {
-      background: #1a1200; border: 1px solid #5a4000; border-radius: 10px;
-      padding: 12px 16px; font-size: 13px; color: #ffd;
-      margin-bottom: 16px; line-height: 1.6;
-    }
+    .toast-icon { font-size: 22px; flex-shrink: 0; }
+    .toast-body { flex: 1; }
+    .toast-title { font-size: 13px; font-weight: 800; color: #f5a623; margin-bottom: 2px; }
+    .toast-msg   { font-size: 12px; color: #c8a060; line-height: 1.5; }
+    .toast-close { background: none; border: none; cursor: pointer; color: #555; font-size: 16px; padding: 0; line-height: 1; flex-shrink: 0; }
   </style>
 </head>
 <body>
+
+<!-- 토스트 컨테이너 -->
+<div id="toastContainer"></div>
 
 <!-- ── 로그인 ── -->
 <div id="loginOverlay">
@@ -187,13 +188,44 @@
   </div>
 </div>
 
+<!-- ── 프로필 수정 ── -->
+<div id="profileModal">
+  <div class="box">
+    <h2 style="font-family:'Jua',sans-serif; margin-bottom:20px;">프로필 설정</h2>
+    <input type="text" id="editNick" placeholder="new_nickname" oninput="validateNick(this)">
+    <select id="editRole">
+      <option value="진골">👑 진골 귀족</option>
+      <option value="6두품">📜 6두품 지식인</option>
+      <option value="호족">🏰 지방 호족</option>
+      <option value="농민">🌾 일반 농민</option>
+      <option value="선종 승려">🧘 선종 승려</option>
+      <option value="풍수지리사">🧭 풍수지리사</option>
+    </select>
+    <button class="btn-main" onclick="saveProfile()">수정 완료</button>
+    <button class="btn-main" style="background:#c0392b;" onclick="logout()">로그아웃</button>
+    <button class="btn-main" style="background:#333; color:#fff;" onclick="closeProfile()">취소</button>
+  </div>
+</div>
+
 <!-- ── 메인 앱 ── -->
 <div id="appContainer">
   <header>
-    <h1 style="font-family:'Jua',sans-serif;">S_threads</h1>
-    <div class="header-btns">
-      <button class="btn-header" onclick="openAdminAuth()">Admin</button>
-      <button class="btn-header" onclick="openProfile()">Edit</button>
+    <div class="header-top">
+      <h1>S_threads</h1>
+      <div>
+        <button class="btn-header" onclick="openProfile()">Edit</button>
+      </div>
+    </div>
+    <!-- 신분 탭 -->
+    <div class="role-tabs">
+      <button class="role-tab active" onclick="setRoleFilter('all', this)">전체</button>
+      <button class="role-tab" onclick="setRoleFilter('진골', this)">👑 진골</button>
+      <button class="role-tab" onclick="setRoleFilter('6두품', this)">📜 6두품</button>
+      <button class="role-tab" onclick="setRoleFilter('호족', this)">🏰 호족</button>
+      <button class="role-tab" onclick="setRoleFilter('농민', this)">🌾 농민</button>
+      <button class="role-tab" onclick="setRoleFilter('선종 승려', this)">🧘 선종 승려</button>
+      <button class="role-tab" onclick="setRoleFilter('풍수지리사', this)">🧭 풍수지리사</button>
+      <button class="role-tab" onclick="setRoleFilter('pick', this)">⭐ Pick</button>
     </div>
   </header>
 
@@ -218,99 +250,13 @@
   </div>
 
   <div id="feed"></div>
-  <footer>v1.3.0 - Incheon Dongyang Middle School</footer>
-</div>
-
-<!-- ── 프로필 수정 ── -->
-<div id="profileModal">
-  <div class="box">
-    <h2 style="font-family:'Jua',sans-serif;">프로필 설정</h2>
-    <input type="text" id="editNick" placeholder="new_nickname" oninput="validateNick(this)">
-    <select id="editRole">
-      <option value="진골">👑 진골 귀족</option>
-      <option value="6두품">📜 6두품 지식인</option>
-      <option value="호족">🏰 지방 호족</option>
-      <option value="농민">🌾 일반 농민</option>
-      <option value="선종 승려">🧘 선종 승려</option>
-      <option value="풍수지리사">🧭 풍수지리사</option>
-    </select>
-    <button class="btn-main" onclick="saveProfile()">수정 완료</button>
-    <button class="btn-main" style="background:#c0392b;" onclick="logout()">로그아웃</button>
-    <button class="btn-main btn-sub" onclick="closeProfile()">취소</button>
-  </div>
-</div>
-
-<!-- ── 관리자 인증 ── -->
-<div id="adminAuthModal">
-  <div class="box">
-    <h2 style="font-family:'Jua',sans-serif;">Admin Only</h2>
-    <input type="password" id="adminPwInput" placeholder="Password" onkeydown="if(event.key==='Enter') checkAdminPassword()">
-    <button class="btn-main" onclick="checkAdminPassword()">접속</button>
-    <button class="btn-main btn-sub" onclick="closeAdminAuth()">취소</button>
-  </div>
-</div>
-
-<!-- ── 관리자 패널 ── -->
-<div id="adminOverlay">
-  <button onclick="closeAdmin()" style="position:absolute; top:16px; right:16px; color:#fff; background:none; border:none; font-size:28px; cursor:pointer;">×</button>
-  <div class="admin-content">
-    <h2>🛡️ 관리자 센터</h2>
-
-    <!-- 탭 -->
-    <div class="admin-tabs">
-      <button class="admin-tab active" onclick="switchAdminTab('posts')">📋 게시글 관리</button>
-      <button class="admin-tab" onclick="switchAdminTab('stats')">📊 통계</button>
-      <button class="admin-tab" onclick="switchAdminTab('tools')">🔧 도구</button>
-    </div>
-
-    <!-- 게시글 관리 탭 -->
-    <div id="tab-posts" class="admin-panel active">
-      <input type="text" id="adminSearch" placeholder="🔍 학번, 이름, 닉네임, 내용으로 검색..." oninput="filterAdminTable()">
-      <div id="adminTableContainer"></div>
-    </div>
-
-    <!-- 통계 탭 -->
-    <div id="tab-stats" class="admin-panel">
-      <div class="stat-grid">
-        <div class="stat-card"><div class="num" id="statTotal">-</div><div class="label">전체 게시글</div></div>
-        <div class="stat-card"><div class="num" id="statStudents">-</div><div class="label">참여 학생 수</div></div>
-        <div class="stat-card"><div class="num" id="statLikes">-</div><div class="label">총 좋아요</div></div>
-        <div class="stat-card"><div class="num" id="statAvgLikes">-</div><div class="label">게시글당 평균 좋아요</div></div>
-      </div>
-      <div style="background:#111; border:1px solid #2a2a2a; border-radius:12px; padding:16px;">
-        <div style="font-size:13px; font-weight:bold; margin-bottom:12px;">신분별 참여 현황</div>
-        <div id="roleStats"></div>
-      </div>
-    </div>
-
-    <!-- 도구 탭 -->
-    <div id="tab-tools" class="admin-panel">
-      <div class="notice-box">
-        ⚠️ 아래 기능들은 되돌릴 수 없습니다. 신중하게 사용하세요.
-      </div>
-      <div class="admin-btn-row">
-        <button class="admin-btn" style="background:#1a3a6b;" onclick="initDummy()">📝 더미 게시글 생성</button>
-        <button class="admin-btn" style="background:#5a3000;" onclick="deleteAllByRole()">🎭 특정 신분 전체 삭제</button>
-        <button class="admin-btn" style="background:#6b0000;" onclick="resetAll()">🗑️ 전체 초기화</button>
-      </div>
-      <div style="margin-top:16px;">
-        <select id="roleDeleteSelect" style="margin-bottom:8px;">
-          <option value="">신분 선택 (삭제용)</option>
-          <option value="진골">👑 진골 귀족</option>
-          <option value="6두품">📜 6두품 지식인</option>
-          <option value="호족">🏰 지방 호족</option>
-          <option value="농민">🌾 일반 농민</option>
-          <option value="선종 승려">🧘 선종 승려</option>
-          <option value="풍수지리사">🧭 풍수지리사</option>
-        </select>
-      </div>
-    </div>
-  </div>
+  <footer>v2.0 - Incheon Dongyang Middle School</footer>
 </div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getDatabase, ref, set, push, onValue, remove, update, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+  import { getDatabase, ref, set, push, onValue, update, get }
+    from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -325,41 +271,25 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const postsRef = ref(db, 'posts');
+  const toastRef = ref(db, 'silla_toast');
 
-  // ── 관리자 비밀번호 해시 (SHA-256 of "ghtjd12!@") ──
-  const ADMIN_PW_HASH = "57765044de4726b8a55db8c3846a7b6a038a2beaff40c0cc5113744ad8b62694";
-
-  async function hashPassword(pw) {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(pw);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  }
+  const roleIcons = {
+    "진골":"👑","6두품":"📜","호족":"🏰","농민":"🌾","선종 승려":"🧘","풍수지리사":"🧭"
+  };
 
   let currentUser = null;
   let currentSort = 'newest';
+  let currentRoleFilter = 'all';
   let allPostsCache = [];
+  let lastToastKey = null;
 
-  const roleIcons = {
-    "진골": "👑", "6두품": "📜", "호족": "🏰",
-    "농민": "🌾", "선종 승려": "🧘", "풍수지리사": "🧭"
+  window.validateNick = (el) => {
+    el.value = el.value.toLowerCase().replace(/[^a-z0-9_.]/g, '');
   };
 
-  // ── 텍스트 안전 처리 (XSS 방지) ──
-  function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-  }
-
-  // ── 자동 로그인 ──
   window.onload = () => {
-    const savedUser = localStorage.getItem('s_threads_user');
-    if (savedUser) {
-      currentUser = JSON.parse(savedUser);
-      showApp();
-    }
+    const saved = localStorage.getItem('s_threads_user');
+    if (saved) { currentUser = JSON.parse(saved); showApp(); }
   };
 
   function showApp() {
@@ -367,27 +297,27 @@
     document.getElementById('appContainer').style.display = 'flex';
     updateUI();
     listenFeed();
+    listenToast();
   }
 
-  window.validateNick = (target) => {
-    target.value = target.value.toLowerCase().replace(/[^a-z0-9_.]/g, '');
-  };
+  function updateUI() {
+    document.getElementById('myAvatar').textContent = roleIcons[currentUser.role] || '?';
+    document.getElementById('editNick').value = currentUser.nick;
+    document.getElementById('editRole').value = currentUser.role;
+  }
 
-  // 글자수 카운터
   document.getElementById('postInput').addEventListener('input', function() {
     document.getElementById('charCount').textContent = `${this.value.length} / 300`;
   });
 
   window.enterApp = () => {
-    const id = document.getElementById('joinId').value.trim();
+    const id   = document.getElementById('joinId').value.trim();
     const name = document.getElementById('joinName').value.trim();
     const nick = document.getElementById('joinNick').value.trim();
     const role = document.getElementById('joinRole').value;
-
     if (!/^\d{5}$/.test(id)) return alert("학번은 숫자 5자리여야 합니다.");
     if (!name) return alert("이름을 입력하세요.");
     if (!nick) return alert("닉네임을 입력하세요.");
-
     currentUser = { id, name, nick, role };
     localStorage.setItem('s_threads_user', JSON.stringify(currentUser));
     showApp();
@@ -395,75 +325,106 @@
 
   window.logout = () => {
     if (confirm("로그아웃 하시겠습니까?")) {
-      localStorage.removeItem('s_threads_user');
-      location.reload();
+      localStorage.removeItem('s_threads_user'); location.reload();
     }
+  };
+
+  window.createPost = () => {
+    const content = document.getElementById('postInput').value.trim();
+    if (!content) return;
+    const now = new Date();
+    const time = `${now.getMonth()+1}.${now.getDate()}. ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const r = push(postsRef);
+    set(r, {
+      id: r.key, studentId: currentUser.id, realName: currentUser.name,
+      nickname: currentUser.nick, role: currentUser.role,
+      content, time, likes: 0, likedBy: { init: true }
+    });
+    document.getElementById('postInput').value = '';
+    document.getElementById('charCount').textContent = '0 / 300';
+  };
+
+  function listenFeed() {
+    onValue(postsRef, snap => {
+      const data = snap.val();
+      allPostsCache = data ? Object.values(data).filter(p => p.id) : [];
+      renderFeed();
+    });
+  }
+
+  // ── 픽 토스트 수신 ──
+  function listenToast() {
+    onValue(toastRef, snap => {
+      const data = snap.val();
+      if (!data) return;
+      if (data.key === lastToastKey) return;
+      lastToastKey = data.key;
+      if (Date.now() - data.ts > 5000) return;
+      showPickToast(data.content, data.nickname);
+    });
+  }
+
+  function showPickToast(content, nickname) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `
+      <div class="toast-icon">⭐</div>
+      <div class="toast-body">
+        <div class="toast-title">선생님이 이 글을 Pick 했어요!</div>
+        <div class="toast-msg">"${content.length > 40 ? content.slice(0,40)+'…' : content}"<br><span style="color:#f5a623; font-weight:700;">— ${nickname}</span></div>
+      </div>
+      <button class="toast-close" onclick="this.closest('.toast').remove()">×</button>
+    `;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add('out');
+      setTimeout(() => toast.remove(), 300);
+    }, 5000);
+  }
+
+  window.setRoleFilter = (role, btn) => {
+    currentRoleFilter = role;
+    document.querySelectorAll('.role-tab').forEach(el => el.classList.remove('active'));
+    btn.classList.add('active');
+    renderFeed();
   };
 
   window.changeSort = (type) => {
     currentSort = type;
     document.getElementById('sortNewest').classList.toggle('active', type === 'newest');
     document.getElementById('sortPopular').classList.toggle('active', type === 'popular');
-    renderFeed(); // 새 리스너 등록 없이 캐시 재정렬
+    renderFeed();
   };
 
-  function updateUI() {
-    document.getElementById('myAvatar').textContent = roleIcons[currentUser.role];
-    document.getElementById('editNick').value = currentUser.nick;
-    document.getElementById('editRole').value = currentUser.role;
-  }
-
-  // ── 게시글 작성 ──
-  window.createPost = () => {
-    const content = document.getElementById('postInput').value.trim();
-    if (!content) return;
-    const now = new Date();
-    const timestamp = `${now.getMonth()+1}.${now.getDate()}. ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-    const newPostRef = push(postsRef);
-    set(newPostRef, {
-      id: newPostRef.key,
-      studentId: currentUser.id,
-      realName: currentUser.name,
-      nickname: currentUser.nick,
-      role: currentUser.role,
-      content,
-      time: timestamp,
-      likes: 0,
-      likedBy: { "init": true }
-    });
-    document.getElementById('postInput').value = '';
-    document.getElementById('charCount').textContent = '0 / 300';
-  };
-
-  // ── 피드 리스너 (단 한 번만 등록) ──
-  function listenFeed() {
-    onValue(postsRef, (snapshot) => {
-      const data = snapshot.val();
-      allPostsCache = data ? Object.values(data).filter(p => p.id) : [];
-      renderFeed();
-      renderAdminTable(allPostsCache);
-      renderStats(allPostsCache);
-    });
-  }
-
-  // ── 피드 렌더링 (정렬만 다시) ──
   function renderFeed() {
     const feed = document.getElementById('feed');
     feed.innerHTML = '';
 
-    const sorted = [...allPostsCache];
-    if (currentSort === 'popular') {
-      sorted.sort((a, b) => (b.likes || 0) - (a.likes || 0) || b.id.localeCompare(a.id));
-    } else {
-      sorted.sort((a, b) => b.id.localeCompare(a.id));
+    let posts = allPostsCache.filter(p => p.studentId !== '00000');
+
+    if (currentRoleFilter === 'pick') {
+      posts = posts.filter(p => p.adminPick === true);
+    } else if (currentRoleFilter !== 'all') {
+      posts = posts.filter(p => p.role === currentRoleFilter);
     }
 
-    sorted.forEach(post => {
+    if (currentSort === 'popular') {
+      posts.sort((a,b) => (b.likes||0)-(a.likes||0) || b.id.localeCompare(a.id));
+    } else {
+      posts.sort((a,b) => b.id.localeCompare(a.id));
+    }
+
+    if (!posts.length) {
+      feed.innerHTML = `<div class="empty-state">📭 아직 게시글이 없습니다.</div>`;
+      return;
+    }
+
+    posts.forEach(post => {
       const isLiked = post.likedBy && post.likedBy[currentUser.id];
       const card = document.createElement('div');
       card.className = 'thread-card';
 
-      // XSS 방지: DOM API로 직접 생성
       const avatar = document.createElement('div');
       avatar.className = 'avatar-circle';
       avatar.textContent = roleIcons[post.role] || '?';
@@ -471,29 +432,32 @@
       const body = document.createElement('div');
       body.style.flex = '1';
 
+      if (post.adminPick) {
+        const badge = document.createElement('div');
+        badge.className = 'pick-badge-dark';
+        badge.textContent = '⭐ Pick';
+        body.appendChild(badge);
+      }
+
       const meta = document.createElement('div');
       meta.style.cssText = 'display:flex; align-items:center;';
-
       const nick = document.createElement('span');
       nick.className = 'nickname';
       nick.textContent = post.nickname;
-
       const roleTag = document.createElement('span');
       roleTag.className = 'role-tag';
       roleTag.textContent = post.role;
-
       const time = document.createElement('span');
       time.className = 'time';
       time.textContent = post.time;
-
       meta.append(nick, roleTag, time);
 
       const contentEl = document.createElement('div');
       contentEl.className = 'content-text';
-      contentEl.textContent = post.content; // textContent로 XSS 방지
+      contentEl.textContent = post.content;
 
       const likeBtn = document.createElement('div');
-      likeBtn.style.cssText = `color:${isLiked ? '#f91880' : '#777'}; cursor:pointer; font-size:13px; margin-top:4px; display:inline-block;`;
+      likeBtn.style.cssText = `color:${isLiked?'#f91880':'#777'}; cursor:pointer; font-size:13px; margin-top:4px; display:inline-block;`;
       likeBtn.textContent = `${isLiked ? '❤️' : '♡'} ${post.likes || 0}`;
       likeBtn.onclick = () => toggleLike(post.id, !!isLiked);
 
@@ -503,161 +467,25 @@
     });
   }
 
-  // ── 좋아요 (get으로 일회성 읽기) ──
   window.toggleLike = async (postId, isLiked) => {
-    const postRef = ref(db, `posts/${postId}`);
-    const snapshot = await get(postRef);
-    const post = snapshot.val();
-    if (!post) return;
+    const snap = await get(ref(db, `posts/${postId}`));
+    const post = snap.val(); if (!post) return;
     const updates = {};
-    updates[`posts/${postId}/likes`] = Math.max(0, isLiked ? (post.likes - 1) : (post.likes + 1));
+    updates[`posts/${postId}/likes`] = Math.max(0, isLiked ? post.likes-1 : post.likes+1);
     updates[`posts/${postId}/likedBy/${currentUser.id}`] = isLiked ? null : true;
     update(ref(db), updates);
   };
 
-  // ── 프로필 ──
-  window.openProfile = () => document.getElementById('profileModal').style.display = 'flex';
+  window.openProfile  = () => document.getElementById('profileModal').style.display = 'flex';
   window.closeProfile = () => document.getElementById('profileModal').style.display = 'none';
-  window.saveProfile = () => {
-    const newNick = document.getElementById('editNick').value.trim();
-    if (!newNick) return alert("닉네임을 입력하세요.");
-    currentUser.nick = newNick;
+  window.saveProfile  = () => {
+    const nick = document.getElementById('editNick').value.trim();
+    if (!nick) return alert("닉네임을 입력하세요.");
+    currentUser.nick = nick;
     currentUser.role = document.getElementById('editRole').value;
     localStorage.setItem('s_threads_user', JSON.stringify(currentUser));
     updateUI();
     closeProfile();
-    alert("변경되었습니다.");
-  };
-
-  // ── 관리자 인증 (SHA-256 해시 비교) ──
-  window.openAdminAuth = () => {
-    document.getElementById('adminPwInput').value = '';
-    document.getElementById('adminAuthModal').style.display = 'flex';
-  };
-  window.closeAdminAuth = () => document.getElementById('adminAuthModal').style.display = 'none';
-  window.checkAdminPassword = async () => {
-    const pw = document.getElementById('adminPwInput').value;
-    const hash = await hashPassword(pw);
-    if (hash === ADMIN_PW_HASH) {
-      closeAdminAuth();
-      document.getElementById('adminOverlay').style.display = 'block';
-    } else {
-      alert("Access Denied");
-    }
-  };
-  window.closeAdmin = () => document.getElementById('adminOverlay').style.display = 'none';
-
-  // ── 관리자 탭 전환 ──
-  window.switchAdminTab = (tab) => {
-    document.querySelectorAll('.admin-tab').forEach((el, i) => {
-      el.classList.toggle('active', ['posts','stats','tools'][i] === tab);
-    });
-    document.querySelectorAll('.admin-panel').forEach(el => el.classList.remove('active'));
-    document.getElementById(`tab-${tab}`).classList.add('active');
-  };
-
-  // ── 관리자: 게시글 테이블 ──
-  let adminTableData = [];
-  function renderAdminTable(arr) {
-    adminTableData = arr;
-    filterAdminTable();
-  }
-
-  window.filterAdminTable = () => {
-    const q = (document.getElementById('adminSearch')?.value || '').toLowerCase();
-    const filtered = adminTableData.filter(p =>
-      !q ||
-      (p.studentId || '').includes(q) ||
-      (p.realName || '').toLowerCase().includes(q) ||
-      (p.nickname || '').toLowerCase().includes(q) ||
-      (p.content || '').toLowerCase().includes(q)
-    );
-
-    const sorted = [...filtered].sort((a, b) => b.id.localeCompare(a.id));
-
-    let html = `<table class="admin-table">
-      <thead><tr>
-        <th>학번</th><th>이름</th><th>닉네임</th><th>신분</th><th>내용</th><th>❤️</th><th>삭제</th>
-      </tr></thead><tbody>`;
-
-    sorted.forEach(p => {
-      html += `<tr>
-        <td>${escapeHtml(p.studentId || '')}</td>
-        <td>${escapeHtml(p.realName || '')}</td>
-        <td>${escapeHtml(p.nickname || '')}</td>
-        <td>${escapeHtml(p.role || '')}</td>
-        <td style="max-width:180px; word-break:break-all;">${escapeHtml(p.content || '')}</td>
-        <td>${p.likes || 0}</td>
-        <td><button class="del-btn" onclick="deletePost('${p.id}')">삭제</button></td>
-      </tr>`;
-    });
-
-    html += '</tbody></table>';
-    html += `<div style="color:#555; font-size:11px; margin-top:8px; text-align:right;">${filtered.length}개 게시글</div>`;
-    document.getElementById('adminTableContainer').innerHTML = html;
-  };
-
-  // ── 관리자: 통계 ──
-  function renderStats(arr) {
-    if (!arr.length) return;
-    const total = arr.length;
-    const students = new Set(arr.map(p => p.studentId)).size;
-    const totalLikes = arr.reduce((s, p) => s + (p.likes || 0), 0);
-    const avgLikes = total ? (totalLikes / total).toFixed(1) : 0;
-
-    document.getElementById('statTotal').textContent = total;
-    document.getElementById('statStudents').textContent = students;
-    document.getElementById('statLikes').textContent = totalLikes;
-    document.getElementById('statAvgLikes').textContent = avgLikes;
-
-    // 신분별 바 차트
-    const roleCounts = {};
-    arr.forEach(p => { roleCounts[p.role] = (roleCounts[p.role] || 0) + 1; });
-    const maxCount = Math.max(...Object.values(roleCounts));
-
-    let rolesHtml = '';
-    Object.entries(roleCounts).sort((a,b) => b[1]-a[1]).forEach(([role, cnt]) => {
-      const pct = maxCount ? Math.round((cnt / maxCount) * 100) : 0;
-      rolesHtml += `
-        <div class="role-bar-wrap">
-          <div class="role-bar-label"><span>${roleIcons[role] || ''} ${role}</span><span>${cnt}개</span></div>
-          <div class="role-bar-bg"><div class="role-bar-fill" style="width:${pct}%"></div></div>
-        </div>`;
-    });
-    document.getElementById('roleStats').innerHTML = rolesHtml;
-  }
-
-  // ── 관리자: 삭제 기능 ──
-  window.deletePost = (id) => {
-    if (confirm("이 게시글을 삭제하시겠습니까?")) remove(ref(db, `posts/${id}`));
-  };
-
-  window.resetAll = () => {
-    if (confirm("⚠️ 모든 게시글을 삭제합니까? 되돌릴 수 없습니다.")) remove(postsRef);
-  };
-
-  window.deleteAllByRole = () => {
-    const role = document.getElementById('roleDeleteSelect').value;
-    if (!role) return alert("신분을 선택하세요.");
-    if (!confirm(`"${role}" 신분의 모든 게시글을 삭제합니까?`)) return;
-    const toDelete = allPostsCache.filter(p => p.role === role);
-    toDelete.forEach(p => remove(ref(db, `posts/${p.id}`)));
-    alert(`${toDelete.length}개 삭제되었습니다.`);
-  };
-
-  // ── 더미 생성 ──
-  window.initDummy = () => {
-    const dummy = [
-      { nickname: "luxury_gold.99", role: "진골", content: "오늘 안압지 팟 구함~ 🥂 진골끼리만요", likes: 5, time: "4.23. 10:30" },
-      { nickname: "tax_hater_farmer", role: "농민", content: "세금이 너무 많다! 이러다 다 굶어 죽겠어 😡", likes: 35, time: "4.23. 11:15" },
-      { nickname: "zen_master_77", role: "선종 승려", content: "마음을 비우면 모든 것이 보입니다 🧘", likes: 12, time: "4.23. 12:00" },
-      { nickname: "geomancer_k", role: "풍수지리사", content: "새 도읍지를 찾아야 할 때입니다. 한강 주변이 길지입니다 🧭", likes: 8, time: "4.23. 13:30" },
-    ];
-    dummy.forEach(d => {
-      const r = push(postsRef);
-      set(r, { ...d, id: r.key, studentId: "00000", realName: "System", likedBy: { "init": true } });
-    });
-    alert(`더미 ${dummy.length}개 생성 완료`);
   };
 </script>
 </body>
