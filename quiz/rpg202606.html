@@ -2,16 +2,46 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>역사 RPG FINAL+</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>역사 RPG FINAL++</title>
+
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 
 <style>
 body { margin:0; background:#111; color:white; font-family:sans-serif; }
 
+/* 캐릭터 선택 */
+#selectScreen {
+  position:absolute;
+  width:100%;
+  height:100%;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  flex-direction:column;
+  background:#000;
+}
+.char {
+  width:80px;
+  margin:10px;
+  cursor:pointer;
+}
+
 /* UI */
-#ui { position:absolute; top:10px; left:10px; }
-.bar { width:200px; height:20px; border:2px solid white; margin-bottom:5px; }
-.fill { height:100%; background:lime; }
+#ui {
+  position:absolute;
+  top:10px;
+  left:10px;
+  z-index:10;
+}
+
+.bar {
+  width:150px;
+  height:15px;
+  border:2px solid white;
+  margin-bottom:5px;
+}
+.fill { height:100%; }
 
 /* 전투 */
 #battleUI {
@@ -19,20 +49,20 @@ body { margin:0; background:#111; color:white; font-family:sans-serif; }
   bottom:0;
   width:100%;
   background:rgba(0,0,0,0.9);
-  padding:20px;
+  padding:15px;
   display:none;
 }
 
-/* 모바일 패드 */
+/* 모바일 컨트롤 */
 #controls {
   position:absolute;
-  bottom:20px;
-  left:20px;
+  bottom:10px;
+  right:10px;
 }
 .ctrl {
-  width:50px;
-  height:50px;
-  margin:5px;
+  width:60px;
+  height:60px;
+  margin:3px;
   font-size:20px;
 }
 </style>
@@ -40,12 +70,22 @@ body { margin:0; background:#111; color:white; font-family:sans-serif; }
 
 <body>
 
-<div id="ui">
-  ❤️ HP<div class="bar"><div id="hpFill" class="fill"></div></div>
-  ⚡ XP<div class="bar"><div id="xpFill" class="fill" style="background:yellow;"></div></div>
-  🔥 레벨: <span id="level">1</span>
+<!-- 캐릭터 선택 -->
+<div id="selectScreen">
+  <h2>캐릭터 선택</h2>
+  <img src="https://labs.phaser.io/assets/sprites/phaser-dude.png" class="char" onclick="startGame('dude')">
+  <img src="https://labs.phaser.io/assets/sprites/robot.png" class="char" onclick="startGame('robot')">
+  <img src="https://labs.phaser.io/assets/sprites/baddie.png" class="char" onclick="startGame('baddie')">
 </div>
 
+<!-- UI -->
+<div id="ui">
+  ❤️<div class="bar"><div id="hpFill" class="fill" style="background:lime;"></div></div>
+  ⚡<div class="bar"><div id="xpFill" class="fill" style="background:yellow;"></div></div>
+  🔥 Lv <span id="level">1</span>
+</div>
+
+<!-- 전투 -->
 <div id="battleUI">
   <div id="question"></div>
   <div id="choices"></div>
@@ -53,6 +93,7 @@ body { margin:0; background:#111; color:white; font-family:sans-serif; }
   <button onclick="submitAnswer()">제출</button>
 </div>
 
+<!-- 모바일 -->
 <div id="controls">
   <button class="ctrl" onclick="move('up')">⬆️</button><br>
   <button class="ctrl" onclick="move('left')">⬅️</button>
@@ -62,12 +103,12 @@ body { margin:0; background:#111; color:white; font-family:sans-serif; }
 
 <script>
 let player, monsters;
-let cursors;
+let playerSprite = "dude";
 let HP=100, XP=0, level=1;
 let gameState="explore";
+let moveDir=null;
 let questions=[];
 let currentQuestion, currentMonster;
-let moveDir=null;
 
 // 📡 문제 로드
 async function loadQuestions(){
@@ -76,38 +117,49 @@ async function loadQuestions(){
 }
 loadQuestions();
 
-// Phaser
-new Phaser.Game({
-  type:Phaser.AUTO,
-  width:800,
-  height:500,
-  physics:{default:"arcade"},
-  scene:{preload,create,update}
-});
+// 🎮 게임 시작
+function startGame(sprite){
+  playerSprite = sprite;
+  document.getElementById("selectScreen").style.display="none";
+  initGame();
+}
+
+// Phaser 초기화
+function initGame(){
+  new Phaser.Game({
+    type:Phaser.AUTO,
+    scale:{
+      mode:Phaser.Scale.RESIZE,
+      autoCenter:Phaser.Scale.CENTER_BOTH
+    },
+    physics:{default:"arcade"},
+    scene:{preload,create,update}
+  });
+}
 
 function preload(){
-  // 🧙 캐릭터 이미지
-  this.load.image('player','https://labs.phaser.io/assets/sprites/phaser-dude.png');
+  this.load.image('dude','https://labs.phaser.io/assets/sprites/phaser-dude.png');
+  this.load.image('robot','https://labs.phaser.io/assets/sprites/robot.png');
+  this.load.image('baddie','https://labs.phaser.io/assets/sprites/baddie.png');
   this.load.image('monster','https://labs.phaser.io/assets/sprites/ufo.png');
 }
 
 function create(){
   this.cameras.main.setBackgroundColor('#222');
 
-  player = this.physics.add.sprite(100,100,'player').setScale(0.5);
+  player = this.physics.add.sprite(100,100,playerSprite).setScale(0.5);
 
   monsters = this.physics.add.group();
   spawnMonsters(this);
 
-  cursors = this.input.keyboard.createCursorKeys();
   this.physics.add.overlap(player, monsters, startBattle, null, this);
 }
 
 function spawnMonsters(scene){
   for(let i=0;i<5+level;i++){
     let m = scene.physics.add.sprite(
-      Phaser.Math.Between(100,700),
-      Phaser.Math.Between(100,400),
+      Phaser.Math.Between(50,window.innerWidth-50),
+      Phaser.Math.Between(50,window.innerHeight-50),
       'monster'
     ).setScale(0.4);
 
@@ -120,13 +172,6 @@ function update(){
 
   player.setVelocity(0);
 
-  // 키보드
-  if(cursors.left.isDown) player.setVelocityX(-200);
-  if(cursors.right.isDown) player.setVelocityX(200);
-  if(cursors.up.isDown) player.setVelocityY(-200);
-  if(cursors.down.isDown) player.setVelocityY(200);
-
-  // 모바일
   if(moveDir==="left") player.setVelocityX(-200);
   if(moveDir==="right") player.setVelocityX(200);
   if(moveDir==="up") player.setVelocityY(-200);
@@ -140,7 +185,7 @@ function update(){
   });
 }
 
-// 📱 터치 이동
+// 📱 이동
 function move(dir){
   moveDir=dir;
   setTimeout(()=>moveDir=null,200);
@@ -175,7 +220,6 @@ function startBattle(p,m){
   }
 }
 
-// ✅ 결과
 function submitAnswer(sel=null){
   let user=sel||document.getElementById("answer").value.trim();
 
@@ -186,28 +230,24 @@ function submitAnswer(sel=null){
     HP-=20;
   }
 
-  checkLevelUp();
-  updateUI();
-
   if(HP<=0){
     alert("게임오버");
     location.reload();
   }
 
+  checkLevelUp();
+  updateUI();
+
   document.getElementById("battleUI").style.display="none";
-  document.getElementById("answer").value="";
   gameState="explore";
 }
 
-// 🆙 레벨업
+// 레벨업
 function checkLevelUp(){
-  let maxXP=level*100;
-
-  if(XP>=maxXP){
+  if(XP>=level*100){
     XP=0;
     level++;
     HP=100;
-
     alert("🔥 레벨업!");
 
     monsters.clear(true,true);
@@ -215,7 +255,7 @@ function checkLevelUp(){
   }
 }
 
-// UI 업데이트
+// UI
 function updateUI(){
   document.getElementById("hpFill").style.width=HP+"%";
   document.getElementById("xpFill").style.width=(XP/(level*100))*100+"%";
