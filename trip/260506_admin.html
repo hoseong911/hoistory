@@ -1,446 +1,953 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IDY 관리자 — Back to the 1883</title>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Noto+Serif+KR:wght@400;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --ink:#1a1208; --parchment:#f5edd8; --parchment-dark:#e8d9b8;
-            --sepia:#8b6914; --sepia-light:#c4973a; --rust:#9b3a1a; --green-done:#2a6b3c;
-        }
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family:'Noto Serif KR',serif; background:var(--parchment); min-height:100vh; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>관리자 모드 — 인천동양중학교</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d1117;
+  --glass: rgba(255,255,255,0.05);
+  --glass-hover: rgba(255,255,255,0.08);
+  --glass-border: rgba(255,255,255,0.10);
+  --glass-strong: rgba(255,255,255,0.12);
+  --text: #e6edf3;
+  --text2: #8b949e;
+  --text3: #484f58;
+  --accent: #58a6ff;
+  --accent2: #79c0ff;
+  --success: #3fb950;
+  --danger: #f85149;
+  --warn: #d29922;
+  --gold: #e3b341;
+  --sans: 'Noto Sans KR', sans-serif;
+  --serif: 'Noto Serif KR', serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 20% 0%, rgba(88,166,255,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 100%, rgba(63,185,80,0.06) 0%, transparent 60%);
+  color: var(--text);
+  min-height: 100vh;
+}
 
-        /* ── 로그인 ── */
-        #admin-login { position:fixed; inset:0; z-index:5000; background:var(--ink); display:flex; flex-direction:column; justify-content:center; align-items:center; padding:32px 24px; }
-        .al-eyebrow { font-family:'DM Mono',monospace; font-size:12px; letter-spacing:0.2em; color:var(--sepia-light); margin-bottom:12px; }
-        .al-title { font-family:'Playfair Display',serif; font-size:28px; font-weight:700; color:var(--parchment); margin-bottom:4px; text-align:center; }
-        .al-title span { font-style:italic; color:var(--sepia-light); font-weight:400; }
-        .al-sub { font-family:'DM Mono',monospace; font-size:12px; color:#6b5a3a; margin-bottom:36px; }
-        .admin-input { width:100%; max-width:300px; padding:14px 18px; background:rgba(255,255,255,0.07); border:1.5px solid #3a2e1a; border-radius:4px; font-family:'DM Mono',monospace; font-size:16px; color:var(--parchment); outline:none; margin-bottom:12px; transition:border-color 0.2s; letter-spacing:0.15em; }
-        .admin-input:focus { border-color:var(--sepia-light); }
-        .admin-input::placeholder { color:#5a4a2a; letter-spacing:0.05em; }
-        #admin-login-btn { width:100%; max-width:300px; padding:15px; background:var(--sepia); color:var(--parchment); border:none; border-radius:4px; font-family:'Playfair Display',serif; font-size:17px; font-weight:700; cursor:pointer; }
-        .al-err { margin-top:14px; font-family:'DM Mono',monospace; font-size:13px; color:#c0522b; display:none; }
+/* ── 토스트 ── */
+#toast {
+  position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px);
+  background: rgba(22,27,34,0.95); backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border); border-radius: 20px;
+  padding: 10px 20px; font-size: 14px; color: var(--text);
+  z-index: 9999; transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+  white-space: nowrap; pointer-events: none;
+}
+#toast.show { transform: translateX(-50%) translateY(0); }
 
-        /* ── 헤더 ── */
-        #admin-header { background:var(--ink); padding:14px 20px; display:none; align-items:center; justify-content:space-between; border-bottom:2px solid var(--sepia); position:sticky; top:0; z-index:100; }
-        .ah-title { font-family:'Playfair Display',serif; font-size:17px; font-weight:700; color:var(--parchment); }
-        .ah-title span { font-style:italic; color:var(--sepia-light); font-weight:400; }
-        .admin-badge { font-family:'DM Mono',monospace; font-size:11px; color:var(--ink); background:var(--sepia-light); padding:4px 10px; border-radius:99px; }
+/* ══ 로그인 화면 ══ */
+#screen-login {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; padding: 32px 20px;
+}
+.login-logo {
+  font-size: 40px; margin-bottom: 20px;
+  filter: drop-shadow(0 0 20px rgba(88,166,255,0.4));
+}
+.login-title {
+  font-family: var(--serif); font-size: 22px; font-weight: 600;
+  color: var(--text); margin-bottom: 6px; text-align: center;
+}
+.login-sub { font-size: 13px; color: var(--text2); margin-bottom: 36px; text-align: center; }
+.login-card {
+  width: 100%; max-width: 360px;
+  background: var(--glass); backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border); border-radius: 16px;
+  padding: 28px 24px;
+}
+.g-label { font-size: 12px; color: var(--text2); margin-bottom: 8px; display: block; }
+.g-input {
+  width: 100%; padding: 12px 16px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
+  border-radius: 10px; font-size: 16px; color: var(--text); font-family: var(--sans);
+  margin-bottom: 14px; outline: none; transition: border-color .2s, box-shadow .2s;
+}
+.g-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(88,166,255,0.12); }
+.g-input::placeholder { color: var(--text3); }
+.g-btn {
+  width: 100%; padding: 13px;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: 10px; font-size: 15px; font-weight: 700;
+  cursor: pointer; font-family: var(--sans); transition: opacity .15s, transform .12s;
+}
+.g-btn:active { transform: translateY(1px); opacity: .9; }
+.login-err { font-size: 13px; color: var(--danger); margin-top: 12px; text-align: center; display: none; }
 
-        /* ── 탭 ── */
-        #tab-nav { display:none; background:var(--parchment-dark); border-bottom:2px solid #d4b87a; padding:0 16px; overflow-x:auto; white-space:nowrap; }
-        .tab-btn { display:inline-block; padding:12px 16px; font-family:'DM Mono',monospace; font-size:12px; color:var(--sepia); cursor:pointer; border-bottom:3px solid transparent; background:none; border-top:none; border-left:none; border-right:none; transition:all 0.2s; white-space:nowrap; }
-        .tab-btn.active { color:var(--ink); border-bottom-color:var(--ink); font-weight:700; }
+/* ══ 메인 (로그인 후) ══ */
+#screen-main { display: none; min-height: 100vh; }
 
-        /* ── 공통 ── */
-        .tab-body { display:none; padding:20px 16px; max-width:750px; margin:0 auto; }
-        .tab-body.show { display:block; }
-        .section-title { font-family:'Playfair Display',serif; font-size:17px; font-weight:700; color:var(--ink); margin-bottom:12px; margin-top:20px; }
-        .card { background:white; border-radius:10px; border:1px solid var(--parchment-dark); margin-bottom:12px; overflow:hidden; box-shadow:0 2px 8px rgba(26,18,8,0.05); }
-        .action-btn { font-family:'DM Mono',monospace; font-size:12px; padding:8px 16px; border-radius:4px; cursor:pointer; border:none; transition:background 0.15s; }
-        .btn-primary { background:var(--ink); color:var(--parchment); }
-        .btn-secondary { background:var(--parchment-dark); color:var(--sepia); border:1px solid #c4a060; }
-        .btn-danger { background:none; color:var(--rust); border:1px solid rgba(155,58,26,0.3); }
-        .save-btn { width:100%; padding:15px; background:var(--ink); color:var(--parchment); border:none; border-radius:6px; font-family:'Playfair Display',serif; font-size:17px; font-weight:700; cursor:pointer; margin-top:16px; }
+/* 상단 헤더 */
+.admin-header {
+  background: rgba(13,17,23,0.9); backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--glass-border);
+  padding: 14px 20px; display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+}
+.admin-header-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.admin-header-badge {
+  font-size: 11px; background: rgba(88,166,255,0.15);
+  border: 1px solid rgba(88,166,255,0.3); color: var(--accent);
+  padding: 4px 10px; border-radius: 20px;
+}
 
-        /* ── 대시보드 탭 ── */
-        .summary-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:24px; margin-top:20px; }
-        .summary-card { background:white; border-radius:8px; padding:16px 12px; text-align:center; border:1px solid var(--parchment-dark); box-shadow:0 2px 8px rgba(26,18,8,0.06); }
-        .summary-num { font-family:'Playfair Display',serif; font-size:32px; font-weight:700; color:var(--ink); line-height:1; }
-        .summary-label { font-family:'DM Mono',monospace; font-size:10px; color:var(--sepia); margin-top:6px; }
-        .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; margin-top:20px; }
-        #search-input { width:100%; padding:11px 14px; border:1.5px solid var(--parchment-dark); border-radius:6px; font-family:'Noto Serif KR',serif; font-size:15px; color:var(--ink); background:white; outline:none; margin-bottom:14px; }
-        #search-input::placeholder { color:#b0956a; }
-        .student-card { background:white; border-radius:10px; border:1px solid var(--parchment-dark); margin-bottom:10px; overflow:hidden; box-shadow:0 2px 8px rgba(26,18,8,0.05); }
-        .sc-header { padding:14px 16px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; border-bottom:1px solid transparent; }
-        .student-card.open .sc-header { border-bottom-color:var(--parchment-dark); }
-        .sc-info { display:flex; align-items:center; gap:12px; }
-        .sc-avatar { width:38px; height:38px; background:var(--parchment-dark); border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Playfair Display',serif; font-size:16px; font-weight:700; color:var(--sepia); flex-shrink:0; }
-        .sc-name { font-weight:700; font-size:15px; color:var(--ink); }
-        .sc-id { font-family:'DM Mono',monospace; font-size:11px; color:var(--sepia); margin-top:2px; }
-        .mission-pills { display:flex; gap:5px; flex-wrap:wrap; justify-content:flex-end; }
-        .pill { font-family:'DM Mono',monospace; font-size:10px; padding:3px 8px; border-radius:99px; font-weight:500; }
-        .pill.done { background:rgba(42,107,60,0.12); color:var(--green-done); border:1px solid rgba(42,107,60,0.25); }
-        .pill.todo { background:rgba(139,105,20,0.08); color:var(--sepia); border:1px solid rgba(139,105,20,0.2); }
-        .sc-detail { display:none; padding:14px 16px; }
-        .student-card.open .sc-detail { display:block; }
-        .mission-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--parchment-dark); }
-        .mission-row:last-child { border-bottom:none; }
-        .mr-left { display:flex; align-items:center; gap:10px; }
-        .mr-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
-        .mr-dot.done { background:var(--green-done); }
-        .mr-dot.todo { background:var(--parchment-dark); border:1px solid #c4a060; }
-        .mr-name { font-size:14px; color:var(--ink); font-weight:700; }
-        .mr-time { font-family:'DM Mono',monospace; font-size:11px; color:#a08050; }
-        .photo-btn { font-family:'DM Mono',monospace; font-size:11px; color:var(--sepia); background:var(--parchment-dark); border:none; border-radius:4px; padding:5px 10px; cursor:pointer; }
-        .empty-state { text-align:center; padding:48px 20px; color:var(--sepia); }
-        .empty-icon { font-size:36px; margin-bottom:12px; }
-        .empty-text { font-family:'DM Mono',monospace; font-size:13px; }
+/* 활동 선택 */
+#screen-select {
+  padding: 28px 20px; max-width: 480px; margin: 0 auto;
+}
+.select-heading {
+  font-size: 13px; color: var(--text2); margin-bottom: 16px; letter-spacing: .06em;
+}
+.activity-card {
+  background: var(--glass); border: 1px solid var(--glass-border);
+  border-radius: 16px; padding: 20px; margin-bottom: 12px;
+  cursor: pointer; transition: background .2s, border-color .2s, transform .12s;
+  display: flex; align-items: center; gap: 16px;
+}
+.activity-card:hover { background: var(--glass-hover); border-color: rgba(255,255,255,0.18); }
+.activity-card:active { transform: scale(.98); }
+.activity-icon { font-size: 32px; flex-shrink: 0; }
+.activity-info { flex: 1; }
+.activity-name { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.activity-desc { font-size: 13px; color: var(--text2); }
+.activity-arrow { font-size: 18px; color: var(--text3); }
 
-        /* ── 미션 편집 탭 ── */
-        .mission-edit-card { background:white; border-radius:10px; border:1px solid var(--parchment-dark); margin-bottom:12px; overflow:hidden; }
-        .mec-header { padding:14px 16px; display:flex; align-items:center; justify-content:space-between; cursor:pointer; background:white; }
-        .mec-header:hover { background:rgba(139,105,20,0.04); }
-        .mec-left { display:flex; align-items:center; gap:10px; }
-        .mec-num { font-family:'DM Mono',monospace; font-size:13px; font-weight:700; color:var(--sepia-light); }
-        .mec-title { font-size:15px; font-weight:700; color:var(--ink); }
-        .mec-type { font-family:'DM Mono',monospace; font-size:10px; color:var(--sepia); background:var(--parchment-dark); padding:2px 8px; border-radius:99px; }
-        .mec-body { display:none; padding:16px; border-top:1px solid var(--parchment-dark); }
-        .mission-edit-card.open .mec-body { display:block; }
-        .field-label { font-family:'DM Mono',monospace; font-size:11px; color:var(--sepia); letter-spacing:0.1em; margin-bottom:6px; margin-top:14px; }
-        .field-label:first-child { margin-top:0; }
-        .field-input { width:100%; padding:10px 12px; border:1.5px solid var(--parchment-dark); border-radius:6px; font-family:'Noto Serif KR',serif; font-size:14px; color:var(--ink); background:white; outline:none; transition:border-color 0.2s; }
-        .field-input:focus { border-color:var(--sepia); }
-        .field-textarea { width:100%; padding:10px 12px; border:1.5px solid var(--parchment-dark); border-radius:6px; font-family:'Noto Serif KR',serif; font-size:14px; color:var(--ink); background:white; outline:none; resize:vertical; min-height:80px; transition:border-color 0.2s; line-height:1.6; }
-        .field-textarea:focus { border-color:var(--sepia); }
-        .mec-save-btn { margin-top:14px; width:100%; padding:12px; background:var(--ink); color:var(--parchment); border:none; border-radius:6px; font-family:'DM Mono',monospace; font-size:13px; font-weight:700; cursor:pointer; letter-spacing:0.05em; }
-        .mec-save-btn:active { opacity:0.85; }
-        .saved-badge { display:inline-block; font-family:'DM Mono',monospace; font-size:11px; color:var(--green-done); margin-top:8px; opacity:0; transition:opacity 0.3s; }
-        .saved-badge.show { opacity:1; }
+/* ══ 활동 관리 공통 ══ */
+#screen-activity { display: none; }
+.back-row {
+  padding: 14px 20px 0; max-width: 700px; margin: 0 auto;
+}
+.back-btn-sm {
+  background: var(--glass); border: 1px solid var(--glass-border);
+  border-radius: 8px; padding: 7px 14px; font-size: 13px; color: var(--text2);
+  cursor: pointer; font-family: var(--sans); transition: background .2s;
+}
+.back-btn-sm:hover { background: var(--glass-hover); }
 
-        /* ── 마커 편집 탭 ── */
-        .marker-edit-intro { background:white; border-radius:10px; border:1px solid var(--parchment-dark); padding:16px; margin-bottom:20px; margin-top:20px; font-family:'DM Mono',monospace; font-size:13px; color:var(--sepia); line-height:1.7; }
-        .marker-edit-intro strong { color:var(--ink); }
-        #marker-map-wrap { position:relative; overflow:auto; border:2px solid var(--sepia); border-radius:10px; margin-bottom:20px; background:#2a1f0e; cursor:crosshair; }
-        #map-aspect { position:relative; width:200%; height:0; padding-bottom:calc(830 / 1022 * 100%); }
-        #marker-map-img { position:absolute; inset:0; width:100%; height:100%; object-fit:fill; display:block; pointer-events:none; }
-        .edit-hint { position:absolute; top:10px; left:10px; background:rgba(26,18,8,0.8); color:var(--parchment); font-family:'DM Mono',monospace; font-size:11px; padding:6px 12px; border-radius:4px; border:1px solid rgba(139,105,20,0.4); pointer-events:none; z-index:20; }
-        .edit-marker { position:absolute; transform:translate(-50%,-100%); cursor:grab; z-index:10; user-select:none; }
-        .edit-marker:active { cursor:grabbing; }
-        .edit-marker-pin { width:26px; height:26px; background:var(--sepia-light); border-radius:50% 50% 50% 0; transform:rotate(-45deg); border:2.5px solid white; box-shadow:0 3px 8px rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
-        .edit-marker-num { transform:rotate(45deg); font-family:'DM Mono',monospace; font-size:11px; font-weight:700; color:white; }
-        .edit-marker-label { position:absolute; bottom:30px; left:50%; transform:translateX(-50%); background:rgba(26,18,8,0.9); color:var(--parchment); padding:3px 8px; border-radius:3px; font-family:'DM Mono',monospace; font-size:9px; font-weight:700; white-space:nowrap; border-bottom:2px solid var(--sepia-light); pointer-events:none; }
-        .edit-marker-label::after { content:''; position:absolute; bottom:-5px; left:50%; transform:translateX(-50%); border:3px solid transparent; border-top-color:rgba(26,18,8,0.9); }
-        .coord-list { background:white; border-radius:10px; border:1px solid var(--parchment-dark); overflow:hidden; }
-        .coord-row { display:flex; align-items:center; padding:12px 16px; border-bottom:1px solid var(--parchment-dark); gap:12px; }
-        .coord-row:last-child { border-bottom:none; }
-        .coord-name { font-weight:700; font-size:13px; color:var(--ink); flex:1; }
-        .coord-val { font-family:'DM Mono',monospace; font-size:12px; color:var(--sepia); background:var(--parchment-dark); padding:4px 10px; border-radius:4px; white-space:nowrap; }
-        .coord-reset { font-family:'DM Mono',monospace; font-size:11px; color:var(--rust); background:none; border:1px solid rgba(155,58,26,0.3); padding:4px 8px; border-radius:4px; cursor:pointer; }
+/* 탭 네비 */
+.act-tab-nav {
+  display: flex; overflow-x: auto; gap: 4px;
+  padding: 14px 20px 0; max-width: 700px; margin: 0 auto;
+  border-bottom: 1px solid var(--glass-border); margin-top: 12px;
+}
+.act-tab-btn {
+  padding: 10px 16px; font-size: 13px; font-weight: 500;
+  color: var(--text2); cursor: pointer; border: none; background: transparent;
+  font-family: var(--sans); border-bottom: 2px solid transparent;
+  white-space: nowrap; transition: color .2s, border-color .2s;
+}
+.act-tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-        /* ── 사진 모달 ── */
-        #photo-modal { display:none; position:fixed; inset:0; background:rgba(26,18,8,0.85); z-index:8000; justify-content:center; align-items:center; padding:20px; }
-        #photo-modal.show { display:flex; }
-        .pm-inner { background:var(--parchment); border-radius:12px; padding:16px; max-width:500px; width:100%; }
-        .pm-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
-        .pm-title { font-family:'Playfair Display',serif; font-size:16px; font-weight:700; color:var(--ink); }
-        .pm-close { background:var(--parchment-dark); border:none; border-radius:50%; width:30px; height:30px; font-size:16px; cursor:pointer; color:var(--sepia); display:flex; align-items:center; justify-content:center; }
-        #modal-img { width:100%; border-radius:8px; max-height:60vh; object-fit:contain; background:var(--parchment-dark); }
-        .modal-loading { text-align:center; padding:40px; font-family:'DM Mono',monospace; font-size:13px; color:var(--sepia); }
+/* 탭 콘텐츠 */
+.act-tab-body { display: none; padding: 20px; max-width: 700px; margin: 0 auto 80px; }
+.act-tab-body.show { display: block; }
 
-        /* ── 토스트 ── */
-        #toast { position:fixed; bottom:30px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--ink); color:var(--parchment); padding:11px 22px; border-radius:99px; font-family:'DM Mono',monospace; font-size:13px; opacity:0; transition:opacity 0.3s,transform 0.3s; z-index:9000; white-space:nowrap; border:1px solid var(--sepia); pointer-events:none; }
-        #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
-    </style>
+/* 섹션 타이틀 */
+.s-title {
+  font-size: 13px; font-weight: 700; color: var(--text2);
+  letter-spacing: .08em; text-transform: uppercase; margin-bottom: 12px; margin-top: 24px;
+}
+.s-title:first-child { margin-top: 0; }
+
+/* 글래스 카드 */
+.g-card {
+  background: var(--glass); border: 1px solid var(--glass-border);
+  border-radius: 14px; padding: 16px; margin-bottom: 12px;
+}
+
+/* 토글 버튼 */
+.toggle-btn {
+  width: 100%; padding: 14px; border-radius: 12px; border: none;
+  font-size: 14px; font-weight: 700; cursor: pointer; font-family: var(--sans);
+  margin-bottom: 8px; transition: all .2s;
+}
+.toggle-btn.on {
+  background: rgba(63,185,80,0.12); color: var(--success);
+  border: 1px solid rgba(63,185,80,0.3);
+}
+.toggle-btn.off {
+  background: rgba(248,81,73,0.10); color: var(--danger);
+  border: 1px solid rgba(248,81,73,0.25);
+}
+.toggle-btn.warn {
+  background: rgba(248,81,73,0.10); color: var(--danger);
+  border: 1px solid rgba(248,81,73,0.25);
+}
+
+/* 미션 편집 카드 */
+.mission-edit-card {
+  background: var(--glass); border: 1px solid var(--glass-border);
+  border-radius: 12px; margin-bottom: 10px; overflow: hidden;
+}
+.mec-header {
+  padding: 14px 16px; display: flex; align-items: center;
+  justify-content: space-between; cursor: pointer;
+  transition: background .15s;
+}
+.mec-header:hover { background: var(--glass-hover); }
+.mec-left { display: flex; align-items: center; gap: 10px; }
+.mec-num { font-size: 11px; color: var(--text3); }
+.mec-title-text { font-size: 14px; font-weight: 500; color: var(--text); }
+.mec-arrow { font-size: 12px; color: var(--text3); transition: transform .2s; }
+.mission-edit-card.open .mec-arrow { transform: rotate(180deg); }
+.mec-body { display: none; padding: 14px 16px; border-top: 1px solid var(--glass-border); }
+.mission-edit-card.open .mec-body { display: block; }
+.f-label { font-size: 11px; color: var(--text2); margin-bottom: 6px; margin-top: 12px; display: block; }
+.f-label:first-child { margin-top: 0; }
+.f-input {
+  width: 100%; padding: 10px 12px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
+  border-radius: 8px; font-size: 14px; color: var(--text); font-family: var(--sans);
+  outline: none; transition: border-color .2s;
+}
+.f-input:focus { border-color: var(--accent); }
+.f-textarea {
+  width: 100%; padding: 10px 12px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
+  border-radius: 8px; font-size: 14px; color: var(--text); font-family: var(--sans);
+  resize: vertical; min-height: 80px; outline: none; line-height: 1.6;
+  transition: border-color .2s;
+}
+.f-textarea:focus { border-color: var(--accent); }
+.mec-save-btn {
+  width: 100%; margin-top: 12px; padding: 11px;
+  background: rgba(88,166,255,0.15); border: 1px solid rgba(88,166,255,0.3);
+  border-radius: 8px; color: var(--accent); font-size: 13px; font-weight: 700;
+  cursor: pointer; font-family: var(--sans); transition: background .15s;
+}
+.mec-save-btn:hover { background: rgba(88,166,255,0.22); }
+.saved-badge { font-size: 11px; color: var(--success); margin-top: 6px; opacity: 0; transition: opacity .3s; display: block; }
+.saved-badge.show { opacity: 1; }
+
+/* ── 활동1 전용: 요약 카드 ── */
+.stat-row {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;
+}
+.stat-card {
+  background: var(--glass); border: 1px solid var(--glass-border);
+  border-radius: 12px; padding: 14px 10px; text-align: center;
+}
+.stat-num { font-family: var(--serif); font-size: 28px; font-weight: 600; color: var(--gold); }
+.stat-label { font-size: 11px; color: var(--text2); margin-top: 4px; }
+
+/* ── 활동2 전용: 학생 카드 ── */
+.student-card {
+  background: var(--glass); border: 1px solid var(--glass-border);
+  border-radius: 12px; margin-bottom: 10px; overflow: hidden;
+}
+.sc-header {
+  padding: 14px 16px; display: flex; align-items: center;
+  justify-content: space-between; cursor: pointer; transition: background .15s;
+}
+.sc-header:hover { background: var(--glass-hover); }
+.sc-info { display: flex; align-items: center; gap: 12px; }
+.sc-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(88,166,255,0.15); border: 1px solid rgba(88,166,255,0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 15px; color: var(--accent); flex-shrink: 0;
+}
+.sc-name { font-size: 14px; font-weight: 700; color: var(--text); }
+.sc-id { font-size: 11px; color: var(--text2); margin-top: 2px; }
+.mission-pills { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; max-width: 120px; }
+.mpill {
+  font-size: 9px; padding: 2px 7px; border-radius: 99px;
+}
+.mpill.done { background: rgba(63,185,80,0.12); color: var(--success); border: 1px solid rgba(63,185,80,0.25); }
+.mpill.todo { background: rgba(255,255,255,0.05); color: var(--text3); border: 1px solid var(--glass-border); }
+.sc-detail { display: none; padding: 14px 16px; border-top: 1px solid var(--glass-border); }
+.student-card.open .sc-detail { display: block; }
+.mission-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; border-bottom: 1px solid var(--glass-border);
+}
+.mission-row:last-child { border-bottom: none; }
+.mr-left { display: flex; align-items: center; gap: 10px; }
+.mr-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.mr-dot.done { background: var(--success); }
+.mr-dot.todo { background: var(--text3); }
+.mr-name { font-size: 13px; color: var(--text); font-weight: 500; }
+.mr-time { font-size: 11px; color: var(--text2); margin-top: 1px; }
+.photo-view-btn {
+  font-size: 11px; color: var(--accent);
+  background: rgba(88,166,255,0.10); border: 1px solid rgba(88,166,255,0.2);
+  border-radius: 6px; padding: 4px 10px; cursor: pointer; font-family: var(--sans);
+  transition: background .15s;
+}
+.photo-view-btn:hover { background: rgba(88,166,255,0.18); }
+.search-input {
+  width: 100%; padding: 11px 14px; margin-bottom: 14px;
+  background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
+  border-radius: 10px; font-size: 14px; color: var(--text); font-family: var(--sans);
+  outline: none; transition: border-color .2s;
+}
+.search-input:focus { border-color: var(--accent); }
+.search-input::placeholder { color: var(--text3); }
+
+/* ── 마커 편집 ── */
+.marker-map-wrap {
+  position: relative; overflow: auto;
+  border: 1px solid var(--glass-border); border-radius: 12px;
+  background: #1a1a2e; cursor: crosshair; margin-bottom: 16px;
+}
+#map-aspect {
+  position: relative; width: 200%; height: 0;
+  padding-bottom: calc(830 / 1022 * 100%);
+}
+#marker-map-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: fill; display: block; pointer-events: none;
+}
+.edit-marker {
+  position: absolute; transform: translate(-50%, -100%);
+  cursor: grab; z-index: 10; user-select: none;
+}
+.edit-marker:active { cursor: grabbing; }
+.edit-marker-pin {
+  width: 24px; height: 24px;
+  background: var(--accent); border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+  border: 2px solid white; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+}
+.edit-marker-num { transform: rotate(45deg); font-size: 10px; font-weight: 700; color: white; }
+.edit-marker-label {
+  position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%);
+  background: rgba(13,17,23,0.9); color: var(--text); padding: 2px 8px; border-radius: 4px;
+  font-size: 9px; font-weight: 700; white-space: nowrap; pointer-events: none;
+  border: 1px solid var(--glass-border);
+}
+.coord-list {
+  background: var(--glass); border: 1px solid var(--glass-border);
+  border-radius: 12px; overflow: hidden; margin-bottom: 14px;
+}
+.coord-row {
+  display: flex; align-items: center; padding: 12px 14px; gap: 12px;
+  border-bottom: 1px solid var(--glass-border);
+}
+.coord-row:last-child { border-bottom: none; }
+.coord-name { font-size: 13px; color: var(--text); flex: 1; font-weight: 500; }
+.coord-val { font-size: 11px; color: var(--text2); font-family: monospace; }
+.coord-reset {
+  font-size: 11px; color: var(--danger); background: none;
+  border: 1px solid rgba(248,81,73,0.3); padding: 4px 8px; border-radius: 6px; cursor: pointer;
+}
+
+/* 사진 모달 */
+#photo-modal {
+  display: none; position: fixed; inset: 0;
+  background: rgba(13,17,23,0.85); backdrop-filter: blur(16px);
+  z-index: 8000; justify-content: center; align-items: center; padding: 20px;
+}
+#photo-modal.show { display: flex; }
+.pm-inner {
+  background: rgba(22,27,34,0.95); backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border); border-radius: 16px;
+  padding: 20px; max-width: 500px; width: 100%;
+}
+.pm-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+}
+.pm-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.pm-close {
+  background: var(--glass); border: 1px solid var(--glass-border);
+  border-radius: 50%; width: 28px; height: 28px; font-size: 14px;
+  cursor: pointer; color: var(--text2); display: flex; align-items: center; justify-content: center;
+}
+#modal-img {
+  width: 100%; border-radius: 10px; max-height: 60vh;
+  object-fit: contain; background: var(--glass);
+}
+.modal-loading { text-align: center; padding: 40px; font-size: 13px; color: var(--text2); }
+
+/* 공통 저장 버튼 */
+.save-big-btn {
+  width: 100%; padding: 14px;
+  background: rgba(88,166,255,0.15); border: 1px solid rgba(88,166,255,0.3);
+  border-radius: 12px; color: var(--accent); font-size: 15px; font-weight: 700;
+  cursor: pointer; font-family: var(--sans); transition: background .15s;
+}
+.save-big-btn:hover { background: rgba(88,166,255,0.22); }
+.empty-state {
+  text-align: center; padding: 48px 20px; color: var(--text2); font-size: 13px;
+}
+</style>
 </head>
 <body>
-
-<!-- ── 로그인 ── -->
-<div id="admin-login">
-    <div class="al-eyebrow">ADMINISTRATOR ACCESS</div>
-    <div class="al-title">IDY &nbsp;<span>관리자</span></div>
-    <div class="al-sub">Back to the 1883 · 인천동양중학교 3학년</div>
-    <input type="password" class="admin-input" id="admin-pw" placeholder="관리자 비밀번호 입력">
-    <button id="admin-login-btn">접속하기</button>
-    <div class="al-err" id="admin-err">⚠ 비밀번호가 올바르지 않습니다</div>
-</div>
-
-<!-- ── 헤더 ── -->
-<div id="admin-header">
-    <div class="ah-title">IDY &nbsp;<span>관리자 대시보드</span></div>
-    <span class="admin-badge">ADMIN</span>
-</div>
-
-<!-- ── 탭 ── -->
-<div id="tab-nav">
-    <button class="tab-btn active" onclick="switchTab('dashboard')">📊 학생 현황</button>
-    <button class="tab-btn" onclick="switchTab('missions')">✏️ 미션 내용 편집</button>
-    <button class="tab-btn" onclick="switchTab('markers')">📍 마커 위치 편집</button>
-</div>
-
-<!-- ══ 탭1: 대시보드 ══ -->
-<div id="tab-dashboard" class="tab-body">
-    <div class="summary-grid">
-        <div class="summary-card"><div class="summary-num" id="stat-students">–</div><div class="summary-label">참여 학생</div></div>
-        <div class="summary-card"><div class="summary-num" id="stat-completions">–</div><div class="summary-label">총 완료 미션</div></div>
-        <div class="summary-card"><div class="summary-num" id="stat-full">–</div><div class="summary-label">전체 완료</div></div>
-    </div>
-    <div class="section-header">
-        <div class="section-title">학생별 현황</div>
-        <button class="action-btn btn-secondary" onclick="showToast('실시간 연동 중입니다')">↻ 새로고침</button>
-    </div>
-    <input type="text" id="search-input" placeholder="학번 또는 이름으로 검색...">
-    <div id="student-list"><div style="text-align:center;padding:40px;font-family:'DM Mono',monospace;font-size:13px;color:var(--sepia);">데이터를 불러오는 중...</div></div>
-</div>
-
-<!-- ══ 탭2: 미션 편집 ══ -->
-<div id="tab-missions" class="tab-body">
-    <div class="section-title" style="margin-top:20px;">미션 내용 편집</div>
-    <p style="font-family:'DM Mono',monospace;font-size:12px;color:var(--sepia);margin-bottom:16px;line-height:1.6;">각 미션 카드를 탭해서 제목, 설명, 인증 방법을 수정하세요.<br>저장하면 학생 화면에 즉시 반영됩니다.</p>
-    <div id="mission-edit-list"></div>
-</div>
-
-<!-- ══ 탭3: 마커 편집 ══ -->
-<div id="tab-markers" class="tab-body">
-    <div class="marker-edit-intro" style="margin-top:20px;">
-        <strong>마커 위치 편집</strong><br>
-        지도 위의 마커를 <strong>드래그</strong>해서 원하는 위치로 옮기세요.<br>
-        저장하면 학생 화면에 즉시 반영됩니다.
-    </div>
-    <div id="marker-map-wrap">
-        <div class="edit-hint">📍 마커를 드래그하여 위치를 조정하세요</div>
-        <div id="map-aspect">
-            <img id="marker-map-img" src="map_image.png" alt="지도">
-        </div>
-    </div>
-    <div class="coord-list" id="coord-list"></div>
-    <button class="save-btn" onclick="saveMarkers()">💾 마커 위치 저장하기</button>
-</div>
-
-<!-- ── 사진 모달 ── -->
-<div id="photo-modal">
-    <div class="pm-inner">
-        <div class="pm-header">
-            <div class="pm-title" id="modal-title">인증 사진</div>
-            <button class="pm-close" onclick="closeModal()">✕</button>
-        </div>
-        <div id="modal-content"><div class="modal-loading">사진 불러오는 중...</div></div>
-    </div>
-</div>
 <div id="toast"></div>
 
+<!-- ══ 로그인 ══ -->
+<div id="screen-login">
+  <div class="login-logo">🏛️</div>
+  <div class="login-title">관리자 모드</div>
+  <div class="login-sub">2026 IDY 3rd Grade on 260506</div>
+  <div class="login-card">
+    <label class="g-label">관리자 비밀번호</label>
+    <input class="g-input" type="password" id="admin-pw" placeholder="비밀번호 입력">
+    <button class="g-btn" onclick="tryLogin()">접속하기</button>
+    <div class="login-err" id="login-err">⚠ 비밀번호가 올바르지 않습니다</div>
+  </div>
+</div>
+
+<!-- ══ 메인 ══ -->
+<div id="screen-main">
+  <div class="admin-header">
+    <div class="admin-header-title">🏛️ &nbsp;관리자 모드</div>
+    <span class="admin-header-badge">ADMIN</span>
+  </div>
+
+  <!-- 활동 선택 -->
+  <div id="screen-select">
+    <div class="select-heading">관리할 활동을 선택하세요</div>
+    <div class="activity-card" onclick="openActivity(1)">
+      <div class="activity-icon">⚓</div>
+      <div class="activity-info">
+        <div class="activity-name">국립인천해양박물관</div>
+        <div class="activity-desc">미스터리 탐험단 — 19개 미션</div>
+      </div>
+      <div class="activity-arrow">›</div>
+    </div>
+    <div class="activity-card" onclick="openActivity(2)">
+      <div class="activity-icon">🏮</div>
+      <div class="activity-info">
+        <div class="activity-name">Back to the 1883</div>
+        <div class="activity-desc">인천 개항장 탐방 — 10개 미션</div>
+      </div>
+      <div class="activity-arrow">›</div>
+    </div>
+  </div>
+
+  <!-- 활동 관리 패널 -->
+  <div id="screen-activity">
+    <div class="back-row">
+      <button class="back-btn-sm" onclick="goSelect()">← 활동 선택으로</button>
+    </div>
+    <div class="act-tab-nav" id="act-tab-nav"></div>
+    <div id="act-tab-contents"></div>
+  </div>
+</div>
+
+<!-- 사진 모달 -->
+<div id="photo-modal">
+  <div class="pm-inner">
+    <div class="pm-header">
+      <div class="pm-title" id="modal-title">인증 사진</div>
+      <button class="pm-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modal-content"><div class="modal-loading">사진 불러오는 중...</div></div>
+  </div>
+</div>
+
 <script type="module">
-    import { initializeApp }           from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
-    import { getStorage, ref as sRef, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-storage.js";
+/* ════════════════ Firebase ════════════════ */
+import { initializeApp }           from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+import { getDatabase, ref, onValue, set, get } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
+import { getStorage, ref as sRef, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-storage.js";
 
-    const firebaseConfig = {
-        apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
-        authDomain:"ho0911seong-56638.firebaseapp.com",
-        databaseURL:"https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId:"ho0911seong-56638",
-        storageBucket:"ho0911seong-56638.firebasestorage.app",
-        messagingSenderId:"994509567071",
-        appId:"1:994509567071:web:2bc0f31f542bf8c3f557ea"
-    };
-    const app     = initializeApp(firebaseConfig);
-    const db      = getDatabase(app);
-    const storage = getStorage(app);
+const firebaseConfig = {
+  apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain:"ho0911seong-56638.firebaseapp.com",
+  databaseURL:"https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"ho0911seong-56638",
+  storageBucket:"ho0911seong-56638.firebasestorage.app",
+  messagingSenderId:"994509567071",
+  appId:"1:994509567071:web:2bc0f31f542bf8c3f557ea"
+};
+const app     = initializeApp(firebaseConfig);
+const db      = getDatabase(app);
+const storage = getStorage(app);
 
-    const ADMIN_PW   = "idy1883"; // ← 비밀번호 변경
-    const ALL_MISSIONS = ['자유공원','인천개항박물관','대불호텔전시관','청일조계지경계계단','제물포구락부','짜장면박물관','삼국지벽화거리','개항기미식회','한자간판수집가','선생님을찾아라'];
-    const TOTAL = ALL_MISSIONS.length;
-    const NUMS  = {'자유공원':'①','인천개항박물관':'②','대불호텔전시관':'③','청일조계지경계계단':'④','제물포구락부':'⑤','짜장면박물관':'⑥','삼국지벽화거리':'⑦'};
+/* ════════════════ 설정 ════════════════ */
+const ADMIN_PW  = 'ghtjd12!@';
 
-    // 기본 미션 데이터 (Firebase에 없을 때 폴백)
-    const DEFAULT_MISSIONS = {
-        '자유공원':           { type:'photo',      label:'📍 장소 미션 01', title:'맥아더 장군과 하이파이브!',              desc:`우리나라 최초의 서구식 공원인 자유공원에 올라가, 맥아더 장군 동상과 같은 포즈(쌍안경을 든 모습 등)를 취하고 인증샷을 찍어주세요!`, verify:`📷 인증: 동상과 학생이 모두 나온 사진 업로드` },
-        '인천개항박물관':     { type:'photo',      label:'📍 장소 미션 02', title:'은행 털기? 아니, 흔적 찾기!',            desc:`이 건물은 과거 '일본 제1은행'이었습니다. 건물 외관이나 입구에서 옛 은행 시절의 흔적(예: 돔형 지붕, 석조 기둥)을 하나 찾아 사진을 찍어주세요.`, verify:`📷 인증: 건축물 특정 포인트 사진 업로드` },
-        '대불호텔전시관':     { type:'text+photo', label:'📍 장소 미션 03', title:'최초의 서양식 호텔 체크인',              desc:`우리나라 최초의 서양식 호텔인 '대불호텔'은 당시 숙박비가 꽤 비쌌다고 합니다. 전시관(또는 안내판)을 살펴보고, 당시 1박 요금이나 팔았던 커피의 종류를 알아내세요!`, verify:`✏️ 인증: 정답 텍스트 입력 + 관련 전시물 사진` },
-        '청일조계지경계계단': { type:'photo',      label:'📍 장소 미션 04', title:'두 세계의 경계선',                      desc:`계단을 오르며 양옆의 가로등(석등) 모양을 비교해 보세요. 중국식과 일본식 석등의 모양이 다릅니다. 양쪽 석등에 각각 한 손씩 얹고 인증샷을 찍어주세요!`, verify:`📷 인증: 양쪽 석등이 모두 담긴 친구들과 사진 업로드` },
-        '제물포구락부':       { type:'photo',      label:'📍 장소 미션 05', title:'개항기 핫플레이스 잠입',                desc:`드라마 '도깨비' 촬영지이기도 한 이곳은 과거 외국인들의 사교 클럽이었습니다. 건물 안팎을 둘러보고 가장 이국적인 스팟에서 '모던 보이/모던 걸'처럼 진지하게 사진을 찍어주세요.`, verify:`📷 인증: 컨셉 사진 업로드` },
-        '짜장면박물관':       { type:'photo',      label:'📍 장소 미션 06', title:'공화춘 셰프 되기',                      desc:`옛 '공화춘' 건물인 짜장면 박물관 앞에서, 친구들과 다 같이 '수타면을 뽑는 역동적인 포즈'로 사진을 찍어주세요.`, verify:`📷 인증: 수타면 뽑는 포즈 친구들과 사진 업로드` },
-        '삼국지벽화거리':     { type:'photo',      label:'📍 장소 미션 07', title:'도원결의 맺기',                         desc:`수많은 삼국지 벽화 중 '도원결의(유비, 관우, 장비가 의형제를 맺는 장면)' 벽화를 찾아, 세 명의 친구들이 그 앞에서 똑같이 결의를 다지는 포즈를 취해주세요!`, verify:`📷 인증: 도원결의 패러디 친구들과 사진 업로드` },
-        '개항기미식회':       { type:'text+photo', label:'📋 어디서든 퀘스트 08', title:'오감 만족 — 개항기 미식회',        desc:`차이나타운이나 개항장 거리에서 파는 길거리 간식(화덕만두, 공갈빵, 탕후루, 펑리수 등)을 하나 사서 나눠 먹고, 친구들의 만장일치 '별점과 한 줄 평'을 남겨주세요.`, verify:`✏️ 인증: 간식 사진 + 별점/한 줄 평 텍스트 입력` },
-        '한자간판수집가':     { type:'photo',      label:'📋 어디서든 퀘스트 09', title:'타임머신 — 한자 & 옛날 간판 수집가', desc:`거리를 걷다가 한자로만 적혀 있거나, 오른쪽에서 왼쪽으로 읽어야 하는 옛날 방식의 간판을 찾아 2개 이상 사진을 찍어오세요.`, verify:`📷 인증: 간판 사진 2장 이상 업로드` },
-        '선생님을찾아라':     { type:'photo',      label:'📋 어디서든 퀘스트 10', title:'미션 임파서블 — 선생님을 찾아라!', desc:`차이나타운 어딘가를 배회하고 있는 선생님을 찾아 "대한 독립 만세!"를 외치고 같이 셀카를 찍어주세요. (선생님의 위치는 랜덤하게 바뀝니다)`, verify:`📷 인증: 선생님과 함께 찍은 친구들과 사진 업로드` }
-    };
+// 활동1 (해양박물관)
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwyI-lc4yoCKr2yzj28UGLyALcz3OhiikNtl24qb-h1S3glhLhcP6xHj3W-uQhHHAeC1Q/exec';
+const OCEAN_TOTAL = 19;
+const OCEAN_MISSIONS = [
+  {id:0,title:'시간의 첫 파문',icon:'🎬',type:'text_with_mini_reflection',answers:['항해조천도']},
+  {id:1,title:'8,000년 전 뱃사공',icon:'🪵',type:'image_text',answers:['비봉리']},
+  {id:2,title:'바다를 건너온 낯선 그릇',icon:'🏺',type:'image_text',answers:['야요이 토기','야요이토기']},
+  {id:3,title:'동아시아 바다의 패자',icon:'⚓',type:'text',answers:['백제']},
+  {id:4,title:'바다를 건너간 가야의 유산',icon:'🏛️',type:'photo',answers:[]},
+  {id:5,title:'천 년의 침묵을 깨고',icon:'⛵',type:'text',answers:['영흥도선','영흥도배']},
+  {id:6,title:'푸른 빛을 실어나르다',icon:'💙',type:'text',answers:['청자','고려청자']},
+  {id:7,title:'코리아, 세계와 만나다',icon:'🌐',type:'dnd',answers:[]},
+  {id:8,title:'불멸의 철갑 전설',icon:'🐢',type:'two_step',answers:['이순신']},
+  {id:9,title:'500명의 문화 대사',icon:'🏮',type:'text',answers:['통신사','조선통신사']},
+  {id:10,title:'근대의 파도가 밀려오다',icon:'📸',type:'photo',answers:[]},
+  {id:11,title:'빼앗긴 바다의 기록',icon:'🗺️',type:'text',answers:['한국연해수산물분포도']},
+  {id:12,title:'바다 위의 거인들',icon:'🚢',type:'text',answers:['HMM']},
+  {id:13,title:'세계를 바꾼 철제 상자',icon:'📦',type:'text',answers:['컨테이너']},
+  {id:14,title:'선장 없는 배의 시대',icon:'🤖',type:'two_step',answers:['IOT','IoT']},
+  {id:15,title:'생명이 숨 쉬는 진흙 바다',icon:'🌊',type:'text',answers:['갯벌']},
+  {id:16,title:'하얀 꽃이 피는 갯벌',icon:'🧂',type:'text',answers:['주안염전']},
+  {id:17,title:'인천 산업화의 세 기둥',icon:'⚙️',type:'match',answers:[]},
+  {id:18,title:'바다를 품은 탐험가',icon:'🗼',type:'photo',answers:[]},
+];
 
-    const DEFAULT_POSITIONS = {
-        '자유공원':{x:49.9,y:48.2},'인천개항박물관':{x:40.6,y:75.9},'대불호텔전시관':{x:35.4,y:69.6},
-        '청일조계지경계계단':{x:42.9,y:66.0},'제물포구락부':{x:64.4,y:62.0},'짜장면박물관':{x:21.3,y:62.4},'삼국지벽화거리':{x:27.2,y:52.0}
-    };
-    const PLACE_MISSIONS = Object.keys(DEFAULT_POSITIONS);
-    let editPositions = JSON.parse(JSON.stringify(DEFAULT_POSITIONS));
-    let currentMissions = JSON.parse(JSON.stringify(DEFAULT_MISSIONS));
-    let allData = {};
+// 활동2 (1883)
+const ALL_MISSIONS_1883 = ['자유공원','인천개항박물관','대불호텔전시관','청일조계지경계계단','제물포구락부','짜장면박물관','삼국지벽화거리','개항기미식회','한자간판수집가','선생님을찾아라'];
+const TOTAL_1883 = ALL_MISSIONS_1883.length;
+const NUMS_1883 = {'자유공원':'①','인천개항박물관':'②','대불호텔전시관':'③','청일조계지경계계단':'④','제물포구락부':'⑤','짜장면박물관':'⑥','삼국지벽화거리':'⑦'};
+const DEFAULT_POSITIONS = {
+  '자유공원':{x:49.9,y:48.2},'인천개항박물관':{x:40.6,y:75.9},'대불호텔전시관':{x:35.4,y:69.6},
+  '청일조계지경계계단':{x:42.9,y:66.0},'제물포구락부':{x:64.4,y:62.0},'짜장면박물관':{x:21.3,y:62.4},'삼국지벽화거리':{x:27.2,y:52.0}
+};
+const PLACE_MISSIONS_1883 = Object.keys(DEFAULT_POSITIONS);
+const DEFAULT_MISSIONS_1883 = {
+  '자유공원':{type:'photo',title:'맥아더 장군과 하이파이브!',desc:'우리나라 최초의 서구식 공원인 자유공원에 올라가, 맥아더 장군 동상과 같은 포즈를 취하고 인증샷을 찍어주세요!',verify:'📷 인증: 동상과 학생이 모두 나온 사진 업로드'},
+  '인천개항박물관':{type:'photo',title:'은행 털기? 아니, 흔적 찾기!',desc:'이 건물은 과거 \'일본 제1은행\'이었습니다. 건물 외관이나 입구에서 옛 은행 시절의 흔적을 하나 찾아 사진을 찍어주세요.',verify:'📷 인증: 건축물 특정 포인트 사진 업로드'},
+  '대불호텔전시관':{type:'text+photo',title:'최초의 서양식 호텔 체크인',desc:'우리나라 최초의 서양식 호텔인 \'대불호텔\'의 당시 숙박비나 팔았던 커피의 종류를 알아내세요!',verify:'✏️ 인증: 정답 텍스트 입력 + 관련 전시물 사진'},
+  '청일조계지경계계단':{type:'photo',title:'두 세계의 경계선',desc:'계단 양옆의 가로등(석등) 모양을 비교해 보세요. 중국식과 일본식 석등의 모양이 다릅니다. 양쪽 석등에 각각 한 손씩 얹고 인증샷을 찍어주세요!',verify:'📷 인증: 양쪽 석등이 모두 담긴 사진 업로드'},
+  '제물포구락부':{type:'photo',title:'개항기 핫플레이스 잠입',desc:'드라마 \'도깨비\' 촬영지이기도 한 이곳에서 가장 이국적인 스팟을 찾아 \'모던 보이/모던 걸\'처럼 사진을 찍어주세요.',verify:'📷 인증: 컨셉 사진 업로드'},
+  '짜장면박물관':{type:'photo',title:'공화춘 셰프 되기',desc:'옛 \'공화춘\' 건물인 짜장면 박물관 앞에서, 친구들과 다 같이 수타면을 뽑는 역동적인 포즈로 사진을 찍어주세요.',verify:'📷 인증: 수타면 뽑는 포즈 사진 업로드'},
+  '삼국지벽화거리':{type:'photo',title:'도원결의 맺기',desc:'\'도원결의\' 벽화를 찾아, 세 명의 친구들이 그 앞에서 결의를 다지는 포즈를 취해주세요!',verify:'📷 인증: 도원결의 패러디 사진 업로드'},
+  '개항기미식회':{type:'text+photo',title:'오감 만족 — 개항기 미식회',desc:'차이나타운이나 개항장 거리에서 파는 길거리 간식을 하나 사서 나눠 먹고, 친구들의 만장일치 별점과 한 줄 평을 남겨주세요.',verify:'✏️ 인증: 간식 사진 + 별점/한 줄 평 입력'},
+  '한자간판수집가':{type:'photo',title:'타임머신 — 한자 & 옛날 간판 수집가',desc:'한자로만 적혀 있거나, 오른쪽에서 왼쪽으로 읽어야 하는 옛날 방식의 간판을 찾아 2개 이상 사진을 찍어오세요.',verify:'📷 인증: 간판 사진 2장 이상 업로드'},
+  '선생님을찾아라':{type:'photo',title:'미션 임파서블 — 선생님을 찾아라!',desc:'차이나타운 어딘가를 배회하고 있는 선생님을 찾아 "대한 독립 만세!"를 외치고 같이 셀카를 찍어주세요.',verify:'📷 인증: 선생님과 함께 찍은 사진 업로드'}
+};
 
-    window.showToast = function(msg) {
-        const el=document.getElementById('toast');
-        el.textContent=msg; el.classList.add('show');
-        setTimeout(()=>el.classList.remove('show'),2500);
-    };
-    function formatTime(iso) {
-        if(!iso) return '';
-        const d=new Date(iso);
-        return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-    }
+/* ════════════════ 상태 ════════════════ */
+let currentActivity = 0;
+let reflectionEnabled = false; // 활동1
+let adminEdits = {};           // 활동1 문제 편집
+let allData1883 = {};          // 활동2 학생 데이터
+let currentMissions1883 = JSON.parse(JSON.stringify(DEFAULT_MISSIONS_1883));
+let editPositions = JSON.parse(JSON.stringify(DEFAULT_POSITIONS));
 
-    /* ── 로그인 ── */
-    document.getElementById('admin-login-btn').addEventListener('click', tryLogin);
-    document.getElementById('admin-pw').addEventListener('keydown', e=>{if(e.key==='Enter')tryLogin();});
+/* ════════════════ 유틸 ════════════════ */
+window.showToast = function(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+};
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function formatTime(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
 
-    async function tryLogin() {
-        if (document.getElementById('admin-pw').value === ADMIN_PW) {
-            document.getElementById('admin-login').style.display  = 'none';
-            document.getElementById('admin-header').style.display = 'flex';
-            document.getElementById('tab-nav').style.display      = 'block';
-            document.getElementById('tab-dashboard').classList.add('show');
-            await loadMissionData();
-            loadDashboard();
-            loadMarkerPositions();
-        } else {
-            document.getElementById('admin-err').style.display = 'block';
-            document.getElementById('admin-pw').value = '';
+/* ════════════════ 로그인 ════════════════ */
+window.tryLogin = function() {
+  const pw = document.getElementById('admin-pw').value;
+  if (pw === ADMIN_PW) {
+    document.getElementById('screen-login').style.display = 'none';
+    document.getElementById('screen-main').style.display = 'block';
+  } else {
+    document.getElementById('login-err').style.display = 'block';
+    document.getElementById('admin-pw').value = '';
+  }
+};
+document.getElementById('admin-pw').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+
+/* ════════════════ 화면 전환 ════════════════ */
+window.openActivity = function(num) {
+  currentActivity = num;
+  document.getElementById('screen-select').style.display = 'none';
+  document.getElementById('screen-activity').style.display = 'block';
+  if (num === 1) buildActivity1();
+  else buildActivity2();
+};
+
+window.goSelect = function() {
+  document.getElementById('screen-activity').style.display = 'none';
+  document.getElementById('screen-select').style.display = 'block';
+  document.getElementById('act-tab-nav').innerHTML = '';
+  document.getElementById('act-tab-contents').innerHTML = '';
+};
+
+function switchActTab(tab) {
+  document.querySelectorAll('.act-tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.act-tab-body').forEach(b => b.classList.remove('show'));
+  document.querySelector(`.act-tab-btn[data-tab="${tab}"]`)?.classList.add('active');
+  document.getElementById(`atab-${tab}`)?.classList.add('show');
+}
+
+/* ════════════════ 활동1: 해양박물관 ════════════════ */
+function buildActivity1() {
+  const nav = document.getElementById('act-tab-nav');
+  nav.innerHTML = `
+    <button class="act-tab-btn active" data-tab="a1-control" onclick="switchActTab('a1-control')">⚙️ 활동 제어</button>
+    <button class="act-tab-btn" data-tab="a1-missions" onclick="switchActTab('a1-missions')">✏️ 문제 편집</button>
+  `;
+  const contents = document.getElementById('act-tab-contents');
+  contents.innerHTML = `
+    <!-- 활동 제어 탭 -->
+    <div class="act-tab-body show" id="atab-a1-control">
+      <div class="s-title">소감 작성</div>
+      <button class="toggle-btn off" id="a1-reflection-btn" onclick="toggleReflection1()">🔴 소감 작성 비활성화 (탭하면 활성화)</button>
+      <div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:24px;">
+        활성화하면 학생 앱에서 소감 탭이 열립니다. (학생이 새로고침 필요)
+      </div>
+
+      <div class="s-title">활동 강제 종료</div>
+      <button class="toggle-btn warn" onclick="forceEnd1()">⏹ 활동 강제 종료</button>
+      <div style="font-size:12px;color:var(--text2);line-height:1.6;">
+        학생 화면에 종료 오버레이가 표시되고 제출을 유도합니다.
+      </div>
+    </div>
+
+    <!-- 문제 편집 탭 -->
+    <div class="act-tab-body" id="atab-a1-missions">
+      <div class="s-title">미션 문제·정답 편집</div>
+      <div id="a1-mission-edit-list"></div>
+    </div>
+  `;
+  buildA1MissionEditor();
+}
+
+function buildA1MissionEditor() {
+  const list = document.getElementById('a1-mission-edit-list');
+  list.innerHTML = OCEAN_MISSIONS.map(m => {
+    const edit = adminEdits[m.id] || {};
+    const baseAns = m.answers || [];
+    const ansVal = edit.answers ? edit.answers.join(', ') : baseAns.join(', ');
+    return `
+    <div class="mission-edit-card" id="mec1-${m.id}">
+      <div class="mec-header" onclick="document.getElementById('mec1-${m.id}').classList.toggle('open')">
+        <div class="mec-left">
+          <span class="mec-num">M${m.id+1}</span>
+          <span class="mec-title-text">${m.icon} ${m.title}</span>
+        </div>
+        <span class="mec-arrow">▾</span>
+      </div>
+      <div class="mec-body">
+        <label class="f-label">정답 (쉼표로 구분)</label>
+        ${m.type === 'photo' || m.type === 'dnd' || m.type === 'match'
+          ? `<div style="font-size:12px;color:var(--text3);padding:8px 0;">이 유형은 정답 편집 불필요</div>`
+          : `<input class="f-input" id="a1-ans-${m.id}" type="text" value="${escHtml(ansVal)}" placeholder="정답1, 정답2, ...">`
         }
-    }
+        <button class="mec-save-btn" onclick="saveA1Mission(${m.id})">저장하기</button>
+        <span class="saved-badge" id="a1-saved-${m.id}">✓ 저장됨</span>
+      </div>
+    </div>`;
+  }).join('');
+}
 
-    /* ── 탭 ── */
-    window.switchTab = function(tab) {
-        document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',['dashboard','missions','markers'][i]===tab));
-        ['dashboard','missions','markers'].forEach(t=>{
-            document.getElementById(`tab-${t}`).classList.toggle('show', t===tab);
-        });
-        if (tab==='markers') buildMarkerEditor();
-        if (tab==='missions') buildMissionEditor();
-    };
+window.saveA1Mission = function(id) {
+  const el = document.getElementById(`a1-ans-${id}`);
+  if (!el) { showToast('이 유형은 편집 불필요'); return; }
+  const answers = el.value.split(',').map(s => s.trim()).filter(Boolean);
+  adminEdits[id] = { answers };
+  // GAS에 저장
+  fetch(GAS_URL, {
+    method: 'POST', mode: 'no-cors',
+    body: JSON.stringify({ type: 'adminEdit', missionId: id, answers })
+  }).catch(() => {});
+  const badge = document.getElementById(`a1-saved-${id}`);
+  badge.classList.add('show');
+  setTimeout(() => badge.classList.remove('show'), 2000);
+  showToast(`M${id+1} 저장 완료`);
+};
 
-    /* ── 미션 데이터 로드 (Firebase 우선) ── */
-    async function loadMissionData() {
-        try {
-            const snap = await get(ref(db,'missionData'));
-            if (snap.exists()) {
-                const saved = snap.val();
-                ALL_MISSIONS.forEach(k => {
-                    if (saved[k]) {
-                        currentMissions[k] = { ...currentMissions[k], ...saved[k] };
-                    }
-                });
-            }
-        } catch(e) { console.warn(e); }
-    }
+window.toggleReflection1 = function() {
+  reflectionEnabled = !reflectionEnabled;
+  const btn = document.getElementById('a1-reflection-btn');
+  if (reflectionEnabled) {
+    btn.className = 'toggle-btn on';
+    btn.textContent = '🟢 소감 작성 활성화됨 (탭하면 비활성화)';
+  } else {
+    btn.className = 'toggle-btn off';
+    btn.textContent = '🔴 소감 작성 비활성화 (탭하면 활성화)';
+  }
+  fetch(GAS_URL, {
+    method: 'POST', mode: 'no-cors',
+    body: JSON.stringify({ type: 'reflectionToggle', enabled: reflectionEnabled })
+  }).catch(() => {});
+  showToast(reflectionEnabled ? '✅ 소감 작성 활성화' : '소감 작성 비활성화');
+};
 
-    /* ── 미션 편집 UI ── */
-    function buildMissionEditor() {
-        const list = document.getElementById('mission-edit-list');
-        list.innerHTML = ALL_MISSIONS.map((key, i) => {
-            const m = currentMissions[key];
-            const num = NUMS[key] || `${i+1}`;
-            return `
-            <div class="mission-edit-card" id="mec-${key}">
-                <div class="mec-header" onclick="toggleMec('${key}')">
-                    <div class="mec-left">
-                        <span class="mec-num">${num}</span>
-                        <span class="mec-title">${key}</span>
-                    </div>
-                    <span class="mec-type">${m.type==='text+photo'?'텍스트+사진':'사진'}</span>
-                </div>
-                <div class="mec-body">
-                    <div class="field-label">제목</div>
-                    <input class="field-input" id="mec-title-${key}" value="${escHtml(m.title)}" placeholder="미션 제목">
-                    <div class="field-label">미션 설명</div>
-                    <textarea class="field-textarea" id="mec-desc-${key}" placeholder="미션 설명">${escHtml(m.desc)}</textarea>
-                    <div class="field-label">인증 방법</div>
-                    <input class="field-input" id="mec-verify-${key}" value="${escHtml(m.verify)}" placeholder="인증 방법">
-                    <button class="mec-save-btn" onclick="saveMission('${key}')">저장하기</button>
-                    <div class="saved-badge" id="saved-${key}">✓ 저장됨</div>
-                </div>
-            </div>`;
-        }).join('');
-    }
+window.forceEnd1 = function() {
+  if (!confirm('정말 활동을 강제 종료하시겠습니까?')) return;
+  fetch(GAS_URL, {
+    method: 'POST', mode: 'no-cors',
+    body: JSON.stringify({ type: 'forceEnd' })
+  }).catch(() => {});
+  showToast('⏹ 강제 종료 신호 전송 완료');
+};
 
-    function escHtml(str) { return (str||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+/* ════════════════ 활동2: 1883 ════════════════ */
+async function buildActivity2() {
+  const nav = document.getElementById('act-tab-nav');
+  nav.innerHTML = `
+    <button class="act-tab-btn active" data-tab="a2-dashboard" onclick="switchActTab('a2-dashboard')">📊 학생 현황</button>
+    <button class="act-tab-btn" data-tab="a2-missions" onclick="switchActTab('a2-missions')">✏️ 미션 편집</button>
+    <button class="act-tab-btn" data-tab="a2-markers" onclick="switchActTab('a2-markers');buildMarkerEditor()">📍 마커 편집</button>
+  `;
+  const contents = document.getElementById('act-tab-contents');
+  contents.innerHTML = `
+    <!-- 대시보드 -->
+    <div class="act-tab-body show" id="atab-a2-dashboard">
+      <div class="stat-row">
+        <div class="stat-card"><div class="stat-num" id="stat-students">–</div><div class="stat-label">참여 학생</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-comp">–</div><div class="stat-label">총 완료 미션</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-full">–</div><div class="stat-label">전체 완료</div></div>
+      </div>
+      <input type="text" class="search-input" id="a2-search" placeholder="학번 또는 이름으로 검색...">
+      <div id="a2-student-list"><div class="empty-state">데이터를 불러오는 중...</div></div>
+    </div>
 
-    window.toggleMec = function(key) {
-        document.getElementById(`mec-${key}`)?.classList.toggle('open');
-    };
+    <!-- 미션 편집 -->
+    <div class="act-tab-body" id="atab-a2-missions">
+      <div class="s-title">미션 내용 편집</div>
+      <div id="a2-mission-edit-list"></div>
+    </div>
 
-    window.saveMission = async function(key) {
-        const title  = document.getElementById(`mec-title-${key}`).value.trim();
-        const desc   = document.getElementById(`mec-desc-${key}`).value.trim();
-        const verify = document.getElementById(`mec-verify-${key}`).value.trim();
-        if (!title||!desc||!verify) { showToast('모든 항목을 입력해주세요'); return; }
-        try {
-            await set(ref(db,`missionData/${key}`), { title, desc, verify });
-            currentMissions[key] = { ...currentMissions[key], title, desc, verify };
-            const badge = document.getElementById(`saved-${key}`);
-            badge.classList.add('show');
-            setTimeout(()=>badge.classList.remove('show'), 2000);
-            showToast(`✅ ${key} 저장 완료! 학생 화면에 즉시 반영됩니다.`);
-        } catch(e) { showToast('저장 실패: '+e.message); }
-    };
+    <!-- 마커 편집 -->
+    <div class="act-tab-body" id="atab-a2-markers">
+      <div class="s-title">마커 위치 편집</div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6;">마커를 드래그해서 위치를 조정하세요. 저장하면 학생 화면에 즉시 반영됩니다.</p>
+      <div class="marker-map-wrap" id="marker-map-wrap">
+        <div id="map-aspect">
+          <img id="marker-map-img" src="map_image.png" alt="지도">
+        </div>
+      </div>
+      <div class="coord-list" id="coord-list"></div>
+      <button class="save-big-btn" style="margin-top:14px;" onclick="saveMarkers()">💾 마커 위치 저장하기</button>
+    </div>
+  `;
 
-    /* ── 대시보드 ── */
-    function loadDashboard() {
-        onValue(ref(db,'status'), snap => {
-            allData = snap.exists() ? snap.val() : {};
-            renderDashboard();
-        });
-    }
-    function renderDashboard() {
-        const entries=Object.entries(allData);
-        let totalComp=0,fullCount=0;
-        entries.forEach(([,m])=>{const d=Object.values(m).filter(v=>v.status==='완료').length;totalComp+=d;if(d>=TOTAL)fullCount++;});
-        document.getElementById('stat-students').textContent=entries.length;
-        document.getElementById('stat-completions').textContent=totalComp;
-        document.getElementById('stat-full').textContent=fullCount;
-        renderList('');
-    }
-    function renderList(query) {
-        const list=document.getElementById('student-list');
-        const entries=Object.entries(allData).filter(([k])=>k.includes(query));
-        if(!entries.length){list.innerHTML=`<div class="empty-state"><div class="empty-icon">🗺️</div><div class="empty-text">${Object.keys(allData).length===0?'아직 제출한 학생이 없습니다':'검색 결과가 없습니다'}</div></div>`;return;}
-        entries.sort(([,a],[,b])=>Object.values(b).filter(v=>v.status==='완료').length-Object.values(a).filter(v=>v.status==='완료').length);
-        list.innerHTML=entries.map(([key,missions])=>{
-            const [id,...np]=key.split('_');const name=np.join(' ');
-            const mStatus=ALL_MISSIONS.map(mn=>{const e=missions[mn.replace(/\s/g,'')]||missions[mn];return{name:mn,done:!!(e&&e.status==='완료'),time:e?.time||''};});
-            const doneCount=mStatus.filter(m=>m.done).length;
-            const pills=mStatus.slice(0,7).map(m=>`<span class="pill ${m.done?'done':'todo'}">${m.done?'✓':'○'} ${m.name}</span>`).join('');
-            const rows=mStatus.map(m=>`<div class="mission-row"><div class="mr-left"><div class="mr-dot ${m.done?'done':'todo'}"></div><div><div class="mr-name">${m.name}</div><div class="mr-time">${m.done?formatTime(m.time):'미완료'}</div></div></div>${m.done?`<button class="photo-btn" onclick="window.viewPhoto('${id}','${name}','${m.name.replace(/\s/g,'')}','${m.name}')">📷 사진</button>`:'<span style="font-size:12px;color:#c4a060;font-family:DM Mono,monospace;">–</span>'}</div>`).join('');
-            return `<div class="student-card" id="card-${key}"><div class="sc-header" onclick="toggleCard('${key}')"><div class="sc-info"><div class="sc-avatar">${name.charAt(0)||'?'}</div><div><div class="sc-name">${name}</div><div class="sc-id">${id} · ${doneCount}/${TOTAL} 완료</div></div></div><div class="mission-pills">${pills}</div></div><div class="sc-detail">${rows}</div></div>`;
-        }).join('');
-    }
-    window.toggleCard=k=>document.getElementById(`card-${k}`)?.classList.toggle('open');
-    document.getElementById('search-input').addEventListener('input',e=>renderList(e.target.value.trim()));
+  await loadMissionData2();
+  buildA2MissionEditor();
+  loadDashboard2();
+  loadMarkerPositions2();
 
-    /* ── 사진 보기 ── */
-    window.viewPhoto=async function(id,name,mKey,mName){
-        document.getElementById('modal-title').textContent=`${name} · ${mName}`;
-        document.getElementById('modal-content').innerHTML='<div class="modal-loading">📷 불러오는 중...</div>';
-        document.getElementById('photo-modal').classList.add('show');
-        for(const ext of['jpg','jpeg','png','heic','webp']){
-            try{const url=await getDownloadURL(sRef(storage,`missions/${id}_${name}_${mKey}.${ext}`));document.getElementById('modal-content').innerHTML=`<img id="modal-img" src="${url}" alt="인증 사진">`;return;}catch(_){}
-        }
-        document.getElementById('modal-content').innerHTML='<div class="modal-loading">사진을 찾을 수 없습니다.</div>';
-    };
-    window.closeModal=()=>document.getElementById('photo-modal').classList.remove('show');
-    document.getElementById('photo-modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+  document.getElementById('a2-search').addEventListener('input', e => renderStudentList(e.target.value.trim()));
+}
 
-    /* ── 마커 편집 ── */
-    async function loadMarkerPositions(){
-        try{const snap=await get(ref(db,'markerPositions'));if(snap.exists())Object.keys(snap.val()).forEach(k=>{if(editPositions[k])editPositions[k]=snap.val()[k];});}catch(e){console.warn(e);}
+async function loadMissionData2() {
+  try {
+    const snap = await get(ref(db, 'missionData'));
+    if (snap.exists()) {
+      const saved = snap.val();
+      ALL_MISSIONS_1883.forEach(k => {
+        if (saved[k]) currentMissions1883[k] = { ...currentMissions1883[k], ...saved[k] };
+      });
     }
-    function buildMarkerEditor(){
-        const aspect=document.getElementById('map-aspect');
-        aspect.querySelectorAll('.edit-marker').forEach(el=>el.remove());
-        PLACE_MISSIONS.forEach(key=>{
-            const pos=editPositions[key],num=NUMS[key]||'';
-            const el=document.createElement('div');
-            el.className='edit-marker';el.id=`edit-${key}`;el.style.left=pos.x+'%';el.style.top=pos.y+'%';
-            el.innerHTML=`<div class="edit-marker-label">${key}</div><div class="edit-marker-pin"><span class="edit-marker-num">${num}</span></div>`;
-            makeDraggable(el,key,aspect);aspect.appendChild(el);
-        });
-        renderCoordList();
+  } catch(e) { console.warn(e); }
+}
+
+function buildA2MissionEditor() {
+  const list = document.getElementById('a2-mission-edit-list');
+  list.innerHTML = ALL_MISSIONS_1883.map((key, i) => {
+    const m = currentMissions1883[key];
+    const num = NUMS_1883[key] || (i + 1);
+    return `
+    <div class="mission-edit-card" id="mec2-${key}">
+      <div class="mec-header" onclick="document.getElementById('mec2-${escHtml(key)}').classList.toggle('open')">
+        <div class="mec-left">
+          <span class="mec-num">${num}</span>
+          <span class="mec-title-text">${key}</span>
+        </div>
+        <span class="mec-arrow">▾</span>
+      </div>
+      <div class="mec-body">
+        <label class="f-label">제목</label>
+        <input class="f-input" id="mec2-title-${key}" value="${escHtml(m.title)}" placeholder="미션 제목">
+        <label class="f-label">미션 설명</label>
+        <textarea class="f-textarea" id="mec2-desc-${key}" placeholder="미션 설명">${escHtml(m.desc)}</textarea>
+        <label class="f-label">인증 방법</label>
+        <input class="f-input" id="mec2-verify-${key}" value="${escHtml(m.verify)}" placeholder="인증 방법">
+        <button class="mec-save-btn" onclick="saveA2Mission('${key}')">저장하기</button>
+        <span class="saved-badge" id="a2-saved-${key}">✓ 저장됨</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.saveA2Mission = async function(key) {
+  const title  = document.getElementById(`mec2-title-${key}`)?.value.trim();
+  const desc   = document.getElementById(`mec2-desc-${key}`)?.value.trim();
+  const verify = document.getElementById(`mec2-verify-${key}`)?.value.trim();
+  if (!title || !desc || !verify) { showToast('모든 항목을 입력해주세요'); return; }
+  try {
+    await set(ref(db, `missionData/${key}`), { title, desc, verify });
+    currentMissions1883[key] = { ...currentMissions1883[key], title, desc, verify };
+    const badge = document.getElementById(`a2-saved-${key}`);
+    badge.classList.add('show');
+    setTimeout(() => badge.classList.remove('show'), 2000);
+    showToast(`✅ ${key} 저장 완료`);
+  } catch(e) { showToast('저장 실패: ' + e.message); }
+};
+
+/* ── 대시보드 ── */
+function loadDashboard2() {
+  onValue(ref(db, 'status'), snap => {
+    allData1883 = snap.exists() ? snap.val() : {};
+    renderDashboardStats();
+    renderStudentList('');
+  });
+}
+function renderDashboardStats() {
+  const entries = Object.entries(allData1883);
+  let totalComp = 0, fullCount = 0;
+  entries.forEach(([, m]) => {
+    const d = Object.values(m).filter(v => v.status === '완료').length;
+    totalComp += d;
+    if (d >= TOTAL_1883) fullCount++;
+  });
+  document.getElementById('stat-students').textContent = entries.length;
+  document.getElementById('stat-comp').textContent = totalComp;
+  document.getElementById('stat-full').textContent = fullCount;
+}
+function renderStudentList(query) {
+  const list = document.getElementById('a2-student-list');
+  if (!list) return;
+  const entries = Object.entries(allData1883).filter(([k]) => k.includes(query));
+  if (!entries.length) {
+    list.innerHTML = `<div class="empty-state">${Object.keys(allData1883).length === 0 ? '아직 제출한 학생이 없습니다' : '검색 결과가 없습니다'}</div>`;
+    return;
+  }
+  entries.sort(([,a],[,b]) => Object.values(b).filter(v=>v.status==='완료').length - Object.values(a).filter(v=>v.status==='완료').length);
+  list.innerHTML = entries.map(([key, missions]) => {
+    const [id, ...np] = key.split('_'); const name = np.join(' ');
+    const mStatus = ALL_MISSIONS_1883.map(mn => {
+      const e = missions[mn.replace(/\s/g,'')] || missions[mn];
+      return { name: mn, done: !!(e && e.status === '완료'), time: e?.time || '' };
+    });
+    const doneCount = mStatus.filter(m => m.done).length;
+    const pills = mStatus.slice(0, 7).map(m => `<span class="mpill ${m.done?'done':'todo'}">${m.done?'✓':'○'}</span>`).join('');
+    const rows = mStatus.map(m => `
+      <div class="mission-row">
+        <div class="mr-left">
+          <div class="mr-dot ${m.done?'done':'todo'}"></div>
+          <div>
+            <div class="mr-name">${m.name}</div>
+            <div class="mr-time">${m.done ? formatTime(m.time) : '미완료'}</div>
+          </div>
+        </div>
+        ${m.done ? `<button class="photo-view-btn" onclick="viewPhoto('${id}','${name}','${m.name.replace(/\s/g,'')}','${m.name}')">📷 사진</button>` : '<span style="font-size:11px;color:var(--text3);">–</span>'}
+      </div>`).join('');
+    return `
+      <div class="student-card" id="scard-${key}">
+        <div class="sc-header" onclick="document.getElementById('scard-${key}').classList.toggle('open')">
+          <div class="sc-info">
+            <div class="sc-avatar">${name.charAt(0)||'?'}</div>
+            <div>
+              <div class="sc-name">${name}</div>
+              <div class="sc-id">${id} · ${doneCount}/${TOTAL_1883} 완료</div>
+            </div>
+          </div>
+          <div class="mission-pills">${pills}</div>
+        </div>
+        <div class="sc-detail">${rows}</div>
+      </div>`;
+  }).join('');
+}
+
+/* ── 사진 보기 ── */
+window.viewPhoto = async function(id, name, mKey, mName) {
+  document.getElementById('modal-title').textContent = `${name} · ${mName}`;
+  document.getElementById('modal-content').innerHTML = '<div class="modal-loading">📷 불러오는 중...</div>';
+  document.getElementById('photo-modal').classList.add('show');
+  for (const ext of ['jpg','jpeg','png','heic','webp']) {
+    try {
+      const url = await getDownloadURL(sRef(storage, `missions/${id}_${name}_${mKey}.${ext}`));
+      document.getElementById('modal-content').innerHTML = `<img id="modal-img" src="${url}" alt="인증 사진">`;
+      return;
+    } catch(_) {}
+  }
+  document.getElementById('modal-content').innerHTML = '<div class="modal-loading">사진을 찾을 수 없습니다.</div>';
+};
+window.closeModal = () => document.getElementById('photo-modal').classList.remove('show');
+document.getElementById('photo-modal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+
+/* ── 마커 편집 ── */
+async function loadMarkerPositions2() {
+  try {
+    const snap = await get(ref(db, 'markerPositions'));
+    if (snap.exists()) {
+      Object.keys(snap.val()).forEach(k => { if (editPositions[k]) editPositions[k] = snap.val()[k]; });
     }
-    function makeDraggable(el,key,container){
-        let dragging=false,startX,startY,startLeft,startTop;
-        function onStart(e){dragging=true;const pt=e.touches?e.touches[0]:e;startX=pt.clientX;startY=pt.clientY;startLeft=(parseFloat(el.style.left)/100)*container.scrollWidth;startTop=(parseFloat(el.style.top)/100)*container.scrollHeight;e.preventDefault();}
-        function onMove(e){if(!dragging)return;const pt=e.touches?e.touches[0]:e;const dx=pt.clientX-startX,dy=pt.clientY-startY;const ww=container.scrollWidth,wh=container.scrollHeight;const nx=Math.max(0,Math.min(100,((startLeft+dx)/ww)*100));const ny=Math.max(0,Math.min(100,((startTop+dy)/wh)*100));el.style.left=nx+'%';el.style.top=ny+'%';editPositions[key]={x:parseFloat(nx.toFixed(2)),y:parseFloat(ny.toFixed(2))};updateCoordRow(key);e.preventDefault();}
-        function onEnd(){dragging=false;}
-        el.addEventListener('mousedown',onStart);el.addEventListener('touchstart',onStart,{passive:false});
-        document.addEventListener('mousemove',onMove);document.addEventListener('touchmove',onMove,{passive:false});
-        document.addEventListener('mouseup',onEnd);document.addEventListener('touchend',onEnd);
-    }
-    function renderCoordList(){
-        document.getElementById('coord-list').innerHTML=PLACE_MISSIONS.map(key=>`<div class="coord-row"><div class="coord-name">${NUMS[key]||''} ${key}</div><div class="coord-val" id="coord-val-${key}">X: ${editPositions[key].x}% / Y: ${editPositions[key].y}%</div><button class="coord-reset" onclick="resetMarker('${key}')">초기화</button></div>`).join('');
-    }
-    function updateCoordRow(key){const el=document.getElementById(`coord-val-${key}`);if(el)el.textContent=`X: ${editPositions[key].x}% / Y: ${editPositions[key].y}%`;}
-    window.resetMarker=function(key){editPositions[key]={...DEFAULT_POSITIONS[key]};const el=document.getElementById(`edit-${key}`);if(el){el.style.left=editPositions[key].x+'%';el.style.top=editPositions[key].y+'%';}updateCoordRow(key);showToast(`${key} 초기화 완료`);};
-    window.saveMarkers=async function(){try{await set(ref(db,'markerPositions'),editPositions);showToast('✅ 저장 완료! 학생 화면에 즉시 반영됩니다.');}catch(e){showToast('저장 실패: '+e.message);}};
+  } catch(e) { console.warn(e); }
+}
+
+window.buildMarkerEditor = function() {
+  const aspect = document.getElementById('map-aspect');
+  if (!aspect) return;
+  aspect.querySelectorAll('.edit-marker').forEach(el => el.remove());
+  PLACE_MISSIONS_1883.forEach(key => {
+    const pos = editPositions[key], num = NUMS_1883[key] || '';
+    const el = document.createElement('div');
+    el.className = 'edit-marker'; el.id = `edit-${key}`;
+    el.style.left = pos.x + '%'; el.style.top = pos.y + '%';
+    el.innerHTML = `<div class="edit-marker-label">${key}</div><div class="edit-marker-pin"><span class="edit-marker-num">${num}</span></div>`;
+    makeDraggable(el, key, aspect);
+    aspect.appendChild(el);
+  });
+  renderCoordList();
+};
+
+function makeDraggable(el, key, container) {
+  let dragging = false, startX, startY, startLeft, startTop;
+  function onStart(e) {
+    dragging = true;
+    const pt = e.touches ? e.touches[0] : e;
+    startX = pt.clientX; startY = pt.clientY;
+    startLeft = (parseFloat(el.style.left)/100) * container.scrollWidth;
+    startTop  = (parseFloat(el.style.top)/100)  * container.scrollHeight;
+    e.preventDefault();
+  }
+  function onMove(e) {
+    if (!dragging) return;
+    const pt = e.touches ? e.touches[0] : e;
+    const dx = pt.clientX - startX, dy = pt.clientY - startY;
+    const ww = container.scrollWidth, wh = container.scrollHeight;
+    const nx = Math.max(0, Math.min(100, ((startLeft + dx) / ww) * 100));
+    const ny = Math.max(0, Math.min(100, ((startTop  + dy) / wh) * 100));
+    el.style.left = nx + '%'; el.style.top = ny + '%';
+    editPositions[key] = { x: parseFloat(nx.toFixed(2)), y: parseFloat(ny.toFixed(2)) };
+    updateCoordRow(key);
+    e.preventDefault();
+  }
+  function onEnd() { dragging = false; }
+  el.addEventListener('mousedown', onStart);
+  el.addEventListener('touchstart', onStart, { passive: false });
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('touchmove', onMove, { passive: false });
+  document.addEventListener('mouseup', onEnd);
+  document.addEventListener('touchend', onEnd);
+}
+
+function renderCoordList() {
+  const el = document.getElementById('coord-list');
+  if (!el) return;
+  el.innerHTML = PLACE_MISSIONS_1883.map(key => `
+    <div class="coord-row">
+      <div class="coord-name">${NUMS_1883[key]||''} ${key}</div>
+      <div class="coord-val" id="coord-val-${key}">X: ${editPositions[key].x}% / Y: ${editPositions[key].y}%</div>
+      <button class="coord-reset" onclick="resetMarker('${key}')">초기화</button>
+    </div>`).join('');
+}
+function updateCoordRow(key) {
+  const el = document.getElementById(`coord-val-${key}`);
+  if (el) el.textContent = `X: ${editPositions[key].x}% / Y: ${editPositions[key].y}%`;
+}
+window.resetMarker = function(key) {
+  editPositions[key] = { ...DEFAULT_POSITIONS[key] };
+  const el = document.getElementById(`edit-${key}`);
+  if (el) { el.style.left = editPositions[key].x + '%'; el.style.top = editPositions[key].y + '%'; }
+  updateCoordRow(key);
+  showToast(`${key} 초기화 완료`);
+};
+window.saveMarkers = async function() {
+  try {
+    await set(ref(db, 'markerPositions'), editPositions);
+    showToast('✅ 마커 저장 완료! 학생 화면에 즉시 반영됩니다.');
+  } catch(e) { showToast('저장 실패: ' + e.message); }
+};
 </script>
 </body>
 </html>
