@@ -2,15 +2,15 @@
 <html>
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>역사 RPG FINAL++</title>
 
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
 
 <style>
-body { margin:0; background:#111; color:white; font-family:sans-serif; }
+body { margin:0; background:#111; color:white; font-family:sans-serif; overflow: hidden; }
 
-/* 캐릭터 선택 */
+/* 캐릭터 선택 화면 */
 #selectScreen {
   position:absolute;
   width:100%;
@@ -19,101 +19,147 @@ body { margin:0; background:#111; color:white; font-family:sans-serif; }
   justify-content:center;
   align-items:center;
   flex-direction:column;
-  background:#000;
+  background:rgba(0, 0, 0, 0.8);
+  z-index: 200;
 }
-.char {
-  width:80px;
-  margin:10px;
-  cursor:pointer;
+.char-container { display: flex; gap: 20px; }
+.char-card {
+  text-align: center;
+  cursor: pointer;
+  background: rgba(255,255,255,0.1);
+  padding: 15px;
+  border-radius: 10px;
+  border: 2px solid transparent;
 }
+.char-card:hover { border: 2px solid yellow; background: rgba(255,255,255,0.2); }
+.char { width:80px; height:80px; object-fit: contain; }
 
-/* UI */
+/* 상단 UI */
 #ui {
   position:absolute;
   top:10px;
   left:10px;
   z-index:10;
+  font-weight: bold;
+  text-shadow: 1px 1px 2px black;
 }
-
 .bar {
   width:150px;
   height:15px;
   border:2px solid white;
   margin-bottom:5px;
+  background: rgba(0,0,0,0.5);
 }
-.fill { height:100%; }
+.fill { height:100%; transition: width 0.3s; }
 
-/* 전투 */
+/* 전투 UI */
 #battleUI {
   position:absolute;
   bottom:0;
   width:100%;
+  height: 40%;
   background:rgba(0,0,0,0.9);
-  padding:15px;
+  padding:20px;
   display:none;
+  z-index: 150;
+  box-sizing: border-box;
+  text-align: center;
+}
+#question { font-size: 20px; margin-bottom: 20px; }
+#choices button {
+  font-size: 18px; padding: 10px 30px; margin: 0 10px; cursor: pointer;
 }
 
-/* 모바일 컨트롤 */
-#controls {
-  position:absolute;
-  bottom:10px;
-  right:10px;
+/* 모바일 가상 조이스틱 */
+#joystick {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  display: grid;
+  grid-template-columns: 60px 60px 60px;
+  grid-template-rows: 60px 60px 60px;
+  gap: 5px;
+  z-index: 100;
 }
-.ctrl {
-  width:60px;
-  height:60px;
-  margin:3px;
-  font-size:20px;
+.v-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid white;
+  border-radius: 50%;
+  color: white;
+  font-size: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  user-select: none;
+  touch-action: none; /* 모바일에서 버튼 누를 때 화면 스크롤 방지 */
+  cursor: pointer;
 }
+.v-btn:active { background: rgba(255, 255, 255, 0.6); }
+.btn-up { grid-column: 2; grid-row: 1; }
+.btn-left { grid-column: 1; grid-row: 2; }
+.btn-right { grid-column: 3; grid-row: 2; }
+.btn-down { grid-column: 2; grid-row: 3; }
 </style>
 </head>
 
 <body>
 
-<!-- 캐릭터 선택 -->
 <div id="selectScreen">
-  <h2>캐릭터 선택</h2>
-  <img src="https://labs.phaser.io/assets/sprites/phaser-dude.png" class="char" onclick="startGame('dude')">
-  <img src="https://labs.phaser.io/assets/sprites/robot.png" class="char" onclick="startGame('robot')">
-  <img src="https://labs.phaser.io/assets/sprites/baddie.png" class="char" onclick="startGame('baddie')">
+  <h2>🌟 영웅을 선택하세요</h2>
+  <div class="char-container">
+    <div class="char-card" onclick="startGame('warrior')">
+      <img src="https://labs.phaser.io/assets/sprites/sword_silver.png" class="char"><br>장군
+    </div>
+    <div class="char-card" onclick="startGame('scholar')">
+      <img src="https://labs.phaser.io/assets/sprites/scroll.png" class="char"><br>학자
+    </div>
+    <div class="char-card" onclick="startGame('royal')">
+      <img src="https://labs.phaser.io/assets/sprites/crown.png" class="char"><br>왕족
+    </div>
+  </div>
 </div>
 
-<!-- UI -->
 <div id="ui">
-  ❤️<div class="bar"><div id="hpFill" class="fill" style="background:lime;"></div></div>
-  ⚡<div class="bar"><div id="xpFill" class="fill" style="background:yellow;"></div></div>
+  ❤️ 체력<div class="bar"><div id="hpFill" class="fill" style="background:lime; width:100%;"></div></div>
+  ⚡ 경험치<div class="bar"><div id="xpFill" class="fill" style="background:yellow; width:0%;"></div></div>
   🔥 Lv <span id="level">1</span>
 </div>
 
-<!-- 전투 -->
 <div id="battleUI">
-  <div id="question"></div>
+  <div id="question">문제가 여기에 표시됩니다.</div>
   <div id="choices"></div>
-  <input id="answer" style="display:none;">
-  <button onclick="submitAnswer()">제출</button>
+  <input id="answer" style="display:none; font-size:18px; padding:5px;">
+  <button id="submitBtn" onclick="submitAnswer()" style="display:none; font-size:18px; padding:5px 15px;">제출</button>
 </div>
 
-<!-- 모바일 -->
-<div id="controls">
-  <button class="ctrl" onclick="move('up')">⬆️</button><br>
-  <button class="ctrl" onclick="move('left')">⬅️</button>
-  <button class="ctrl" onclick="move('right')">➡️</button><br>
-  <button class="ctrl" onclick="move('down')">⬇️</button>
+<div id="joystick">
+  <div class="v-btn btn-up" onmousedown="startMove('up')" onmouseup="stopMove()" onmouseleave="stopMove()" ontouchstart="startMove('up')" ontouchend="stopMove()">⬆️</div>
+  <div class="v-btn btn-left" onmousedown="startMove('left')" onmouseup="stopMove()" onmouseleave="stopMove()" ontouchstart="startMove('left')" ontouchend="stopMove()">⬅️</div>
+  <div class="v-btn btn-right" onmousedown="startMove('right')" onmouseup="stopMove()" onmouseleave="stopMove()" ontouchstart="startMove('right')" ontouchend="stopMove()">➡️</div>
+  <div class="v-btn btn-down" onmousedown="startMove('down')" onmouseup="stopMove()" onmouseleave="stopMove()" ontouchstart="startMove('down')" ontouchend="stopMove()">⬇️</div>
 </div>
 
 <script>
 let player, monsters;
-let playerSprite = "dude";
+let playerSprite = "warrior";
 let HP=100, XP=0, level=1;
 let gameState="explore";
 let moveDir=null;
 let questions=[];
 let currentQuestion, currentMonster;
 
-// 📡 문제 로드
+// 📡 문제 로드 (기존 스크립트 유지, 테스트용 기본 문제 추가)
 async function loadQuestions(){
-  const res = await fetch("여기에_앱스크립트_URL");
-  questions = await res.json();
+  try {
+    const res = await fetch("여기에_앱스크립트_URL");
+    questions = await res.json();
+  } catch(e) {
+    // 앱스크립트 연결 전 테스트를 위한 예비 문제
+    questions = [
+      { question: "신라의 삼국통일을 완성한 왕은 문무왕이다.", answer: "O" },
+      { question: "발해를 세운 사람은 대조영이다.", answer: "O" }
+    ];
+  }
 }
 loadQuestions();
 
@@ -138,16 +184,27 @@ function initGame(){
 }
 
 function preload(){
-  this.load.image('dude','https://labs.phaser.io/assets/sprites/phaser-dude.png');
-  this.load.image('robot','https://labs.phaser.io/assets/sprites/robot.png');
-  this.load.image('baddie','https://labs.phaser.io/assets/sprites/baddie.png');
-  this.load.image('monster','https://labs.phaser.io/assets/sprites/ufo.png');
+  // 🗺️ 1. RPG 배경 이미지 로드
+  this.load.image('bg', 'https://labs.phaser.io/assets/skies/grass.png'); 
+  
+  // 👤 2. 새로운 캐릭터 이미지 로드
+  this.load.image('warrior','https://labs.phaser.io/assets/sprites/sword_silver.png');
+  this.load.image('scholar','https://labs.phaser.io/assets/sprites/scroll.png');
+  this.load.image('royal','https://labs.phaser.io/assets/sprites/crown.png');
+  
+  // 👻 3. 몬스터(유령) 로드
+  this.load.image('monster','https://labs.phaser.io/assets/sprites/ghost.png');
 }
 
 function create(){
-  this.cameras.main.setBackgroundColor('#222');
+  // 배경 화면 꽉 차게 배치
+  let bg = this.add.image(0, 0, 'bg').setOrigin(0,0);
+  bg.displayWidth = this.sys.canvas.width;
+  bg.displayHeight = this.sys.canvas.height;
 
-  player = this.physics.add.sprite(100,100,playerSprite).setScale(0.5);
+  // 🔍 4. 캐릭터 크기 키우기 (setScale 1.5)
+  player = this.physics.add.sprite(100, 100, playerSprite).setScale(1.5);
+  player.setCollideWorldBounds(true); // 화면 밖으로 나가지 못하게
 
   monsters = this.physics.add.group();
   spawnMonsters(this);
@@ -156,40 +213,48 @@ function create(){
 }
 
 function spawnMonsters(scene){
-  for(let i=0;i<5+level;i++){
+  for(let i=0; i<5+level; i++){
     let m = scene.physics.add.sprite(
-      Phaser.Math.Between(50,window.innerWidth-50),
-      Phaser.Math.Between(50,window.innerHeight-50),
+      Phaser.Math.Between(50, window.innerWidth-50),
+      Phaser.Math.Between(50, window.innerHeight-50),
       'monster'
-    ).setScale(0.4);
+    ).setScale(1.2); // 🔍 몬스터 크기도 키우기
 
+    m.setCollideWorldBounds(true);
+    m.setBounce(1); // 벽에 부딪히면 튕기도록
     monsters.add(m);
   }
 }
 
 function update(){
-  if(gameState!=="explore") return;
+  if(gameState!=="explore") {
+    player.setVelocity(0);
+    return;
+  }
 
   player.setVelocity(0);
+  
+  // 이동 속도 상향
+  const speed = 250; 
+  if(moveDir==="left") player.setVelocityX(-speed);
+  if(moveDir==="right") player.setVelocityX(speed);
+  if(moveDir==="up") player.setVelocityY(-speed);
+  if(moveDir==="down") player.setVelocityY(speed);
 
-  if(moveDir==="left") player.setVelocityX(-200);
-  if(moveDir==="right") player.setVelocityX(200);
-  if(moveDir==="up") player.setVelocityY(-200);
-  if(moveDir==="down") player.setVelocityY(200);
-
+  // 몬스터 무작위 이동
   monsters.children.iterate(m=>{
-    m.setVelocity(
-      Phaser.Math.Between(-50,50),
-      Phaser.Math.Between(-50,50)
-    );
+    if(Math.random() < 0.02) {
+      m.setVelocity(
+        Phaser.Math.Between(-100, 100),
+        Phaser.Math.Between(-100, 100)
+      );
+    }
   });
 }
 
-// 📱 이동
-function move(dir){
-  moveDir=dir;
-  setTimeout(()=>moveDir=null,200);
-}
+// 📱 모바일 가상 패드 컨트롤 (누르고 있을 때만 이동)
+function startMove(dir){ moveDir = dir; }
+function stopMove(){ moveDir = null; }
 
 // ⚔️ 전투
 function startBattle(p,m){
@@ -204,9 +269,11 @@ function startBattle(p,m){
 
   let choices=document.getElementById("choices");
   let input=document.getElementById("answer");
+  let submitBtn=document.getElementById("submitBtn");
 
   choices.innerHTML="";
   input.style.display="none";
+  submitBtn.style.display="none";
 
   if(currentQuestion.answer==="O"||currentQuestion.answer==="X"){
     ["O","X"].forEach(v=>{
@@ -217,21 +284,23 @@ function startBattle(p,m){
     });
   }else{
     input.style.display="inline";
+    submitBtn.style.display="inline";
+    input.value = "";
   }
 }
 
 function submitAnswer(sel=null){
-  let user=sel||document.getElementById("answer").value.trim();
+  let user = sel || document.getElementById("answer").value.trim();
 
-  if(user.toLowerCase()===currentQuestion.answer.toLowerCase()){
+  if(user.toLowerCase() === currentQuestion.answer.toLowerCase()){
     currentMonster.destroy();
-    XP+=20;
+    XP += 20;
   }else{
-    HP-=20;
+    HP -= 20;
   }
 
   if(HP<=0){
-    alert("게임오버");
+    alert("게임오버! 다시 도전하세요.");
     location.reload();
   }
 
@@ -239,6 +308,8 @@ function submitAnswer(sel=null){
   updateUI();
 
   document.getElementById("battleUI").style.display="none";
+  // 전투가 끝나면 캐릭터가 몬스터와 겹쳐서 재전투가 일어나는 것 방지 (살짝 밀어내기)
+  player.x -= 20; 
   gameState="explore";
 }
 
@@ -248,14 +319,14 @@ function checkLevelUp(){
     XP=0;
     level++;
     HP=100;
-    alert("🔥 레벨업!");
+    alert("🔥 레벨업! 더 강한 적들이 나타납니다.");
 
     monsters.clear(true,true);
-    spawnMonsters(game.scene.scenes[0]);
+    spawnMonsters(player.scene);
   }
 }
 
-// UI
+// UI 업데이트
 function updateUI(){
   document.getElementById("hpFill").style.width=HP+"%";
   document.getElementById("xpFill").style.width=(XP/(level*100))*100+"%";
