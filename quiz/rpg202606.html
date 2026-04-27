@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>역사 RPG FINAL+</title>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
+
+<style>
+body { margin:0; background:#111; color:white; font-family:sans-serif; }
+
+/* UI */
+#ui { position:absolute; top:10px; left:10px; }
+.bar { width:200px; height:20px; border:2px solid white; margin-bottom:5px; }
+.fill { height:100%; background:lime; }
+
+/* 전투 */
+#battleUI {
+  position:absolute;
+  bottom:0;
+  width:100%;
+  background:rgba(0,0,0,0.9);
+  padding:20px;
+  display:none;
+}
+
+/* 모바일 패드 */
+#controls {
+  position:absolute;
+  bottom:20px;
+  left:20px;
+}
+.ctrl {
+  width:50px;
+  height:50px;
+  margin:5px;
+  font-size:20px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="ui">
+  ❤️ HP<div class="bar"><div id="hpFill" class="fill"></div></div>
+  ⚡ XP<div class="bar"><div id="xpFill" class="fill" style="background:yellow;"></div></div>
+  🔥 레벨: <span id="level">1</span>
+</div>
+
+<div id="battleUI">
+  <div id="question"></div>
+  <div id="choices"></div>
+  <input id="answer" style="display:none;">
+  <button onclick="submitAnswer()">제출</button>
+</div>
+
+<div id="controls">
+  <button class="ctrl" onclick="move('up')">⬆️</button><br>
+  <button class="ctrl" onclick="move('left')">⬅️</button>
+  <button class="ctrl" onclick="move('right')">➡️</button><br>
+  <button class="ctrl" onclick="move('down')">⬇️</button>
+</div>
+
+<script>
+let player, monsters;
+let cursors;
+let HP=100, XP=0, level=1;
+let gameState="explore";
+let questions=[];
+let currentQuestion, currentMonster;
+let moveDir=null;
+
+// 📡 문제 로드
+async function loadQuestions(){
+  const res = await fetch("여기에_앱스크립트_URL");
+  questions = await res.json();
+}
+loadQuestions();
+
+// Phaser
+new Phaser.Game({
+  type:Phaser.AUTO,
+  width:800,
+  height:500,
+  physics:{default:"arcade"},
+  scene:{preload,create,update}
+});
+
+function preload(){
+  // 🧙 캐릭터 이미지
+  this.load.image('player','https://labs.phaser.io/assets/sprites/phaser-dude.png');
+  this.load.image('monster','https://labs.phaser.io/assets/sprites/ufo.png');
+}
+
+function create(){
+  this.cameras.main.setBackgroundColor('#222');
+
+  player = this.physics.add.sprite(100,100,'player').setScale(0.5);
+
+  monsters = this.physics.add.group();
+  spawnMonsters(this);
+
+  cursors = this.input.keyboard.createCursorKeys();
+  this.physics.add.overlap(player, monsters, startBattle, null, this);
+}
+
+function spawnMonsters(scene){
+  for(let i=0;i<5+level;i++){
+    let m = scene.physics.add.sprite(
+      Phaser.Math.Between(100,700),
+      Phaser.Math.Between(100,400),
+      'monster'
+    ).setScale(0.4);
+
+    monsters.add(m);
+  }
+}
+
+function update(){
+  if(gameState!=="explore") return;
+
+  player.setVelocity(0);
+
+  // 키보드
+  if(cursors.left.isDown) player.setVelocityX(-200);
+  if(cursors.right.isDown) player.setVelocityX(200);
+  if(cursors.up.isDown) player.setVelocityY(-200);
+  if(cursors.down.isDown) player.setVelocityY(200);
+
+  // 모바일
+  if(moveDir==="left") player.setVelocityX(-200);
+  if(moveDir==="right") player.setVelocityX(200);
+  if(moveDir==="up") player.setVelocityY(-200);
+  if(moveDir==="down") player.setVelocityY(200);
+
+  monsters.children.iterate(m=>{
+    m.setVelocity(
+      Phaser.Math.Between(-50,50),
+      Phaser.Math.Between(-50,50)
+    );
+  });
+}
+
+// 📱 터치 이동
+function move(dir){
+  moveDir=dir;
+  setTimeout(()=>moveDir=null,200);
+}
+
+// ⚔️ 전투
+function startBattle(p,m){
+  if(gameState==="battle") return;
+
+  gameState="battle";
+  currentMonster=m;
+  currentQuestion=questions[Math.floor(Math.random()*questions.length)];
+
+  document.getElementById("battleUI").style.display="block";
+  document.getElementById("question").innerText=currentQuestion.question;
+
+  let choices=document.getElementById("choices");
+  let input=document.getElementById("answer");
+
+  choices.innerHTML="";
+  input.style.display="none";
+
+  if(currentQuestion.answer==="O"||currentQuestion.answer==="X"){
+    ["O","X"].forEach(v=>{
+      let b=document.createElement("button");
+      b.innerText=v;
+      b.onclick=()=>submitAnswer(v);
+      choices.appendChild(b);
+    });
+  }else{
+    input.style.display="inline";
+  }
+}
+
+// ✅ 결과
+function submitAnswer(sel=null){
+  let user=sel||document.getElementById("answer").value.trim();
+
+  if(user.toLowerCase()===currentQuestion.answer.toLowerCase()){
+    currentMonster.destroy();
+    XP+=20;
+  }else{
+    HP-=20;
+  }
+
+  checkLevelUp();
+  updateUI();
+
+  if(HP<=0){
+    alert("게임오버");
+    location.reload();
+  }
+
+  document.getElementById("battleUI").style.display="none";
+  document.getElementById("answer").value="";
+  gameState="explore";
+}
+
+// 🆙 레벨업
+function checkLevelUp(){
+  let maxXP=level*100;
+
+  if(XP>=maxXP){
+    XP=0;
+    level++;
+    HP=100;
+
+    alert("🔥 레벨업!");
+
+    monsters.clear(true,true);
+    spawnMonsters(game.scene.scenes[0]);
+  }
+}
+
+// UI 업데이트
+function updateUI(){
+  document.getElementById("hpFill").style.width=HP+"%";
+  document.getElementById("xpFill").style.width=(XP/(level*100))*100+"%";
+  document.getElementById("level").innerText=level;
+}
+</script>
+
+</body>
+</html>
