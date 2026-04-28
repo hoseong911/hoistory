@@ -16,9 +16,9 @@ button,input{padding:10px;margin:5px}
 
 <div id="login">
 <h2>⚔ 고려 RPG</h2>
-<input id="id" placeholder="학번">
-<input id="name" placeholder="이름">
-<input id="pw" placeholder="비밀번호">
+<input id="studentId" placeholder="학번">
+<input id="studentName" placeholder="이름">
+<input id="password" placeholder="비밀번호">
 <br><button onclick="login()">시작</button>
 </div>
 
@@ -30,8 +30,8 @@ button,input{padding:10px;margin:5px}
 
 <div id="question"></div>
 <div id="answers"></div>
-<input id="short" style="display:none">
-<button onclick="submitShort()" id="submit" style="display:none">제출</button>
+<input id="shortAnswer" style="display:none">
+<button onclick="submitShort()" id="submitBtn" style="display:none">제출</button>
 </div>
 
 <div id="ranking">
@@ -41,7 +41,7 @@ button,input{padding:10px;margin:5px}
 
 <script>
 // ================= 설정 =================
-const API_URL = "여기에_GAS_URL"; // 서버 쓸 때만 넣기
+const API_URL = "여기에_GAS_URL";
 let TEST_MODE = true;
 
 // ================= 테스트 데이터 =================
@@ -72,27 +72,48 @@ const enemies=[
 
 let currentQ=null;
 
+// ================= DOM =================
+const loginDiv=document.getElementById("login");
+const game=document.getElementById("game");
+const welcome=document.getElementById("welcome");
+const enemyName=document.getElementById("enemyName");
+const question=document.getElementById("question");
+const answers=document.getElementById("answers");
+const shortInput=document.getElementById("shortAnswer");
+const submitBtn=document.getElementById("submitBtn");
+const lv=document.getElementById("lv");
+const exp=document.getElementById("exp");
+const gold=document.getElementById("gold");
+const hp=document.getElementById("hp");
+const rankList=document.getElementById("rankList");
+const studentId=document.getElementById("studentId");
+const studentName=document.getElementById("studentName");
+const password=document.getElementById("password");
+const modeBtn=document.getElementById("modeBtn");
+
 // ================= 모드 전환 =================
 function toggleMode(){
   TEST_MODE = !TEST_MODE;
   modeBtn.innerText = TEST_MODE ? "🧪 테스트 모드" : "🌐 서버 모드";
-  alert(TEST_MODE ? "테스트 모드" : "서버 모드");
 }
 
 // ================= 로그인 =================
 async function login(){
 
   if(TEST_MODE){
-    user = {name:name.value||"테스트유저", lv:1, exp:0, gold:50, hp:100};
+    user = {
+      name: studentName.value || "테스트유저",
+      lv:1, exp:0, gold:50, hp:100
+    };
   }else{
     let res = await fetch(API_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         type:'login',
-        id:id.value,
-        name:name.value,
-        pw:pw.value
+        id:studentId.value,
+        name:studentName.value,
+        pw:password.value
       })
     });
     user = await res.json();
@@ -120,11 +141,9 @@ function loadQ(){
   let e = enemies[enemyIndex];
 
   if(TEST_MODE){
-    if(e.type==="ox"){
-      currentQ = mockOX[Math.floor(Math.random()*mockOX.length)];
-    }else{
-      currentQ = mockShort[Math.floor(Math.random()*mockShort.length)];
-    }
+    currentQ = e.type==="ox"
+      ? mockOX[Math.floor(Math.random()*mockOX.length)]
+      : mockShort[Math.floor(Math.random()*mockShort.length)];
     renderQ();
   }else{
     fetch(API_URL+"?type=question&qtype="+e.type)
@@ -149,18 +168,18 @@ function renderQ(){
       b.onclick=()=>process(i===currentQ.c);
       answers.appendChild(b);
     });
-    short.style.display="none";
-    submit.style.display="none";
+    shortInput.style.display="none";
+    submitBtn.style.display="none";
   }else{
-    short.style.display="inline";
-    submit.style.display="inline";
+    shortInput.style.display="inline";
+    submitBtn.style.display="inline";
   }
 }
 
 // ================= 답 처리 =================
 function submitShort(){
-  process(short.value.trim()===currentQ.c);
-  short.value="";
+  process(shortInput.value.trim()===currentQ.c);
+  shortInput.value="";
 }
 
 async function process(correct){
@@ -228,26 +247,6 @@ async function loadRanking(){
     rankList.innerHTML+=(i+1)+"위 "+u.name+" Lv"+u.lv+"("+u.exp+")<br>";
   });
 }
-
-// ================= DOM =================
-let loginDiv=document.getElementById("login");
-let game=document.getElementById("game");
-let welcome=document.getElementById("welcome");
-let enemyName=document.getElementById("enemyName");
-let question=document.getElementById("question");
-let answers=document.getElementById("answers");
-let short=document.getElementById("short");
-let submit=document.getElementById("submit");
-let lv=document.getElementById("lv");
-let exp=document.getElementById("exp");
-let gold=document.getElementById("gold");
-let hp=document.getElementById("hp");
-let rankList=document.getElementById("rankList");
-let id=document.getElementById("id");
-let name=document.getElementById("name");
-let pw=document.getElementById("pw");
-let modeBtn=document.getElementById("modeBtn");
-
 </script>
 
 </body>
