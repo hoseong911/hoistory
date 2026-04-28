@@ -3,249 +3,325 @@
 <head>
 <meta charset="UTF-8">
 <title>고려 RPG</title>
+
 <style>
-body{background:#0f1720;color:white;text-align:center;font-family:sans-serif}
-button,input{padding:10px;margin:5px}
-.bar{height:10px;background:red}
-#ranking{position:fixed;right:10px;top:10px;background:#111;padding:10px;border-radius:10px;width:200px}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:sans-serif;
+  background:url('https://images.unsplash.com/photo-1501785888041-af3ef285b470') center/cover no-repeat;
+  color:white;
+}
+
+#wrap{
+  background:rgba(0,0,0,0.75);
+  min-height:100vh;
+  padding:20px;
+  text-align:center;
+}
+
+button,input{
+  padding:10px;
+  margin:5px;
+  border:none;
+  border-radius:6px;
+}
+
+/* 전투 */
+#battle{
+  display:flex;
+  justify-content:space-around;
+  align-items:center;
+  margin:20px 0;
+}
+
+.char img{
+  width:140px;
+  height:140px;
+  object-fit:contain;
+}
+
+/* HP */
+.bar{
+  width:120px;
+  height:10px;
+  background:#333;
+  margin:auto;
+}
+.hp{
+  height:100%;
+  background:red;
+}
+
+/* 애니메이션 */
+@keyframes attack{
+  0%{transform:translateX(0)}
+  50%{transform:translateX(30px)}
+  100%{transform:translateX(0)}
+}
+@keyframes hit{
+  0%{filter:brightness(1)}
+  50%{filter:brightness(2)}
+  100%{filter:brightness(1)}
+}
+.attack{animation:attack 0.3s}
+.hit{animation:hit 0.3s}
+
+/* 스토리 */
+#story{
+  height:120px;
+  overflow:hidden;
+  border:1px solid #555;
+  padding:10px;
+  margin:10px;
+  text-align:left;
+  font-size:14px;
+}
+
+/* 랭킹 */
+#ranking{
+  position:fixed;
+  right:10px;
+  top:10px;
+  background:#111;
+  padding:10px;
+  border-radius:10px;
+  width:220px;
+}
 </style>
 </head>
+
 <body>
+<div id="wrap">
 
-<button onclick="toggleMode()" id="modeBtn">🧪 테스트 모드</button>
+<button onclick="toggleMode()" id="modeBtn">🧪 테스트</button>
 
+<!-- 로그인 -->
 <div id="login">
 <h2>⚔ 고려 RPG</h2>
-<input id="studentId" placeholder="학번">
-<input id="studentName" placeholder="이름">
-<input id="password" placeholder="비밀번호">
-<br><button onclick="login()">시작</button>
+<input id="sid" placeholder="학번">
+<input id="sname" placeholder="이름">
+<input id="spw" placeholder="비밀번호">
+<br>
+<button onclick="login()">시작</button>
 </div>
 
+<!-- 게임 -->
 <div id="game" style="display:none">
-<h3 id="welcome"></h3>
-<div>몬스터: <span id="enemyName"></span></div>
-<div>Lv.<span id="lv"></span> EXP:<span id="exp"></span> GOLD:<span id="gold"></span></div>
-<div>HP<div class="bar" id="hp"></div></div>
 
-<div id="question"></div>
-<div id="answers"></div>
-<input id="shortAnswer" style="display:none">
-<button onclick="submitShort()" id="submitBtn" style="display:none">제출</button>
+<h3 id="welcome"></h3>
+
+<div id="story"></div>
+
+<div id="battle">
+<div class="char">
+<img id="player">
+<div class="bar"><div id="pHP" class="hp"></div></div>
 </div>
 
-<div id="ranking">
-<h4>🏆 랭킹</h4>
-<div id="rankList"></div>
+<div class="char">
+<img id="enemy">
+<div id="enemyName"></div>
+<div class="bar"><div id="eHP" class="hp"></div></div>
+</div>
+</div>
+
+<div>Lv <span id="lv"></span> | EXP <span id="exp"></span> | GOLD <span id="gold"></span></div>
+
+<h3 id="question"></h3>
+<div id="answers"></div>
+
+<input id="short" style="display:none">
+<button onclick="submitShort()" id="submitBtn" style="display:none">제출</button>
+
+</div>
+
+<div id="ranking"><h4>🏆 랭킹</h4><div id="rankList"></div></div>
+
 </div>
 
 <script>
-// ================= 설정 =================
-const API_URL = "여기에_GAS_URL";
+// ===== 모드 =====
 let TEST_MODE = true;
+const API_URL="여기에_GAS";
 
-// ================= 테스트 데이터 =================
-const mockOX = [
-  {q:"고려 건국자는 왕건이다", c:0},
-  {q:"광종은 노비안검법을 시행했다", c:0},
-  {q:"고려 수도는 한양이다", c:1}
+// ===== 사운드 =====
+const atk=new Audio("https://actions.google.com/sounds/v1/impacts/punch_medium.ogg");
+const ok=new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+const no=new Audio("https://actions.google.com/sounds/v1/cartoon/boing.ogg");
+
+// ===== 캐릭터 프레임 =====
+const playerFrames=[
+"https://i.imgur.com/4AiXzf8.png",
+"https://i.imgur.com/4AiXzf8.png",
+"https://i.imgur.com/4AiXzf8.png"
 ];
 
-const mockShort = [
-  {q:"고려의 수도는?", c:"개경"},
-  {q:"고려 건국자는?", c:"왕건"},
-  {q:"거란과 외교한 인물은?", c:"서희"}
-];
-
-// ================= 게임 데이터 =================
-let user;
-let enemyIndex=0, enemyHP=0;
-
+// ===== 몬스터 =====
 const enemies=[
-{name:"들개",type:"ox",hp:50,exp:10},
-{name:"나무요괴",type:"ox",hp:70,exp:15},
-{name:"도깨비",type:"ox",hp:90,exp:20},
-{name:"거란군",type:"short",hp:110,exp:25},
-{name:"여진군",type:"short",hp:130,exp:30},
-{name:"몽골군",type:"short",hp:160,exp:40}
+{name:"들개",type:"ox",hp:50,exp:10,img:"https://i.imgur.com/Z6X8ZzR.png"},
+{name:"나무요괴",type:"ox",hp:70,exp:15,img:"https://i.imgur.com/UgXxP0Y.png"},
+{name:"도깨비",type:"ox",hp:90,exp:20,img:"https://i.imgur.com/eM0Q7ZK.png"},
+{name:"거란군",type:"short",hp:110,exp:25,img:"https://i.imgur.com/2DhF5ZB.png"},
+{name:"여진군",type:"short",hp:130,exp:30,img:"https://i.imgur.com/Tq5Qz6X.png"},
+{name:"몽골군",type:"short",hp:160,exp:40,img:"https://i.imgur.com/l49aYS3.png"}
 ];
 
-let currentQ=null;
+// ===== 문제 =====
+const oxQ=[
+{q:"고려 건국자는 왕건이다",c:0},
+{q:"광종은 노비안검법",c:0},
+{q:"수도는 한양이다",c:1}
+];
+const shortQ=[
+{q:"고려 수도?",c:"개경"},
+{q:"건국자?",c:"왕건"},
+{q:"거란 외교 인물?",c:"서희"}
+];
 
-// ================= DOM =================
-const loginDiv=document.getElementById("login");
-const game=document.getElementById("game");
-const welcome=document.getElementById("welcome");
-const enemyName=document.getElementById("enemyName");
-const question=document.getElementById("question");
-const answers=document.getElementById("answers");
-const shortInput=document.getElementById("shortAnswer");
-const submitBtn=document.getElementById("submitBtn");
-const lv=document.getElementById("lv");
-const exp=document.getElementById("exp");
-const gold=document.getElementById("gold");
-const hp=document.getElementById("hp");
-const rankList=document.getElementById("rankList");
-const studentId=document.getElementById("studentId");
-const studentName=document.getElementById("studentName");
-const password=document.getElementById("password");
-const modeBtn=document.getElementById("modeBtn");
+// ===== 변수 =====
+let user, enemyIndex=0, enemyHP=0, currentQ, frame=0;
 
-// ================= 모드 전환 =================
+// ===== DOM =====
+const story=document.getElementById("story");
+
+// ===== 모드 =====
 function toggleMode(){
-  TEST_MODE = !TEST_MODE;
-  modeBtn.innerText = TEST_MODE ? "🧪 테스트 모드" : "🌐 서버 모드";
+TEST_MODE=!TEST_MODE;
+modeBtn.innerText=TEST_MODE?"🧪 테스트":"🌐 서버";
 }
 
-// ================= 로그인 =================
-async function login(){
+// ===== 로그인 =====
+function login(){
+user={name:sname.value||"테스트",lv:1,exp:0,gold:50,hp:100};
+login.style.display="none";
+game.style.display="block";
+welcome.innerText=user.name+" 전투 시작";
 
-  if(TEST_MODE){
-    user = {
-      name: studentName.value || "테스트유저",
-      lv:1, exp:0, gold:50, hp:100
-    };
-  }else{
-    let res = await fetch(API_URL,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        type:'login',
-        id:studentId.value,
-        name:studentName.value,
-        pw:password.value
-      })
-    });
-    user = await res.json();
-  }
-
-  loginDiv.style.display='none';
-  game.style.display='block';
-  welcome.innerText=user.name+" 전투 시작";
-
-  init();
-
-  if(!TEST_MODE) setInterval(loadRanking,3000);
+startStory();
+startAnim();
+init();
 }
 
-// ================= 초기화 =================
+// ===== 스토리 =====
+function startStory(){
+let arr=["고려 시대 시작","적 등장","역사를 지켜라"];
+let i=0;
+let t=setInterval(()=>{
+if(i>=arr.length) return clearInterval(t);
+story.innerHTML+=arr[i]+"<br>";
+story.scrollTop=story.scrollHeight;
+i++;
+},800);
+}
+
+// ===== 애니메이션 =====
+function startAnim(){
+setInterval(()=>{
+frame=(frame+1)%playerFrames.length;
+player.src=playerFrames[frame];
+},250);
+}
+
+// ===== 초기화 =====
 function init(){
-  enemyHP=enemies[0].hp;
-  update();
-  loadQ();
-  loadRanking();
+enemyIndex=0;
+enemyHP=enemies[0].hp;
+update();
+loadQ();
+loadRank();
 }
 
-// ================= 문제 로드 =================
+// ===== 문제 =====
 function loadQ(){
-  let e = enemies[enemyIndex];
+let e=enemies[enemyIndex];
+currentQ=e.type==="ox"
+?oxQ[Math.floor(Math.random()*oxQ.length)]
+:shortQ[Math.floor(Math.random()*shortQ.length)];
 
-  if(TEST_MODE){
-    currentQ = e.type==="ox"
-      ? mockOX[Math.floor(Math.random()*mockOX.length)]
-      : mockShort[Math.floor(Math.random()*mockShort.length)];
-    renderQ();
-  }else{
-    fetch(API_URL+"?type=question&qtype="+e.type)
-    .then(res=>res.json())
-    .then(data=>{
-      currentQ=data;
-      renderQ();
-    });
-  }
+renderQ();
 }
 
-// ================= 문제 표시 =================
+// ===== 렌더 =====
 function renderQ(){
-  enemyName.innerText=enemies[enemyIndex].name;
-  question.innerText=currentQ.q;
-  answers.innerHTML="";
+let e=enemies[enemyIndex];
 
-  if(enemies[enemyIndex].type==="ox"){
-    ["O","X"].forEach((v,i)=>{
-      let b=document.createElement("button");
-      b.innerText=v;
-      b.onclick=()=>process(i===currentQ.c);
-      answers.appendChild(b);
-    });
-    shortInput.style.display="none";
-    submitBtn.style.display="none";
-  }else{
-    shortInput.style.display="inline";
-    submitBtn.style.display="inline";
-  }
+enemy.src=e.img;
+enemyName.innerText=e.name;
+eHP.style.width=(enemyHP/e.hp*100)+"%";
+
+question.innerText=currentQ.q;
+answers.innerHTML="";
+
+if(e.type==="ox"){
+["O","X"].forEach((v,i)=>{
+let b=document.createElement("button");
+b.innerText=v;
+b.onclick=()=>process(i===currentQ.c);
+answers.appendChild(b);
+});
+short.style.display="none";
+submitBtn.style.display="none";
+}else{
+short.style.display="inline";
+submitBtn.style.display="inline";
+}
 }
 
-// ================= 답 처리 =================
+// ===== 처리 =====
 function submitShort(){
-  process(shortInput.value.trim()===currentQ.c);
-  shortInput.value="";
+process(short.value.trim()===currentQ.c);
+short.value="";
 }
 
-async function process(correct){
-  let e=enemies[enemyIndex];
+function process(correct){
+let e=enemies[enemyIndex];
 
-  if(correct){
-    user.exp+=e.exp;
-    user.gold+=5;
-    enemyHP-=20;
-  }else{
-    user.hp-=20;
-  }
-
-  if(user.exp>=100){
-    user.lv++;
-    user.exp=0;
-  }
-
-  if(enemyHP<=0){
-    enemyIndex=(enemyIndex+1)%enemies.length;
-    enemyHP=enemies[enemyIndex].hp;
-  }
-
-  update();
-  await save();
-  loadQ();
+if(correct){
+ok.play(); atk.play();
+player.classList.add("attack");
+enemy.classList.add("hit");
+enemyHP-=20;
+user.exp+=e.exp;
+user.gold+=5;
+}else{
+no.play();
+enemy.classList.add("attack");
+player.classList.add("hit");
+user.hp-=20;
 }
 
-// ================= 저장 =================
-async function save(){
-  if(TEST_MODE) return;
+setTimeout(()=>{
+player.classList.remove("attack","hit");
+enemy.classList.remove("attack","hit");
+},300);
 
-  await fetch(API_URL,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({type:'save',user})
-  });
+if(user.exp>=100){user.lv++;user.exp=0;}
+
+if(enemyHP<=0){
+enemyIndex=(enemyIndex+1)%enemies.length;
+enemyHP=enemies[enemyIndex].hp;
 }
 
-// ================= UI 업데이트 =================
+update();
+loadQ();
+}
+
+// ===== UI =====
 function update(){
-  lv.innerText=user.lv;
-  exp.innerText=user.exp;
-  gold.innerText=user.gold;
-  hp.style.width=user.hp+"%";
+lv.innerText=user.lv;
+exp.innerText=user.exp;
+gold.innerText=user.gold;
+pHP.style.width=user.hp+"%";
 }
 
-// ================= 랭킹 =================
-async function loadRanking(){
-
-  if(TEST_MODE){
-    rankList.innerHTML=`
-    1위 철수 Lv5 (80)<br>
-    2위 영희 Lv4 (60)<br>
-    3위 민수 Lv3 (40)
-    `;
-    return;
-  }
-
-  let res=await fetch(API_URL+"?type=ranking");
-  let data=await res.json();
-
-  rankList.innerHTML="";
-  data.forEach((u,i)=>{
-    rankList.innerHTML+=(i+1)+"위 "+u.name+" Lv"+u.lv+"("+u.exp+")<br>";
-  });
+// ===== 랭킹 =====
+function loadRank(){
+if(TEST_MODE){
+rankList.innerHTML="1위 철수 Lv5<br>2위 영희 Lv4<br>3위 민수 Lv3";
+}else{
+// 서버 연결 시 구현
+}
 }
 </script>
 
