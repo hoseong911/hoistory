@@ -1,338 +1,1458 @@
 <!DOCTYPE html>
-<html>
+<html lang="ko">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>역사 RPG FINAL++</title>
-
-<script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.js"></script>
-
+<title>역사 퀴즈 RPG</title>
 <style>
-body { margin:0; background:#111; color:white; font-family:sans-serif; overflow: hidden; }
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700&display=swap');
 
-/* 캐릭터 선택 화면 */
-#selectScreen {
-  position:absolute;
-  width:100%;
-  height:100%;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  flex-direction:column;
-  background:rgba(0, 0, 0, 0.8);
-  z-index: 200;
+:root {
+  --gold: #f5c842;
+  --dark: #1a1208;
+  --brown: #3d2b1f;
+  --red: #c0392b;
+  --green: #27ae60;
+  --ink: #2c1810;
+  --paper: #f4e8c1;
+  --paperdark: #e8d4a0;
 }
-.char-container { display: flex; gap: 20px; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Serif KR', serif;
+  background: var(--dark);
+  color: var(--paper);
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  user-select: none;
+}
+
+/* ============ 배경 패턴 ============ */
+.bg-pattern {
+  position: fixed;
+  inset: 0;
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(245,200,66,0.05) 39px, rgba(245,200,66,0.05) 40px),
+    repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(245,200,66,0.05) 39px, rgba(245,200,66,0.05) 40px),
+    radial-gradient(ellipse at 20% 20%, #2d1a08 0%, #1a1208 60%);
+  pointer-events: none;
+}
+
+/* ============ 공통 패널 ============ */
+.screen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.panel {
+  background: linear-gradient(160deg, #3d2b1f 0%, #2a1a10 100%);
+  border: 2px solid var(--gold);
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 0 40px rgba(245,200,66,0.2), inset 0 0 30px rgba(0,0,0,0.5);
+  width: 100%;
+  max-width: 500px;
+  position: relative;
+}
+
+.panel::before {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border: 1px solid rgba(245,200,66,0.2);
+  border-radius: 9px;
+  pointer-events: none;
+}
+
+.panel-title {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--gold);
+  text-align: center;
+  margin-bottom: 24px;
+  text-shadow: 0 0 20px rgba(245,200,66,0.5);
+  letter-spacing: 4px;
+}
+
+.panel-title span { font-size: 36px; }
+
+/* ============ 로그인 화면 ============ */
+#loginScreen { background: rgba(0,0,0,0.85); backdrop-filter: blur(4px); }
+
+.input-group { margin-bottom: 16px; }
+.input-group label {
+  display: block;
+  font-size: 13px;
+  color: var(--gold);
+  margin-bottom: 6px;
+  letter-spacing: 2px;
+}
+.input-group input {
+  width: 100%;
+  padding: 10px 14px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(245,200,66,0.4);
+  border-radius: 6px;
+  color: var(--paper);
+  font-size: 16px;
+  font-family: 'Noto Sans KR', sans-serif;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.input-group input:focus { border-color: var(--gold); }
+
+.btn-gold {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #c8962a, #f5c842, #c8962a);
+  border: none;
+  border-radius: 8px;
+  color: var(--ink);
+  font-family: 'Noto Serif KR', serif;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 2px;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+.btn-gold:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(245,200,66,0.4); }
+.btn-gold:active { transform: translateY(0); }
+
+.btn-secondary {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid rgba(245,200,66,0.4);
+  border-radius: 8px;
+  color: var(--gold);
+  font-family: 'Noto Serif KR', serif;
+  font-size: 14px;
+  cursor: pointer;
+  margin-top: 10px;
+  letter-spacing: 1px;
+  transition: all 0.2s;
+}
+.btn-secondary:hover { background: rgba(245,200,66,0.1); }
+
+.msg { text-align: center; margin-top: 12px; font-size: 14px; min-height: 20px; }
+.msg.error { color: #e74c3c; }
+.msg.success { color: var(--green); }
+
+/* ============ 캐릭터 선택 ============ */
+#selectScreen { background: rgba(0,0,0,0.9); }
+
+.char-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 10px;
+}
+
 .char-card {
+  background: rgba(0,0,0,0.4);
+  border: 2px solid rgba(245,200,66,0.3);
+  border-radius: 10px;
+  padding: 16px 10px;
   text-align: center;
   cursor: pointer;
-  background: rgba(255,255,255,0.1);
-  padding: 15px;
-  border-radius: 10px;
-  border: 2px solid transparent;
+  transition: all 0.2s;
+  position: relative;
 }
-.char-card:hover { border: 2px solid yellow; background: rgba(255,255,255,0.2); }
-.char { width:80px; height:80px; object-fit: contain; }
-
-/* 상단 UI */
-#ui {
-  position:absolute;
-  top:10px;
-  left:10px;
-  z-index:10;
-  font-weight: bold;
-  text-shadow: 1px 1px 2px black;
+.char-card:hover {
+  border-color: var(--gold);
+  background: rgba(245,200,66,0.1);
+  transform: translateY(-3px);
 }
-.bar {
-  width:150px;
-  height:15px;
-  border:2px solid white;
-  margin-bottom:5px;
-  background: rgba(0,0,0,0.5);
-}
-.fill { height:100%; transition: width 0.3s; }
-
-/* 전투 UI */
-#battleUI {
-  position:absolute;
-  bottom:0;
-  width:100%;
-  height: 40%;
-  background:rgba(0,0,0,0.9);
-  padding:20px;
-  display:none;
-  z-index: 150;
-  box-sizing: border-box;
-  text-align: center;
-}
-#question { font-size: 20px; margin-bottom: 20px; }
-#choices button {
-  font-size: 18px; padding: 10px 30px; margin: 0 10px; cursor: pointer;
+.char-card.selected {
+  border-color: var(--gold);
+  background: rgba(245,200,66,0.15);
+  box-shadow: 0 0 16px rgba(245,200,66,0.3);
 }
 
-/* 모바일 가상 조이스틱 */
-#joystick {
+.char-emoji { font-size: 48px; display: block; margin-bottom: 8px; }
+.char-name { font-size: 18px; font-weight: 700; color: var(--gold); margin-bottom: 6px; }
+.char-desc { font-size: 11px; color: rgba(244,232,193,0.7); line-height: 1.5; font-family: 'Noto Sans KR', sans-serif; }
+.char-badge {
+  font-size: 10px;
+  background: var(--gold);
+  color: var(--ink);
+  padding: 2px 6px;
+  border-radius: 20px;
+  margin-top: 6px;
+  display: inline-block;
+  font-weight: 700;
+}
+
+/* ============ 게임 화면 ============ */
+#gameScreen { display: none; position: fixed; inset: 0; }
+
+/* 게임 캔버스 영역 */
+#gameCanvas {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, #1a3a1a 0%, #2d5a1b 40%, #1a4a10 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 배경 장식 */
+.tree { position: absolute; font-size: 32px; opacity: 0.6; }
+.rock { position: absolute; font-size: 24px; opacity: 0.5; }
+
+/* 플레이어 */
+#player {
   position: absolute;
-  bottom: 20px;
+  font-size: 44px;
+  transition: none;
+  z-index: 10;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.8));
+  transform: translateX(-50%) translateY(-50%);
+}
+
+/* 몬스터 */
+.monster {
+  position: absolute;
+  font-size: 40px;
+  z-index: 8;
+  cursor: pointer;
+  transition: none;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.8));
+  transform: translateX(-50%) translateY(-50%);
+  animation: monsterFloat 2s ease-in-out infinite;
+}
+@keyframes monsterFloat {
+  0%,100% { filter: drop-shadow(0 4px 8px rgba(0,0,0,0.8)); }
+  50% { filter: drop-shadow(0 8px 16px rgba(200,0,0,0.4)); }
+}
+
+/* ============ 상단 UI ============ */
+#topUI {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, rgba(26,18,8,0.95) 0%, transparent);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 50;
+}
+
+.player-avatar { font-size: 30px; }
+
+.stats-col { flex: 1; }
+
+.stat-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.stat-label { font-size: 11px; color: var(--gold); width: 30px; flex-shrink: 0; font-family: 'Noto Sans KR', sans-serif; }
+.stat-bar { flex: 1; height: 10px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; overflow: hidden; }
+.stat-fill { height: 100%; border-radius: 5px; transition: width 0.4s ease; }
+.hp-fill { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+.xp-fill { background: linear-gradient(90deg, #f5c842, #e6a817); }
+
+.level-badge {
+  background: linear-gradient(135deg, #c8962a, #f5c842);
+  color: var(--ink);
+  font-weight: 900;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.gold-badge {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+/* ============ 조이스틱 ============ */
+#joystick {
+  position: fixed;
+  bottom: 24px;
   right: 20px;
   display: grid;
-  grid-template-columns: 60px 60px 60px;
-  grid-template-rows: 60px 60px 60px;
-  gap: 5px;
-  z-index: 100;
+  grid-template-columns: 54px 54px 54px;
+  grid-template-rows: 54px 54px 54px;
+  gap: 4px;
+  z-index: 60;
 }
 .v-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: 2px solid white;
+  background: rgba(26,18,8,0.7);
+  border: 2px solid rgba(245,200,66,0.5);
   border-radius: 50%;
-  color: white;
-  font-size: 24px;
+  color: var(--gold);
+  font-size: 20px;
   display: flex;
   justify-content: center;
   align-items: center;
-  user-select: none;
-  touch-action: none; /* 모바일에서 버튼 누를 때 화면 스크롤 방지 */
+  touch-action: none;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.v-btn:active, .v-btn.pressed { background: rgba(245,200,66,0.3); }
+.btn-up    { grid-column:2; grid-row:1; }
+.btn-left  { grid-column:1; grid-row:2; }
+.btn-right { grid-column:3; grid-row:2; }
+.btn-down  { grid-column:2; grid-row:3; }
+
+/* ============ 전투 UI ============ */
+#battleUI {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(3px);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 200;
+  padding: 20px;
+}
+#battleUI.active { display: flex; }
+
+.battle-panel {
+  background: linear-gradient(160deg, #3d2b1f 0%, #1a1208 100%);
+  border: 2px solid var(--gold);
+  border-radius: 14px;
+  padding: 24px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 0 60px rgba(245,200,66,0.2);
+  animation: battleIn 0.3s ease;
+}
+@keyframes battleIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.battle-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(245,200,66,0.2);
+}
+.monster-icon { font-size: 48px; animation: shake 0.5s ease infinite alternate; }
+@keyframes shake { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
+
+.monster-name { font-size: 20px; font-weight: 700; color: var(--gold); }
+.monster-info { font-size: 12px; color: rgba(244,232,193,0.6); font-family: 'Noto Sans KR', sans-serif; }
+
+/* 몬스터 HP 바 */
+.monster-hp-bar { width: 100%; height: 8px; background: rgba(0,0,0,0.4); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+.monster-hp-fill { height: 100%; background: linear-gradient(90deg, #e74c3c, #ff6b6b); border-radius: 4px; transition: width 0.3s; }
+
+.diff-badge {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+.diff-easy { background: rgba(39,174,96,0.3); color: #2ecc71; border: 1px solid #27ae60; }
+.diff-med  { background: rgba(245,200,66,0.3); color: var(--gold); border: 1px solid #c8962a; }
+.diff-hard { background: rgba(231,76,60,0.3); color: #e74c3c; border: 1px solid var(--red); }
+.diff-boss { background: rgba(155,89,182,0.3); color: #a855f7; border: 1px solid #7c3aed; }
+
+#questionText {
+  font-size: 17px;
+  line-height: 1.7;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(245,200,66,0.15);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 16px;
+  font-family: 'Noto Sans KR', sans-serif;
+  color: var(--paper);
+}
+
+.hint-box {
+  background: rgba(39,174,96,0.1);
+  border: 1px solid rgba(39,174,96,0.4);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #2ecc71;
+  font-family: 'Noto Sans KR', sans-serif;
+  display: none;
+}
+.hint-box.show { display: block; }
+
+#choicesDiv {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.choice-btn {
+  flex: 1;
+  min-width: 100px;
+  padding: 12px;
+  background: rgba(0,0,0,0.4);
+  border: 2px solid rgba(245,200,66,0.3);
+  border-radius: 8px;
+  color: var(--paper);
+  font-family: 'Noto Serif KR', serif;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+.choice-btn:hover { border-color: var(--gold); background: rgba(245,200,66,0.15); }
+.choice-btn.correct { border-color: var(--green); background: rgba(39,174,96,0.2); color: #2ecc71; }
+.choice-btn.wrong { border-color: var(--red); background: rgba(192,57,43,0.2); color: #e74c3c; }
+
+.text-answer-row { display: flex; gap: 8px; }
+#answerInput {
+  flex: 1;
+  padding: 10px 14px;
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(245,200,66,0.4);
+  border-radius: 8px;
+  color: var(--paper);
+  font-size: 16px;
+  font-family: 'Noto Sans KR', sans-serif;
+  outline: none;
+}
+#answerInput:focus { border-color: var(--gold); }
+#submitBtn {
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #c8962a, #f5c842);
+  border: none;
+  border-radius: 8px;
+  color: var(--ink);
+  font-family: 'Noto Serif KR', serif;
+  font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
 }
-.v-btn:active { background: rgba(255, 255, 255, 0.6); }
-.btn-up { grid-column: 2; grid-row: 1; }
-.btn-left { grid-column: 1; grid-row: 2; }
-.btn-right { grid-column: 3; grid-row: 2; }
-.btn-down { grid-column: 2; grid-row: 3; }
+
+.combo-indicator {
+  text-align: center;
+  font-size: 13px;
+  color: rgba(244,232,193,0.5);
+  font-family: 'Noto Sans KR', sans-serif;
+}
+.combo-pip {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(245,200,66,0.2);
+  border: 1px solid rgba(245,200,66,0.4);
+  margin: 0 3px;
+  vertical-align: middle;
+}
+.combo-pip.filled { background: var(--gold); border-color: var(--gold); }
+
+/* ============ 결과 팝업 ============ */
+#resultPopup {
+  position: fixed;
+  inset: 0;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 300;
+  background: rgba(0,0,0,0.6);
+}
+#resultPopup.active { display: flex; }
+.result-card {
+  background: linear-gradient(160deg, #3d2b1f, #1a1208);
+  border-radius: 14px;
+  padding: 30px;
+  text-align: center;
+  max-width: 320px;
+  width: 90%;
+  border: 2px solid var(--gold);
+  animation: popIn 0.3s ease;
+}
+@keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.result-emoji { font-size: 64px; margin-bottom: 10px; }
+.result-title { font-size: 24px; font-weight: 900; margin-bottom: 8px; }
+.result-desc { font-size: 14px; color: rgba(244,232,193,0.7); font-family: 'Noto Sans KR', sans-serif; line-height: 1.6; margin-bottom: 20px; }
+.result-btn {
+  padding: 12px 30px;
+  background: linear-gradient(135deg, #c8962a, #f5c842);
+  border: none;
+  border-radius: 8px;
+  color: var(--ink);
+  font-family: 'Noto Serif KR', serif;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* ============ 게임오버 / 대기 화면 ============ */
+#gameoverScreen {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.92);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 400;
+}
+#gameoverScreen.active { display: flex; }
+
+.gameover-card {
+  text-align: center;
+  padding: 40px;
+  max-width: 360px;
+}
+.gameover-emoji { font-size: 80px; margin-bottom: 16px; }
+.gameover-title { font-size: 32px; font-weight: 900; color: var(--red); margin-bottom: 12px; }
+.gameover-desc { font-size: 15px; color: rgba(244,232,193,0.7); font-family: 'Noto Sans KR', sans-serif; line-height: 1.8; margin-bottom: 24px; }
+.countdown { font-size: 48px; font-weight: 900; color: var(--gold); margin: 10px 0; }
+
+/* ============ 미니맵 / 레벨업 애니 ============ */
+#levelupAnim {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--gold);
+  text-shadow: 0 0 30px rgba(245,200,66,0.8);
+  pointer-events: none;
+  z-index: 500;
+  display: none;
+  letter-spacing: 4px;
+  animation: levelUpFloat 2s ease forwards;
+}
+@keyframes levelUpFloat {
+  0% { opacity: 0; transform: translate(-50%, -40%); }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -80%); }
+}
+
+/* ============ XP 팝업 ============ */
+.xp-popup {
+  position: fixed;
+  pointer-events: none;
+  z-index: 400;
+  font-size: 20px;
+  font-weight: 700;
+  text-shadow: 0 0 10px currentColor;
+  animation: xpFloat 1.5s ease forwards;
+}
+@keyframes xpFloat {
+  0% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-80px); }
+}
+
+/* ============ 반응형 ============ */
+@media (max-width: 480px) {
+  .panel { padding: 20px; }
+  .panel-title { font-size: 22px; }
+  .char-grid { gap: 8px; }
+  .char-emoji { font-size: 36px; }
+  .char-name { font-size: 14px; }
+  .char-desc { font-size: 10px; }
+  #questionText { font-size: 14px; }
+  .choice-btn { font-size: 18px; padding: 10px; }
+}
 </style>
 </head>
-
 <body>
 
-<div id="selectScreen">
-  <h2>🌟 영웅을 선택하세요</h2>
-  <div class="char-container">
-    <div class="char-card" onclick="startGame('warrior')">
-      <img src="https://labs.phaser.io/assets/sprites/sword_silver.png" class="char"><br>장군
+<div class="bg-pattern"></div>
+
+<!-- ============ 로그인 화면 ============ -->
+<div id="loginScreen" class="screen">
+  <div class="panel">
+    <div class="panel-title"><span>⚔️</span><br>역사 퀴즈 RPG</div>
+    <div id="loginForm">
+      <div class="input-group">
+        <label>학번</label>
+        <input type="text" id="studentId" placeholder="예) 20241001" maxlength="20">
+      </div>
+      <div class="input-group">
+        <label>이름</label>
+        <input type="text" id="studentName" placeholder="실명을 입력하세요">
+      </div>
+      <div class="input-group">
+        <label>비밀번호</label>
+        <input type="password" id="password" placeholder="4자리 이상">
+      </div>
+      <button class="btn-gold" onclick="tryLogin()">⚔️ 접속하기</button>
+      <button class="btn-secondary" onclick="showRegister()">처음 오셨나요? 회원가입</button>
     </div>
-    <div class="char-card" onclick="startGame('scholar')">
-      <img src="https://labs.phaser.io/assets/sprites/scroll.png" class="char"><br>학자
+    <div id="registerForm" style="display:none">
+      <div class="input-group">
+        <label>학번</label>
+        <input type="text" id="regId" placeholder="예) 20241001" maxlength="20">
+      </div>
+      <div class="input-group">
+        <label>이름</label>
+        <input type="text" id="regName" placeholder="실명을 입력하세요">
+      </div>
+      <div class="input-group">
+        <label>비밀번호 설정</label>
+        <input type="password" id="regPw" placeholder="4자리 이상">
+      </div>
+      <div class="input-group">
+        <label>비밀번호 확인</label>
+        <input type="password" id="regPw2" placeholder="위와 동일하게">
+      </div>
+      <button class="btn-gold" onclick="tryRegister()">✨ 가입하기</button>
+      <button class="btn-secondary" onclick="showLogin()">← 로그인으로</button>
     </div>
-    <div class="char-card" onclick="startGame('royal')">
-      <img src="https://labs.phaser.io/assets/sprites/crown.png" class="char"><br>왕족
-    </div>
+    <div id="loginMsg" class="msg"></div>
   </div>
 </div>
 
-<div id="ui">
-  ❤️ 체력<div class="bar"><div id="hpFill" class="fill" style="background:lime; width:100%;"></div></div>
-  ⚡ 경험치<div class="bar"><div id="xpFill" class="fill" style="background:yellow; width:0%;"></div></div>
-  🔥 Lv <span id="level">1</span>
+<!-- ============ 캐릭터 선택 화면 ============ -->
+<div id="selectScreen" class="screen" style="display:none; background: rgba(0,0,0,0.9);">
+  <div class="panel" style="max-width:600px;">
+    <div class="panel-title">영웅을 선택하세요</div>
+    <div class="char-grid">
+      <div class="char-card" id="card-warrior" onclick="selectChar('warrior')">
+        <span class="char-emoji">⚔️</span>
+        <div class="char-name">무사</div>
+        <div class="char-badge">기본</div>
+        <div class="char-desc" style="margin-top:8px">경험치 획득<br><b style="color:var(--gold)">×1.0</b><br>한 번 맞추면 경험치</div>
+      </div>
+      <div class="char-card" id="card-scholar" onclick="selectChar('scholar')">
+        <span class="char-emoji">📜</span>
+        <div class="char-name">학자</div>
+        <div class="char-badge" style="background:rgba(39,174,96,0.3);color:#2ecc71;border:1px solid #27ae60;">쉬움</div>
+        <div class="char-desc" style="margin-top:8px">경험치 획득<br><b style="color:var(--gold)">×0.5</b><br>틀리면 힌트+재도전</div>
+      </div>
+      <div class="char-card" id="card-royal" onclick="selectChar('royal')">
+        <span class="char-emoji">👑</span>
+        <div class="char-name">귀족</div>
+        <div class="char-badge" style="background:rgba(155,89,182,0.3);color:#a855f7;border:1px solid #7c3aed;">도전</div>
+        <div class="char-desc" style="margin-top:8px">경험치 획득<br><b style="color:var(--gold)">×1.5</b><br>2연속 정답 필요</div>
+      </div>
+    </div>
+    <button class="btn-gold" style="margin-top:20px" onclick="startGame()">🗡️ 모험 시작!</button>
+  </div>
 </div>
 
+<!-- ============ 게임 화면 ============ -->
+<div id="gameScreen">
+  <!-- 상단 UI -->
+  <div id="topUI">
+    <div class="player-avatar" id="playerAvatar">⚔️</div>
+    <div class="stats-col">
+      <div class="stat-row">
+        <div class="stat-label">❤️ HP</div>
+        <div class="stat-bar"><div class="stat-fill hp-fill" id="hpBar" style="width:100%"></div></div>
+        <div style="font-size:11px;margin-left:4px;min-width:32px;color:rgba(244,232,193,0.7)" id="hpText">100</div>
+      </div>
+      <div class="stat-row">
+        <div class="stat-label">⚡ XP</div>
+        <div class="stat-bar"><div class="stat-fill xp-fill" id="xpBar" style="width:0%"></div></div>
+        <div style="font-size:11px;margin-left:4px;min-width:32px;color:rgba(244,232,193,0.7)" id="xpText">0</div>
+      </div>
+    </div>
+    <div class="level-badge">Lv<span id="levelText">1</span></div>
+    <div class="gold-badge">🪙<span id="goldText">0</span></div>
+  </div>
+
+  <!-- 게임 캔버스 -->
+  <div id="gameCanvas">
+    <!-- 배경 나무/바위 -->
+    <div class="tree" style="left:8%;top:15%">🌲</div>
+    <div class="tree" style="left:25%;top:8%">🌳</div>
+    <div class="tree" style="left:70%;top:10%">🌲</div>
+    <div class="tree" style="left:85%;top:20%">🌳</div>
+    <div class="tree" style="left:5%;top:60%">🌲</div>
+    <div class="tree" style="left:90%;top:55%">🌲</div>
+    <div class="tree" style="left:45%;top:75%">🌳</div>
+    <div class="rock" style="left:35%;top:30%">🪨</div>
+    <div class="rock" style="left:60%;top:65%">🪨</div>
+    <div class="rock" style="left:15%;top:40%">🪨</div>
+
+    <!-- 플레이어 -->
+    <div id="player">⚔️</div>
+
+    <!-- 몬스터들은 JS로 생성 -->
+    <div id="monstersLayer"></div>
+  </div>
+
+  <!-- 조이스틱 -->
+  <div id="joystick">
+    <div class="v-btn btn-up"    id="jUp"    ontouchstart="touchBtn('up',true)"   ontouchend="touchBtn('up',false)"   onmousedown="joyBtn('up',true)"    onmouseup="joyBtn('up',false)"    onmouseleave="joyBtn('up',false)">▲</div>
+    <div class="v-btn btn-left"  id="jLeft"  ontouchstart="touchBtn('left',true)" ontouchend="touchBtn('left',false)" onmousedown="joyBtn('left',true)"  onmouseup="joyBtn('left',false)"  onmouseleave="joyBtn('left',false)">◀</div>
+    <div class="v-btn btn-right" id="jRight" ontouchstart="touchBtn('right',true)"ontouchend="touchBtn('right',false)"onmousedown="joyBtn('right',true)" onmouseup="joyBtn('right',false)" onmouseleave="joyBtn('right',false)">▶</div>
+    <div class="v-btn btn-down"  id="jDown"  ontouchstart="touchBtn('down',true)" ontouchend="touchBtn('down',false)" onmousedown="joyBtn('down',true)"  onmouseup="joyBtn('down',false)"  onmouseleave="joyBtn('down',false)">▼</div>
+  </div>
+</div>
+
+<!-- ============ 전투 UI ============ -->
 <div id="battleUI">
-  <div id="question">문제가 여기에 표시됩니다.</div>
-  <div id="choices"></div>
-  <input id="answer" style="display:none; font-size:18px; padding:5px;">
-  <button id="submitBtn" onclick="submitAnswer()" style="display:none; font-size:18px; padding:5px 15px;">제출</button>
+  <div class="battle-panel">
+    <div class="battle-header">
+      <div class="monster-icon" id="battleMonsterIcon">🐕</div>
+      <div>
+        <div class="monster-name" id="battleMonsterName">들개</div>
+        <div class="monster-info" id="battleMonsterInfo">경험치 +20 · 골드 +10</div>
+        <div class="monster-hp-bar"><div class="monster-hp-fill" id="monsterHpBar" style="width:100%"></div></div>
+      </div>
+      <div class="diff-badge" id="diffBadge">쉬움</div>
+    </div>
+    <div id="questionText">문제가 여기에 표시됩니다.</div>
+    <div class="hint-box" id="hintBox">💡 힌트: <span id="hintText"></span></div>
+    <div id="choicesDiv"></div>
+    <div class="text-answer-row" id="textAnswerRow" style="display:none">
+      <input type="text" id="answerInput" placeholder="정답을 입력하세요">
+      <button id="submitBtn" onclick="submitTextAnswer()">제출</button>
+    </div>
+    <div class="combo-indicator" id="comboIndicator" style="display:none"></div>
+  </div>
 </div>
 
-<div id="joystick">
-  <div class="v-btn btn-up" onmousedown="startMove('up')" onmouseup="stopMove()" onmouseleave="stopMove()" ontouchstart="startMove('up')" ontouchend="stopMove()">⬆️</div>
-  <div class="v-btn btn-left" onmousedown="startMove('left')" onmouseup="stopMove()" onmouseleave="stopMove()" ontouchstart="startMove('left')" ontouchend="stopMove()">⬅️</div>
-  <div class="v-btn btn-right" onmousedown="startMove('right')" onmouseup="stopMove()" onmouseleave="stopMove()" ontouchstart="startMove('right')" ontouchend="stopMove()">➡️</div>
-  <div class="v-btn btn-down" onmousedown="startMove('down')" onmouseup="stopMove()" onmouseleave="stopMove()" ontouchstart="startMove('down')" ontouchend="stopMove()">⬇️</div>
+<!-- ============ 결과 팝업 ============ -->
+<div id="resultPopup">
+  <div class="result-card">
+    <div class="result-emoji" id="resultEmoji">🎉</div>
+    <div class="result-title" id="resultTitle">정답!</div>
+    <div class="result-desc" id="resultDesc"></div>
+    <button class="result-btn" onclick="closeResult()">계속 모험!</button>
+  </div>
 </div>
+
+<!-- ============ 게임오버 화면 ============ -->
+<div id="gameoverScreen">
+  <div class="gameover-card">
+    <div class="gameover-emoji">💀</div>
+    <div class="gameover-title">쓰러졌습니다!</div>
+    <div class="gameover-desc">
+      경험치의 30%를 잃었습니다.<br>
+      <b style="color:var(--gold)">10분 후</b> 다시 도전할 수 있습니다.
+    </div>
+    <div class="countdown" id="countdownTimer">10:00</div>
+    <div style="font-size:13px;color:rgba(244,232,193,0.5);font-family:'Noto Sans KR',sans-serif">잠시 후 자동으로 복귀됩니다</div>
+  </div>
+</div>
+
+<!-- 레벨업 애니메이션 -->
+<div id="levelupAnim">🔥 레벨 UP!</div>
 
 <script>
-let player, monsters;
-let playerSprite = "warrior";
-let HP=100, XP=0, level=1;
-let gameState="explore";
-let moveDir=null;
-let questions=[];
-let currentQuestion, currentMonster;
+// ============================================================
+// 설정 상수
+// ============================================================
+const APPS_SCRIPT_URL = "여기에_앱스크립트_URL_입력"; // Google Apps Script URL
 
-// 📡 문제 로드 (기존 스크립트 유지, 테스트용 기본 문제 추가)
-async function loadQuestions(){
+// ============================================================
+// 게임 데이터
+// ============================================================
+const CHARACTERS = {
+  warrior: { emoji: '⚔️', name: '무사', xpMult: 1.0, needCombo: 1, hint: false },
+  scholar: { emoji: '📜', name: '학자', xpMult: 0.5, needCombo: 1, hint: true },
+  royal:   { emoji: '👑', name: '귀족', xpMult: 1.5, needCombo: 2, hint: false },
+};
+
+const MONSTERS = [
+  { id:'dog',    emoji:'🐕', name:'들개',    diff:'easy', diffLabel:'쉬움', diffClass:'diff-easy', hp:1, xpReward:20, goldReward:10,  hpMax:1 },
+  { id:'treant', emoji:'🌳', name:'나무요괴', diff:'med',  diffLabel:'보통', diffClass:'diff-med',  hp:2, xpReward:40, goldReward:25,  hpMax:2 },
+  { id:'dokkaebi',emoji:'👹',name:'도깨비',  diff:'hard', diffLabel:'어려움',diffClass:'diff-hard',hp:2, xpReward:70, goldReward:50,  hpMax:2 },
+  { id:'haetae', emoji:'🦁', name:'해태',    diff:'boss', diffLabel:'최강', diffClass:'diff-boss', hp:3, xpReward:120,goldReward:100, hpMax:3 },
+];
+
+// 예시 문제 (Apps Script 연결 전 사용)
+const SAMPLE_QUESTIONS = {
+  easy: [
+    { question: "신라의 삼국통일을 완성한 왕은 문무왕이다.", answer: "O", hint: "신라의 30대 왕이에요." },
+    { question: "발해를 세운 사람은 대조영이다.", answer: "O", hint: "고구려 유민 출신이에요." },
+    { question: "고려를 세운 왕은 왕건이다.", answer: "O", hint: "918년에 건국했어요." },
+    { question: "임진왜란이 일어난 해는 1392년이다.", answer: "X", hint: "1592년이에요." },
+    { question: "세종대왕이 만든 문자는 훈민정음이다.", answer: "O", hint: "1443년에 창제되었어요." },
+  ],
+  med: [
+    { question: "다음 중 조선의 수도는? (한양 / 개경 / 평양)", answer: "한양", hint: "지금의 서울이에요." },
+    { question: "고려의 수도는? (한양 / 개경 / 평양)", answer: "개경", hint: "지금의 개성이에요." },
+    { question: "거란의 침입을 막아낸 고려의 장군은? (강감찬 / 을지문덕 / 이순신)", answer: "강감찬", hint: "귀주대첩을 이끌었어요." },
+    { question: "조선을 건국한 왕은? (이성계 / 왕건 / 견훤)", answer: "이성계", hint: "1392년에 조선을 세웠어요." },
+  ],
+  hard: [
+    { question: "삼국 시대 백제의 마지막 왕은 누구인가?", answer: "의자왕", hint: "660년 나당연합군에 의해 멸망했어요." },
+    { question: "조선 후기 실학을 집대성한 학자는 누구인가?", answer: "정약용", hint: "『목민심서』를 저술했어요." },
+    { question: "고려 무신정변이 일어난 해는?", answer: "1170", hint: "정중부 등이 일으켰어요." },
+    { question: "이순신 장군의 마지막 해전 이름은?", answer: "노량해전", hint: "1598년에 벌어진 전투예요." },
+  ],
+  boss: [
+    { question: "조선 태종이 실시한 제도로 호패법과 함께 왕권 강화에 기여한 것은?", answer: "6조직계제", hint: "6개 행정부서가 왕에게 직접 보고했어요." },
+    { question: "고려 공민왕이 반원 자주정책의 일환으로 수복한 땅은?", answer: "쌍성총관부", hint: "원나라가 설치한 기구였어요." },
+    { question: "신라 골품제에서 성골이 소멸된 이후 왕이 된 최초의 진골 출신 왕은?", answer: "태종무열왕", hint: "김춘추라고도 해요." },
+  ]
+};
+
+// ============================================================
+// 게임 상태 변수
+// ============================================================
+let currentUser = null;
+let charType = 'warrior';
+let charData = CHARACTERS.warrior;
+
+let HP = 100, maxHP = 100;
+let XP = 0, gold = 0, level = 1;
+let gameActive = false;
+let inBattle = false;
+let moveKeys = { up: false, down: false, left: false, right: false };
+
+// 플레이어 위치
+let px = 150, py = 200;
+let gameLoopId = null;
+
+// 몬스터 목록
+let monsterList = []; // { elem, data, qData, x, y, vx, vy, hp }
+
+// 전투 상태
+let battleMonster = null;
+let royalCombo = 0;   // 귀족: 연속 정답 카운트
+let scholarRetry = false; // 학자: 재도전 여부
+
+let questions = { easy: [], med: [], hard: [], boss: [] };
+let questionsLoaded = false;
+
+// ============================================================
+// 문제 로드
+// ============================================================
+async function loadQuestions() {
   try {
-    const res = await fetch("여기에_앱스크립트_URL");
-    questions = await res.json();
-  } catch(e) {
-    // 앱스크립트 연결 전 테스트를 위한 예비 문제
-    questions = [
-      { question: "신라의 삼국통일을 완성한 왕은 문무왕이다.", answer: "O" },
-      { question: "발해를 세운 사람은 대조영이다.", answer: "O" }
-    ];
-  }
+    const res = await fetch(APPS_SCRIPT_URL + "?action=getQuestions", { mode: 'cors' });
+    const data = await res.json();
+    if (data && data.easy) {
+      questions = data;
+      questionsLoaded = true;
+      return;
+    }
+  } catch(e) {}
+  questions = SAMPLE_QUESTIONS;
+  questionsLoaded = true;
 }
 loadQuestions();
 
-// 🎮 게임 시작
-function startGame(sprite){
-  playerSprite = sprite;
-  document.getElementById("selectScreen").style.display="none";
-  initGame();
+// ============================================================
+// 로그인 / 회원가입
+// ============================================================
+function showRegister() {
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('registerForm').style.display = 'block';
+  setMsg('');
+}
+function showLogin() {
+  document.getElementById('registerForm').style.display = 'none';
+  document.getElementById('loginForm').style.display = 'block';
+  setMsg('');
+}
+function setMsg(msg, isError = false) {
+  const el = document.getElementById('loginMsg');
+  el.textContent = msg;
+  el.className = 'msg ' + (isError ? 'error' : 'success');
 }
 
-// Phaser 초기화
-function initGame(){
-  new Phaser.Game({
-    type:Phaser.AUTO,
-    scale:{
-      mode:Phaser.Scale.RESIZE,
-      autoCenter:Phaser.Scale.CENTER_BOTH
-    },
-    physics:{default:"arcade"},
-    scene:{preload,create,update}
-  });
-}
+async function tryLogin() {
+  const id = document.getElementById('studentId').value.trim();
+  const name = document.getElementById('studentName').value.trim();
+  const pw = document.getElementById('password').value;
+  if (!id || !name || !pw) { setMsg('모든 항목을 입력하세요.', true); return; }
 
-function preload(){
-  // 🗺️ 1. RPG 배경 이미지 로드
-  this.load.image('bg', 'https://labs.phaser.io/assets/skies/grass.png'); 
-  
-  // 👤 2. 새로운 캐릭터 이미지 로드
-  this.load.image('warrior','https://labs.phaser.io/assets/sprites/sword_silver.png');
-  this.load.image('scholar','https://labs.phaser.io/assets/sprites/scroll.png');
-  this.load.image('royal','https://labs.phaser.io/assets/sprites/crown.png');
-  
-  // 👻 3. 몬스터(유령) 로드
-  this.load.image('monster','https://labs.phaser.io/assets/sprites/ghost.png');
-}
-
-function create(){
-  // 배경 화면 꽉 차게 배치
-  let bg = this.add.image(0, 0, 'bg').setOrigin(0,0);
-  bg.displayWidth = this.sys.canvas.width;
-  bg.displayHeight = this.sys.canvas.height;
-
-  // 🔍 4. 캐릭터 크기 키우기 (setScale 1.5)
-  player = this.physics.add.sprite(100, 100, playerSprite).setScale(1.5);
-  player.setCollideWorldBounds(true); // 화면 밖으로 나가지 못하게
-
-  monsters = this.physics.add.group();
-  spawnMonsters(this);
-
-  this.physics.add.overlap(player, monsters, startBattle, null, this);
-}
-
-function spawnMonsters(scene){
-  for(let i=0; i<5+level; i++){
-    let m = scene.physics.add.sprite(
-      Phaser.Math.Between(50, window.innerWidth-50),
-      Phaser.Math.Between(50, window.innerHeight-50),
-      'monster'
-    ).setScale(1.2); // 🔍 몬스터 크기도 키우기
-
-    m.setCollideWorldBounds(true);
-    m.setBounce(1); // 벽에 부딪히면 튕기도록
-    monsters.add(m);
+  setMsg('접속 중...');
+  try {
+    const res = await fetch(APPS_SCRIPT_URL + `?action=login&id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&pw=${encodeURIComponent(pw)}`);
+    const data = await res.json();
+    if (data.ok) {
+      currentUser = data.user;
+      loadUserData(data.user);
+      goToSelectScreen();
+    } else {
+      setMsg(data.msg || '로그인 실패', true);
+    }
+  } catch(e) {
+    // 오프라인 모드 (테스트)
+    currentUser = { id, name, pw };
+    goToSelectScreen();
   }
 }
 
-function update(){
-  if(gameState!=="explore") {
-    player.setVelocity(0);
+async function tryRegister() {
+  const id = document.getElementById('regId').value.trim();
+  const name = document.getElementById('regName').value.trim();
+  const pw = document.getElementById('regPw').value;
+  const pw2 = document.getElementById('regPw2').value;
+  if (!id || !name || !pw) { setMsg('모든 항목을 입력하세요.', true); return; }
+  if (pw.length < 4) { setMsg('비밀번호는 4자리 이상이어야 합니다.', true); return; }
+  if (pw !== pw2) { setMsg('비밀번호가 일치하지 않습니다.', true); return; }
+
+  setMsg('가입 중...');
+  try {
+    const res = await fetch(APPS_SCRIPT_URL + `?action=register&id=${encodeURIComponent(id)}&name=${encodeURIComponent(name)}&pw=${encodeURIComponent(pw)}`);
+    const data = await res.json();
+    if (data.ok) {
+      setMsg('가입 완료! 로그인하세요.');
+      showLogin();
+    } else {
+      setMsg(data.msg || '가입 실패', true);
+    }
+  } catch(e) {
+    // 오프라인 모드
+    currentUser = { id, name, pw };
+    setMsg('(오프라인 모드) 가입 완료!');
+    setTimeout(() => showLogin(), 1000);
+  }
+}
+
+function loadUserData(user) {
+  if (!user) return;
+  HP = user.hp || 100;
+  XP = user.xp || 0;
+  gold = user.gold || 0;
+  level = user.level || 1;
+  charType = user.charType || 'warrior';
+}
+
+function goToSelectScreen() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('selectScreen').style.display = 'flex';
+  // 이전 캐릭터 있으면 선택 유지
+  if (charType) selectChar(charType, true);
+}
+
+// ============================================================
+// 캐릭터 선택
+// ============================================================
+function selectChar(type, silent = false) {
+  charType = type;
+  charData = CHARACTERS[type];
+  document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('card-' + type).classList.add('selected');
+}
+
+function startGame() {
+  if (!charType) { alert('캐릭터를 선택하세요!'); return; }
+  charData = CHARACTERS[charType];
+  document.getElementById('selectScreen').style.display = 'none';
+  document.getElementById('gameScreen').style.display = 'block';
+  initGameWorld();
+}
+
+// ============================================================
+// 게임 초기화
+// ============================================================
+function initGameWorld() {
+  document.getElementById('playerAvatar').textContent = charData.emoji;
+  document.getElementById('player').textContent = charData.emoji;
+
+  // 플레이어 초기 위치
+  px = window.innerWidth / 2;
+  py = window.innerHeight / 2;
+  updatePlayerPos();
+
+  // 키보드 입력
+  document.addEventListener('keydown', onKeyDown);
+  document.addEventListener('keyup', onKeyUp);
+
+  spawnMonsters();
+  updateUI();
+  gameActive = true;
+  gameLoop();
+}
+
+// ============================================================
+// 몬스터 스폰
+// ============================================================
+function spawnMonsters() {
+  document.getElementById('monstersLayer').innerHTML = '';
+  monsterList = [];
+
+  const canvasW = window.innerWidth;
+  const canvasH = window.innerHeight;
+
+  // 레벨별 몬스터 구성
+  const counts = getMonsterCounts(level);
+
+  counts.forEach(({ monsterIdx, count }) => {
+    for (let i = 0; i < count; i++) {
+      let mx, my;
+      do {
+        mx = Math.random() * (canvasW - 80) + 40;
+        my = Math.random() * (canvasH - 160) + 80;
+      } while (Math.abs(mx - px) < 120 && Math.abs(my - py) < 120);
+
+      const mData = { ...MONSTERS[monsterIdx], hp: MONSTERS[monsterIdx].hpMax };
+      const elem = document.createElement('div');
+      elem.className = 'monster';
+      elem.textContent = mData.emoji;
+      document.getElementById('monstersLayer').appendChild(elem);
+
+      const qData = pickQuestion(mData.diff);
+
+      monsterList.push({ elem, data: mData, qData, x: mx, y: my,
+        vx: (Math.random() - 0.5) * 60,
+        vy: (Math.random() - 0.5) * 60,
+        hp: mData.hpMax
+      });
+    }
+  });
+
+  renderMonsters();
+}
+
+function getMonsterCounts(lv) {
+  const result = [];
+  if (lv <= 2) {
+    result.push({ monsterIdx: 0, count: 3 + lv });
+  } else if (lv <= 4) {
+    result.push({ monsterIdx: 0, count: 2 });
+    result.push({ monsterIdx: 1, count: 2 + lv - 2 });
+  } else if (lv <= 6) {
+    result.push({ monsterIdx: 1, count: 2 });
+    result.push({ monsterIdx: 2, count: 2 + lv - 4 });
+  } else if (lv <= 9) {
+    result.push({ monsterIdx: 2, count: 2 });
+    result.push({ monsterIdx: 3, count: 1 + Math.floor((lv - 6) / 2) });
+  } else {
+    result.push({ monsterIdx: 3, count: 3 + Math.floor((lv - 9) / 2) });
+  }
+  return result;
+}
+
+function pickQuestion(diff) {
+  const pool = questions[diff] || questions.easy;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+// ============================================================
+// 게임 루프
+// ============================================================
+let lastTime = 0;
+function gameLoop(ts = 0) {
+  if (!gameActive) return;
+  const dt = Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
+
+  if (!inBattle) {
+    movePlayer(dt);
+    moveMonsters(dt);
+    checkCollisions();
+  }
+
+  gameLoopId = requestAnimationFrame(gameLoop);
+}
+
+const SPEED = 220;
+function movePlayer(dt) {
+  if (moveKeys.left)  px -= SPEED * dt;
+  if (moveKeys.right) px += SPEED * dt;
+  if (moveKeys.up)    py -= SPEED * dt;
+  if (moveKeys.down)  py += SPEED * dt;
+
+  const margin = 30;
+  px = Math.max(margin, Math.min(window.innerWidth - margin, px));
+  py = Math.max(60 + margin, Math.min(window.innerHeight - margin, py));
+
+  updatePlayerPos();
+}
+
+function updatePlayerPos() {
+  const el = document.getElementById('player');
+  el.style.left = px + 'px';
+  el.style.top  = py + 'px';
+}
+
+function moveMonsters(dt) {
+  const canvasW = window.innerWidth;
+  const canvasH = window.innerHeight;
+
+  monsterList.forEach(m => {
+    // 랜덤 방향 변경 (조금씩)
+    if (Math.random() < 0.02) {
+      m.vx = (Math.random() - 0.5) * 80;
+      m.vy = (Math.random() - 0.5) * 80;
+    }
+
+    m.x += m.vx * dt;
+    m.y += m.vy * dt;
+
+    if (m.x < 30)              { m.x = 30; m.vx *= -1; }
+    if (m.x > canvasW - 30)   { m.x = canvasW - 30; m.vx *= -1; }
+    if (m.y < 80)             { m.y = 80; m.vy *= -1; }
+    if (m.y > canvasH - 30)   { m.y = canvasH - 30; m.vy *= -1; }
+  });
+
+  renderMonsters();
+}
+
+function renderMonsters() {
+  monsterList.forEach(m => {
+    m.elem.style.left = m.x + 'px';
+    m.elem.style.top  = m.y + 'px';
+  });
+}
+
+function checkCollisions() {
+  const collDist = 50;
+  for (let m of monsterList) {
+    const dx = px - m.x;
+    const dy = py - m.y;
+    if (Math.sqrt(dx*dx + dy*dy) < collDist) {
+      openBattle(m);
+      break;
+    }
+  }
+}
+
+// ============================================================
+// 전투 시작
+// ============================================================
+function openBattle(monster) {
+  inBattle = true;
+  battleMonster = monster;
+  royalCombo = 0;
+  scholarRetry = false;
+
+  // 문제 선택
+  monster.qData = pickQuestion(monster.data.diff);
+
+  const mData = monster.data;
+  document.getElementById('battleMonsterIcon').textContent = mData.emoji;
+  document.getElementById('battleMonsterName').textContent = mData.name;
+  document.getElementById('battleMonsterInfo').textContent =
+    `경험치 +${Math.floor(mData.xpReward * charData.xpMult)} · 골드 +${mData.goldReward}`;
+  document.getElementById('monsterHpBar').style.width = (monster.hp / mData.hpMax * 100) + '%';
+
+  const dc = document.getElementById('diffBadge');
+  dc.textContent = mData.diffLabel;
+  dc.className = 'diff-badge ' + mData.diffClass;
+
+  showQuestion(monster.qData);
+
+  document.getElementById('battleUI').classList.add('active');
+}
+
+function showQuestion(qData) {
+  document.getElementById('questionText').textContent = qData.question;
+  document.getElementById('hintBox').classList.remove('show');
+  document.getElementById('hintText').textContent = qData.hint || '';
+
+  const choices = document.getElementById('choicesDiv');
+  const textRow  = document.getElementById('textAnswerRow');
+  choices.innerHTML = '';
+  textRow.style.display = 'none';
+
+  // O/X 문제
+  if (qData.answer === 'O' || qData.answer === 'X') {
+    ['O', 'X'].forEach(v => {
+      const btn = document.createElement('button');
+      btn.className = 'choice-btn';
+      btn.textContent = v;
+      btn.onclick = () => handleAnswer(v, btn);
+      choices.appendChild(btn);
+    });
+  } else {
+    // 단답형
+    textRow.style.display = 'flex';
+    document.getElementById('answerInput').value = '';
+    document.getElementById('answerInput').focus();
+  }
+
+  // 귀족 콤보 표시
+  const combo = document.getElementById('comboIndicator');
+  if (charData.needCombo === 2) {
+    combo.style.display = 'block';
+    let html = '연속 정답 필요: ';
+    for (let i = 0; i < 2; i++) {
+      html += `<span class="combo-pip ${i < royalCombo ? 'filled' : ''}"></span>`;
+    }
+    combo.innerHTML = html;
+  } else {
+    combo.style.display = 'none';
+  }
+}
+
+function submitTextAnswer() {
+  const val = document.getElementById('answerInput').value.trim();
+  if (!val) return;
+  handleAnswer(val, null);
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && inBattle && document.getElementById('textAnswerRow').style.display !== 'none') {
+    submitTextAnswer();
+  }
+});
+
+function handleAnswer(userAnswer, btn) {
+  // 버튼 비활성화
+  document.querySelectorAll('.choice-btn').forEach(b => b.onclick = null);
+  document.getElementById('submitBtn').onclick = null;
+
+  const qData = battleMonster.qData;
+  const correct = userAnswer.trim().toLowerCase() === qData.answer.toLowerCase();
+
+  if (btn) btn.classList.add(correct ? 'correct' : 'wrong');
+
+  if (correct) {
+    onCorrectAnswer();
+  } else {
+    onWrongAnswer();
+  }
+}
+
+function onCorrectAnswer() {
+  const mData = battleMonster.data;
+
+  if (charData.needCombo === 2) {
+    royalCombo++;
+    if (royalCombo < 2) {
+      // 첫 번째 정답 - 다음 문제
+      showXpPopup('+1 콤보!', '#a855f7');
+      setTimeout(() => {
+        battleMonster.qData = pickQuestion(mData.diff);
+        showQuestion(battleMonster.qData);
+      }, 800);
+      return;
+    }
+  }
+
+  // 몬스터 HP 감소
+  battleMonster.hp--;
+  const hpPct = battleMonster.hp / mData.hpMax * 100;
+  document.getElementById('monsterHpBar').style.width = hpPct + '%';
+
+  if (battleMonster.hp > 0) {
+    // 아직 살아있음 - 다음 라운드
+    showXpPopup('공격!', '#f5c842');
+    setTimeout(() => {
+      royalCombo = 0;
+      battleMonster.qData = pickQuestion(mData.diff);
+      showQuestion(battleMonster.qData);
+    }, 600);
     return;
   }
 
-  player.setVelocity(0);
-  
-  // 이동 속도 상향
-  const speed = 250; 
-  if(moveDir==="left") player.setVelocityX(-speed);
-  if(moveDir==="right") player.setVelocityX(speed);
-  if(moveDir==="up") player.setVelocityY(-speed);
-  if(moveDir==="down") player.setVelocityY(speed);
+  // 몬스터 처치!
+  const xpGain = Math.floor(mData.xpReward * charData.xpMult);
+  const goldGain = mData.goldReward;
+  XP += xpGain;
+  gold += goldGain;
 
-  // 몬스터 무작위 이동
-  monsters.children.iterate(m=>{
-    if(Math.random() < 0.02) {
-      m.setVelocity(
-        Phaser.Math.Between(-100, 100),
-        Phaser.Math.Between(-100, 100)
-      );
-    }
-  });
-}
+  showXpPopup(`+${xpGain} XP`, '#f5c842');
+  showXpPopup(`+${goldGain} 🪙`, '#2ecc71', 30);
 
-// 📱 모바일 가상 패드 컨트롤 (누르고 있을 때만 이동)
-function startMove(dir){ moveDir = dir; }
-function stopMove(){ moveDir = null; }
+  // 몬스터 제거
+  battleMonster.elem.remove();
+  monsterList = monsterList.filter(m => m !== battleMonster);
 
-// ⚔️ 전투
-function startBattle(p,m){
-  if(gameState==="battle") return;
-
-  gameState="battle";
-  currentMonster=m;
-  currentQuestion=questions[Math.floor(Math.random()*questions.length)];
-
-  document.getElementById("battleUI").style.display="block";
-  document.getElementById("question").innerText=currentQuestion.question;
-
-  let choices=document.getElementById("choices");
-  let input=document.getElementById("answer");
-  let submitBtn=document.getElementById("submitBtn");
-
-  choices.innerHTML="";
-  input.style.display="none";
-  submitBtn.style.display="none";
-
-  if(currentQuestion.answer==="O"||currentQuestion.answer==="X"){
-    ["O","X"].forEach(v=>{
-      let b=document.createElement("button");
-      b.innerText=v;
-      b.onclick=()=>submitAnswer(v);
-      choices.appendChild(b);
-    });
-  }else{
-    input.style.display="inline";
-    submitBtn.style.display="inline";
-    input.value = "";
-  }
-}
-
-function submitAnswer(sel=null){
-  let user = sel || document.getElementById("answer").value.trim();
-
-  if(user.toLowerCase() === currentQuestion.answer.toLowerCase()){
-    currentMonster.destroy();
-    XP += 20;
-  }else{
-    HP -= 20;
-  }
-
-  if(HP<=0){
-    alert("게임오버! 다시 도전하세요.");
-    location.reload();
-  }
-
+  closeBattle();
   checkLevelUp();
   updateUI();
+  saveProgress();
 
-  document.getElementById("battleUI").style.display="none";
-  // 전투가 끝나면 캐릭터가 몬스터와 겹쳐서 재전투가 일어나는 것 방지 (살짝 밀어내기)
-  player.x -= 20; 
-  gameState="explore";
-}
+  showResult(true, `경험치 +${xpGain} · 골드 +${goldGain}`, mData.emoji);
 
-// 레벨업
-function checkLevelUp(){
-  if(XP>=level*100){
-    XP=0;
-    level++;
-    HP=100;
-    alert("🔥 레벨업! 더 강한 적들이 나타납니다.");
-
-    monsters.clear(true,true);
-    spawnMonsters(player.scene);
+  // 모든 몬스터 처치 시 새 스폰
+  if (monsterList.length === 0) {
+    setTimeout(() => spawnMonsters(), 2000);
   }
 }
 
+function onWrongAnswer() {
+  // 학자 - 힌트 + 재도전
+  if (charData.hint && !scholarRetry && battleMonster.qData.hint) {
+    scholarRetry = true;
+    document.getElementById('hintBox').classList.add('show');
+    document.getElementById('hintText').textContent = battleMonster.qData.hint;
+
+    // 재도전 버튼 초기화
+    document.querySelectorAll('.choice-btn').forEach(b => {
+      b.classList.remove('correct', 'wrong');
+      b.onclick = () => handleAnswer(b.textContent, b);
+    });
+    document.getElementById('submitBtn').onclick = submitTextAnswer;
+    document.getElementById('answerInput').value = '';
+    return;
+  }
+
+  // HP 감소
+  const dmg = getDamage(battleMonster.data.diff);
+  HP = Math.max(0, HP - dmg);
+  updateUI();
+
+  showXpPopup(`-${dmg} HP`, '#e74c3c');
+
+  closeBattle();
+
+  if (HP <= 0) {
+    triggerGameover();
+  } else {
+    showResult(false, `HP -${dmg} 남은 체력: ${HP}`, '💀');
+  }
+
+  // 플레이어 살짝 밀어내기
+  px += 60;
+  saveProgress();
+}
+
+function getDamage(diff) {
+  return { easy: 10, med: 15, hard: 20, boss: 30 }[diff] || 10;
+}
+
+function closeBattle() {
+  document.getElementById('battleUI').classList.remove('active');
+  inBattle = false;
+  battleMonster = null;
+  royalCombo = 0;
+  scholarRetry = false;
+}
+
+// ============================================================
+// 결과 팝업
+// ============================================================
+function showResult(correct, desc, icon) {
+  document.getElementById('resultEmoji').textContent = correct ? '🎉' : icon;
+  document.getElementById('resultTitle').textContent = correct ? '정답!' : '오답...';
+  document.getElementById('resultTitle').style.color = correct ? '#2ecc71' : '#e74c3c';
+  document.getElementById('resultDesc').textContent = desc;
+  document.getElementById('resultPopup').classList.add('active');
+}
+function closeResult() {
+  document.getElementById('resultPopup').classList.remove('active');
+}
+
+// ============================================================
+// 레벨업
+// ============================================================
+function checkLevelUp() {
+  const needed = level * 100;
+  if (XP >= needed) {
+    XP -= needed;
+    level++;
+    HP = maxHP;
+    showLevelUpAnim();
+    spawnMonsters();
+  }
+}
+
+function showLevelUpAnim() {
+  const el = document.getElementById('levelupAnim');
+  el.textContent = `🔥 레벨 ${level} UP!`;
+  el.style.display = 'block';
+  el.style.animation = 'none';
+  requestAnimationFrame(() => {
+    el.style.animation = 'levelUpFloat 2s ease forwards';
+  });
+  setTimeout(() => { el.style.display = 'none'; }, 2100);
+}
+
+// ============================================================
+// 게임오버
+// ============================================================
+function triggerGameover() {
+  XP = Math.floor(XP * 0.7); // 30% 감소
+  gameActive = false;
+  cancelAnimationFrame(gameLoopId);
+
+  document.getElementById('gameoverScreen').classList.add('active');
+
+  const penaltyEnd = Date.now() + 10 * 60 * 1000;
+  saveProgress({ penaltyUntil: penaltyEnd });
+
+  let remaining = 10 * 60;
+  const tick = setInterval(() => {
+    remaining--;
+    const m = String(Math.floor(remaining / 60)).padStart(2, '0');
+    const s = String(remaining % 60).padStart(2, '0');
+    document.getElementById('countdownTimer').textContent = `${m}:${s}`;
+    if (remaining <= 0) {
+      clearInterval(tick);
+      document.getElementById('gameoverScreen').classList.remove('active');
+      HP = 100;
+      gameActive = true;
+      spawnMonsters();
+      updateUI();
+      gameLoop();
+    }
+  }, 1000);
+}
+
+// ============================================================
 // UI 업데이트
-function updateUI(){
-  document.getElementById("hpFill").style.width=HP+"%";
-  document.getElementById("xpFill").style.width=(XP/(level*100))*100+"%";
-  document.getElementById("level").innerText=level;
+// ============================================================
+function updateUI() {
+  document.getElementById('hpBar').style.width = HP + '%';
+  document.getElementById('hpText').textContent = HP;
+  const xpPct = Math.min(100, (XP / (level * 100)) * 100);
+  document.getElementById('xpBar').style.width = xpPct + '%';
+  document.getElementById('xpText').textContent = XP;
+  document.getElementById('levelText').textContent = level;
+  document.getElementById('goldText').textContent = gold;
+}
+
+function showXpPopup(text, color, offsetX = 0) {
+  const el = document.createElement('div');
+  el.className = 'xp-popup';
+  el.textContent = text;
+  el.style.color = color;
+  el.style.left = (px - 30 + offsetX) + 'px';
+  el.style.top  = (py - 40) + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+
+// ============================================================
+// 서버 저장
+// ============================================================
+async function saveProgress(extra = {}) {
+  if (!currentUser || APPS_SCRIPT_URL.includes('여기에')) return;
+  const payload = {
+    action: 'saveProgress',
+    id: currentUser.id,
+    hp: HP, xp: XP, gold, level, charType,
+    ...extra
+  };
+  try {
+    await fetch(APPS_SCRIPT_URL + '?' + new URLSearchParams(payload));
+  } catch(e) {}
+}
+
+// ============================================================
+// 키보드 / 조이스틱
+// ============================================================
+function onKeyDown(e) {
+  if (e.key === 'ArrowLeft'  || e.key === 'a') moveKeys.left  = true;
+  if (e.key === 'ArrowRight' || e.key === 'd') moveKeys.right = true;
+  if (e.key === 'ArrowUp'    || e.key === 'w') moveKeys.up    = true;
+  if (e.key === 'ArrowDown'  || e.key === 's') moveKeys.down  = true;
+}
+function onKeyUp(e) {
+  if (e.key === 'ArrowLeft'  || e.key === 'a') moveKeys.left  = false;
+  if (e.key === 'ArrowRight' || e.key === 'd') moveKeys.right = false;
+  if (e.key === 'ArrowUp'    || e.key === 'w') moveKeys.up    = false;
+  if (e.key === 'ArrowDown'  || e.key === 's') moveKeys.down  = false;
+}
+
+function joyBtn(dir, down) {
+  moveKeys[dir] = down;
+  document.getElementById('j' + dir.charAt(0).toUpperCase() + dir.slice(1)).classList.toggle('pressed', down);
+}
+function touchBtn(dir, down) {
+  moveKeys[dir] = down;
+  document.getElementById('j' + dir.charAt(0).toUpperCase() + dir.slice(1)).classList.toggle('pressed', down);
 }
 </script>
-
 </body>
 </html>
