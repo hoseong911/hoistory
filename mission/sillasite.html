@@ -20,16 +20,17 @@
         .section-title::before { content: ''; width: 4px; height: 18px; background: var(--naver-green); display: inline-block; border-radius: 2px; }
         .section-desc { font-size: 13px; color: #777; margin-bottom: 15px; line-height: 1.4; }
 
-        .user-info { display: flex; gap: 8px; margin-bottom: 15px; }
-        .user-info input { flex: 1; padding: 14px; border: 1px solid var(--border-gray); border-radius: 8px; font-size: 16px; outline: none; -webkit-appearance: none; }
+        /* ✅ FIX: min-width: 0 및 width: 100% 추가하여 모바일 오버플로우 방지 */
+        .user-info { display: flex; gap: 8px; margin-bottom: 15px; width: 100%; }
+        .user-info input { flex: 1; min-width: 0; width: 100%; padding: 14px; border: 1px solid var(--border-gray); border-radius: 8px; font-size: 16px; outline: none; -webkit-appearance: none; }
 
         .search-area { border: 2px solid var(--naver-green); border-radius: 30px; display: flex; align-items: center; padding: 5px 18px; background: white; margin-bottom: 15px; width: 100%; }
         .search-area span { color: var(--naver-green); font-weight: 900; font-size: 24px; margin-right: 12px; }
-        .search-area input { border: none; outline: none; width: 100%; height: 45px; font-size: 16px; font-weight: 500; }
+        .search-area input { border: none; outline: none; width: 100%; height: 45px; font-size: 16px; font-weight: 500; min-width: 0; } /* min-width 0 추가 */
 
         .input-group { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
         .input-group label { width: 85px; font-size: 14px; font-weight: 700; color: #555; flex-shrink: 0; }
-        .input-group input { flex: 1; padding: 12px; border: 1px solid var(--border-gray); border-radius: 8px; font-size: 15px; outline: none; width: 100%; }
+        .input-group input { flex: 1; min-width: 0; padding: 12px; border: 1px solid var(--border-gray); border-radius: 8px; font-size: 15px; outline: none; width: 100%; }
         .input-group input:focus { border-color: var(--naver-green); }
 
         .ad-textarea { width: 100%; min-height: 140px; padding: 15px; border: 1px solid var(--border-gray); border-radius: 8px; font-family: inherit; font-size: 16px; resize: none; outline: none; line-height: 1.5; }
@@ -46,7 +47,6 @@
         .rank-word { font-weight: 600; font-size: 16px; color: #333; }
         .rank-count { font-size: 13px; color: #a1a1a1; font-weight: 500; }
 
-        /* ✅ FIX: 탭 data-category 기반으로 변경하기 위한 스타일 유지 */
         .tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 15px; padding-bottom: 8px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
         .tabs::-webkit-scrollbar { display: none; }
         .tab-btn { padding: 9px 18px; border-radius: 20px; border: 1px solid var(--border-gray); background: white; white-space: nowrap; font-size: 14px; cursor: pointer; }
@@ -61,9 +61,14 @@
         
         .loading-text { text-align: center; padding: 30px; color: var(--naver-green); font-weight: 700; }
 
-        /* ✅ 학번 입력 오류 표시 */
         input.input-error { border-color: #ff4444 !important; }
         .error-msg { font-size: 12px; color: #ff4444; margin-top: -8px; margin-bottom: 10px; padding-left: 4px; }
+
+        /* ✅ 모바일 기기(아주 작은 화면)에서 입력창 너비 최적화 */
+        @media (max-width: 480px) {
+            .user-info input { padding: 12px 10px; font-size: 15px; }
+            .input-group label { width: 75px; font-size: 13px; }
+        }
     </style>
 </head>
 <body>
@@ -75,7 +80,6 @@
 <div class="container">
     <div id="input-view">
         <div class="user-info">
-            <!-- ✅ FIX: number → text로 변경해 maxlength 적용, 5자리 검증 가능하게 -->
             <input type="text" id="user-id" placeholder="학번 (5자리)" maxlength="5" inputmode="numeric" pattern="[0-9]{5}">
             <input type="text" id="user-name" placeholder="이름">
         </div>
@@ -112,7 +116,6 @@
 
         <div class="box">
             <div class="section-title">분야별 실시간 뉴스</div>
-            <!-- ✅ FIX: innerText 비교 대신 data-category 속성 기반으로 탭 관리 -->
             <div class="tabs" id="tab-container">
                 <button class="tab-btn active" data-category="전체" onclick="filterNews('전체')">전체</button>
                 <button class="tab-btn" data-category="정치" onclick="filterNews('정치')">정치</button>
@@ -156,7 +159,6 @@
 
     let allNewsData = [];
 
-    // ✅ FIX: XSS 방어용 이스케이프 함수
     function escapeHtml(str) {
         if (typeof str !== 'string') return '';
         return str
@@ -174,7 +176,6 @@
         const keywords = document.getElementById('keywords').value;
         const adContent = document.getElementById('ad-banner').value.trim();
 
-        // ✅ FIX: 학번 5자리 숫자 검증
         if (!userId || !userName || !keywords || !adContent) {
             alert("모든 항목을 빠짐없이 작성해주세요!");
             return;
@@ -195,7 +196,6 @@
         btn.innerText = "발행 및 연결 중...";
         btn.disabled = true;
 
-        // ✅ FIX: 같은 학번으로 중복 제출 방지
         try {
             const existingQuery = query(collection(db, "silla_v3"), where("studentId", "==", userId));
             const existingSnap = await getDocs(existingQuery);
@@ -218,7 +218,6 @@
             }
         });
 
-        // ✅ FIX: 검색어 공백 정규화 — 저장 시 trim만 적용, 표시/집계 모두 동일한 값 사용
         const normalizedKeywords = rawArr.slice(0, 5).map(v => v.replace(/\s+/g, ' ').trim());
 
         try {
@@ -253,7 +252,6 @@
             snapshot.forEach(doc => {
                 const data = doc.data();
 
-                // ✅ FIX: 트렌드 집계 시 공백 제거 후 집계하되, 표시용 원본도 보존
                 data.keywords.forEach(word => {
                     const key = word.replace(/\s+/g, '');
                     if (!trendMap[key]) {
@@ -273,7 +271,6 @@
                 }
 
                 if (data.ad) {
-                    // ✅ FIX: XSS 방어 — escapeHtml 적용
                     adItems.push({
                         content: escapeHtml(data.ad),
                         studentId: escapeHtml(data.studentId),
@@ -302,7 +299,6 @@
 
         let html = "";
         sorted.forEach((item, i) => {
-            // ✅ FIX: XSS 방어 — escapeHtml 적용
             html += `<div class="rank-item">
                 <div class="rank-left">
                     <span class="rank-num">${i + 1}</span>
@@ -315,7 +311,6 @@
     }
 
     window.filterNews = function(category) {
-        // ✅ FIX: innerText 비교 대신 data-category 속성으로 정확히 비교
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.category === category);
         });
@@ -326,7 +321,6 @@
         let html = "";
         filtered.forEach(n => {
             const categoryLabel = category === '전체' ? ` | ${escapeHtml(n.category)}` : '';
-            // ✅ FIX: XSS 방어 — escapeHtml 적용
             html += `<div class="news-card">
                 <div class="news-title">${escapeHtml(n.title)}</div>
                 <div class="news-reporter">${escapeHtml(n.studentId)} ${escapeHtml(n.author)} 기자${categoryLabel}</div>
