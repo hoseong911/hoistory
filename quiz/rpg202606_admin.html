@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>역사 퀴즈 RPG — 관리자</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700;900&family=Noto+Sans+KR:wght@300;400;700&display=swap');
+:root{--gold:#f5c842;--dark:#1a1208;--red:#c0392b;--green:#27ae60;--ink:#2c1810;--paper:#f4e8c1;--blue:#2980b9;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans KR',sans-serif;background:#0f0f1a;color:#ddd;min-height:100vh;}
+
+/* LOGIN */
+#loginWrap{position:fixed;inset:0;display:flex;justify-content:center;align-items:center;background:#0f0f1a;z-index:100;}
+.login-box{background:linear-gradient(160deg,#1e1230,#0f0f1a);border:2px solid var(--gold);border-radius:14px;padding:36px;width:340px;text-align:center;}
+.login-box h1{font-family:'Noto Serif KR',serif;color:var(--gold);font-size:22px;margin-bottom:6px;}
+.login-box p{color:rgba(255,255,255,.4);font-size:12px;margin-bottom:24px;}
+.login-box input{width:100%;padding:10px 14px;background:rgba(0,0,0,.4);border:1px solid rgba(245,200,66,.3);border-radius:8px;color:#fff;font-size:16px;outline:none;margin-bottom:12px;font-family:'Noto Sans KR',sans-serif;}
+.login-box input:focus{border-color:var(--gold);}
+.btn-gold{width:100%;padding:12px;background:linear-gradient(135deg,#c8962a,#f5c842);border:none;border-radius:8px;color:var(--ink);font-family:'Noto Serif KR',serif;font-size:16px;font-weight:700;cursor:pointer;}
+.btn-gold:hover{opacity:.9;}
+.login-err{color:#e74c3c;font-size:13px;margin-top:10px;min-height:18px;}
+
+/* MAIN LAYOUT */
+#app{display:none;min-height:100vh;}
+.sidebar{position:fixed;left:0;top:0;bottom:0;width:220px;background:linear-gradient(180deg,#1a1030,#0f0f1a);border-right:1px solid rgba(245,200,66,.15);padding:20px 0;}
+.sidebar-logo{padding:0 20px 20px;border-bottom:1px solid rgba(245,200,66,.1);margin-bottom:10px;}
+.sidebar-logo h2{font-family:'Noto Serif KR',serif;color:var(--gold);font-size:16px;}
+.sidebar-logo p{color:rgba(255,255,255,.35);font-size:11px;margin-top:2px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;font-size:13px;color:rgba(255,255,255,.5);transition:all .2s;border-left:3px solid transparent;}
+.nav-item:hover{color:#fff;background:rgba(245,200,66,.05);}
+.nav-item.active{color:var(--gold);border-left-color:var(--gold);background:rgba(245,200,66,.07);}
+.nav-icon{font-size:16px;width:20px;text-align:center;}
+.content{margin-left:220px;padding:28px;min-height:100vh;}
+.page{display:none;}
+.page.active{display:block;}
+.page-title{font-family:'Noto Serif KR',serif;font-size:22px;font-weight:900;color:var(--gold);margin-bottom:6px;}
+.page-sub{color:rgba(255,255,255,.35);font-size:12px;margin-bottom:24px;}
+
+/* CARDS */
+.card{background:linear-gradient(160deg,#1e1535,#14102a);border:1px solid rgba(245,200,66,.18);border-radius:12px;padding:22px;margin-bottom:20px;}
+.card-title{font-size:14px;font-weight:700;color:var(--gold);letter-spacing:1px;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+.card-title span{font-size:18px;}
+
+/* FORM ELEMENTS */
+.form-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap;}
+.form-label{font-size:12px;color:rgba(255,255,255,.5);min-width:140px;}
+.form-input{padding:7px 12px;background:rgba(0,0,0,.4);border:1px solid rgba(245,200,66,.25);border-radius:7px;color:#fff;font-size:14px;outline:none;width:100px;font-family:'Noto Sans KR',sans-serif;}
+.form-input:focus{border-color:var(--gold);}
+.form-input.wide{width:200px;}
+.form-input.full{width:100%;}
+.form-hint{font-size:11px;color:rgba(255,255,255,.3);}
+
+/* XP TABLE */
+.xp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;}
+.xp-cell{background:rgba(0,0,0,.3);border:1px solid rgba(245,200,66,.12);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:8px;}
+.xp-cell-lv{font-size:11px;color:rgba(255,255,255,.4);min-width:40px;}
+.xp-cell-inp{flex:1;padding:5px 8px;background:rgba(0,0,0,.35);border:1px solid rgba(245,200,66,.2);border-radius:5px;color:#fff;font-size:13px;font-weight:700;outline:none;width:60px;}
+.xp-cell-inp:focus{border-color:var(--gold);}
+
+/* BUTTONS */
+.btn{padding:9px 20px;border:none;border-radius:7px;font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;}
+.btn-primary{background:linear-gradient(135deg,#c8962a,#f5c842);color:var(--ink);}
+.btn-primary:hover{opacity:.9;transform:translateY(-1px);}
+.btn-danger{background:rgba(192,57,43,.8);color:#fff;}
+.btn-danger:hover{background:rgba(192,57,43,1);}
+.btn-sec2{background:rgba(255,255,255,.08);color:#ddd;border:1px solid rgba(255,255,255,.15);}
+.btn-sec2:hover{background:rgba(255,255,255,.14);}
+.save-bar{display:flex;align-items:center;gap:12px;margin-top:18px;}
+.save-msg{font-size:12px;color:var(--green);min-height:18px;}
+
+/* STATS TABLE */
+.stats-table{width:100%;border-collapse:collapse;}
+.stats-table th{text-align:left;font-size:11px;color:rgba(255,255,255,.4);padding:6px 10px;border-bottom:1px solid rgba(245,200,66,.1);}
+.stats-table td{padding:8px 10px;font-size:13px;border-bottom:1px solid rgba(255,255,255,.05);}
+.stats-table tr:hover td{background:rgba(245,200,66,.04);}
+.badge-lv{background:rgba(245,200,66,.2);color:var(--gold);padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700;}
+.btn-tiny{padding:3px 10px;font-size:11px;border:none;border-radius:5px;cursor:pointer;font-family:'Noto Sans KR',sans-serif;}
+.btn-tiny-r{background:rgba(192,57,43,.7);color:#fff;}
+.btn-tiny-b{background:rgba(41,128,185,.7);color:#fff;}
+
+/* STATUS BADGES */
+.tag-online{color:#2ecc71;font-size:11px;}
+.tag-offline{color:rgba(255,255,255,.3);font-size:11px;}
+
+/* SUMMARY CARDS */
+.summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:22px;}
+.sum-card{background:linear-gradient(160deg,#1e1535,#14102a);border:1px solid rgba(245,200,66,.15);border-radius:11px;padding:16px;text-align:center;}
+.sum-val{font-size:28px;font-weight:900;color:var(--gold);}
+.sum-lbl{font-size:11px;color:rgba(255,255,255,.4);margin-top:4px;}
+
+/* TOAST */
+#toast{position:fixed;bottom:30px;right:30px;background:linear-gradient(135deg,#c8962a,#f5c842);color:var(--ink);padding:12px 22px;border-radius:10px;font-weight:700;font-size:14px;z-index:999;display:none;animation:toastIn .3s ease;}
+@keyframes toastIn{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginWrap">
+  <div class="login-box">
+    <h1>🛡️ 관리자 패널</h1>
+    <p>역사 퀴즈 RPG 관리 시스템</p>
+    <input type="password" id="adminPw" placeholder="관리자 비밀번호" onkeydown="if(event.key==='Enter')adminLogin()">
+    <button class="btn-gold" onclick="adminLogin()">로그인</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <h2>⚔️ RPG 관리자</h2>
+      <p>역사 퀴즈 RPG v5</p>
+    </div>
+    <div class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard"><span class="nav-icon">📊</span>대시보드</div>
+    <div class="nav-item" onclick="showPage('game-config')" id="nav-game-config"><span class="nav-icon">⚙️</span>게임 설정</div>
+    <div class="nav-item" onclick="showPage('shop-config')" id="nav-shop-config"><span class="nav-icon">🏪</span>상점 설정</div>
+    <div class="nav-item" onclick="showPage('students')" id="nav-students"><span class="nav-icon">👥</span>학생 관리</div>
+    <div class="nav-item" onclick="showPage('questions')" id="nav-questions"><span class="nav-icon">📝</span>문제 관리</div>
+  </div>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-title">📊 대시보드</div>
+      <div class="page-sub">전체 현황을 확인하세요.</div>
+      <div class="summary-grid">
+        <div class="sum-card"><div class="sum-val" id="stat-total">-</div><div class="sum-lbl">총 학생 수</div></div>
+        <div class="sum-card"><div class="sum-val" id="stat-maxlv">-</div><div class="sum-lbl">최고 레벨</div></div>
+        <div class="sum-card"><div class="sum-val" id="stat-maxgold">-</div><div class="sum-lbl">최다 골드</div></div>
+        <div class="sum-card"><div class="sum-val" id="stat-qs">-</div><div class="sum-lbl">총 문제 수</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>🏆</span> 레벨 순위 TOP 10</div>
+        <table class="stats-table" id="rankTable">
+          <thead><tr><th>순위</th><th>학번</th><th>이름</th><th>레벨</th><th>경험치</th><th>골드</th></tr></thead>
+          <tbody id="rankBody"><tr><td colspan="6" style="text-align:center;color:rgba(255,255,255,.3);padding:20px;">GAS URL을 설정하면 데이터가 표시됩니다.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- GAME CONFIG -->
+    <div class="page" id="page-game-config">
+      <div class="page-title">⚙️ 게임 설정</div>
+      <div class="page-sub">경험치 테이블, 데미지 등 핵심 수치를 조정합니다. 저장하면 즉시 게임에 반영됩니다.</div>
+
+      <div class="card">
+        <div class="card-title"><span>⚡</span> 레벨업 필요 경험치 (무사 기준)</div>
+        <p style="font-size:12px;color:rgba(255,255,255,.35);margin-bottom:14px;">학자는 ×0.5배, 문벌귀족은 ×1.5배로 획득합니다. 레벨 숫자 → 다음 레벨에 필요한 누적 경험치.</p>
+        <div class="xp-grid" id="xpGrid"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>💥</span> 오답 시 데미지 설정</div>
+        <div class="form-row"><span class="form-label">들개 (쉬움)</span><input class="form-input" id="dmg-easy" type="number" min="1" max="99"><span class="form-hint">HP</span></div>
+        <div class="form-row"><span class="form-label">나무요괴 (보통)</span><input class="form-input" id="dmg-med" type="number" min="1" max="99"><span class="form-hint">HP</span></div>
+        <div class="form-row"><span class="form-label">도깨비 (어려움)</span><input class="form-input" id="dmg-hard" type="number" min="1" max="99"><span class="form-hint">HP</span></div>
+        <div class="form-row"><span class="form-label">해태 (최강)</span><input class="form-input" id="dmg-boss" type="number" min="1" max="99"><span class="form-hint">HP</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>🔑</span> GAS 연동</div>
+        <div class="form-row"><span class="form-label">GAS 웹앱 URL</span><input class="form-input wide" id="gasUrl" placeholder="https://script.google.com/..."></div>
+        <p style="font-size:11px;color:rgba(255,255,255,.3);">GAS URL을 저장하면 게임과 관리자 패널 모두에서 사용됩니다.</p>
+      </div>
+
+      <div class="save-bar">
+        <button class="btn btn-primary" onclick="saveGameConfig()">💾 저장 & 게임에 반영</button>
+        <button class="btn btn-sec2" onclick="resetGameConfig()">↺ 기본값으로</button>
+        <span class="save-msg" id="gcMsg"></span>
+      </div>
+    </div>
+
+    <!-- SHOP CONFIG -->
+    <div class="page" id="page-shop-config">
+      <div class="page-title">🏪 상점 설정</div>
+      <div class="page-sub">아이템 가격과 즉시 부활 비용을 설정합니다.</div>
+
+      <div class="card">
+        <div class="card-title"><span>💰</span> 힌트 구매</div>
+        <div class="form-row">
+          <span class="form-label">힌트 사용 비용</span>
+          <input class="form-input" id="hintCost" type="number" min="1" max="999">
+          <span class="form-hint">🪙 골드</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>💊</span> 즉시 부활</div>
+        <div class="form-row">
+          <span class="form-label">즉시 부활 비용</span>
+          <input class="form-input" id="reviveCost" type="number" min="1" max="999">
+          <span class="form-hint">🪙 골드</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>⚡</span> 경험치 2배 부스터</div>
+        <div class="form-row">
+          <span class="form-label">구매 가격</span>
+          <input class="form-input" id="boostPrice" type="number" min="1" max="999">
+          <span class="form-hint">🪙 골드</span>
+        </div>
+        <div class="form-row">
+          <span class="form-label">지속 시간</span>
+          <input class="form-input" id="boostDur" type="number" min="1" max="60">
+          <span class="form-hint">분</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>🧪</span> HP 회복 약</div>
+        <div class="form-row">
+          <span class="form-label">구매 가격</span>
+          <input class="form-input" id="hp50Price" type="number" min="1" max="999">
+          <span class="form-hint">🪙 골드</span>
+        </div>
+        <div class="form-row">
+          <span class="form-label">회복량</span>
+          <input class="form-input" id="hp50Amt" type="number" min="1" max="100">
+          <span class="form-hint">HP</span>
+        </div>
+      </div>
+
+      <div class="save-bar">
+        <button class="btn btn-primary" onclick="saveShopConfig()">💾 저장 & 게임에 반영</button>
+        <span class="save-msg" id="scMsg"></span>
+      </div>
+    </div>
+
+    <!-- STUDENTS -->
+    <div class="page" id="page-students">
+      <div class="page-title">👥 학생 관리</div>
+      <div class="page-sub">GAS 연결 시 실시간 학생 데이터를 확인하고 관리할 수 있습니다.</div>
+
+      <div class="card" style="margin-bottom:12px;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <input id="searchInput" class="form-input wide" placeholder="학번 또는 이름 검색" oninput="filterStudents()">
+          <button class="btn btn-primary" onclick="loadStudents()">🔄 새로고침</button>
+          <button class="btn btn-sec2" onclick="exportCSV()">📥 CSV 내보내기</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>👥</span> 학생 목록</div>
+        <table class="stats-table" id="studentTable">
+          <thead><tr><th>학번</th><th>이름</th><th>레벨</th><th>XP</th><th>골드</th><th>HP</th><th>캐릭터</th><th>관리</th></tr></thead>
+          <tbody id="studentBody"><tr><td colspan="8" style="text-align:center;color:rgba(255,255,255,.3);padding:20px;">GAS URL을 설정하고 새로고침 하세요.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- QUESTIONS -->
+    <div class="page" id="page-questions">
+      <div class="page-title">📝 문제 관리</div>
+      <div class="page-sub">Google Sheets에서 직접 편집하거나, 아래에서 미리보기 할 수 있습니다.</div>
+
+      <div class="card">
+        <div class="card-title"><span>🔗</span> Google Sheets 바로가기</div>
+        <p style="font-size:13px;color:rgba(255,255,255,.5);margin-bottom:14px;">문제는 [문제] 시트에 <b style="color:var(--gold)">난이도 | 문제 | 정답 | 힌트</b> 형식으로 입력하세요.<br>난이도: <b style="color:#2ecc71">easy</b> / <b style="color:var(--gold)">med</b> / <b style="color:#e74c3c">hard</b> / <b style="color:#a855f7">boss</b></p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="openSheets()">📊 Google Sheets 열기</button>
+          <button class="btn btn-sec2" onclick="loadQuestions()">🔄 문제 불러오기</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span>📋</span> 문제 현황</div>
+        <div id="qStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+          <div class="sum-card"><div class="sum-val" id="qc-easy">-</div><div class="sum-lbl" style="color:#2ecc71">쉬움</div></div>
+          <div class="sum-card"><div class="sum-val" id="qc-med">-</div><div class="sum-lbl" style="color:var(--gold)">보통</div></div>
+          <div class="sum-card"><div class="sum-val" id="qc-hard">-</div><div class="sum-lbl" style="color:#e74c3c">어려움</div></div>
+          <div class="sum-card"><div class="sum-val" id="qc-boss">-</div><div class="sum-lbl" style="color:#a855f7">최강</div></div>
+        </div>
+        <div id="qList" style="max-height:400px;overflow-y:auto;"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast">저장되었습니다!</div>
+
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const ADMIN_PASSWORD = "admin1234";  // ← 변경하세요!
+
+let GAS_URL = localStorage.getItem('admin_gas_url') || "";
+
+// Default config
+const DEFAULT_CFG = {
+  xpTable:[10,16,24,34,46,60,76,94,114,136,160,188,218,250,284],
+  shop:{
+    boost:{name:'경험치 2배',desc:'5분간 경험치 2배',icon:'⚡',price:30},
+    hp50: {name:'HP 회복 약',desc:'HP를 50 즉시 회복',icon:'🧪',price:10}
+  },
+  hintCost:5,
+  reviveCost:50,
+  damage:{easy:8,med:12,hard:18,boss:25},
+  boostDur:5,
+  hp50Amt:50
+};
+
+let currentCfg = loadCfg();
+let allStudents = [];
+
+function loadCfg(){
+  try{
+    const s=localStorage.getItem('rpg_cfg');
+    if(s)return Object.assign({},DEFAULT_CFG,JSON.parse(s));
+  }catch(e){}
+  return {...DEFAULT_CFG};
+}
+
+function saveCfg(cfg){
+  localStorage.setItem('rpg_cfg', JSON.stringify(cfg));
+  currentCfg = cfg;
+  // Also save GAS URL separately
+  if(cfg.gasUrl) localStorage.setItem('admin_gas_url', cfg.gasUrl);
+}
+
+// ============================================================
+// ADMIN LOGIN
+// ============================================================
+function adminLogin(){
+  const pw = document.getElementById('adminPw').value;
+  if(pw === ADMIN_PASSWORD){
+    document.getElementById('loginWrap').style.display='none';
+    document.getElementById('app').style.display='block';
+    initAdmin();
+  }else{
+    document.getElementById('loginErr').textContent='비밀번호가 틀렸습니다.';
+  }
+}
+document.getElementById('adminPw').addEventListener('keydown',e=>{if(e.key==='Enter')adminLogin();});
+
+function initAdmin(){
+  populateGameConfigForm();
+  populateShopConfigForm();
+  loadStudents();
+  loadDashboard();
+}
+
+// ============================================================
+// NAV
+// ============================================================
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  document.getElementById('nav-'+id).classList.add('active');
+}
+
+// ============================================================
+// GAME CONFIG FORM
+// ============================================================
+function populateGameConfigForm(){
+  // XP Table
+  const grid = document.getElementById('xpGrid');
+  grid.innerHTML='';
+  currentCfg.xpTable.forEach((v,i)=>{
+    const cell=document.createElement('div');
+    cell.className='xp-cell';
+    cell.innerHTML=`<span class="xp-cell-lv">Lv${i+1}→${i+2}</span><input class="xp-cell-inp" id="xp-${i}" type="number" min="1" max="9999" value="${v}">`;
+    grid.appendChild(cell);
+  });
+  // Damage
+  document.getElementById('dmg-easy').value = currentCfg.damage?.easy ?? 8;
+  document.getElementById('dmg-med').value  = currentCfg.damage?.med  ?? 12;
+  document.getElementById('dmg-hard').value = currentCfg.damage?.hard ?? 18;
+  document.getElementById('dmg-boss').value = currentCfg.damage?.boss ?? 25;
+  // GAS URL
+  document.getElementById('gasUrl').value = GAS_URL;
+}
+
+function populateShopConfigForm(){
+  document.getElementById('hintCost').value   = currentCfg.hintCost   ?? 5;
+  document.getElementById('reviveCost').value = currentCfg.reviveCost ?? 50;
+  document.getElementById('boostPrice').value = currentCfg.shop?.boost?.price ?? 30;
+  document.getElementById('boostDur').value   = currentCfg.boostDur   ?? 5;
+  document.getElementById('hp50Price').value  = currentCfg.shop?.hp50?.price  ?? 10;
+  document.getElementById('hp50Amt').value    = currentCfg.hp50Amt    ?? 50;
+}
+
+function saveGameConfig(){
+  const newCfg = {...currentCfg};
+  // XP table
+  newCfg.xpTable = Array.from({length:20},(_,i)=>{
+    const el=document.getElementById('xp-'+i);
+    return el ? parseInt(el.value)||XP_DEFAULT(i) : (currentCfg.xpTable[i]||100);
+  });
+  // Damage
+  newCfg.damage = {
+    easy: parseInt(document.getElementById('dmg-easy').value)||8,
+    med:  parseInt(document.getElementById('dmg-med').value)||12,
+    hard: parseInt(document.getElementById('dmg-hard').value)||18,
+    boss: parseInt(document.getElementById('dmg-boss').value)||25,
+  };
+  // GAS URL
+  const gasVal = document.getElementById('gasUrl').value.trim();
+  if(gasVal){ GAS_URL=gasVal; localStorage.setItem('admin_gas_url',gasVal); }
+  saveCfg(newCfg);
+  showMsg('gcMsg','✅ 저장 완료! 게임 재시작 시 반영됩니다.');
+  showToast('게임 설정이 저장되었습니다!');
+  // Push to GAS if connected
+  pushCfgToGAS(newCfg);
+}
+
+function resetGameConfig(){
+  if(!confirm('기본값으로 초기화할까요?'))return;
+  saveCfg({...DEFAULT_CFG});
+  populateGameConfigForm();
+  showToast('기본값으로 초기화되었습니다.');
+}
+
+function saveShopConfig(){
+  const newCfg = {...currentCfg};
+  newCfg.hintCost   = parseInt(document.getElementById('hintCost').value)||5;
+  newCfg.reviveCost = parseInt(document.getElementById('reviveCost').value)||50;
+  newCfg.boostDur   = parseInt(document.getElementById('boostDur').value)||5;
+  newCfg.hp50Amt    = parseInt(document.getElementById('hp50Amt').value)||50;
+  newCfg.shop = {
+    boost:{...newCfg.shop.boost, price:parseInt(document.getElementById('boostPrice').value)||30,
+           desc:`${newCfg.boostDur}분간 경험치 2배`},
+    hp50: {...newCfg.shop.hp50,  price:parseInt(document.getElementById('hp50Price').value)||10,
+           desc:`HP를 ${newCfg.hp50Amt} 즉시 회복`},
+  };
+  saveCfg(newCfg);
+  showMsg('scMsg','✅ 저장 완료!');
+  showToast('상점 설정이 저장되었습니다!');
+  pushCfgToGAS(newCfg);
+}
+
+function XP_DEFAULT(i){return [10,16,24,34,46,60,76,94,114,136,160,188,218,250,284][i]||200;}
+
+async function pushCfgToGAS(cfg){
+  if(!GAS_URL||GAS_URL.includes('여기에'))return;
+  try{
+    await fetch(`${GAS_URL}?action=saveConfig&cfg=${encodeURIComponent(JSON.stringify(cfg))}`);
+  }catch(e){}
+}
+
+// ============================================================
+// STUDENTS
+// ============================================================
+async function loadStudents(){
+  if(!GAS_URL||GAS_URL.includes('여기에')){
+    document.getElementById('studentBody').innerHTML='<tr><td colspan="8" style="text-align:center;color:rgba(255,255,255,.3);padding:20px;">GAS URL을 설정하세요.</td></tr>';
+    return;
+  }
+  try{
+    document.getElementById('studentBody').innerHTML='<tr><td colspan="8" style="text-align:center;color:rgba(255,255,255,.3);padding:12px;">불러오는 중...</td></tr>';
+    const r=await fetch(`${GAS_URL}?action=getUsers`);
+    const d=await r.json();
+    if(d.users){allStudents=d.users;renderStudents(allStudents);}
+  }catch(e){
+    document.getElementById('studentBody').innerHTML='<tr><td colspan="8" style="text-align:center;color:#e74c3c;padding:12px;">연결 실패. GAS URL을 확인하세요.</td></tr>';
+  }
+}
+
+function renderStudents(students){
+  const charNames={warrior:'무인',scholar:'신진사대부',royal:'문벌귀족'};
+  const body=document.getElementById('studentBody');
+  if(!students||!students.length){
+    body.innerHTML='<tr><td colspan="8" style="text-align:center;color:rgba(255,255,255,.3);padding:20px;">학생 데이터가 없습니다.</td></tr>';
+    return;
+  }
+  body.innerHTML=students.map((s,i)=>`
+    <tr>
+      <td style="color:rgba(255,255,255,.6)">${s[0]}</td>
+      <td style="font-weight:700">${s[1]}</td>
+      <td><span class="badge-lv">Lv ${s[6]||1}</span></td>
+      <td>${s[4]||0}</td>
+      <td style="color:var(--gold)">🪙${s[5]||0}</td>
+      <td style="color:${(s[3]||100)<30?'#e74c3c':'#2ecc71'}">❤️${s[3]||100}</td>
+      <td style="font-size:12px;color:rgba(255,255,255,.5)">${charNames[s[7]]||'무인'}</td>
+      <td><button class="btn-tiny btn-tiny-b" onclick="resetStudent('${s[0]}','${s[1]}')">초기화</button></td>
+    </tr>
+  `).join('');
+  // Update dashboard stats
+  document.getElementById('stat-total').textContent=students.length;
+  document.getElementById('stat-maxlv').textContent=Math.max(...students.map(s=>+s[6]||1));
+  document.getElementById('stat-maxgold').textContent=Math.max(...students.map(s=>+s[5]||0));
+  // Rank table
+  const sorted=[...students].sort((a,b)=>(+b[6]||1)-(+a[6]||1)||(+b[4]||0)-(+a[4]||0));
+  document.getElementById('rankBody').innerHTML=sorted.slice(0,10).map((s,i)=>`
+    <tr>
+      <td style="color:${i<3?'var(--gold)':'rgba(255,255,255,.5)'};font-weight:700">${['🥇','🥈','🥉'][i]||i+1}</td>
+      <td style="color:rgba(255,255,255,.5);font-size:12px">${s[0]}</td>
+      <td style="font-weight:700">${s[1]}</td>
+      <td><span class="badge-lv">Lv ${s[6]||1}</span></td>
+      <td>${s[4]||0}</td>
+      <td style="color:var(--gold)">🪙${s[5]||0}</td>
+    </tr>
+  `).join('');
+}
+
+function filterStudents(){
+  const q=document.getElementById('searchInput').value.toLowerCase();
+  renderStudents(allStudents.filter(s=>(s[0]+'').includes(q)||(s[1]+'').toLowerCase().includes(q)));
+}
+
+async function resetStudent(id,name){
+  if(!confirm(`${name}(${id}) 학생의 데이터를 초기화할까요?\nHP=100, XP=0, 골드=0, 레벨=1로 리셋됩니다.`))return;
+  try{
+    await fetch(`${GAS_URL}?action=save&id=${id}&name=${name}&hp=100&xp=0&gold=0&level=1&charType=warrior`);
+    showToast(`${name} 초기화 완료!`);
+    loadStudents();
+  }catch(e){alert('오류가 발생했습니다.');}
+}
+
+function exportCSV(){
+  if(!allStudents.length){alert('데이터가 없습니다.');return;}
+  const header='학번,이름,레벨,경험치,골드,HP,캐릭터\n';
+  const rows=allStudents.map(s=>[s[0],s[1],s[6]||1,s[4]||0,s[5]||0,s[3]||100,s[7]||'warrior'].join(',')).join('\n');
+  const blob=new Blob(['\uFEFF'+header+rows],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='students.csv';a.click();
+}
+
+// ============================================================
+// QUESTIONS
+// ============================================================
+async function loadQuestions(){
+  if(!GAS_URL||GAS_URL.includes('여기에')){alert('GAS URL을 먼저 설정하세요.');return;}
+  try{
+    const r=await fetch(`${GAS_URL}?action=getQuestions`);
+    const d=await r.json();
+    ['easy','med','hard','boss'].forEach(diff=>{
+      document.getElementById('qc-'+diff).textContent=(d[diff]||[]).length;
+    });
+    const total=(d.easy||[]).length+(d.med||[]).length+(d.hard||[]).length+(d.boss||[]).length;
+    document.getElementById('stat-qs').textContent=total;
+    const colors={easy:'#2ecc71',med:'var(--gold)',hard:'#e74c3c',boss:'#a855f7'};
+    const labels={easy:'쉬움',med:'보통',hard:'어려움',boss:'최강'};
+    const list=document.getElementById('qList');
+    list.innerHTML=['easy','med','hard','boss'].map(diff=>`
+      <div style="margin-bottom:14px;">
+        <div style="font-size:12px;font-weight:700;color:${colors[diff]};margin-bottom:6px;">${labels[diff]}</div>
+        ${(d[diff]||[]).map((q,i)=>`
+          <div style="background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.07);border-radius:7px;padding:9px 12px;margin-bottom:6px;">
+            <div style="font-size:13px;margin-bottom:4px;">${i+1}. ${q.q||q.question||''}</div>
+            <div style="font-size:11px;color:var(--gold);">정답: ${q.a||q.answer||''}</div>
+            ${(q.h||q.hint)?`<div style="font-size:11px;color:rgba(255,255,255,.35);">힌트: ${q.h||q.hint}</div>`:''}
+          </div>`).join('')}
+      </div>
+    `).join('');
+  }catch(e){alert('문제를 불러오지 못했습니다.');}
+}
+
+function openSheets(){
+  const sheetUrl=localStorage.getItem('admin_sheet_url');
+  if(sheetUrl){window.open(sheetUrl,'_blank');return;}
+  const url=prompt('Google Sheets URL을 입력하세요:');
+  if(url){localStorage.setItem('admin_sheet_url',url);window.open(url,'_blank');}
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+async function loadDashboard(){
+  if(!GAS_URL||GAS_URL.includes('여기에'))return;
+  await loadStudents();
+  await loadQuestions();
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function showMsg(id,msg,dur=3000){
+  const el=document.getElementById(id);el.textContent=msg;
+  setTimeout(()=>{el.textContent='';},dur);
+}
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';
+  setTimeout(()=>{t.style.display='none';},2500);
+}
+</script>
+</body>
+</html>
