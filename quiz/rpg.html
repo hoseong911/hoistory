@@ -7,10 +7,12 @@
 body{background:#0f1720;color:white;text-align:center;font-family:sans-serif}
 button,input{padding:10px;margin:5px}
 .bar{height:10px;background:red}
-#ranking{position:fixed;right:10px;top:10px;background:#111;padding:10px}
+#ranking{position:fixed;right:10px;top:10px;background:#111;padding:10px;border-radius:10px;width:200px}
 </style>
 </head>
 <body>
+
+<button onclick="toggleMode()" id="modeBtn">🧪 테스트 모드</button>
 
 <div id="login">
 <h2>⚔ 고려 RPG</h2>
@@ -32,12 +34,32 @@ button,input{padding:10px;margin:5px}
 <button onclick="submitShort()" id="submit" style="display:none">제출</button>
 </div>
 
-<div id="ranking"><h4>🏆 랭킹</h4><div id="rankList"></div></div>
+<div id="ranking">
+<h4>🏆 랭킹</h4>
+<div id="rankList"></div>
+</div>
 
 <script>
-const API_URL = "여기에_웹앱_URL";
+// ================= 설정 =================
+const API_URL = "여기에_GAS_URL"; // 서버 쓸 때만 넣기
+let TEST_MODE = true;
 
-let user, enemyIndex=0, enemyHP=0;
+// ================= 테스트 데이터 =================
+const mockOX = [
+  {q:"고려 건국자는 왕건이다", c:0},
+  {q:"광종은 노비안검법을 시행했다", c:0},
+  {q:"고려 수도는 한양이다", c:1}
+];
+
+const mockShort = [
+  {q:"고려의 수도는?", c:"개경"},
+  {q:"고려 건국자는?", c:"왕건"},
+  {q:"거란과 외교한 인물은?", c:"서희"}
+];
+
+// ================= 게임 데이터 =================
+let user;
+let enemyIndex=0, enemyHP=0;
 
 const enemies=[
 {name:"들개",type:"ox",hp:50,exp:10},
@@ -50,89 +72,182 @@ const enemies=[
 
 let currentQ=null;
 
+// ================= 모드 전환 =================
+function toggleMode(){
+  TEST_MODE = !TEST_MODE;
+  modeBtn.innerText = TEST_MODE ? "🧪 테스트 모드" : "🌐 서버 모드";
+  alert(TEST_MODE ? "테스트 모드" : "서버 모드");
+}
+
+// ================= 로그인 =================
 async function login(){
-  user = {name:"테스트", lv:1, exp:0, gold:50, hp:100};
-  login.style.display='none';
+
+  if(TEST_MODE){
+    user = {name:name.value||"테스트유저", lv:1, exp:0, gold:50, hp:100};
+  }else{
+    let res = await fetch(API_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        type:'login',
+        id:id.value,
+        name:name.value,
+        pw:pw.value
+      })
+    });
+    user = await res.json();
+  }
+
+  loginDiv.style.display='none';
   game.style.display='block';
   welcome.innerText=user.name+" 전투 시작";
+
   init();
+
+  if(!TEST_MODE) setInterval(loadRanking,3000);
 }
-  
+
+// ================= 초기화 =================
 function init(){
-enemyHP=enemies[0].hp;
-update();
-loadQ();
+  enemyHP=enemies[0].hp;
+  update();
+  loadQ();
+  loadRanking();
 }
 
-async function loadQ(){
-let e=enemies[enemyIndex];
-let res=await fetch(API_URL+"?type=question&qtype="+e.type);
-currentQ=await res.json();
-renderQ();
+// ================= 문제 로드 =================
+function loadQ(){
+  let e = enemies[enemyIndex];
+
+  if(TEST_MODE){
+    if(e.type==="ox"){
+      currentQ = mockOX[Math.floor(Math.random()*mockOX.length)];
+    }else{
+      currentQ = mockShort[Math.floor(Math.random()*mockShort.length)];
+    }
+    renderQ();
+  }else{
+    fetch(API_URL+"?type=question&qtype="+e.type)
+    .then(res=>res.json())
+    .then(data=>{
+      currentQ=data;
+      renderQ();
+    });
+  }
 }
 
+// ================= 문제 표시 =================
 function renderQ(){
-enemyName.innerText=enemies[enemyIndex].name;
-question.innerText=currentQ.q;
-answers.innerHTML="";
-if(enemies[enemyIndex].type==='ox'){
-['O','X'].forEach((v,i)=>{
-let b=document.createElement('button');
-b.innerText=v;
-b.onclick=()=>process(i===currentQ.c);
-answers.appendChild(b);
-});
-short.style.display='none';
-submit.style.display='none';
-}else{
-short.style.display='inline';
-submit.style.display='inline';
-}
+  enemyName.innerText=enemies[enemyIndex].name;
+  question.innerText=currentQ.q;
+  answers.innerHTML="";
+
+  if(enemies[enemyIndex].type==="ox"){
+    ["O","X"].forEach((v,i)=>{
+      let b=document.createElement("button");
+      b.innerText=v;
+      b.onclick=()=>process(i===currentQ.c);
+      answers.appendChild(b);
+    });
+    short.style.display="none";
+    submit.style.display="none";
+  }else{
+    short.style.display="inline";
+    submit.style.display="inline";
+  }
 }
 
+// ================= 답 처리 =================
 function submitShort(){
-process(short.value.trim()===currentQ.c);
-short.value="";
+  process(short.value.trim()===currentQ.c);
+  short.value="";
 }
 
 async function process(correct){
-let e=enemies[enemyIndex];
-if(correct){user.exp+=e.exp;user.gold+=5;enemyHP-=20;}
-else{user.hp-=20;}
+  let e=enemies[enemyIndex];
 
-if(user.exp>=100){user.lv++;user.exp=0;}
-if(enemyHP<=0){enemyIndex=(enemyIndex+1)%enemies.length;enemyHP=enemies[enemyIndex].hp;}
+  if(correct){
+    user.exp+=e.exp;
+    user.gold+=5;
+    enemyHP-=20;
+  }else{
+    user.hp-=20;
+  }
 
-update();
-await save();
-loadQ();
+  if(user.exp>=100){
+    user.lv++;
+    user.exp=0;
+  }
+
+  if(enemyHP<=0){
+    enemyIndex=(enemyIndex+1)%enemies.length;
+    enemyHP=enemies[enemyIndex].hp;
+  }
+
+  update();
+  await save();
+  loadQ();
 }
 
+// ================= 저장 =================
 async function save(){
-await fetch(API_URL,{
-method:'POST',
-headers:{'Content-Type':'application/json'},
-body:JSON.stringify({type:'save',user})
-});
+  if(TEST_MODE) return;
+
+  await fetch(API_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({type:'save',user})
+  });
 }
 
+// ================= UI 업데이트 =================
 function update(){
-lv.innerText=user.lv;
-exp.innerText=user.exp;
-gold.innerText=user.gold;
-hp.style.width=user.hp+"%";
+  lv.innerText=user.lv;
+  exp.innerText=user.exp;
+  gold.innerText=user.gold;
+  hp.style.width=user.hp+"%";
 }
 
+// ================= 랭킹 =================
 async function loadRanking(){
-let res=await fetch(API_URL+"?type=ranking");
-let data=await res.json();
-rankList.innerHTML="";
-data.forEach((u,i)=>{
-let d=document.createElement('div');
-d.innerText=(i+1)+"위 "+u.name+" Lv"+u.lv+"("+u.exp+")";
-rankList.appendChild(d);
-});
+
+  if(TEST_MODE){
+    rankList.innerHTML=`
+    1위 철수 Lv5 (80)<br>
+    2위 영희 Lv4 (60)<br>
+    3위 민수 Lv3 (40)
+    `;
+    return;
+  }
+
+  let res=await fetch(API_URL+"?type=ranking");
+  let data=await res.json();
+
+  rankList.innerHTML="";
+  data.forEach((u,i)=>{
+    rankList.innerHTML+=(i+1)+"위 "+u.name+" Lv"+u.lv+"("+u.exp+")<br>";
+  });
 }
+
+// ================= DOM =================
+let loginDiv=document.getElementById("login");
+let game=document.getElementById("game");
+let welcome=document.getElementById("welcome");
+let enemyName=document.getElementById("enemyName");
+let question=document.getElementById("question");
+let answers=document.getElementById("answers");
+let short=document.getElementById("short");
+let submit=document.getElementById("submit");
+let lv=document.getElementById("lv");
+let exp=document.getElementById("exp");
+let gold=document.getElementById("gold");
+let hp=document.getElementById("hp");
+let rankList=document.getElementById("rankList");
+let id=document.getElementById("id");
+let name=document.getElementById("name");
+let pw=document.getElementById("pw");
+let modeBtn=document.getElementById("modeBtn");
+
 </script>
 
 </body>
