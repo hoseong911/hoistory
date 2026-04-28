@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>고려 RPG (완전 서버 + 랭킹)</title>
+<style>
+body{margin:0;font-family:sans-serif;background:#0f1720;color:white;text-align:center}
+input,button{padding:10px;margin:5px}
+.bar{height:10px;background:red}
+#login,#game{display:none}
+#ranking{position:fixed;right:10px;top:10px;background:#111;padding:10px;border-radius:10px;width:200px}
+</style>
+</head>
+<body>
+
+<div id="login">
+<h2>⚔ 고려 RPG 로그인</h2>
+<input id="id" placeholder="학번">
+<input id="name" placeholder="이름">
+<input id="pw" placeholder="비밀번호" type="password">
+<br><button onclick="login()">시작</button>
+</div>
+
+<div id="game">
+<h3 id="welcome"></h3>
+<div>몬스터: <span id="enemyName"></span></div>
+<div>Lv.<span id="lv"></span> EXP:<span id="exp"></span> GOLD:<span id="gold"></span></div>
+<div>HP<div class="bar" id="hp"></div></div>
+
+<div id="question"></div>
+<div id="answers"></div>
+<input id="short" style="display:none">
+<button id="submit" onclick="submitShort()" style="display:none">제출</button>
+</div>
+
+<div id="ranking">
+<h4>🏆 랭킹</h4>
+<div id="rankList"></div>
+</div>
+
+<script>
+const API_URL="여기에_웹앱_URL";
+let user=null;
+let enemyIndex=0,enemyHP=0;
+
+const enemies=[
+{name:"들개",type:"ox",hp:50,exp:10},
+{name:"나무요괴",type:"ox",hp:70,exp:15},
+{name:"도깨비",type:"ox",hp:90,exp:20},
+{name:"거란군",type:"short",hp:110,exp:25},
+{name:"여진군",type:"short",hp:130,exp:30},
+{name:"몽골군",type:"short",hp:160,exp:40}
+];
+
+let currentQ=null;
+
+async function login(){
+let id=idEl.value,name=nameEl.value,pw=pwEl.value;
+let res=await fetch(API_URL,{method:'POST',body:JSON.stringify({type:'login',id,name,pw})});
+user=await res.json();
+loginDiv.style.display='none';
+startGame();
+}
+
+function startGame(){
+game.style.display='block';
+welcome.innerText=user.name+' 전투 시작';
+init();
+setInterval(loadRanking,3000);
+}
+
+async function loadQ(){
+let e=enemies[enemyIndex];
+let res=await fetch(API_URL+"?type=question&qtype="+e.type);
+currentQ=await res.json();
+renderQ();
+}
+
+function renderQ(){
+enemyName.innerText=enemies[enemyIndex].name;
+question.innerText=currentQ.q;
+answers.innerHTML="";
+if(enemies[enemyIndex].type==='ox'){
+['O','X'].forEach((v,i)=>{
+let b=document.createElement('button');b.innerText=v;b.onclick=()=>answer(i);answers.appendChild(b);
+});
+short.style.display='none';submit.style.display='none';
+}else{
+short.style.display='inline';submit.style.display='inline';
+}
+}
+
+function answer(i){process(i===currentQ.c);} 
+function submitShort(){process(short.value.trim()===currentQ.c);short.value="";}
+
+async function process(correct){
+let e=enemies[enemyIndex];
+if(correct){user.exp+=e.exp;user.gold+=5;enemyHP-=20;} else{user.hp-=20;}
+if(user.exp>=100){user.lv++;user.exp=0;}
+if(enemyHP<=0){enemyIndex=(enemyIndex+1)%enemies.length;enemyHP=enemies[enemyIndex].hp;}
+update();
+await save();
+loadQ();
+}
+
+async function save(){
+await fetch(API_URL,{method:'POST',body:JSON.stringify({type:'save',user})});
+}
+
+async function loadRanking(){
+let res=await fetch(API_URL+"?type=ranking");
+let data=await res.json();
+rankList.innerHTML="";
+data.forEach((u,i)=>{
+let d=document.createElement('div');
+d.innerText=(i+1)+"위 "+u.name+" Lv"+u.lv+" ("+u.exp+")";
+rankList.appendChild(d);
+});
+}
+
+function update(){
+lv.innerText=user.lv;exp.innerText=user.exp;gold.innerText=user.gold;hp.style.width=user.hp+'%';
+}
+
+function init(){enemyHP=enemies[0].hp;update();loadQ();}
+
+let idEl=document.getElementById('id');
+let nameEl=document.getElementById('name');
+let pwEl=document.getElementById('pw');
+let loginDiv=document.getElementById('login');
+let game=document.getElementById('game');
+let welcome=document.getElementById('welcome');
+let enemyName=document.getElementById('enemyName');
+let question=document.getElementById('question');
+let answers=document.getElementById('answers');
+let short=document.getElementById('short');
+let submit=document.getElementById('submit');
+let lv=document.getElementById('lv');
+let exp=document.getElementById('exp');
+let gold=document.getElementById('gold');
+let hp=document.getElementById('hp');
+let rankList=document.getElementById('rankList');
+
+loginDiv.style.display='block';
+</script>
+</body>
+</html>
+
+// ================= Apps Script 추가 =================
+
+function doGet(e){
+const type=e.parameter.type;
+const ss=SpreadsheetApp.openById('시트ID');
+
+if(type==='question'){
+const sheet=ss.getSheetByName(e.parameter.qtype);
+const data=sheet.getDataRange().getValues();
+const i=Math.floor(Math.random()*(data.length-1))+1;
+return json({q:data[i][0],c:data[i][1]});
+}
+
+if(type==='ranking'){
+const sheet=ss.getSheetByName('users');
+let rows=sheet.getDataRange().getValues().slice(1);
+rows.sort((a,b)=> b[2]-a[2] || b[3]-a[3]);
+return json(rows.map(r=>({name:r[1],lv:r[2],exp:r[3]})));
+}
+}
+
+// ================= 관리자 HTML (별도 파일) =================
+/*
+<!DOCTYPE html>
+<html>
+<body>
+<h2>관리자 대시보드</h2>
+<button onclick="load()">전체 조회</button>
+<div id="list"></div>
+<script>
+const API_URL='여기에_URL';
+async function load(){
+let res=await fetch(API_URL+'?type=ranking');
+let data=await res.json();
+list.innerHTML='';
+data.forEach(u=>{
+list.innerHTML+=u.name+' Lv'+u.lv+'<br>';
+});
+}
+</script>
+</body>
+</html>
+*/
