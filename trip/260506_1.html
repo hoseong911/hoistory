@@ -367,7 +367,6 @@ body{
 <div id="app">
 <div id="progress-bar"><div id="progress-fill"></div></div>
 
-<!-- ══ 로그인 ══ -->
 <div id="screen-login" class="screen active">
   <div class="login-hero">
     <span class="login-emblem">⚓</span>
@@ -392,7 +391,6 @@ body{
   </div>
 </div>
 
-<!-- ══ 메인 (3탭) ══ -->
 <div id="screen-main" class="screen">
   <div class="main-header">
     <div class="user-badge">
@@ -455,7 +453,6 @@ body{
   </div>
 </div>
 
-<!-- ══ 퀴즈 화면 ══ -->
 <div id="screen-quiz" class="screen">
   <div class="quiz-header">
     <button class="back-btn" onclick="goMain()">목록</button>
@@ -469,7 +466,6 @@ body{
   <div class="q-wrap" id="q-wrap"></div>
 </div>
 
-<!-- ══ 완료 ══ -->
 <div id="screen-done" class="screen">
   <div class="done-wrap">
     <div class="done-icon" id="done-icon">🎖️</div>
@@ -480,9 +476,7 @@ body{
   </div>
 </div>
 
-</div><!-- #app -->
-
-<script type="module">
+</div><script type="module">
 // ── Firebase 임포트 ──
 import { initializeApp }                              from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
 import { getDatabase, ref, set, onValue }             from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
@@ -584,15 +578,15 @@ let dndInitialized = false;
 let dragWord=null, dragChip=null, ghost=null, matchDragItem=null;
 const hintCounts = {};
 
+// ★★★ 이 부분이 수정된 getMission 함수입니다! ★★★
 function getMission(id){
   const b = DEFAULT_MISSIONS.find(m=>m.id===id);
   if(!b) return null;
   const edit = adminEdits[id] || {};
-  // 편집된 title/desc/answers만 덮어씌우기
   return {
     ...b,
     title: edit.title || b.title,
-    question: edit.desc ? b.question : b.question, // desc는 스토리용
+    question: edit.desc ? edit.desc : b.question, // 수정완료: edit.desc가 있으면 학생화면(question)에 반영
     answers: (edit.answers && edit.answers.length) ? edit.answers : b.answers,
   };
 }
@@ -974,11 +968,9 @@ function checkMatch(m,chkBtn,parent,pool){
   else{ showToast('매칭이 맞지 않아요. 다시 확인해보세요!'); tgts.forEach(t=>returnFromMatch(t,pool)); }
 }
 
-// ★ 핵심 수정: earnStamp에서 Firebase에도 기록
 function earnStamp(m){
   if(!state.stamps.includes(m.id)) state.stamps.push(m.id);
   saveState();
-  // Firebase에 완료 기록 (비동기, 실패해도 UX에 영향 없음)
   recordMissionToFirebase(m.id, m.title);
   const fb=document.getElementById('feedback-'+m.id); if(fb)fb.classList.add('show');
   const fbt=document.getElementById('fbtext-'+m.id); if(fbt&&m.explain)fbt.textContent=m.explain;
