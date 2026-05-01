@@ -264,21 +264,12 @@ body{
   box-shadow:0 3px 14px rgba(30,96,168,0.35);transition:transform .12s;}
 .submit-btn:active{transform:translateY(1px);}
 
-/* 힌트 */
-.hint-box{background:rgba(40,28,0,0.80);backdrop-filter:blur(10px);
-  border:1px solid rgba(200,100,0,0.25);border-left:3px solid var(--warn);
-  border-radius:11px;padding:11px 14px;margin-top:10px;display:none;}
-.hint-box.show{display:block;}
-.hint-label{font-size:11px;color:var(--warn);letter-spacing:.1em;margin-bottom:6px;text-transform:uppercase;}
-.hint-step{font-size:14px;color:#d4a830;line-height:1.8;display:none;margin-bottom:4px;font-style:italic;}
-.hint-step.on{display:block;}
-
 /* 피드백 */
 .feedback-ok{background:rgba(5,28,14,0.85);backdrop-filter:blur(10px);
   border:1px solid rgba(30,160,80,0.35);border-radius:12px;padding:13px 15px;margin-top:12px;display:none;}
 .feedback-ok.show{display:block;}
 .feedback-ok-title{font-size:14px;color:var(--success);font-weight:700;margin-bottom:5px;}
-.feedback-ok-text{font-size:13px;color:#60c890;line-height:1.75;}
+.feedback-ok-text{font-size:13px;color:#60c890;line-height:1.75;white-space:pre-line;}
 
 /* 소감 미니 */
 .mini-reflection{margin-top:14px;display:none;}
@@ -367,6 +358,7 @@ body{
 <div id="app">
 <div id="progress-bar"><div id="progress-fill"></div></div>
 
+<!-- ══ 로그인 ══ -->
 <div id="screen-login" class="screen active">
   <div class="login-hero">
     <span class="login-emblem">⚓</span>
@@ -391,6 +383,7 @@ body{
   </div>
 </div>
 
+<!-- ══ 메인 (3탭) ══ -->
 <div id="screen-main" class="screen">
   <div class="main-header">
     <div class="user-badge">
@@ -453,6 +446,7 @@ body{
   </div>
 </div>
 
+<!-- ══ 퀴즈 화면 ══ -->
 <div id="screen-quiz" class="screen">
   <div class="quiz-header">
     <button class="back-btn" onclick="goMain()">목록</button>
@@ -466,6 +460,7 @@ body{
   <div class="q-wrap" id="q-wrap"></div>
 </div>
 
+<!-- ══ 완료 ══ -->
 <div id="screen-done" class="screen">
   <div class="done-wrap">
     <div class="done-icon" id="done-icon">🎖️</div>
@@ -476,8 +471,9 @@ body{
   </div>
 </div>
 
-</div><script type="module">
-// ── Firebase 임포트 ──
+</div><!-- #app -->
+
+<script type="module">
 import { initializeApp }                              from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
 import { getDatabase, ref, set, onValue }             from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
 
@@ -493,45 +489,39 @@ const firebaseConfig = {
 const fbApp = initializeApp(firebaseConfig);
 const db    = getDatabase(fbApp);
 
-// ── Firebase에 미션 완료 기록 ──
 async function recordMissionToFirebase(missionId, missionTitle) {
   if (!state.sid || !state.sname) return;
   const key = `${state.sid}_${state.sname}`;
   try {
     await set(ref(db, `status1/${key}/${missionId}`), {
-      status: '완료',
-      missionTitle,
-      time: new Date().toISOString()
+      status: '완료', missionTitle, time: new Date().toISOString()
     });
-  } catch(e) { console.warn('Firebase 기록 실패:', e); }
+  } catch(e) {}
 }
 
-// ── Firebase 소감 토글 실시간 감지 ──
 function watchReflectionToggle() {
   onValue(ref(db, 'settings/reflectionEnabled'), snap => {
     reflectionEnabled = snap.exists() ? snap.val() : false;
     updateReflectionTab();
-    // 현재 소감 탭이 열려있고 비활성화되면 스탬프 탭으로 이동
     if (!reflectionEnabled && document.getElementById('tab-reflection').classList.contains('active')) {
       showMainTab('stamp');
     }
   });
 }
 
-// ── Firebase 문제 편집 실시간 반영 ──
 function watchMissionEdits() {
   onValue(ref(db, 'missionEdit1'), snap => {
     if (!snap.exists()) return;
-    const edits = snap.val();
-    Object.entries(edits).forEach(([id, data]) => {
-      adminEdits[parseInt(id)] = data;
-    });
+    adminEdits = snap.val(); // 전체 덮어쓰기
+    if(document.getElementById('screen-quiz').classList.contains('active')) {
+       renderQuiz(); // 열려있는 퀴즈가 있다면 즉시 리렌더링
+    }
+    if(document.getElementById('screen-main').classList.contains('active')) {
+       renderMissionList(); // 리스트 제목들도 리렌더링
+    }
   });
 }
 
-// ════════════════════════════════════════
-// 기존 로직 (Firebase 연동 추가)
-// ════════════════════════════════════════
 const GAS_URL  = 'https://script.google.com/macros/s/AKfycbwyI-lc4yoCKr2yzj28UGLyALcz3OhiikNtl24qb-h1S3glhLhcP6xHj3W-uQhHHAeC1Q/exec';
 const PHOTO_GAS_URL = GAS_URL;
 const SAVE_KEY = 'ocean_v4';
@@ -545,7 +535,7 @@ const DEFAULT_MISSIONS = [
   {id:4,floor:'2f',floorLabel:'2층 · 해양교류사실',icon:'🏛️',title:'바다를 건너간 가야의 유산',story:{label:'📸 삼국시대 — 인증 미션',text:'삼국시대 사람들은 교역품을 배에 싣고 바다를 건넜다. 다리처럼 솟아오른 받침대 위에 그릇이 얹힌 이 독특한 토기. 이 토기는 일본까지 건너가 큰 영향을 미쳤다.\n\n탐험단이여, 이 유물 앞에서 직접 사진을 찍어 증거로 남겨라!'},type:'photo',question:'📷 삼국시대 전시 공간에서 "굽다리접시(고배)"를 찾아보세요.\n\n굽다리접시와 함께 찍은 사진을 제출하면 스탬프를 드려요!',photoLabel:'굽다리접시(고배) 인증샷',explain:'임무 완수! 굽다리접시(고배)는 신라·가야에서 크게 유행하고 바다를 건너 일본에도 전해졌어요.'},
   {id:5,floor:'2f',floorLabel:'2층 · 해양교류사실',icon:'⛵',title:'천 년의 침묵을 깨고',story:{label:'🌊 바다 속에서 1000년을 잠든 배',text:'2012년, 인천 앞바다.\n\n어부의 그물에 수상한 나무 조각이 걸려 올라왔다. 발굴팀이 달려갔다. 그리고 믿을 수 없는 광경이 펼쳐졌다.\n\n1000년 넘게 바다 속에 잠들어 있던 통일신라시대의 배가 모습을 드러낸 것이다.'},type:'text',question:'🔍 인천 옹진군 앞바다에서 발견된 통일신라시대 화물선.\n\n발견된 섬의 이름이 그대로 배 이름이 됐어. 이 배의 이름은?',answers:['영흥도선','영흥도배'],hints:['인천 옹진군에 있는 섬 이름이에요.'],explain:'영흥도선! 1000년 이상 인천 앞바다에 잠들어 있던 통일신라 화물선이에요.'},
   {id:6,floor:'2f',floorLabel:'2층 · 해양교류사실',icon:'💙',title:'푸른 빛을 실어나르다',story:{label:'💙 고려 — 세상에서 가장 아름다운 빛',text:'중국 송나라의 대문호 서긍이 고려에 사신으로 왔다가 깜짝 놀랐다.\n\n"세상에서 가장 아름다운 비색(翡色)이다."\n\n고려의 도공들이 빚어낸 도자기는 단순한 그릇이 아니었다.'},type:'text',question:'🔍 고려시대 독자적으로 발전시킨 도자기로, 신비로운 푸른빛이 특징이야.\n\n송나라 문인들까지 감탄한 "비색(翡色)"의 이 도자기 이름은?',answers:['청자','고려청자'],hints:['"푸를 청(靑)"과 "사기 자(瓷)"가 합쳐진 두 글자예요.'],explain:'청자(고려청자)! 고려만의 독자적 기술로 만든 비색 청자는 당시 세계 최고 수준의 도자기였어요.'},
-  {id:7,floor:'2f',floorLabel:'2층 · 해양교류사실',icon:'🌐',title:'코리아, 세계와 만나다',story:{label:'🌍 고려 — 중동 상인들도 찾아온 나라',text:'고려의 개경 항구, 예성항(벽란도). 중국 송나라 상인은 물론이고, 아라비아에서 온 상인들도 이 항구를 드나들었다.\n\n아라비아 상인들이 "고려(Goryeo)"를 "Corea"로 발음하며 세계에 알렸고, 오늘날 우리가 "Korea"라 불리게 된 게 바로 여기서 시작됐다!'},type:'dnd',slots:[{id:'slot-0',answer:'송'},{id:'slot-1',answer:'일본'},{id:'slot-2',answer:'대식국'},{id:'slot-3',answer:'교지국'},{id:'slot-4',answer:'섬라곡국'},{id:'slot-5',answer:'예성항'},{id:'slot-6',answer:'코리아'}],keywords:['송','일본','대식국','교지국','섬라곡국','예성항','코리아'],hints:['벽면의 기록 문구를 순서대로 읽으며 하나씩 채워보세요.'],explain:'정답! 고려는 송·일본·아라비아(대식국)·베트남(교지국)·태국(섬라곡국)과도 교류했어요.'},
+  {id:7,floor:'2f',floorLabel:'2층 · 해양교류사실',icon:'🌐',title:'코리아, 세계와 만나다',story:{label:'🌍 고려 — 중동 상인들도 찾아온 나라',text:'고려의 개경 항구, 예성항(벽란도). 중국 송나라 상인은 물론이고, 아라비아에서 온 상인들도 이 항구를 드나들었다.\n\n아라비아 상인들이 "고려(Goryeo)"를 "Corea"로 발음하며 세계에 알렸고, 오늘날 우리가 "Korea"라 불리게 된 게 바로 여기서 시작됐다!'},type:'dnd',question:'전시실 벽면의 고려 교류 기록 문구를 보고 키워드를 드래그해 빈칸에 넣으세요. 채운 칸을 탭하면 취소됩니다.',slots:[{id:'slot-0',answer:'송'},{id:'slot-1',answer:'일본'},{id:'slot-2',answer:'대식국'},{id:'slot-3',answer:'교지국'},{id:'slot-4',answer:'섬라곡국'},{id:'slot-5',answer:'예성항'},{id:'slot-6',answer:'코리아'}],keywords:['송','일본','대식국','교지국','섬라곡국','예성항','코리아'],hints:['벽면의 기록 문구를 순서대로 읽으며 하나씩 채워보세요.'],explain:'정답! 고려는 송·일본·아라비아(대식국)·베트남(교지국)·태국(섬라곡국)과도 교류했어요.'},
   {id:8,floor:'2f',floorLabel:'2층 · 해양교류사실',icon:'🐢',title:'불멸의 철갑 전설',story:{label:'⚔️ 1592년 — 왜군의 함선이 바다를 뒤덮다',text:'임진년 4월, 부산 앞바다.\n\n수백 척의 왜군 함선이 조선 해협을 가득 채웠다. 조선 육군은 연달아 무너졌다. 그러나 바다에서만은 달랐다.\n\n"아직 신에게는 열두 척의 배가 있습니다."'},type:'two_step',step1:{question:'🔍 임진왜란 7년 내내 단 한 번도 패배하지 않은 조선 수군의 지휘관.\n\n그 장군의 이름은?',answers:['이순신'],hints:[]},step2:{question:'🐢 맞아! 이순신 장군의 핵심 비밀 병기.\n\n철갑으로 덮인 지붕 구조로 적의 화살과 포격을 막아낸 이 돌격선의 이름은?',answers:['거북선'],hints:[]},explain:'이순신 장군과 거북선! 명량해전에서 단 13척으로 133척의 왜군을 물리쳤어요!'},
   {id:9,floor:'2f',floorLabel:'2층 · 해양교류사실',icon:'🏮',title:'500명의 문화 대사',story:{label:'🤝 전쟁 후 — 다시 잇는 바닷길',text:'임진왜란이 끝나고 10여 년 후.\n\n조선과 일본은 다시 국교를 맺었다. 많을 때는 500명이 넘는 이 사절단이 배를 타고 일본 에도(도쿄)까지 갔다.'},type:'text',question:'🔍 조선이 일본 막부에 파견한 공식 외교·문화 사절단.\n\n"믿음을 나눈다(信)"는 뜻을 담은 이 사절단의 이름은?',answers:['통신사','조선통신사'],hints:['通(통할 통) + 信(믿을 신) + 使(사신 사)로 이루어진 세 글자예요.'],explain:'통신사(조선통신사)! 1607년부터 1811년까지 12회 파견되었고, 2017년 유네스코 세계기록유산에도 등재됩니다!'},
   {id:10,floor:'2f',floorLabel:'2층 · 해양교류사실',icon:'📸',title:'근대의 파도가 밀려오다',story:{label:'🚢 1883년 — 제물포 항구가 열리다',text:'1883년 제물포(인천) 개항.\n\n서양의 배들이 조선 땅에 처음으로 닿았다. 기선, 전신, 사진기, 서양 의학 — 본 적도 없는 것들이 한꺼번에 쏟아져 들어왔다.'},type:'photo',question:'📷 개항기 섹션에서 당시 인천항 사람들의 삶을 담은 인물 패널을 찾아보세요.\n\n패널 속 인물이 잘 보이도록 함께 사진을 찍어 제출하세요!',photoLabel:'개항기 인물 패널 인증샷',explain:'임무 완수! 1883년 제물포 개항은 수백 년간 닫혀 있던 조선이 세계와 만나는 역사적 첫 순간이었답니다.'},
@@ -555,7 +545,7 @@ const DEFAULT_MISSIONS = [
   {id:14,floor:'2f-harbor',floorLabel:'2층 · 해운항만실',icon:'🤖',title:'선장 없는 배의 시대',story:{label:'🤖 미래의 바다 — 아무도 탑승하지 않은 배',text:'가까운 미래, 부산항에서 출발한 화물선이 선장 없이 스스로 항로를 계산하고, 장애물을 피하고, 목적지에 도착한다.'},type:'two_step',step1:{question:'🔍 항만의 모든 장비·선박·시스템을 인터넷으로 연결해 스마트하게 운영하는 기술.\n\n"사물인터넷"의 영문 약자 3글자는?',answers:['IOT','IoT','iot'],hints:['Internet of Things의 약자예요.']},step2:{question:'🚢 이 기술을 활용해 사람이 직접 탑승·조종하지 않아도 AI가 스스로 목적지까지 항해하는 배.\n\n다섯 글자 용어는?',answers:['자율운항선박','자율 운항 선박'],hints:['스스로(自律) + 운항 + 선박의 조합이에요.']},explain:'IoT + 자율운항선박! 미래 해운의 핵심 기술이에요.'},
   {id:15,floor:'3f',floorLabel:'3층 · 해양문화실',icon:'🌊',title:'생명이 숨 쉬는 진흙 바다',story:{label:'🦀 갯벌 — 쓸모없어 보이는 땅의 비밀',text:'썰물이 빠져나간 인천 앞바다.\n\n드러나는 건 그냥 진흙탕처럼 보이지만, 그 속에서는 엄청난 생명이 꿈틀거린다.'},type:'text',question:'🔍 조수간만의 차가 큰 서해안에 발달한, 썰물 때 드러나는 진흙 지형.\n\n다양한 생물의 서식지이자 천연 정수기 역할을 하는 이곳의 이름은?',answers:['갯벌'],hints:['서해안에 넓게 펼쳐진 지형이에요.'],explain:'갯벌! 2021년 유네스코 세계자연유산으로 등재된 한국의 자랑스러운 자연이랍니다!'},
   {id:16,floor:'3f',floorLabel:'3층 · 해양문화실',icon:'🧂',title:'하얀 꽃이 피는 갯벌',story:{label:'🧂 소금 — 인천이 키운 하얀 보물',text:'예부터 소금은 금만큼 귀했다. 인천 주안 일대의 너른 갯벌.'},type:'text',question:'🧂 인천 주안(朱安) 지역에 조성된 우리나라 최대 규모의 근대식 천일염전.\n\n이 염전의 이름은?',answers:['주안염전'],hints:['인천 지하철 "주안역" 근처에 있었어요.'],explain:'주안염전! 일제강점기에 조성된 이후 우리나라 소금 공급의 핵심이었어요.'},
-  {id:17,floor:'3f',floorLabel:'3층 · 해양문화실',icon:'⚙️',title:'인천 산업화의 세 기둥',story:{label:'👥 세 사람 — 인천 바다를 바꾼 이름들',text:'역사는 혼자 만들지 않는다.\n\n조선(造船), 항만 노동, 수산업 — 서로 다른 분야에서 인천의 바다를 일군 세 인물.'},type:'match',matchItems:[{name:'김대식',desc:'인천 최초의 근대적 조선소를 설립하고, 선박 건조와 수리업을 이끌며 인천 해양 산업의 기반을 다진 인물'},{name:'강용정',desc:'인천항 하역 노동자들을 조직화하고 열악한 노동 환경 개선을 위해 앞장선 항만 노동 운동의 선구자'},{name:'김진수',desc:'인천 연안 수산업 발전에 기여하고 근대적 어업 기술 도입을 이끌며 어민들의 삶을 개선한 인물'}],hints:['전시 패널에 세 인물의 이름과 업적이 각각 상세하게 설명되어 있어요.'],explain:'세 인물 모두 연결 성공! 김대식(조선업), 강용정(항만노동), 김진수(수산업) — 인천 해양 산업화의 진짜 주역들이랍니다.'},
+  {id:17,floor:'3f',floorLabel:'3층 · 해양문화실',icon:'⚙️',title:'인천 산업화의 세 기둥',story:{label:'👥 세 사람 — 인천 바다를 바꾼 이름들',text:'역사는 혼자 만들지 않는다.\n\n조선(造船), 항만 노동, 수산업 — 서로 다른 분야에서 인천의 바다를 일군 세 인물.'},type:'match',question:'전시 패널에서 각 인물의 이야기를 읽고, 위의 이름 칩을 드래그해서 알맞은 설명 아래 빈칸에 연결하세요.',matchItems:[{name:'김대식',desc:'인천 최초의 근대적 조선소를 설립하고, 선박 건조와 수리업을 이끌며 인천 해양 산업의 기반을 다진 인물'},{name:'강용정',desc:'인천항 하역 노동자들을 조직화하고 열악한 노동 환경 개선을 위해 앞장선 항만 노동 운동의 선구자'},{name:'김진수',desc:'인천 연안 수산업 발전에 기여하고 근대적 어업 기술 도입을 이끌며 어민들의 삶을 개선한 인물'}],hints:['전시 패널에 세 인물의 이름과 업적이 각각 상세하게 설명되어 있어요.'],explain:'세 인물 모두 연결 성공! 김대식(조선업), 강용정(항만노동), 김진수(수산업) — 인천 해양 산업화의 진짜 주역들이랍니다.'},
   {id:18,floor:'4f',floorLabel:'4층 · 전망대',icon:'🗼',title:'바다를 품은 탐험가',story:{label:'🏆 최후의 관문 — 전망대에 올라라',text:'모든 층을 헤치고 여기까지 왔다.\n\n이제 마지막이다.\n\n전망대에 오르면, 방금 전까지 박물관에서 역사 속 장면들로만 봤던 그 바다가 — 실제로 눈앞에 펼쳐진다.'},type:'photo',question:'📷 4층 전망대에 올라가 인천 앞바다가 펼쳐진 풍경과 함께 인증샷을 찍어 제출하세요!\n\n사진 속에 바다(또는 항구)가 선명하게 보여야 합니다.',photoLabel:'전망대 인천 앞바다 인증샷',explain:'임무 완수! 오늘 박물관에서 8000년의 역사를 여행하고, 드디어 현실의 바다 앞에 섰다.'},
 ];
 
@@ -576,19 +566,43 @@ let reflectionEnabled = false;
 let currentMissionId = 0;
 let dndInitialized = false;
 let dragWord=null, dragChip=null, ghost=null, matchDragItem=null;
-const hintCounts = {};
 
-// ★★★ 이 부분이 수정된 getMission 함수입니다! ★★★
+// ★ 관리자의 세부 수정을 모두 병합하는 Deep Merge 함수
 function getMission(id){
   const b = DEFAULT_MISSIONS.find(m=>m.id===id);
   if(!b) return null;
-  const edit = adminEdits[id] || {};
-  return {
-    ...b,
-    title: edit.title || b.title,
-    question: edit.desc ? edit.desc : b.question, // 수정완료: edit.desc가 있으면 학생화면(question)에 반영
-    answers: (edit.answers && edit.answers.length) ? edit.answers : b.answers,
-  };
+  const edit = adminEdits[id];
+  if(!edit) return b;
+
+  // 원본 훼손을 막기 위한 깊은 복사
+  const res = JSON.parse(JSON.stringify(b));
+
+  if(edit.title !== undefined) res.title = edit.title;
+  if(edit.explain !== undefined) res.explain = edit.explain;
+
+  if(res.story) {
+    if(edit.storyLabel !== undefined) res.story.label = edit.storyLabel;
+    if(edit.storyText !== undefined) res.story.text = edit.storyText;
+  }
+
+  if(res.type === 'two_step'){
+    if(edit.step1Q !== undefined) res.step1.question = edit.step1Q;
+    if(edit.step1A && edit.step1A.length) res.step1.answers = edit.step1A;
+    if(edit.step2Q !== undefined) res.step2.question = edit.step2Q;
+    if(edit.step2A && edit.step2A.length) res.step2.answers = edit.step2A;
+  } else if(res.type === 'photo'){
+    if(edit.question !== undefined) res.question = edit.question;
+    if(edit.photoLabel !== undefined) res.photoLabel = edit.photoLabel;
+  } else if (res.type === 'text_with_mini_reflection') {
+    if(edit.question !== undefined) res.question = edit.question;
+    if(edit.answers && edit.answers.length) res.answers = edit.answers;
+    if(edit.miniRefLabel !== undefined) res.miniReflectionLabel = edit.miniRefLabel;
+  } else {
+    // text, image_text, dnd, match 공통 수정사항
+    if(edit.question !== undefined) res.question = edit.question;
+    if(edit.answers && edit.answers.length) res.answers = edit.answers;
+  }
+  return res;
 }
 
 function saveLocal(){ try{ localStorage.setItem(SAVE_KEY, JSON.stringify({state, adminEdits, reflectionEnabled})); }catch(e){} }
@@ -663,7 +677,8 @@ function renderStampBigGrid(){
     const earned=state.stamps.includes(m.id);
     const slot=document.createElement('div');
     slot.className='stamp-big-slot'+(earned?' earned':'');
-    slot.innerHTML=`<div class="s-num">M${m.id+1}</div><div class="s-icon">${earned?'⚓':m.icon}</div><div class="s-title">${m.title}</div>`;
+    const realM = getMission(m.id); // 바뀐 이름 바로 반영
+    slot.innerHTML=`<div class="s-num">M${m.id+1}</div><div class="s-icon">${earned?'⚓':realM.icon}</div><div class="s-title">${realM.title}</div>`;
     slot.onclick=()=>{ currentMissionId=m.id; dndInitialized=false; renderQuiz(); showScreen('quiz'); };
     grid.appendChild(slot);
   });
@@ -814,7 +829,6 @@ function renderTextMiniReflection(m,parent){
 function renderPhoto(m,parent){
   const box=document.createElement('div'); box.className='photo-box';
   box.innerHTML=`<div class="photo-icon">📸</div><div class="photo-title">${m.photoLabel||'사진 인증'}</div>`;
-  const desc=document.createElement('div'); desc.className='photo-desc'; desc.textContent=m.question; box.appendChild(desc);
   const preview=document.createElement('img'); preview.className='photo-preview'; box.appendChild(preview);
   const fi=document.createElement('input'); fi.type='file'; fi.accept='image/*'; fi.capture='environment'; fi.className='photo-input-hidden';
   fi.addEventListener('change',()=>{ const file=fi.files[0]; if(!file)return; const reader=new FileReader(); reader.onload=e=>{ preview.src=e.target.result; preview.style.display='block'; upBtn.disabled=false; }; reader.readAsDataURL(file); });
@@ -877,7 +891,7 @@ function renderTwoStep(m,parent){
 }
 
 function renderDnD(m,parent){
-  const intro=document.createElement('p'); intro.style.marginBottom='10px'; intro.textContent='전시실 벽면의 고려 교류 기록 문구를 보고 키워드를 드래그해 빈칸에 넣으세요. 채운 칸을 탭하면 취소됩니다.'; parent.appendChild(intro);
+  const intro=document.createElement('p'); intro.style.marginBottom='10px'; intro.textContent=m.question||'전시실 벽면의 고려 교류 기록 문구를 보고 키워드를 드래그해 빈칸에 넣으세요.'; parent.appendChild(intro);
   const passage=document.createElement('div'); passage.className='goryeo-passage';
   passage.innerHTML=`고려의 바다에는 외국을 오가는 배들이 끊이지 않았습니다. 『고려사』에는 고려가\n<span class="drop-slot" data-answer="송" id="dslot-0">　</span>,\n<span class="drop-slot" data-answer="일본" id="dslot-1">　　</span>,\n<span class="drop-slot" data-answer="대식국" id="dslot-2">　　　</span>(아라비아),\n<span class="drop-slot" data-answer="교지국" id="dslot-3">　　　</span>(베트남),\n<span class="drop-slot" data-answer="섬라곡국" id="dslot-4">　　　　</span>(태국) 등과 교류했다고 기록되어 있습니다.\n특히 아라비아 상인들은\n<span class="drop-slot" data-answer="예성항" id="dslot-5">　　　</span>\n인근에 공동체를 형성하고, 이들에 의해 고려가 세계에 알려지면서 지금의\n<span class="drop-slot" data-answer="코리아" id="dslot-6">　　　</span>가 탄생했습니다.`;
   parent.appendChild(passage);
@@ -922,7 +936,7 @@ function clearSlot(slot,poolId){ const w=slot.dataset.filled; document.querySele
 function checkDnD(m){ const slots=document.querySelectorAll('.drop-slot'); let ok=true; slots.forEach(s=>{if(!s.dataset.filled||s.dataset.filled!==s.dataset.answer)ok=false;}); if(!ok){showToast('빈칸이 비었거나 맞지 않아요!');return;} state.answers[m.id]=m.keywords.join(', '); slots.forEach(s=>s.classList.add('correct-slot')); earnStamp(m); }
 
 function renderMatch(m,parent){
-  const intro=document.createElement('p'); intro.style.marginBottom='12px'; intro.textContent='전시 패널에서 각 인물의 이야기를 읽고, 위의 이름 칩을 드래그해서 알맞은 설명 아래 빈칸에 연결하세요.'; parent.appendChild(intro);
+  const intro=document.createElement('p'); intro.style.marginBottom='12px'; intro.textContent=m.question||'전시 패널에서 각 인물의 이야기를 읽고, 위의 이름 칩을 드래그해서 알맞은 설명 아래 빈칸에 연결하세요.'; parent.appendChild(intro);
   const pool=document.createElement('div'); pool.className='keyword-pool'; pool.id='match-pool-'+m.id; pool.style.marginBottom='14px';
   [...m.matchItems].sort(()=>Math.random()-.5).forEach(item=>{
     const chip=document.createElement('div'); chip.className='kw-chip'; chip.draggable=true; chip.dataset.name=item.name; chip.textContent=item.name; chip.style.cssText+='font-size:15px;padding:8px 16px;';
@@ -1034,7 +1048,6 @@ window.addEventListener('DOMContentLoaded',()=>{
     document.getElementById('restore-notice').style.display='block';
     document.getElementById('student-id').value=state.sid;
     document.getElementById('student-name').value=state.sname;
-    // Firebase 리스너 시작
     watchReflectionToggle();
     watchMissionEdits();
     if(state.reflectionDone){
