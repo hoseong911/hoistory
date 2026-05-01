@@ -489,12 +489,22 @@ const firebaseConfig = {
 const fbApp = initializeApp(firebaseConfig);
 const db    = getDatabase(fbApp);
 
+// ★ 수정 1: 1번 미션 짧은 소감을 파이어베이스에 저장하는 코드
 async function recordMissionToFirebase(missionId, missionTitle) {
   if (!state.sid || !state.sname) return;
   const key = `${state.sid}_${state.sname}`;
+  
+  // 학생이 해당 미션에서 입력한 정답/소감 데이터 가져오기
+  let answerData = state.answers[missionId] || '';
+  if (missionId === 0) answerData = state.miniReflection || ''; // 1번 미션 짧은 소감
+  if (state.photoAnswers[missionId]) answerData = '사진 인증 완료';
+
   try {
     await set(ref(db, `status1/${key}/${missionId}`), {
-      status: '완료', missionTitle, time: new Date().toISOString()
+      status: '완료', 
+      missionTitle: missionTitle, 
+      answer: answerData,
+      time: new Date().toISOString()
     });
   } catch(e) {}
 }
@@ -1021,12 +1031,25 @@ function validateReflection(t){
   return{ok:true};
 }
 
+// ★ 수정 2: 마지막 긴 소감을 파이어베이스와 GAS에 모두 보내는 코드
 async function submitReflection(){
   const ref2=document.getElementById('reflection-ta');
   const txt=(ref2.value||'').trim();
   const check=validateReflection(txt); if(!check.ok){showToast(check.msg,3000);return;}
   const btn=document.getElementById('reflection-submit-btn'); btn.disabled=true; btn.textContent='제출 중...';
+  
+  // 구글 시트(GAS)로 전송
   try{ await fetch(GAS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({type:'reflection',studentId:state.sid,studentName:state.sname,reflection:txt,submittedAt:new Date().toLocaleString('ko-KR')})}); }catch(e){}
+  
+  // 파이어베이스(어드민)로 전송
+  const key = `${state.sid}_${state.sname}`;
+  try {
+    await set(ref(db, `status1/${key}/finalReflection`), {
+      text: txt,
+      time: new Date().toISOString()
+    });
+  } catch(e) {}
+
   state.reflectionDone=true; state.reflection=txt; saveState(); btn.textContent='제출 완료';
   showToast('📝 소감이 제출되었습니다!',3000);
   showScreen('done');
@@ -1036,7 +1059,7 @@ async function submitReflection(){
   document.getElementById('done-sub').innerHTML='바다의 기억과 탐험가의 기록이 모두 복원되었습니다.<br>수고하셨습니다!';
   document.getElementById('done-time').textContent='완료 시각: '+new Date().toLocaleString('ko-KR');
 }
-window.submitReflection = submitReflection;
+  window.submitReflection = submitReflection;
 window.submitMissions   = submitMissions;
 
 function goAdmin(){ window.location.href='260506_admin.html'; }
