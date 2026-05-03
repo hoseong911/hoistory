@@ -30,7 +30,6 @@
         .login-form input:focus { border-color:var(--sepia); box-shadow:0 0 0 3px rgba(139,105,20,0.12); }
         .login-form input::placeholder { color:#b0956a; }
         #login-btn { width:100%; padding:16px; background:var(--ink); color:var(--parchment); border:none; border-radius:4px; font-family:'Playfair Display',serif; font-size:18px; font-weight:700; cursor:pointer; }
-        .login-note { margin-top:16px; font-family:'DM Mono',monospace; font-size:13px; color:#a08050; text-align:center; }
 
         #hud {
             position:fixed; top:0; left:0; right:0; z-index:500;
@@ -146,11 +145,12 @@
     <div class="login-subtitle">개항의 역사가 살아있는 인천으로 떠나는 시간 여행</div>
     <div class="login-deco-line"></div>
     <div class="login-form">
-        <input type="text" id="student-id" placeholder="학번 (예: 30601)" inputmode="numeric" pattern="[0-9]*">
-        <input type="text" id="student-name" placeholder="이름 (예: 홍길동)">
+        <label style="font-family:'DM Mono',monospace;font-size:13px;color:var(--sepia);margin-bottom:4px;display:block;letter-spacing:.03em;">학번</label>
+        <input type="text" id="student-id" placeholder="예: 30XXX" inputmode="numeric" pattern="[0-9]*">
+        <label style="font-family:'DM Mono',monospace;font-size:13px;color:var(--sepia);margin-bottom:4px;display:block;letter-spacing:.03em;">이름</label>
+        <input type="text" id="student-name" placeholder="예: 김동양">
         <button id="login-btn">탐험 시작하기</button>
     </div>
-    <div class="login-note">※ 입력 정보는 미션 인증에만 사용됩니다</div>
 </div>
 
 <!-- HUD -->
@@ -270,7 +270,6 @@
     import { initializeApp }                                from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
     import { getDatabase, ref as dbRef, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
 
-    /* ★ GAS URL — 사진은 여기로 */
     const GAS_URL = 'https://script.google.com/macros/s/AKfycbwyI-lc4yoCKr2yzj28UGLyALcz3OhiikNtl24qb-h1S3glhLhcP6xHj3W-uQhHHAeC1Q/exec';
 
     const firebaseConfig = {
@@ -285,7 +284,6 @@
     const app = initializeApp(firebaseConfig);
     const db  = getDatabase(app);
 
-    /* ★ 이미지 압축 후 base64 문자열 반환 */
     function compressToBase64(file) {
         return new Promise((res, rej) => {
             const reader = new FileReader();
@@ -309,7 +307,6 @@
         });
     }
 
-    /* 기본 미션 데이터 */
     const DEFAULT_MISSIONS = {
         '자유공원':           { type:'photo',      name:'자유공원',            label:'📍 장소 미션 01', title:'맥아더 장군과 하이파이브!',                desc:`우리나라 최초의 서구식 공원인 자유공원에 올라가, 맥아더 장군 동상과 같은 포즈(쌍안경을 든 모습 등)를 취하고 인증샷을 찍어주세요!`,                                        verify:`📷 인증: 동상과 학생이 모두 나온 사진 업로드` },
         '인천개항박물관':     { type:'photo',      name:'인천개항박물관',      label:'📍 장소 미션 02', title:'은행 털기? 아니, 흔적 찾기!',              desc:`이 건물은 과거 '일본 제1은행'이었습니다. 건물 외관이나 입구에서 옛 은행 시절의 흔적(예: 돔형 지붕, 석조 기둥)을 하나 찾아 사진을 찍어주세요.`,                               verify:`📷 인증: 건축물 특정 포인트 사진 업로드` },
@@ -363,21 +360,17 @@
         scrollToMap();
     };
 
-    /* ★ 파이어베이스 데이터와 화면(UI) 글씨 동기화 해주는 함수 */
     function renderDynamicUI() {
         Object.keys(MISSIONS).forEach(key => {
             const m = MISSIONS[key];
             const displayName = m.name || key;
-
             const markerLabel = document.querySelector(`#marker-${key} .marker-label`);
             if (markerLabel) markerLabel.textContent = displayName;
-
             const tabTitle = document.querySelector(`#sq-${key} .m-tab-title`);
             if (tabTitle) tabTitle.textContent = displayName;
         });
     }
 
-    /* Firebase 마커 위치 */
     onValue(dbRef(db,'markerPositions'), snap=>{
         if(!snap.exists()) return;
         Object.entries(snap.val()).forEach(([key,pos])=>{
@@ -386,7 +379,6 @@
         });
     });
 
-    /* Firebase 미션 데이터 로드 및 UI 업데이트 */
     async function loadMissionData() {
         try {
             const snap=await get(dbRef(db,'missionData'));
@@ -415,15 +407,12 @@
     }
 
     const loginScreen=document.getElementById('login-screen');
-    const savedId=localStorage.getItem('studentId'), savedName=localStorage.getItem('studentName');
-    if(savedId && savedName){ loginScreen.style.display='none'; init(savedId,savedName); }
 
-    async function doLogin(id,name){
+    async function doLogin(id, name){
         if(!id||!name){ showToast('학번과 이름을 모두 입력해주세요'); return; }
         if(!/^\d+$/.test(id)){ showToast('학번은 숫자만 입력해주세요'); return; }
-        localStorage.setItem('studentId',id); localStorage.setItem('studentName',name);
         loginScreen.style.display='none';
-        await init(id,name);
+        await init(id, name);
     }
     document.getElementById('login-btn').addEventListener('click',()=>{
         doLogin(document.getElementById('student-id').value.trim(), document.getElementById('student-name').value.trim());
@@ -470,14 +459,13 @@
         else { d.style.display='none'; }
     });
 
-    /* ★ 제출 — 사진은 GAS(Google Drive), 완료 상태는 Firebase DB */
     window.submitMission = async function() {
         if(isSubmitting) return;
         const m=MISSIONS[currentMission];
         const file=document.getElementById('photo-upload').files[0];
         const textAnswer=document.getElementById('text-answer').value.trim();
-        const studentId=localStorage.getItem('studentId');
-        const studentName=localStorage.getItem('studentName');
+        const studentId=document.getElementById('student-id').value.trim();
+        const studentName=document.getElementById('student-name').value.trim();
         const btn=document.getElementById('submit-btn');
 
         if(completedSet.has(currentMission)){ showToast('이미 완료한 미션입니다'); return; }
@@ -488,14 +476,13 @@
         document.getElementById('loading-overlay').classList.add('show');
 
         try {
-            /* 1. 사진 압축 → base64 → GAS → Google Drive 저장 */
             const base64 = await compressToBase64(file);
             fetch(GAS_URL, {
                 method: 'POST',
                 mode: 'no-cors',
                 body: JSON.stringify({
                     type: 'photo',
-                    activity: 2,           // ★ 활동 2 꼬리표 부착!
+                    activity: 2,
                     studentId,
                     studentName,
                     missionTitle: m.title,
@@ -504,9 +491,8 @@
                     textAnswer: textAnswer || null,
                     submittedAt: new Date().toLocaleString('ko-KR')
                 })
-            }); 
+            });
 
-            /* 2. 완료 상태는 Firebase DB에 저장 */
             await set(dbRef(db,`status/${studentId}_${studentName}/${currentMission}`),{
                 status:'완료', missionTitle:m.title, textAnswer:textAnswer||null,
                 time:new Date().toISOString(), location:'GPS_OFF'
