@@ -313,18 +313,22 @@ body{
   font-weight:600;cursor:pointer;font-family:var(--sans);margin-top:4px;transition:border-color .2s;}
 .match-check-btn:hover{border-color:var(--accent2);}
 
-/* 사진 인증 */
+/* ★ 사진 인증 — 깜빡임 방지를 위해 will-change 제거, transition 최소화 */
 .photo-box{background:rgba(8,22,52,0.80);backdrop-filter:var(--glass-blur);
   border:1px solid var(--border);border-radius:16px;padding:20px;text-align:center;
   box-shadow:0 4px 24px rgba(0,0,0,0.3);}
 .photo-icon{font-size:38px;margin-bottom:10px;}
 .photo-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;}
 .photo-desc{font-size:14px;color:var(--text2);line-height:1.8;margin-bottom:16px;text-align:left;white-space:pre-line;}
-.photo-preview{width:100%;max-height:230px;object-fit:contain;border-radius:12px;margin-bottom:12px;display:none;border:1px solid var(--border);}
+/* ★ 깜빡임 방지: visibility+opacity 조합 대신 display만 사용, transition 제거 */
+.photo-preview{width:100%;max-height:230px;object-fit:contain;border-radius:12px;
+  margin-bottom:12px;display:none;border:1px solid var(--border);}
 .photo-input-btn{display:block;width:100%;padding:13px;background:rgba(10,28,65,0.80);backdrop-filter:blur(8px);
   border:1px solid var(--border2);border-radius:12px;color:var(--accent2);font-size:15px;
-  font-weight:600;cursor:pointer;font-family:var(--sans);margin-bottom:9px;transition:border-color .2s,background .2s;}
+  font-weight:600;cursor:pointer;font-family:var(--sans);margin-bottom:9px;
+  transition:border-color .2s,background .2s;}
 .photo-input-btn:hover{background:rgba(14,36,80,0.9);border-color:var(--accent2);}
+/* ★ 파일 선택 버튼: display:none → 숨기되 DOM에 유지 */
 .photo-input-hidden{display:none;}
 .photo-upload-btn{width:100%;padding:14px;background:linear-gradient(135deg,#3a8fd4,#1e60a8);
   color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;
@@ -374,12 +378,6 @@ body{
     <label class="field-label">이름</label>
     <input class="field-input" type="text" id="student-name" placeholder="예: 김동양">
     <button class="start-btn" onclick="startMission()">작전 개시</button>
-    
-    <!-- ★ 테스트 데이터 초기화 버튼 -->
-    <div style="text-align:center; margin-top:20px;">
-      <button onclick="resetTestData()" style="background:transparent; border:1px solid rgba(136, 174, 208, 0.4); color:var(--text3); padding:8px 12px; border-radius:8px; font-size:12px; cursor:pointer;">🔄 테스트 데이터 초기화</button>
-    </div>
-
   </div>
 </div>
 
@@ -487,11 +485,9 @@ const db    = getDatabase(fbApp);
 async function recordMissionToFirebase(missionId, missionTitle) {
   if (!state.sid || !state.sname) return;
   const key = `${state.sid}_${state.sname}`;
-  
   let answerData = state.answers[missionId] || '';
   if (missionId === 0) answerData = state.miniReflection || '';
   if (state.photoAnswers[missionId]) answerData = '사진 인증 완료';
-
   try {
     await set(ref(db, `status1/${key}/${missionId}`), {
       status: '완료', 
@@ -530,7 +526,6 @@ const PHOTO_GAS_URL = GAS_URL;
 const SAVE_KEY = 'ocean_v4';
 const TOTAL    = 19;
 
-// ★ 1번, 2번 미션 사진 캡션 제거 반영
 const DEFAULT_MISSIONS = [
   {id:0,floor:'1f',floorLabel:'1층 · 디지털 실감영상실',icon:'🎬',title:'시간의 첫 파문',story:{label:'⚡ 시간 균열 발생 — 1층',text:'박물관 입구를 통과하는 순간, 발밑이 흔들렸다. 어두운 영상실 안에서 거대한 파도 소리가 울려 퍼지고 — 화면이 열리며 1624년의 바다가 눈앞에 펼쳐진다.\n\n수백 명의 조선 사신단이 폭풍 속 파도를 헤치며 명나라로 향하고 있다. 이 목숨을 건 항해의 기록이 뒤섞인 시간의 첫 번째 단서다.'},type:'text_with_mini_reflection',question:'🔍 영상을 끝까지 관람하고 화면 속 기록화의 이름을 찾아보자.\n\n1624년 이덕형 사신단이 명나라로 가는 험난한 뱃길을 그린 이 기록화의 이름은 무엇일까?',answers:['항해조천도'],hints:['영상 화면 하단이나 옆 전시 설명에 제목이 적혀 있어요.','바다(海)를 항해(航)해서 하늘(天)로 간다는 뜻의 다섯 글자예요.'],explain:'항해조천도(航海朝天圖)! 파도와 폭풍 속에서도 사신단은 명나라에 도착했다. 이 항해 기록은 조선시대 외교의 치열함을 생생히 담고 있어요.',miniReflectionLabel:'🌊 영상을 보고 나서 — 드넓은 바다 위 조선 사신단의 항해. 어떤 감정이 들었나요? (50자 이상)',miniReflectionMin:50},
   {id:1,floor:'2f',floorLabel:'2층 · 해양교류사실',icon:'🪵',title:'8,000년 전 뱃사공',story:{label:'⏪ 시간이 8,000년 거꾸로 흘렀다',text:'2층 전시실에 발을 딛는 순간, 공기가 달라졌다. 짠 갯바람 냄새, 갈매기 소리, 그리고 흙 냄새.\n\n신석기시대의 한 어부가 통나무를 파내어 배를 만들고 있다. 손으로 직접 파낸 이 배 한 척이, 우리 민족이 바다와 함께했다는 가장 오래된 증거다.\n\n경상남도 어느 마을의 땅속에서 잠들어 있던 이 배가 드디어 세상과 만났다.'},type:'image_text',image:'images/260506_01.png',question:'🔍 이 통나무배가 발견된 곳의 지명이 배의 이름에 들어가 있어.\n\n"창녕 ○○○ 배" — 세 글자 지명은 무엇일까?',answers:['비봉리'],hints:['배 옆의 설명에 이름이 적혀 있어요.','창녕군의 한 마을 이름이에요.'],explain:'비봉리! 기원전 6000년경, 약 8000년 전에 만들어진 이 통나무배는 한반도에서 발견된 가장 오래된 배예요.'},
@@ -576,17 +571,13 @@ function getMission(id){
   if(!b) return null;
   const edit = adminEdits[id];
   if(!edit) return b;
-
   const res = JSON.parse(JSON.stringify(b));
-
   if(edit.title !== undefined) res.title = edit.title;
   if(edit.explain !== undefined) res.explain = edit.explain;
-
   if(res.story) {
     if(edit.storyLabel !== undefined) res.story.label = edit.storyLabel;
     if(edit.storyText !== undefined) res.story.text = edit.storyText;
   }
-
   if(res.type === 'two_step'){
     if(edit.step1Q !== undefined) res.step1.question = edit.step1Q;
     if(edit.step1A && edit.step1A.length) res.step1.answers = edit.step1A;
@@ -616,14 +607,6 @@ function loadLocal(){
 }
 function saveState(){ saveLocal(); }
 
-// ★ 테스트 데이터 초기화 기능
-function resetTestData() {
-  if(confirm("스마트폰에 저장된 진행 상황을 모두 지우고 처음부터 다시 시작할까요?")) {
-    localStorage.removeItem(SAVE_KEY);
-    location.reload();
-  }
-}
-window.resetTestData = resetTestData;
 
 function showScreen(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); document.getElementById('screen-'+id).classList.add('active'); window.scrollTo(0,0); updateProgress(); }
 function updateProgress(){ const pct=Math.round((state.stamps.length/TOTAL)*100); document.getElementById('progress-fill').style.width=pct+'%'; }
@@ -735,7 +718,6 @@ document.getElementById('reflection-ta').addEventListener('input',function(){
   document.getElementById('ref-count').style.color=len>=100?'var(--success)':len>=70?'var(--warn)':'var(--text3)';
 });
 
-// ★ 제출 후 읽기 전용 모드 추가
 function renderQuiz(){
   const m=getMission(currentMissionId);
   const tagMap={'1f':'tag-1f','2f':'tag-2f','2f-harbor':'tag-2f','3f':'tag-3f','4f':'tag-4f'};
@@ -749,7 +731,6 @@ function renderQuiz(){
     const dc=document.createElement('div'); dc.className='q-card';
     dc.innerHTML=`<div style="text-align:center;padding:20px 0"><div style="font-size:40px;margin-bottom:10px">⚓</div><div style="font-size:15px;color:var(--success);font-weight:700;margin-bottom:6px">스탬프 획득 완료!</div><div style="font-size:14px;color:var(--text3)">${m.title}</div></div>`;
     wrap.appendChild(dc);
-    
     if(!state.reflectionDone) {
       const nextId=DEFAULT_MISSIONS.map(x=>x.id).find(id=>!state.stamps.includes(id));
       if(nextId!==undefined){ const nb=document.createElement('button'); nb.className='final-btn'; nb.style.marginTop='8px'; nb.textContent='다음 미완료 미션으로'; nb.onclick=()=>{ currentMissionId=nextId; dndInitialized=false; renderQuiz(); }; wrap.appendChild(nb); }
@@ -762,7 +743,6 @@ function renderQuiz(){
   card.innerHTML=`<h3>${m.icon} ${m.title}</h3>`;
   if(m.question){ const p=document.createElement('p'); p.style.whiteSpace='pre-line'; p.textContent=m.question; card.appendChild(p); }
   
-  // 제출 완료 후 입력 잠금
   if (state.reflectionDone) {
     const lockMsg = document.createElement('div');
     lockMsg.style.cssText = 'margin-top:16px; padding:14px; background:rgba(20,10,10,0.6); border:1px dashed var(--warn); border-radius:12px; text-align:center; font-size:13px; color:var(--warn);';
@@ -854,30 +834,7 @@ function renderTextMiniReflection(m,parent){
   row.appendChild(inp); row.appendChild(btn); parent.appendChild(row); parent.appendChild(miniWrap);
 }
 
-function renderPhoto(m,parent){
-  const box=document.createElement('div'); box.className='photo-box';
-  box.innerHTML=`<div class="photo-icon">📸</div><div class="photo-title">${m.photoLabel||'사진 인증'}</div>`;
-  const preview=document.createElement('img'); preview.className='photo-preview'; box.appendChild(preview);
-  const fi=document.createElement('input'); fi.type='file'; fi.accept='image/*'; fi.capture='environment'; fi.className='photo-input-hidden';
-  fi.addEventListener('change',()=>{ const file=fi.files[0]; if(!file)return; const reader=new FileReader(); reader.onload=e=>{ preview.src=e.target.result; preview.style.display='block'; upBtn.disabled=false; }; reader.readAsDataURL(file); });
-  box.appendChild(fi);
-  const selBtn=document.createElement('button'); selBtn.className='photo-input-btn'; selBtn.textContent='📷 사진 찍기 / 파일 선택'; selBtn.onclick=()=>fi.click(); box.appendChild(selBtn);
-  const upBtn=document.createElement('button'); upBtn.className='photo-upload-btn'; upBtn.disabled=true; upBtn.textContent='사진 제출하고 스탬프 받기';
-  upBtn.onclick=async()=>{
-    if(upBtn.dataset.done)return;
-    const file=fi.files[0]; if(!file){showToast('사진을 먼저 선택해주세요.');return;}
-    upBtn.disabled=true; upBtn.textContent='업로드 중...';
-    try{
-      const b64=await fileToBase64(file);
-      // ★ 꼬리표 추가 (activity: 1)
-      const payload={type:'photo', activity: 1, studentId:state.sid, studentName:state.sname, missionId:m.id, missionTitle:m.title, imageBase64:b64, submittedAt:new Date().toLocaleString('ko-KR')};
-      await fetch(PHOTO_GAS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(payload)});
-    }catch(e){}
-    state.photoAnswers[m.id]='uploaded'; upBtn.dataset.done='1'; earnStamp(m);
-  };
-  box.appendChild(upBtn); parent.appendChild(box);
-}
-
+/* ★★★ 수정 1: fileToBase64 — 두 번째 코드 기준으로 해상도 500px, 품질 0.6 적용 */
 function fileToBase64(file){
   return new Promise((res,rej)=>{
     const reader=new FileReader();
@@ -885,16 +842,99 @@ function fileToBase64(file){
     reader.onload=e=>{
       const img=new Image(); img.onerror=rej;
       img.onload=()=>{
-        const MAX=800; let w=img.width,h=img.height;
-        if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
+        const MAX=500; /* ★ 800 → 500 */
+        let w=img.width, h=img.height;
+        if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}
+        else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
         const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
         canvas.getContext('2d').drawImage(img,0,0,w,h);
-        res(canvas.toDataURL('image/jpeg',0.7).split(',')[1]);
+        res(canvas.toDataURL('image/jpeg', 0.6).split(',')[1]); /* ★ 0.7 → 0.6 */
       };
       img.src=e.target.result;
     };
     reader.readAsDataURL(file);
   });
+}
+
+/* ★★★ 수정 2+3: renderPhoto
+   - capture 속성 제거 → 앨범/카메라 선택 가능
+   - input 요소를 매번 새로 만들지 않고 재사용 → 깜빡임 방지
+   - photo-box를 q-card 바깥에서 card.appendChild 전에 한 번만 생성
+*/
+function renderPhoto(m, parent) {
+  const box = document.createElement('div');
+  box.className = 'photo-box';
+
+  const iconEl = document.createElement('div');
+  iconEl.className = 'photo-icon';
+  iconEl.textContent = '📸';
+  box.appendChild(iconEl);
+
+  const titleEl = document.createElement('div');
+  titleEl.className = 'photo-title';
+  titleEl.textContent = m.photoLabel || '사진 인증';
+  box.appendChild(titleEl);
+
+  /* 미리보기 이미지 — 처음에는 display:none, src 설정 후 show */
+  const preview = document.createElement('img');
+  preview.className = 'photo-preview';
+  /* ★ src를 빈 문자열로 두지 않음 → 브라우저가 깨진 이미지 로드 시도 안 함 */
+  box.appendChild(preview);
+
+  /* ★★★ 핵심 수정: capture 속성 완전 제거 → 앨범 선택 가능
+     accept="image/*" 만 유지하면 iOS/Android 모두 앨범+카메라 선택지 제공 */
+  const fi = document.createElement('input');
+  fi.type = 'file';
+  fi.accept = 'image/*';
+  /* capture 속성 없음 ← 이전 코드의 fi.capture='environment' 제거 */
+  fi.className = 'photo-input-hidden';
+
+  fi.addEventListener('change', () => {
+    const file = fi.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      preview.src = e.target.result;
+      preview.style.display = 'block';
+      upBtn.disabled = false;
+    };
+    reader.readAsDataURL(file);
+  });
+  box.appendChild(fi);
+
+  const selBtn = document.createElement('button');
+  selBtn.className = 'photo-input-btn';
+  selBtn.textContent = '📷 사진 찍기 / 앨범 선택';
+  selBtn.onclick = () => fi.click();
+  box.appendChild(selBtn);
+
+  const upBtn = document.createElement('button');
+  upBtn.className = 'photo-upload-btn';
+  upBtn.disabled = true;
+  upBtn.textContent = '사진 제출하고 스탬프 받기';
+  upBtn.onclick = async () => {
+    if (upBtn.dataset.done) return;
+    const file = fi.files[0];
+    if (!file) { showToast('사진을 먼저 선택해주세요.'); return; }
+    upBtn.disabled = true;
+    upBtn.textContent = '업로드 중...';
+    try {
+      const b64 = await fileToBase64(file);
+      const payload = {
+        type: 'photo', activity: 1,
+        studentId: state.sid, studentName: state.sname,
+        missionId: m.id, missionTitle: m.title,
+        imageBase64: b64,
+        submittedAt: new Date().toLocaleString('ko-KR')
+      };
+      await fetch(PHOTO_GAS_URL, { method:'POST', mode:'no-cors', body:JSON.stringify(payload) });
+    } catch(e) {}
+    state.photoAnswers[m.id] = 'uploaded';
+    upBtn.dataset.done = '1';
+    earnStamp(m);
+  };
+  box.appendChild(upBtn);
+  parent.appendChild(box);
 }
 
 function renderTwoStep(m,parent){
@@ -906,7 +946,7 @@ function renderTwoStep(m,parent){
   s1row.appendChild(s1inp); s1row.appendChild(s1btn); parent.appendChild(s1row);
   const s2wrap=document.createElement('div'); s2wrap.style.display='none'; s2wrap.style.marginTop='18px';
   const s2divider=document.createElement('div'); s2divider.style.cssText='border-top:1px solid rgba(60,120,200,0.3);margin-bottom:16px;';
-  const s2lbl=document.createElement('p'); s2lbl.style.cssText='font-size:13px;color:var(--success);font-weight:700;margin-bottom:12px;'; s2lbl.textContent='✅ 정답! 그렇다면...';
+  const s2lbl=document.createElement('div'); s2lbl.style.cssText='font-size:13px;color:var(--success);font-weight:700;margin-bottom:12px;'; s2lbl.textContent='✅ 정답! 그렇다면...';
   const s2q=document.createElement('p'); s2q.style.cssText='font-size:15px;color:#d0e4f8;line-height:1.85;margin-bottom:10px;white-space:pre-line;'; s2q.textContent=m.step2.question;
   const s2row=document.createElement('div'); s2row.className='answer-row';
   const s2inp=document.createElement('input'); s2inp.className='answer-input'; s2inp.type='text';
@@ -1043,33 +1083,22 @@ async function submitReflection(){
   const txt=(ref2.value||'').trim();
   const check=validateReflection(txt); if(!check.ok){showToast(check.msg,3000);return;}
   const btn=document.getElementById('reflection-submit-btn'); btn.disabled=true; btn.textContent='제출 중...';
-  
   const submittedAt=new Date().toLocaleString('ko-KR');
-
   const data = { 
-    type: 'final_submission',
-    activity: 1, // ★ 꼬리표 추가 (활동 1)
-    studentId: state.sid, 
-    studentName: state.sname, 
-    submittedAt: submittedAt, 
-    startedAt: state.startedAt||'', 
+    type: 'final_submission', activity: 1,
+    studentId: state.sid, studentName: state.sname, 
+    submittedAt: submittedAt, startedAt: state.startedAt||'', 
     completedCount: state.stamps.length, 
     completedMissions: state.stamps.map(id=>(getMission(id)||{}).title||id).join(', '), 
     miniReflection: state.miniReflection||'',
     finalReflection: txt
   };
   DEFAULT_MISSIONS.forEach(m=>{ data['m'+(m.id+1)+'_'+m.title.slice(0,6)]=state.answers[m.id]||''; });
-
   try{ await fetch(GAS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(data)}); }catch(e){}
-  
   const key = `${state.sid}_${state.sname}`;
   try {
-    await set(ref(db, `status1/${key}/finalReflection`), {
-      text: txt,
-      time: new Date().toISOString()
-    });
+    await set(ref(db, `status1/${key}/finalReflection`), { text: txt, time: new Date().toISOString() });
   } catch(e) {}
-
   state.reflectionDone=true; state.reflection=txt; saveState(); btn.textContent='제출 완료';
   showToast('📝 최종 탐험 보고서가 제출되었습니다!',3000);
   showScreen('done');
