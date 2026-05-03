@@ -613,7 +613,7 @@ class Player {
     this.ck=charKey;
     this.x=WW/2*TW; this.y=WH/2*TW;
     this.speed=175; this.spr=new Spr(charKey,true);
-    this.facing=1; this.w=TW*1.6; this.h=TW*2.0;
+    this.facing=1; this.w=TW*1.6; this.h=TW*2.6;
   }
   upd(dt,dx,dy){
     if(dx&&dy){dx*=.707;dy*=.707;}
@@ -634,16 +634,17 @@ class Player {
     const sx=this.x-cx, sy=this.y-cy;
     // 그림자 (발 위치)
     ctx.fillStyle='rgba(0,0,0,0.35)';
-    ctx.beginPath();ctx.ellipse(sx,sy-2,this.w*0.35,this.w*0.12,0,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.ellipse(sx,sy+TW*0.55,this.w*0.35,this.w*0.12,0,0,Math.PI*2);ctx.fill();
     // 스프라이트: 발이 sy에 오도록 (sy - h)부터 그림
     const d=SP[this.ck];
     if(!d) return;
     const fw=this.spr.mode==='idle'?d.iw:d.ww;
     const fh=this.spr.mode==='idle'?d.ih:d.wh;
     const aspect=fw/Math.max(fh,1);
-    const drawH=this.h;
+    const drawH=TW*2.6;
     const drawW=drawH*aspect;
-    this.spr.draw(ctx,sx-drawW/2,sy-drawH,drawW,drawH,this.facing===-1);
+    // 발을 타일 하단 기준으로 맞춤 (TW*0.6 아래로)
+    this.spr.draw(ctx,sx-drawW/2,sy-drawH+TW*0.6,drawW,drawH,this.facing===-1);
   }
 }
 
@@ -671,7 +672,7 @@ class MonsterSpawn {
     this.alive=true; this.dying=false; this.deathTimer=0;
     this.roamTimer=0; this.rdx=0; this.rdy=0;
     this.speed=38+Math.random()*28;
-    this.w=TW*1.4; this.h=TW*1.4; this.detR=200;
+    this.w=TW*1.4; this.h=TW*2.2; this.detR=200;
   }
   upd(dt,px,py){
     if(this.dying){this.deathTimer+=dt;return;}
@@ -700,7 +701,7 @@ class MonsterSpawn {
     // 그림자
     if(!this.dying){
       ctx.fillStyle='rgba(0,0,0,0.3)';
-      ctx.beginPath();ctx.ellipse(sx,sy-2,this.w*0.3,this.w*0.1,0,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.ellipse(sx,sy+TW*0.55,this.w*0.3,this.w*0.1,0,0,Math.PI*2);ctx.fill();
     }
     // 스프라이트 발 기준
     const d=SP[this.def.key];
@@ -708,13 +709,13 @@ class MonsterSpawn {
       const fw=this.spr.mode==='idle'?d.iw:d.ww;
       const fh=this.spr.mode==='idle'?d.ih:d.wh;
       const aspect=fw/Math.max(fh,1);
-      const drawH=this.h;
+      const drawH=TW*2.2;
       const drawW=drawH*aspect;
-      this.spr.draw(ctx,sx-drawW/2,sy-drawH,drawW,drawH);
+      this.spr.draw(ctx,sx-drawW/2,sy-drawH+TW*0.6,drawW,drawH);
     }
     ctx.restore();
     if(!this.dying){
-      const bw=42,bh=5,bx=sx-bw/2,by=sy-this.h-12;
+      const bw=42,bh=5,bx=sx-bw/2,by=sy-this.h+TW*0.6-12;
       ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(bx-1,by-1,bw+2,bh+2);
       ctx.fillStyle=this.hp/this.maxHp>.5?'#06d6a0':'#e63946';
       ctx.fillRect(bx,by,bw*(this.hp/this.maxHp),bh);
