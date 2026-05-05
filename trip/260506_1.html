@@ -313,22 +313,60 @@ body{
   font-weight:600;cursor:pointer;font-family:var(--sans);margin-top:4px;transition:border-color .2s;}
 .match-check-btn:hover{border-color:var(--accent2);}
 
-/* ★ 사진 인증 — 깜빡임 방지를 위해 will-change 제거, transition 최소화 */
+/* ★★★ 사진 인증 — 깜빡임 방지 핵심 수정 ★★★
+   - photo-preview-wrap: 미리보기 영역을 고정 크기 컨테이너로 감쌈 (레이아웃 점프 방지)
+   - aspect-ratio + min-height로 이미지 로드 전후 박스 크기 동일하게 유지
+   - background와 placeholder 텍스트로 빈 상태도 자연스럽게 표시
+*/
 .photo-box{background:rgba(8,22,52,0.80);backdrop-filter:var(--glass-blur);
   border:1px solid var(--border);border-radius:16px;padding:20px;text-align:center;
   box-shadow:0 4px 24px rgba(0,0,0,0.3);}
 .photo-icon{font-size:38px;margin-bottom:10px;}
 .photo-title{font-size:16px;font-weight:700;color:var(--text);margin-bottom:8px;}
 .photo-desc{font-size:14px;color:var(--text2);line-height:1.8;margin-bottom:16px;text-align:left;white-space:pre-line;}
-/* ★ 깜빡임 방지: visibility+opacity 조합 대신 display만 사용, transition 제거 */
-.photo-preview{width:100%;max-height:230px;object-fit:contain;border-radius:12px;
-  margin-bottom:12px;display:none;border:1px solid var(--border);}
+
+/* ★ 미리보기 컨테이너 - 항상 같은 크기로 자리 잡고 있음 */
+.photo-preview-wrap{
+  width:100%;
+  aspect-ratio:4/3;
+  max-height:230px;
+  min-height:180px;
+  background:rgba(4,14,36,0.6);
+  border:1.5px dashed rgba(60,120,200,0.3);
+  border-radius:12px;
+  margin-bottom:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  position:relative;
+}
+.photo-preview-wrap.has-image{
+  border-style:solid;
+  border-color:var(--border);
+  background:rgba(0,0,0,0.4);
+}
+.photo-preview-placeholder{
+  color:var(--text3);
+  font-size:13px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:8px;
+}
+.photo-preview-placeholder .ph-icon{font-size:32px;opacity:.5;}
+.photo-preview{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  display:block;
+}
+
 .photo-input-btn{display:block;width:100%;padding:13px;background:rgba(10,28,65,0.80);backdrop-filter:blur(8px);
   border:1px solid var(--border2);border-radius:12px;color:var(--accent2);font-size:15px;
   font-weight:600;cursor:pointer;font-family:var(--sans);margin-bottom:9px;
   transition:border-color .2s,background .2s;}
 .photo-input-btn:hover{background:rgba(14,36,80,0.9);border-color:var(--accent2);}
-/* ★ 파일 선택 버튼: display:none → 숨기되 DOM에 유지 */
 .photo-input-hidden{display:none;}
 .photo-upload-btn{width:100%;padding:14px;background:linear-gradient(135deg,#3a8fd4,#1e60a8);
   color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;
@@ -834,32 +872,72 @@ function renderTextMiniReflection(m,parent){
   row.appendChild(inp); row.appendChild(btn); parent.appendChild(row); parent.appendChild(miniWrap);
 }
 
-/* ★★★ 수정 1: fileToBase64 — 두 번째 코드 기준으로 해상도 500px, 품질 0.6 적용 */
+/* ★★★ 수정 3: fileToBase64 — 메인 스레드 블로킹 완화
+   - createImageBitmap을 우선 사용 (백그라운드 디코딩, 지원 시)
+   - 캔버스 작업을 requestAnimationFrame으로 스케줄링
+   - 작업 사이에 yield 추가로 UI가 멈추지 않게 함
+   - URL.createObjectURL로 base64 변환 부담 감소
+*/
 function fileToBase64(file){
-  return new Promise((res,rej)=>{
-    const reader=new FileReader();
-    reader.onerror=rej;
-    reader.onload=e=>{
-      const img=new Image(); img.onerror=rej;
-      img.onload=()=>{
-        const MAX=500; /* ★ 800 → 500 */
-        let w=img.width, h=img.height;
-        if(w>h){if(w>MAX){h=Math.round(h*MAX/w);w=MAX;}}
-        else{if(h>MAX){w=Math.round(w*MAX/h);h=MAX;}}
-        const canvas=document.createElement('canvas'); canvas.width=w; canvas.height=h;
-        canvas.getContext('2d').drawImage(img,0,0,w,h);
-        res(canvas.toDataURL('image/jpeg', 0.6).split(',')[1]); /* ★ 0.7 → 0.6 */
-      };
-      img.src=e.target.result;
-    };
-    reader.readAsDataURL(file);
+  return new Promise(async (res,rej)=>{
+    try{
+      const MAX = 500;
+      let bitmap = null;
+      
+      // createImageBitmap이 지원되면 사용 (대부분의 모던 브라우저)
+      if (typeof createImageBitmap === 'function') {
+        try {
+          bitmap = await createImageBitmap(file);
+        } catch(e) {
+          bitmap = null;
+        }
+      }
+      
+      // fallback: 기존 Image 객체 방식
+      if (!bitmap) {
+        const objectUrl = URL.createObjectURL(file);
+        try {
+          bitmap = await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = reject;
+            img.src = objectUrl;
+          });
+        } finally {
+          URL.revokeObjectURL(objectUrl);
+        }
+      }
+      
+      const w0 = bitmap.width, h0 = bitmap.height;
+      let w = w0, h = h0;
+      if (w > h) { if (w > MAX) { h = Math.round(h*MAX/w); w = MAX; } }
+      else       { if (h > MAX) { w = Math.round(w*MAX/h); h = MAX; } }
+      
+      // 캔버스 작업을 다음 프레임으로 미뤄 UI가 먼저 업데이트되게 함
+      requestAnimationFrame(() => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(bitmap, 0, 0, w, h);
+          if (bitmap.close) bitmap.close(); // ImageBitmap은 메모리 해제 필요
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+          res(dataUrl.split(',')[1]);
+        } catch(e) {
+          rej(e);
+        }
+      });
+    } catch(e) {
+      rej(e);
+    }
   });
 }
 
-/* ★★★ 수정 2+3: renderPhoto
-   - capture 속성 제거 → 앨범/카메라 선택 가능
-   - input 요소를 매번 새로 만들지 않고 재사용 → 깜빡임 방지
-   - photo-box를 q-card 바깥에서 card.appendChild 전에 한 번만 생성
+/* ★★★ 수정 2: renderPhoto — 미리보기 영역 깜빡임 방지
+   - photo-preview-wrap이라는 고정 크기 컨테이너를 항상 표시
+   - 이미지가 로드되어도 컨테이너 크기가 변하지 않으므로 레이아웃 점프 없음
+   - 이미지 로드 완료(onload) 후에만 placeholder 숨김 → 빈 박스 표시 방지
+   - capture 속성 없음 → 앨범/카메라 선택 가능
 */
 function renderPhoto(m, parent) {
   const box = document.createElement('div');
@@ -875,30 +953,48 @@ function renderPhoto(m, parent) {
   titleEl.textContent = m.photoLabel || '사진 인증';
   box.appendChild(titleEl);
 
-  /* 미리보기 이미지 — 처음에는 display:none, src 설정 후 show */
+  /* ★ 미리보기 컨테이너 — 고정 크기로 항상 자리 차지 */
+  const previewWrap = document.createElement('div');
+  previewWrap.className = 'photo-preview-wrap';
+  
+  const placeholder = document.createElement('div');
+  placeholder.className = 'photo-preview-placeholder';
+  placeholder.innerHTML = '<div class="ph-icon">🖼️</div><div>사진을 선택하면 여기에 미리보기가 표시됩니다</div>';
+  previewWrap.appendChild(placeholder);
+  
   const preview = document.createElement('img');
   preview.className = 'photo-preview';
-  /* ★ src를 빈 문자열로 두지 않음 → 브라우저가 깨진 이미지 로드 시도 안 함 */
-  box.appendChild(preview);
+  preview.style.display = 'none';
+  // ★ 이미지가 실제로 로드 완료된 후에만 표시 (디코딩 중 빈 박스 방지)
+  preview.onload = () => {
+    placeholder.style.display = 'none';
+    preview.style.display = 'block';
+    previewWrap.classList.add('has-image');
+  };
+  previewWrap.appendChild(preview);
+  box.appendChild(previewWrap);
 
-  /* ★★★ 핵심 수정: capture 속성 완전 제거 → 앨범 선택 가능
-     accept="image/*" 만 유지하면 iOS/Android 모두 앨범+카메라 선택지 제공 */
   const fi = document.createElement('input');
   fi.type = 'file';
   fi.accept = 'image/*';
-  /* capture 속성 없음 ← 이전 코드의 fi.capture='environment' 제거 */
   fi.className = 'photo-input-hidden';
 
   fi.addEventListener('change', () => {
     const file = fi.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = e => {
-      preview.src = e.target.result;
-      preview.style.display = 'block';
-      upBtn.disabled = false;
-    };
-    reader.readAsDataURL(file);
+    
+    // ★ FileReader 대신 URL.createObjectURL 사용
+    // (메모리 효율적이고 디코딩이 빠름, base64 변환 부담 없음)
+    const objectUrl = URL.createObjectURL(file);
+    
+    // 이전 objectUrl이 있으면 해제
+    if (preview.dataset.objectUrl) {
+      URL.revokeObjectURL(preview.dataset.objectUrl);
+    }
+    preview.dataset.objectUrl = objectUrl;
+    preview.src = objectUrl;
+    
+    upBtn.disabled = false;
   });
   box.appendChild(fi);
 
@@ -916,8 +1012,14 @@ function renderPhoto(m, parent) {
     if (upBtn.dataset.done) return;
     const file = fi.files[0];
     if (!file) { showToast('사진을 먼저 선택해주세요.'); return; }
+    
+    // ★ 버튼 상태 변경을 먼저 적용 후 다음 프레임에 무거운 작업 시작
     upBtn.disabled = true;
     upBtn.textContent = '업로드 중...';
+    
+    // ★ 다음 프레임까지 기다려서 버튼 UI가 먼저 업데이트되게 함
+    await new Promise(r => requestAnimationFrame(r));
+    
     try {
       const b64 = await fileToBase64(file);
       const payload = {
@@ -929,8 +1031,16 @@ function renderPhoto(m, parent) {
       };
       await fetch(PHOTO_GAS_URL, { method:'POST', mode:'no-cors', body:JSON.stringify(payload) });
     } catch(e) {}
+    
     state.photoAnswers[m.id] = 'uploaded';
     upBtn.dataset.done = '1';
+    
+    // ★ objectUrl 정리
+    if (preview.dataset.objectUrl) {
+      URL.revokeObjectURL(preview.dataset.objectUrl);
+      delete preview.dataset.objectUrl;
+    }
+    
     earnStamp(m);
   };
   box.appendChild(upBtn);
