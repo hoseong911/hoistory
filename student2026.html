@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>학생 명단 2026</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg:       #121212;
+            --surface:  #181818;
+            --surface2: #1f1f1f;
+            --surface3: #252525;
+            --green:    #1ed760;
+            --green2:   #1db954;
+            --white:    #ffffff;
+            --silver:   #b3b3b3;
+            --border:   #4d4d4d;
+            --border2:  #7c7c7c;
+            --red:      #f3727f;
+            --shadow-heavy: rgba(0,0,0,0.5) 0px 8px 24px;
+            --shadow-med:   rgba(0,0,0,0.3) 0px 8px 8px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Helvetica Neue', helvetica, arial, 'Hiragino Sans', sans-serif;
+            background: var(--bg);
+            color: var(--white);
+            min-height: 100vh;
+        }
+
+        /* ── 로그인 ── */
+        #login-screen {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.85);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 999;
+        }
+        .login-card {
+            background: var(--surface);
+            border-radius: 8px;
+            padding: 48px 40px;
+            width: 360px;
+            text-align: center;
+            box-shadow: var(--shadow-heavy);
+        }
+        .login-logo {
+            font-size: 28px; font-weight: 700;
+            color: var(--green); letter-spacing: -0.5px;
+            margin-bottom: 4px;
+        }
+        .login-sub { font-size: 14px; color: var(--silver); margin-bottom: 32px; }
+        .login-card input {
+            width: 100%; padding: 14px 20px;
+            background: var(--surface2);
+            border: none;
+            box-shadow: rgb(124,124,124) 0px 0px 0px 1px inset;
+            border-radius: 500px;
+            color: var(--white); font-size: 15px;
+            font-family: inherit; outline: none;
+            text-align: center; letter-spacing: 4px;
+            margin-bottom: 14px;
+            transition: box-shadow .15s;
+        }
+        .login-card input:focus { box-shadow: rgb(255,255,255) 0px 0px 0px 1px inset; }
+        .login-card button {
+            width: 100%; padding: 16px;
+            background: var(--green); color: #000;
+            border: none; border-radius: 500px;
+            font-size: 14px; font-weight: 700;
+            letter-spacing: 1.4px; text-transform: uppercase;
+            cursor: pointer; font-family: inherit;
+            transition: background .15s, transform .1s;
+        }
+        .login-card button:hover { background: #1fdf64; }
+        .login-card button:active { transform: scale(0.97); }
+        .login-error { font-size: 13px; color: var(--red); margin-top: 10px; min-height: 18px; }
+
+        /* ── 헤더 ── */
+        header {
+            background: var(--surface);
+            padding: 0 32px;
+            height: 64px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 100;
+            box-shadow: var(--shadow-med);
+        }
+        .header-left { display: flex; align-items: center; gap: 14px; }
+        .header-logo { font-size: 20px; font-weight: 700; color: var(--green); }
+        .header-badge {
+            background: var(--surface2);
+            color: var(--green);
+            font-size: 12px; font-weight: 700;
+            padding: 4px 12px; border-radius: 9999px;
+            letter-spacing: 0.5px;
+        }
+        .header-right { display: flex; gap: 10px; align-items: center; }
+        .btn-pill {
+            padding: 8px 20px;
+            border-radius: 9999px; border: none;
+            font-size: 14px; font-weight: 700;
+            letter-spacing: 1.4px; text-transform: uppercase;
+            cursor: pointer; font-family: inherit;
+            transition: .15s;
+        }
+        .btn-pill-outline {
+            background: transparent; color: var(--white);
+            border: 1px solid var(--border2);
+            padding: 7px 18px; border-radius: 9999px;
+            font-size: 13px; font-weight: 700;
+            letter-spacing: 1px; text-transform: uppercase;
+            cursor: pointer; font-family: inherit;
+            transition: .15s;
+        }
+        .btn-pill-outline:hover { border-color: var(--white); }
+        .btn-green { background: var(--green); color: #000; }
+        .btn-green:hover { background: #1fdf64; }
+        .btn-dark { background: var(--surface2); color: var(--white); }
+        .btn-dark:hover { background: var(--surface3); }
+        .btn-red-outline {
+            background: transparent; color: var(--red);
+            border: 1px solid var(--red);
+            padding: 7px 18px; border-radius: 9999px;
+            font-size: 13px; font-weight: 700;
+            letter-spacing: 1px; text-transform: uppercase;
+            cursor: pointer; font-family: inherit;
+            transition: .15s;
+        }
+        .btn-red-outline:hover { background: rgba(243,114,127,0.1); }
+
+        /* ── 컨테이너 ── */
+        .container { max-width: 860px; margin: 0 auto; padding: 32px 24px; }
+
+        /* ── 스탯 바 ── */
+        .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px; }
+        .stat-box {
+            background: var(--surface);
+            border-radius: 8px; padding: 20px 22px;
+            box-shadow: var(--shadow-med);
+        }
+        .stat-val { font-size: 30px; font-weight: 700; color: var(--green); line-height: 1; margin-bottom: 6px; }
+        .stat-lbl { font-size: 12px; color: var(--silver); font-weight: 400; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* ── 섹션 카드 ── */
+        .card {
+            background: var(--surface);
+            border-radius: 8px; margin-bottom: 16px;
+            box-shadow: var(--shadow-med);
+            overflow: hidden;
+        }
+        .card-header {
+            padding: 20px 24px 16px;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; flex-wrap: wrap;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        .card-title { font-size: 18px; font-weight: 700; color: var(--white); }
+        .card-hint { font-size: 12px; color: var(--silver); letter-spacing: 0.3px; }
+        .card-body { padding: 22px 24px; }
+
+        /* ── 업로드 존 ── */
+        .upload-zone {
+            border: 1px solid var(--border);
+            border-radius: 8px; padding: 36px 24px;
+            text-align: center; cursor: pointer;
+            position: relative; transition: .2s;
+            background: var(--surface2);
+        }
+        .upload-zone:hover, .upload-zone.drag {
+            border-color: var(--green);
+            background: rgba(30,215,96,0.05);
+        }
+        .upload-zone input {
+            position: absolute; inset: 0;
+            opacity: 0; cursor: pointer;
+            width: 100%; height: 100%;
+        }
+        .upload-icon { font-size: 30px; margin-bottom: 10px; }
+        .upload-title { font-size: 15px; font-weight: 700; color: var(--white); margin-bottom: 4px; }
+        .upload-desc { font-size: 13px; color: var(--silver); }
+
+        /* ── 수동 추가 폼 ── */
+        .add-form { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+        .form-field { display: flex; flex-direction: column; gap: 7px; }
+        .form-field label { font-size: 11px; font-weight: 700; color: var(--silver); text-transform: uppercase; letter-spacing: 1px; }
+        .form-field input {
+            padding: 11px 18px;
+            background: var(--surface2);
+            border: none;
+            box-shadow: rgb(124,124,124) 0px 0px 0px 1px inset;
+            border-radius: 500px;
+            color: var(--white); font-size: 14px;
+            font-family: inherit; outline: none;
+            width: 160px; transition: box-shadow .15s;
+        }
+        .form-field input:focus { box-shadow: rgb(255,255,255) 0px 0px 0px 1px inset; }
+        .form-field input::placeholder { color: var(--silver); }
+
+        /* ── 검색 / 필터 ── */
+        .search-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 18px; }
+        .search-pill {
+            flex: 1; min-width: 200px;
+            padding: 11px 20px 11px 44px;
+            background: var(--surface2);
+            border: none;
+            box-shadow: rgb(124,124,124) 0px 0px 0px 1px inset;
+            border-radius: 500px;
+            color: var(--white); font-size: 14px;
+            font-family: inherit; outline: none;
+            transition: box-shadow .15s;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b3b3b3' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: 16px center;
+        }
+        .search-pill:focus { box-shadow: rgb(255,255,255) 0px 0px 0px 1px inset; }
+        .search-pill::placeholder { color: var(--silver); }
+        .class-select {
+            padding: 11px 18px;
+            background: var(--surface2);
+            border: none;
+            box-shadow: rgb(124,124,124) 0px 0px 0px 1px inset;
+            border-radius: 500px;
+            color: var(--white); font-size: 13px; font-weight: 700;
+            font-family: inherit; outline: none; cursor: pointer;
+        }
+
+        /* ── 테이블 ── */
+        .table-wrap {
+            border-radius: 8px; overflow: auto;
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+        table { width: 100%; border-collapse: collapse; min-width: 380px; }
+        thead th {
+            background: var(--surface2);
+            padding: 10px 16px;
+            text-align: left;
+            font-size: 11px; font-weight: 700;
+            color: var(--silver);
+            text-transform: uppercase; letter-spacing: 1px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        tbody td {
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 14px; color: var(--white);
+            vertical-align: middle;
+        }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover td { background: rgba(255,255,255,0.04); }
+        .td-id { font-weight: 700; font-family: monospace; font-size: 15px; color: var(--green); }
+        .td-name { font-weight: 700; }
+        .td-class { font-size: 13px; color: var(--silver); }
+        .td-actions { display: flex; gap: 6px; }
+
+        /* ── 인라인 수정 ── */
+        .edit-input {
+            padding: 7px 14px;
+            background: var(--surface2);
+            box-shadow: rgb(30,215,96) 0px 0px 0px 1px inset;
+            border: none; border-radius: 500px;
+            color: var(--white); font-size: 14px;
+            font-family: inherit; outline: none;
+            width: 120px;
+        }
+
+        /* ── 액션 버튼 (테이블 내) ── */
+        .action-btn {
+            padding: 5px 14px; border-radius: 9999px;
+            font-size: 12px; font-weight: 700;
+            letter-spacing: 0.8px; text-transform: uppercase;
+            cursor: pointer; font-family: inherit;
+            border: none; transition: .15s;
+        }
+        .action-edit { background: var(--surface3); color: var(--white); }
+        .action-edit:hover { background: #333; }
+        .action-save { background: var(--green); color: #000; }
+        .action-save:hover { background: #1fdf64; }
+        .action-cancel { background: transparent; color: var(--silver); border: 1px solid var(--border); }
+        .action-cancel:hover { color: var(--white); border-color: var(--border2); }
+        .action-del { background: transparent; color: var(--red); border: 1px solid rgba(243,114,127,0.4); }
+        .action-del:hover { background: rgba(243,114,127,0.1); border-color: var(--red); }
+
+        /* ── 빈 상태 ── */
+        .empty { text-align: center; padding: 60px 20px; color: var(--silver); }
+        .empty-icon { font-size: 36px; margin-bottom: 12px; opacity: 0.5; }
+        .empty-text { font-size: 14px; }
+
+        /* ── 토스트 ── */
+        #toast {
+            position: fixed; bottom: 32px; left: 50%;
+            transform: translateX(-50%) translateY(16px);
+            background: var(--surface3);
+            box-shadow: rgb(124,124,124) 0px 0px 0px 1px inset, var(--shadow-heavy);
+            color: var(--white); padding: 12px 22px;
+            border-radius: 9999px; font-size: 14px; font-weight: 700;
+            opacity: 0; transition: .25s; pointer-events: none;
+            white-space: nowrap; z-index: 9999;
+        }
+        #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        #toast.green { color: var(--green); }
+        #toast.red { color: var(--red); }
+
+        @media (max-width: 560px) {
+            .container { padding: 20px 14px; }
+            .stat-row { grid-template-columns: 1fr 1fr; }
+            header { padding: 0 16px; }
+            .card-body { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- 로그인 -->
+<div id="login-screen">
+    <div class="login-card">
+        <div class="login-logo">HOISTORY</div>
+        <div class="login-sub">학생 명단 관리 · 2026</div>
+        <input type="password" id="pw-input" placeholder="비밀번호" onkeydown="if(event.key==='Enter') tryLogin()">
+        <button onclick="tryLogin()">접속</button>
+        <div class="login-error" id="login-error"></div>
+    </div>
+</div>
+
+<!-- 헤더 -->
+<header>
+    <div class="header-left">
+        <div class="header-logo">HOISTORY</div>
+        <span class="header-badge" id="header-count">0명</span>
+    </div>
+    <div class="header-right">
+        <button class="btn-pill-outline" onclick="exportExcel()">내보내기</button>
+    </div>
+</header>
+
+<div class="container">
+
+    <!-- 통계 -->
+    <div class="stat-row">
+        <div class="stat-box">
+            <div class="stat-val" id="stat-total">0</div>
+            <div class="stat-lbl">전체 학생</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-val" id="stat-classes">—</div>
+            <div class="stat-lbl">학반 수</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-val" id="stat-last" style="font-size:16px;color:var(--silver);">—</div>
+            <div class="stat-lbl">마지막 업데이트</div>
+        </div>
+    </div>
+
+    <!-- 엑셀 업로드 -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">엑셀 업로드</div>
+            <div class="card-hint">A열: 학번 &nbsp;·&nbsp; B열: 이름 &nbsp;·&nbsp; 1행 헤더 자동 건너뜀</div>
+        </div>
+        <div class="card-body">
+            <div class="upload-zone" id="upload-zone">
+                <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(event)">
+                <div class="upload-icon">📂</div>
+                <div class="upload-title">클릭하거나 파일을 드래그하세요</div>
+                <div class="upload-desc">.xlsx / .xls &nbsp;·&nbsp; 같은 학번은 이름이 업데이트됩니다</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 개별 추가 -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">학생 추가</div>
+        </div>
+        <div class="card-body">
+            <div class="add-form">
+                <div class="form-field">
+                    <label>학번 (5자리)</label>
+                    <input type="text" id="add-id" maxlength="5" inputmode="numeric" placeholder="예) 30401" onkeydown="if(event.key==='Enter') addStudent()">
+                </div>
+                <div class="form-field">
+                    <label>이름</label>
+                    <input type="text" id="add-name" placeholder="예) 홍길동" onkeydown="if(event.key==='Enter') addStudent()">
+                </div>
+                <button class="btn-pill btn-green" onclick="addStudent()" style="margin-top:auto;">추가</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 명단 -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-title">등록된 명단</div>
+            <button class="btn-red-outline" onclick="clearAll()">전체 삭제</button>
+        </div>
+        <div class="card-body" style="padding-bottom:0;">
+            <div class="search-row">
+                <input type="text" class="search-pill" id="search" placeholder="학번 또는 이름 검색" oninput="renderTable()">
+                <select class="class-select" id="class-filter" onchange="renderTable()">
+                    <option value="">전체 학반</option>
+                </select>
+            </div>
+        </div>
+        <div style="padding: 0 24px 24px;">
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:36px;">#</th>
+                            <th>학번</th>
+                            <th>이름</th>
+                            <th>학반</th>
+                            <th style="width:160px;">관리</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+                <div id="table-empty" class="empty" style="display:none;">
+                    <div class="empty-icon">🎵</div>
+                    <div class="empty-text">등록된 학생이 없습니다</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import {
+    getFirestore, collection, onSnapshot,
+    doc, setDoc, deleteDoc, getDocs
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+    authDomain: "ho0911seong-56638.firebaseapp.com",
+    projectId: "ho0911seong-56638",
+    storageBucket: "ho0911seong-56638.firebasestorage.app",
+    messagingSenderId: "994509567071",
+    appId: "1:994509567071:web:778c95931e95e9cbf557ea"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const PW = "ghtjd12!@";
+let students = [];
+let editingId = null;
+
+// ── 로그인 ──────────────────────────────────────
+window.tryLogin = function() {
+    const pw = document.getElementById('pw-input').value;
+    if (pw === PW) {
+        document.getElementById('login-screen').style.display = 'none';
+        startListener();
+    } else {
+        document.getElementById('login-error').textContent = '비밀번호가 올바르지 않습니다.';
+        document.getElementById('pw-input').value = '';
+    }
+};
+
+// ── Firestore 구독 ───────────────────────────────
+function startListener() {
+    onSnapshot(collection(db, "silla_students"), snap => {
+        students = [];
+        snap.forEach(d => students.push({ studentId: d.id, studentName: d.data().studentName || '' }));
+        students.sort((a, b) => a.studentId.localeCompare(b.studentId));
+        renderStats();
+        renderClassFilter();
+        renderTable();
+        updateLastTime();
+    });
+}
+
+function parseClass(sid) {
+    if (!sid || sid.length < 3) return null;
+    const g = sid[0], c = parseInt(sid.slice(1, 3), 10);
+    return isNaN(c) ? null : `${g}학년 ${c}반`;
+}
+
+function renderStats() {
+    document.getElementById('stat-total').textContent = students.length;
+    document.getElementById('header-count').textContent = `${students.length}명`;
+    const classes = new Set(students.map(s => parseClass(s.studentId)).filter(Boolean));
+    document.getElementById('stat-classes').textContent = classes.size || '—';
+}
+
+function updateLastTime() {
+    const now = new Date(), pad = n => String(n).padStart(2,'0');
+    document.getElementById('stat-last').textContent =
+        `${pad(now.getMonth()+1)}.${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+}
+
+function renderClassFilter() {
+    const sel = document.getElementById('class-filter');
+    const cur = sel.value;
+    const classes = [...new Set(students.map(s => parseClass(s.studentId)).filter(Boolean))].sort();
+    sel.innerHTML = `<option value="">전체 학반</option>` + classes.map(c => `<option value="${c}">${c}</option>`).join('');
+    if (classes.includes(cur)) sel.value = cur;
+}
+
+window.renderTable = function() {
+    const q = (document.getElementById('search').value || '').trim().toLowerCase();
+    const cls = document.getElementById('class-filter').value;
+    const filtered = students.filter(s => {
+        if (cls && parseClass(s.studentId) !== cls) return false;
+        return !q || s.studentId.includes(q) || s.studentName.toLowerCase().includes(q);
+    });
+
+    const tbody = document.getElementById('table-body');
+    const empty = document.getElementById('table-empty');
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = '';
+        empty.style.display = 'block';
+        empty.querySelector('.empty-text').textContent =
+            students.length === 0 ? '아직 등록된 학생이 없습니다' : '검색 결과가 없습니다';
+        return;
+    }
+    empty.style.display = 'none';
+
+    tbody.innerHTML = filtered.map((s, i) => {
+        if (editingId === s.studentId) {
+            return `<tr>
+                <td style="color:var(--silver);">${i+1}</td>
+                <td><input class="edit-input" id="edit-id-input" value="${esc(s.studentId)}" maxlength="5" inputmode="numeric" style="width:100px;"></td>
+                <td><input class="edit-input" id="edit-name-input" value="${esc(s.studentName)}" onkeydown="if(event.key==='Enter') saveEdit('${esc(s.studentId)}')"></td>
+                <td class="td-class">${parseClass(s.studentId)||'—'}</td>
+                <td><div class="td-actions">
+                    <button class="action-btn action-save" onclick="saveEdit('${esc(s.studentId)}')">저장</button>
+                    <button class="action-btn action-cancel" onclick="cancelEdit()">취소</button>
+                </div></td>
+            </tr>`;
+        }
+        return `<tr>
+            <td style="color:var(--silver);font-size:12px;">${i+1}</td>
+            <td class="td-id">${esc(s.studentId)}</td>
+            <td class="td-name">${esc(s.studentName)}</td>
+            <td class="td-class">${parseClass(s.studentId)||'—'}</td>
+            <td><div class="td-actions">
+                <button class="action-btn action-edit" onclick="startEdit('${esc(s.studentId)}')">수정</button>
+                <button class="action-btn action-del" onclick="deleteStudent('${esc(s.studentId)}','${esc(s.studentName)}')">삭제</button>
+            </div></td>
+        </tr>`;
+    }).join('');
+};
+
+window.startEdit = function(sid) { editingId = sid; renderTable(); setTimeout(() => document.getElementById('edit-name-input')?.focus(), 50); };
+window.cancelEdit = function() { editingId = null; renderTable(); };
+
+window.saveEdit = async function(originalId) {
+    const newId = (document.getElementById('edit-id-input')?.value || '').trim();
+    const newName = (document.getElementById('edit-name-input')?.value || '').trim();
+    if (!newId || !newName) { toast('학번과 이름을 모두 입력하세요', 'red'); return; }
+    if (!/^\d{5}$/.test(newId)) { toast('학번은 숫자 5자리여야 합니다', 'red'); return; }
+    if (newId !== originalId && students.find(s => s.studentId === newId)) { toast(`학번 ${newId}은 이미 존재합니다`, 'red'); return; }
+    try {
+        if (newId !== originalId) await deleteDoc(doc(db, "silla_students", originalId));
+        await setDoc(doc(db, "silla_students", newId), { studentId: newId, studentName: newName });
+        editingId = null;
+        toast('수정 완료', 'green');
+    } catch(e) { toast('오류: ' + e.message, 'red'); }
+};
+
+window.addStudent = async function() {
+    const sid = document.getElementById('add-id').value.trim();
+    const sname = document.getElementById('add-name').value.trim();
+    if (!sid || !sname) { toast('학번과 이름을 입력하세요', 'red'); return; }
+    if (!/^\d{5}$/.test(sid)) { toast('학번은 숫자 5자리여야 합니다', 'red'); return; }
+    if (students.find(s => s.studentId === sid)) {
+        if (!confirm(`학번 ${sid}(${students.find(s=>s.studentId===sid).studentName})이 이미 있습니다.\n이름을 "${sname}"으로 덮어쓰시겠습니까?`)) return;
+    }
+    try {
+        await setDoc(doc(db, "silla_students", sid), { studentId: sid, studentName: sname });
+        document.getElementById('add-id').value = '';
+        document.getElementById('add-name').value = '';
+        document.getElementById('add-id').focus();
+        toast('추가 완료', 'green');
+    } catch(e) { toast('오류: ' + e.message, 'red'); }
+};
+
+window.deleteStudent = async function(sid, sname) {
+    if (!confirm(`[${sid}] ${sname}\n이 학생을 삭제하시겠습니까?`)) return;
+    try { await deleteDoc(doc(db, "silla_students", sid)); toast('삭제 완료'); }
+    catch(e) { toast('오류: ' + e.message, 'red'); }
+};
+
+window.clearAll = async function() {
+    if (!confirm(`⚠️ 전체 학생 명단(${students.length}명)을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    try {
+        const snap = await getDocs(collection(db, "silla_students"));
+        await Promise.all(snap.docs.map(d => deleteDoc(doc(db, "silla_students", d.id))));
+        toast('전체 삭제 완료');
+    } catch(e) { toast('오류: ' + e.message, 'red'); }
+};
+
+window.handleFile = function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        const dataRows = rows.slice(1).filter(r => r[0] !== '' && r[1] !== '');
+        if (dataRows.length === 0) { toast('유효한 데이터가 없습니다', 'red'); return; }
+        const parsed = dataRows.map(r => ({
+            studentId: String(r[0]).trim(),
+            studentName: String(r[1]).trim()
+        })).filter(s => /^\d{5}$/.test(s.studentId) && s.studentName);
+        const invalid = dataRows.length - parsed.length;
+        if (parsed.length === 0) { toast('학번이 5자리 숫자인 행이 없습니다', 'red'); return; }
+        if (!confirm(`총 ${parsed.length}명을 업로드하시겠습니까?${invalid > 0 ? `\n(형식 오류 ${invalid}행 제외)` : ''}`)) {
+            document.getElementById('file-input').value = ''; return;
+        }
+        try {
+            await Promise.all(parsed.map(s => setDoc(doc(db, "silla_students", s.studentId), { studentId: s.studentId, studentName: s.studentName })));
+            toast(`${parsed.length}명 업로드 완료`, 'green');
+        } catch(err) { toast('업로드 오류: ' + err.message, 'red'); }
+        document.getElementById('file-input').value = '';
+    };
+    reader.readAsArrayBuffer(file);
+};
+
+window.exportExcel = function() {
+    if (students.length === 0) { toast('내보낼 데이터가 없습니다', 'red'); return; }
+    const ws = XLSX.utils.json_to_sheet(students.map(s => ({ 학번: s.studentId, 이름: s.studentName, 학반: parseClass(s.studentId)||'' })));
+    ws['!cols'] = [{ wch: 10 }, { wch: 14 }, { wch: 14 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '학생명단');
+    const now = new Date(), pad = n => String(n).padStart(2,'0');
+    XLSX.writeFile(wb, `학생명단_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.xlsx`);
+};
+
+// 드래그앤드롭
+const zone = document.getElementById('upload-zone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag');
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile({ target: { files: [file] } });
+});
+
+function esc(str) {
+    if (typeof str !== 'string') return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
+}
+
+let toastTimer;
+function toast(msg, type = '') {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.className = 'show' + (type ? ` ${type}` : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.className = '', 2400);
+}
+window.toast = toast;
+</script>
+</body>
+</html>
