@@ -143,7 +143,6 @@
         .class-chip.active { background: var(--naver-green); color: white; border-color: var(--naver-green); }
         .class-chip .count { font-size: 11px; opacity: 0.7; margin-left: 4px; }
 
-        /* 모달 */
         .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.75); display: none; justify-content: center; align-items: center; z-index: 3000; }
         .modal-overlay.show { display: flex; }
         .modal-box { background: var(--panel-dark); padding: 28px; border-radius: 12px; border: 1px solid var(--border-dark); width: 90%; max-width: 380px; }
@@ -155,29 +154,6 @@
         .modal-field input:focus { border-color: var(--naver-green); }
         .modal-warning { font-size: 12px; color: #ffa726; background: rgba(255,167,38,0.1); padding: 10px 12px; border-radius: 6px; margin-bottom: 16px; line-height: 1.5; }
         .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
-
-        /* ===== 학생 명단 스타일 ===== */
-        .upload-zone { border: 2px dashed var(--border-dark); border-radius: 12px; padding: 36px 24px; text-align: center; cursor: pointer; transition: 0.2s; position: relative; }
-        .upload-zone:hover, .upload-zone.dragover { border-color: var(--naver-green); background: rgba(3,199,90,0.05); }
-        .upload-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-        .upload-zone .upload-icon { font-size: 36px; margin-bottom: 10px; }
-        .upload-zone .upload-title { font-size: 16px; font-weight: 700; color: var(--text-main); margin-bottom: 6px; }
-        .upload-zone .upload-desc { font-size: 13px; color: var(--text-muted); }
-
-        .column-map-row { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
-        .column-map-row label { font-size: 13px; color: var(--text-sub); width: 80px; flex-shrink: 0; font-weight: 700; }
-        .column-map-row select { flex: 1; min-width: 140px; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border-dark); background: var(--panel-darker); color: var(--text-main); font-size: 14px; outline: none; font-family: inherit; }
-        .column-map-row select:focus { border-color: var(--naver-green); }
-
-        .roster-table-wrap { background: var(--panel-darker); border-radius: 10px; overflow: auto; border: 1px solid var(--border-dark); max-height: 420px; }
-        .roster-table { width: 100%; border-collapse: collapse; min-width: 340px; }
-        .roster-table th { background: var(--panel-dark); padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border-dark); font-size: 12px; color: var(--text-sub); font-weight: 700; position: sticky; top: 0; }
-        .roster-table td { padding: 9px 14px; border-bottom: 1px solid var(--border-dark); font-size: 13px; color: var(--text-main); }
-        .roster-table tr:last-child td { border-bottom: none; }
-        .roster-table tr:hover td { background: rgba(255,255,255,0.03); }
-        .roster-del-btn { color: #ff6b6b; cursor: pointer; background: none; border: none; font-size: 15px; padding: 2px 6px; }
-
-        .badge-count { display: inline-flex; align-items: center; justify-content: center; background: var(--naver-green); color: white; font-size: 12px; font-weight: 800; padding: 2px 10px; border-radius: 10px; margin-left: 8px; }
 
         @media (max-width: 768px) {
             .app-layout { flex-direction: column; }
@@ -204,7 +180,6 @@
         <div class="sidebar-section-title">메뉴</div>
         <div class="menu-item active" data-page="posts" onclick="switchPage('posts')"><span class="menu-icon">📝</span> 게시글 관리</div>
         <div class="menu-item" data-page="stats" onclick="switchPage('stats')"><span class="menu-icon">📊</span> 통계</div>
-        <div class="menu-item" data-page="roster" onclick="switchPage('roster')"><span class="menu-icon">👥</span> 학생 명단</div>
         <div class="menu-item" data-page="tools" onclick="switchPage('tools')"><span class="menu-icon">🛠️</span> 도구</div>
     </aside>
 
@@ -296,86 +271,6 @@
             </div>
         </div>
 
-        <!-- 학생 명단 관리 -->
-        <div class="page" id="page-roster">
-            <div class="page-header">
-                <h1 class="page-title">👥 학생 명단 관리</h1>
-                <button class="btn btn-red" onclick="clearRoster()">🗑️ 명단 전체 삭제</button>
-            </div>
-
-            <div class="panel">
-                <div style="font-size:16px;font-weight:700;margin-bottom:6px;">📤 엑셀 파일로 명단 업로드</div>
-                <div style="font-size:13px;color:var(--text-sub);margin-bottom:16px;line-height:1.6;">
-                    학번과 이름이 포함된 .xlsx 파일을 업로드하세요.<br>
-                    파일 선택 후 어떤 열이 학번/이름인지 직접 지정할 수 있습니다.
-                </div>
-                <div class="upload-zone" id="upload-zone">
-                    <input type="file" id="excel-file" accept=".xlsx,.xls" onchange="handleFileUpload(event)">
-                    <div class="upload-icon">📂</div>
-                    <div class="upload-title">클릭하거나 파일을 드래그하세요</div>
-                    <div class="upload-desc">.xlsx / .xls 파일 지원</div>
-                </div>
-
-                <div id="column-map-section" style="display:none;margin-top:20px;padding-top:20px;border-top:1px solid var(--border-dark);">
-                    <div style="font-size:14px;font-weight:700;margin-bottom:14px;color:var(--text-main);">열 매핑 설정</div>
-                    <div class="column-map-row">
-                        <label>학번 열</label>
-                        <select id="col-id"></select>
-                    </div>
-                    <div class="column-map-row">
-                        <label>이름 열</label>
-                        <select id="col-name"></select>
-                    </div>
-                    <div style="font-size:12px;color:var(--text-muted);margin:8px 0 16px;">
-                        미리보기: <span id="preview-text" style="color:var(--text-sub);"></span>
-                    </div>
-                    <div class="btn-row">
-                        <button class="btn btn-green" onclick="confirmUpload()">✅ 이 설정으로 업로드</button>
-                        <button class="btn btn-gray" onclick="cancelUpload()">취소</button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="panel">
-                <div style="font-size:16px;font-weight:700;margin-bottom:12px;">✏️ 학생 수동 추가</div>
-                <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-                    <div>
-                        <div style="font-size:12px;color:var(--text-sub);margin-bottom:6px;font-weight:700;">학번 (5자리)</div>
-                        <input type="text" id="manual-id" maxlength="5" inputmode="numeric" placeholder="예: 30401"
-                            style="padding:10px 13px;border:1px solid var(--border-dark);background:var(--panel-darker);color:var(--text-main);border-radius:8px;font-size:15px;outline:none;font-family:inherit;width:140px;">
-                    </div>
-                    <div>
-                        <div style="font-size:12px;color:var(--text-sub);margin-bottom:6px;font-weight:700;">이름</div>
-                        <input type="text" id="manual-name" placeholder="예: 홍길동"
-                            style="padding:10px 13px;border:1px solid var(--border-dark);background:var(--panel-darker);color:var(--text-main);border-radius:8px;font-size:15px;outline:none;font-family:inherit;width:140px;">
-                    </div>
-                    <button class="btn btn-green" onclick="addManualStudent()">추가</button>
-                </div>
-            </div>
-
-            <div class="panel">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px;">
-                    <div style="font-size:16px;font-weight:700;">
-                        📋 현재 등록된 명단
-                        <span class="badge-count" id="roster-count-badge">0명</span>
-                    </div>
-                    <input type="text" id="roster-search" placeholder="🔎 학번 또는 이름 검색"
-                        style="padding:8px 12px;border:1px solid var(--border-dark);background:var(--panel-darker);color:var(--text-main);border-radius:8px;font-size:13px;outline:none;font-family:inherit;width:210px;"
-                        oninput="renderRosterTable()">
-                </div>
-                <div class="roster-table-wrap">
-                    <table class="roster-table">
-                        <thead>
-                            <tr>
-                                <th>#</th><th>학번</th><th>이름</th><th>제출 여부</th><th>삭제</th>
-                            </tr>
-                        </thead>
-                        <tbody id="roster-list"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
         <!-- 도구 -->
         <div class="page" id="page-tools">
             <div class="page-header">
@@ -386,6 +281,12 @@
                 <div style="font-size:16px;font-weight:700;margin-bottom:8px;">📥 데이터 내보내기</div>
                 <div style="font-size:13px;color:var(--text-sub);margin-bottom:16px;line-height:1.5;">학생 제출 기록 전체를 엑셀로 저장합니다.</div>
                 <button class="btn btn-blue" onclick="exportToExcel()">📥 엑셀로 저장</button>
+            </div>
+            <div class="panel">
+                <div style="font-size:16px;font-weight:700;margin-bottom:8px;">👥 학생 명단 관리</div>
+                <div style="font-size:13px;color:var(--text-sub);margin-bottom:16px;line-height:1.5;">학생 명단 업로드 및 관리는 student2026.html에서 합니다.</div>
+                <!-- ../student2026.html : mission/ 폴더에서 한 단계 위로 -->
+                <button class="btn btn-gray" onclick="location.href='../student2026.html'">student2026.html 열기</button>
             </div>
             <div class="panel" style="border-color:rgba(211,47,47,0.4);">
                 <div style="font-size:16px;font-weight:700;margin-bottom:8px;color:#ff6b6b;">⚠️ 위험 구역</div>
@@ -422,7 +323,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
     import {
         getFirestore, collection, onSnapshot, query, orderBy,
-        deleteDoc, doc, getDocs, updateDoc, setDoc, getDoc
+        deleteDoc, doc, getDocs, updateDoc
     } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -438,7 +339,6 @@
     const db = getFirestore(app);
 
     let allDocs = [];
-    let rosterDocs = [];
     let currentPostTab = 'keyword';
     let keywordSortMode = 'count';
     let newsCat = '전체';
@@ -446,32 +346,24 @@
     let adSort = 'latest';
     let classFilter = '전체';
     let editingDocId = null;
-    let uploadedRows = [];
-    let uploadedHeaders = [];
 
     function parseClass(sid) {
         if (!sid || sid.length < 3) return null;
-        const g = sid.substring(0, 1);
-        const c = parseInt(sid.substring(1, 3), 10);
+        const g = sid.substring(0,1), c = parseInt(sid.substring(1,3),10);
         return isNaN(c) ? null : `${g}-${c}`;
     }
-
     function esc(str) {
         if (typeof str !== 'string') return '';
         return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
     }
-
     function formatTime(ts) {
         if (!ts) return '-';
-        const d = ts.toDate ? ts.toDate() : new Date(ts);
-        const pad = n => String(n).padStart(2,'0');
+        const d = ts.toDate ? ts.toDate() : new Date(ts), pad = n => String(n).padStart(2,'0');
         return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())}<br>${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     }
-
     function formatTimeShort(ts) {
         if (!ts) return '-';
-        const d = ts.toDate ? ts.toDate() : new Date(ts);
-        const pad = n => String(n).padStart(2,'0');
+        const d = ts.toDate ? ts.toDate() : new Date(ts), pad = n => String(n).padStart(2,'0');
         return `${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
 
@@ -481,10 +373,7 @@
             document.getElementById('login-overlay').style.display = 'none';
             document.getElementById('admin-main').style.display = 'flex';
             startAdminListener();
-            startRosterListener();
-        } else {
-            alert("비밀번호가 일치하지 않습니다.");
-        }
+        } else { alert("비밀번호가 일치하지 않습니다."); }
     };
 
     window.switchPage = function(page) {
@@ -500,22 +389,9 @@
             document.getElementById('loading-msg').style.display = 'none';
             renderPostsTab();
             renderStatsPage();
-            renderRosterTable();
         });
     }
 
-    function startRosterListener() {
-        onSnapshot(collection(db, "silla_students"), (snapshot) => {
-            rosterDocs = [];
-            snapshot.forEach(d => rosterDocs.push({ id: d.id, ...d.data() }));
-            rosterDocs.sort((a, b) => (a.studentId || '').localeCompare(b.studentId || ''));
-            renderRosterTable();
-            const badge = document.getElementById('roster-count-badge');
-            if (badge) badge.textContent = `${rosterDocs.length}명`;
-        });
-    }
-
-    // ===== 게시글 관리 =====
     window.switchPostTab = function(tab, btnEl) {
         currentPostTab = tab;
         document.querySelectorAll('.post-tab').forEach(t => t.classList.remove('active'));
@@ -525,14 +401,12 @@
         document.getElementById('filter-ad').style.display = tab === 'ad' ? 'flex' : 'none';
         renderPostsTab();
     };
-
     window.setKeywordSort = function(mode, btnEl) {
         keywordSortMode = mode;
         document.querySelectorAll('#filter-keyword .sub-filter-btn').forEach(b => b.classList.remove('active'));
         if (btnEl) btnEl.classList.add('active');
         renderPostsTab();
     };
-
     window.setNewsCat = function(cat, btnEl) {
         newsCat = cat;
         const firstRow = document.querySelector('#filter-news .sub-filter-row');
@@ -540,7 +414,6 @@
         if (btnEl) btnEl.classList.add('active');
         renderPostsTab();
     };
-
     window.setNewsSort = function(mode, btnEl) {
         newsSort = mode;
         const rows = document.querySelectorAll('#filter-news .sub-filter-row');
@@ -548,7 +421,6 @@
         if (btnEl) btnEl.classList.add('active');
         renderPostsTab();
     };
-
     window.setAdSort = function(mode, btnEl) {
         adSort = mode;
         document.querySelectorAll('#filter-ad .sub-filter-btn').forEach(b => b.classList.remove('active'));
@@ -568,7 +440,7 @@
     function renderKeywordList(area) {
         const map = {};
         allDocs.forEach(d => {
-            (d.keywords || []).forEach(word => {
+            (d.keywords||[]).forEach(word => {
                 const key = word.replace(/\s+/g,'');
                 if (!map[key]) map[key] = { display: word, count: 0, users: [], lastTs: null };
                 map[key].count++;
@@ -578,10 +450,10 @@
             });
         });
         let arr = Object.values(map);
-        if (keywordSortMode === 'count') arr.sort((a,b) => b.count - a.count || (b.lastTs||0)-(a.lastTs||0));
+        if (keywordSortMode === 'count') arr.sort((a,b) => b.count-a.count || (b.lastTs||0)-(a.lastTs||0));
         else arr.sort((a,b) => (b.lastTs||0)-(a.lastTs||0));
         if (arr.length === 0) { area.innerHTML = `<div class="empty-msg">아직 입력된 검색어가 없습니다.</div>`; return; }
-        area.innerHTML = arr.map((item, i) => {
+        area.innerHTML = arr.map((item,i) => {
             const usersText = item.users.map(u=>`${esc(u.name)}(${esc(u.id)})`).slice(0,5).join(', ');
             const more = item.users.length > 5 ? ` 외 ${item.users.length-5}명` : '';
             return `<div class="keyword-rank-item"><span class="keyword-rank-num ${i<3?'top':''}">${i+1}</span><span class="keyword-rank-word">${esc(item.display)}</span><span class="keyword-rank-users">${usersText}${more}</span><span class="keyword-rank-count">${item.count}회</span></div>`;
@@ -592,17 +464,16 @@
         const arr = [];
         allDocs.forEach(d => {
             (d.news||[]).forEach(n => {
-                const likes = (d.newsLikes?.[n.category]) || [];
-                const pick = (d.newsPicks?.[n.category]) || {};
-                arr.push({ docId: d.id, title: n.title, category: n.category, studentId: d.studentId, studentName: d.studentName, timestamp: d.timestamp, likeCount: likes.length, picked: !!pick.picked, pickedAt: pick.pickedAt || null });
+                const likes = (d.newsLikes?.[n.category]) || [], pick = (d.newsPicks?.[n.category]) || {};
+                arr.push({ docId:d.id, title:n.title, category:n.category, studentId:d.studentId, studentName:d.studentName, timestamp:d.timestamp, likeCount:likes.length, picked:!!pick.picked, pickedAt:pick.pickedAt||null });
             });
         });
-        let filtered = newsCat !== '전체' ? arr.filter(n => n.category === newsCat) : arr;
-        if (newsSort === 'latest') filtered.sort((a,b) => (b.timestamp?.toMillis?.()||0)-(a.timestamp?.toMillis?.()||0));
-        else if (newsSort === 'studentId') filtered.sort((a,b) => (a.studentId||'').localeCompare(b.studentId||''));
-        else if (newsSort === 'likes') filtered.sort((a,b) => b.likeCount-a.likeCount);
-        else if (newsSort === 'pick') { filtered = filtered.filter(n=>n.picked); filtered.sort((a,b)=>(b.pickedAt?.toMillis?.()||0)-(a.pickedAt?.toMillis?.()||0)); }
-        if (filtered.length === 0) { area.innerHTML = `<div class="empty-msg">${newsSort==='pick'?'아직 픽된 기사가 없습니다.':'해당 조건의 기사가 없습니다.'}</div>`; return; }
+        let filtered = newsCat !== '전체' ? arr.filter(n=>n.category===newsCat) : arr;
+        if (newsSort==='latest') filtered.sort((a,b)=>(b.timestamp?.toMillis?.()||0)-(a.timestamp?.toMillis?.()||0));
+        else if (newsSort==='studentId') filtered.sort((a,b)=>(a.studentId||'').localeCompare(b.studentId||''));
+        else if (newsSort==='likes') filtered.sort((a,b)=>b.likeCount-a.likeCount);
+        else if (newsSort==='pick') { filtered=filtered.filter(n=>n.picked); filtered.sort((a,b)=>(b.pickedAt?.toMillis?.()||0)-(a.pickedAt?.toMillis?.()||0)); }
+        if (filtered.length===0) { area.innerHTML=`<div class="empty-msg">${newsSort==='pick'?'아직 픽된 기사가 없습니다.':'해당 조건의 기사가 없습니다.'}</div>`; return; }
         area.innerHTML = filtered.map(n =>
             `<div class="post-card${n.picked?' picked':''}"><div class="post-card-header"><div class="post-author"><span class="name">${esc(n.studentName)}</span><span style="color:var(--text-muted);">${esc(n.studentId)}</span></div><span class="post-cat-tag">${esc(n.category)}</span></div><div class="post-content">${esc(n.title)}</div><div class="post-card-footer"><div class="post-meta"><span>${formatTimeShort(n.timestamp)}</span><span class="like-count">❤️ ${n.likeCount}</span>${n.picked?`<span class="pick-mark">⭐ PICK</span>`:''}</div><button class="pick-toggle ${n.picked?'active':''}" onclick="toggleNewsPick('${n.docId}','${esc(n.category)}',${n.picked})">${n.picked?'⭐ PICK 해제':'☆ PICK 주기'}</button></div></div>`
         ).join('');
@@ -610,11 +481,11 @@
 
     function renderAdList(area) {
         let arr = allDocs.filter(d=>d.ad).map(d=>({ docId:d.id, content:d.ad, studentId:d.studentId, studentName:d.studentName, timestamp:d.timestamp, likeCount:(d.adLikes||[]).length, picked:!!d.adPick, pickedAt:d.adPickedAt||null }));
-        if (adSort === 'latest') arr.sort((a,b)=>(b.timestamp?.toMillis?.()||0)-(a.timestamp?.toMillis?.()||0));
-        else if (adSort === 'studentId') arr.sort((a,b)=>(a.studentId||'').localeCompare(b.studentId||''));
-        else if (adSort === 'likes') arr.sort((a,b)=>b.likeCount-a.likeCount);
-        else if (adSort === 'pick') { arr=arr.filter(a=>a.picked); arr.sort((a,b)=>(b.pickedAt?.toMillis?.()||0)-(a.pickedAt?.toMillis?.()||0)); }
-        if (arr.length === 0) { area.innerHTML = `<div class="empty-msg">${adSort==='pick'?'아직 픽된 광고가 없습니다.':'등록된 광고가 없습니다.'}</div>`; return; }
+        if (adSort==='latest') arr.sort((a,b)=>(b.timestamp?.toMillis?.()||0)-(a.timestamp?.toMillis?.()||0));
+        else if (adSort==='studentId') arr.sort((a,b)=>(a.studentId||'').localeCompare(b.studentId||''));
+        else if (adSort==='likes') arr.sort((a,b)=>b.likeCount-a.likeCount);
+        else if (adSort==='pick') { arr=arr.filter(a=>a.picked); arr.sort((a,b)=>(b.pickedAt?.toMillis?.()||0)-(a.pickedAt?.toMillis?.()||0)); }
+        if (arr.length===0) { area.innerHTML=`<div class="empty-msg">${adSort==='pick'?'아직 픽된 광고가 없습니다.':'등록된 광고가 없습니다.'}</div>`; return; }
         area.innerHTML = arr.map(ad =>
             `<div class="post-card${ad.picked?' picked':''}"><div class="post-card-header"><div class="post-author"><span class="name">${esc(ad.studentName)}</span><span style="color:var(--text-muted);">${esc(ad.studentId)}</span></div><span class="post-cat-tag" style="background:rgba(255,193,7,0.15);color:#ffc107;">광고</span></div><div class="post-content">${esc(ad.content)}</div><div class="post-card-footer"><div class="post-meta"><span>${formatTimeShort(ad.timestamp)}</span><span class="like-count">❤️ ${ad.likeCount}</span>${ad.picked?`<span class="pick-mark">⭐ PICK</span>`:''}</div><button class="pick-toggle ${ad.picked?'active':''}" onclick="toggleAdPick('${ad.docId}',${ad.picked})">${ad.picked?'⭐ PICK 해제':'☆ PICK 주기'}</button></div></div>`
         ).join('');
@@ -622,83 +493,77 @@
 
     window.toggleNewsPick = async function(docId, category, currentlyPicked) {
         try {
-            const targetDoc = allDocs.find(d => d.id === docId);
-            const newsPicks = targetDoc?.newsPicks ? { ...targetDoc.newsPicks } : {};
-            newsPicks[category] = currentlyPicked ? { picked: false, pickedAt: null } : { picked: true, pickedAt: new Date() };
-            await updateDoc(doc(db, "silla_v3", docId), { newsPicks });
-        } catch (e) { alert("픽 적용 중 오류: " + e.message); }
+            const targetDoc = allDocs.find(d=>d.id===docId);
+            const newsPicks = targetDoc?.newsPicks ? {...targetDoc.newsPicks} : {};
+            newsPicks[category] = currentlyPicked ? {picked:false,pickedAt:null} : {picked:true,pickedAt:new Date()};
+            await updateDoc(doc(db,"silla_v3",docId), {newsPicks});
+        } catch(e) { alert("픽 적용 중 오류: "+e.message); }
     };
-
     window.toggleAdPick = async function(docId, currentlyPicked) {
         try {
-            if (currentlyPicked) await updateDoc(doc(db,"silla_v3",docId), { adPick:false, adPickedAt:null });
-            else await updateDoc(doc(db,"silla_v3",docId), { adPick:true, adPickedAt:new Date() });
-        } catch (e) { alert("픽 적용 중 오류: " + e.message); }
+            if (currentlyPicked) await updateDoc(doc(db,"silla_v3",docId),{adPick:false,adPickedAt:null});
+            else await updateDoc(doc(db,"silla_v3",docId),{adPick:true,adPickedAt:new Date()});
+        } catch(e) { alert("픽 적용 중 오류: "+e.message); }
     };
 
-    // ===== 통계 =====
     function renderStatsPage() {
-        let totalNews=0, totalAd=0, totalKeywords=0, totalLikes=0, totalPicks=0;
-        const catCounts = {'정치':0,'중앙제도':0,'지방행정':0,'군사':0,'토지':0};
-        allDocs.forEach(d => {
-            totalNews += (d.news||[]).length > 0 ? 1 : 0;
-            totalAd += d.ad ? 1 : 0;
-            totalKeywords += (d.keywords||[]).length;
-            (d.news||[]).forEach(n => { if(catCounts[n.category]!==undefined) catCounts[n.category]++; });
-            Object.values(d.newsLikes||{}).forEach(arr => { totalLikes += (arr||[]).length; });
-            totalLikes += (d.adLikes||[]).length;
-            Object.values(d.newsPicks||{}).forEach(p => { if(p&&p.picked) totalPicks++; });
-            if(d.adPick) totalPicks++;
+        let totalNews=0,totalAd=0,totalKeywords=0,totalLikes=0,totalPicks=0;
+        const catCounts={'정치':0,'중앙제도':0,'지방행정':0,'군사':0,'토지':0};
+        allDocs.forEach(d=>{
+            totalNews+=(d.news||[]).length>0?1:0; totalAd+=d.ad?1:0; totalKeywords+=(d.keywords||[]).length;
+            (d.news||[]).forEach(n=>{if(catCounts[n.category]!==undefined)catCounts[n.category]++;});
+            Object.values(d.newsLikes||{}).forEach(arr=>{totalLikes+=(arr||[]).length;});
+            totalLikes+=(d.adLikes||[]).length;
+            Object.values(d.newsPicks||{}).forEach(p=>{if(p&&p.picked)totalPicks++;});
+            if(d.adPick)totalPicks++;
         });
-        document.getElementById('stat-total').textContent = allDocs.length;
-        document.getElementById('stat-news').textContent = totalNews;
-        document.getElementById('stat-ad').textContent = totalAd;
-        document.getElementById('stat-keywords').textContent = totalKeywords;
-        document.getElementById('stat-likes').textContent = totalLikes;
-        document.getElementById('stat-picks').textContent = totalPicks;
-        const maxCount = Math.max(1,...Object.values(catCounts));
-        const catLabels = {'정치':'🏛️ 정치','중앙제도':'📜 중앙제도','지방행정':'🗺️ 지방행정','군사':'⚔️ 군사','토지':'🌾 토지/경제'};
-        document.getElementById('news-chart').innerHTML = Object.entries(catCounts).map(([cat,count]) =>
+        document.getElementById('stat-total').textContent=allDocs.length;
+        document.getElementById('stat-news').textContent=totalNews;
+        document.getElementById('stat-ad').textContent=totalAd;
+        document.getElementById('stat-keywords').textContent=totalKeywords;
+        document.getElementById('stat-likes').textContent=totalLikes;
+        document.getElementById('stat-picks').textContent=totalPicks;
+        const maxCount=Math.max(1,...Object.values(catCounts));
+        const catLabels={'정치':'🏛️ 정치','중앙제도':'📜 중앙제도','지방행정':'🗺️ 지방행정','군사':'⚔️ 군사','토지':'🌾 토지/경제'};
+        document.getElementById('news-chart').innerHTML=Object.entries(catCounts).map(([cat,count])=>
             `<div class="bar-row"><div class="bar-label">${catLabels[cat]}</div><div class="bar-track"><div class="bar-fill" style="width:${(count/maxCount*100).toFixed(0)}%"></div></div><div class="bar-value">${count}</div></div>`
         ).join('');
-        renderClassFilterBar();
-        renderStatsTable();
+        renderClassFilterBar(); renderStatsTable();
     }
 
     function renderClassFilterBar() {
-        const bar = document.getElementById('class-filter-bar');
-        if (!bar) return;
-        const classMap = {};
-        allDocs.forEach(d => { const cls=parseClass(d.studentId); if(cls) classMap[cls]=(classMap[cls]||0)+1; });
-        const sortedClasses = Object.keys(classMap).sort((a,b)=>{ const [ga,ca]=a.split('-').map(Number); const [gb,cb]=b.split('-').map(Number); return ga!==gb?ga-gb:ca-cb; });
-        if (classFilter!=='전체'&&!sortedClasses.includes(classFilter)) classFilter='전체';
-        bar.innerHTML = `<span class="label">학반</span><button class="class-chip ${classFilter==='전체'?'active':''}" onclick="setClassFilter('전체',this)">전체 <span class="count">${allDocs.length}</span></button>`
-            + sortedClasses.map(cls=>{ const [g,c]=cls.split('-'); return `<button class="class-chip ${classFilter===cls?'active':''}" onclick="setClassFilter('${cls}',this)">${g}학년 ${c}반 <span class="count">${classMap[cls]}</span></button>`; }).join('');
+        const bar=document.getElementById('class-filter-bar'); if(!bar)return;
+        const classMap={};
+        allDocs.forEach(d=>{const cls=parseClass(d.studentId);if(cls)classMap[cls]=(classMap[cls]||0)+1;});
+        const sortedClasses=Object.keys(classMap).sort((a,b)=>{const[ga,ca]=a.split('-').map(Number),[gb,cb]=b.split('-').map(Number);return ga!==gb?ga-gb:ca-cb;});
+        if(classFilter!=='전체'&&!sortedClasses.includes(classFilter))classFilter='전체';
+        bar.innerHTML=`<span class="label">학반</span><button class="class-chip ${classFilter==='전체'?'active':''}" onclick="setClassFilter('전체',this)">전체 <span class="count">${allDocs.length}</span></button>`
+            +sortedClasses.map(cls=>{const[g,c]=cls.split('-');return`<button class="class-chip ${classFilter===cls?'active':''}" onclick="setClassFilter('${cls}',this)">${g}학년 ${c}반 <span class="count">${classMap[cls]}</span></button>`;}).join('');
     }
 
-    window.setClassFilter = function(cls, btnEl) {
-        classFilter = cls;
+    window.setClassFilter=function(cls,btnEl){
+        classFilter=cls;
         document.querySelectorAll('#class-filter-bar .class-chip').forEach(b=>b.classList.remove('active'));
-        if(btnEl) btnEl.classList.add('active');
+        if(btnEl)btnEl.classList.add('active');
         renderStatsTable();
     };
 
-    window.renderStatsTable = function() {
-        const list = document.getElementById('data-list');
-        const searchVal = (document.getElementById('stats-search').value||'').trim().toLowerCase();
-        list.innerHTML = '';
-        const filtered = allDocs.filter(d => {
-            if(classFilter!=='전체'&&parseClass(d.studentId)!==classFilter) return false;
-            if(!searchVal) return true;
-            return (d.studentId||'').toLowerCase().includes(searchVal)||(d.studentName||'').toLowerCase().includes(searchVal);
+    window.renderStatsTable=function(){
+        const list=document.getElementById('data-list');
+        const searchVal=(document.getElementById('stats-search').value||'').trim().toLowerCase();
+        list.innerHTML='';
+        const filtered=allDocs.filter(d=>{
+            if(classFilter!=='전체'&&parseClass(d.studentId)!==classFilter)return false;
+            if(!searchVal)return true;
+            return(d.studentId||'').toLowerCase().includes(searchVal)||(d.studentName||'').toLowerCase().includes(searchVal);
         });
-        if (filtered.length === 0) { list.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">검색 결과가 없습니다.</td></tr>`; return; }
-        filtered.forEach((d, i) => {
-            const newsLikesObj=d.newsLikes||{}, adLikesArr=d.adLikes||[], picks=d.newsPicks||{};
+        if(filtered.length===0){list.innerHTML=`<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">검색 결과가 없습니다.</td></tr>`;return;}
+        filtered.forEach((d,i)=>{
+            const newsLikesObj=d.newsLikes||{},adLikesArr=d.adLikes||[],picks=d.newsPicks||{};
             const keywordTags=(d.keywords||[]).map(k=>`<span class="tag tag-keyword">🔍 ${esc(k)}</span>`).join('');
             const newsList=(d.news||[]).map(n=>{
-                const lc=(newsLikesObj[n.category]||[]).length, isP=picks[n.category]&&picks[n.category].picked;
-                return `<div class="news-row"><span class="tag tag-cat">${esc(n.category)}</span>${esc(n.title)}${lc>0?`<span style="color:#ff6b81;font-size:11px;margin-left:4px;">❤️${lc}</span>`:''}${isP?`<span style="color:var(--pick-gold);font-size:11px;margin-left:4px;">⭐</span>`:''}</div>`;
+                const lc=(newsLikesObj[n.category]||[]).length,isP=picks[n.category]&&picks[n.category].picked;
+                return`<div class="news-row"><span class="tag tag-cat">${esc(n.category)}</span>${esc(n.title)}${lc>0?`<span style="color:#ff6b81;font-size:11px;margin-left:4px;">❤️${lc}</span>`:''}${isP?`<span style="color:var(--pick-gold);font-size:11px;margin-left:4px;">⭐</span>`:''}</div>`;
             }).join('');
             const adHtml=d.ad?`<div class="ad-text">${esc(d.ad)}${adLikesArr.length>0?`<span style="color:#ff6b81;font-size:11px;display:block;margin-top:4px;">❤️ ${adLikesArr.length}</span>`:''}${d.adPick?`<span style="color:var(--pick-gold);font-size:11px;"> ⭐ PICK</span>`:''}</div>`:'<span style="color:var(--text-muted);">-</span>';
             const tr=document.createElement('tr');
@@ -707,185 +572,62 @@
         });
     };
 
-    // ===== 학생 명단 =====
-    window.handleFileUpload = function(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const wb = XLSX.read(new Uint8Array(e.target.result), { type:'array' });
-            const ws = wb.Sheets[wb.SheetNames[0]];
-            const rows = XLSX.utils.sheet_to_json(ws, { header:1, defval:'' });
-            if (rows.length < 2) { alert("데이터가 부족합니다. 헤더와 데이터 행이 필요합니다."); return; }
-            uploadedHeaders = (rows[0]||[]).map(h=>String(h));
-            uploadedRows = rows.slice(1).filter(r=>r.some(c=>c!==''));
-
-            const colIdSel=document.getElementById('col-id'), colNameSel=document.getElementById('col-name');
-            colIdSel.innerHTML=''; colNameSel.innerHTML='';
-            uploadedHeaders.forEach((h,i)=>{
-                const opt=`<option value="${i}">${h||`열 ${i+1}`}</option>`;
-                colIdSel.innerHTML+=opt; colNameSel.innerHTML+=opt;
-            });
-            const idIdx=uploadedHeaders.findIndex(h=>/학번|id|번호/i.test(h));
-            const nameIdx=uploadedHeaders.findIndex(h=>/이름|name|성명/i.test(h));
-            if(idIdx>=0) colIdSel.value=idIdx;
-            if(nameIdx>=0) colNameSel.value=nameIdx;
-            updatePreview();
-            document.getElementById('column-map-section').style.display='block';
-        };
-        reader.readAsArrayBuffer(file);
-    };
-
-    function updatePreview() {
-        const idCol=parseInt(document.getElementById('col-id').value);
-        const nameCol=parseInt(document.getElementById('col-name').value);
-        document.getElementById('preview-text').textContent = uploadedRows.slice(0,3).map(r=>`${r[idCol]||'?'} / ${r[nameCol]||'?'}`).join('  |  ');
-    }
-
-    document.getElementById('col-id').addEventListener('change', updatePreview);
-    document.getElementById('col-name').addEventListener('change', updatePreview);
-
-    window.confirmUpload = async function() {
-        const idCol=parseInt(document.getElementById('col-id').value);
-        const nameCol=parseInt(document.getElementById('col-name').value);
-        const students=uploadedRows.map(r=>({ studentId:String(r[idCol]||'').trim(), studentName:String(r[nameCol]||'').trim() })).filter(s=>s.studentId&&s.studentName);
-        if (students.length===0) { alert("유효한 학생 데이터가 없습니다."); return; }
-        if (!confirm(`총 ${students.length}명을 명단에 추가하시겠습니까?\n같은 학번이면 이름이 업데이트됩니다.`)) return;
-        try {
-            await Promise.all(students.map(s=>setDoc(doc(db,"silla_students",s.studentId),{ studentId:s.studentId, studentName:s.studentName })));
-            alert(`${students.length}명 업로드 완료!`);
-            cancelUpload();
-        } catch(e) { alert("업로드 중 오류: "+e.message); }
-    };
-
-    window.cancelUpload = function() {
-        document.getElementById('column-map-section').style.display='none';
-        document.getElementById('excel-file').value='';
-        uploadedRows=[]; uploadedHeaders=[];
-    };
-
-    const uploadZone=document.getElementById('upload-zone');
-    uploadZone.addEventListener('dragover', e=>{ e.preventDefault(); uploadZone.classList.add('dragover'); });
-    uploadZone.addEventListener('dragleave', ()=>uploadZone.classList.remove('dragover'));
-    uploadZone.addEventListener('drop', e=>{
-        e.preventDefault(); uploadZone.classList.remove('dragover');
-        const file=e.dataTransfer.files[0];
-        if(file) handleFileUpload({ target:{ files:[file] } });
-    });
-
-    window.addManualStudent = async function() {
-        const sid=document.getElementById('manual-id').value.trim();
-        const sname=document.getElementById('manual-name').value.trim();
-        if (!sid||!sname) { alert("학번과 이름을 모두 입력해주세요."); return; }
-        if (!/^\d{5}$/.test(sid)) { alert("학번은 숫자 5자리여야 합니다."); return; }
-        try {
-            await setDoc(doc(db,"silla_students",sid),{ studentId:sid, studentName:sname });
-            document.getElementById('manual-id').value='';
-            document.getElementById('manual-name').value='';
-        } catch(e) { alert("추가 중 오류: "+e.message); }
-    };
-
-    window.renderRosterTable = function() {
-        const list=document.getElementById('roster-list');
-        if (!list) return;
-        const searchVal=(document.getElementById('roster-search')?.value||'').trim().toLowerCase();
-        const submittedIds=new Set(allDocs.map(d=>d.studentId));
-        const filtered=rosterDocs.filter(s=>{
-            if(!searchVal) return true;
-            return (s.studentId||'').toLowerCase().includes(searchVal)||(s.studentName||'').toLowerCase().includes(searchVal);
-        });
-        if (filtered.length===0) {
-            list.innerHTML=`<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-muted);">${rosterDocs.length===0?'아직 업로드된 명단이 없습니다.':'검색 결과가 없습니다.'}</td></tr>`;
-            return;
-        }
-        list.innerHTML=filtered.map((s,i)=>{
-            const submitted=submittedIds.has(s.studentId);
-            return `<tr><td style="color:var(--text-muted);">${i+1}</td><td style="font-weight:700;">${esc(s.studentId)}</td><td>${esc(s.studentName)}</td><td>${submitted?`<span style="color:var(--naver-green);font-weight:700;font-size:12px;">✅ 제출완료</span>`:`<span style="color:var(--text-muted);font-size:12px;">미제출</span>`}</td><td><button class="roster-del-btn" onclick="deleteRosterEntry('${esc(s.studentId)}')">🗑️</button></td></tr>`;
-        }).join('');
-    };
-
-    window.deleteRosterEntry = async function(studentId) {
-        if(!confirm(`학번 ${studentId} 학생을 명단에서 삭제하시겠습니까?`)) return;
-        try { await deleteDoc(doc(db,"silla_students",studentId)); }
-        catch(e) { alert("삭제 중 오류: "+e.message); }
-    };
-
-    window.clearRoster = async function() {
-        if(!confirm("⚠️ 학생 명단 전체를 삭제하시겠습니까?\n삭제 후 학생들이 제출할 수 없게 됩니다.")) return;
-        try {
-            const snap=await getDocs(collection(db,"silla_students"));
-            await Promise.all(snap.docs.map(d=>deleteDoc(doc(db,"silla_students",d.id))));
-            alert("명단이 초기화되었습니다.");
-        } catch(e) { alert("초기화 중 오류: "+e.message); }
-    };
-
-    // ===== 편집/삭제 =====
-    window.openEditModal = function(docId) {
-        const target=allDocs.find(d=>d.id===docId);
-        if(!target) return;
+    window.openEditModal=function(docId){
+        const target=allDocs.find(d=>d.id===docId); if(!target)return;
         editingDocId=docId;
         document.getElementById('edit-student-id').value=target.studentId||'';
         document.getElementById('edit-student-name').value=target.studentName||'';
         document.getElementById('edit-modal').classList.add('show');
     };
-
-    window.closeEditModal = function() {
-        editingDocId=null;
-        document.getElementById('edit-modal').classList.remove('show');
-    };
-
-    window.saveEdit = async function() {
-        if(!editingDocId) return;
+    window.closeEditModal=function(){editingDocId=null;document.getElementById('edit-modal').classList.remove('show');};
+    window.saveEdit=async function(){
+        if(!editingDocId)return;
         const newId=document.getElementById('edit-student-id').value.trim();
         const newName=document.getElementById('edit-student-name').value.trim();
-        if(!newId||!newName) { alert("학번과 이름을 모두 입력해주세요."); return; }
-        if(!/^\d{5}$/.test(newId)) { alert("학번은 숫자 5자리여야 합니다."); return; }
+        if(!newId||!newName){alert("학번과 이름을 모두 입력해주세요.");return;}
+        if(!/^\d{5}$/.test(newId)){alert("학번은 숫자 5자리여야 합니다.");return;}
         const original=allDocs.find(d=>d.id===editingDocId);
-        if(!original) { alert("대상 학생 정보를 찾을 수 없습니다."); closeEditModal(); return; }
-        if(original.studentId!==newId) {
+        if(!original){alert("대상 학생 정보를 찾을 수 없습니다.");closeEditModal();return;}
+        if(original.studentId!==newId){
             const conflict=allDocs.find(d=>d.id!==editingDocId&&d.studentId===newId);
-            if(conflict) { alert(`해당 학번(${newId})은 이미 ${conflict.studentName} 학생이 사용 중입니다.`); return; }
+            if(conflict){alert(`해당 학번(${newId})은 이미 ${conflict.studentName} 학생이 사용 중입니다.`);return;}
         }
-        try {
-            await updateDoc(doc(db,"silla_v3",editingDocId),{ studentId:newId, studentName:newName });
-            alert("수정되었습니다.");
-            closeEditModal();
-        } catch(e) { alert("수정 중 오류: "+e.message); }
+        try{
+            await updateDoc(doc(db,"silla_v3",editingDocId),{studentId:newId,studentName:newName});
+            alert("수정되었습니다."); closeEditModal();
+        }catch(e){alert("수정 중 오류: "+e.message);}
     };
-
-    window.deleteEntry = async function(docId) {
-        if(confirm("이 학생의 기록을 삭제하시겠습니까?")) {
-            try { await deleteDoc(doc(db,"silla_v3",docId)); }
-            catch(e) { alert("삭제 중 오류: "+e.message); }
+    window.deleteEntry=async function(docId){
+        if(confirm("이 학생의 기록을 삭제하시겠습니까?")){
+            try{await deleteDoc(doc(db,"silla_v3",docId));}
+            catch(e){alert("삭제 중 오류: "+e.message);}
         }
     };
-
-    window.resetAll = async function() {
-        if(confirm("🚨 경고! 모든 학생 제출 데이터를 완전히 삭제하시겠습니까?")) {
-            try {
+    window.resetAll=async function(){
+        if(confirm("🚨 경고! 모든 학생 제출 데이터를 완전히 삭제하시겠습니까?")){
+            try{
                 const snap=await getDocs(collection(db,"silla_v3"));
                 await Promise.all(snap.docs.map(d=>deleteDoc(doc(db,"silla_v3",d.id))));
                 alert("모든 데이터가 초기화되었습니다.");
-            } catch(e) { alert("초기화 중 오류: "+e.message); }
+            }catch(e){alert("초기화 중 오류: "+e.message);}
         }
     };
-
-    window.exportToExcel = function() {
-        if(!allDocs||allDocs.length===0) { alert("저장할 데이터가 없습니다."); return; }
+    window.exportToExcel=function(){
+        if(!allDocs||allDocs.length===0){alert("저장할 데이터가 없습니다.");return;}
         const rows=allDocs.map((data,i)=>{
-            const ts=data.timestamp?(()=>{ const d=data.timestamp.toDate?data.timestamp.toDate():new Date(data.timestamp); const pad=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`; })():'-';
+            const ts=data.timestamp?(()=>{const d=data.timestamp.toDate?data.timestamp.toDate():new Date(data.timestamp),pad=n=>String(n).padStart(2,'0');return`${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;})():'-';
             const keywords=(data.keywords||[]).join(', ');
-            const newsMap={}, newsLikesMap={}, newsPickMap={};
-            (data.news||[]).forEach(n=>{ newsMap[n.category]=n.title; });
-            const newsLikes=data.newsLikes||{}, newsPicks=data.newsPicks||{};
-            ['정치','중앙제도','지방행정','군사','토지'].forEach(cat=>{ newsLikesMap[cat]=(newsLikes[cat]||[]).length; newsPickMap[cat]=(newsPicks[cat]&&newsPicks[cat].picked)?'⭐':''; });
-            return { '번호':i+1,'학번':data.studentId||'','이름':data.studentName||'','제출 시각':ts,'검색어':keywords,'뉴스_정치':newsMap['정치']||'','정치_좋아요':newsLikesMap['정치']||0,'정치_PICK':newsPickMap['정치']||'','뉴스_중앙제도':newsMap['중앙제도']||'','중앙_좋아요':newsLikesMap['중앙제도']||0,'중앙_PICK':newsPickMap['중앙제도']||'','뉴스_지방행정':newsMap['지방행정']||'','지방_좋아요':newsLikesMap['지방행정']||0,'지방_PICK':newsPickMap['지방행정']||'','뉴스_군사':newsMap['군사']||'','군사_좋아요':newsLikesMap['군사']||0,'군사_PICK':newsPickMap['군사']||'','뉴스_토지경제':newsMap['토지']||'','토지_좋아요':newsLikesMap['토지']||0,'토지_PICK':newsPickMap['토지']||'','광고 배너':data.ad||'','광고_좋아요':(data.adLikes||[]).length,'광고_PICK':data.adPick?'⭐':'' };
+            const newsMap={},newsLikesMap={},newsPickMap={};
+            (data.news||[]).forEach(n=>{newsMap[n.category]=n.title;});
+            const newsLikes=data.newsLikes||{},newsPicks=data.newsPicks||{};
+            ['정치','중앙제도','지방행정','군사','토지'].forEach(cat=>{newsLikesMap[cat]=(newsLikes[cat]||[]).length;newsPickMap[cat]=(newsPicks[cat]&&newsPicks[cat].picked)?'⭐':'';});
+            return{'번호':i+1,'학번':data.studentId||'','이름':data.studentName||'','제출 시각':ts,'검색어':keywords,'뉴스_정치':newsMap['정치']||'','정치_좋아요':newsLikesMap['정치']||0,'정치_PICK':newsPickMap['정치']||'','뉴스_중앙제도':newsMap['중앙제도']||'','중앙_좋아요':newsLikesMap['중앙제도']||0,'중앙_PICK':newsPickMap['중앙제도']||'','뉴스_지방행정':newsMap['지방행정']||'','지방_좋아요':newsLikesMap['지방행정']||0,'지방_PICK':newsPickMap['지방행정']||'','뉴스_군사':newsMap['군사']||'','군사_좋아요':newsLikesMap['군사']||0,'군사_PICK':newsPickMap['군사']||'','뉴스_토지경제':newsMap['토지']||'','토지_좋아요':newsLikesMap['토지']||0,'토지_PICK':newsPickMap['토지']||'','광고 배너':data.ad||'','광고_좋아요':(data.adLikes||[]).length,'광고_PICK':data.adPick?'⭐':''};
         });
         const ws=XLSX.utils.json_to_sheet(rows);
         ws['!cols']=Array(Object.keys(rows[0]).length).fill({wch:16});
         const wb=XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb,ws,'학생 제출 데이터');
-        const now=new Date(), pad=n=>String(n).padStart(2,'0');
+        const now=new Date(),pad=n=>String(n).padStart(2,'0');
         XLSX.writeFile(wb,`SILLAVER_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.xlsx`);
     };
 </script>
