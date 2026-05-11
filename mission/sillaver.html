@@ -6,555 +6,1033 @@
     <title>SILLAVER - 통일 신라 포털</title>
     <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
     <style>
-        :root { --naver-green: #03c75a; --bg-gray: #f5f6f7; --border-gray: #e3e5e8; --pick-gold: #ffb300; }
-        * { box-sizing: border-box; }
-        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg-gray); margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-        
-        header { background: white; padding: 12px; text-align: center; border-bottom: 1px solid var(--border-gray); position: sticky; top: 0; z-index: 1000; width: 100%; }
-        .logo { color: var(--naver-green); font-size: 26px; font-weight: 900; letter-spacing: -1.5px; text-decoration: none; }
-        
-        .container { width: 100%; max-width: 800px; margin: 0 auto; padding: 15px; }
-        .box { background: white; border-radius: 12px; padding: 18px; border: 1px solid var(--border-gray); margin-bottom: 15px; width: 100%; }
-        
-        .section-title { font-size: 18px; font-weight: 800; color: #333; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-        .section-title::before { content: ''; width: 4px; height: 18px; background: var(--naver-green); display: inline-block; border-radius: 2px; }
-        .section-desc { font-size: 13px; color: #777; margin-bottom: 15px; line-height: 1.4; }
+        :root {
+            --green: #03c75a;
+            --green-light: rgba(3,199,90,0.08);
+            --bg: #f5f6f7;
+            --border: #e3e5e8;
+            --gold: #ffb300;
+            --red: #ff5872;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); -webkit-tap-highlight-color: transparent; }
 
-        .user-info { display: flex; gap: 8px; margin-bottom: 15px; width: 100%; }
-        .user-info input { flex: 1; min-width: 0; width: 100%; padding: 14px; border: 1px solid var(--border-gray); border-radius: 8px; font-size: 16px; outline: none; -webkit-appearance: none; }
+        /* ── 헤더 ── */
+        header { background: white; padding: 12px 16px; text-align: center; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+        .logo { color: var(--green); font-size: 24px; font-weight: 900; letter-spacing: -1.5px; text-decoration: none; cursor: pointer; }
 
-        .search-area { border: 2px solid var(--naver-green); border-radius: 30px; display: flex; align-items: center; padding: 5px 18px; background: white; margin-bottom: 15px; width: 100%; }
-        .search-area span { color: var(--naver-green); font-weight: 900; font-size: 24px; margin-right: 12px; }
-        .search-area input { border: none; outline: none; width: 100%; height: 45px; font-size: 16px; font-weight: 500; min-width: 0; }
+        /* ── 스텝 인디케이터 ── */
+        .step-bar { display: flex; align-items: center; justify-content: center; gap: 0; padding: 14px 20px; background: white; border-bottom: 1px solid var(--border); }
+        .step-dot { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .step-circle { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--border); background: white; color: #bbb; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center; transition: 0.3s; }
+        .step-circle.active { border-color: var(--green); background: var(--green); color: white; }
+        .step-circle.done { border-color: var(--green); background: white; color: var(--green); }
+        .step-label { font-size: 10px; font-weight: 700; color: #bbb; white-space: nowrap; transition: 0.3s; }
+        .step-label.active { color: var(--green); }
+        .step-label.done { color: var(--green); }
+        .step-line { width: 40px; height: 2px; background: var(--border); margin: 0 4px; margin-bottom: 18px; transition: 0.3s; flex-shrink: 0; }
+        .step-line.done { background: var(--green); }
 
-        .input-group { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-        .input-group label { width: 85px; font-size: 14px; font-weight: 700; color: #555; flex-shrink: 0; }
-        .input-group input { flex: 1; min-width: 0; padding: 12px; border: 1px solid var(--border-gray); border-radius: 8px; font-size: 15px; outline: none; width: 100%; }
-        .input-group input:focus { border-color: var(--naver-green); }
+        /* ── 컨테이너 ── */
+        .container { max-width: 600px; margin: 0 auto; padding: 20px 15px 40px; }
 
-        .ad-textarea { width: 100%; min-height: 140px; padding: 15px; border: 1px solid var(--border-gray); border-radius: 8px; font-family: inherit; font-size: 16px; resize: none; outline: none; line-height: 1.5; }
-        .ad-textarea:focus { border-color: var(--naver-green); }
+        /* ── 박스 ── */
+        .box { background: white; border-radius: 14px; padding: 20px; border: 1px solid var(--border); margin-bottom: 14px; }
 
-        .btn-submit { background: var(--naver-green); color: white; border: none; width: 100%; padding: 18px; border-radius: 10px; font-size: 19px; font-weight: 800; cursor: pointer; transition: 0.2s; margin-top: 10px; box-shadow: 0 4px 10px rgba(3, 199, 90, 0.2); }
-        .btn-submit:active { transform: scale(0.97); }
-        .btn-submit:disabled { background: #aaa; box-shadow: none; cursor: not-allowed; }
+        /* ── 단계 제목 ── */
+        .step-title { font-size: 20px; font-weight: 900; color: #111; margin-bottom: 4px; }
+        .step-subtitle { font-size: 13px; color: #888; margin-bottom: 20px; line-height: 1.5; }
 
+        /* ── 작성방법 안내문 ── */
+        .guide-box { background: var(--green-light); border: 1px solid rgba(3,199,90,0.25); border-radius: 10px; padding: 14px 16px; margin-bottom: 18px; }
+        .guide-label { font-size: 11px; font-weight: 800; color: var(--green); margin-bottom: 6px; letter-spacing: 0.5px; }
+        .guide-text { font-size: 13px; color: #444; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
+        .guide-box.empty { display: none; }
+
+        /* ── 입력 ── */
+        .field-label { font-size: 13px; font-weight: 800; color: #444; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .field-optional { font-size: 11px; font-weight: 500; color: #bbb; }
+        .field-required { font-size: 11px; font-weight: 700; color: var(--red); }
+        input[type="text"], input[type="password"] {
+            width: 100%; padding: 13px 14px; border: 1.5px solid var(--border); border-radius: 9px;
+            font-size: 15px; font-family: inherit; outline: none; transition: border-color 0.2s;
+            -webkit-appearance: none; background: white; color: #111;
+        }
+        input:focus { border-color: var(--green); }
+        input::placeholder { color: #bbb; }
+        .input-row { display: flex; gap: 10px; margin-bottom: 14px; }
+        .input-row input { flex: 1; margin-bottom: 0; }
+        .input-row input:first-child { max-width: 130px; }
+
+        .field-group { margin-bottom: 14px; }
+        .field-group:last-of-type { margin-bottom: 0; }
+
+        /* 검색어 빈칸 */
+        .keyword-field { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .keyword-num { width: 24px; height: 24px; border-radius: 50%; background: var(--green); color: white; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .keyword-num.opt { background: #e0e0e0; }
+        .keyword-field input { flex: 1; margin-bottom: 0; }
+
+        /* 헤드라인 textarea */
+        .news-group { margin-bottom: 14px; }
+        .news-label { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+        .news-cat-badge { font-size: 13px; font-weight: 800; color: #333; }
+        .news-textarea {
+            width: 100%; min-height: 72px; padding: 12px 14px; border: 1.5px solid var(--border); border-radius: 9px;
+            font-family: inherit; font-size: 15px; resize: none; outline: none; line-height: 1.55;
+            transition: border-color 0.2s; color: #111;
+        }
+        .news-textarea:focus { border-color: var(--green); }
+        .news-textarea::placeholder { color: #bbb; }
+        .char-count { font-size: 11px; text-align: right; margin-top: 3px; color: #bbb; }
+        .char-count.ok { color: var(--green); }
+        .char-count.warn { color: var(--red); }
+
+        /* 광고 textarea */
+        .ad-textarea {
+            width: 100%; min-height: 140px; padding: 14px; border: 1.5px solid var(--border); border-radius: 9px;
+            font-family: inherit; font-size: 15px; resize: none; outline: none; line-height: 1.6;
+            transition: border-color 0.2s; color: #111;
+        }
+        .ad-textarea:focus { border-color: var(--green); }
+        .ad-textarea::placeholder { color: #bbb; }
+
+        /* ── 버튼 ── */
+        .btn-next { background: var(--green); color: white; border: none; width: 100%; padding: 17px; border-radius: 11px; font-size: 17px; font-weight: 800; cursor: pointer; transition: 0.15s; box-shadow: 0 4px 14px rgba(3,199,90,0.22); margin-top: 6px; }
+        .btn-next:active { transform: scale(0.97); }
+        .btn-next:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
+        .btn-back { background: white; color: #888; border: 1.5px solid var(--border); width: 100%; padding: 13px; border-radius: 11px; font-size: 15px; font-weight: 700; cursor: pointer; transition: 0.15s; margin-top: 8px; }
+        .btn-back:active { background: #f5f5f5; }
+
+        /* ── 픽 모아보기 버튼 ── */
+        .pick-btn-wrap { margin: 0 0 18px; }
+        .btn-pick-view { display: flex; align-items: center; gap: 7px; background: linear-gradient(135deg, #fff8e1, #fff3cd); border: 1.5px solid var(--gold); color: #b8860b; border-radius: 10px; padding: 11px 18px; font-size: 14px; font-weight: 800; cursor: pointer; width: 100%; justify-content: center; transition: 0.15s; }
+        .btn-pick-view:active { transform: scale(0.97); }
+        .btn-pick-view .star { font-size: 16px; }
+
+        /* ── 픽 팝업 ── */
+        .pick-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.55); z-index: 500; display: none; align-items: flex-end; justify-content: center; }
+        .pick-modal.show { display: flex; }
+        .pick-panel { background: white; border-radius: 20px 20px 0 0; width: 100%; max-width: 600px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; animation: slideUp 0.25s ease; }
+        @keyframes slideUp { from { transform: translateY(60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .pick-panel-header { padding: 16px 18px 12px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .pick-panel-title { font-size: 16px; font-weight: 900; color: #111; }
+        .pick-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #888; padding: 0 4px; line-height: 1; }
+        .pick-cat-tabs { display: flex; gap: 6px; padding: 10px 14px; overflow-x: auto; border-bottom: 1px solid var(--border); flex-shrink: 0; scrollbar-width: none; }
+        .pick-cat-tabs::-webkit-scrollbar { display: none; }
+        .pick-cat-btn { padding: 7px 15px; border-radius: 18px; border: 1.5px solid var(--border); background: white; font-size: 13px; font-weight: 700; color: #666; white-space: nowrap; cursor: pointer; transition: 0.15s; }
+        .pick-cat-btn.active { background: var(--gold); border-color: var(--gold); color: white; }
+        .pick-list { overflow-y: auto; padding: 14px; flex: 1; }
+        .pick-item { background: linear-gradient(135deg, #fff8e1 0%, #fffde7 100%); border: 1px solid rgba(255,179,0,0.35); border-radius: 10px; padding: 13px 15px; margin-bottom: 8px; }
+        .pick-item-content { font-size: 15px; font-weight: 600; color: #333; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+        .pick-item-cat { font-size: 11px; font-weight: 700; color: var(--gold); margin-top: 5px; }
+        .pick-empty { text-align: center; padding: 40px 20px; color: #bbb; font-size: 14px; }
+
+        /* ── 결과 화면 ── */
         #result-view { display: none; }
-        .rank-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #f2f2f2; }
+        .rank-item { display: flex; justify-content: space-between; align-items: center; padding: 13px 0; border-bottom: 1px solid #f2f2f2; }
         .rank-left { display: flex; align-items: center; gap: 12px; }
-        .rank-num { color: var(--naver-green); font-weight: 800; font-size: 17px; width: 22px; }
-        .rank-word { font-weight: 600; font-size: 16px; color: #333; }
-        .rank-count { font-size: 13px; color: #a1a1a1; font-weight: 500; }
-
-        .tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 15px; padding-bottom: 8px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+        .rank-num { color: var(--green); font-weight: 800; font-size: 16px; width: 22px; }
+        .rank-word { font-weight: 600; font-size: 15px; color: #333; }
+        .rank-count { font-size: 12px; color: #aaa; font-weight: 500; }
+        .section-title { font-size: 17px; font-weight: 800; color: #333; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .section-title::before { content: ''; width: 4px; height: 17px; background: var(--green); display: inline-block; border-radius: 2px; }
+        .tabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 4px; scrollbar-width: none; }
         .tabs::-webkit-scrollbar { display: none; }
-        .tab-btn { padding: 9px 18px; border-radius: 20px; border: 1px solid var(--border-gray); background: white; white-space: nowrap; font-size: 14px; cursor: pointer; }
-        .tab-btn.active { background: var(--naver-green); color: white; border-color: var(--naver-green); font-weight: 700; }
-
+        .tab-btn { padding: 8px 16px; border-radius: 18px; border: 1px solid var(--border); background: white; white-space: nowrap; font-size: 13px; cursor: pointer; font-weight: 600; }
+        .tab-btn.active { background: var(--green); color: white; border-color: var(--green); }
         .sort-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
-        .sort-btn { padding: 7px 14px; border-radius: 16px; border: 1px solid var(--border-gray); background: white; font-size: 13px; cursor: pointer; font-weight: 600; color: #666; }
+        .sort-btn { padding: 7px 13px; border-radius: 15px; border: 1px solid var(--border); background: white; font-size: 12px; cursor: pointer; font-weight: 600; color: #666; }
         .sort-btn.active { background: #333; color: white; border-color: #333; }
-        .sort-btn.pick-active.active { background: var(--pick-gold); border-color: var(--pick-gold); color: white; }
+        .sort-btn.pick-active.active { background: var(--gold); border-color: var(--gold); color: white; }
+        .news-card { border-bottom: 1px solid #f2f2f2; padding: 14px 0; }
+        .news-card.picked { background: linear-gradient(90deg, rgba(255,179,0,0.08), transparent); border-left: 3px solid var(--gold); padding-left: 11px; margin-left: -11px; border-radius: 5px; }
+        .news-title { font-size: 15px; font-weight: 700; margin-bottom: 5px; line-height: 1.4; color: #222; }
+        .news-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .news-reporter { font-size: 12px; color: var(--green); font-weight: 600; }
+        .pick-badge { display: inline-flex; align-items: center; gap: 3px; background: var(--gold); color: white; font-size: 10px; font-weight: 800; padding: 2px 7px; border-radius: 8px; margin-left: 5px; }
+        .like-btn { display: inline-flex; align-items: center; gap: 5px; background: #f5f6f7; border: 1px solid var(--border); padding: 5px 11px; border-radius: 14px; font-size: 12px; cursor: pointer; color: #666; font-weight: 600; flex-shrink: 0; }
+        .like-btn.liked { background: #ffe8ec; border-color: var(--red); color: var(--red); }
+        .ad-feed-item { background: #f9fdfa; border: 1px dashed var(--green); padding: 16px; border-radius: 11px; margin-bottom: 10px; }
+        .ad-feed-item.picked { background: linear-gradient(135deg, rgba(255,179,0,0.08), #f9fdfa 50%); border: 1px solid var(--gold); }
+        .ad-feed-content { font-size: 15px; line-height: 1.6; color: #444; white-space: pre-wrap; word-break: break-word; }
+        .ad-feed-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 9px; }
+        .ad-feed-author { font-size: 11px; color: #aaa; }
+        .loading-text { text-align: center; padding: 30px; color: var(--green); font-weight: 700; }
 
-        .news-card { border-bottom: 1px solid #f2f2f2; padding: 15px 0; position: relative; }
-        .news-card.picked { background: linear-gradient(90deg, rgba(255,179,0,0.08) 0%, rgba(255,179,0,0) 100%); border-left: 3px solid var(--pick-gold); padding-left: 12px; margin-left: -12px; padding-right: 12px; border-radius: 6px; }
-        .news-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; line-height: 1.4; color: #222; }
-        .news-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-        .news-reporter { font-size: 13px; color: var(--naver-green); font-weight: 600; }
-        .pick-badge { display: inline-flex; align-items: center; gap: 3px; background: var(--pick-gold); color: white; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 10px; margin-left: 6px; }
+        /* ── 토스트 ── */
+        .toast-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5000; display: flex; justify-content: center; align-items: flex-start; padding-top: 28vh; }
+        .toast { background: linear-gradient(135deg, #ffb300, #ff8c00); color: white; padding: 22px 30px; border-radius: 16px; font-size: 17px; font-weight: 800; box-shadow: 0 10px 40px rgba(255,140,0,0.4); text-align: center; max-width: 85%; transform: scale(0.5); opacity: 0; animation: toastPop 4s ease forwards; }
+        .toast .toast-emoji { font-size: 38px; display: block; margin-bottom: 7px; }
+        .toast .toast-sub { font-size: 13px; font-weight: 500; opacity: 0.9; margin-top: 5px; display: block; }
+        @keyframes toastPop { 0%{transform:scale(0.5);opacity:0} 10%{transform:scale(1.1);opacity:1} 20%{transform:scale(1);opacity:1} 85%{transform:scale(1);opacity:1} 100%{transform:scale(0.9);opacity:0} }
 
-        .like-btn { display: inline-flex; align-items: center; gap: 5px; background: #f5f6f7; border: 1px solid var(--border-gray); padding: 6px 12px; border-radius: 16px; font-size: 13px; cursor: pointer; color: #666; font-weight: 600; transition: 0.15s; flex-shrink: 0; }
-        .like-btn:active { transform: scale(0.94); }
-        .like-btn.liked { background: #ffe8ec; border-color: #ff5872; color: #ff5872; }
-        .like-btn .heart { font-size: 14px; }
-
-        .ad-feed-item { background: #f9fdfa; border: 1px dashed var(--naver-green); padding: 18px; border-radius: 12px; margin-bottom: 12px; position: relative; }
-        .ad-feed-item.picked { background: linear-gradient(135deg, rgba(255,179,0,0.1) 0%, rgba(249,253,250,1) 50%); border: 1px solid var(--pick-gold); }
-        .ad-feed-content { font-size: 16px; font-weight: 500; line-height: 1.6; color: #444; white-space: pre-wrap; word-break: break-word; }
-        .ad-feed-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; gap: 8px; }
-        .ad-feed-author { font-size: 12px; color: #999; }
-        
-        .loading-text { text-align: center; padding: 30px; color: var(--naver-green); font-weight: 700; }
-
-        .toast-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5000; display: flex; justify-content: center; align-items: flex-start; padding-top: 30vh; }
-        .toast { background: linear-gradient(135deg, #ffb300 0%, #ff8c00 100%); color: white; padding: 24px 32px; border-radius: 18px; font-size: 18px; font-weight: 800; box-shadow: 0 10px 40px rgba(255, 140, 0, 0.4); text-align: center; max-width: 85%; transform: scale(0.5); opacity: 0; animation: toastPop 4s ease forwards; pointer-events: auto; }
-        .toast .toast-emoji { font-size: 40px; display: block; margin-bottom: 8px; }
-        .toast .toast-sub { font-size: 14px; font-weight: 500; opacity: 0.9; margin-top: 6px; display: block; }
-        @keyframes toastPop {
-            0% { transform: scale(0.5); opacity: 0; }
-            10% { transform: scale(1.1); opacity: 1; }
-            20% { transform: scale(1); opacity: 1; }
-            85% { transform: scale(1); opacity: 1; }
-            100% { transform: scale(0.9); opacity: 0; }
-        }
-
-        @media (max-width: 480px) {
-            .user-info input { padding: 12px 10px; font-size: 15px; }
-            .input-group label { width: 75px; font-size: 13px; }
-            .news-meta { flex-wrap: wrap; }
-        }
+        /* ── 푸터 ── */
+        .footer { text-align: center; padding: 10px 0 30px; color: #ccc; }
+        .footer-ver { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+        .footer-admin { background: none; border: none; color: #ccc; font-size: 12px; cursor: pointer; text-decoration: underline; }
     </style>
 </head>
 <body>
 
 <header>
-    <a href="#" class="logo" onclick="resetAndReload()">SILLAVER</a>
+    <span class="logo" onclick="confirmReset()">SILLAVER</span>
 </header>
 
+<!-- 스텝 인디케이터 -->
+<div class="step-bar" id="step-bar" style="display:none;">
+    <div class="step-dot">
+        <div class="step-circle active" id="sc1">1</div>
+        <div class="step-label active" id="sl1">로그인</div>
+    </div>
+    <div class="step-line" id="sline1"></div>
+    <div class="step-dot">
+        <div class="step-circle" id="sc2">2</div>
+        <div class="step-label" id="sl2">검색어</div>
+    </div>
+    <div class="step-line" id="sline2"></div>
+    <div class="step-dot">
+        <div class="step-circle" id="sc3">3</div>
+        <div class="step-label" id="sl3">헤드라인</div>
+    </div>
+    <div class="step-line" id="sline3"></div>
+    <div class="step-dot">
+        <div class="step-circle" id="sc4">4</div>
+        <div class="step-label" id="sl4">광고배너</div>
+    </div>
+</div>
+
 <div class="container">
-    <div id="input-view">
-        <div class="user-info">
-            <input type="text" id="user-id" placeholder="학번 (5자리)" maxlength="5" inputmode="numeric" pattern="[0-9]{5}" oninput="saveInputs()">
-            <input type="text" id="user-name" placeholder="이름" oninput="saveInputs()">
-        </div>
 
-        <div class="search-area">
-            <span>S</span>
-            <input type="text" id="keywords" placeholder="검색어 3~5개 입력 (쉼표로 구분)" oninput="saveInputs()">
-        </div>
-
+    <!-- ══ STEP 1: 로그인 ══ -->
+    <div id="step1">
         <div class="box">
-            <div class="section-title">분야별 뉴스 헤드라인 작성</div>
-            <div class="section-desc">통일 신라의 각 분야를 가장 잘 나타내는 기사 제목을 지어보세요.</div>
-            <div class="input-group"><label>🏛️ 정치</label><input type="text" class="news-input" data-cat="정치" placeholder="제목 입력" oninput="saveInputs()"></div>
-            <div class="input-group"><label>📜 중앙제도</label><input type="text" class="news-input" data-cat="중앙제도" placeholder="제목 입력" oninput="saveInputs()"></div>
-            <div class="input-group"><label>🗺️ 지방행정</label><input type="text" class="news-input" data-cat="지방행정" placeholder="제목 입력" oninput="saveInputs()"></div>
-            <div class="input-group"><label>⚔️ 군사</label><input type="text" class="news-input" data-cat="군사" placeholder="제목 입력" oninput="saveInputs()"></div>
-            <div class="input-group"><label>🌾 토지/경제</label><input type="text" class="news-input" data-cat="토지" placeholder="제목 입력" oninput="saveInputs()"></div>
+            <div class="step-title">👋 안녕하세요!</div>
+            <div class="step-subtitle">학번과 이름을 입력하고 시작해요.</div>
+            <div id="guide-step1" class="guide-box empty">
+                <div class="guide-label">📌 선생님 안내</div>
+                <div class="guide-text" id="guide-text-step1"></div>
+            </div>
+            <div class="field-group">
+                <div class="field-label">학번 <span class="field-required">필수</span></div>
+                <input type="text" id="user-id" placeholder="5자리 숫자" maxlength="5" inputmode="numeric" pattern="[0-9]{5}">
+            </div>
+            <div class="field-group">
+                <div class="field-label">이름 <span class="field-required">필수</span></div>
+                <input type="text" id="user-name" placeholder="이름 입력">
+            </div>
+            <button class="btn-next" id="btn-step1" onclick="goStep1()">다음 →</button>
         </div>
-
-        <div class="box">
-            <div class="section-title">📢 광고 홍보 배너 작성</div>
-            <div class="section-desc">가상의 제품이나, 신라의 정책을 홍보하는 배너 문구를 작성해 주세요.</div>
-            <textarea id="ad-banner" class="ad-textarea" placeholder="아이디어가 돋보이는 홍보 문구를 작성해 봅시다." oninput="saveInputs()"></textarea>
-        </div>
-
-        <button class="btn-submit" id="main-btn" onclick="submitSilla()">기사 발행 및 포털 접속</button>
     </div>
 
+    <!-- ══ STEP 2: 검색어 ══ -->
+    <div id="step2" style="display:none;">
+        <div class="box">
+            <div class="step-title">🔍 검색어 입력</div>
+            <div class="step-subtitle">통일 신라와 관련된 검색어를 3~5개 입력해요.</div>
+            <div id="guide-step2" class="guide-box empty">
+                <div class="guide-label">📌 선생님 안내</div>
+                <div class="guide-text" id="guide-text-step2"></div>
+            </div>
+            <div id="keyword-fields">
+                <div class="keyword-field"><div class="keyword-num">1</div><input type="text" class="kw-input" placeholder="검색어 1 (필수)" maxlength="30"></div>
+                <div class="keyword-field"><div class="keyword-num">2</div><input type="text" class="kw-input" placeholder="검색어 2 (필수)" maxlength="30"></div>
+                <div class="keyword-field"><div class="keyword-num">3</div><input type="text" class="kw-input" placeholder="검색어 3 (필수)" maxlength="30"></div>
+                <div class="keyword-field"><div class="keyword-num opt">4</div><input type="text" class="kw-input" placeholder="검색어 4 (선택)" maxlength="30"></div>
+                <div class="keyword-field"><div class="keyword-num opt">5</div><input type="text" class="kw-input" placeholder="검색어 5 (선택)" maxlength="30"></div>
+            </div>
+            <button class="btn-next" id="btn-step2" onclick="goStep2()" style="margin-top:18px;">다음 →</button>
+            <button class="btn-back" onclick="showStep(1)">← 이전</button>
+        </div>
+    </div>
+
+    <!-- ══ STEP 3: 뉴스 헤드라인 ══ -->
+    <div id="step3" style="display:none;">
+        <div class="box">
+            <div class="step-title">📰 뉴스 헤드라인 작성</div>
+            <div class="step-subtitle">통일 신라 각 분야를 잘 나타내는 기사 제목을 써요. (각 10자 이상)</div>
+
+            <!-- 픽 모아보기 -->
+            <div class="pick-btn-wrap">
+                <button class="btn-pick-view" onclick="openPickModal('news')">
+                    <span class="star">⭐</span> 선생님 PICK 모아보기
+                </button>
+            </div>
+
+            <div id="guide-step3" class="guide-box empty">
+                <div class="guide-label">📌 선생님 안내</div>
+                <div class="guide-text" id="guide-text-step3"></div>
+            </div>
+
+            <div class="news-group">
+                <div class="news-label"><span class="news-cat-badge">🏛️ 정치</span></div>
+                <textarea class="news-textarea" data-cat="정치" placeholder="정치 관련 기사 제목을 입력하세요 (10자 이상)" oninput="updateCharCount(this)"></textarea>
+                <div class="char-count" id="cc-정치">0자</div>
+            </div>
+            <div class="news-group">
+                <div class="news-label"><span class="news-cat-badge">📜 중앙제도</span></div>
+                <textarea class="news-textarea" data-cat="중앙제도" placeholder="중앙제도 관련 기사 제목을 입력하세요 (10자 이상)" oninput="updateCharCount(this)"></textarea>
+                <div class="char-count" id="cc-중앙제도">0자</div>
+            </div>
+            <div class="news-group">
+                <div class="news-label"><span class="news-cat-badge">🗺️ 지방행정</span></div>
+                <textarea class="news-textarea" data-cat="지방행정" placeholder="지방행정 관련 기사 제목을 입력하세요 (10자 이상)" oninput="updateCharCount(this)"></textarea>
+                <div class="char-count" id="cc-지방행정">0자</div>
+            </div>
+            <div class="news-group">
+                <div class="news-label"><span class="news-cat-badge">⚔️ 군사</span></div>
+                <textarea class="news-textarea" data-cat="군사" placeholder="군사 관련 기사 제목을 입력하세요 (10자 이상)" oninput="updateCharCount(this)"></textarea>
+                <div class="char-count" id="cc-군사">0자</div>
+            </div>
+            <div class="news-group">
+                <div class="news-label"><span class="news-cat-badge">🌾 토지/경제</span></div>
+                <textarea class="news-textarea" data-cat="토지" placeholder="토지/경제 관련 기사 제목을 입력하세요 (10자 이상)" oninput="updateCharCount(this)"></textarea>
+                <div class="char-count" id="cc-토지">0자</div>
+            </div>
+
+            <button class="btn-next" id="btn-step3" onclick="goStep3()" style="margin-top:10px;">다음 →</button>
+            <button class="btn-back" onclick="showStep(2)">← 이전</button>
+        </div>
+    </div>
+
+    <!-- ══ STEP 4: 광고 배너 ══ -->
+    <div id="step4" style="display:none;">
+        <div class="box">
+            <div class="step-title">📢 광고 홍보 배너 작성</div>
+            <div class="step-subtitle">가상의 제품이나 신라의 정책을 홍보하는 배너 문구를 써요.</div>
+
+            <!-- 픽 모아보기 -->
+            <div class="pick-btn-wrap">
+                <button class="btn-pick-view" onclick="openPickModal('ad')">
+                    <span class="star">⭐</span> 선생님 PICK 모아보기
+                </button>
+            </div>
+
+            <div id="guide-step4" class="guide-box empty">
+                <div class="guide-label">📌 선생님 안내</div>
+                <div class="guide-text" id="guide-text-step4"></div>
+            </div>
+
+            <textarea id="ad-banner" class="ad-textarea" placeholder="아이디어가 돋보이는 홍보 문구를 작성해 봅시다."></textarea>
+            <button class="btn-next" id="btn-step4" onclick="submitSilla()">🚀 기사 발행 및 포털 접속</button>
+            <button class="btn-back" onclick="showStep(3)">← 이전</button>
+        </div>
+    </div>
+
+    <!-- ══ 결과 화면 ══ -->
     <div id="result-view">
         <div class="box">
             <div class="section-title">실시간 급상승 검색어</div>
             <div id="trend-list"><div class="loading-text">집계 중...</div></div>
         </div>
-
         <div class="box">
             <div class="section-title">분야별 실시간 뉴스</div>
             <div class="tabs" id="tab-container">
-                <button class="tab-btn active" onclick="filterNews('전체', this)">전체</button>
-                <button class="tab-btn" onclick="filterNews('정치', this)">정치</button>
-                <button class="tab-btn" onclick="filterNews('중앙제도', this)">중앙</button>
-                <button class="tab-btn" onclick="filterNews('지방행정', this)">지방</button>
-                <button class="tab-btn" onclick="filterNews('군사', this)">군사</button>
-                <button class="tab-btn" onclick="filterNews('토지', this)">토지</button>
+                <button class="tab-btn active" onclick="filterNews('전체',this)">전체</button>
+                <button class="tab-btn" onclick="filterNews('정치',this)">정치</button>
+                <button class="tab-btn" onclick="filterNews('중앙제도',this)">중앙</button>
+                <button class="tab-btn" onclick="filterNews('지방행정',this)">지방</button>
+                <button class="tab-btn" onclick="filterNews('군사',this)">군사</button>
+                <button class="tab-btn" onclick="filterNews('토지',this)">토지</button>
             </div>
-            <div class="sort-tabs" id="news-sort-tabs">
+            <div class="sort-tabs">
                 <button class="sort-btn active" data-sort="latest" onclick="setNewsSort('latest')">⏰ 최신순</button>
                 <button class="sort-btn" data-sort="likes" onclick="setNewsSort('likes')">❤️ 좋아요순</button>
                 <button class="sort-btn pick-active" data-sort="pick" onclick="setNewsSort('pick')">⭐ 픽 모아보기</button>
             </div>
             <div id="news-feed"></div>
         </div>
-
         <div class="box">
             <div class="section-title">SILLAVER 추천 광고</div>
-            <div class="sort-tabs" id="ad-sort-tabs">
+            <div class="sort-tabs">
                 <button class="sort-btn active" data-sort="latest" onclick="setAdSort('latest')">⏰ 최신순</button>
                 <button class="sort-btn" data-sort="likes" onclick="setAdSort('likes')">❤️ 좋아요순</button>
                 <button class="sort-btn pick-active" data-sort="pick" onclick="setAdSort('pick')">⭐ 픽 모아보기</button>
             </div>
             <div id="ad-feed"></div>
         </div>
-        
-        <button class="btn-submit" style="background:#888;" onclick="resetAndReload()">새로 작성하기</button>
+        <button class="btn-next" style="background:#888;box-shadow:none;" onclick="confirmReset()">새로 작성하기</button>
     </div>
 
-    <div style="text-align: center; margin-top: 40px; padding-bottom: 20px; color: #999;">
-        <div style="font-size: 14px; font-weight: bold;">SILLAVER v1.3.1</div>
-        <button onclick="location.href='sillaver_admin.html'" style="background: none; border: none; color: #bbb; cursor: pointer; text-decoration: underline; margin-top: 8px; font-size: 13px;">관리자 모드</button>
+    <div class="footer">
+        <div class="footer-ver">SILLAVER v2.0.0</div>
+        <button class="footer-admin" onclick="location.href='sillaver_admin.html'">관리자 모드</button>
+    </div>
+</div>
+
+<!-- 픽 팝업 -->
+<div class="pick-modal" id="pick-modal" onclick="closePickModal(event)">
+    <div class="pick-panel">
+        <div class="pick-panel-header">
+            <div class="pick-panel-title">⭐ 선생님 PICK</div>
+            <button class="pick-close" onclick="closePickModalDirect()">✕</button>
+        </div>
+        <div class="pick-cat-tabs" id="pick-cat-tabs" style="display:none;"></div>
+        <div class="pick-list" id="pick-list"></div>
     </div>
 </div>
 
 <div class="toast-overlay" id="toast-overlay" style="display:none;"></div>
 
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-    import {
-        getFirestore, collection, addDoc, setDoc, updateDoc,
-        onSnapshot, query, orderBy, getDocs, getDoc, where, serverTimestamp, doc
-    } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import {
+    getFirestore, collection, addDoc, setDoc, updateDoc,
+    onSnapshot, query, orderBy, getDocs, getDoc, where,
+    serverTimestamp, doc
+} from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 
-    const firebaseConfig = {
-        apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
-        authDomain: "ho0911seong-56638.firebaseapp.com",
-        projectId: "ho0911seong-56638",
-        storageBucket: "ho0911seong-56638.firebasestorage.app",
-        messagingSenderId: "994509567071",
-        appId: "1:994509567071:web:778c95931e95e9cbf557ea"
-    };
+const firebaseConfig = {
+    apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+    authDomain: "ho0911seong-56638.firebaseapp.com",
+    projectId: "ho0911seong-56638",
+    storageBucket: "ho0911seong-56638.firebasestorage.app",
+    messagingSenderId: "994509567071",
+    appId: "1:994509567071:web:778c95931e95e9cbf557ea"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+/* ═══════════════════════════════
+   상태 변수
+═══════════════════════════════ */
+let allDocs = [];
+let currentUserId = "", currentUserName = "", currentDocId = "";
+let newsSortMode = "latest", adSortMode = "latest", currentNewsCategory = "전체";
+let lastPickedSelfTimes = {}, isFirstSnapshot = true;
+let currentStep = 1;
+let stepStartTime = Date.now();     // 단계 진입 시각
+let stepTimes = {};                 // 각 단계 소요시간 (ms)
+let pasteCount = 0;                 // 붙여넣기 시도 횟수
+let leaveCount = 0;                 // 이탈 시도 횟수
+let pickModalMode = 'news';         // 'news' | 'ad'
+let pickNewsCat = '전체';
 
-    let allDocs = [];
-    let currentUserId = "";
-    let currentUserName = "";
-    let currentDocId = "";
-    let newsSortMode = "latest";
-    let adSortMode = "latest";
-    let currentNewsCategory = "전체";
-    let lastPickedSelfTimes = {};
-    let isFirstSnapshot = true;
+const SS = {
+    VIEW: 'sv_view', USER_ID: 'sv_userId', USER_NAME: 'sv_userName',
+    DOC_ID: 'sv_docId', STEP: 'sv_step',
+    KW: 'sv_kw', NEWS: 'sv_news', AD: 'sv_ad',
+};
 
-    // ── sessionStorage 키 ──
-    const SS = {
-        VIEW:     'sv_view',       // 'result' or null
-        USER_ID:  'sv_userId',
-        USER_NAME:'sv_userName',
-        DOC_ID:   'sv_docId',
-        INPUTS:   'sv_inputs',     // JSON {id, name, keywords, news:{cat:val,...}, ad}
-    };
+/* ═══════════════════════════════
+   유틸
+═══════════════════════════════ */
+function esc(str) {
+    if (typeof str !== 'string') return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
+}
 
-    // ── 입력값 저장 (전역 노출) ──
-    window.saveInputs = function() {
-        const newsVals = {};
-        document.querySelectorAll('.news-input').forEach(inp => { newsVals[inp.dataset.cat] = inp.value; });
-        const data = {
-            id:       document.getElementById('user-id').value,
-            name:     document.getElementById('user-name').value,
-            keywords: document.getElementById('keywords').value,
-            news:     newsVals,
-            ad:       document.getElementById('ad-banner').value,
-        };
-        sessionStorage.setItem(SS.INPUTS, JSON.stringify(data));
-    };
+function trimCollapse(str) {
+    return str.trim().replace(/\s+/g, ' ');
+}
 
-    // ── 입력값 복원 ──
-    function restoreInputs() {
-        try {
-            const raw = sessionStorage.getItem(SS.INPUTS);
-            if (!raw) return;
-            const data = JSON.parse(raw);
-            if (data.id)       document.getElementById('user-id').value = data.id;
-            if (data.name)     document.getElementById('user-name').value = data.name;
-            if (data.keywords) document.getElementById('keywords').value = data.keywords;
-            if (data.ad)       document.getElementById('ad-banner').value = data.ad;
-            if (data.news) {
-                document.querySelectorAll('.news-input').forEach(inp => {
-                    if (data.news[inp.dataset.cat]) inp.value = data.news[inp.dataset.cat];
-                });
-            }
-        } catch(e) { /* ignore */ }
+/* ═══════════════════════════════
+   이탈 방지 (beforeunload)
+═══════════════════════════════ */
+window.addEventListener('beforeunload', (e) => {
+    const inProgress = currentStep >= 1 && currentStep <= 4 &&
+        document.getElementById('result-view').style.display === 'none';
+    if (inProgress) {
+        leaveCount++;
+        saveLeaveCount();
+        e.preventDefault();
+        e.returnValue = '';
     }
+});
 
-    // ── 새로 작성하기 / 로고 클릭 ──
-    window.resetAndReload = function() {
-        sessionStorage.removeItem(SS.VIEW);
-        sessionStorage.removeItem(SS.USER_ID);
-        sessionStorage.removeItem(SS.USER_NAME);
-        sessionStorage.removeItem(SS.DOC_ID);
-        sessionStorage.removeItem(SS.INPUTS);
-        location.reload();
-    };
+function saveLeaveCount() {
+    sessionStorage.setItem('sv_leaveCount', leaveCount);
+    sessionStorage.setItem('sv_pasteCount', pasteCount);
+}
 
-    function escapeHtml(str) {
-        if (typeof str !== 'string') return '';
-        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
+/* ═══════════════════════════════
+   복사·붙여넣기 방지
+═══════════════════════════════ */
+function blockPaste(e) {
+    e.preventDefault();
+    pasteCount++;
+    saveLeaveCount();
+    showMiniToast('복사 붙여넣기는 사용할 수 없어요! ✋');
+}
+function blockCopyCut(e) { e.preventDefault(); }
+
+function attachAntiCheat(el) {
+    el.addEventListener('paste', blockPaste);
+    el.addEventListener('copy', blockCopyCut);
+    el.addEventListener('cut', blockCopyCut);
+    el.addEventListener('contextmenu', e => e.preventDefault());
+    // 여백 자동 정리 (blur 시)
+    el.addEventListener('blur', () => {
+        el.value = trimCollapse(el.value);
+    });
+}
+
+function attachAllAntiCheat() {
+    document.querySelectorAll('input[type="text"], textarea').forEach(attachAntiCheat);
+}
+
+function showMiniToast(msg) {
+    const existing = document.getElementById('mini-toast');
+    if (existing) existing.remove();
+    const el = document.createElement('div');
+    el.id = 'mini-toast';
+    el.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:white;padding:10px 18px;border-radius:20px;font-size:13px;font-weight:700;z-index:9999;white-space:nowrap;animation:fadeInOut 2s ease forwards;';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    if (!document.getElementById('mini-toast-style')) {
+        const s = document.createElement('style');
+        s.id = 'mini-toast-style';
+        s.textContent = '@keyframes fadeInOut{0%{opacity:0;transform:translateX(-50%) translateY(10px)}15%{opacity:1;transform:translateX(-50%) translateY(0)}85%{opacity:1}100%{opacity:0}}';
+        document.head.appendChild(s);
     }
+    setTimeout(() => el.remove(), 2000);
+}
 
-    window.submitSilla = async function() {
-        const userIdInput = document.getElementById('user-id');
-        const userId = userIdInput.value.trim();
-        const userName = document.getElementById('user-name').value.trim();
-        const keywords = document.getElementById('keywords').value;
-        const adContent = document.getElementById('ad-banner').value.trim();
-
-        if (!userId || !userName || !keywords || !adContent) { alert("모든 항목을 빠짐없이 작성해주세요!"); return; }
-        if (!/^\d{5}$/.test(userId)) { alert("학번은 숫자 5자리로 입력해주세요!"); userIdInput.focus(); return; }
-
-        const rawArr = keywords.split(',').map(v => v.trim()).filter(v => v !== "");
-        if (rawArr.length < 3) { alert("검색어를 3개 이상 입력해주세요!"); return; }
-
-        const btn = document.getElementById('main-btn');
-        btn.innerText = "확인 중...";
-        btn.disabled = true;
-
-        // ── 학생 명단 검증 ──
-        try {
-            const rosterSnap = await getDoc(doc(db, "silla_students", userId));
-            if (!rosterSnap.exists()) {
-                alert("명단에 없는 학번입니다.\n학번을 다시 확인해주세요.");
-                btn.innerText = "기사 발행 및 포털 접속"; btn.disabled = false; return;
-            }
-            const rosterName = (rosterSnap.data().studentName || '').trim();
-            if (rosterName !== userName) {
-                alert(`이름이 일치하지 않습니다.\n입력한 이름: ${userName}\n등록된 이름: ${rosterName}`);
-                btn.innerText = "기사 발행 및 포털 접속"; btn.disabled = false; return;
-            }
-        } catch (e) {
-            alert("명단 확인 중 오류: " + e.message);
-            btn.innerText = "기사 발행 및 포털 접속"; btn.disabled = false; return;
-        }
-
-        btn.innerText = "발행 및 연결 중...";
-
-        let existingDocId = null;
-        try {
-            const existingSnap = await getDocs(query(collection(db, "silla_v3"), where("studentId", "==", userId)));
-            if (!existingSnap.empty) {
-                const existingDoc = existingSnap.docs[0];
-                const existingData = existingDoc.data();
-                const ts = existingData.timestamp;
-                let timeStr = '시각 미상';
-                if (ts && ts.toDate) {
-                    const d = ts.toDate(), pad = n => String(n).padStart(2,'0');
-                    timeStr = `${pad(d.getMonth()+1)}월 ${pad(d.getDate())}일 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-                }
-                const confirmed = confirm(
-                    `이미 제출한 기록이 있습니다.\n\n▪ 학번: ${existingData.studentId}\n▪ 이름: ${existingData.studentName}\n▪ 제출 시각: ${timeStr}\n\n그래도 다시 제출하시겠습니까?\n(기존 내용은 새 내용으로 덮어쓰기 됩니다.)`
-                );
-                if (!confirmed) { btn.innerText = "기사 발행 및 포털 접속"; btn.disabled = false; return; }
-                existingDocId = existingDoc.id;
-            }
-        } catch (e) { console.error("중복 확인 실패:", e); }
-
-        const newsArr = [];
-        document.querySelectorAll('.news-input').forEach(input => {
-            if (input.value.trim() !== "") newsArr.push({ category: input.dataset.cat, title: input.value.trim() });
-        });
-
-        const normalizedKeywords = rawArr.slice(0, 5).map(v => v.replace(/\s+/g, ' ').trim());
-
-        try {
-            const payload = {
-                studentId: userId, studentName: userName,
-                keywords: normalizedKeywords, news: newsArr, ad: adContent,
-                timestamp: serverTimestamp()
-            };
-
-            let savedDocId;
-            if (existingDocId) {
-                const oldDocRef = doc(db, "silla_v3", existingDocId);
-                const oldData = (await getDoc(oldDocRef)).data() || {};
-                payload.newsLikes = oldData.newsLikes || {};
-                payload.newsPicks = oldData.newsPicks || {};
-                payload.adLikes = oldData.adLikes || [];
-                payload.adPick = oldData.adPick || false;
-                payload.adPickedAt = oldData.adPickedAt || null;
-                await setDoc(oldDocRef, payload);
-                savedDocId = existingDocId;
-            } else {
-                payload.newsLikes = {}; payload.newsPicks = {};
-                payload.adLikes = []; payload.adPick = false; payload.adPickedAt = null;
-                const newDocRef = await addDoc(collection(db, "silla_v3"), payload);
-                savedDocId = newDocRef.id;
-            }
-
-            // ── sessionStorage에 상태 저장 ──
-            currentUserId = userId;
-            currentUserName = userName;
-            currentDocId = savedDocId;
-            sessionStorage.setItem(SS.VIEW,      'result');
-            sessionStorage.setItem(SS.USER_ID,   currentUserId);
-            sessionStorage.setItem(SS.USER_NAME, currentUserName);
-            sessionStorage.setItem(SS.DOC_ID,    currentDocId);
-
-            document.getElementById('input-view').style.display = 'none';
-            document.getElementById('result-view').style.display = 'block';
-            window.scrollTo(0, 0);
-            startListening();
-        } catch (e) {
-            alert("저장 오류: " + e.message);
-            btn.innerText = "기사 발행 및 포털 접속"; btn.disabled = false;
-        }
-    };
-
-    function startListening() {
-        const q = query(collection(db, "silla_v3"), orderBy("timestamp", "desc"));
-        onSnapshot(q, (snapshot) => {
-            allDocs = [];
-            let trendMap = {};
-            snapshot.forEach(docSnap => {
-                const data = docSnap.data();
-                allDocs.push({ id: docSnap.id, ...data });
-                (data.keywords || []).forEach(word => {
-                    const key = word.replace(/\s+/g, '');
-                    if (!trendMap[key]) trendMap[key] = { display: word, count: 0 };
-                    trendMap[key].count += 1;
-                });
-            });
-            checkPickToast();
-            renderTrends(trendMap);
-            renderNewsFeed();
-            renderAdFeed();
-            isFirstSnapshot = false;
-        });
-    }
-
-    function checkPickToast() {
-        if (!currentUserId) return;
-        const myDoc = allDocs.find(d => d.studentId === currentUserId);
-        if (!myDoc) return;
-        const newsPicks = myDoc.newsPicks || {};
-        Object.entries(newsPicks).forEach(([cat, info]) => {
-            if (info && info.picked && info.pickedAt) {
-                const pickedTimeMs = info.pickedAt.toMillis ? info.pickedAt.toMillis() : new Date(info.pickedAt).getTime();
-                const trackKey = `news_${cat}`, lastSeen = lastPickedSelfTimes[trackKey] || 0;
-                if (pickedTimeMs > lastSeen) {
-                    lastPickedSelfTimes[trackKey] = pickedTimeMs;
-                    if (!isFirstSnapshot) { const newsItem = (myDoc.news || []).find(n => n.category === cat); showPickToast(`"${newsItem ? newsItem.title : cat}"`, '기사'); }
-                }
+/* ═══════════════════════════════
+   안내문 로드 (Firestore)
+═══════════════════════════════ */
+async function loadGuides() {
+    try {
+        const snap = await getDoc(doc(db, 'silla_settings', 'guides'));
+        if (!snap.exists()) return;
+        const data = snap.data();
+        [1,2,3,4].forEach(n => {
+            const text = (data[`step${n}`] || '').trim();
+            const box = document.getElementById(`guide-step${n}`);
+            const el = document.getElementById(`guide-text-step${n}`);
+            if (text && box && el) {
+                el.textContent = text;
+                box.classList.remove('empty');
             }
         });
-        if (myDoc.adPick && myDoc.adPickedAt) {
-            const pickedTimeMs = myDoc.adPickedAt.toMillis ? myDoc.adPickedAt.toMillis() : new Date(myDoc.adPickedAt).getTime();
-            const lastSeen = lastPickedSelfTimes['ad'] || 0;
-            if (pickedTimeMs > lastSeen) {
-                lastPickedSelfTimes['ad'] = pickedTimeMs;
-                if (!isFirstSnapshot) showPickToast('내가 만든 광고', '광고');
-            }
-        }
-        if (isFirstSnapshot) {
-            Object.entries(newsPicks).forEach(([cat, info]) => {
-                if (info && info.picked && info.pickedAt) lastPickedSelfTimes[`news_${cat}`] = info.pickedAt.toMillis ? info.pickedAt.toMillis() : new Date(info.pickedAt).getTime();
-            });
-            if (myDoc.adPick && myDoc.adPickedAt) lastPickedSelfTimes['ad'] = myDoc.adPickedAt.toMillis ? myDoc.adPickedAt.toMillis() : new Date(myDoc.adPickedAt).getTime();
-        }
-    }
+    } catch(e) { /* 실패해도 무시 */ }
+}
 
-    function showPickToast(title, kind) {
-        const overlay = document.getElementById('toast-overlay');
-        overlay.innerHTML = `<div class="toast"><span class="toast-emoji">⭐</span>선생님 PICK!<span class="toast-sub">${escapeHtml(currentUserName)}님의 ${escapeHtml(kind)}이(가) 선택되었습니다<br>${escapeHtml(title)}</span></div>`;
-        overlay.style.display = 'flex';
-        setTimeout(() => { overlay.style.display = 'none'; overlay.innerHTML = ''; }, 4000);
-    }
+/* ═══════════════════════════════
+   글자 수 카운트
+═══════════════════════════════ */
+window.updateCharCount = function(ta) {
+    const cat = ta.dataset.cat;
+    const len = trimCollapse(ta.value).length;
+    const el = document.getElementById('cc-' + cat);
+    if (!el) return;
+    el.textContent = len + '자';
+    el.className = 'char-count' + (len >= 10 ? ' ok' : (len > 0 ? ' warn' : ''));
+};
 
-    function renderTrends(map) {
-        document.getElementById('trend-list').innerHTML = Object.values(map).sort((a,b)=>b.count-a.count).slice(0,10).map((item,i) =>
-            `<div class="rank-item"><div class="rank-left"><span class="rank-num">${i+1}</span><span class="rank-word">${escapeHtml(item.display)}</span></div><span class="rank-count">${item.count}회 검색</span></div>`
-        ).join('') || "데이터가 없습니다.";
-    }
-
-    function getFlattenedNews() {
-        const arr = [];
-        allDocs.forEach(d => {
-            (d.news || []).forEach(n => {
-                const cat = n.category, likes = (d.newsLikes && d.newsLikes[cat]) || [], pickInfo = (d.newsPicks && d.newsPicks[cat]) || {};
-                arr.push({ docId: d.id, title: n.title, category: cat, studentId: d.studentId, studentName: d.studentName, timestamp: d.timestamp, likes, likeCount: likes.length, picked: !!pickInfo.picked, pickedAt: pickInfo.pickedAt || null });
-            });
-        });
-        return arr;
-    }
-
-    window.setNewsSort = function(mode) {
-        newsSortMode = mode;
-        document.querySelectorAll('#news-sort-tabs .sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === mode));
-        renderNewsFeed();
-    };
-
-    window.setAdSort = function(mode) {
-        adSortMode = mode;
-        document.querySelectorAll('#ad-sort-tabs .sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort === mode));
-        renderAdFeed();
-    };
-
-    window.filterNews = function(category, btnEl) {
-        currentNewsCategory = category;
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        if (btnEl) btnEl.classList.add('active');
-        renderNewsFeed();
-    };
-
-    function renderNewsFeed() {
-        const target = document.getElementById('news-feed');
-        let items = getFlattenedNews();
-        if (currentNewsCategory !== '전체') items = items.filter(n => n.category === currentNewsCategory);
-        if (newsSortMode === 'latest') items.sort((a,b) => (b.timestamp?.toMillis?.()||0)-(a.timestamp?.toMillis?.()||0));
-        else if (newsSortMode === 'likes') items.sort((a,b) => b.likeCount-a.likeCount);
-        else if (newsSortMode === 'pick') { items = items.filter(n=>n.picked); items.sort((a,b)=>(b.pickedAt?.toMillis?.()||0)-(a.pickedAt?.toMillis?.()||0)); }
-        if (items.length === 0) { target.innerHTML = `<p style="padding:20px;color:#999;text-align:center;">${newsSortMode==='pick'?'아직 픽된 기사가 없습니다.':'작성된 기사가 없습니다.'}</p>`; return; }
-        target.innerHTML = items.map(n => {
-            const categoryLabel = currentNewsCategory === '전체' ? ` | ${escapeHtml(n.category)}` : '';
-            const liked = currentUserId && n.likes.includes(currentUserId);
-            return `<div class="news-card${n.picked?' picked':''}">
-                <div class="news-title">${escapeHtml(n.title)}${n.picked?`<span class="pick-badge">⭐ PICK</span>`:''}</div>
-                <div class="news-meta">
-                    <div class="news-reporter">${escapeHtml(n.studentId)} ${escapeHtml(n.studentName)} 기자${categoryLabel}</div>
-                    <button class="like-btn ${liked?'liked':''}" onclick="toggleNewsLike('${n.docId}','${escapeHtml(n.category)}')">
-                        <span class="heart">${liked?'❤️':'🤍'}</span> ${n.likeCount}
-                    </button>
-                </div>
-            </div>`;
-        }).join('');
-    }
-
-    function getFlattenedAds() {
-        return allDocs.filter(d=>d.ad).map(d=>({ docId:d.id, content:d.ad, studentId:d.studentId, studentName:d.studentName, timestamp:d.timestamp, likes:d.adLikes||[], likeCount:(d.adLikes||[]).length, picked:!!d.adPick, pickedAt:d.adPickedAt||null }));
-    }
-
-    function renderAdFeed() {
-        const target = document.getElementById('ad-feed');
-        let items = getFlattenedAds();
-        if (adSortMode === 'latest') items.sort((a,b)=>(b.timestamp?.toMillis?.()||0)-(a.timestamp?.toMillis?.()||0));
-        else if (adSortMode === 'likes') items.sort((a,b)=>b.likeCount-a.likeCount);
-        else if (adSortMode === 'pick') { items=items.filter(a=>a.picked); items.sort((a,b)=>(b.pickedAt?.toMillis?.()||0)-(a.pickedAt?.toMillis?.()||0)); }
-        if (items.length === 0) { target.innerHTML = `<p style="padding:20px;color:#999;text-align:center;">${adSortMode==='pick'?'아직 픽된 광고가 없습니다.':'등록된 광고가 없습니다.'}</p>`; return; }
-        target.innerHTML = items.map(ad => {
-            const liked = currentUserId && ad.likes.includes(currentUserId);
-            return `<div class="ad-feed-item${ad.picked?' picked':''}">
-                <div class="ad-feed-content">${escapeHtml(ad.content)}${ad.picked?`<span class="pick-badge">⭐ PICK</span>`:''}</div>
-                <div class="ad-feed-bottom">
-                    <span class="ad-feed-author">AD BY. ${escapeHtml(ad.studentId)} ${escapeHtml(ad.studentName)}</span>
-                    <button class="like-btn ${liked?'liked':''}" onclick="toggleAdLike('${ad.docId}')">
-                        <span class="heart">${liked?'❤️':'🤍'}</span> ${ad.likeCount}
-                    </button>
-                </div>
-            </div>`;
-        }).join('');
-    }
-
-    window.toggleNewsLike = async function(docId, category) {
-        if (!currentUserId) { alert("좋아요는 본인 학번으로 제출 후에 누를 수 있어요!"); return; }
-        try {
-            const docRef = doc(db, "silla_v3", docId);
-            const snap = await getDoc(docRef);
-            if (!snap.exists()) return;
-            const data = snap.data(), newsLikes = data.newsLikes || {}, arr = newsLikes[category] || [];
-            const idx = arr.indexOf(currentUserId);
-            if (idx >= 0) arr.splice(idx, 1); else arr.push(currentUserId);
-            newsLikes[category] = arr;
-            await updateDoc(docRef, { newsLikes });
-        } catch (e) { console.error(e); }
-    };
-
-    window.toggleAdLike = async function(docId) {
-        if (!currentUserId) { alert("좋아요는 본인 학번으로 제출 후에 누를 수 있어요!"); return; }
-        try {
-            const docRef = doc(db, "silla_v3", docId);
-            const snap = await getDoc(docRef);
-            if (!snap.exists()) return;
-            const arr = snap.data().adLikes || [], idx = arr.indexOf(currentUserId);
-            if (idx >= 0) arr.splice(idx, 1); else arr.push(currentUserId);
-            await updateDoc(docRef, { adLikes: arr });
-        } catch (e) { console.error(e); }
-    };
-
-    // ── 페이지 로드 시 세션 복원 ──
-    window.addEventListener('DOMContentLoaded', () => {
-        // 입력값 항상 복원 (result 화면이든 아니든)
-        restoreInputs();
-
-        const savedView = sessionStorage.getItem(SS.VIEW);
-        if (savedView === 'result') {
-            currentUserId   = sessionStorage.getItem(SS.USER_ID)   || '';
-            currentUserName = sessionStorage.getItem(SS.USER_NAME) || '';
-            currentDocId    = sessionStorage.getItem(SS.DOC_ID)    || '';
-
-            document.getElementById('input-view').style.display = 'none';
-            document.getElementById('result-view').style.display = 'block';
-            startListening();
+/* ═══════════════════════════════
+   스텝 인디케이터
+═══════════════════════════════ */
+function updateStepBar(step) {
+    document.getElementById('step-bar').style.display = 'flex';
+    [1,2,3,4].forEach(n => {
+        const circle = document.getElementById('sc' + n);
+        const label = document.getElementById('sl' + n);
+        circle.classList.remove('active','done');
+        label.classList.remove('active','done');
+        if (n < step) { circle.classList.add('done'); circle.textContent = '✓'; label.classList.add('done'); }
+        else if (n === step) { circle.classList.add('active'); circle.textContent = n; label.classList.add('active'); }
+        else { circle.textContent = n; }
+        if (n < 4) {
+            const line = document.getElementById('sline' + n);
+            line.classList.toggle('done', n < step);
         }
     });
+}
+
+window.showStep = function(step) {
+    // 소요시간 저장
+    if (currentStep >= 1 && currentStep <= 4) {
+        stepTimes[currentStep] = (stepTimes[currentStep] || 0) + (Date.now() - stepStartTime);
+    }
+    currentStep = step;
+    stepStartTime = Date.now();
+    [1,2,3,4].forEach(n => {
+        document.getElementById('step' + n).style.display = n === step ? 'block' : 'none';
+    });
+    document.getElementById('result-view').style.display = 'none';
+    updateStepBar(step);
+    window.scrollTo(0, 0);
+    sessionStorage.setItem(SS.STEP, step);
+};
+
+/* ═══════════════════════════════
+   STEP 1 → 2
+═══════════════════════════════ */
+window.goStep1 = async function() {
+    const userId = document.getElementById('user-id').value.trim();
+    const userName = document.getElementById('user-name').value.trim();
+    if (!userId || !userName) { alert('학번과 이름을 모두 입력해주세요!'); return; }
+    if (!/^\d{5}$/.test(userId)) { alert('학번은 숫자 5자리로 입력해주세요!'); return; }
+    const btn = document.getElementById('btn-step1');
+    btn.disabled = true; btn.textContent = '확인 중...';
+    try {
+        const rosterSnap = await getDoc(doc(db, 'silla_students', userId));
+        if (!rosterSnap.exists()) {
+            alert('명단에 없는 학번입니다.\n학번을 다시 확인해주세요.');
+            btn.disabled = false; btn.textContent = '다음 →'; return;
+        }
+        const rosterName = (rosterSnap.data().studentName || '').trim();
+        if (rosterName !== userName) {
+            alert(`이름이 일치하지 않습니다.\n입력한 이름: ${userName}\n등록된 이름: ${rosterName}`);
+            btn.disabled = false; btn.textContent = '다음 →'; return;
+        }
+        currentUserId = userId;
+        currentUserName = userName;
+        sessionStorage.setItem(SS.USER_ID, userId);
+        sessionStorage.setItem(SS.USER_NAME, userName);
+        btn.disabled = false; btn.textContent = '다음 →';
+        showStep(2);
+        startListeningForPicks();
+    } catch(e) {
+        alert('명단 확인 중 오류: ' + e.message);
+        btn.disabled = false; btn.textContent = '다음 →';
+    }
+};
+
+/* ═══════════════════════════════
+   STEP 2 → 3
+═══════════════════════════════ */
+window.goStep2 = function() {
+    const inputs = document.querySelectorAll('.kw-input');
+    const vals = Array.from(inputs).map(i => trimCollapse(i.value)).filter(v => v.length > 0);
+    if (vals.length < 3) { alert('검색어를 3개 이상 입력해주세요!'); return; }
+    // 여백만 있는 검색어 걸러내기
+    const valid = vals.filter(v => v.replace(/\s/g,'').length > 0);
+    if (valid.length < 3) { alert('의미 있는 검색어를 3개 이상 입력해주세요!'); return; }
+    sessionStorage.setItem(SS.KW, JSON.stringify(valid));
+    showStep(3);
+};
+
+/* ═══════════════════════════════
+   STEP 3 → 4
+═══════════════════════════════ */
+window.goStep3 = function() {
+    const areas = document.querySelectorAll('.news-textarea');
+    let allOk = true;
+    let firstFail = null;
+    areas.forEach(ta => {
+        const val = trimCollapse(ta.value);
+        ta.value = val;
+        if (val.replace(/\s/g,'').length < 10) {
+            allOk = false;
+            if (!firstFail) firstFail = ta;
+        }
+        updateCharCount(ta);
+    });
+    if (!allOk) {
+        alert('모든 분야의 헤드라인을 10자 이상 작성해주세요!');
+        if (firstFail) firstFail.focus();
+        return;
+    }
+    const newsData = {};
+    areas.forEach(ta => { newsData[ta.dataset.cat] = trimCollapse(ta.value); });
+    sessionStorage.setItem(SS.NEWS, JSON.stringify(newsData));
+    showStep(4);
+};
+
+/* ═══════════════════════════════
+   최종 제출
+═══════════════════════════════ */
+window.submitSilla = async function() {
+    const adContent = trimCollapse(document.getElementById('ad-banner').value);
+    if (!adContent || adContent.replace(/\s/g,'').length < 5) {
+        alert('광고 배너 문구를 작성해주세요! (5자 이상)'); return;
+    }
+    stepTimes[4] = (stepTimes[4] || 0) + (Date.now() - stepStartTime);
+
+    const rawKw = JSON.parse(sessionStorage.getItem(SS.KW) || '[]');
+    const newsData = JSON.parse(sessionStorage.getItem(SS.NEWS) || '{}');
+    const newsArr = Object.entries(newsData).map(([cat, title]) => ({ category: cat, title }));
+
+    const btn = document.getElementById('btn-step4');
+    btn.disabled = true; btn.textContent = '발행 중...';
+
+    let existingDocId = null;
+    try {
+        const existingSnap = await getDocs(query(collection(db,'silla_v3'), where('studentId','==',currentUserId)));
+        if (!existingSnap.empty) {
+            const existingDoc = existingSnap.docs[0];
+            const existingData = existingDoc.data();
+            const ts = existingData.timestamp;
+            let timeStr = '시각 미상';
+            if (ts && ts.toDate) {
+                const d = ts.toDate(), pad = n => String(n).padStart(2,'0');
+                timeStr = `${pad(d.getMonth()+1)}월 ${pad(d.getDate())}일 ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+            }
+            const confirmed = confirm(`이미 제출한 기록이 있습니다.\n\n▪ 학번: ${existingData.studentId}\n▪ 이름: ${existingData.studentName}\n▪ 제출 시각: ${timeStr}\n\n다시 제출하시겠습니까?\n(기존 내용이 덮어쓰기 됩니다.)`);
+            if (!confirmed) { btn.disabled = false; btn.textContent = '🚀 기사 발행 및 포털 접속'; return; }
+            existingDocId = existingDoc.id;
+        }
+    } catch(e) { console.error(e); }
+
+    try {
+        const payload = {
+            studentId: currentUserId, studentName: currentUserName,
+            keywords: rawKw.slice(0,5),
+            news: newsArr, ad: adContent,
+            timestamp: serverTimestamp(),
+            // 학습 무결성 데이터
+            stepTimes: {
+                login: Math.round((stepTimes[1]||0)/1000),
+                keyword: Math.round((stepTimes[2]||0)/1000),
+                news: Math.round((stepTimes[3]||0)/1000),
+                ad: Math.round((stepTimes[4]||0)/1000),
+            },
+            pasteCount: pasteCount + parseInt(sessionStorage.getItem('sv_pasteCount')||0),
+            leaveCount: leaveCount + parseInt(sessionStorage.getItem('sv_leaveCount')||0),
+        };
+
+        let savedDocId;
+        if (existingDocId) {
+            const oldDocRef = doc(db,'silla_v3',existingDocId);
+            const oldData = (await getDoc(oldDocRef)).data() || {};
+            payload.newsLikes = oldData.newsLikes || {};
+            payload.newsPicks = oldData.newsPicks || {};
+            payload.adLikes = oldData.adLikes || [];
+            payload.adPick = oldData.adPick || false;
+            payload.adPickedAt = oldData.adPickedAt || null;
+            await setDoc(oldDocRef, payload);
+            savedDocId = existingDocId;
+        } else {
+            payload.newsLikes = {}; payload.newsPicks = {};
+            payload.adLikes = []; payload.adPick = false; payload.adPickedAt = null;
+            const newDocRef = await addDoc(collection(db,'silla_v3'), payload);
+            savedDocId = newDocRef.id;
+        }
+
+        currentDocId = savedDocId;
+        sessionStorage.setItem(SS.VIEW, 'result');
+        sessionStorage.setItem(SS.DOC_ID, savedDocId);
+
+        // 결과 화면으로
+        [1,2,3,4].forEach(n => document.getElementById('step'+n).style.display = 'none');
+        document.getElementById('result-view').style.display = 'block';
+        document.getElementById('step-bar').style.display = 'none';
+        window.scrollTo(0,0);
+        startListening();
+    } catch(e) {
+        alert('저장 오류: ' + e.message);
+        btn.disabled = false; btn.textContent = '🚀 기사 발행 및 포털 접속';
+    }
+};
+
+/* ═══════════════════════════════
+   픽 실시간 감지 (로그인 이후)
+═══════════════════════════════ */
+let unsubPicks = null;
+function startListeningForPicks() {
+    if (unsubPicks) return;
+    const q = query(collection(db,'silla_v3'), orderBy('timestamp','desc'));
+    unsubPicks = onSnapshot(q, snap => {
+        allDocs = [];
+        snap.forEach(d => allDocs.push({ id: d.id, ...d.data() }));
+    });
+}
+
+/* ═══════════════════════════════
+   결과 화면 실시간
+═══════════════════════════════ */
+function startListening() {
+    const q = query(collection(db,'silla_v3'), orderBy('timestamp','desc'));
+    onSnapshot(q, snap => {
+        allDocs = [];
+        let trendMap = {};
+        snap.forEach(docSnap => {
+            const data = docSnap.data();
+            allDocs.push({ id: docSnap.id, ...data });
+            (data.keywords || []).forEach(word => {
+                const key = word.replace(/\s+/g,'');
+                if (!trendMap[key]) trendMap[key] = { display: word, count: 0 };
+                trendMap[key].count++;
+            });
+        });
+        checkPickToast();
+        renderTrends(trendMap);
+        renderNewsFeed();
+        renderAdFeed();
+        isFirstSnapshot = false;
+    });
+}
+
+function checkPickToast() {
+    if (!currentUserId) return;
+    const myDoc = allDocs.find(d => d.studentId === currentUserId);
+    if (!myDoc) return;
+    const newsPicks = myDoc.newsPicks || {};
+    Object.entries(newsPicks).forEach(([cat, info]) => {
+        if (info && info.picked && info.pickedAt) {
+            const ms = info.pickedAt.toMillis ? info.pickedAt.toMillis() : new Date(info.pickedAt).getTime();
+            const key = `news_${cat}`, last = lastPickedSelfTimes[key] || 0;
+            if (ms > last) {
+                lastPickedSelfTimes[key] = ms;
+                if (!isFirstSnapshot) {
+                    const ni = (myDoc.news||[]).find(n=>n.category===cat);
+                    showPickToast(`"${ni?ni.title:cat}"`, '기사');
+                }
+            }
+        }
+    });
+    if (myDoc.adPick && myDoc.adPickedAt) {
+        const ms = myDoc.adPickedAt.toMillis ? myDoc.adPickedAt.toMillis() : new Date(myDoc.adPickedAt).getTime();
+        if (ms > (lastPickedSelfTimes['ad']||0)) {
+            lastPickedSelfTimes['ad'] = ms;
+            if (!isFirstSnapshot) showPickToast('내가 만든 광고', '광고');
+        }
+    }
+    if (isFirstSnapshot) {
+        Object.entries(newsPicks).forEach(([cat,info]) => {
+            if (info&&info.picked&&info.pickedAt) lastPickedSelfTimes[`news_${cat}`] = info.pickedAt.toMillis?info.pickedAt.toMillis():new Date(info.pickedAt).getTime();
+        });
+        if (myDoc.adPick&&myDoc.adPickedAt) lastPickedSelfTimes['ad'] = myDoc.adPickedAt.toMillis?myDoc.adPickedAt.toMillis():new Date(myDoc.adPickedAt).getTime();
+    }
+}
+
+function showPickToast(title, kind) {
+    const overlay = document.getElementById('toast-overlay');
+    overlay.innerHTML = `<div class="toast"><span class="toast-emoji">⭐</span>선생님 PICK!<span class="toast-sub">${esc(currentUserName)}님의 ${esc(kind)}이(가) 선택되었습니다<br>${esc(title)}</span></div>`;
+    overlay.style.display = 'flex';
+    setTimeout(() => { overlay.style.display = 'none'; overlay.innerHTML = ''; }, 4000);
+}
+
+function renderTrends(map) {
+    document.getElementById('trend-list').innerHTML = Object.values(map).sort((a,b)=>b.count-a.count).slice(0,10).map((item,i) =>
+        `<div class="rank-item"><div class="rank-left"><span class="rank-num">${i+1}</span><span class="rank-word">${esc(item.display)}</span></div><span class="rank-count">${item.count}회</span></div>`
+    ).join('') || '데이터가 없습니다.';
+}
+
+function getFlattenedNews() {
+    const arr = [];
+    allDocs.forEach(d => {
+        (d.news||[]).forEach(n => {
+            const cat = n.category, likes = (d.newsLikes&&d.newsLikes[cat])||[], pick = (d.newsPicks&&d.newsPicks[cat])||{};
+            arr.push({ docId:d.id, title:n.title, category:cat, studentId:d.studentId, studentName:d.studentName, timestamp:d.timestamp, likes, likeCount:likes.length, picked:!!pick.picked, pickedAt:pick.pickedAt||null });
+        });
+    });
+    return arr;
+}
+
+window.setNewsSort = function(mode) {
+    newsSortMode = mode;
+    document.querySelectorAll('#result-view .sort-tabs:first-of-type .sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort===mode));
+    renderNewsFeed();
+};
+window.setAdSort = function(mode) {
+    adSortMode = mode;
+    document.querySelectorAll('#result-view .sort-tabs:last-of-type .sort-btn').forEach(b => b.classList.toggle('active', b.dataset.sort===mode));
+    renderAdFeed();
+};
+window.filterNews = function(cat, btnEl) {
+    currentNewsCategory = cat;
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    if(btnEl) btnEl.classList.add('active');
+    renderNewsFeed();
+};
+
+function renderNewsFeed() {
+    const target = document.getElementById('news-feed');
+    let items = getFlattenedNews();
+    if (currentNewsCategory !== '전체') items = items.filter(n=>n.category===currentNewsCategory);
+    if (newsSortMode==='latest') items.sort((a,b)=>(b.timestamp?.toMillis?.()||0)-(a.timestamp?.toMillis?.()||0));
+    else if (newsSortMode==='likes') items.sort((a,b)=>b.likeCount-a.likeCount);
+    else if (newsSortMode==='pick') { items=items.filter(n=>n.picked); items.sort((a,b)=>(b.pickedAt?.toMillis?.()||0)-(a.pickedAt?.toMillis?.()||0)); }
+    if (items.length===0) { target.innerHTML=`<p style="padding:20px;color:#999;text-align:center;">${newsSortMode==='pick'?'아직 픽된 기사가 없습니다.':'작성된 기사가 없습니다.'}</p>`; return; }
+    target.innerHTML = items.map(n => {
+        const catLabel = currentNewsCategory==='전체' ? ` | ${esc(n.category)}` : '';
+        const liked = currentUserId && n.likes.includes(currentUserId);
+        return `<div class="news-card${n.picked?' picked':''}">
+            <div class="news-title">${esc(n.title)}${n.picked?`<span class="pick-badge">⭐ PICK</span>`:''}</div>
+            <div class="news-meta">
+                <div class="news-reporter">${esc(n.studentId)} ${esc(n.studentName)} 기자${catLabel}</div>
+                <button class="like-btn ${liked?'liked':''}" onclick="toggleNewsLike('${n.docId}','${esc(n.category)}')">
+                    <span>${liked?'❤️':'🤍'}</span> ${n.likeCount}
+                </button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function getFlattenedAds() {
+    return allDocs.filter(d=>d.ad).map(d=>({ docId:d.id, content:d.ad, studentId:d.studentId, studentName:d.studentName, timestamp:d.timestamp, likes:d.adLikes||[], likeCount:(d.adLikes||[]).length, picked:!!d.adPick, pickedAt:d.adPickedAt||null }));
+}
+
+function renderAdFeed() {
+    const target = document.getElementById('ad-feed');
+    let items = getFlattenedAds();
+    if (adSortMode==='latest') items.sort((a,b)=>(b.timestamp?.toMillis?.()||0)-(a.timestamp?.toMillis?.()||0));
+    else if (adSortMode==='likes') items.sort((a,b)=>b.likeCount-a.likeCount);
+    else if (adSortMode==='pick') { items=items.filter(a=>a.picked); items.sort((a,b)=>(b.pickedAt?.toMillis?.()||0)-(a.pickedAt?.toMillis?.()||0)); }
+    if (items.length===0) { target.innerHTML=`<p style="padding:20px;color:#999;text-align:center;">${adSortMode==='pick'?'아직 픽된 광고가 없습니다.':'등록된 광고가 없습니다.'}</p>`; return; }
+    target.innerHTML = items.map(ad => {
+        const liked = currentUserId && ad.likes.includes(currentUserId);
+        return `<div class="ad-feed-item${ad.picked?' picked':''}">
+            <div class="ad-feed-content">${esc(ad.content)}${ad.picked?`<span class="pick-badge">⭐ PICK</span>`:''}</div>
+            <div class="ad-feed-bottom">
+                <span class="ad-feed-author">AD BY. ${esc(ad.studentId)} ${esc(ad.studentName)}</span>
+                <button class="like-btn ${liked?'liked':''}" onclick="toggleAdLike('${ad.docId}')">
+                    <span>${liked?'❤️':'🤍'}</span> ${ad.likeCount}
+                </button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+window.toggleNewsLike = async function(docId, category) {
+    if (!currentUserId) { alert('좋아요는 제출 후에 누를 수 있어요!'); return; }
+    try {
+        const docRef = doc(db,'silla_v3',docId);
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) return;
+        const data = snap.data(), newsLikes = data.newsLikes||{}, arr = newsLikes[category]||[];
+        const idx = arr.indexOf(currentUserId);
+        if (idx>=0) arr.splice(idx,1); else arr.push(currentUserId);
+        newsLikes[category] = arr;
+        await updateDoc(docRef, { newsLikes });
+    } catch(e) { console.error(e); }
+};
+window.toggleAdLike = async function(docId) {
+    if (!currentUserId) { alert('좋아요는 제출 후에 누를 수 있어요!'); return; }
+    try {
+        const docRef = doc(db,'silla_v3',docId);
+        const snap = await getDoc(docRef);
+        if (!snap.exists()) return;
+        const arr = snap.data().adLikes||[], idx = arr.indexOf(currentUserId);
+        if (idx>=0) arr.splice(idx,1); else arr.push(currentUserId);
+        await updateDoc(docRef, { adLikes: arr });
+    } catch(e) { console.error(e); }
+};
+
+/* ═══════════════════════════════
+   픽 팝업
+═══════════════════════════════ */
+window.openPickModal = function(mode) {
+    pickModalMode = mode;
+    pickNewsCat = '전체';
+    const modal = document.getElementById('pick-modal');
+    const catTabs = document.getElementById('pick-cat-tabs');
+
+    if (mode === 'news') {
+        catTabs.style.display = 'flex';
+        catTabs.innerHTML = ['전체','정치','중앙제도','지방행정','군사','토지'].map(cat =>
+            `<button class="pick-cat-btn ${cat==='전체'?'active':''}" onclick="pickFilterCat('${cat}',this)">${cat}</button>`
+        ).join('');
+    } else {
+        catTabs.style.display = 'none';
+    }
+
+    renderPickList();
+    modal.classList.add('show');
+};
+
+window.pickFilterCat = function(cat, btnEl) {
+    pickNewsCat = cat;
+    document.querySelectorAll('.pick-cat-btn').forEach(b=>b.classList.remove('active'));
+    if(btnEl) btnEl.classList.add('active');
+    renderPickList();
+};
+
+function renderPickList() {
+    const list = document.getElementById('pick-list');
+    if (pickModalMode === 'news') {
+        const items = [];
+        allDocs.forEach(d => {
+            (d.news||[]).forEach(n => {
+                const pick = (d.newsPicks&&d.newsPicks[n.category])||{};
+                if (pick.picked) {
+                    items.push({ title: n.title, category: n.category, pickedAt: pick.pickedAt });
+                }
+            });
+        });
+        const filtered = pickNewsCat==='전체' ? items : items.filter(i=>i.category===pickNewsCat);
+        filtered.sort((a,b)=>(b.pickedAt?.toMillis?.()||0)-(a.pickedAt?.toMillis?.()||0));
+        if (filtered.length===0) { list.innerHTML=`<div class="pick-empty">⭐ 아직 픽된 기사가 없어요</div>`; return; }
+        list.innerHTML = filtered.map(item =>
+            `<div class="pick-item"><div class="pick-item-content">${esc(item.title)}</div><div class="pick-item-cat">${esc(item.category)}</div></div>`
+        ).join('');
+    } else {
+        const items = allDocs.filter(d=>d.adPick&&d.ad);
+        items.sort((a,b)=>(b.adPickedAt?.toMillis?.()||0)-(a.adPickedAt?.toMillis?.()||0));
+        if (items.length===0) { list.innerHTML=`<div class="pick-empty">⭐ 아직 픽된 광고가 없어요</div>`; return; }
+        list.innerHTML = items.map(item =>
+            `<div class="pick-item"><div class="pick-item-content">${esc(item.ad)}</div></div>`
+        ).join('');
+    }
+}
+
+window.closePickModal = function(e) {
+    if (e.target === document.getElementById('pick-modal')) closePickModalDirect();
+};
+window.closePickModalDirect = function() {
+    document.getElementById('pick-modal').classList.remove('show');
+};
+
+/* ═══════════════════════════════
+   리셋
+═══════════════════════════════ */
+window.confirmReset = function() {
+    if (document.getElementById('result-view').style.display !== 'none') {
+        if (!confirm('처음으로 돌아가시겠습니까?')) return;
+    }
+    Object.values(SS).forEach(k => sessionStorage.removeItem(k));
+    sessionStorage.removeItem('sv_leaveCount');
+    sessionStorage.removeItem('sv_pasteCount');
+    location.reload();
+};
+
+/* ═══════════════════════════════
+   DOMContentLoaded
+═══════════════════════════════ */
+window.addEventListener('DOMContentLoaded', async () => {
+    await loadGuides();
+    attachAllAntiCheat();
+
+    leaveCount = parseInt(sessionStorage.getItem('sv_leaveCount')||0);
+    pasteCount = parseInt(sessionStorage.getItem('sv_pasteCount')||0);
+
+    const savedView = sessionStorage.getItem(SS.VIEW);
+    if (savedView === 'result') {
+        currentUserId = sessionStorage.getItem(SS.USER_ID)||'';
+        currentUserName = sessionStorage.getItem(SS.USER_NAME)||'';
+        currentDocId = sessionStorage.getItem(SS.DOC_ID)||'';
+        [1,2,3,4].forEach(n=>document.getElementById('step'+n).style.display='none');
+        document.getElementById('result-view').style.display='block';
+        document.getElementById('step-bar').style.display='none';
+        startListening();
+        return;
+    }
+
+    // 세션 복원
+    const savedStep = parseInt(sessionStorage.getItem(SS.STEP)||'1');
+    currentUserId = sessionStorage.getItem(SS.USER_ID)||'';
+    currentUserName = sessionStorage.getItem(SS.USER_NAME)||'';
+
+    if (savedStep > 1 && currentUserId) {
+        // 저장된 값 복원
+        const kwData = JSON.parse(sessionStorage.getItem(SS.KW)||'[]');
+        const kwInputs = document.querySelectorAll('.kw-input');
+        kwData.forEach((v,i) => { if(kwInputs[i]) kwInputs[i].value = v; });
+
+        const newsData = JSON.parse(sessionStorage.getItem(SS.NEWS)||'{}');
+        document.querySelectorAll('.news-textarea').forEach(ta => {
+            if(newsData[ta.dataset.cat]) { ta.value = newsData[ta.dataset.cat]; updateCharCount(ta); }
+        });
+
+        const adVal = sessionStorage.getItem(SS.AD)||'';
+        if(adVal) document.getElementById('ad-banner').value = adVal;
+        document.getElementById('user-id').value = currentUserId;
+        document.getElementById('user-name').value = currentUserName;
+
+        showStep(Math.min(savedStep, 4));
+        startListeningForPicks();
+    } else {
+        showStep(1);
+    }
+
+    // 광고 저장
+    document.getElementById('ad-banner').addEventListener('input', () => {
+        sessionStorage.setItem(SS.AD, document.getElementById('ad-banner').value);
+    });
+});
 </script>
 
 </body>
