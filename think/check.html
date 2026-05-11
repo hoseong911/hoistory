@@ -334,7 +334,8 @@
     let cheatCount = 0;
 
     // ── Firebase 구독 ──
-    db.collection("lectures").orderBy("createdAt", "desc").onSnapshot(snap => {
+    // [수정] desc → asc : 오래된 강의가 위, 최신 강의가 아래
+    db.collection("lectures").orderBy("createdAt", "asc").onSnapshot(snap => {
         activeLectures = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
         if (currentUser) {
             renderLectureList();
@@ -354,7 +355,6 @@
         if (!id || !name || !verify) { alert("모든 칸을 입력해주세요!"); return; }
 
         currentUser = { id, name, verify };
-        // localStorage에 저장 → archive.html과 공유
         localStorage.setItem('sc_user', JSON.stringify(currentUser));
 
         show('screen-main'); hide('screen-login');
@@ -369,7 +369,6 @@
         show('screen-login'); hide('screen-main');
     }
 
-    // 페이지 로드 시 로그인 상태 복원
     window.addEventListener('load', () => {
         const saved = localStorage.getItem('sc_user');
         if (saved) {
@@ -404,8 +403,15 @@
     function renderLectureList() {
         const el = document.getElementById('student-lecture-list');
         el.innerHTML = '';
-        if (!activeLectures.length) { el.innerHTML = '<p class="empty-msg">개설된 강의가 없습니다.</p>'; return; }
-        activeLectures.forEach(lec => {
+
+        // [수정] isOpen 이 true 인 강의만 표시 (관리자가 공개한 강의만)
+        const openLectures = activeLectures.filter(l => l.isOpen === true);
+
+        if (!openLectures.length) {
+            el.innerHTML = '<p class="empty-msg">현재 열린 강의가 없습니다.</p>';
+            return;
+        }
+        openLectures.forEach(lec => {
             const alreadySubmitted = allSubmissions.some(s => s.lectureDocId === lec.docId && s.id === currentUser.id);
             const btn = document.createElement('button');
             btn.className = 'lecture-list-btn';
