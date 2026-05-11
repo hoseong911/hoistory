@@ -98,35 +98,35 @@
 <body>
 
 <header>
-    <a href="#" class="logo" onclick="location.reload()">SILLAVER</a>
+    <a href="#" class="logo" onclick="resetAndReload()">SILLAVER</a>
 </header>
 
 <div class="container">
     <div id="input-view">
         <div class="user-info">
-            <input type="text" id="user-id" placeholder="학번 (5자리)" maxlength="5" inputmode="numeric" pattern="[0-9]{5}">
-            <input type="text" id="user-name" placeholder="이름">
+            <input type="text" id="user-id" placeholder="학번 (5자리)" maxlength="5" inputmode="numeric" pattern="[0-9]{5}" oninput="saveInputs()">
+            <input type="text" id="user-name" placeholder="이름" oninput="saveInputs()">
         </div>
 
         <div class="search-area">
             <span>S</span>
-            <input type="text" id="keywords" placeholder="검색어 3~5개 입력 (쉼표로 구분)">
+            <input type="text" id="keywords" placeholder="검색어 3~5개 입력 (쉼표로 구분)" oninput="saveInputs()">
         </div>
 
         <div class="box">
             <div class="section-title">분야별 뉴스 헤드라인 작성</div>
             <div class="section-desc">통일 신라의 각 분야를 가장 잘 나타내는 기사 제목을 지어보세요.</div>
-            <div class="input-group"><label>🏛️ 정치</label><input type="text" class="news-input" data-cat="정치" placeholder="제목 입력"></div>
-            <div class="input-group"><label>📜 중앙제도</label><input type="text" class="news-input" data-cat="중앙제도" placeholder="제목 입력"></div>
-            <div class="input-group"><label>🗺️ 지방행정</label><input type="text" class="news-input" data-cat="지방행정" placeholder="제목 입력"></div>
-            <div class="input-group"><label>⚔️ 군사</label><input type="text" class="news-input" data-cat="군사" placeholder="제목 입력"></div>
-            <div class="input-group"><label>🌾 토지/경제</label><input type="text" class="news-input" data-cat="토지" placeholder="제목 입력"></div>
+            <div class="input-group"><label>🏛️ 정치</label><input type="text" class="news-input" data-cat="정치" placeholder="제목 입력" oninput="saveInputs()"></div>
+            <div class="input-group"><label>📜 중앙제도</label><input type="text" class="news-input" data-cat="중앙제도" placeholder="제목 입력" oninput="saveInputs()"></div>
+            <div class="input-group"><label>🗺️ 지방행정</label><input type="text" class="news-input" data-cat="지방행정" placeholder="제목 입력" oninput="saveInputs()"></div>
+            <div class="input-group"><label>⚔️ 군사</label><input type="text" class="news-input" data-cat="군사" placeholder="제목 입력" oninput="saveInputs()"></div>
+            <div class="input-group"><label>🌾 토지/경제</label><input type="text" class="news-input" data-cat="토지" placeholder="제목 입력" oninput="saveInputs()"></div>
         </div>
 
         <div class="box">
             <div class="section-title">📢 광고 홍보 배너 작성</div>
             <div class="section-desc">가상의 제품이나, 신라의 정책을 홍보하는 배너 문구를 작성해 주세요.</div>
-            <textarea id="ad-banner" class="ad-textarea" placeholder="아이디어가 돋보이는 홍보 문구를 작성해 봅시다."></textarea>
+            <textarea id="ad-banner" class="ad-textarea" placeholder="아이디어가 돋보이는 홍보 문구를 작성해 봅시다." oninput="saveInputs()"></textarea>
         </div>
 
         <button class="btn-submit" id="main-btn" onclick="submitSilla()">기사 발행 및 포털 접속</button>
@@ -166,12 +166,11 @@
             <div id="ad-feed"></div>
         </div>
         
-        <button class="btn-submit" style="background:#888;" onclick="location.reload()">새로 작성하기</button>
+        <button class="btn-submit" style="background:#888;" onclick="resetAndReload()">새로 작성하기</button>
     </div>
 
     <div style="text-align: center; margin-top: 40px; padding-bottom: 20px; color: #999;">
-        <div style="font-size: 14px; font-weight: bold;">SILLAVER v1.3.0</div>
-        <!-- 관리자 링크: 같은 폴더(mission/) 내 -->
+        <div style="font-size: 14px; font-weight: bold;">SILLAVER v1.3.1</div>
         <button onclick="location.href='sillaver_admin.html'" style="background: none; border: none; color: #bbb; cursor: pointer; text-decoration: underline; margin-top: 8px; font-size: 13px;">관리자 모드</button>
     </div>
 </div>
@@ -207,6 +206,57 @@
     let lastPickedSelfTimes = {};
     let isFirstSnapshot = true;
 
+    // ── sessionStorage 키 ──
+    const SS = {
+        VIEW:     'sv_view',       // 'result' or null
+        USER_ID:  'sv_userId',
+        USER_NAME:'sv_userName',
+        DOC_ID:   'sv_docId',
+        INPUTS:   'sv_inputs',     // JSON {id, name, keywords, news:{cat:val,...}, ad}
+    };
+
+    // ── 입력값 저장 (전역 노출) ──
+    window.saveInputs = function() {
+        const newsVals = {};
+        document.querySelectorAll('.news-input').forEach(inp => { newsVals[inp.dataset.cat] = inp.value; });
+        const data = {
+            id:       document.getElementById('user-id').value,
+            name:     document.getElementById('user-name').value,
+            keywords: document.getElementById('keywords').value,
+            news:     newsVals,
+            ad:       document.getElementById('ad-banner').value,
+        };
+        sessionStorage.setItem(SS.INPUTS, JSON.stringify(data));
+    };
+
+    // ── 입력값 복원 ──
+    function restoreInputs() {
+        try {
+            const raw = sessionStorage.getItem(SS.INPUTS);
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            if (data.id)       document.getElementById('user-id').value = data.id;
+            if (data.name)     document.getElementById('user-name').value = data.name;
+            if (data.keywords) document.getElementById('keywords').value = data.keywords;
+            if (data.ad)       document.getElementById('ad-banner').value = data.ad;
+            if (data.news) {
+                document.querySelectorAll('.news-input').forEach(inp => {
+                    if (data.news[inp.dataset.cat]) inp.value = data.news[inp.dataset.cat];
+                });
+            }
+        } catch(e) { /* ignore */ }
+    }
+
+    // ── 새로 작성하기 / 로고 클릭 ──
+    window.resetAndReload = function() {
+        sessionStorage.removeItem(SS.VIEW);
+        sessionStorage.removeItem(SS.USER_ID);
+        sessionStorage.removeItem(SS.USER_NAME);
+        sessionStorage.removeItem(SS.DOC_ID);
+        sessionStorage.removeItem(SS.INPUTS);
+        location.reload();
+    };
+
     function escapeHtml(str) {
         if (typeof str !== 'string') return '';
         return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
@@ -229,7 +279,7 @@
         btn.innerText = "확인 중...";
         btn.disabled = true;
 
-        // ── 학생 명단 검증 ──────────────────────────
+        // ── 학생 명단 검증 ──
         try {
             const rosterSnap = await getDoc(doc(db, "silla_students", userId));
             if (!rosterSnap.exists()) {
@@ -245,7 +295,6 @@
             alert("명단 확인 중 오류: " + e.message);
             btn.innerText = "기사 발행 및 포털 접속"; btn.disabled = false; return;
         }
-        // ────────────────────────────────────────────
 
         btn.innerText = "발행 및 연결 중...";
 
@@ -283,6 +332,7 @@
                 timestamp: serverTimestamp()
             };
 
+            let savedDocId;
             if (existingDocId) {
                 const oldDocRef = doc(db, "silla_v3", existingDocId);
                 const oldData = (await getDoc(oldDocRef)).data() || {};
@@ -292,15 +342,23 @@
                 payload.adPick = oldData.adPick || false;
                 payload.adPickedAt = oldData.adPickedAt || null;
                 await setDoc(oldDocRef, payload);
-                currentDocId = existingDocId;
+                savedDocId = existingDocId;
             } else {
                 payload.newsLikes = {}; payload.newsPicks = {};
                 payload.adLikes = []; payload.adPick = false; payload.adPickedAt = null;
                 const newDocRef = await addDoc(collection(db, "silla_v3"), payload);
-                currentDocId = newDocRef.id;
+                savedDocId = newDocRef.id;
             }
 
-            currentUserId = userId; currentUserName = userName;
+            // ── sessionStorage에 상태 저장 ──
+            currentUserId = userId;
+            currentUserName = userName;
+            currentDocId = savedDocId;
+            sessionStorage.setItem(SS.VIEW,      'result');
+            sessionStorage.setItem(SS.USER_ID,   currentUserId);
+            sessionStorage.setItem(SS.USER_NAME, currentUserName);
+            sessionStorage.setItem(SS.DOC_ID,    currentDocId);
+
             document.getElementById('input-view').style.display = 'none';
             document.getElementById('result-view').style.display = 'block';
             window.scrollTo(0, 0);
@@ -480,6 +538,23 @@
             await updateDoc(docRef, { adLikes: arr });
         } catch (e) { console.error(e); }
     };
+
+    // ── 페이지 로드 시 세션 복원 ──
+    window.addEventListener('DOMContentLoaded', () => {
+        // 입력값 항상 복원 (result 화면이든 아니든)
+        restoreInputs();
+
+        const savedView = sessionStorage.getItem(SS.VIEW);
+        if (savedView === 'result') {
+            currentUserId   = sessionStorage.getItem(SS.USER_ID)   || '';
+            currentUserName = sessionStorage.getItem(SS.USER_NAME) || '';
+            currentDocId    = sessionStorage.getItem(SS.DOC_ID)    || '';
+
+            document.getElementById('input-view').style.display = 'none';
+            document.getElementById('result-view').style.display = 'block';
+            startListening();
+        }
+    });
 </script>
 
 </body>
