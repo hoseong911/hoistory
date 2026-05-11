@@ -155,6 +155,10 @@
         .modal-warning { font-size: 12px; color: #ffa726; background: rgba(255,167,38,0.1); padding: 10px 12px; border-radius: 6px; margin-bottom: 16px; line-height: 1.5; }
         .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
 
+        /* 로그아웃 버튼 */
+        .logout-btn { background: transparent; border: 1px solid var(--border-dark); color: var(--text-muted); padding: 6px 14px; border-radius: 6px; font-size: 12px; cursor: pointer; margin-top: 20px; width: 100%; font-family: inherit; }
+        .logout-btn:hover { color: var(--text-main); border-color: var(--text-sub); }
+
         @media (max-width: 768px) {
             .app-layout { flex-direction: column; }
             .sidebar { width: 100%; padding: 10px; display: flex; gap: 6px; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border-dark); }
@@ -181,6 +185,7 @@
         <div class="menu-item active" data-page="posts" onclick="switchPage('posts')"><span class="menu-icon">📝</span> 게시글 관리</div>
         <div class="menu-item" data-page="stats" onclick="switchPage('stats')"><span class="menu-icon">📊</span> 통계</div>
         <div class="menu-item" data-page="tools" onclick="switchPage('tools')"><span class="menu-icon">🛠️</span> 도구</div>
+        <button class="logout-btn" onclick="adminLogout()">🔓 로그아웃</button>
     </aside>
 
     <main class="main-content">
@@ -285,7 +290,6 @@
             <div class="panel">
                 <div style="font-size:16px;font-weight:700;margin-bottom:8px;">👥 학생 명단 관리</div>
                 <div style="font-size:13px;color:var(--text-sub);margin-bottom:16px;line-height:1.5;">학생 명단 업로드 및 관리는 student2026.html에서 합니다.</div>
-                <!-- ../student2026.html : mission/ 폴더에서 한 단계 위로 -->
                 <button class="btn btn-gray" onclick="location.href='../student2026.html'">student2026.html 열기</button>
             </div>
             <div class="panel" style="border-color:rgba(211,47,47,0.4);">
@@ -338,6 +342,8 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    const ADMIN_SS_KEY = 'sillaverAdmin';
+
     let allDocs = [];
     let currentPostTab = 'keyword';
     let keywordSortMode = 'count';
@@ -367,14 +373,33 @@
         return `${pad(d.getMonth()+1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
 
+    function enterAdmin() {
+        document.getElementById('login-overlay').style.display = 'none';
+        document.getElementById('admin-main').style.display = 'flex';
+        startAdminListener();
+    }
+
+    // ── 로그인 ──
     window.checkLogin = function() {
         const pw = document.getElementById('admin-pw').value;
         if (pw === "ghtjd12!@") {
-            document.getElementById('login-overlay').style.display = 'none';
-            document.getElementById('admin-main').style.display = 'flex';
-            startAdminListener();
+            sessionStorage.setItem(ADMIN_SS_KEY, '1'); // 세션 동안 로그인 유지
+            enterAdmin();
         } else { alert("비밀번호가 일치하지 않습니다."); }
     };
+
+    // ── 로그아웃 ──
+    window.adminLogout = function() {
+        sessionStorage.removeItem(ADMIN_SS_KEY);
+        location.reload();
+    };
+
+    // ── 페이지 로드 시 세션 확인 ──
+    window.addEventListener('DOMContentLoaded', () => {
+        if (sessionStorage.getItem(ADMIN_SS_KEY) === '1') {
+            enterAdmin();
+        }
+    });
 
     window.switchPage = function(page) {
         document.querySelectorAll('.menu-item').forEach(m => m.classList.toggle('active', m.dataset.page === page));
