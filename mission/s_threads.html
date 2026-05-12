@@ -677,6 +677,25 @@ document.getElementById('postInput').addEventListener('input', function() {
     }, 5000);
   }
 
+ function showToast(msg) {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.innerHTML = `
+      <div class="toast-icon">✏️</div>
+      <div class="toast-body">
+        <div class="toast-title">글자 수 부족</div>
+        <div class="toast-msg">${msg}</div>
+      </div>
+      <button class="toast-close" onclick="this.closest('.toast').remove()">×</button>
+    `;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add('out');
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+  
   window.setRoleFilter = (role, btn) => {
     currentRoleFilter = role;
     document.querySelectorAll('.role-tab').forEach(el => el.classList.remove('active'));
@@ -787,7 +806,11 @@ document.getElementById('postInput').addEventListener('input', function() {
   ════════════════════════════ */
   window.createPost = () => {
     const content = document.getElementById('postInput').value.trim();
-if (content.replace(/\s/g, '').length < 30) return;
+const trimmedLen = content.replace(/\s/g, '').length;
+if (trimmedLen < 30) {
+  showToast(`공백 제외 30자 이상 작성해 주세요. (현재 ${trimmedLen}자)`);
+  return;
+}
     const now = new Date();
     const time = `${now.getMonth()+1}.${now.getDate()}. ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     const r = push(postsRef);
