@@ -105,6 +105,33 @@
     .modal-section-label:first-of-type { margin-top: 0; }
     .modal-btn-group { display: flex; flex-direction: column; gap: 8px; margin-top: 18px; }
 
+    /* ── 글 수정 모달 ── */
+    #editPostModal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.96);
+      backdrop-filter: blur(10px);
+      z-index: 1100; display: none;
+      flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    #editPostModal .modal-box {
+      width: 100%; max-width: 400px;
+      background: #111; border: 1px solid #2a2a2a;
+      border-radius: 20px; padding: 28px 24px;
+    }
+    #editPostModal .modal-title {
+      font-size: 15px; font-weight: 800; margin-bottom: 18px;
+      color: #fff;
+    }
+    #editPostModal textarea {
+      width: 100%; background: #1e1e1e; border: 1px solid #333;
+      border-radius: 12px; color: #fff; padding: 14px;
+      font-size: 15px; font-family: 'Pretendard'; outline: none;
+      resize: none; height: 160px; line-height: 1.5;
+      transition: border-color 0.15s; margin-bottom: 8px;
+    }
+    #editPostModal textarea:focus { border-color: #555; }
+    #editCharCount { font-size: 11px; color: #555; text-align: right; margin-bottom: 12px; }
+
     /* ── 메인 앱 ── */
     #appContainer {
       display: none; width: 100%; max-width: 600px; min-height: 100vh;
@@ -196,6 +223,11 @@
       padding: 2px 6px; border-radius: 4px; margin-left: 5px;
       border: 1px solid #2a2a2a;
     }
+    /* 수정됨 태그 */
+    .edited-tag {
+      font-size: 10px; color: #555;
+      margin-left: 5px;
+    }
     .time { color: var(--sub); font-size: 11px; margin-left: auto; }
     .content-text { font-size: 15px; line-height: 1.5; margin: 6px 0; color: #efefef; white-space: pre-wrap; }
 
@@ -204,6 +236,22 @@
       border: 1px solid #6a5000; border-radius: 4px; padding: 1px 7px;
       font-size: 10px; font-weight: 700; margin-bottom: 4px;
     }
+
+    /* 글 액션 버튼 영역 */
+    .post-actions {
+      display: flex; align-items: center; gap: 12px; margin-top: 4px;
+    }
+    .like-btn {
+      color: #777; cursor: pointer; font-size: 13px; display: inline-flex; align-items: center;
+    }
+    .like-btn.liked { color: #f91880; }
+    .edit-btn {
+      color: #555; cursor: pointer; font-size: 12px;
+      background: none; border: none; padding: 0;
+      font-family: 'Pretendard', sans-serif;
+      transition: color 0.15s;
+    }
+    .edit-btn:hover { color: #aaa; }
 
     .empty-state {
       padding: 60px 20px; text-align: center; color: var(--sub);
@@ -236,6 +284,10 @@
       animation: toastIn 0.35s cubic-bezier(.34,1.56,.64,1) forwards;
       pointer-events: auto;
     }
+    .toast.err-toast {
+      background: linear-gradient(135deg, #1a0006, #2a000f);
+      border-color: #6a0020;
+    }
     .toast.out { animation: toastOut 0.3s ease forwards; }
     @keyframes toastIn {
       from { opacity: 0; transform: translateY(-16px) scale(0.95); }
@@ -248,7 +300,9 @@
     .toast-icon { font-size: 22px; flex-shrink: 0; }
     .toast-body { flex: 1; }
     .toast-title { font-size: 13px; font-weight: 800; color: #f5a623; margin-bottom: 2px; }
+    .toast-title.red { color: #f91880; }
     .toast-msg   { font-size: 12px; color: #c8a060; line-height: 1.5; }
+    .toast-msg.red { color: #c06080; }
     .toast-close {
       background: none; border: none; cursor: pointer;
       color: #555; font-size: 18px; padding: 0; line-height: 1; flex-shrink: 0;
@@ -337,6 +391,32 @@
   </div>
 </div>
 
+<!-- ── 글 수정 모달 ── -->
+<div id="editPostModal">
+  <div class="modal-box">
+    <div class="modal-title">✏️ 글 수정</div>
+
+    <div class="modal-section-label" style="margin-top:0;">내용 수정</div>
+    <textarea id="editPostContent" placeholder="내용을 수정하세요..."></textarea>
+    <div id="editCharCount">0 / 300</div>
+
+    <div class="modal-section-label">계층 변경</div>
+    <select id="editPostRole">
+      <option value="진골">👑 진골 귀족</option>
+      <option value="6두품">📜 6두품 지식인</option>
+      <option value="호족">🏰 지방 호족</option>
+      <option value="농민">🌾 일반 농민</option>
+      <option value="선종 승려">🧘 선종 승려</option>
+      <option value="풍수지리사">🧭 풍수지리사</option>
+    </select>
+
+    <div class="modal-btn-group">
+      <button class="btn-main" onclick="submitPostEdit()">수정 완료</button>
+      <button class="btn-main gray" onclick="closeEditPost()">취소</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── 메인 앱 ── -->
 <div id="appContainer">
   <header>
@@ -370,7 +450,7 @@
     <div class="post-input-wrapper">
       <div class="avatar-circle" id="myAvatar">?</div>
       <div style="flex:1">
-<textarea id="postInput" placeholder="신라 하대, 당신의 생각은 무엇인가요..."></textarea>
+        <textarea id="postInput" placeholder="신라 하대, 당신의 생각은 무엇인가요..."></textarea>
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span id="charCount" style="font-size:11px; color:#555;">0 / 300</span>
           <button class="btn-main" style="width:auto; padding:6px 18px; font-size:13px; margin-top:0;"
@@ -382,7 +462,7 @@
 
   <div id="feed"></div>
   <footer>
-    v2.2 · Incheon Dongyang Middle School
+    v2.3 · Incheon Dongyang Middle School
     <div style="margin-top:10px;">
       <a href="s_threads_admin.html" style="color:#fff; font-size:11px; text-decoration:none;">관리자 센터</a>
     </div>
@@ -408,25 +488,60 @@
   const db = getDatabase(app);
   const postsRef = ref(db, 'posts');
   const toastRef = ref(db, 'silla_toast');
-  const studentsRef = ref(db, 'students'); // ✅ Realtime DB students 노드
+  const studentsRef = ref(db, 'students');
 
   const roleIcons = {
     "진골": "👑", "6두품": "📜", "호족": "🏰",
     "농민": "🌾", "선종 승려": "🧘", "풍수지리사": "🧭"
   };
 
+  /* ════════════════════════════
+     욕설 필터
+  ════════════════════════════ */
+  // 자주 쓰이는 한국어 욕설 목록 (초성/변형 포함)
+  const BAD_WORDS = [
+    "씨발","시발","쉬발","씨바","시바","ㅅㅂ","ㅆㅂ",
+    "개새끼","개새","ㄱㅅㄲ","개샊","개섀끼",
+    "병신","ㅂㅅ","벙신","뻥신",
+    "지랄","ㅈㄹ","지ㄹㄹ",
+    "미친","미치","ㅁㅊ","미칀","엠창",
+    "fuck","shit","bitch","asshole","bastard",
+    "새끼","쌔끼","섀끼","ㅅㄲ",
+    "년","놈","놈새끼",
+    "꺼져","꺼지","꺼지세요",
+    "죽어","죽여","뒤져","뒈져","뒤지","뒈지",
+    "창녀","창년","걸레","보지","자지","보짓","자짓",
+    "강간","성폭","성추",
+    "ㅗ","ㅗㅗ",
+    "개같","개 같","닥쳐","닥쳐","닥ㅊ",
+    "느금마","느그엄마","니애미","니에미","니엄마",
+    "존나","ㅈㄴ","좆","ㅈㅈ","좋같","좆같","존재",
+    "빡대가리","빡대","찐따","찐따새끼",
+    "머저리","멍청","바보같","돼지같",
+    "꼴통","찐따","장애","장애인 같"
+  ];
+
+  function containsBadWord(text) {
+    const normalized = text.replace(/\s/g, '').toLowerCase();
+    return BAD_WORDS.some(w => normalized.includes(w.toLowerCase().replace(/\s/g, '')));
+  }
+
+  /* ════════════════════════════
+     상태 변수
+  ════════════════════════════ */
   let currentUser = null;
   let currentSort = 'newest';
   let currentRoleFilter = 'all';
   let allPostsCache = [];
   let lastToastKey = null;
-
-  // 학생 명단 캐시: { "12345": "홍길동", ... }
   let studentMap = {};
   let studentMapLoaded = false;
 
+  // 글 수정용
+  let editingPostId = null;
+
   /* ════════════════════════════
-     학생 명단 로드 — Realtime DB students 노드
+     학생 명단 로드
   ════════════════════════════ */
   async function loadStudentMap() {
     if (studentMapLoaded) return;
@@ -435,7 +550,6 @@
       const data = snap.val();
       if (data) {
         Object.values(data).forEach(s => {
-          // student2026.html이 저장하는 필드: { studentId, name }
           const sid   = s.studentId || s.id || '';
           const sname = s.name || s.studentName || s.realName || '';
           if (sid && sname) studentMap[sid] = sname;
@@ -492,7 +606,6 @@
       await loadStudentMap();
 
       if (Object.keys(studentMap).length === 0) {
-        // 명단 비어있으면 형식만 확인
         el.classList.add('valid');
         idStatus.textContent = '✅';
         idMsg.textContent = '학번 형식 확인 완료';
@@ -504,7 +617,6 @@
       }
 
       if (studentMap[val] !== undefined) {
-        // ✅ 명단에 있음 → 이름 자동 채우기
         verifiedStudentName = studentMap[val];
         el.classList.add('valid');
         idStatus.textContent = '✅';
@@ -518,7 +630,6 @@
         nameMsg.textContent = `${verifiedStudentName} 학생으로 확인되었습니다`;
         nameMsg.className = 'verify-msg ok';
       } else {
-        // ❌ 명단에 없음
         el.classList.add('invalid');
         idStatus.textContent = '❌';
         idMsg.textContent = '명단에 없는 학번입니다. 선생님께 문의하세요.';
@@ -583,21 +694,35 @@
   document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('joinNick').addEventListener('input', updateEnterBtn);
     document.getElementById('joinRole').addEventListener('change', updateEnterBtn);
-document.getElementById('postInput').addEventListener('input', function() {
-  const withoutSpace = this.value.replace(/\s/g, '');
-  if (withoutSpace.length > 300) {
-    // 공백 제외 300자 초과분 잘라내기
-    let count = 0;
-    let cutIndex = 0;
-    for (let i = 0; i < this.value.length; i++) {
-      if (this.value[i] !== ' ' && this.value[i] !== '\n') count++;
-      if (count === 300) { cutIndex = i + 1; break; }
-    }
-    this.value = this.value.slice(0, cutIndex);
-  }
-  const len = this.value.replace(/\s/g, '').length;
-  document.getElementById('charCount').textContent = `${len} / 300`;
-});
+
+    document.getElementById('postInput').addEventListener('input', function() {
+      const withoutSpace = this.value.replace(/\s/g, '');
+      if (withoutSpace.length > 300) {
+        let count = 0, cutIndex = 0;
+        for (let i = 0; i < this.value.length; i++) {
+          if (this.value[i] !== ' ' && this.value[i] !== '\n') count++;
+          if (count === 300) { cutIndex = i + 1; break; }
+        }
+        this.value = this.value.slice(0, cutIndex);
+      }
+      const len = this.value.replace(/\s/g, '').length;
+      document.getElementById('charCount').textContent = `${len} / 300`;
+    });
+
+    // 수정 모달 textarea 글자수
+    document.getElementById('editPostContent').addEventListener('input', function() {
+      const withoutSpace = this.value.replace(/\s/g, '');
+      if (withoutSpace.length > 300) {
+        let count = 0, cutIndex = 0;
+        for (let i = 0; i < this.value.length; i++) {
+          if (this.value[i] !== ' ' && this.value[i] !== '\n') count++;
+          if (count === 300) { cutIndex = i + 1; break; }
+        }
+        this.value = this.value.slice(0, cutIndex);
+      }
+      const len = this.value.replace(/\s/g, '').length;
+      document.getElementById('editCharCount').textContent = `${len} / 300`;
+    });
   });
 
   /* ════════════════════════════
@@ -651,7 +776,6 @@ document.getElementById('postInput').addEventListener('input', function() {
   function listenFeed() {
     onValue(postsRef, snap => {
       const data = snap.val();
-      // ✅ 더미(00000) 포함 전체 표시 — 필터 제거
       allPostsCache = data ? Object.values(data).filter(p => p && p.id) : [];
       renderFeed();
     });
@@ -688,15 +812,15 @@ document.getElementById('postInput').addEventListener('input', function() {
     }, 5000);
   }
 
- function showToast(msg) {
+  function showToast(msg, isError = false) {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
-    toast.className = 'toast';
+    toast.className = isError ? 'toast err-toast' : 'toast';
     toast.innerHTML = `
-      <div class="toast-icon">✏️</div>
+      <div class="toast-icon">${isError ? '🚫' : '✏️'}</div>
       <div class="toast-body">
-        <div class="toast-title">글자 수 부족</div>
-        <div class="toast-msg">${msg}</div>
+        <div class="toast-title ${isError ? 'red' : ''}">${isError ? '게시 불가' : '글자 수 부족'}</div>
+        <div class="toast-msg ${isError ? 'red' : ''}">${msg}</div>
       </div>
       <button class="toast-close" onclick="this.closest('.toast').remove()">×</button>
     `;
@@ -704,9 +828,9 @@ document.getElementById('postInput').addEventListener('input', function() {
     setTimeout(() => {
       toast.classList.add('out');
       setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, 3500);
   }
-  
+
   window.setRoleFilter = (role, btn) => {
     currentRoleFilter = role;
     document.querySelectorAll('.role-tab').forEach(el => el.classList.remove('active'));
@@ -721,6 +845,18 @@ document.getElementById('postInput').addEventListener('input', function() {
     renderFeed();
   };
 
+  /* ── 본인 글 여부 확인 ──
+     학번 / 이름 / 닉네임 / 계층 모두 일치해야 수정 가능 */
+  function isMyPost(post) {
+    if (!currentUser) return false;
+    return (
+      post.studentId === currentUser.id &&
+      post.realName  === currentUser.name &&
+      post.nickname  === currentUser.nick &&
+      post.role      === currentUser.role
+    );
+  }
+
   function renderFeed() {
     const feed = document.getElementById('feed');
     feed.innerHTML = '';
@@ -732,16 +868,15 @@ document.getElementById('postInput').addEventListener('input', function() {
       posts = posts.filter(p => p.role === currentRoleFilter);
     }
 
-    // ✅ 정렬 알고리즘 수정 (타임스탬프 기반 정렬 적용 및 기존 데이터 하위 호환성 확보)
     if (currentSort === 'popular') {
-      posts.sort((a, b) => 
-        (b.likes || 0) - (a.likes || 0) || 
-        ((b.timestamp || 0) - (a.timestamp || 0)) || 
+      posts.sort((a, b) =>
+        (b.likes || 0) - (a.likes || 0) ||
+        ((b.timestamp || 0) - (a.timestamp || 0)) ||
         (a.id < b.id ? 1 : (a.id > b.id ? -1 : 0))
       );
     } else {
-      posts.sort((a, b) => 
-        ((b.timestamp || 0) - (a.timestamp || 0)) || 
+      posts.sort((a, b) =>
+        ((b.timestamp || 0) - (a.timestamp || 0)) ||
         (a.id < b.id ? 1 : (a.id > b.id ? -1 : 0))
       );
     }
@@ -754,9 +889,10 @@ document.getElementById('postInput').addEventListener('input', function() {
     posts.forEach(post => {
       const isDummy = post.studentId === '00000';
       const isLiked = post.likedBy && post.likedBy[currentUser.id];
+      const mine    = !isDummy && isMyPost(post);
+
       const card = document.createElement('div');
       card.className = 'thread-card';
-      // ✅ 더미는 살짝 어둡게 구분
       if (isDummy) card.style.opacity = '0.75';
 
       const avatar = document.createElement('div');
@@ -785,26 +921,48 @@ document.getElementById('postInput').addEventListener('input', function() {
       time.className = 'time';
       time.textContent = post.time;
       meta.append(nick, roleTag);
-      // ✅ 더미 표시 배지
+
       if (isDummy) {
         const dummyTag = document.createElement('span');
         dummyTag.className = 'dummy-tag';
         dummyTag.textContent = '예시';
         meta.appendChild(dummyTag);
       }
+
+      // 수정됨 태그
+      if (post.edited) {
+        const editedTag = document.createElement('span');
+        editedTag.className = 'edited-tag';
+        editedTag.textContent = '수정됨';
+        meta.appendChild(editedTag);
+      }
+
       meta.appendChild(time);
 
       const contentEl = document.createElement('div');
       contentEl.className = 'content-text';
       contentEl.textContent = post.content;
 
-      const likeBtn = document.createElement('div');
-      likeBtn.style.cssText = `color:${isLiked ? '#f91880' : '#777'}; cursor:pointer; font-size:13px; margin-top:4px; display:inline-block;`;
-      likeBtn.textContent = `${isLiked ? '❤️' : '♡'} ${post.likes || 0}`;
-      // 더미는 좋아요 비활성화
-      if (!isDummy) likeBtn.onclick = () => toggleLike(post.id, !!isLiked);
+      // 액션 버튼 영역
+      const actions = document.createElement('div');
+      actions.className = 'post-actions';
 
-      body.append(meta, contentEl, likeBtn);
+      const likeBtn = document.createElement('div');
+      likeBtn.className = `like-btn${isLiked ? ' liked' : ''}`;
+      likeBtn.textContent = `${isLiked ? '❤️' : '♡'} ${post.likes || 0}`;
+      if (!isDummy) likeBtn.onclick = () => toggleLike(post.id, !!isLiked);
+      actions.appendChild(likeBtn);
+
+      // 본인 글일 때만 수정 버튼 표시
+      if (mine) {
+        const editBtn = document.createElement('button');
+        editBtn.className = 'edit-btn';
+        editBtn.textContent = '수정';
+        editBtn.onclick = () => openEditPost(post);
+        actions.appendChild(editBtn);
+      }
+
+      body.append(meta, contentEl, actions);
       card.append(avatar, body);
       feed.appendChild(card);
     });
@@ -821,15 +979,83 @@ document.getElementById('postInput').addEventListener('input', function() {
   };
 
   /* ════════════════════════════
-     게시글 작성
+     글 수정 모달
   ════════════════════════════ */
-  window.createPost = () => {
-    const content = document.getElementById('postInput').value.trim();
+  window.openEditPost = (post) => {
+    editingPostId = post.id;
+    const ta = document.getElementById('editPostContent');
+    ta.value = post.content;
+    const len = post.content.replace(/\s/g, '').length;
+    document.getElementById('editCharCount').textContent = `${len} / 300`;
+    document.getElementById('editPostRole').value = post.role;
+    document.getElementById('editPostModal').style.display = 'flex';
+  };
+
+  window.closeEditPost = () => {
+    document.getElementById('editPostModal').style.display = 'none';
+    editingPostId = null;
+  };
+
+  window.submitPostEdit = async () => {
+    if (!editingPostId) return;
+    const content = document.getElementById('editPostContent').value.trim();
+    const role    = document.getElementById('editPostRole').value;
+
     const trimmedLen = content.replace(/\s/g, '').length;
     if (trimmedLen < 30) {
       showToast(`공백 제외 30자 이상 작성해 주세요. (현재 ${trimmedLen}자)`);
       return;
     }
+
+    // 욕설 필터
+    if (containsBadWord(content)) {
+      showToast('부적절한 표현이 포함되어 있어 수정할 수 없습니다.', true);
+      return;
+    }
+
+    // DB에서 원본 재확인 (보안: 본인 글 맞는지)
+    const snap = await get(ref(db, `posts/${editingPostId}`));
+    const post = snap.val();
+    if (!post) { closeEditPost(); return; }
+
+    const valid =
+      post.studentId === currentUser.id &&
+      post.realName  === currentUser.name &&
+      post.nickname  === currentUser.nick;
+
+    if (!valid) {
+      showToast('수정 권한이 없습니다.', true);
+      closeEditPost();
+      return;
+    }
+
+    const updates = {};
+    updates[`posts/${editingPostId}/content`] = content;
+    updates[`posts/${editingPostId}/role`]    = role;
+    updates[`posts/${editingPostId}/edited`]  = true;
+
+    await update(ref(db), updates);
+    closeEditPost();
+  };
+
+  /* ════════════════════════════
+     게시글 작성
+  ════════════════════════════ */
+  window.createPost = () => {
+    const content = document.getElementById('postInput').value.trim();
+    const trimmedLen = content.replace(/\s/g, '').length;
+
+    if (trimmedLen < 30) {
+      showToast(`공백 제외 30자 이상 작성해 주세요. (현재 ${trimmedLen}자)`);
+      return;
+    }
+
+    // 욕설 필터
+    if (containsBadWord(content)) {
+      showToast('부적절한 표현이 포함되어 있어 게시할 수 없습니다.', true);
+      return;
+    }
+
     const now = new Date();
     const time = `${now.getMonth()+1}.${now.getDate()}. ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
     const r = push(postsRef);
@@ -839,11 +1065,12 @@ document.getElementById('postInput').addEventListener('input', function() {
       realName: currentUser.name,
       nickname: currentUser.nick,
       role: currentUser.role,
-      content, 
-      time, 
-      timestamp: Date.now(), // ✅ 타임스탬프 필드 추가
+      content,
+      time,
+      timestamp: Date.now(),
       likes: 0,
-      likedBy: { init: true }
+      likedBy: { init: true },
+      edited: false
     });
     document.getElementById('postInput').value = '';
     document.getElementById('charCount').textContent = '0 / 300';
