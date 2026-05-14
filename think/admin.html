@@ -6,6 +6,7 @@
     <title>Admin — 생각 Check</title>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
     <style>
         :root {
             --bg-base: #0a0a0a;
@@ -34,7 +35,7 @@
 
         .admin-header {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 0 4px; margin-bottom: 32px;
+            padding: 0 4px; margin-bottom: 32px; flex-wrap: wrap; gap: 12px;
         }
         .admin-title { font-size: 18px; font-weight: 900; letter-spacing: -0.5px; }
         .admin-title .badge {
@@ -43,6 +44,7 @@
             border-radius: 4px; margin-left: 10px; vertical-align: middle;
         }
 
+        /* ── 로그인 ── */
         .login-wrap { max-width: 400px; margin: 80px auto 0; text-align: center; }
         .login-wrap h1 { font-size: 24px; font-weight: 900; margin-bottom: 8px; }
         .login-wrap p { color: var(--text-muted); font-size: 14px; margin-bottom: 32px; }
@@ -53,7 +55,7 @@
             padding: 24px; box-shadow: var(--shadow-heavy); margin-bottom: 16px;
             border: 1px solid var(--border-gray);
         }
-        .surface-card h3 { font-size: 15px; font-weight: 800; margin-bottom: 16px; color: var(--text-base); }
+        .surface-card h3 { font-size: 15px; font-weight: 800; margin-bottom: 16px; }
 
         .form-group { margin-bottom: 14px; }
         label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 7px; text-transform: uppercase; }
@@ -68,96 +70,73 @@
         select { cursor: pointer; }
 
         button { font-family: inherit; cursor: pointer; transition: all 0.15s; border: none; }
-        .btn-primary {
-            background: var(--brand-green); color: #000;
-            padding: 12px 28px; border-radius: 500px;
-            font-size: 13px; font-weight: 800; letter-spacing: 0.5px;
-        }
+        .btn-primary { background: var(--brand-green); color: #000; padding: 12px 28px; border-radius: 500px; font-size: 13px; font-weight: 800; letter-spacing: 0.5px; }
         .btn-primary:hover { background: var(--brand-green-hover); }
         .btn-primary.full { width: 100%; }
-        .btn-outline {
-            background: transparent; color: var(--text-base);
-            border: 1px solid var(--border-gray);
-            padding: 10px 20px; border-radius: 500px; font-size: 13px; font-weight: 700;
-        }
+        .btn-outline { background: transparent; color: var(--text-base); border: 1px solid var(--border-gray); padding: 10px 20px; border-radius: 500px; font-size: 13px; font-weight: 700; }
         .btn-outline:hover { border-color: var(--text-base); }
-        .btn-danger {
-            background: transparent; color: var(--text-error);
-            border: 1px solid var(--text-error);
-            padding: 8px 16px; border-radius: 500px; font-size: 12px; font-weight: 700;
-        }
+        .btn-danger { background: transparent; color: var(--text-error); border: 1px solid var(--text-error); padding: 8px 16px; border-radius: 500px; font-size: 12px; font-weight: 700; }
         .btn-danger:hover { background: rgba(243,114,127,0.1); }
-        .btn-accent {
-            background: var(--brand-accent); color: #fff;
-            padding: 8px 18px; border-radius: 500px; font-size: 12px; font-weight: 800;
-        }
         .btn-sm { padding: 8px 16px; font-size: 12px; }
 
-        .nav-tabs { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
-        .nav-tabs button {
-            background: var(--bg-interactive); color: var(--text-muted);
-            padding: 10px 20px; border-radius: 500px; font-size: 13px; font-weight: 700;
+        /* ── 로그아웃 버튼 ── */
+        .btn-logout {
+            background: rgba(243,114,127,0.12); color: var(--text-error);
+            border: 1px solid rgba(243,114,127,0.4);
+            padding: 8px 18px; border-radius: 500px; font-size: 13px; font-weight: 700;
         }
+        .btn-logout:hover { background: rgba(243,114,127,0.24); border-color: var(--text-error); }
+
+        .nav-tabs { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
+        .nav-tabs button { background: var(--bg-interactive); color: var(--text-muted); padding: 10px 20px; border-radius: 500px; font-size: 13px; font-weight: 700; }
         .nav-tabs button.active { background: var(--text-base); color: #000; }
         .nav-tabs button:hover:not(.active) { color: var(--text-base); }
 
         .filter-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
-        .filter-tabs button {
-            background: var(--bg-interactive); color: var(--text-muted);
-            padding: 8px 16px; border-radius: 500px; font-size: 12px; font-weight: 700;
-        }
+        .filter-tabs button { background: var(--bg-interactive); color: var(--text-muted); padding: 8px 16px; border-radius: 500px; font-size: 12px; font-weight: 700; }
         .filter-tabs button.active { background: var(--text-base); color: #000; }
         .filter-tabs button:hover:not(.active) { color: var(--text-base); }
         .filter-pick { color: var(--brand-green) !important; }
 
-        /* 정렬 버튼 */
-        .sort-wrap {
-            display: inline-flex; align-items: center; gap: 4px;
-            background: var(--bg-interactive); border-radius: 500px;
-            padding: 4px; border: 1px solid var(--border-gray);
-            margin-bottom: 18px;
-        }
-        .sort-wrap-label {
-            font-size: 11px; font-weight: 700; color: var(--text-muted);
-            letter-spacing: 0.5px; padding: 0 4px 0 8px;
-        }
-        .sort-btn {
-            background: transparent; color: var(--text-muted);
-            padding: 6px 14px; border-radius: 500px; font-size: 12px; font-weight: 700;
-            border: none; cursor: pointer; transition: all 0.15s;
-        }
+        .sort-wrap { display: inline-flex; align-items: center; gap: 4px; background: var(--bg-interactive); border-radius: 500px; padding: 4px; border: 1px solid var(--border-gray); margin-bottom: 18px; }
+        .sort-wrap-label { font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px; padding: 0 4px 0 8px; }
+        .sort-btn { background: transparent; color: var(--text-muted); padding: 6px 14px; border-radius: 500px; font-size: 12px; font-weight: 700; border: none; cursor: pointer; transition: all 0.15s; }
         .sort-btn.active { background: var(--text-base); color: #000; }
         .sort-btn:hover:not(.active) { color: var(--text-base); }
 
-        .lecture-card {
-            background: var(--bg-surface); border-radius: 10px;
-            padding: 20px; margin-bottom: 12px; border: 1px solid var(--border-gray);
+        /* ══ 미제출자 패널 ══ */
+        .absent-panel {
+            background: var(--bg-surface);
+            border: 1px solid rgba(243,114,127,0.35);
+            border-radius: 12px; padding: 20px 24px; margin-bottom: 20px;
         }
+        .absent-panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+        .absent-panel-title { font-size: 15px; font-weight: 800; color: var(--text-error); }
+        .absent-total-chip { background: var(--bg-interactive); border-radius: 8px; padding: 6px 14px; font-size: 12px; color: var(--text-muted); font-weight: 700; }
+        .absent-total-chip span { color: var(--text-error); font-weight: 900; }
+        .absent-class-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+        .absent-class-btn { background: var(--bg-interactive); color: var(--text-muted); padding: 7px 16px; border-radius: 500px; font-size: 12px; font-weight: 700; border: none; cursor: pointer; transition: all 0.15s; }
+        .absent-class-btn.active { background: var(--text-error); color: #fff; }
+        .absent-class-btn:hover:not(.active) { color: var(--text-base); }
+        .absent-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+        .absent-chip { background: rgba(243,114,127,0.1); border: 1px solid rgba(243,114,127,0.3); color: var(--text-error); padding: 6px 14px; border-radius: 500px; font-size: 13px; font-weight: 700; }
+        .absent-ok { color: var(--brand-green); font-size: 14px; font-weight: 700; }
+
+        /* ── 강의 카드 ── */
+        .lecture-card { background: var(--bg-surface); border-radius: 10px; padding: 20px; margin-bottom: 12px; border: 1px solid var(--border-gray); }
         .lecture-card .lec-title { font-size: 16px; font-weight: 800; color: var(--brand-green); margin-bottom: 6px; }
         .lecture-card .lec-q { font-size: 14px; color: var(--text-base); margin-bottom: 4px; }
         .lecture-card .lec-ref { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
         .inline-edit { background: var(--bg-interactive); padding: 16px; border-radius: 8px; margin-top: 14px; border: 1px solid var(--border-gray); }
 
-        .open-toggle-wrap {
-            display: inline-flex; align-items: center; gap: 10px;
-            background: var(--bg-interactive); border-radius: 500px;
-            padding: 8px 16px; border: 1px solid var(--border-gray);
-        }
+        .open-toggle-wrap { display: inline-flex; align-items: center; gap: 10px; background: var(--bg-interactive); border-radius: 500px; padding: 8px 16px; border: 1px solid var(--border-gray); }
         .open-toggle-label { font-size: 12px; font-weight: 700; }
         .open-toggle-label.on  { color: var(--brand-green); }
         .open-toggle-label.off { color: var(--text-muted); }
-
         .toggle-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
         .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .toggle-switch .slider {
-            position: absolute; inset: 0; background: var(--border-gray);
-            border-radius: 500px; cursor: pointer; transition: background 0.2s;
-        }
-        .toggle-switch .slider::before {
-            content: ''; position: absolute;
-            width: 16px; height: 16px; left: 3px; top: 3px;
-            background: #fff; border-radius: 50%; transition: transform 0.2s;
-        }
+        .toggle-switch .slider { position: absolute; inset: 0; background: var(--border-gray); border-radius: 500px; cursor: pointer; transition: background 0.2s; }
+        .toggle-switch .slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
         .toggle-switch input:checked + .slider { background: var(--brand-green); }
         .toggle-switch input:checked + .slider::before { transform: translateX(18px); }
 
@@ -168,22 +147,14 @@
         tr:last-child td { border-bottom: none; }
         tr:hover td { background: rgba(255,255,255,0.02); }
 
-        .answer-cell { line-height: 1.65; color: var(--text-base); }
+        .answer-cell { line-height: 1.65; }
         .student-info strong { font-size: 15px; }
         .student-meta { font-size: 12px; color: var(--text-muted); margin-top: 5px; line-height: 1.5; }
         .warning-tag { color: var(--text-error); font-size: 11px; font-weight: 800; margin-top: 6px; }
 
-        .pick-btn {
-            background: transparent; border: 1px solid var(--border-gray);
-            color: var(--text-muted); padding: 7px 14px; border-radius: 500px;
-            font-size: 12px; font-weight: 700; display: block; width: 100%; margin-bottom: 8px; text-align: center;
-        }
+        .pick-btn { background: transparent; border: 1px solid var(--border-gray); color: var(--text-muted); padding: 7px 14px; border-radius: 500px; font-size: 12px; font-weight: 700; display: block; width: 100%; margin-bottom: 8px; text-align: center; }
         .pick-btn.picked { background: var(--brand-green); color: #000; border-color: var(--brand-green); }
-        .del-btn {
-            background: transparent; border: 1px solid #444;
-            color: var(--text-muted); padding: 7px 14px; border-radius: 500px;
-            font-size: 12px; font-weight: 700; display: block; width: 100%; text-align: center;
-        }
+        .del-btn { background: transparent; border: 1px solid #444; color: var(--text-muted); padding: 7px 14px; border-radius: 500px; font-size: 12px; font-weight: 700; display: block; width: 100%; text-align: center; }
         .del-btn:hover { border-color: var(--text-error); color: var(--text-error); }
 
         .status-badge { font-size: 12px; font-weight: 800; }
@@ -194,36 +165,27 @@
         .stat-chip { background: var(--bg-interactive); border-radius: 8px; padding: 10px 18px; font-size: 13px; }
         .stat-chip .num { font-size: 20px; font-weight: 900; color: var(--brand-green); display: block; }
 
-        .modal-overlay {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.88);
-            display: flex; justify-content: center; align-items: center;
-            z-index: 9999; backdrop-filter: blur(10px);
-        }
-        .modal-box {
-            background: var(--bg-surface); padding: 36px 32px; border-radius: 16px;
-            width: 90%; max-width: 420px; box-shadow: var(--shadow-heavy);
-            text-align: center; border: 1px solid var(--border-gray);
-        }
+        .loading-msg { text-align: center; color: var(--text-muted); padding: 48px 0; font-size: 14px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+        .spinner { width: 28px; height: 28px; border: 3px solid var(--border-gray); border-top-color: var(--brand-green); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.88); display: flex; justify-content: center; align-items: center; z-index: 9999; backdrop-filter: blur(10px); }
+        .modal-box { background: var(--bg-surface); padding: 36px 32px; border-radius: 16px; width: 90%; max-width: 420px; box-shadow: var(--shadow-heavy); text-align: center; border: 1px solid var(--border-gray); }
         .modal-box h3 { font-size: 18px; font-weight: 800; color: var(--brand-green); margin-bottom: 14px; }
         .modal-box p { font-size: 14px; color: var(--text-muted); margin-bottom: 24px; line-height: 1.6; }
         .modal-actions { display: flex; gap: 10px; justify-content: center; }
 
         .hidden { display: none !important; }
         .empty-msg { text-align: center; color: var(--text-muted); padding: 48px 0; font-size: 14px; }
-        .divider { height: 1px; background: var(--border-gray); margin: 20px 0; }
         .row { display: flex; gap: 10px; align-items: flex-start; }
-        .row input { margin-bottom: 0; }
 
-        @media (max-width: 600px) {
-            .nav-tabs { flex-wrap: wrap; }
-            .stat-chips { gap: 8px; }
-        }
+        @media (max-width: 600px) { .nav-tabs { flex-wrap: wrap; } .stat-chips { gap: 8px; } }
     </style>
 </head>
 <body>
 <div class="container">
 
-    <!-- 로그인 -->
+    <!-- ══ 로그인 ══ -->
     <div id="screen-login">
         <div class="login-wrap">
             <div class="lock-icon">🔐</div>
@@ -243,15 +205,15 @@
         </div>
     </div>
 
-    <!-- 관리자 패널 -->
+    <!-- ══ 관리자 패널 ══ -->
     <div id="screen-admin" class="hidden">
 
         <div class="admin-header">
             <div class="admin-title">생각 Check <span class="badge">ADMIN</span></div>
-            <div style="display:flex; gap:10px; align-items:center;">
+            <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                 <a href="check.html" style="color:var(--text-muted); font-size:13px; text-decoration:none;">학생 화면</a>
                 <a href="archive.html" target="_blank" style="color:var(--text-muted); font-size:13px; text-decoration:none;">전시 페이지 ↗</a>
-                <button class="btn-outline btn-sm" onclick="exitAdmin()">로그아웃</button>
+                <button class="btn-logout" onclick="exitAdmin()">🚪 로그아웃</button>
             </div>
         </div>
 
@@ -265,30 +227,22 @@
         <div id="tab-lectures">
             <div class="surface-card">
                 <h3>새 강의 열기</h3>
-                <div class="form-group">
-                    <label>강의명</label>
-                    <input type="text" id="new-title" placeholder="예: 1강 선사시대">
-                </div>
-                <div class="form-group">
-                    <label>오늘의 질문</label>
-                    <input type="text" id="new-question" placeholder="생각 질문을 입력하세요">
-                </div>
-                <div class="form-group">
-                    <label>참고 문구 (선택)</label>
-                    <input type="text" id="new-reference" placeholder="참고 글이나 자료 출처">
-                </div>
+                <div class="form-group"><label>강의명</label><input type="text" id="new-title" placeholder="예: 1강 선사시대"></div>
+                <div class="form-group"><label>오늘의 질문</label><input type="text" id="new-question" placeholder="생각 질문을 입력하세요"></div>
+                <div class="form-group"><label>참고 문구 (선택)</label><input type="text" id="new-reference" placeholder="참고 글이나 자료 출처"></div>
                 <button class="btn-primary full" onclick="addLecture()">강의 생성 (기본: 비공개)</button>
             </div>
-
             <h3 style="padding:0 4px; margin-bottom:14px;">개설된 강의</h3>
-            <div id="lecture-list-admin"></div>
+            <div id="lecture-list-admin">
+                <div class="loading-msg"><div class="spinner"></div><span>강의 목록 불러오는 중…</span></div>
+            </div>
         </div>
 
         <!-- 2. 답변 관리 -->
         <div id="tab-answers" class="hidden">
             <div class="surface-card" style="margin-bottom:20px;">
                 <div class="row" style="flex-wrap:wrap; gap:10px; align-items:center;">
-                    <select id="answer-lecture-select" onchange="renderAnswers()" style="flex:1; min-width:200px; margin-bottom:0;">
+                    <select id="answer-lecture-select" onchange="onLectureChange()" style="flex:1; min-width:200px; margin-bottom:0;">
                         <option value="">강의를 선택하세요</option>
                     </select>
                     <button class="btn-primary btn-sm" onclick="exportCSV()">CSV 다운로드</button>
@@ -296,7 +250,18 @@
                 </div>
             </div>
 
+            <!-- 통계 칩 -->
             <div id="answer-stats" class="stat-chips hidden"></div>
+
+            <!-- ══ 미제출자 패널 ══ -->
+            <div id="absent-panel" class="absent-panel hidden">
+                <div class="absent-panel-header">
+                    <div class="absent-panel-title">⚠️ 미제출자</div>
+                    <div class="absent-total-chip" id="absent-total-chip"></div>
+                </div>
+                <div class="absent-class-tabs" id="absent-class-tabs"></div>
+                <div class="absent-grid" id="absent-grid"></div>
+            </div>
 
             <!-- 반 필터 -->
             <div class="filter-tabs">
@@ -310,7 +275,7 @@
                 <button class="filter-pick" onclick="setFilter('picked', this)">⭐ PICK만</button>
             </div>
 
-            <!-- 학번 정렬 -->
+            <!-- 정렬 -->
             <div class="sort-wrap">
                 <span class="sort-wrap-label">정렬</span>
                 <button class="sort-btn active" onclick="setSort('recent', this)">최신순</button>
@@ -362,6 +327,7 @@
 </div>
 
 <script>
+    /* ── Firebase 초기화 ── */
     const firebaseConfig = {
         apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
         authDomain: "ho0911seong-56638.firebaseapp.com",
@@ -372,41 +338,52 @@
         appId: "1:994509567071:web:be8ed4e8e9b0a833f557ea"
     };
     firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+    const db   = firebase.firestore();
+    const rtdb = firebase.database(); // Realtime DB (학생 명단)
 
-    const ADMIN_PW = "ghtjd12!@";
+    /* ── 상태 ── */
+    const ADMIN_PW    = "ghtjd12!@";
+    const SESSION_KEY = 'sc_admin_session'; // sessionStorage 키
 
-    let activeLectures = [];
-    let allSubmissions = [];
-    let currentFilter = 'all';
-    let currentSort = 'recent'; // ← 추가
+    let activeLectures   = [];
+    let allSubmissions   = [];
+    let allStudents      = []; // student2026.html 과 동일한 students 노드
+    let studentsReady    = false;
+    let lecturesReady    = false;
+    let submissionsReady = false;
+    let currentFilter    = 'all';
+    let currentSort      = 'recent';
+    let currentAbsentCls = 'all'; // 미제출자 패널 현재 반 탭
 
-    let lectureUnsub = null;
-    let submissionUnsub = null;
+    let lectureUnsub     = null;
+    let submissionUnsub  = null;
+    let studentsUnsub    = null;
 
-    function startListeners() {
-        lectureUnsub = db.collection("lectures").orderBy("createdAt","asc").onSnapshot(snap => {
-            activeLectures = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
-            renderLectureAdmin();
-            populateLectureSelect();
-            renderArchiveAdmin();
+    /* ─────────────────────────────────────────
+       세션 유지
+       sessionStorage 사용 → 탭/브라우저 닫으면 만료,
+       새로고침·같은 탭 내 이동에는 유지됨
+    ───────────────────────────────────────── */
+    function saveSession()  { sessionStorage.setItem(SESSION_KEY, '1'); }
+    function clearSession() { sessionStorage.removeItem(SESSION_KEY); }
+    function hasSession()   { return sessionStorage.getItem(SESSION_KEY) === '1'; }
+
+    window.addEventListener('load', () => {
+        document.getElementById('admin-pw').addEventListener('keydown', e => {
+            if (e.key === 'Enter') tryLogin();
         });
-        submissionUnsub = db.collection("submissions").orderBy("createdAt","desc").onSnapshot(snap => {
-            allSubmissions = snap.docs.map(d => ({ subId: d.id, ...d.data() }));
-            renderAnswers();
-        });
-    }
-
-    function stopListeners() {
-        if (lectureUnsub) lectureUnsub();
-        if (submissionUnsub) submissionUnsub();
-    }
-
-    document.getElementById('admin-pw').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+        // 세션 있으면 로그인 화면 건너뜀
+        if (hasSession()) {
+            hide('screen-login'); show('screen-admin');
+            startListeners();
+            switchTab('lectures');
+        }
+    });
 
     function tryLogin() {
         const pw = document.getElementById('admin-pw').value;
         if (pw === ADMIN_PW) {
+            saveSession();
             hide('screen-login'); show('screen-admin');
             startListeners();
             switchTab('lectures');
@@ -418,12 +395,60 @@
     }
 
     function exitAdmin() {
+        clearSession();
         stopListeners();
         hide('screen-admin'); show('screen-login');
         document.getElementById('admin-pw').value = '';
         hide('pw-error');
     }
 
+    /* ── Firebase 구독 시작/종료 ── */
+    function startListeners() {
+        // Firestore: 강의
+        lectureUnsub = db.collection("lectures").orderBy("createdAt","asc").onSnapshot(snap => {
+            activeLectures = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+            lecturesReady  = true;
+            renderLectureAdmin();
+            populateLectureSelect();
+            renderArchiveAdmin();
+            renderAnswers();
+        });
+
+        // Firestore: 제출
+        submissionUnsub = db.collection("submissions").orderBy("createdAt","desc").onSnapshot(snap => {
+            allSubmissions   = snap.docs.map(d => ({ subId: d.id, ...d.data() }));
+            submissionsReady = true;
+            renderAnswers();
+            renderLectureAdmin();  // 제출 건수 갱신
+            renderAbsentPanel();   // 제출 바뀌면 미제출자 갱신
+        });
+
+        // Realtime DB: 학생 명단 (student2026.html 과 동일 노드)
+        studentsUnsub = rtdb.ref('students').on('value', snap => {
+            const data = snap.val();
+            allStudents = [];
+            if (data) {
+                Object.entries(data).forEach(([key, val]) => {
+                    const sid   = String(val.studentId || key);
+                    const sname = val.name || val.studentName || val.realName || '';
+                    if (sid && sname) allStudents.push({ studentId: sid, studentName: sname });
+                });
+            }
+            allStudents.sort((a, b) => a.studentId.localeCompare(b.studentId));
+            studentsReady = true;
+            renderAbsentPanel();
+        });
+    }
+
+    function stopListeners() {
+        if (lectureUnsub)    lectureUnsub();
+        if (submissionUnsub) submissionUnsub();
+        if (studentsUnsub)   rtdb.ref('students').off('value', studentsUnsub);
+        lecturesReady = submissionsReady = studentsReady = false;
+        activeLectures = allSubmissions = allStudents = [];
+    }
+
+    /* ── 탭 전환 ── */
     function switchTab(tab) {
         ['lectures','answers','archive'].forEach(t => {
             document.getElementById(`tab-btn-${t}`).classList.toggle('active', t === tab);
@@ -431,65 +456,124 @@
         });
     }
 
-    function addLecture() {
-        const title = document.getElementById('new-title').value.trim();
-        const question = document.getElementById('new-question').value.trim();
-        const reference = document.getElementById('new-reference').value.trim();
-        if (!title || !question) { alert("강의명과 질문을 입력해주세요."); return; }
-        db.collection("lectures").add({
-            title, question, reference,
-            isOpen: false,
-            isArchived: false,
-            createdAt: Date.now()
-        }).then(() => {
-            ['new-title','new-question','new-reference'].forEach(id => document.getElementById(id).value = '');
-        });
+    /* ─────────────────────────────────────────
+       학번 → 반 번호 추출
+       student2026.html 의 parseClass 와 동일 로직
+       학번 형식: [학년 1자리][반 2자리][번호 2자리]
+       예) 30415 → 3학년 04반(4반) 15번
+    ───────────────────────────────────────── */
+    function classNumFromId(sid) {
+        if (!sid || sid.length < 3) return null;
+        const c = parseInt(sid.slice(1, 3), 10);
+        return isNaN(c) ? null : c;
     }
 
+    /* ─────────────────────────────────────────
+       미제출자 패널
+    ───────────────────────────────────────── */
+    function renderAbsentPanel() {
+        const lecId = document.getElementById('answer-lecture-select').value;
+        const panel = document.getElementById('absent-panel');
+
+        if (!lecId || !studentsReady || allStudents.length === 0) {
+            panel.classList.add('hidden');
+            return;
+        }
+
+        // 이 강의 제출자 학번 집합
+        const submittedIds = new Set(
+            allSubmissions.filter(s => s.lectureDocId === lecId).map(s => String(s.id))
+        );
+
+        // 미제출 학생
+        const absent = allStudents.filter(s => !submittedIds.has(String(s.studentId)));
+
+        // 존재하는 반 목록 (미제출자 기준)
+        const absentClasses = [
+            ...new Set(absent.map(s => classNumFromId(s.studentId)).filter(c => c !== null))
+        ].sort((a, b) => a - b);
+
+        // 총계 칩
+        document.getElementById('absent-total-chip').innerHTML =
+            `미제출 <span>${absent.length}</span>명 / 전체 ${allStudents.length}명`;
+
+        // 반 탭
+        const tabsEl = document.getElementById('absent-class-tabs');
+        tabsEl.innerHTML = `
+            <button class="absent-class-btn ${currentAbsentCls === 'all' ? 'active' : ''}"
+                onclick="setAbsentClass('all')">전체 (${absent.length}명)</button>
+            ${absentClasses.map(c => {
+                const cnt = absent.filter(s => classNumFromId(s.studentId) === c).length;
+                return `<button class="absent-class-btn ${currentAbsentCls == c ? 'active' : ''}"
+                    onclick="setAbsentClass(${c})">${c}반 (${cnt}명)</button>`;
+            }).join('')}`;
+
+        // 미제출자 칩 목록
+        const filtered = currentAbsentCls === 'all'
+            ? absent
+            : absent.filter(s => classNumFromId(s.studentId) === Number(currentAbsentCls));
+
+        const grid = document.getElementById('absent-grid');
+        if (filtered.length === 0) {
+            grid.innerHTML = `<span class="absent-ok">✅ ${currentAbsentCls === 'all' ? '전원' : currentAbsentCls + '반 전원'} 제출 완료!</span>`;
+        } else {
+            grid.innerHTML = filtered
+                .map(s => `<span class="absent-chip">${s.studentId} ${s.studentName}</span>`)
+                .join('');
+        }
+
+        panel.classList.remove('hidden');
+    }
+
+    function setAbsentClass(cls) {
+        currentAbsentCls = cls;
+        renderAbsentPanel();
+    }
+
+    /* ── 강의 선택 변경 ── */
+    function onLectureChange() {
+        currentAbsentCls = 'all';
+        renderAnswers();
+        renderAbsentPanel();
+    }
+
+    /* ── 강의 목록 렌더 ── */
     function renderLectureAdmin() {
         const el = document.getElementById('lecture-list-admin');
+        if (!lecturesReady) {
+            el.innerHTML = `<div class="loading-msg"><div class="spinner"></div><span>강의 목록 불러오는 중…</span></div>`;
+            return;
+        }
         el.innerHTML = '';
         if (!activeLectures.length) { el.innerHTML = '<p class="empty-msg">강의가 없습니다.</p>'; return; }
         activeLectures.forEach(lec => {
             const subCount = allSubmissions.filter(s => s.lectureDocId === lec.docId).length;
-            const isOpen = lec.isOpen === true;
-            const div = document.createElement('div');
-            div.className = 'lecture-card';
-            div.innerHTML = `
+            const isOpen   = lec.isOpen === true;
+            const div      = document.createElement('div');
+            div.className  = 'lecture-card';
+            div.innerHTML  = `
                 <div id="view-${lec.docId}">
                     <div class="lec-title">${lec.title}</div>
                     <div class="lec-q">Q. ${lec.question}</div>
                     <div class="lec-ref">참고: ${lec.reference || '없음'} · 제출 ${subCount}건</div>
                     <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
                         <div class="open-toggle-wrap">
-                            <span class="open-toggle-label ${isOpen ? 'on' : 'off'}">
-                                ${isOpen ? '🟢 학생 공개 중' : '⚫ 학생 비공개'}
-                            </span>
+                            <span class="open-toggle-label ${isOpen ? 'on' : 'off'}">${isOpen ? '🟢 학생 공개 중' : '⚫ 학생 비공개'}</span>
                             <label class="toggle-switch">
-                                <input type="checkbox" ${isOpen ? 'checked' : ''}
-                                    onchange="toggleOpen('${lec.docId}', this.checked)">
+                                <input type="checkbox" ${isOpen ? 'checked' : ''} onchange="toggleOpen('${lec.docId}', this.checked)">
                                 <span class="slider"></span>
                             </label>
                         </div>
                     </div>
                     <div style="display:flex; gap:8px;">
                         <button class="btn-outline btn-sm" onclick="toggleEdit('${lec.docId}', true)">수정</button>
-                        <button class="btn-danger btn-sm" onclick="deleteLecture('${lec.docId}', '${lec.title}')">강의 삭제</button>
+                        <button class="btn-danger btn-sm" onclick="deleteLecture('${lec.docId}', '${lec.title.replace(/'/g,"\\'")}')">강의 삭제</button>
                     </div>
                 </div>
                 <div id="edit-${lec.docId}" class="inline-edit hidden">
-                    <div class="form-group">
-                        <label>강의명</label>
-                        <input type="text" id="edit-title-${lec.docId}" value="${lec.title}">
-                    </div>
-                    <div class="form-group">
-                        <label>질문</label>
-                        <input type="text" id="edit-q-${lec.docId}" value="${lec.question}">
-                    </div>
-                    <div class="form-group">
-                        <label>참고</label>
-                        <input type="text" id="edit-ref-${lec.docId}" value="${lec.reference || ''}">
-                    </div>
+                    <div class="form-group"><label>강의명</label><input type="text" id="edit-title-${lec.docId}" value="${lec.title}"></div>
+                    <div class="form-group"><label>질문</label><input type="text" id="edit-q-${lec.docId}" value="${lec.question}"></div>
+                    <div class="form-group"><label>참고</label><input type="text" id="edit-ref-${lec.docId}" value="${lec.reference || ''}"></div>
                     <div style="display:flex; gap:8px;">
                         <button class="btn-primary btn-sm" onclick="saveLecture('${lec.docId}')">저장</button>
                         <button class="btn-outline btn-sm" onclick="toggleEdit('${lec.docId}', false)">취소</button>
@@ -499,57 +583,58 @@
         });
     }
 
-    function toggleOpen(docId, value) {
-        db.collection("lectures").doc(docId).update({ isOpen: value });
+    function toggleOpen(docId, value) { db.collection("lectures").doc(docId).update({ isOpen: value }); }
+    function toggleEdit(docId, open) {
+        document.getElementById(`view-${docId}`).classList.toggle('hidden', open);
+        document.getElementById(`edit-${docId}`).classList.toggle('hidden', !open);
     }
-
-    function toggleEdit(docId, show) {
-        document.getElementById(`view-${docId}`).classList.toggle('hidden', show);
-        document.getElementById(`edit-${docId}`).classList.toggle('hidden', !show);
-    }
-
     function saveLecture(docId) {
-        const title = document.getElementById(`edit-title-${docId}`).value.trim();
-        const question = document.getElementById(`edit-q-${docId}`).value.trim();
+        const title     = document.getElementById(`edit-title-${docId}`).value.trim();
+        const question  = document.getElementById(`edit-q-${docId}`).value.trim();
         const reference = document.getElementById(`edit-ref-${docId}`).value.trim();
         if (!title || !question) { alert("강의명과 질문은 필수입니다."); return; }
         db.collection("lectures").doc(docId).update({ title, question, reference });
     }
-
     function deleteLecture(docId, title) {
         openModal("강의 삭제", `<b>${title}</b>을(를) 삭제하시겠습니까?<br><span style="color:var(--text-error)">모든 답변도 함께 삭제됩니다.</span>`, false, () => {
-            const subs = allSubmissions.filter(s => s.lectureDocId === docId);
+            const subs  = allSubmissions.filter(s => s.lectureDocId === docId);
             const batch = db.batch();
             subs.forEach(s => batch.delete(db.collection("submissions").doc(s.subId)));
             batch.delete(db.collection("lectures").doc(docId));
             batch.commit().then(closeModal);
         });
     }
+    function addLecture() {
+        const title     = document.getElementById('new-title').value.trim();
+        const question  = document.getElementById('new-question').value.trim();
+        const reference = document.getElementById('new-reference').value.trim();
+        if (!title || !question) { alert("강의명과 질문을 입력해주세요."); return; }
+        db.collection("lectures").add({ title, question, reference, isOpen: false, isArchived: false, createdAt: Date.now() })
+          .then(() => { ['new-title','new-question','new-reference'].forEach(id => document.getElementById(id).value = ''); });
+    }
 
+    /* ── 강의 셀렉트 ── */
     function populateLectureSelect() {
         const sel = document.getElementById('answer-lecture-select');
         const cur = sel.value;
         sel.innerHTML = '<option value="">강의를 선택하세요</option>';
         activeLectures.forEach(l => sel.innerHTML += `<option value="${l.docId}">${l.title}</option>`);
-        sel.value = cur;
+        if (cur && activeLectures.some(l => l.docId === cur)) sel.value = cur;
     }
 
+    /* ── 필터 / 정렬 ── */
     function setFilter(f, btn) {
         currentFilter = f;
         document.querySelectorAll('.filter-tabs button').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         renderAnswers();
     }
-
-    // ── 정렬 변경 ──
     function setSort(mode, btn) {
         currentSort = mode;
         document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         renderAnswers();
     }
-
-    // ── 정렬 적용 ──
     function applySort(subs) {
         if (currentSort === 'recent') return subs;
         return [...subs].sort((a, b) => {
@@ -558,17 +643,23 @@
         });
     }
 
+    /* ── 답변 테이블 ── */
     function renderAnswers() {
-        const tbody = document.getElementById('answers-tbody');
+        const tbody   = document.getElementById('answers-tbody');
         const statsEl = document.getElementById('answer-stats');
         tbody.innerHTML = '';
         const lecId = document.getElementById('answer-lecture-select').value;
         if (!lecId) { statsEl.classList.add('hidden'); return; }
 
-        let subs = allSubmissions.filter(s => s.lectureDocId === lecId);
-        const total = subs.length;
+        if (!submissionsReady) {
+            tbody.innerHTML = `<tr><td colspan="3"><div class="loading-msg"><div class="spinner"></div><span>답변 불러오는 중…</span></div></td></tr>`;
+            return;
+        }
+
+        let subs     = allSubmissions.filter(s => s.lectureDocId === lecId);
+        const total  = subs.length;
         const picked = subs.filter(s => s.isPicked).length;
-        const avgLen = total ? Math.round(subs.reduce((a,s) => a + (s.textLength||0), 0) / total) : 0;
+        const avgLen = total ? Math.round(subs.reduce((a, s) => a + (s.textLength || 0), 0) / total) : 0;
 
         statsEl.classList.remove('hidden');
         statsEl.innerHTML = `
@@ -579,15 +670,13 @@
         if (currentFilter === 'picked') subs = subs.filter(s => s.isPicked);
         else if (currentFilter !== 'all') subs = subs.filter(s => (s.id?.toString().charAt(2) || '') === currentFilter);
 
-        subs = applySort(subs); // ← 정렬 적용
-
+        subs = applySort(subs);
         if (!subs.length) { tbody.innerHTML = `<tr><td colspan="3" class="empty-msg">해당 조건의 답변이 없습니다.</td></tr>`; return; }
 
         subs.forEach(data => {
             const warnings = [];
-            if ((data.duration||0) < 10) warnings.push("작성시간 짧음");
-            if ((data.cheatCount||0) > 0) warnings.push(`이탈 ${data.cheatCount}회`);
-
+            if ((data.duration || 0) < 10)   warnings.push("작성시간 짧음");
+            if ((data.cheatCount || 0) > 0)   warnings.push(`이탈 ${data.cheatCount}회`);
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>
@@ -610,33 +699,30 @@
         const t = allSubmissions.find(s => s.subId === subId);
         if (t) db.collection("submissions").doc(subId).update({ isPicked: !t.isPicked });
     }
-
     function deleteSubmission(subId) {
         openModal("답변 삭제", "이 학생의 답변을 삭제하시겠습니까?", false, () => {
             db.collection("submissions").doc(subId).delete().then(closeModal);
         });
     }
-
     function promptDeleteAll() {
         const lecId = document.getElementById('answer-lecture-select').value;
         if (!lecId) { alert("강의를 먼저 선택하세요."); return; }
         const lec = activeLectures.find(l => l.docId === lecId);
         openModal("전체 삭제", `<b>${lec?.title}</b>의 모든 답변을 삭제합니다.<br><span style="color:var(--text-error)">되돌릴 수 없습니다.</span>`, false, () => {
-            const subs = allSubmissions.filter(s => s.lectureDocId === lecId);
+            const subs  = allSubmissions.filter(s => s.lectureDocId === lecId);
             const batch = db.batch();
             subs.forEach(s => batch.delete(db.collection("submissions").doc(s.subId)));
             batch.commit().then(closeModal);
         });
     }
-
     function exportCSV() {
         const lecId = document.getElementById('answer-lecture-select').value;
         if (!lecId) { alert("강의를 먼저 선택하세요."); return; }
         const lec = activeLectures.find(l => l.docId === lecId);
         let csv = "\uFEFF학번,이름,확인문구,답변,글자수,작성시간(초),이탈횟수,PICK\n";
         allSubmissions.filter(s => s.lectureDocId === lecId).forEach(d => {
-            const text = (d.text||'').replace(/"/g,'""').replace(/\n/g,' ');
-            csv += `${d.id},${d.name},${d.verify},"${text}",${d.textLength},${d.duration},${d.cheatCount},${d.isPicked?'O':'X'}\n`;
+            const text = (d.text || '').replace(/"/g, '""').replace(/\n/g, ' ');
+            csv += `${d.id},${d.name},${d.verify},"${text}",${d.textLength},${d.duration},${d.cheatCount},${d.isPicked ? 'O' : 'X'}\n`;
         });
         const a = document.createElement('a');
         a.href = encodeURI("data:text/csv;charset=utf-8," + csv);
@@ -644,31 +730,38 @@
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
     }
 
+    /* ── 아카이브 ── */
     function renderArchiveAdmin() {
         const tbody = document.getElementById('archive-tbody');
+        if (!lecturesReady) {
+            tbody.innerHTML = `<tr><td colspan="3"><div class="loading-msg"><div class="spinner"></div><span>불러오는 중…</span></div></td></tr>`;
+            return;
+        }
         tbody.innerHTML = '';
+        if (!activeLectures.length) { tbody.innerHTML = `<tr><td colspan="3" class="empty-msg">강의가 없습니다.</td></tr>`; return; }
         activeLectures.forEach(lec => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td style="font-weight:700;">${lec.title}</td>
                 <td><span class="status-badge ${lec.isArchived ? 'on' : 'off'}">${lec.isArchived ? '● 공개 중' : '○ 비공개'}</span></td>
                 <td>
-                    <button class="${lec.isArchived ? 'btn-outline' : 'btn-primary'} btn-sm" onclick="toggleArchive('${lec.docId}', ${lec.isArchived})">
+                    <button class="${lec.isArchived ? 'btn-outline' : 'btn-primary'} btn-sm"
+                        onclick="toggleArchive('${lec.docId}', ${lec.isArchived})">
                         ${lec.isArchived ? '내리기' : '공개하기'}
                     </button>
                 </td>`;
             tbody.appendChild(tr);
         });
     }
-
     function toggleArchive(docId, current) {
         const action = current ? '내리기' : '공개하기';
-        const desc = current ? "학생 화면과 전시 페이지에서 숨깁니다." : "학생 화면과 전시 페이지에 공개합니다.";
+        const desc   = current ? "학생 화면과 전시 페이지에서 숨깁니다." : "학생 화면과 전시 페이지에 공개합니다.";
         openModal(`아카이브 ${action}`, desc, false, () => {
             db.collection("lectures").doc(docId).update({ isArchived: !current }).then(closeModal);
         });
     }
 
+    /* ── 모달 ── */
     function openModal(title, desc, hasInput, onConfirm) {
         document.getElementById('modal-title').textContent = title;
         document.getElementById('modal-desc').innerHTML = desc || '';
@@ -680,6 +773,7 @@
     }
     function closeModal() { hide('modal'); }
 
+    /* ── 유틸 ── */
     function show(id) { document.getElementById(id).classList.remove('hidden'); }
     function hide(id) { document.getElementById(id).classList.add('hidden'); }
 </script>
