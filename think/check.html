@@ -343,30 +343,27 @@
     // ── 상태 ──
     let activeLectures = [];
     let allSubmissions = [];
-    let currentUser = null;
+    let currentUser    = null;
     let currentLecture = null;
-    let startTime = 0;
-    let cheatCount = 0;
+    let startTime      = 0;
+    let cheatCount     = 0;
 
-    // ── 데이터 준비 상태 플래그 ──
-    // Firebase 첫 응답이 오기 전에는 "로딩 중" 표시를 위해 사용
-    let lecturesReady = false;
+    // ── 데이터 준비 플래그 ──
+    let lecturesReady    = false;
     let submissionsReady = false;
 
     // ── Firebase 구독 ──
     db.collection("lectures").orderBy("createdAt", "asc").onSnapshot(snap => {
         activeLectures = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
-        lecturesReady = true;
-        // 로그인 여부와 무관하게 항상 렌더링
-        // (로그인 전이면 screen-main이 hidden이라 화면엔 안 보이지만, 데이터는 준비됨)
+        lecturesReady  = true;
         renderLectureList();
         renderArchiveList();
     });
 
     db.collection("submissions").orderBy("createdAt", "desc").onSnapshot(snap => {
-        allSubmissions = snap.docs.map(d => ({ subId: d.id, ...d.data() }));
+        // onSnapshot 도착 시 __pending__ 낙관적 항목은 제거하고 실제 데이터로 교체
+        allSubmissions   = snap.docs.map(d => ({ subId: d.id, ...d.data() }));
         submissionsReady = true;
-        // 제출 데이터가 바뀌면 강의 목록도 다시 그려서 ✅ 상태 갱신
         renderLectureList();
     });
 
@@ -397,14 +394,12 @@
         if (saved) {
             try {
                 currentUser = JSON.parse(saved);
-                document.getElementById('student-id').value   = currentUser.id;
-                document.getElementById('student-name').value = currentUser.name;
+                document.getElementById('student-id').value    = currentUser.id;
+                document.getElementById('student-name').value  = currentUser.name;
                 document.getElementById('verify-phrase').value = currentUser.verify;
                 document.getElementById('welcome-chip').textContent = `${currentUser.id} ${currentUser.name}`;
                 show('screen-main'); hide('screen-login');
                 switchTab('today');
-                // 이 시점에 onSnapshot 데이터가 아직 안 왔을 수 있으므로
-                // renderLectureList()를 직접 호출 → "불러오는 중..." 스피너 표시
                 renderLectureList();
                 renderArchiveList();
             } catch(e) { localStorage.removeItem('sc_user'); }
@@ -428,10 +423,9 @@
 
     // ── 강의 목록 ──
     function renderLectureList() {
-        if (!currentUser) return; // 로그인 전이면 렌더링 생략
+        if (!currentUser) return;
         const el = document.getElementById('student-lecture-list');
 
-        // Firebase 데이터 아직 미도착 → 로딩 스피너
         if (!lecturesReady) {
             el.innerHTML = `
                 <div class="loading-msg">
@@ -450,6 +444,7 @@
         }
 
         openLectures.forEach(lec => {
+            // __pending__ 포함하여 체크 → 낙관적 업데이트 즉시 반영
             const alreadySubmitted = allSubmissions.some(
                 s => s.lectureDocId === lec.docId && s.id === currentUser.id
             );
@@ -496,22 +491,42 @@
         }
     });
 
+    // ── 제출 (낙관적 업데이트 적용) ──
     function submitAnswer() {
         const text = document.getElementById('answer-text').value.trim();
         if (!text) { alert("내용을 작성해주세요!"); return; }
-        db.collection("submissions").add({
+
+        const newSub = {
             lectureDocId: currentLecture.docId,
             lectureTitle: currentLecture.title,
-            id: currentUser.id,
-            name: currentUser.name,
-            verify: currentUser.verify,
+            id:           currentUser.id,
+            name:         currentUser.name,
+            verify:       currentUser.verify,
             text,
-            textLength: text.replace(/\s/g,'').length,
-            duration: Math.floor((Date.now() - startTime) / 1000),
+            textLength:   text.replace(/\s/g, '').length,
+            duration:     Math.floor((Date.now() - startTime) / 1000),
             cheatCount,
-            isPicked: false,
-            createdAt: Date.now()
-        }).then(() => { alert("제출이 완료되었습니다!"); cancelWriting(); });
+            isPicked:     false,
+            createdAt:    Date.now()
+        };
+
+        // ① 로컬 상태에 즉시 반영 → 목록이 바로 "제출 완료"로 표시됨
+        allSubmissions = [{ subId: '__pending__', ...newSub }, ...allSubmissions];
+        renderLectureList();
+
+        // ② Firebase에 실제 저장
+        db.collection("submissions").add(newSub)
+            .then(() => {
+                // onSnapshot이 도착하면 __pending__ 항목이 실제 데이터로 자동 교체됨
+                alert("제출이 완료되었습니다!");
+                cancelWriting();
+            })
+            .catch(() => {
+                // 실패 시 낙관적 업데이트 롤백
+                allSubmissions = allSubmissions.filter(s => s.subId !== '__pending__');
+                renderLectureList();
+                alert("제출 중 오류가 발생했습니다. 다시 시도해주세요.");
+            });
     }
 
     // ── 아카이브 ──
