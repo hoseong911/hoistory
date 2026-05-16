@@ -1,0 +1,1750 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>천년의 기억 - 잊혀진 보물을 찾아서</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Nanum+Myeongjo:wght@400;700;800&family=Song+Myung&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1410;
+    --paper: #f4ead5;
+    --paper-dark: #e8d9b8;
+    --red-seal: #a8322d;
+    --gold: #c9a44c;
+    --gold-dark: #8b6f2a;
+    --jade: #4a6b5c;
+    --shadow: rgba(26, 20, 16, 0.15);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Gowun Batang', 'Nanum Myeongjo', serif;
+    background: var(--paper);
+    color: var(--ink);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at 20% 30%, rgba(201, 164, 76, 0.08) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(168, 50, 45, 0.06) 0%, transparent 50%),
+      repeating-linear-gradient(45deg, transparent 0px, transparent 2px, rgba(139, 111, 42, 0.03) 2px, rgba(139, 111, 42, 0.03) 4px);
+    line-height: 1.7;
+  }
+
+  /* ===== 인트로 화면 ===== */
+  .intro-screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    text-align: center;
+    background:
+      radial-gradient(ellipse at center, rgba(244, 234, 213, 1) 0%, rgba(232, 217, 184, 0.8) 100%);
+  }
+
+  .intro-title {
+    font-family: 'Nanum Myeongjo', serif;
+    font-weight: 800;
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    color: var(--ink);
+    letter-spacing: 0.3em;
+    margin-bottom: 1rem;
+    animation: fadeInDown 1.5s ease;
+  }
+
+  .intro-subtitle {
+    font-family: 'Song Myung', serif;
+    font-size: clamp(1rem, 2vw, 1.3rem);
+    color: var(--gold-dark);
+    letter-spacing: 0.5em;
+    margin-bottom: 3rem;
+    animation: fadeIn 2s ease 0.5s both;
+  }
+
+  .seal {
+    width: 120px;
+    height: 120px;
+    background: var(--red-seal);
+    color: var(--paper);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Nanum Myeongjo', serif;
+    font-weight: 800;
+    font-size: 1.8rem;
+    margin: 2rem auto;
+    box-shadow: 0 4px 20px rgba(168, 50, 45, 0.3);
+    animation: pulse 3s ease-in-out infinite;
+    line-height: 1.1;
+    text-align: center;
+  }
+
+  @keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+  }
+
+  .intro-story {
+    max-width: 700px;
+    font-size: 1.1rem;
+    line-height: 2;
+    margin: 2rem auto;
+    color: var(--ink);
+    animation: fadeIn 2s ease 1s both;
+  }
+
+  .intro-story p { margin-bottom: 1rem; }
+
+  .btn-start {
+    margin-top: 2rem;
+    padding: 1rem 3rem;
+    font-family: 'Nanum Myeongjo', serif;
+    font-weight: 700;
+    font-size: 1.2rem;
+    background: var(--ink);
+    color: var(--paper);
+    border: 2px solid var(--gold);
+    cursor: pointer;
+    letter-spacing: 0.3em;
+    transition: all 0.3s ease;
+    animation: fadeInUp 2s ease 1.5s both;
+  }
+
+  .btn-start:hover {
+    background: var(--red-seal);
+    border-color: var(--red-seal);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px var(--shadow);
+  }
+
+  /* ===== 게임 화면 ===== */
+  .game-screen {
+    display: none;
+    min-height: 100vh;
+    padding: 1.5rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .game-screen.active {
+    display: block;
+    animation: fadeIn 0.8s ease;
+  }
+
+  /* 진행도 표시 */
+  .progress-bar {
+    background: var(--paper-dark);
+    border: 1px solid var(--gold-dark);
+    padding: 1rem 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .progress-text {
+    font-weight: 700;
+    color: var(--ink);
+    letter-spacing: 0.1em;
+  }
+
+  .treasures {
+    display: flex;
+    gap: 0.4rem;
+  }
+
+  .treasure-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: transparent;
+    border: 2px solid var(--gold-dark);
+    transition: all 0.5s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    color: var(--paper);
+  }
+
+  .treasure-dot.acquired {
+    background: var(--red-seal);
+    border-color: var(--red-seal);
+    box-shadow: 0 0 10px rgba(168, 50, 45, 0.5);
+  }
+
+  .treasure-dot.acquired::after {
+    content: '✦';
+    color: var(--gold);
+  }
+
+  /* 에피소드 카드 */
+  .episode-card {
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    box-shadow:
+      0 4px 20px var(--shadow),
+      inset 0 0 0 8px var(--paper),
+      inset 0 0 0 9px var(--gold-dark);
+    padding: 2.5rem;
+    position: relative;
+  }
+
+  .episode-card::before {
+    content: '';
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    right: -1px;
+    bottom: -1px;
+    border: 1px solid var(--gold);
+    pointer-events: none;
+  }
+
+  /* 1. 에피소드 스토리 */
+  .episode-story {
+    font-family: 'Gowun Batang', serif;
+    font-style: italic;
+    color: var(--jade);
+    background: rgba(74, 107, 92, 0.05);
+    border-left: 4px solid var(--jade);
+    padding: 1.2rem 1.5rem;
+    margin-bottom: 2rem;
+    font-size: 1.05rem;
+    line-height: 2;
+  }
+
+  /* 2. 에피소드 제목 */
+  .episode-title {
+    font-family: 'Nanum Myeongjo', serif;
+    font-weight: 800;
+    font-size: 2rem;
+    color: var(--ink);
+    text-align: center;
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.15em;
+  }
+
+  .episode-number {
+    text-align: center;
+    color: var(--red-seal);
+    font-family: 'Song Myung', serif;
+    letter-spacing: 0.5em;
+    margin-bottom: 2rem;
+    font-size: 0.9rem;
+  }
+
+  .title-divider {
+    width: 80px;
+    height: 2px;
+    background: var(--gold-dark);
+    margin: 0 auto 2rem;
+    position: relative;
+  }
+
+  .title-divider::before,
+  .title-divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    background: var(--red-seal);
+    border-radius: 50%;
+    transform: translateY(-50%);
+  }
+
+  .title-divider::before { left: -10px; }
+  .title-divider::after { right: -10px; }
+
+  /* 3. 대사 및 퀴즈 내용 */
+  .quiz-content {
+    background: rgba(201, 164, 76, 0.08);
+    border: 1px dashed var(--gold-dark);
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    font-size: 1.05rem;
+    line-height: 2;
+  }
+
+  .speaker {
+    font-weight: 700;
+    color: var(--red-seal);
+    margin-bottom: 0.5rem;
+    font-size: 0.95rem;
+  }
+
+  .quiz-question {
+    font-size: 1.05rem;
+    margin-top: 1rem;
+    color: var(--ink);
+  }
+
+  /* 4. 답변/액션 창 */
+  .action-area {
+    margin-bottom: 2rem;
+  }
+
+  /* 빈칸 채우기 */
+  .blank-row {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .blank-label {
+    font-weight: 700;
+    color: var(--gold-dark);
+    min-width: 30px;
+  }
+
+  .blank-input {
+    flex: 1;
+    min-width: 150px;
+    padding: 0.7rem 1rem;
+    border: 2px solid var(--ink);
+    background: var(--paper);
+    font-family: 'Gowun Batang', serif;
+    font-size: 1rem;
+    color: var(--ink);
+    transition: all 0.3s ease;
+  }
+
+  .blank-input:focus {
+    outline: none;
+    border-color: var(--red-seal);
+    background: white;
+  }
+
+  /* 카드 드래그 영역 */
+  .card-pool {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    padding: 1.2rem;
+    background: rgba(26, 20, 16, 0.04);
+    border: 2px dashed var(--ink);
+    min-height: 90px;
+    margin-bottom: 1rem;
+  }
+
+  .quiz-card {
+    padding: 0.7rem 1.2rem;
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+    font-weight: 700;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+
+  .quiz-card:hover {
+    background: var(--gold);
+    transform: translate(-1px, -1px);
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+
+  .quiz-card.selected {
+    background: var(--red-seal);
+    color: var(--paper);
+    border-color: var(--red-seal);
+  }
+
+  .quiz-card.placed {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  /* 매칭 영역 */
+  .match-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  .match-column h4 {
+    text-align: center;
+    margin-bottom: 1rem;
+    color: var(--red-seal);
+    font-family: 'Nanum Myeongjo', serif;
+    letter-spacing: 0.2em;
+  }
+
+  .match-item {
+    padding: 0.8rem 1rem;
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    margin-bottom: 0.6rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    font-weight: 700;
+  }
+
+  .match-item:hover {
+    background: var(--gold);
+  }
+
+  .match-item.selected {
+    background: var(--red-seal);
+    color: var(--paper);
+    border-color: var(--red-seal);
+  }
+
+  .match-item.matched {
+    background: var(--jade);
+    color: var(--paper);
+    border-color: var(--jade);
+    cursor: default;
+  }
+
+  /* 분류 영역 */
+  .classify-zones {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .classify-zone {
+    border: 2px solid var(--ink);
+    background: rgba(244, 234, 213, 0.5);
+    padding: 1rem;
+    min-height: 130px;
+  }
+
+  .classify-zone h4 {
+    text-align: center;
+    color: var(--red-seal);
+    margin-bottom: 0.8rem;
+    font-family: 'Nanum Myeongjo', serif;
+    letter-spacing: 0.15em;
+  }
+
+  .classify-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    min-height: 60px;
+  }
+
+  /* 순서 배열 */
+  .order-list {
+    list-style: none;
+    counter-reset: order-counter;
+  }
+
+  .order-item {
+    counter-increment: order-counter;
+    padding: 1rem 1.2rem;
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    margin-bottom: 0.6rem;
+    cursor: grab;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-weight: 700;
+    transition: all 0.2s ease;
+  }
+
+  .order-item::before {
+    content: counter(order-counter);
+    background: var(--ink);
+    color: var(--paper);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .order-item:hover {
+    background: rgba(201, 164, 76, 0.2);
+  }
+
+  .order-item.dragging {
+    opacity: 0.5;
+  }
+
+  .order-arrows {
+    margin-left: auto;
+    display: flex;
+    gap: 0.3rem;
+  }
+
+  .arrow-btn {
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--ink);
+    background: var(--paper);
+    cursor: pointer;
+    font-weight: 700;
+    transition: all 0.2s ease;
+  }
+
+  .arrow-btn:hover {
+    background: var(--gold);
+  }
+
+  .arrow-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  /* 단답형 */
+  .single-input {
+    width: 100%;
+    padding: 1rem 1.2rem;
+    border: 2px solid var(--ink);
+    background: var(--paper);
+    font-family: 'Gowun Batang', serif;
+    font-size: 1.1rem;
+    text-align: center;
+    color: var(--ink);
+    letter-spacing: 0.2em;
+  }
+
+  .single-input:focus {
+    outline: none;
+    border-color: var(--red-seal);
+    background: white;
+  }
+
+  /* 다중 선택 (체크박스) */
+  .multi-options {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.6rem;
+  }
+
+  .multi-option {
+    padding: 0.9rem 1rem;
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+  }
+
+  .multi-option:hover {
+    background: rgba(201, 164, 76, 0.2);
+  }
+
+  .multi-option.checked {
+    background: var(--jade);
+    color: var(--paper);
+    border-color: var(--jade);
+  }
+
+  .multi-option .check-box {
+    width: 22px;
+    height: 22px;
+    border: 2px solid var(--ink);
+    background: var(--paper);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+  }
+
+  .multi-option.checked .check-box {
+    background: var(--gold);
+    border-color: var(--paper);
+    color: var(--ink);
+  }
+
+  .multi-option.checked .check-box::after {
+    content: '✓';
+  }
+
+  /* 버튼 영역 */
+  .button-row {
+    display: flex;
+    gap: 1rem;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 2rem;
+  }
+
+  .btn {
+    padding: 0.9rem 2rem;
+    font-family: 'Nanum Myeongjo', serif;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 0.2em;
+    border: 2px solid var(--ink);
+  }
+
+  .btn-check {
+    background: var(--ink);
+    color: var(--paper);
+  }
+
+  .btn-check:hover {
+    background: var(--red-seal);
+    border-color: var(--red-seal);
+  }
+
+  .btn-hint {
+    background: transparent;
+    color: var(--ink);
+    border-color: var(--gold-dark);
+  }
+
+  .btn-hint:hover {
+    background: var(--gold);
+  }
+
+  .btn-next {
+    background: var(--red-seal);
+    color: var(--paper);
+    border-color: var(--red-seal);
+    margin-left: auto;
+    display: none;
+  }
+
+  .btn-next.show {
+    display: inline-block;
+    animation: slideInRight 0.5s ease;
+  }
+
+  .btn-next:hover {
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+
+  /* 힌트 영역 */
+  .hint-box {
+    background: rgba(201, 164, 76, 0.15);
+    border: 1px dashed var(--gold-dark);
+    padding: 1rem 1.5rem;
+    margin-top: 1.5rem;
+    display: none;
+    animation: slideDown 0.4s ease;
+  }
+
+  .hint-box.show { display: block; }
+
+  .hint-box strong {
+    color: var(--red-seal);
+  }
+
+  /* 토스트 알림 */
+  .toast {
+    position: fixed;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    background: var(--ink);
+    color: var(--paper);
+    padding: 1.2rem 2rem;
+    border: 2px solid var(--gold);
+    box-shadow: 0 6px 25px var(--shadow);
+    font-family: 'Nanum Myeongjo', serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    z-index: 1000;
+    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    max-width: 90%;
+    text-align: center;
+    letter-spacing: 0.1em;
+  }
+
+  .toast.show {
+    transform: translateX(-50%) translateY(0);
+  }
+
+  .toast.success { background: var(--jade); border-color: var(--gold); }
+  .toast.error { background: var(--red-seal); border-color: var(--gold); }
+
+  /* 보물 획득 모달 */
+  .treasure-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(26, 20, 16, 0.85);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    backdrop-filter: blur(4px);
+  }
+
+  .treasure-modal.show {
+    display: flex;
+    animation: fadeIn 0.4s ease;
+  }
+
+  .treasure-modal-content {
+    background: var(--paper);
+    padding: 3rem 4rem;
+    text-align: center;
+    border: 3px solid var(--gold);
+    max-width: 500px;
+    width: 90%;
+    position: relative;
+    animation: scaleIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .treasure-icon {
+    font-size: 4rem;
+    color: var(--red-seal);
+    margin-bottom: 1rem;
+    animation: rotate 2s ease-in-out infinite;
+  }
+
+  @keyframes rotate {
+    0%, 100% { transform: rotate(-5deg); }
+    50% { transform: rotate(5deg); }
+  }
+
+  .treasure-name {
+    font-family: 'Nanum Myeongjo', serif;
+    font-weight: 800;
+    font-size: 2rem;
+    color: var(--ink);
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.2em;
+  }
+
+  .treasure-desc {
+    color: var(--jade);
+    font-style: italic;
+    margin-bottom: 2rem;
+  }
+
+  /* 엔딩 화면 */
+  .ending-screen {
+    display: none;
+    min-height: 100vh;
+    padding: 3rem 2rem;
+    text-align: center;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .ending-screen.active {
+    display: block;
+    animation: fadeIn 1s ease;
+  }
+
+  .ending-title {
+    font-family: 'Nanum Myeongjo', serif;
+    font-weight: 800;
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    letter-spacing: 0.2em;
+    color: var(--ink);
+  }
+
+  .ending-treasures {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin: 3rem 0;
+    flex-wrap: wrap;
+  }
+
+  .ending-treasure {
+    width: 70px;
+    height: 70px;
+    background: var(--red-seal);
+    border: 3px solid var(--gold);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    color: var(--gold);
+    box-shadow: 0 4px 15px rgba(168, 50, 45, 0.4);
+  }
+
+  .ending-message {
+    font-size: 1.15rem;
+    line-height: 2.2;
+    color: var(--ink);
+    background: rgba(244, 234, 213, 0.8);
+    padding: 2.5rem;
+    border: 2px solid var(--gold-dark);
+    margin-bottom: 2rem;
+    font-style: italic;
+  }
+
+  .reflection-area {
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    padding: 2rem;
+    margin-bottom: 2rem;
+    text-align: left;
+  }
+
+  .reflection-area h3 {
+    font-family: 'Nanum Myeongjo', serif;
+    color: var(--red-seal);
+    margin-bottom: 1rem;
+    letter-spacing: 0.15em;
+  }
+
+  .reflection-textarea {
+    width: 100%;
+    min-height: 180px;
+    padding: 1rem;
+    border: 2px solid var(--ink);
+    background: var(--paper);
+    font-family: 'Gowun Batang', serif;
+    font-size: 1rem;
+    line-height: 1.8;
+    color: var(--ink);
+    resize: vertical;
+  }
+
+  .reflection-textarea:focus {
+    outline: none;
+    border-color: var(--red-seal);
+  }
+
+  /* 애니메이션 */
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes scaleIn {
+    from { transform: scale(0.5); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes slideInRight {
+    from { transform: translateX(30px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  @keyframes slideDown {
+    from { opacity: 0; max-height: 0; }
+    to { opacity: 1; max-height: 200px; }
+  }
+
+  /* 반응형 */
+  @media (max-width: 600px) {
+    .episode-card { padding: 1.5rem; }
+    .episode-title { font-size: 1.5rem; }
+    .match-container { grid-template-columns: 1fr; gap: 1rem; }
+    .button-row { flex-direction: column; }
+    .button-row .btn { width: 100%; }
+    .btn-next { margin-left: 0; }
+    .treasure-modal-content { padding: 2rem 1.5rem; }
+    .ending-title { font-size: 2rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== 인트로 화면 ===== -->
+<div class="intro-screen" id="introScreen">
+  <h1 class="intro-title">千年의 記憶</h1>
+  <p class="intro-subtitle">천 년 의 기 억</p>
+  <div class="seal">잊혀진<br>보물</div>
+  <div class="intro-story">
+    <p>때는 신문왕 7년, 천년 도읍 금성(경주)이라.</p>
+    <p>김흠돌의 무리가 반란을 일으켰으나 새 왕의 칼날 앞에 무릎을 꿇었으니...</p>
+    <p>그날 동해 바닷가에서 신비한 빛에 휘감긴 청년 <strong>무영(無影)</strong>은,<br>
+    늙지도 죽지도 않는 운명을 받게 되었도다.</p>
+    <p>그의 사명은 단 하나 — <strong>시대마다 흩어진 아홉 개의 보물</strong>을 찾아<br>잊혀진 천 년의 기억을 후세에 전하는 것이라.</p>
+    <p style="color: var(--red-seal); font-weight: 700; margin-top: 1.5rem;">그대, 무영의 발걸음을 따라갈 준비가 되었느냐?</p>
+  </div>
+  <button class="btn-start" onclick="startGame()">여정을 시작하다</button>
+</div>
+
+<!-- ===== 게임 화면 ===== -->
+<div class="game-screen" id="gameScreen">
+  <div class="progress-bar">
+    <span class="progress-text">진행도 <span id="progressNum">0</span> / 9</span>
+    <div class="treasures" id="treasuresDisplay"></div>
+  </div>
+  <div class="episode-card" id="episodeCard"></div>
+</div>
+
+<!-- ===== 엔딩 화면 ===== -->
+<div class="ending-screen" id="endingScreen">
+  <h1 class="ending-title">天 命 完 遂</h1>
+  <p style="color: var(--gold-dark); letter-spacing: 0.5em; margin-bottom: 2rem;">천 명 완 수</p>
+
+  <div class="ending-treasures" id="endingTreasures"></div>
+
+  <div class="ending-message">
+    <p>무영아, 너는 신문왕의 시대부터 고려의 마지막 날까지 천 년의 시간을 살았느니라.</p>
+    <p style="margin-top: 1rem;">신라의 영광과 발해의 멸망, 고려의 흥망성쇠... 너의 두 눈에 모두 새겨졌도다.</p>
+    <p style="margin-top: 1rem;">이제 그 기억을 다음 세대에 전할 시간이라.</p>
+    <p style="margin-top: 1.5rem; color: var(--red-seal); font-weight: 700;">너는 진정 <strong>잊혀진 천 년을 기억하는 자</strong>이니라.</p>
+  </div>
+
+  <div class="reflection-area">
+    <h3>✦ 방탈출 소감 작성 ✦</h3>
+    <p style="color: var(--jade); margin-bottom: 1rem;">
+      그대가 무영이 되어 여행한 천 년의 시간, 어느 시대가 가장 인상 깊었는가? 그 까닭은 무엇인가? 자유롭게 적어보거라.
+    </p>
+    <textarea class="reflection-textarea" id="reflectionInput" placeholder="이곳에 소감을 적어주세요..."></textarea>
+  </div>
+
+  <button class="btn btn-check" onclick="finishGame()">기록을 봉인하다</button>
+</div>
+
+<!-- ===== 토스트 ===== -->
+<div class="toast" id="toast"></div>
+
+<!-- ===== 보물 획득 모달 ===== -->
+<div class="treasure-modal" id="treasureModal">
+  <div class="treasure-modal-content">
+    <div class="treasure-icon">✦</div>
+    <div class="treasure-name" id="treasureName"></div>
+    <div class="treasure-desc" id="treasureDesc"></div>
+    <button class="btn btn-next show" onclick="closeTreasureModal()">계속하다 →</button>
+  </div>
+</div>
+
+<script>
+// ============================
+// 에피소드 데이터
+// ============================
+const episodes = [
+  {
+    id: 1,
+    title: "만월대의 청년, 무영",
+    subtitle: "에피소드 一",
+    story: "때는 신문왕 7년(687년), 천년 도읍 금성이라. 김흠돌의 무리가 반란을 일으켰으나 새 왕의 칼날 앞에 무릎을 꿇었으니, 청년 무영은 흔들리는 왕권을 굳건히 세우려는 새 왕의 개혁을 두 눈으로 지켜보았도다.",
+    speaker: "신문왕",
+    dialog: "무영아, 듣거라. 짐이 펼친 개혁의 네 가지 기둥을 모두 맞히는 자에게, '왕권의 옥새'를 하사하리라. 능히 답할 수 있겠느냐?",
+    question: "다음 빈칸을 채우거라.<br><br>「신문왕께서 즉위하시자 (①)의 난이 일어났으나 이를 진압하시고, 인재 양성을 위해 (②)을(를) 세우셨다. 또한 관리에게 (③)을(를) 지급하고, 귀족의 경제 기반인 (④)을(를) 폐지하시니 왕권이 굳건해졌도다.」",
+    type: "fillBlanks",
+    answers: ["김흠돌", "국학", "관료전", "녹읍"],
+    hint: "교과서 56쪽을 펼쳐 보거라. 신문왕이 진압한 반란의 주모자, 인재를 기르던 교육 기관, 관리에게 준 토지 제도, 귀족이 가진 경제 기반을 떠올려 보라.",
+    treasure: { name: "왕권의 옥새", desc: "신문왕이 다진 강력한 왕권을 상징하는 옥새" }
+  },
+  {
+    id: 2,
+    title: "해동성국의 북녘 별",
+    subtitle: "에피소드 二",
+    story: "어느덧 세월이 흘러 무영은 발해 사신을 따라 북쪽 만주 땅에 발을 디뎠도다. 상경 용천부의 웅장함이여! 당이 '바다 동쪽의 융성한 나라'라 부른 이 땅의 영광을 직접 보게 된 것이라.",
+    speaker: "발해의 늙은 신하",
+    dialog: "젊은이여, 우리 발해의 네 임금과 그 업적을 시대 순으로 바르게 맞춰 보거라. 그리하면 '발해의 별'을 그대에게 내리겠노라.",
+    question: "네 명의 왕과 업적 카드를 옳게 배치하시오. (왕 카드를 먼저 시대순으로 배치한 뒤, 각 왕의 업적을 매칭하시오)",
+    type: "kingMatch",
+    kings: ["대조영", "무왕", "문왕", "선왕"],
+    achievements: [
+      "동모산 부근에 발해를 건국함",
+      "산둥반도를 공격하고 '인안' 연호를 씀",
+      "상경 용천부로 천도하고 당과 친선함",
+      "요동까지 영토를 넓혀 '해동성국'을 이룸"
+    ],
+    correctOrder: [0, 1, 2, 3],
+    hint: "교과서 58쪽을 보라. 대조영(건국) → 무왕(영토 확장과 인안) → 문왕(상경 천도와 대흥) → 선왕(해동성국)의 순이라.",
+    treasure: { name: "발해의 별", desc: "해동성국 발해의 영광을 담은 별빛" }
+  },
+  {
+    id: 3,
+    title: "고구려의 혼이 깃든 곳",
+    subtitle: "에피소드 三",
+    story: "무영은 발해의 곳곳을 거닐며 놀라운 사실을 깨달았으니, 이 땅 곳곳에 고구려의 숨결이 살아 숨 쉬고 있더라. 발해는 진정 고구려를 이은 나라였도다.",
+    speaker: "발해의 학자",
+    dialog: "그대가 진정 우리 발해를 안다면, 우리가 고구려를 계승했다는 증거를 모두 골라낼 수 있으리라. 당의 영향을 받은 것과 섞이지 않도록 조심하거라!",
+    question: "다음 중 발해가 <strong>고구려를 계승했음</strong>을 보여주는 것을 모두 고르시오.",
+    type: "multiSelect",
+    options: [
+      "정혜공주 묘의 모줄임천장",
+      "3성 6부 제도",
+      "온돌 유적",
+      "주자감(유교 교육기관)",
+      "이불병좌상",
+      "치미(지붕 장식)",
+      "5경 15부 62주",
+      "일본에 보낸 '고려국왕' 국서"
+    ],
+    correctAnswers: [0, 2, 4, 5, 7],
+    hint: "교과서 53쪽과 71쪽을 보라. 3성 6부, 주자감, 5경 15부 62주는 모두 당의 제도를 본뜬 것이니라. 무덤 구조·온돌·치미·불상·외교문서가 고구려 계승의 증거가 되겠도다.",
+    treasure: { name: "계승의 증표", desc: "고구려의 혼을 이은 발해의 증표" }
+  },
+  {
+    id: 4,
+    title: "무너지는 천년 왕국",
+    subtitle: "에피소드 四",
+    story: "발해가 거란에 무너지던 해, 무영은 다시 신라로 돌아왔도다. 허나 그가 본 신라는 더 이상 옛 영광의 나라가 아니었으니, 진성여왕 시기의 신라는 사방에서 무너지고 있었더라.",
+    speaker: "유랑하는 6두품 선비",
+    dialog: "보시오, 무영. 지금 신라는 셋으로 갈라지고 있소이다. 위에서는 왕좌를 두고 다투고, 아래에서는 백성이 들고일어나며, 또 다른 자들은 새 시대를 열려 하오. 이 셋을 잘 분간해 보시오.",
+    question: "다음 인물·사건을 알맞은 곳으로 분류하시오.",
+    type: "classify",
+    items: [
+      "혜공왕 피살",
+      "원종과 애노의 난",
+      "6두품 최치원",
+      "김헌창의 난",
+      "적고적의 봉기",
+      "선종 승려와 호족"
+    ],
+    zones: [
+      { name: "왕위 다툼", correct: [0, 3] },
+      { name: "농민 봉기", correct: [1, 4] },
+      { name: "새로운 세력", correct: [2, 5] }
+    ],
+    hint: "교과서 60~62쪽을 보라. 혜공왕과 김헌창은 진골 귀족의 왕위 다툼이라. 원종과 애노, 적고적은 농민이 일으킨 난이라. 6두품과 선종 승려·호족은 새로 떠오른 세력이라.",
+    treasure: { name: "혼란의 거울", desc: "어지러운 신라 말의 모습을 비추는 거울" }
+  },
+  {
+    id: 5,
+    title: "세 나라, 세 영웅",
+    subtitle: "에피소드 五",
+    story: "신라가 무너진 자리에 세 영웅이 일어섰도다. 무영은 그들을 차례로 만났으니... 결국 한 사람만이 천하를 통일하고, 그때 멸망한 발해의 왕자 대광현이 망명해 왔더라.",
+    speaker: "사관(史官)",
+    dialog: "후삼국의 세 영웅을 모두 아는가? 단서를 보고 비밀번호를 풀어내거라. 답은 세 영웅의 이름 중 한 글자씩이라.",
+    question: "세 단서를 읽고, 세 인물의 이름에서 <strong>두 번째 글자</strong>를 차례로 조합하여 비밀번호 3글자를 입력하시오.<br><br>① 완산주(전주)에서 백제 부흥을 내세운 인물 (2글자)<br>② 송악에서 후고구려를 세우고 미륵불을 자칭한 인물 (2글자)<br>③ 고려를 세우고 936년 후삼국을 통일한 인물 (2글자)",
+    type: "singleInput",
+    answer: "훤예건",
+    hint: "교과서 62~63쪽과 76쪽을 보라. ①은 견훤, ②는 궁예, ③은 왕건이라. 각 이름의 두 번째 글자를 차례로 조합하면 답이 되리라.",
+    treasure: { name: "통합의 깃발", desc: "후삼국을 하나로 통합한 고려의 깃발" }
+  },
+  {
+    id: 6,
+    title: "벽란도의 외교가",
+    subtitle: "에피소드 六",
+    story: "고려가 자리 잡은 후 북쪽에서 거란(요)이, 이어 여진(금)이 차례로 위협해 왔도다. 무영은 외교와 전쟁의 현장을 누비며 고려 영웅들의 활약을 두 눈에 새겼더라.",
+    speaker: "벽란도의 노상인",
+    dialog: "이 늙은이가 오랜 세월 보아온 영웅들이 있소이다. 빈칸을 모두 채워보시오. 그리하면 '외교의 인장'을 드리리다.",
+    question: "다음 빈칸을 채우거라.<br><br>「거란의 1차 침입 때 (①)은(는) 외교 회담으로 (②)을(를) 얻었다. 3차 침입 때 (③)은(는) 귀주에서 거란군을 크게 무찔렀다. 이후 여진을 정벌하기 위해 (④)은(는) (⑤)을(를) 이끌고 동북 9성을 쌓았다.」",
+    type: "fillBlanks",
+    answers: ["서희", "강동 6주", "강감찬", "윤관", "별무반"],
+    hint: "교과서 84~85쪽을 보라. 거란 1차 침입 외교 - 서희, 그가 얻은 땅 - 강동 6주, 귀주 대첩의 영웅 - 강감찬, 여진 정벌 장군 - 윤관, 그가 이끈 군대 - 별무반이라.",
+    treasure: { name: "외교의 인장", desc: "고려의 자주성을 지킨 외교가의 인장" }
+  },
+  {
+    id: 7,
+    title: "흔들리는 문벌과 칼을 든 자들",
+    subtitle: "에피소드 七",
+    story: "평화도 잠시, 고려에 폭풍이 몰아쳤더라. 외척 이자겸이 난을 일으키고, 묘청이 서경 천도를 외쳤으며, 차별받던 무신들이 마침내 칼을 들었도다. 무영은 격동의 12세기를 모두 지켜보았으니...",
+    speaker: "노승(老僧)",
+    dialog: "젊은이, 격동의 시대였소이다. 일어난 사건들을 시간 순서대로 옳게 배열할 수 있겠소? 가장 어려운 시험이 되겠으나, 그대라면 능히 해내리라.",
+    question: "다음 여섯 사건을 일어난 순서대로 배열하시오. (위쪽 화살표로 위로, 아래쪽 화살표로 아래로 이동)",
+    type: "order",
+    items: [
+      "무신 정변 (이의방·정중부)",
+      "이자겸의 난",
+      "최충헌의 교정도감 설치",
+      "묘청의 서경 천도 운동",
+      "망이·망소이의 난",
+      "만적의 난"
+    ],
+    correctOrder: [1, 3, 0, 4, 2, 5],
+    hint: "교과서 80~81쪽을 보라. 이자겸의 난(1126) → 묘청의 난(1135) → 무신 정변(1170) → 망이·망소이(1176) → 최충헌 교정도감(1196) → 만적의 난(1198)의 순이라.",
+    treasure: { name: "혁명의 검", desc: "격동의 시대를 가른 무신들의 검" }
+  },
+  {
+    id: 8,
+    title: "강화도의 바람",
+    subtitle: "에피소드 八",
+    story: "북녘 초원에서 칭기즈 칸의 후예들이 몰려오기 시작했도다. 고려는 도읍을 강화도로 옮기고 끝까지 항전하였으니, 무영은 그 모든 항전의 현장을 두 눈으로 지켜보았더라.",
+    speaker: "강화도의 늙은 군관",
+    dialog: "기나긴 항전이었소이다. 그 시절 누가 어떤 일을 했는지, 옳게 짝지어 보시오.",
+    question: "왼쪽의 인물·세력과 오른쪽의 업적을 옳게 짝지으시오. (양쪽에서 하나씩 차례로 클릭)",
+    type: "pairMatch",
+    leftItems: ["김윤후", "최씨 무신정권", "배중손", "최우"],
+    rightItems: ["강화도 천도", "처인성 전투", "삼별초 진도 항쟁", "팔만대장경 제작 주도"],
+    correctPairs: { 0: 1, 1: 0, 2: 2, 3: 3 },
+    hint: "교과서 86~87쪽을 보라. 처인성에서 살리타를 사살한 이는 김윤후, 강화도 천도를 주도한 것은 최씨 무신정권, 삼별초를 이끌고 진도로 간 이는 배중손, 팔만대장경 제작을 주도한 이는 최우라.",
+    treasure: { name: "항쟁의 종", desc: "몽골에 맞선 고려 백성의 의지가 울리는 종" }
+  },
+  {
+    id: 9,
+    title: "새벽을 부르는 자들",
+    subtitle: "에피소드 九",
+    story: "원의 간섭이 백 년... 그러나 원이 약해지자 공민왕이 일어났도다. 권문세족과 신진 사대부의 대립 속에 위화도에서 군대가 돌아왔으니, 무영은 마지막 보물을 찾을 시간이라.",
+    speaker: "신진 사대부 정도전",
+    dialog: "무영 선생, 마지막 시험이오. 권문세족과 우리 신진 사대부를 옳게 가려내고, 마지막으로 새 시대를 연 결정적 사건의 이름을 답하시오.",
+    question: "【1단계】 다음 카드들을 두 진영으로 나누시오.",
+    type: "finalQuest",
+    items: [
+      "친원적 성향",
+      "성리학을 받아들임",
+      "대농장 경영",
+      "과거를 통해 진출",
+      "음서로 권력 독점",
+      "명과 우호 관계 주장",
+      "공민왕 개혁에 반발",
+      "정도전·정몽주"
+    ],
+    zones: [
+      { name: "권문세족", correct: [0, 2, 4, 6] },
+      { name: "신진 사대부", correct: [1, 3, 5, 7] }
+    ],
+    finalQuestion: "【2단계】 요동 정벌을 명받은 이성계가 군대를 돌려 정권을 잡은 사건의 이름은? (4글자)",
+    finalAnswer: "위화도 회군",
+    hint: "교과서 90~93쪽을 보라. 권문세족은 친원·대농장·음서·개혁 반발, 신진 사대부는 성리학·과거·명과 우호·정도전이라. 마지막 사건은 1388년 이성계의 결단이니라.",
+    treasure: { name: "새 시대의 등불", desc: "고려의 끝과 새 시대의 시작을 비추는 등불" }
+  }
+];
+
+// ============================
+// 게임 상태
+// ============================
+let currentEpisode = 0;
+let acquiredTreasures = [];
+let userAnswers = {}; // 현재 에피소드의 사용자 답안
+
+// ============================
+// 게임 시작
+// ============================
+function startGame() {
+  document.getElementById('introScreen').style.display = 'none';
+  document.getElementById('gameScreen').classList.add('active');
+  initTreasures();
+  renderEpisode();
+}
+
+function initTreasures() {
+  const container = document.getElementById('treasuresDisplay');
+  container.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'treasure-dot';
+    dot.id = `treasure-${i}`;
+    container.appendChild(dot);
+  }
+}
+
+function updateProgress() {
+  document.getElementById('progressNum').textContent = acquiredTreasures.length;
+  acquiredTreasures.forEach(i => {
+    document.getElementById(`treasure-${i}`).classList.add('acquired');
+  });
+}
+
+// ============================
+// 에피소드 렌더링
+// ============================
+function renderEpisode() {
+  userAnswers = {};
+  const ep = episodes[currentEpisode];
+  const card = document.getElementById('episodeCard');
+
+  let actionHTML = '';
+  switch(ep.type) {
+    case 'fillBlanks': actionHTML = renderFillBlanks(ep); break;
+    case 'kingMatch': actionHTML = renderKingMatch(ep); break;
+    case 'multiSelect': actionHTML = renderMultiSelect(ep); break;
+    case 'classify': actionHTML = renderClassify(ep); break;
+    case 'singleInput': actionHTML = renderSingleInput(ep); break;
+    case 'order': actionHTML = renderOrder(ep); break;
+    case 'pairMatch': actionHTML = renderPairMatch(ep); break;
+    case 'finalQuest': actionHTML = renderFinalQuest(ep); break;
+  }
+
+  card.innerHTML = `
+    <div class="episode-story">${ep.story}</div>
+    <h2 class="episode-title">${ep.title}</h2>
+    <div class="episode-number">${ep.subtitle}</div>
+    <div class="title-divider"></div>
+    <div class="quiz-content">
+      <div class="speaker">▣ ${ep.speaker} 가라사대</div>
+      <div>"${ep.dialog}"</div>
+      <div class="quiz-question">${ep.question}</div>
+    </div>
+    <div class="action-area" id="actionArea">${actionHTML}</div>
+    <div class="hint-box" id="hintBox">
+      <strong>💡 힌트:</strong> ${ep.hint}
+    </div>
+    <div class="button-row">
+      <button class="btn btn-hint" onclick="toggleHint()">💡 힌트 보기</button>
+      <button class="btn btn-check" onclick="checkAnswer()">답을 확인하다</button>
+      <button class="btn btn-next" id="btnNext" onclick="nextEpisode()">다음으로 →</button>
+    </div>
+  `;
+
+  // 유형별 초기화
+  if (ep.type === 'kingMatch') initKingMatch(ep);
+  if (ep.type === 'classify') initClassify(ep);
+  if (ep.type === 'pairMatch') initPairMatch(ep);
+  if (ep.type === 'finalQuest') initFinalQuest(ep);
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ============================
+// 유형별 렌더링
+// ============================
+function renderFillBlanks(ep) {
+  const labels = ['①', '②', '③', '④', '⑤'];
+  return ep.answers.map((_, i) => `
+    <div class="blank-row">
+      <span class="blank-label">${labels[i]}</span>
+      <input type="text" class="blank-input" id="blank-${i}" placeholder="답을 입력하시오">
+    </div>
+  `).join('');
+}
+
+function renderMultiSelect(ep) {
+  return `<div class="multi-options">
+    ${ep.options.map((opt, i) => `
+      <div class="multi-option" data-idx="${i}" onclick="toggleOption(this)">
+        <div class="check-box"></div>
+        <span>${opt}</span>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+function toggleOption(el) {
+  el.classList.toggle('checked');
+}
+
+function renderSingleInput(ep) {
+  return `<input type="text" class="single-input" id="singleInput" placeholder="답을 입력하시오 (3글자)" maxlength="10">`;
+}
+
+function renderKingMatch(ep) {
+  return `
+    <div style="margin-bottom: 1rem;">
+      <h4 style="text-align:center; color: var(--red-seal); margin-bottom: 0.5rem; letter-spacing: 0.15em;">왕 (시대순으로 배치)</h4>
+      <div class="card-pool" id="kingZone"></div>
+    </div>
+    <div>
+      <h4 style="text-align:center; color: var(--red-seal); margin-bottom: 0.5rem; letter-spacing: 0.15em;">아래 업적 카드를 위 왕 카드 옆에 차례로 배치</h4>
+      <div class="card-pool" id="achievementZone"></div>
+    </div>
+    <div style="margin-top: 1rem; padding: 1rem; background: rgba(244,234,213,0.5); border: 1px solid var(--gold-dark);">
+      <p style="text-align:center; color: var(--jade);">현재 배치:</p>
+      <div id="kingMatchResult" style="margin-top: 0.5rem;"></div>
+    </div>
+  `;
+}
+
+let kingMatchData = { kingOrder: [], achievementOrder: [] };
+
+function initKingMatch(ep) {
+  kingMatchData = { kingOrder: [], achievementOrder: [] };
+  const kingZone = document.getElementById('kingZone');
+  const achievementZone = document.getElementById('achievementZone');
+
+  // 셔플
+  const shuffledKings = [...ep.kings.map((k,i)=>({k,i}))].sort(()=>Math.random()-0.5);
+  const shuffledAch = [...ep.achievements.map((a,i)=>({a,i}))].sort(()=>Math.random()-0.5);
+
+  shuffledKings.forEach(({k, i}) => {
+    const card = document.createElement('div');
+    card.className = 'quiz-card';
+    card.textContent = k;
+    card.dataset.idx = i;
+    card.onclick = () => addKing(i, k, card);
+    kingZone.appendChild(card);
+  });
+
+  shuffledAch.forEach(({a, i}) => {
+    const card = document.createElement('div');
+    card.className = 'quiz-card';
+    card.textContent = a;
+    card.dataset.idx = i;
+    card.onclick = () => addAchievement(i, a, card);
+    achievementZone.appendChild(card);
+  });
+}
+
+function addKing(idx, name, card) {
+  if (card.classList.contains('placed')) return;
+  card.classList.add('placed');
+  kingMatchData.kingOrder.push({idx, name});
+  updateKingMatchResult();
+}
+
+function addAchievement(idx, text, card) {
+  if (card.classList.contains('placed')) return;
+  if (kingMatchData.achievementOrder.length >= kingMatchData.kingOrder.length) {
+    showToast('먼저 왕 카드를 한 명 더 배치하시오!', 'error');
+    return;
+  }
+  card.classList.add('placed');
+  kingMatchData.achievementOrder.push({idx, text});
+  updateKingMatchResult();
+}
+
+function updateKingMatchResult() {
+  const resultEl = document.getElementById('kingMatchResult');
+  let html = '';
+  kingMatchData.kingOrder.forEach((king, i) => {
+    const ach = kingMatchData.achievementOrder[i];
+    html += `<div style="padding: 0.5rem; background: white; margin-bottom: 0.3rem; border-left: 3px solid var(--red-seal);">
+      <strong>${i+1}. ${king.name}</strong> — ${ach ? ach.text : '<span style="color: #999;">(업적 카드를 배치하세요)</span>'}
+    </div>`;
+  });
+  if (kingMatchData.kingOrder.length > 0) {
+    html += `<button class="btn btn-hint" style="margin-top: 0.5rem; padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="resetKingMatch()">초기화</button>`;
+  }
+  resultEl.innerHTML = html;
+}
+
+function resetKingMatch() {
+  kingMatchData = { kingOrder: [], achievementOrder: [] };
+  document.querySelectorAll('#kingZone .quiz-card, #achievementZone .quiz-card').forEach(c => c.classList.remove('placed'));
+  updateKingMatchResult();
+}
+
+function renderClassify(ep) {
+  return `
+    <div style="margin-bottom: 1rem;">
+      <h4 style="text-align:center; color: var(--red-seal); letter-spacing: 0.15em;">아래 카드를 클릭한 뒤, 해당하는 영역을 누르시오</h4>
+    </div>
+    <div class="card-pool" id="classifyPool"></div>
+    <div class="classify-zones" id="classifyZones"></div>
+  `;
+}
+
+let classifyData = { selectedItem: null, placed: {} };
+
+function initClassify(ep) {
+  classifyData = { selectedItem: null, placed: {} };
+  const pool = document.getElementById('classifyPool');
+  const zones = document.getElementById('classifyZones');
+
+  ep.items.forEach((item, i) => {
+    const card = document.createElement('div');
+    card.className = 'quiz-card';
+    card.textContent = item;
+    card.dataset.idx = i;
+    card.onclick = () => selectClassifyItem(i, card);
+    pool.appendChild(card);
+  });
+
+  ep.zones.forEach((zone, zi) => {
+    const zoneEl = document.createElement('div');
+    zoneEl.className = 'classify-zone';
+    zoneEl.dataset.zone = zi;
+    zoneEl.innerHTML = `<h4>${zone.name}</h4><div class="classify-items" id="zone-${zi}"></div>`;
+    zoneEl.onclick = () => placeInZone(zi);
+    zones.appendChild(zoneEl);
+  });
+}
+
+function selectClassifyItem(idx, card) {
+  if (card.classList.contains('placed')) return;
+  document.querySelectorAll('#classifyPool .quiz-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  classifyData.selectedItem = idx;
+}
+
+function placeInZone(zoneIdx) {
+  if (classifyData.selectedItem === null) {
+    showToast('먼저 카드를 선택하시오!', 'error');
+    return;
+  }
+  const idx = classifyData.selectedItem;
+  const ep = episodes[currentEpisode];
+  const itemText = ep.items[idx];
+
+  classifyData.placed[idx] = zoneIdx;
+
+  const card = document.querySelector(`#classifyPool .quiz-card[data-idx="${idx}"]`);
+  card.classList.add('placed');
+  card.classList.remove('selected');
+
+  const zoneItems = document.getElementById(`zone-${zoneIdx}`);
+  const placedCard = document.createElement('div');
+  placedCard.className = 'quiz-card';
+  placedCard.style.fontSize = '0.85rem';
+  placedCard.style.padding = '0.4rem 0.8rem';
+  placedCard.textContent = itemText;
+  placedCard.dataset.itemIdx = idx;
+  placedCard.onclick = () => removeFromZone(idx, placedCard);
+  zoneItems.appendChild(placedCard);
+
+  classifyData.selectedItem = null;
+}
+
+function removeFromZone(idx, card) {
+  card.remove();
+  delete classifyData.placed[idx];
+  const poolCard = document.querySelector(`#classifyPool .quiz-card[data-idx="${idx}"]`);
+  poolCard.classList.remove('placed');
+}
+
+function renderOrder(ep) {
+  // 셔플된 순서로 시작
+  const shuffled = [...ep.items.map((item, i) => ({item, i}))].sort(() => Math.random() - 0.5);
+  window._orderState = shuffled;
+  return `<ul class="order-list" id="orderList">
+    ${shuffled.map((obj, i) => `
+      <li class="order-item" data-idx="${obj.i}">
+        <span>${obj.item}</span>
+        <div class="order-arrows">
+          <button class="arrow-btn" onclick="moveOrder(${i}, -1)">▲</button>
+          <button class="arrow-btn" onclick="moveOrder(${i}, 1)">▼</button>
+        </div>
+      </li>
+    `).join('')}
+  </ul>`;
+}
+
+function moveOrder(currentIdx, direction) {
+  const state = window._orderState;
+  const newIdx = currentIdx + direction;
+  if (newIdx < 0 || newIdx >= state.length) return;
+  [state[currentIdx], state[newIdx]] = [state[newIdx], state[currentIdx]];
+
+  const list = document.getElementById('orderList');
+  list.innerHTML = state.map((obj, i) => `
+    <li class="order-item" data-idx="${obj.i}">
+      <span>${obj.item}</span>
+      <div class="order-arrows">
+        <button class="arrow-btn" onclick="moveOrder(${i}, -1)" ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button class="arrow-btn" onclick="moveOrder(${i}, 1)" ${i === state.length-1 ? 'disabled' : ''}>▼</button>
+      </div>
+    </li>
+  `).join('');
+}
+
+function renderPairMatch(ep) {
+  return `
+    <div class="match-container">
+      <div class="match-column">
+        <h4>인물·세력</h4>
+        <div id="leftCol"></div>
+      </div>
+      <div class="match-column">
+        <h4>업적</h4>
+        <div id="rightCol"></div>
+      </div>
+    </div>
+    <div id="matchResult" style="margin-top: 1rem;"></div>
+  `;
+}
+
+let pairMatchData = { selectedLeft: null, pairs: {} };
+
+function initPairMatch(ep) {
+  pairMatchData = { selectedLeft: null, pairs: {} };
+  const leftCol = document.getElementById('leftCol');
+  const rightCol = document.getElementById('rightCol');
+
+  ep.leftItems.forEach((item, i) => {
+    const el = document.createElement('div');
+    el.className = 'match-item';
+    el.textContent = item;
+    el.dataset.idx = i;
+    el.onclick = () => selectLeft(i, el);
+    leftCol.appendChild(el);
+  });
+
+  const shuffledRight = [...ep.rightItems.map((item, i) => ({item, i}))].sort(() => Math.random() - 0.5);
+  shuffledRight.forEach(({item, i}) => {
+    const el = document.createElement('div');
+    el.className = 'match-item';
+    el.textContent = item;
+    el.dataset.idx = i;
+    el.onclick = () => selectRight(i, el);
+    rightCol.appendChild(el);
+  });
+}
+
+function selectLeft(idx, el) {
+  if (el.classList.contains('matched')) return;
+  document.querySelectorAll('#leftCol .match-item').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  pairMatchData.selectedLeft = idx;
+}
+
+function selectRight(idx, el) {
+  if (el.classList.contains('matched')) return;
+  if (pairMatchData.selectedLeft === null) {
+    showToast('왼쪽 인물을 먼저 선택하시오!', 'error');
+    return;
+  }
+  const leftEl = document.querySelector(`#leftCol .match-item[data-idx="${pairMatchData.selectedLeft}"]`);
+  leftEl.classList.remove('selected');
+  leftEl.classList.add('matched');
+  el.classList.add('matched');
+
+  pairMatchData.pairs[pairMatchData.selectedLeft] = idx;
+  pairMatchData.selectedLeft = null;
+
+  updateMatchResult();
+}
+
+function updateMatchResult() {
+  const ep = episodes[currentEpisode];
+  const resultEl = document.getElementById('matchResult');
+  let html = '<div style="padding: 1rem; background: rgba(244,234,213,0.5); border: 1px solid var(--gold-dark);"><p style="color: var(--jade); margin-bottom: 0.5rem;">현재 짝:</p>';
+  Object.keys(pairMatchData.pairs).forEach(leftIdx => {
+    const rightIdx = pairMatchData.pairs[leftIdx];
+    html += `<div style="padding: 0.4rem; background: white; margin-bottom: 0.3rem; font-size: 0.9rem;">
+      <strong>${ep.leftItems[leftIdx]}</strong> ↔ ${ep.rightItems[rightIdx]}
+    </div>`;
+  });
+  if (Object.keys(pairMatchData.pairs).length > 0) {
+    html += `<button class="btn btn-hint" style="margin-top: 0.5rem; padding: 0.5rem 1rem; font-size: 0.85rem;" onclick="resetPairMatch()">초기화</button>`;
+  }
+  html += '</div>';
+  resultEl.innerHTML = html;
+}
+
+function resetPairMatch() {
+  pairMatchData = { selectedLeft: null, pairs: {} };
+  document.querySelectorAll('.match-item').forEach(e => {
+    e.classList.remove('matched', 'selected');
+  });
+  document.getElementById('matchResult').innerHTML = '';
+}
+
+function renderFinalQuest(ep) {
+  return `
+    <div style="margin-bottom: 1.5rem;">
+      <h4 style="color: var(--red-seal); margin-bottom: 0.5rem;">▣ 1단계: 카드 분류</h4>
+      <p style="color: var(--jade); margin-bottom: 0.8rem; font-size: 0.95rem;">아래 카드를 클릭한 뒤, 해당하는 영역을 누르시오.</p>
+    </div>
+    <div class="card-pool" id="classifyPool"></div>
+    <div class="classify-zones" id="classifyZones"></div>
+    <div style="margin-top: 2rem;">
+      <h4 style="color: var(--red-seal); margin-bottom: 0.5rem;">▣ 2단계: ${ep.finalQuestion}</h4>
+      <input type="text" class="single-input" id="finalInput" placeholder="답을 입력하시오" maxlength="10">
+    </div>
+  `;
+}
+
+function initFinalQuest(ep) {
+  initClassify(ep);
+}
+
+// ============================
+// 정답 확인
+// ============================
+function checkAnswer() {
+  const ep = episodes[currentEpisode];
+  let correct = false;
+
+  switch(ep.type) {
+    case 'fillBlanks': correct = checkFillBlanks(ep); break;
+    case 'kingMatch': correct = checkKingMatch(ep); break;
+    case 'multiSelect': correct = checkMultiSelect(ep); break;
+    case 'classify': correct = checkClassify(ep); break;
+    case 'singleInput': correct = checkSingleInput(ep); break;
+    case 'order': correct = checkOrder(ep); break;
+    case 'pairMatch': correct = checkPairMatch(ep); break;
+    case 'finalQuest': correct = checkFinalQuest(ep); break;
+  }
+
+  if (correct) {
+    onCorrect(ep);
+  } else {
+    showToast(getRandomWrongMessage(), 'error');
+  }
+}
+
+function checkFillBlanks(ep) {
+  return ep.answers.every((ans, i) => {
+    const input = document.getElementById(`blank-${i}`).value.trim();
+    return normalize(input) === normalize(ans);
+  });
+}
+
+function checkKingMatch(ep) {
+  if (kingMatchData.kingOrder.length !== ep.kings.length) return false;
+  if (kingMatchData.achievementOrder.length !== ep.achievements.length) return false;
+
+  // 왕 순서가 맞는지
+  const kingCorrect = kingMatchData.kingOrder.every((k, i) => k.idx === i);
+  // 각 위치의 업적이 같은 인덱스인지
+  const achCorrect = kingMatchData.achievementOrder.every((a, i) => a.idx === i);
+
+  return kingCorrect && achCorrect;
+}
+
+function checkMultiSelect(ep) {
+  const checked = Array.from(document.querySelectorAll('.multi-option.checked'))
+    .map(el => parseInt(el.dataset.idx))
+    .sort((a,b) => a-b);
+  const correct = [...ep.correctAnswers].sort((a,b) => a-b);
+  return JSON.stringify(checked) === JSON.stringify(correct);
+}
+
+function checkClassify(ep) {
+  if (Object.keys(classifyData.placed).length !== ep.items.length) return false;
+  return Object.keys(classifyData.placed).every(idx => {
+    const zoneIdx = classifyData.placed[idx];
+    return ep.zones[zoneIdx].correct.includes(parseInt(idx));
+  });
+}
+
+function checkSingleInput(ep) {
+  const input = document.getElementById('singleInput').value.trim();
+  return normalize(input) === normalize(ep.answer);
+}
+
+function checkOrder(ep) {
+  const state = window._orderState;
+  return state.every((obj, i) => obj.i === ep.correctOrder[i]);
+}
+
+function checkPairMatch(ep) {
+  if (Object.keys(pairMatchData.pairs).length !== ep.leftItems.length) return false;
+  return Object.keys(pairMatchData.pairs).every(leftIdx => {
+    return pairMatchData.pairs[leftIdx] === ep.correctPairs[leftIdx];
+  });
+}
+
+function checkFinalQuest(ep) {
+  // 분류 체크
+  if (Object.keys(classifyData.placed).length !== ep.items.length) return false;
+  const classifyCorrect = Object.keys(classifyData.placed).every(idx => {
+    const zoneIdx = classifyData.placed[idx];
+    return ep.zones[zoneIdx].correct.includes(parseInt(idx));
+  });
+
+  // 마지막 답 체크
+  const finalInput = document.getElementById('finalInput').value.trim();
+  const finalCorrect = normalize(finalInput) === normalize(ep.finalAnswer);
+
+  return classifyCorrect && finalCorrect;
+}
+
+function normalize(str) {
+  return str.replace(/\s+/g, '').replace(/[·.,!?]/g, '');
+}
+
+// ============================
+// 정답 처리
+// ============================
+function onCorrect(ep) {
+  acquiredTreasures.push(currentEpisode);
+  updateProgress();
+  showTreasureModal(ep.treasure);
+}
+
+function showTreasureModal(treasure) {
+  document.getElementById('treasureName').textContent = treasure.name;
+  document.getElementById('treasureDesc').textContent = treasure.desc;
+  document.getElementById('treasureModal').classList.add('show');
+}
+
+function closeTreasureModal() {
+  document.getElementById('treasureModal').classList.remove('show');
+  document.getElementById('btnNext').classList.add('show');
+  showToast('그렇도다! 보물을 얻었느니라 ✦', 'success');
+}
+
+function nextEpisode() {
+  currentEpisode++;
+  if (currentEpisode >= episodes.length) {
+    showEnding();
+  } else {
+    renderEpisode();
+  }
+}
+
+// ============================
+// 힌트 토글
+// ============================
+function toggleHint() {
+  document.getElementById('hintBox').classList.toggle('show');
+}
+
+// ============================
+// 토스트
+// ============================
+let toastTimer;
+function showToast(msg, type = 'error') {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = `toast ${type}`;
+  toast.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2800);
+}
+
+function getRandomWrongMessage() {
+  const msgs = [
+    "아니로다! 다시 한 번 생각해 보거라.",
+    "흠... 그것이 아닌 듯하니, 다시 보거라.",
+    "그대의 답은 옳지 않도다. 차근차근 살펴보거라.",
+    "허허, 그것이 아니라네. 다시 도전해 보시게.",
+    "아직은 부족하도다. 힌트를 보거나 다시 생각해 보거라."
+  ];
+  return msgs[Math.floor(Math.random() * msgs.length)];
+}
+
+// ============================
+// 엔딩
+// ============================
+function showEnding() {
+  document.getElementById('gameScreen').classList.remove('active');
+  document.getElementById('endingScreen').classList.add('active');
+
+  const container = document.getElementById('endingTreasures');
+  container.innerHTML = '';
+  for (let i = 0; i < 9; i++) {
+    const t = document.createElement('div');
+    t.className = 'ending-treasure';
+    t.textContent = '✦';
+    t.style.animationDelay = (i * 0.15) + 's';
+    container.appendChild(t);
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function finishGame() {
+  const reflection = document.getElementById('reflectionInput').value.trim();
+  if (!reflection) {
+    showToast('소감을 한 줄이라도 적어주시오!', 'error');
+    return;
+  }
+
+  // 봉인 효과 (실제로는 alert으로 결과 표시)
+  showToast('기록이 봉인되었느니라. 그대의 여정이 후세에 전해지리라.', 'success');
+
+  setTimeout(() => {
+    document.getElementById('endingScreen').innerHTML = `
+      <div style="padding: 4rem 2rem; text-align: center;">
+        <h1 class="ending-title">完</h1>
+        <p style="color: var(--gold-dark); letter-spacing: 1em; margin-top: 1rem;">완</p>
+        <div style="margin: 3rem 0; font-size: 1.2rem; line-height: 2;">
+          <p>그대는 진정 천 년의 기억을 이은 자라.</p>
+          <p style="margin-top: 1rem;">그대의 소감은 영원히 기록되었도다.</p>
+        </div>
+        <div style="background: rgba(244,234,213,0.5); padding: 2rem; border: 2px solid var(--gold-dark); text-align: left;">
+          <h3 style="color: var(--red-seal); margin-bottom: 1rem;">✦ 그대의 기록 ✦</h3>
+          <p style="font-style: italic; line-height: 1.8;">${reflection.replace(/\n/g, '<br>')}</p>
+        </div>
+        <button class="btn btn-check" style="margin-top: 2rem;" onclick="location.reload()">다시 시작하다</button>
+      </div>
+    `;
+  }, 1500);
+}
+</script>
+</body>
+</html>
