@@ -117,30 +117,7 @@
         .kw-count { background: var(--panel); border: 1px solid var(--border); padding: 3px 9px; border-radius: 10px; font-size: 11px; color: var(--sub); font-weight: 600; }
         .kw-users { font-size: 11px; color: var(--muted); max-width: 38%; text-align: right; line-height: 1.4; }
 
-        /* ── 통계 ── */
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 18px; }
-        .stat-card { background: var(--panel); border-radius: 12px; padding: 18px 20px; border: 1px solid var(--border); box-shadow: 0 1px 4px rgba(0,0,0,0.04); }
-        .stat-label { font-size: 11px; color: var(--muted); font-weight: 700; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-value { font-size: 28px; font-weight: 900; }
-        .stat-value.green { color: var(--green); }
-        .stat-value.gold  { color: var(--gold); }
-        .stat-value.red   { color: #e0355a; }
-
-        /* ── 차트 ── */
-        .chart-section { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 14px; }
-        .chart-title { font-size: 13px; font-weight: 800; margin-bottom: 14px; color: var(--text); }
-        .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-        .bar-label { width: 90px; font-size: 12px; color: var(--sub); flex-shrink: 0; }
-        .bar-track { flex: 1; height: 20px; background: var(--panel2); border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
-        .bar-fill { height: 100%; background: linear-gradient(90deg, var(--green), #5fd590); border-radius: 4px; transition: width 0.4s; }
-        .bar-value { width: 30px; font-size: 12px; font-weight: 700; text-align: right; flex-shrink: 0; color: var(--sub); }
-
         /* ── 테이블 공통 ── */
-        .class-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; padding: 10px 14px; background: var(--panel); border-radius: 10px; border: 1px solid var(--border); align-items: center; }
-        .class-chip { padding: 5px 12px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--panel2); color: var(--sub); font-size: 12px; cursor: pointer; font-weight: 600; transition: 0.15s; font-family: inherit; }
-        .class-chip:hover { border-color: var(--green); color: var(--green); }
-        .class-chip.active { background: var(--green); color: white; border-color: var(--green); }
-        .class-chip .cnt { font-size: 10px; opacity: 0.8; margin-left: 3px; }
         .filter-bar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
         .search-input { flex: 1; min-width: 180px; padding: 9px 13px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--panel); color: var(--text); font-size: 13px; outline: none; font-family: inherit; transition: border-color .15s; }
         .search-input:focus { border-color: var(--green); }
@@ -241,8 +218,6 @@
         <div class="sidebar-section">콘텐츠</div>
         <div class="menu-item active" data-page="feed"    onclick="switchPage('feed')"   ><span class="menu-icon">📝</span> FEED</div>
         <div class="menu-item"        data-page="class"   onclick="switchPage('class')"  ><span class="menu-icon">👥</span> CLASS</div>
-        <div class="sidebar-section">데이터</div>
-        <div class="menu-item"        data-page="stats"   onclick="switchPage('stats')"  ><span class="menu-icon">📊</span> 통계</div>
         <div class="sidebar-section">관리</div>
         <div class="menu-item"        data-page="setting" onclick="switchPage('setting')"><span class="menu-icon">⚙️</span> SETTING</div>
         <div class="sidebar-spacer"></div>
@@ -339,42 +314,6 @@
             </div>
         </div>
 
-        <!-- ════════ 통계 ════════ -->
-        <div class="page" id="page-stats">
-            <div class="page-header">
-                <h1 class="page-title">📊 통계 · 제출 내역</h1>
-                <button class="btn btn-blue" onclick="exportToExcel()">📥 엑셀 저장</button>
-            </div>
-            <div class="stats-grid">
-                <div class="stat-card"><div class="stat-label">총 제출 학생</div><div class="stat-value green" id="stat-total">-</div></div>
-                <div class="stat-card"><div class="stat-label">뉴스 작성</div><div class="stat-value" id="stat-news">-</div></div>
-                <div class="stat-card"><div class="stat-label">광고 작성</div><div class="stat-value" id="stat-ad">-</div></div>
-                <div class="stat-card"><div class="stat-label">총 검색어</div><div class="stat-value" id="stat-keywords">-</div></div>
-                <div class="stat-card"><div class="stat-label">총 좋아요</div><div class="stat-value red" id="stat-likes">-</div></div>
-                <div class="stat-card"><div class="stat-label">선생님 PICK</div><div class="stat-value gold" id="stat-picks">-</div></div>
-            </div>
-            <div class="chart-section">
-                <div class="chart-title">📰 분야별 기사 작성 현황</div>
-                <div id="news-chart"></div>
-            </div>
-            <div class="class-filter-bar" id="class-filter-bar">
-                <span style="font-size:11px;color:var(--muted);font-weight:700;margin-right:4px;">학반</span>
-                <button class="class-chip active" onclick="setClassFilter('전체',this)">전체</button>
-            </div>
-            <div class="filter-bar">
-                <input type="text" class="search-input" id="stats-search" placeholder="🔎 학번 또는 이름으로 검색..." oninput="renderStatsTable()">
-                <button class="sub-filter-btn active" id="stats-sort-ts" onclick="setStatsSort('timestamp',this)">최신순</button>
-                <button class="sub-filter-btn"        id="stats-sort-id" onclick="setStatsSort('studentId',this)">🔢 학번순</button>
-            </div>
-            <div class="table-wrap">
-                <table class="data-table">
-                    <thead><tr><th>#</th><th>학생 정보</th><th>제출 시각</th><th>검색어</th><th>뉴스 헤드라인</th><th>광고 배너</th><th>관리</th></tr></thead>
-                    <tbody id="data-list"></tbody>
-                </table>
-                <div id="loading-msg" class="loading">데이터를 불러오는 중입니다...</div>
-            </div>
-        </div>
-
         <!-- ════════ SETTING ════════ -->
         <div class="page" id="page-setting">
             <div class="page-header">
@@ -457,20 +396,19 @@ const firebaseConfig = {
     appId: "1:994509567071:web:778c95931e95e9cbf557ea"
 };
 const app  = initializeApp(firebaseConfig);
-const db   = getFirestore(app);   // Firestore — 제출 기록 (silla_v3)
-const rtdb = getDatabase(app);    // Realtime DB — 학생 명단 (students)
+const db   = getFirestore(app);
+const rtdb = getDatabase(app);
 
 const ADMIN_SS = 'sillaverAdmin';
 
 /* ── 상태 ── */
-let allDocs     = [];  // Firestore 제출 기록
-let allStudents = [];  // Realtime DB 학생 목록 [{studentId, name}]
-let studentMap  = {};  // studentId → name (빠른 조회용)
+let allDocs     = [];
+let allStudents = [];
+let studentMap  = {};
 
 let currentFeedTab  = 'keyword';
 let keywordSortMode = 'count';
 let newsCat = '전체', newsSort = 'latest', adSort = 'latest';
-let classFilter = '전체', statsSort = 'timestamp';
 let currentClassTab = 'all', missingFilterOn = false;
 let editingDocId = null;
 
@@ -526,20 +464,19 @@ window.switchPage = function(page) {
     if (page==='class') renderClassTable();
 };
 
-/* ── Firestore 리스닝 (제출 기록) ── */
+/* ── Firestore 리스닝 ── */
 function startFirestoreListener() {
     const q = query(collection(db,'silla_v3'), orderBy('timestamp','desc'));
     onSnapshot(q, snap => {
         allDocs = [];
         snap.forEach(d => allDocs.push({id:d.id, ...d.data()}));
-        document.getElementById('loading-msg').style.display = 'none';
+        document.getElementById('loading-msg') && (document.getElementById('loading-msg').style.display = 'none');
         renderFeedTab();
-        renderStatsPage();
         renderClassTable();
     });
 }
 
-/* ── Realtime DB 리스닝 (학생 명단 — student2026.html과 동일 경로) ── */
+/* ── Realtime DB 리스닝 ── */
 function startStudentListener() {
     onValue(ref(rtdb,'students'), snap => {
         const data = snap.val();
@@ -768,68 +705,6 @@ window.exportClassExcel = function() {
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'CLASS');
     const now=new Date(),p=n=>String(n).padStart(2,'0');
     XLSX.writeFile(wb,`SILLAVER_CLASS_${currentClassTab}_${now.getFullYear()}${p(now.getMonth()+1)}${p(now.getDate())}.xlsx`);
-};
-
-/* ════════════════════════════════
-   통계
-════════════════════════════════ */
-function renderStatsPage() {
-    let totalNews=0,totalAd=0,totalKw=0,totalLikes=0,totalPicks=0;
-    const catCounts={'정치':0,'중앙제도':0,'지방행정':0,'군사':0,'토지':0};
-    allDocs.forEach(d=>{
-        totalNews+=(d.news||[]).length>0?1:0; totalAd+=d.ad?1:0; totalKw+=(d.keywords||[]).length;
-        (d.news||[]).forEach(n=>{if(catCounts[n.category]!==undefined)catCounts[n.category]++;});
-        Object.values(d.newsLikes||{}).forEach(arr=>{totalLikes+=(arr||[]).length;});
-        totalLikes+=(d.adLikes||[]).length;
-        Object.values(d.newsPicks||{}).forEach(p=>{if(p&&p.picked)totalPicks++;});
-        if(d.adPick)totalPicks++;
-    });
-    document.getElementById('stat-total').textContent=allDocs.length;
-    document.getElementById('stat-news').textContent=totalNews;
-    document.getElementById('stat-ad').textContent=totalAd;
-    document.getElementById('stat-keywords').textContent=totalKw;
-    document.getElementById('stat-likes').textContent=totalLikes;
-    document.getElementById('stat-picks').textContent=totalPicks;
-    const maxC=Math.max(1,...Object.values(catCounts));
-    const catLabels={'정치':'🏛️ 정치','중앙제도':'📜 중앙제도','지방행정':'🗺️ 지방행정','군사':'⚔️ 군사','토지':'🌾 토지/경제'};
-    document.getElementById('news-chart').innerHTML=Object.entries(catCounts).map(([cat,cnt])=>
-        `<div class="bar-row"><div class="bar-label">${catLabels[cat]}</div><div class="bar-track"><div class="bar-fill" style="width:${(cnt/maxC*100).toFixed(0)}%"></div></div><div class="bar-value">${cnt}</div></div>`
-    ).join('');
-    renderClassFilterBar(); renderStatsTable();
-}
-function renderClassFilterBar(){
-    const bar=document.getElementById('class-filter-bar'); if(!bar) return;
-    const classMap={};
-    allDocs.forEach(d=>{const cls=parseClass(d.studentId);if(cls)classMap[cls]=(classMap[cls]||0)+1;});
-    const sorted=Object.keys(classMap).sort((a,b)=>{const[ga,ca]=a.split('-').map(Number),[gb,cb]=b.split('-').map(Number);return ga!==gb?ga-gb:ca-cb;});
-    if(classFilter!=='전체'&&!sorted.includes(classFilter))classFilter='전체';
-    bar.innerHTML=`<span style="font-size:11px;color:var(--muted);font-weight:700;margin-right:4px;">학반</span><button class="class-chip ${classFilter==='전체'?'active':''}" onclick="setClassFilter('전체',this)">전체 <span class="cnt">${allDocs.length}</span></button>`
-        +sorted.map(cls=>{const[g,c]=cls.split('-');return`<button class="class-chip ${classFilter===cls?'active':''}" onclick="setClassFilter('${cls}',this)">${g}학년 ${c}반 <span class="cnt">${classMap[cls]}</span></button>`;}).join('');
-}
-window.setClassFilter=function(cls,btnEl){classFilter=cls;document.querySelectorAll('#class-filter-bar .class-chip').forEach(b=>b.classList.remove('active'));if(btnEl)btnEl.classList.add('active');renderStatsTable();};
-window.setStatsSort=function(mode,btnEl){statsSort=mode;document.querySelectorAll('[id^="stats-sort-"]').forEach(b=>b.classList.remove('active'));if(btnEl)btnEl.classList.add('active');renderStatsTable();};
-window.renderStatsTable=function(){
-    const list=document.getElementById('data-list');
-    const search=(document.getElementById('stats-search')?.value||'').trim().toLowerCase();
-    list.innerHTML='';
-    const filtered=allDocs.filter(d=>{
-        if(classFilter!=='전체'&&parseClass(d.studentId)!==classFilter)return false;
-        return!search||(d.studentId||'').toLowerCase().includes(search)||(d.studentName||'').toLowerCase().includes(search);
-    });
-    if(!filtered.length){list.innerHTML=`<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--muted);">검색 결과가 없습니다.</td></tr>`;return;}
-    if(statsSort==='studentId')filtered.sort((a,b)=>(a.studentId||'').localeCompare(b.studentId||''));
-    else filtered.sort((a,b)=>(b.timestamp?.toMillis?.()||0)-(a.timestamp?.toMillis?.()||0));
-    filtered.forEach((d,i)=>{
-        const kwTags=(d.keywords||[]).map(k=>`<span class="tag tag-kw">🔍 ${esc(k)}</span>`).join('');
-        const newsList=(d.news||[]).map(n=>{
-            const lc=(d.newsLikes?.[n.category]||[]).length,isP=d.newsPicks?.[n.category]?.picked;
-            return`<div class="news-row"><span class="tag tag-cat">${esc(n.category)}</span>${esc(n.title)}${lc>0?`<span style="color:#e0355a;font-size:10px;margin-left:3px;">❤️${lc}</span>`:''}${isP?`<span style="color:var(--gold);font-size:10px;"> ⭐</span>`:''}</div>`;
-        }).join('');
-        const adH=d.ad?`<div class="ad-text">${esc(d.ad)}${(d.adLikes||[]).length>0?`<span style="color:#e0355a;font-size:10px;display:block;margin-top:3px;">❤️ ${(d.adLikes||[]).length}</span>`:''}${d.adPick?`<span style="color:var(--gold);font-size:10px;"> ⭐</span>`:''}</div>`:'<span style="color:var(--muted);">-</span>';
-        const tr=document.createElement('tr');
-        tr.innerHTML=`<td style="color:var(--muted);font-weight:600;">${i+1}</td><td><div class="student-name">${esc(d.studentName||'')}</div><div class="student-id">${esc(d.studentId||'')}</div></td><td class="ts">${fmt(d.timestamp)}</td><td>${kwTags||'<span style="color:var(--muted);">-</span>'}</td><td>${newsList||'<span style="color:var(--muted);">-</span>'}</td><td>${adH}</td><td><div class="action-btns"><button class="edit-btn" onclick="openEditModal('${esc(d.id)}')">수정</button><button class="del-btn" onclick="deleteEntry('${esc(d.id)}')">삭제</button></div></td>`;
-        list.appendChild(tr);
-    });
 };
 
 /* ════════════════════════════════
