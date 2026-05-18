@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>亂世의 士大夫 — 고려 말 선택 시뮬레이션</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700;900&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #f5f0e4;
+  --paper2: #ede7d6;
+  --ink: #1a1208;
+  --ink2: #3a2c10;
+  --ink3: #6b5230;
+  --ink4: #9a7a50;
+  --ink5: #c4a87a;
+  --red: #8b1a1a;
+  --red2: #c0392b;
+  --gold: #b8860b;
+  --gold2: #d4a017;
+  --border: rgba(100,70,30,0.25);
+  --border2: rgba(100,70,30,0.5);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Serif KR', Georgia, serif;
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── TEXTURE OVERLAY ─── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 0;
+}
+
+/* ─── SCREENS ─── */
+.screen { display: none; min-height: 100vh; position: relative; z-index: 1; }
+.screen.active { display: flex; flex-direction: column; }
+
+/* ─── LOGIN SCREEN ─── */
+#login-screen {
+  align-items: center; justify-content: center;
+  background: var(--ink);
+  background-image: radial-gradient(ellipse at 30% 40%, rgba(184,134,11,0.12) 0%, transparent 60%);
+}
+.login-box {
+  text-align: center;
+  padding: 48px 40px;
+  max-width: 400px; width: 100%;
+}
+.login-hanzi {
+  font-size: 80px; font-weight: 900;
+  color: rgba(245,240,228,0.08);
+  letter-spacing: -4px;
+  position: absolute; top: 40px; right: 40px;
+  pointer-events: none; user-select: none;
+}
+.login-title-ko {
+  font-size: 13px; letter-spacing: 6px; color: var(--ink5);
+  margin-bottom: 12px;
+}
+.login-title {
+  font-size: 32px; font-weight: 900; color: var(--paper);
+  line-height: 1.2; margin-bottom: 6px;
+}
+.login-subtitle {
+  font-size: 12px; letter-spacing: 3px; color: var(--ink4);
+  margin-bottom: 40px;
+}
+.login-label {
+  font-size: 11px; letter-spacing: 2px; color: var(--ink4);
+  margin-bottom: 10px; display: block;
+}
+.login-input {
+  width: 100%; padding: 14px 20px;
+  background: rgba(245,240,228,0.08);
+  border: 1px solid rgba(245,240,228,0.2);
+  border-radius: 2px; color: var(--paper);
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 14px; outline: none;
+  text-align: center; letter-spacing: 3px;
+  margin-bottom: 12px;
+  transition: border-color 0.2s;
+}
+.login-input:focus { border-color: var(--ink5); }
+.login-input::placeholder { color: rgba(245,240,228,0.3); letter-spacing: 1px; }
+.login-btn {
+  width: 100%; padding: 14px;
+  background: var(--gold);
+  color: var(--ink); border: none;
+  font-family: 'Noto Serif KR', serif;
+  font-size: 14px; font-weight: 700;
+  letter-spacing: 3px; cursor: pointer;
+  border-radius: 2px; transition: background 0.2s;
+}
+.login-btn:hover { background: var(--gold2); }
+.login-err { font-size: 12px; color: #e57373; margin-top: 10px; min-height: 18px; }
+.login-skip {
+  margin-top: 20px;
+  font-size: 12px; color: rgba(245,240,228,0.3);
+  cursor: pointer; letter-spacing: 1px;
+  transition: color 0.2s;
+}
+.login-skip:hover { color: rgba(245,240,228,0.6); }
+
+/* ─── TITLE SCREEN ─── */
+#title-screen {
+  align-items: center; justify-content: center;
+  padding: 40px 20px; text-align: center;
+  background:
+    radial-gradient(ellipse at 15% 25%, rgba(139,26,26,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 75%, rgba(184,134,11,0.06) 0%, transparent 50%);
+}
+.title-deco {
+  position: absolute;
+  font-size: 120px; font-weight: 900;
+  opacity: 0.04; pointer-events: none; user-select: none;
+  color: var(--ink);
+}
+.title-deco.tl { top: 20px; left: 20px; }
+.title-deco.br { bottom: 20px; right: 20px; }
+
+.title-era {
+  font-size: 11px; letter-spacing: 6px; color: var(--ink4);
+  margin-bottom: 16px; font-family: 'Noto Sans KR', sans-serif;
+}
+.title-main {
+  font-size: clamp(36px, 8vw, 56px); font-weight: 900;
+  color: var(--ink); line-height: 1.1; margin-bottom: 8px;
+  text-shadow: 2px 2px 0 rgba(255,255,255,0.5);
+}
+.title-brush-line {
+  width: 80px; height: 3px;
+  background: linear-gradient(to right, transparent, var(--ink3), transparent);
+  margin: 0 auto 12px;
+}
+.title-sub {
+  font-size: 13px; color: var(--ink3); letter-spacing: 2px; margin-bottom: 36px;
+}
+.title-desc {
+  font-size: 14px; color: var(--ink2); line-height: 2.1;
+  max-width: 380px; margin: 0 auto 40px;
+  background: rgba(255,255,255,0.4);
+  padding: 20px 24px; border-radius: 2px;
+  border-left: 3px solid var(--ink5);
+}
+.btn-start {
+  display: inline-block;
+  padding: 16px 48px;
+  background: var(--ink);
+  color: var(--paper);
+  border: none; border-radius: 2px;
+  font-family: 'Noto Serif KR', serif;
+  font-size: 15px; font-weight: 700;
+  letter-spacing: 3px; cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+.btn-start:hover { background: var(--ink2); }
+.btn-start:active { transform: scale(0.97); }
+.title-student-info {
+  margin-top: 24px; font-size: 12px; color: var(--ink4);
+  letter-spacing: 1px;
+}
+
+/* ─── SETUP SCREEN ─── */
+#setup-screen { padding: 0; }
+.setup-header {
+  background: var(--ink);
+  padding: 20px 28px;
+  display: flex; align-items: center; gap: 12px;
+}
+.setup-header-title { font-size: 15px; font-weight: 700; color: var(--paper); letter-spacing: 2px; }
+.setup-header-sub { font-size: 11px; color: var(--ink4); letter-spacing: 1px; margin-top: 2px; }
+
+.setup-body { padding: 28px 24px; flex: 1; max-width: 600px; width: 100%; margin: 0 auto; }
+.setup-section { margin-bottom: 28px; }
+.setup-section-label {
+  font-size: 11px; letter-spacing: 3px; color: var(--ink3);
+  margin-bottom: 12px; font-family: 'Noto Sans KR', sans-serif;
+  padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.choice-card {
+  border: 1.5px solid var(--border2);
+  background: rgba(255,255,255,0.5);
+  padding: 18px 16px; cursor: pointer;
+  border-radius: 2px; transition: all 0.2s;
+  position: relative;
+}
+.choice-card:hover { background: rgba(255,255,255,0.8); border-color: var(--ink3); }
+.choice-card.selected {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.choice-card.selected .cc-name { color: var(--paper); }
+.choice-card.selected .cc-sub { color: var(--ink5); }
+.choice-card.selected .cc-desc { color: var(--ink4); }
+.cc-name { font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.cc-sub { font-size: 11px; color: var(--gold); letter-spacing: 1px; margin-bottom: 6px; font-family: 'Noto Sans KR'; }
+.cc-desc { font-size: 12px; color: var(--ink3); line-height: 1.7; }
+
+.setup-name-row { display: flex; gap: 12px; align-items: flex-end; }
+.name-input {
+  flex: 1; padding: 12px 16px;
+  background: rgba(255,255,255,0.6);
+  border: 1.5px solid var(--border2);
+  border-radius: 2px; color: var(--ink);
+  font-family: 'Noto Serif KR', serif;
+  font-size: 14px; outline: none;
+  transition: border-color 0.2s;
+}
+.name-input:focus { border-color: var(--ink); background: rgba(255,255,255,0.9); }
+.name-input::placeholder { color: var(--ink5); }
+
+.btn-action {
+  padding: 12px 28px;
+  background: var(--ink); color: var(--paper);
+  border: none; border-radius: 2px;
+  font-family: 'Noto Serif KR', serif;
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 2px; cursor: pointer;
+  transition: all 0.2s;
+  opacity: 0.4;
+}
+.btn-action:not(:disabled) { opacity: 1; }
+.btn-action:not(:disabled):hover { background: var(--ink2); }
+.btn-action:not(:disabled):active { transform: scale(0.97); }
+
+/* ─── STORY SCREEN ─── */
+#story-screen { padding: 0; }
+.story-topbar {
+  background: var(--ink); padding: 12px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 10;
+}
+.story-year { font-size: 12px; color: var(--ink5); letter-spacing: 3px; }
+.story-chapter { font-size: 11px; color: var(--ink4); letter-spacing: 1px; }
+
+.stats-strip {
+  display: flex; border-bottom: 1px solid var(--border2);
+  background: rgba(255,255,255,0.4);
+}
+.stat-cell {
+  flex: 1; padding: 10px 8px; text-align: center;
+  border-right: 1px solid var(--border);
+}
+.stat-cell:last-child { border-right: none; }
+.stat-lbl { font-size: 10px; color: var(--ink4); letter-spacing: 1px; margin-bottom: 2px; font-family: 'Noto Sans KR'; }
+.stat-val { font-size: 18px; font-weight: 700; color: var(--ink2); }
+.stat-val.danger { color: var(--red); }
+
+.story-body { padding: 28px 24px 32px; flex: 1; max-width: 600px; width: 100%; margin: 0 auto; }
+
+.scene-eyebrow {
+  font-size: 11px; letter-spacing: 3px; color: var(--ink4);
+  margin-bottom: 8px; font-family: 'Noto Sans KR';
+}
+.scene-title {
+  font-size: 20px; font-weight: 900; color: var(--ink);
+  margin-bottom: 20px; padding-bottom: 14px;
+  border-bottom: 1.5px solid var(--border2);
+  line-height: 1.3;
+}
+.scene-text {
+  font-size: 14px; color: var(--ink2); line-height: 2.1;
+  margin-bottom: 28px;
+  background: rgba(255,255,255,0.45);
+  padding: 20px 22px;
+  border-left: 3px solid var(--ink5);
+  border-radius: 0 2px 2px 0;
+}
+.scene-npc {
+  display: flex; gap: 12px; align-items: flex-start;
+  margin-bottom: 20px;
+  background: rgba(139,26,26,0.05);
+  border: 1px solid rgba(139,26,26,0.15);
+  padding: 14px 16px; border-radius: 2px;
+}
+.scene-npc-avatar {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--ink); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.scene-npc-name { font-size: 11px; font-weight: 700; color: var(--red); letter-spacing: 1px; margin-bottom: 4px; }
+.scene-npc-text { font-size: 13px; color: var(--ink2); line-height: 1.8; }
+
+.choices-label {
+  font-size: 11px; letter-spacing: 3px; color: var(--ink4);
+  margin-bottom: 12px; font-family: 'Noto Sans KR';
+}
+.choice-btn {
+  display: block; width: 100%;
+  background: rgba(255,255,255,0.55);
+  border: 1.5px solid var(--border2);
+  padding: 16px 20px; margin-bottom: 10px;
+  font-family: 'Noto Serif KR', serif;
+  font-size: 13px; color: var(--ink); cursor: pointer;
+  text-align: left; border-radius: 2px;
+  line-height: 1.7; transition: all 0.2s;
+  position: relative;
+}
+.choice-btn:hover {
+  background: rgba(255,255,255,0.85);
+  border-color: var(--ink3);
+  padding-left: 28px;
+}
+.choice-btn:active { transform: scale(0.995); }
+.choice-num {
+  font-size: 11px; font-weight: 700; color: var(--ink4);
+  margin-right: 10px; font-family: 'Noto Sans KR';
+}
+.stat-hint {
+  font-size: 11px; color: var(--ink4); margin-top: 4px;
+  font-family: 'Noto Sans KR';
+}
+.stat-hint span { margin-right: 8px; }
+.pos { color: #2e7d32; }
+.neg { color: var(--red); }
+
+/* ─── CREDITS SCREEN ─── */
+#credits-screen {
+  background: var(--ink);
+  overflow: hidden; align-items: center; justify-content: center;
+  position: relative;
+}
+.credits-bg-char {
+  position: absolute;
+  font-size: 400px; font-weight: 900;
+  color: rgba(245,240,228,0.025);
+  pointer-events: none; user-select: none;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+.credits-wrapper {
+  position: absolute; left: 0; right: 0;
+  bottom: -100vh;
+  padding: 100vh 40px 80px;
+  animation: creditsRoll 22s linear forwards;
+  max-width: 600px; margin: 0 auto;
+}
+@keyframes creditsRoll {
+  0%   { transform: translateY(0); }
+  100% { transform: translateY(-100%); }
+}
+.credits-label {
+  font-size: 11px; letter-spacing: 5px; color: var(--ink4);
+  text-align: center; margin-bottom: 8px; font-family: 'Noto Sans KR';
+}
+.credits-title-big {
+  font-size: 28px; font-weight: 900; color: var(--paper);
+  text-align: center; line-height: 1.3; margin-bottom: 6px;
+}
+.credits-line {
+  width: 60px; height: 1px;
+  background: var(--ink4); margin: 16px auto 24px;
+}
+.credits-section {
+  margin-bottom: 36px;
+}
+.credits-section-title {
+  font-size: 11px; letter-spacing: 4px; color: var(--gold);
+  text-align: center; margin-bottom: 12px; font-family: 'Noto Sans KR';
+}
+.credits-text {
+  font-size: 14px; color: rgba(245,240,228,0.75);
+  text-align: center; line-height: 2.2;
+}
+.credits-choice-item {
+  background: rgba(245,240,228,0.06);
+  border: 1px solid rgba(245,240,228,0.12);
+  border-left: 3px solid var(--gold);
+  padding: 14px 18px; margin-bottom: 10px;
+  border-radius: 0 2px 2px 0;
+}
+.credits-choice-scene {
+  font-size: 10px; letter-spacing: 2px; color: var(--ink5);
+  margin-bottom: 4px; font-family: 'Noto Sans KR';
+}
+.credits-choice-text {
+  font-size: 13px; color: rgba(245,240,228,0.8); line-height: 1.7;
+}
+.credits-ending-reveal {
+  text-align: center; padding: 32px 0;
+}
+.credits-ending-name {
+  font-size: 32px; font-weight: 900; color: var(--paper);
+  margin-bottom: 12px;
+}
+.credits-ending-desc {
+  font-size: 14px; color: rgba(245,240,228,0.7);
+  line-height: 2; max-width: 400px; margin: 0 auto;
+}
+.credits-stat-row {
+  display: flex; gap: 32px; justify-content: center; margin-top: 20px;
+}
+.credits-stat {
+  text-align: center;
+}
+.credits-stat-num { font-size: 28px; font-weight: 900; color: var(--gold); }
+.credits-stat-lbl { font-size: 11px; color: var(--ink5); letter-spacing: 2px; font-family: 'Noto Sans KR'; }
+
+.credits-skip {
+  position: absolute; bottom: 24px; right: 24px;
+  font-size: 12px; color: rgba(245,240,228,0.35);
+  cursor: pointer; letter-spacing: 1px;
+  z-index: 10; transition: color 0.2s;
+  font-family: 'Noto Sans KR';
+}
+.credits-skip:hover { color: rgba(245,240,228,0.7); }
+
+/* ─── REFLECTION SCREEN ─── */
+#reflection-screen {
+  align-items: center; padding: 0;
+}
+.reflection-header {
+  background: var(--ink); padding: 20px 28px; width: 100%;
+}
+.reflection-header-title { font-size: 14px; font-weight: 700; color: var(--paper); letter-spacing: 2px; }
+.reflection-header-sub { font-size: 11px; color: var(--ink4); margin-top: 2px; letter-spacing: 1px; }
+
+.reflection-body {
+  padding: 32px 24px; max-width: 600px; width: 100%; flex: 1;
+}
+.reflection-ending-badge {
+  display: inline-block;
+  background: var(--ink); color: var(--gold);
+  font-size: 11px; letter-spacing: 2px;
+  padding: 5px 16px; border-radius: 2px;
+  margin-bottom: 16px; font-family: 'Noto Sans KR';
+}
+.reflection-ending-title {
+  font-size: 24px; font-weight: 900; color: var(--ink);
+  margin-bottom: 12px;
+}
+.reflection-ending-quote {
+  font-size: 13px; color: var(--ink2); line-height: 2;
+  background: rgba(255,255,255,0.5);
+  padding: 16px 20px; border-left: 3px solid var(--ink5);
+  margin-bottom: 28px;
+}
+.reflection-label {
+  font-size: 11px; letter-spacing: 3px; color: var(--ink3);
+  margin-bottom: 12px; font-family: 'Noto Sans KR';
+}
+.reflection-textarea {
+  width: 100%; min-height: 140px;
+  padding: 16px 18px;
+  background: rgba(255,255,255,0.6);
+  border: 1.5px solid var(--border2);
+  border-radius: 2px; color: var(--ink);
+  font-family: 'Noto Serif KR', serif;
+  font-size: 14px; line-height: 1.9;
+  outline: none; resize: vertical;
+  transition: border-color 0.2s;
+}
+.reflection-textarea:focus { border-color: var(--ink); background: rgba(255,255,255,0.85); }
+.reflection-textarea::placeholder { color: var(--ink5); }
+.reflection-char-count {
+  font-size: 11px; color: var(--ink5);
+  text-align: right; margin-top: 6px;
+  font-family: 'Noto Sans KR';
+}
+.reflection-submit-row {
+  display: flex; gap: 12px; align-items: center; margin-top: 20px;
+  flex-wrap: wrap;
+}
+.btn-submit {
+  padding: 14px 36px;
+  background: var(--ink); color: var(--paper);
+  border: none; border-radius: 2px;
+  font-family: 'Noto Serif KR', serif;
+  font-size: 14px; font-weight: 700;
+  letter-spacing: 2px; cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-submit:hover { background: var(--ink2); }
+.btn-skip-reflection {
+  padding: 14px 24px;
+  background: transparent; color: var(--ink4);
+  border: 1.5px solid var(--border2);
+  border-radius: 2px;
+  font-family: 'Noto Serif KR', serif;
+  font-size: 13px; cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-skip-reflection:hover { border-color: var(--ink3); color: var(--ink3); }
+.reflection-done {
+  text-align: center; padding: 40px 0;
+  display: none;
+}
+.reflection-done-icon { font-size: 36px; margin-bottom: 12px; }
+.reflection-done-text { font-size: 15px; color: var(--ink2); line-height: 2; }
+
+/* ─── TOAST ─── */
+#toast {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--ink); color: var(--paper);
+  padding: 10px 22px; border-radius: 2px;
+  font-size: 13px; font-family: 'Noto Sans KR', sans-serif;
+  opacity: 0; transition: 0.25s; pointer-events: none; z-index: 9999;
+  white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.ok { color: var(--gold); }
+#toast.err { color: #ef9a9a; }
+
+/* ─── PROGRESS BAR ─── */
+.progress-bar-wrap {
+  height: 3px; background: rgba(100,70,30,0.15);
+}
+.progress-bar {
+  height: 3px; background: var(--ink3);
+  transition: width 0.5s ease;
+}
+</style>
+</head>
+<body>
+
+<!-- ─── LOGIN ─── -->
+<div id="login-screen" class="screen active">
+  <div class="login-hanzi">史</div>
+  <div class="login-box">
+    <div class="login-title-ko">고려 말 선택 시뮬레이션</div>
+    <div class="login-title">亂世의 士大夫</div>
+    <div class="login-subtitle">— 학번을 입력하십시오 —</div>
+    <label class="login-label">학번 (5자리)</label>
+    <input type="text" id="login-id" class="login-input" maxlength="5" inputmode="numeric" placeholder="00000"
+      onkeydown="if(event.key==='Enter') doLogin()">
+    <button class="login-btn" onclick="doLogin()">입장하기</button>
+    <div class="login-err" id="login-err"></div>
+    <div class="login-skip" onclick="skipLogin()">학번 없이 체험하기</div>
+  </div>
+</div>
+
+<!-- ─── TITLE ─── -->
+<div id="title-screen" class="screen">
+  <div class="title-deco tl">義</div>
+  <div class="title-deco br">道</div>
+  <div style="margin: auto; text-align: center; padding: 40px 20px;">
+    <div class="title-era">고려 말 · 1388 ~ 1392</div>
+    <div class="title-main">亂世의 士大夫</div>
+    <div class="title-brush-line"></div>
+    <div class="title-sub">— 혼란의 시대, 그대는 무엇을 택하는가 —</div>
+    <div class="title-desc">
+      위화도 회군, 사전개혁, 역성혁명…<br>
+      격동의 고려 말을 살아가는 신진사대부로서<br>
+      당신의 선택이 역사를 바꿉니다.
+    </div>
+    <button class="btn-start" onclick="goSetup()">▶ 시작하기</button>
+    <div class="title-student-info" id="title-student-info"></div>
+  </div>
+</div>
+
+<!-- ─── SETUP ─── -->
+<div id="setup-screen" class="screen">
+  <div class="setup-header">
+    <div>
+      <div class="setup-header-title">나의 인물 설정</div>
+      <div class="setup-header-sub">출신과 성향을 선택하십시오</div>
+    </div>
+  </div>
+  <div class="progress-bar-wrap"><div class="progress-bar" style="width:0%"></div></div>
+  <div class="setup-body">
+    <div class="setup-section">
+      <div class="setup-section-label">▪ 출신 배경</div>
+      <div class="choice-grid">
+        <div class="choice-card" data-group="origin" data-val="rural" onclick="selectSetup(this)">
+          <div class="cc-name">향리 출신</div>
+          <div class="cc-sub">초기 생존↑ · 명망↓</div>
+          <div class="cc-desc">지방에서 성리학을 익혔다. 민심에 밝고 현실에 발 딛고 있다. 개경의 귀족들은 그대를 낮게 본다.</div>
+        </div>
+        <div class="choice-card" data-group="origin" data-val="noble" onclick="selectSetup(this)">
+          <div class="cc-name">중소귀족 출신</div>
+          <div class="cc-sub">초기 명망↑ · 생존↓</div>
+          <div class="cc-desc">개경에서 관직을 밟았다. 인맥이 넓고 궁중 사정에 밝다. 기득권의 눈치도 봐야 하는 처지다.</div>
+        </div>
+      </div>
+    </div>
+    <div class="setup-section">
+      <div class="setup-section-label">▪ 정치 성향</div>
+      <div class="choice-grid">
+        <div class="choice-card" data-group="align" data-val="reform" onclick="selectSetup(this)">
+          <div class="cc-name">온건개혁파</div>
+          <div class="cc-sub">정몽주의 길 · 의리↑</div>
+          <div class="cc-desc">고려 왕조를 지키되 제도를 바로잡아야 한다. 절의를 중시하며 군신의 의리를 소중히 여긴다.</div>
+        </div>
+        <div class="choice-card" data-group="align" data-val="revolution" onclick="selectSetup(this)">
+          <div class="cc-name">급진혁명파</div>
+          <div class="cc-sub">정도전의 길 · 학문↑</div>
+          <div class="cc-desc">썩은 고려는 이미 끝났다. 새 나라를 세워야 한다. 실용을 중시하며 제도 개혁을 꿈꾼다.</div>
+        </div>
+      </div>
+    </div>
+    <div class="setup-section">
+      <div class="setup-section-label">▪ 호(號) — 나를 부를 이름</div>
+      <div class="setup-name-row">
+        <input type="text" id="char-name" class="name-input" maxlength="10"
+          placeholder="호를 입력하십시오 (예: 포은, 삼봉)"
+          oninput="checkSetupReady()">
+        <button class="btn-action" id="setup-next-btn" onclick="startGame()" disabled>운명 시작 ▶</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── STORY ─── -->
+<div id="story-screen" class="screen">
+  <div class="story-topbar">
+    <div class="story-year" id="story-year">1388년</div>
+    <div class="story-chapter" id="story-chapter">제1막</div>
+  </div>
+  <div class="progress-bar-wrap"><div class="progress-bar" id="story-progress" style="width:0%"></div></div>
+  <div class="stats-strip">
+    <div class="stat-cell"><div class="stat-lbl">명망</div><div class="stat-val" id="s-fame">5</div></div>
+    <div class="stat-cell"><div class="stat-lbl">의리</div><div class="stat-val" id="s-loyalty">5</div></div>
+    <div class="stat-cell"><div class="stat-lbl">학문</div><div class="stat-val" id="s-study">5</div></div>
+    <div class="stat-cell"><div class="stat-lbl">생존</div><div class="stat-val" id="s-survive">10</div></div>
+  </div>
+  <div class="story-body">
+    <div class="scene-eyebrow" id="scene-eyebrow"></div>
+    <div class="scene-title" id="scene-title"></div>
+    <div id="scene-npc-area"></div>
+    <div class="scene-text" id="scene-text"></div>
+    <div class="choices-label">— 어찌 하시겠습니까 —</div>
+    <div id="choices-area"></div>
+  </div>
+</div>
+
+<!-- ─── CREDITS ─── -->
+<div id="credits-screen" class="screen">
+  <div class="credits-bg-char" id="credits-bg-char">道</div>
+  <div class="credits-wrapper" id="credits-wrapper"></div>
+  <div class="credits-skip" onclick="skipCredits()">건너뛰기 ▶</div>
+</div>
+
+<!-- ─── REFLECTION ─── -->
+<div id="reflection-screen" class="screen">
+  <div class="reflection-header">
+    <div class="reflection-header-title">소감 작성</div>
+    <div class="reflection-header-sub">그대의 여정을 기록하십시오</div>
+  </div>
+  <div class="reflection-body">
+    <div class="reflection-ending-badge" id="ref-badge">엔딩</div>
+    <div class="reflection-ending-title" id="ref-ending-title"></div>
+    <div class="reflection-ending-quote" id="ref-ending-quote"></div>
+    <div id="reflection-form-area">
+      <div class="reflection-label">▪ 이번 게임의 소감을 남겨주세요</div>
+      <textarea class="reflection-textarea" id="reflection-text"
+        placeholder="게임을 하면서 느낀 점, 선택이 어려웠던 순간, 역사적으로 새롭게 알게 된 사실 등을 자유롭게 적어주세요."
+        oninput="updateCharCount()" maxlength="500"></textarea>
+      <div class="reflection-char-count"><span id="char-count">0</span> / 500자</div>
+      <div class="reflection-submit-row">
+        <button class="btn-submit" onclick="submitReflection()">제출하기</button>
+        <button class="btn-skip-reflection" onclick="skipReflection()">소감 없이 종료</button>
+      </div>
+    </div>
+    <div class="reflection-done" id="reflection-done">
+      <div class="reflection-done-icon">📜</div>
+      <div class="reflection-done-text">소감이 제출되었습니다.<br>수고하셨습니다.</div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, get, set, push, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain: "ho0911seong-56638.firebaseapp.com",
+  databaseURL: "https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ho0911seong-56638",
+  storageBucket: "ho0911seong-56638.firebasestorage.app",
+  messagingSenderId: "994509567071",
+  appId: "1:994509567071:web:de99e71c125ec2a3f557ea"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+/* ─── GAME STATE ─── */
+let studentId = null;
+let studentName = '';
+let charName = '';
+let origin = null;
+let align = null;
+let fame = 5, loyalty = 5, study = 5, survive = 10;
+let choiceLog = [];
+let currentScene = 0;
+let endingKey = null;
+let sessionRef = null;
+
+/* ─── SCENES DATA ─── */
+const SCENES = [
+  {
+    year: '1388년 5월',
+    chapter: '제1막 — 위화도의 빗속',
+    eyebrow: 'ACT 1',
+    title: '회군(回軍)의 소식',
+    text: '이성계 장군이 요동 정벌을 포기하고 압록강을 건너 회군하였다는 소식이 개경을 뒤흔들었다. 최영 장군과 우왕은 역적으로 몰릴 것이다. 동료 사대부들이 그대에게 묻는다.',
+    npc: { name: '동료 사대부 김씨', icon: '👤', text: '"이성계 장군이 드디어 일을 벌였소. 그대는 어느 편에 서겠소? 이 선택이 우리의 미래를 가를 것이오."' },
+    choices: [
+      {
+        text: '이성계 장군을 지지한다. 고려의 병폐를 고치려면 강력한 무인의 힘이 필요하다.',
+        stat: { fame: +1, loyalty: -2, survive: +2 },
+        log: '위화도 회군 — 이성계 지지'
+      },
+      {
+        text: '왕실에 충성한다. 군주를 저버리는 것은 사대부의 도리가 아니다.',
+        stat: { fame: +2, loyalty: +3, survive: -2 },
+        log: '위화도 회군 — 왕실 충성'
+      },
+      {
+        text: '침묵을 지킨다. 사태를 더 지켜보는 것이 현명하다.',
+        stat: { fame: -1, loyalty: +1, survive: +1 },
+        log: '위화도 회군 — 침묵'
+      }
+    ]
+  },
+  {
+    year: '1388년 하반기',
+    chapter: '제1막 — 정치의 소용돌이',
+    eyebrow: 'ACT 1',
+    title: '권문세족과의 대면',
+    text: '회군 이후 이성계가 권력을 장악해 가고 있다. 권문세족의 거두 이인임 일파가 은밀히 사람을 보내왔다. "우리와 손잡으면 높은 자리를 보장하겠소." 거부하면 그들의 적이 된다.',
+    npc: { name: '권문세족 심복', icon: '🎭', text: '"조정은 결국 힘 있는 자들의 것이오. 그대처럼 재능 있는 선비가 헛되이 낭비되는 것은 아깝지 않소?"' },
+    choices: [
+      {
+        text: '손을 잡는다. 현실 정치에서는 힘이 필요하다.',
+        stat: { fame: +2, loyalty: -2, study: -1, survive: +2 },
+        log: '권문세족 거래 — 동조'
+      },
+      {
+        text: '단호히 거부한다. 성리학자는 불의와 타협하지 않는다.',
+        stat: { fame: -1, loyalty: +3, study: +2, survive: -2 },
+        log: '권문세족 거래 — 거부'
+      },
+      {
+        text: '모호하게 답하며 시간을 번다.',
+        stat: { fame: 0, loyalty: 0, study: +1, survive: +1 },
+        log: '권문세족 거래 — 모호한 태도'
+      }
+    ]
+  },
+  {
+    year: '1389년',
+    chapter: '제2막 — 사전개혁의 불길',
+    eyebrow: 'ACT 2',
+    title: '전제개혁(田制改革) 논쟁',
+    text: '정도전 일파가 권문세족의 사전(私田)을 몰수하고 과전법을 시행하자고 주장한다. 농민들은 환호하지만 구귀족들은 피를 토한다. 학자로서 그대는 이 법안을 어떻게 대해야 하는가?',
+    npc: { name: '정도전(鄭道傳)', icon: '📜', text: '"백성이 굶주리는 것은 토지 겸병 때문이오. 지금 개혁하지 않으면 고려는 스스로 무너질 것이오."' },
+    choices: [
+      {
+        text: '적극 지지한다. 백성이 굶주리는 것은 토지 겸병 때문이다. 개혁만이 살길이다.',
+        stat: { fame: +2, loyalty: -1, study: +2, survive: -1 },
+        log: '전제개혁 — 적극 지지'
+      },
+      {
+        text: '반대한다. 사유재산을 빼앗는 것은 성리학의 이치에 어긋난다.',
+        stat: { fame: -1, loyalty: +2, study: +1, survive: +1 },
+        log: '전제개혁 — 반대'
+      },
+      {
+        text: '절충안을 제시한다. 대토지만 환수하고 중소지주는 보호해야 한다.',
+        stat: { fame: +1, loyalty: 0, study: +3, survive: +1 },
+        log: '전제개혁 — 절충안'
+      }
+    ]
+  },
+  {
+    year: '1390년',
+    chapter: '제2막 — 명나라와 고려 사이',
+    eyebrow: 'ACT 2',
+    title: '사대(事大) 외교 논쟁',
+    text: '명나라에 대한 태도를 두고 조정이 갈라졌다. 강경파는 자주 외교를 주장하고, 온건파는 명나라와의 관계를 유지해야 한다고 맞선다. 외교 사절단을 이끌 인물을 선발하고 있다.',
+    npc: { name: '예부 관리', icon: '🏛️', text: '"명나라는 이미 강대국이오. 그들과 척을 지면 고려는 고립될 것이오. 하지만 비굴한 굴종도 선비의 길이 아니지 않소?"' },
+    choices: [
+      {
+        text: '자원해서 명나라 사절단을 이끈다. 직접 외교하겠다.',
+        stat: { fame: +3, loyalty: 0, study: +1, survive: -1 },
+        log: '명나라 외교 — 사절단 자원'
+      },
+      {
+        text: '강경 자주 외교를 주장하는 상소를 올린다.',
+        stat: { fame: +1, loyalty: +2, study: +2, survive: -2 },
+        log: '명나라 외교 — 강경 자주'
+      },
+      {
+        text: '조용히 실무를 처리하며 관계를 유지한다.',
+        stat: { fame: 0, loyalty: 0, study: +1, survive: +2 },
+        log: '명나라 외교 — 실리 외교'
+      }
+    ]
+  },
+  {
+    year: '1391년',
+    chapter: '제3막 — 운명의 갈림길',
+    eyebrow: 'ACT 3',
+    title: '정몽주와의 밤 대화',
+    text: '포은 정몽주 선생이 밤늦게 그대를 불렀다. 촛불 아래 두 사람은 오래 이야기를 나눴다. 정몽주는 고려 왕조의 마지막 보루가 되겠다고 말했다. 그대는 어떤 답을 해야 할까.',
+    npc: { name: '정몽주(鄭夢周)', icon: '🕯️', text: '"이 몸이 죽고 죽어 일백 번 고쳐 죽어도, 임 향한 일편단심이야 가실 줄이 있으랴. 그대는 어찌하겠소?"' },
+    choices: [
+      {
+        text: '함께 고려를 지키겠다고 맹세한다.',
+        stat: { fame: +2, loyalty: +4, study: 0, survive: -3 },
+        log: '정몽주와 — 함께 맹세'
+      },
+      {
+        text: '"뜻은 같으나 방법은 달리할 수도 있습니다"라고 답한다.',
+        stat: { fame: 0, loyalty: +1, study: +2, survive: 0 },
+        log: '정몽주와 — 유보적 답변'
+      },
+      {
+        text: '이미 마음이 새 나라 쪽으로 기울었음을 솔직히 말한다.',
+        stat: { fame: -1, loyalty: -2, study: +1, survive: +2 },
+        log: '정몽주와 — 솔직한 거절'
+      }
+    ]
+  },
+  {
+    year: '1392년 봄',
+    chapter: '제3막 — 봄날의 칼날',
+    eyebrow: 'ACT 3 — FINALE',
+    title: '선죽교의 비보와 최후의 선택',
+    text: '포은 정몽주가 이방원의 칼에 선죽교에서 쓰러졌다. 고려 왕조를 지키려던 마지막 보루가 무너진 것이다. 이제 조선의 건국은 막을 수 없다. 이성계 측근이 찾아와 말한다.',
+    npc: { name: '이성계 측근', icon: '⚔️', text: '"새 나라에 함께하시오. 개국공신의 반열에 오를 것이오. 아니면… 선택은 그대에게 있소."' },
+    choices: [
+      {
+        text: '손을 잡는다. 역사의 흐름에 따르는 것이 백성을 위한 길이다.',
+        stat: { fame: +3, loyalty: -3, survive: +3 },
+        log: '최후 선택 — 조선 합류',
+        ending: 'open'
+      },
+      {
+        text: '거절하고 낙향한다. 두 임금을 섬길 수 없다. 전원에서 후학을 가르치겠다.',
+        stat: { fame: -1, loyalty: +4, study: +2, survive: +1 },
+        log: '최후 선택 — 두문동 은거',
+        ending: 'retreat'
+      },
+      {
+        text: '끝까지 저항한다. 죽음을 각오하고 고려 왕실을 지키겠다.',
+        stat: { fame: +4, loyalty: +5, survive: -5 },
+        log: '최후 선택 — 끝까지 저항',
+        ending: 'martyr'
+      }
+    ]
+  }
+];
+
+const ENDINGS = {
+  open: {
+    title: '개국공신(開國功臣)',
+    char: '功',
+    quote: '새 나라의 초석이 되었다. 그대가 정도전과 함께 설계한 법도가 조선 오백 년을 지탱하였다. 백성들은 그대의 이름을 기억하였고, 사서(史書)는 그대를 개혁의 선구자로 기록하였다.',
+    history: '조준, 남은 등 급진파 사대부들이 이 길을 택하였다. 조선 건국의 이론적 토대를 마련한 인물들로 기록된다.'
+  },
+  retreat: {
+    title: '두문동 은거(杜門洞 隱居)',
+    char: '隱',
+    quote: '산속에 문을 닫고 세상을 등졌다. 그러나 그대가 남긴 글과 가르침은 후대 학자들에게 전해져 오히려 절의의 표상이 되었다. 조선 선비들은 그대를 흠모하며 찾아왔다.',
+    history: '"두문불출(杜門不出)"의 어원이 된 두문동 72현처럼, 고려에 충절을 지킨 선비들의 길이다.'
+  },
+  martyr: {
+    title: '충절의 순사(殉死)',
+    char: '節',
+    quote: '선죽교의 핏빛이 채 마르기도 전에 그대도 따라갔다. 그러나 그대의 이름은 지워지지 않았다. 훗날 조선 선비들은 그대를 포은 선생과 함께 기리며 의리의 상징으로 삼았다.',
+    history: '정몽주의 뒤를 따른 고려 충신들의 결말이다. 죽어서도 오백 년 사림의 정신적 뿌리가 된 인물들이다.'
+  }
+};
+
+/* ─── LOGIN ─── */
+window.doLogin = async function() {
+  const sid = document.getElementById('login-id').value.trim();
+  const errEl = document.getElementById('login-err');
+  if (!/^\d{5}$/.test(sid)) {
+    errEl.textContent = '학번은 숫자 5자리여야 합니다.'; return;
+  }
+  try {
+    const snap = await get(ref(db, `students`));
+    const data = snap.val();
+    let found = false;
+    if (data) {
+      for (const val of Object.values(data)) {
+        const dbId = String(val.studentId || val.id || '');
+        if (dbId === sid) {
+          studentName = val.name || val.studentName || val.realName || '';
+          found = true; break;
+        }
+      }
+    }
+    if (!found) {
+      errEl.textContent = '등록된 학번이 아닙니다. 선생님께 문의하세요.';
+      return;
+    }
+    studentId = sid;
+    errEl.textContent = '';
+    document.getElementById('title-student-info').textContent = `${studentId} ${studentName}`;
+    showScreen('title-screen');
+  } catch(e) {
+    errEl.textContent = '연결 오류: ' + e.message;
+  }
+};
+
+window.skipLogin = function() {
+  studentId = 'GUEST';
+  studentName = '체험자';
+  showScreen('title-screen');
+};
+
+window.goSetup = function() {
+  showScreen('setup-screen');
+};
+
+/* ─── SETUP ─── */
+window.selectSetup = function(el) {
+  const group = el.dataset.group;
+  document.querySelectorAll(`[data-group="${group}"]`).forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  if (group === 'origin') origin = el.dataset.val;
+  else align = el.dataset.val;
+  checkSetupReady();
+};
+
+window.checkSetupReady = function() {
+  const name = document.getElementById('char-name').value.trim();
+  const ready = origin && align && name.length > 0;
+  const btn = document.getElementById('setup-next-btn');
+  btn.disabled = !ready;
+  // update progress
+  let count = 0;
+  if (origin) count++;
+  if (align) count++;
+  if (name) count++;
+  document.querySelector('#setup-screen .progress-bar').style.width = `${(count/3)*100}%`;
+};
+
+window.startGame = function() {
+  charName = document.getElementById('char-name').value.trim();
+  // apply origin bonus
+  if (origin === 'rural') { survive += 1; }
+  else { fame += 1; }
+  // apply align bonus
+  if (align === 'reform') { loyalty += 2; }
+  else { study += 1; fame += 1; }
+  currentScene = 0;
+  showScene(currentScene);
+  showScreen('story-screen');
+};
+
+/* ─── STORY ─── */
+function showScene(idx) {
+  const s = SCENES[idx];
+  document.getElementById('story-year').textContent = s.year;
+  document.getElementById('story-chapter').textContent = s.chapter;
+  document.getElementById('scene-eyebrow').textContent = s.eyebrow;
+  document.getElementById('scene-title').textContent = s.title;
+  document.getElementById('scene-text').textContent = s.text;
+  document.getElementById('story-progress').style.width = `${((idx) / SCENES.length) * 100}%`;
+  updateStats();
+
+  // NPC
+  const npcArea = document.getElementById('scene-npc-area');
+  if (s.npc) {
+    npcArea.innerHTML = `
+      <div class="scene-npc">
+        <div class="scene-npc-avatar">${s.npc.icon}</div>
+        <div>
+          <div class="scene-npc-name">${s.npc.name}</div>
+          <div class="scene-npc-text">${s.npc.text}</div>
+        </div>
+      </div>`;
+  } else { npcArea.innerHTML = ''; }
+
+  // Choices
+  const area = document.getElementById('choices-area');
+  area.innerHTML = s.choices.map((c, i) => {
+    const hints = Object.entries(c.stat || {}).map(([k,v]) => {
+      const labels = {fame:'명망', loyalty:'의리', study:'학문', survive:'생존'};
+      return `<span class="${v>0?'pos':'neg'}">${labels[k]}${v>0?'+':''}{v}</span>`;
+    }).join('');
+    const hintStr = Object.entries(c.stat || {}).map(([k,v]) => {
+      const labels = {fame:'명망', loyalty:'의리', study:'학문', survive:'생존'};
+      return `<span class="${v>0?'pos':'neg'}">${labels[k]} ${v>0?'+':''}${v}</span>`;
+    }).join(' ');
+    return `
+      <button class="choice-btn" onclick="applyChoice(${idx}, ${i})">
+        <span class="choice-num">${['一','二','三'][i]}</span>${c.text}
+        <div class="stat-hint">${hintStr}</div>
+      </button>`;
+  }).join('');
+}
+
+window.applyChoice = function(sceneIdx, choiceIdx) {
+  const s = SCENES[sceneIdx];
+  const c = s.choices[choiceIdx];
+
+  // Apply stats
+  for (const [k, v] of Object.entries(c.stat || {})) {
+    if (k === 'fame')    fame    = Math.max(0, Math.min(15, fame + v));
+    if (k === 'loyalty') loyalty = Math.max(0, Math.min(15, loyalty + v));
+    if (k === 'study')   study   = Math.max(0, Math.min(15, study + v));
+    if (k === 'survive') survive = Math.max(0, Math.min(15, survive + v));
+  }
+
+  // Log
+  choiceLog.push({
+    scene: s.title,
+    year: s.year,
+    choice: c.text,
+    log: c.log,
+    statChange: c.stat
+  });
+
+  // Ending?
+  if (c.ending) {
+    let finalEnding = c.ending;
+    if (survive <= 2) finalEnding = 'martyr';
+    endingKey = finalEnding;
+    showCredits();
+    return;
+  }
+
+  // Next scene
+  const nextIdx = sceneIdx + 1;
+  if (nextIdx < SCENES.length) {
+    currentScene = nextIdx;
+    showScene(nextIdx);
+    window.scrollTo(0, 0);
+  }
+};
+
+function updateStats() {
+  document.getElementById('s-fame').textContent = fame;
+  document.getElementById('s-loyalty').textContent = loyalty;
+  document.getElementById('s-study').textContent = study;
+  const sv = document.getElementById('s-survive');
+  sv.textContent = survive;
+  sv.className = 'stat-val' + (survive <= 3 ? ' danger' : '');
+}
+
+/* ─── CREDITS ─── */
+function showCredits() {
+  const ending = ENDINGS[endingKey];
+  document.getElementById('credits-bg-char').textContent = ending.char;
+
+  // Build scroll content
+  const choicesHtml = choiceLog.map(cl => `
+    <div class="credits-choice-item">
+      <div class="credits-choice-scene">${cl.year} · ${cl.scene}</div>
+      <div class="credits-choice-text">${cl.choice}</div>
+    </div>`).join('');
+
+  const originLabel = origin === 'rural' ? '향리 출신' : '중소귀족 출신';
+  const alignLabel = align === 'reform' ? '온건개혁파' : '급진혁명파';
+
+  document.getElementById('credits-wrapper').innerHTML = `
+    <div class="credits-label">亂世의 士大夫</div>
+    <div class="credits-title-big">${charName}의 이야기</div>
+    <div class="credits-line"></div>
+
+    <div class="credits-section">
+      <div class="credits-section-title">▪ 나의 인물</div>
+      <div class="credits-text">
+        ${studentName ? studentName + ' (' + studentId + ')' : '체험자'}<br>
+        호(號): ${charName}<br>
+        ${originLabel} · ${alignLabel}
+      </div>
+    </div>
+
+    <div class="credits-section">
+      <div class="credits-section-title">▪ 나의 선택들</div>
+      ${choicesHtml}
+    </div>
+
+    <div class="credits-section">
+      <div class="credits-section-title">▪ 최종 스탯</div>
+      <div class="credits-stat-row">
+        <div class="credits-stat">
+          <div class="credits-stat-num">${fame}</div>
+          <div class="credits-stat-lbl">명망</div>
+        </div>
+        <div class="credits-stat">
+          <div class="credits-stat-num">${loyalty}</div>
+          <div class="credits-stat-lbl">의리</div>
+        </div>
+        <div class="credits-stat">
+          <div class="credits-stat-num">${study}</div>
+          <div class="credits-stat-lbl">학문</div>
+        </div>
+        <div class="credits-stat">
+          <div class="credits-stat-num">${survive}</div>
+          <div class="credits-stat-lbl">생존</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="credits-ending-reveal">
+      <div class="credits-label">— 그대의 결말 —</div>
+      <div class="credits-ending-name">${ending.title}</div>
+      <div class="credits-line"></div>
+      <div class="credits-ending-desc">${ending.quote}</div>
+      <div style="margin-top:16px; font-size:12px; color:rgba(196,168,122,0.6); line-height:1.8;">${ending.history}</div>
+    </div>
+
+    <div style="height:40vh;"></div>
+  `;
+
+  showScreen('credits-screen');
+
+  // After credits animation ends, go to reflection
+  setTimeout(() => {
+    goReflection();
+  }, 23000);
+}
+
+window.skipCredits = function() {
+  goReflection();
+};
+
+/* ─── REFLECTION ─── */
+function goReflection() {
+  const ending = ENDINGS[endingKey];
+  document.getElementById('ref-badge').textContent = '나의 결말';
+  document.getElementById('ref-ending-title').textContent = ending.title;
+  document.getElementById('ref-ending-quote').textContent = ending.quote;
+  showScreen('reflection-screen');
+}
+
+window.updateCharCount = function() {
+  const len = document.getElementById('reflection-text').value.length;
+  document.getElementById('char-count').textContent = len;
+};
+
+window.submitReflection = async function() {
+  const text = document.getElementById('reflection-text').value.trim();
+  if (text.length < 10) {
+    toast('10자 이상 작성해주세요.', 'err'); return;
+  }
+  await saveResult(text);
+  document.getElementById('reflection-form-area').style.display = 'none';
+  document.getElementById('reflection-done').style.display = 'block';
+  toast('소감이 제출되었습니다.', 'ok');
+};
+
+window.skipReflection = async function() {
+  await saveResult('');
+  document.getElementById('reflection-form-area').style.display = 'none';
+  document.getElementById('reflection-done').style.display = 'block';
+};
+
+async function saveResult(reflectionText) {
+  if (studentId === 'GUEST') return;
+  try {
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const timeStr = `${now.getFullYear()}.${pad(now.getMonth()+1)}.${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+    const payload = {
+      studentId,
+      studentName,
+      charName,
+      origin: origin === 'rural' ? '향리 출신' : '중소귀족 출신',
+      align: align === 'reform' ? '온건개혁파' : '급진혁명파',
+      ending: endingKey,
+      endingTitle: ENDINGS[endingKey].title,
+      finalStats: { fame, loyalty, study, survive },
+      choiceLog,
+      reflection: reflectionText,
+      timestamp: Date.now(),
+      time: timeStr
+    };
+
+    const resultRef = push(ref(db, 'goryeo_results'));
+    await set(resultRef, payload);
+  } catch(e) {
+    console.error('저장 오류:', e);
+  }
+}
+
+/* ─── UTILS ─── */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+let toastTimer;
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (type ? ` ${type}` : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.className = '', 2600);
+}
+</script>
+</body>
+</html>
