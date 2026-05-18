@@ -250,7 +250,7 @@
       border-bottom: 1px solid var(--border);
       padding: 0 16px;
       position: sticky;
-      top: var(--topbar-h);
+      top: var(--topbar-h); /* 데스크톱: 상단바 바로 아래 */
       z-index: 150;
       overflow-x: auto;
       gap: 0;
@@ -821,16 +821,56 @@
     .edit-modal-field input:focus { border-color: #555; }
     .edit-modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
 
+    /* ── 상단 메인 탭 (모바일) ── */
+    .main-tab-bar {
+      display: none; /* 모바일에서만 표시 */
+      background: #000;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+      flex-shrink: 0;
+      position: sticky;
+      top: var(--topbar-h);
+      z-index: 190;
+    }
+    .main-tab-bar-inner {
+      display: flex;
+      min-width: max-content;
+      padding: 0 4px;
+    }
+    .main-tab-btn {
+      padding: 12px 16px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      border: none;
+      background: none;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      font-family: 'Pretendard', sans-serif;
+      transition: all 0.12s;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      margin-bottom: -1px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .main-tab-btn:hover { color: var(--text); }
+    .main-tab-btn.active { color: #fff; border-bottom-color: #fff; }
+
     /* ── 반응형 모바일 ── */
     @media (max-width: 700px) {
       .sidebar { display: none; }
-      .bottom-tab-bar { display: block; }
-      .admin-body { padding-bottom: var(--bottombar-h); overflow: hidden; }
+      .bottom-tab-bar { display: none !important; }
+      .main-tab-bar { display: block; }
+      .admin-body { overflow: hidden; }
       .content-area {
-        height: calc(100vh - var(--topbar-h) - var(--bottombar-h));
+        /* 상단바 + 메인탭바(44px) 높이 제외 */
+        height: calc(100vh - var(--topbar-h) - 44px);
         overflow-y: auto; overflow-x: hidden;
       }
-      .sub-tab-bar { top: var(--topbar-h); }
+      /* sub-tab-bar는 메인탭바(44px) + 상단바 아래에 sticky */
+      .sub-tab-bar { top: calc(var(--topbar-h) + 44px); }
       .filter-bar { flex-direction: column; }
       .filter-bar input,
       .filter-bar select { width: 100%; max-width: 100%; font-size: 14px; }
@@ -873,6 +913,16 @@
     <div class="topbar-right">
       <a href="student2026.html">학생 화면</a>
       <button class="logout-btn" onclick="logoutAdmin()">로그아웃</button>
+    </div>
+  </div>
+
+  <!-- 모바일 상단 메인탭바 -->
+  <div class="main-tab-bar">
+    <div class="main-tab-bar-inner">
+      <button class="main-tab-btn active" id="mtab-feed"  onclick="showPanel('feed')">📋 FEED</button>
+      <button class="main-tab-btn"        id="mtab-class" onclick="showPanel('class')">👥 CLASS</button>
+      <button class="main-tab-btn"        id="mtab-stats" onclick="showPanel('stats')">📊 통계</button>
+      <button class="main-tab-btn"        id="mtab-tools" onclick="showPanel('tools')">🔧 도구</button>
     </div>
   </div>
 
@@ -1057,23 +1107,6 @@
     </main>
   </div>
 
-  <!-- 하단 탭바 (모바일) -->
-  <div class="bottom-tab-bar">
-    <div class="bottom-tabs">
-      <button class="bottom-tab active" id="btab-feed" onclick="showPanel('feed')">
-        <span class="tab-icon">📋</span><span>FEED</span>
-      </button>
-      <button class="bottom-tab" id="btab-class" onclick="showPanel('class')">
-        <span class="tab-icon">👥</span><span>CLASS</span>
-      </button>
-      <button class="bottom-tab" id="btab-stats" onclick="showPanel('stats')">
-        <span class="tab-icon">📊</span><span>통계</span>
-      </button>
-      <button class="bottom-tab" id="btab-tools" onclick="showPanel('tools')">
-        <span class="tab-icon">🔧</span><span>도구</span>
-      </button>
-    </div>
-  </div>
 </div>
 
 <!-- 활동 미흡 모달 (바텀 시트) -->
@@ -1271,14 +1304,16 @@
     document.querySelectorAll('.panel').forEach(el => el.classList.remove('active'));
     document.getElementById(`panel-${name}`)?.classList.add('active');
 
+    // 데스크톱 사이드바
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     const navLabels = { feed:'FEED', class:'CLASS', stats:'통계', tools:'도구' };
     [...document.querySelectorAll('.nav-item')].find(el =>
       el.textContent.trim().includes(navLabels[name])
     )?.classList.add('active');
 
-    document.querySelectorAll('.bottom-tab').forEach(el => el.classList.remove('active'));
-    document.getElementById(`btab-${name}`)?.classList.add('active');
+    // 모바일 상단 메인탭
+    document.querySelectorAll('.main-tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(`mtab-${name}`)?.classList.add('active');
 
     document.getElementById('contentArea')?.scrollTo(0, 0);
   };
