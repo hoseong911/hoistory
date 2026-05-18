@@ -32,36 +32,25 @@
     .login-logo .logo-text { font-size: 2rem; font-weight: 800; color: var(--accent); letter-spacing: -0.03em; }
     .login-logo .logo-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
 
-    /* 붙어있는 입력 그룹 */
-    .input-group {
+    /* 각 입력 칸 분리 — 근무기관 select와 동일한 스타일 적용 */
+    .input-single {
       border: 1px solid var(--border-dark); border-radius: 10px;
       overflow: hidden; margin-bottom: 10px; background: #fff;
+      position: relative; transition: border-color 0.15s;
     }
-    .input-group-row {
-      position: relative;
-      border-bottom: 1px solid var(--border);
-    }
-    .input-group-row:last-child { border-bottom: none; }
-    .input-group-row input {
+    .input-single:focus-within { border-color: var(--accent); }
+    .input-single input {
       width: 100%; padding: 13px 38px 13px 14px;
       border: none; outline: none;
       font-size: 15px; font-family: 'Pretendard', sans-serif;
-      color: var(--text); background: transparent;
+      color: var(--text); background: #fff;
     }
-    .input-group-row input::placeholder { color: var(--muted); }
-    .input-group-row input:disabled { background: #f8f8f8; color: var(--muted); }
+    .input-single input::placeholder { color: var(--muted); }
+    .input-single input:disabled { background: #fff; color: var(--muted); }
     .input-status {
       position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
       font-size: 14px; pointer-events: none;
     }
-    /* 닉네임은 그룹 안 마지막 일반 input */
-    .input-group input.nick-input {
-      width: 100%; padding: 13px 14px;
-      border: none; outline: none;
-      font-size: 15px; font-family: 'Pretendard', sans-serif;
-      color: var(--text); background: transparent;
-    }
-    .input-group input.nick-input::placeholder { color: var(--muted); }
 
     .input-field {
       width: 100%; padding: 13px 14px;
@@ -110,7 +99,6 @@
       letter-spacing: -0.02em; flex-shrink: 0;
     }
 
-    /* 닉네임만 표시하는 프로필 버튼 */
     .profile-btn {
       background: none; border: none; cursor: pointer;
       font-family: 'Pretendard', sans-serif; padding: 0;
@@ -123,7 +111,6 @@
       max-width: 140px;
     }
 
-    /* 탭바 — 한 화면에 균등 */
     .tab-bar { display: flex; border-top: 1px solid var(--border); }
     .tab-item {
       flex: 1; padding: 9px 2px; font-size: 11px; font-weight: 500;
@@ -134,7 +121,6 @@
     }
     .tab-item.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
 
-    /* 정렬 + PICK 버튼 */
     .sort-bar {
       display: flex; justify-content: flex-end; align-items: center;
       padding: 8px 14px; background: #fff; border-bottom: 1px solid var(--border); gap: 6px;
@@ -155,7 +141,6 @@
     }
     .pick-filter-btn.active { background: #fff8e1; color: #b8860b; border-color: #ffe082; }
 
-    /* 글 작성 */
     .post-composer {
       background: #fff; padding: 14px 16px; border-bottom: 6px solid var(--surface);
     }
@@ -343,22 +328,22 @@
       <div class="logo-sub">고려 관료 익명 커뮤니티</div>
     </div>
 
-    <!-- 학번 + 이름 + 닉네임 — 붙여서 표시 -->
-    <div class="input-group">
-      <div class="input-group-row">
-        <input type="text" id="joinId" placeholder="학번 (5자리)" maxlength="5"
-          inputmode="numeric" autocomplete="off" oninput="onIdInput(this)">
-        <span class="input-status" id="idStatus"></span>
-      </div>
-      <div class="input-group-row">
-        <input type="text" id="joinName" placeholder="이름 (실명)" autocomplete="off"
-          oninput="onNameInput(this)" disabled>
-        <span class="input-status" id="nameStatus"></span>
-      </div>
-      <div class="input-group-row" style="border-bottom:none;">
-        <input type="text" id="joinNick" placeholder="닉네임 (영문/숫자/_)"
-          oninput="validateNick(this)" autocomplete="off">
-      </div>
+    <!-- 학번 / 이름 / 닉네임 — 각각 분리, 근무기관과 동일한 간격 -->
+    <div class="input-single">
+      <input type="text" id="joinId" placeholder="학번 (5자리)" maxlength="5"
+        inputmode="numeric" autocomplete="off" oninput="onIdInput(this)">
+      <span class="input-status" id="idStatus"></span>
+    </div>
+
+    <div class="input-single">
+      <input type="text" id="joinName" placeholder="이름 (실명)" autocomplete="off"
+        oninput="onNameInput(this)" disabled>
+      <span class="input-status" id="nameStatus"></span>
+    </div>
+
+    <div class="input-single">
+      <input type="text" id="joinNick" placeholder="닉네임 (영문/숫자/_)"
+        oninput="validateNick(this)" autocomplete="off">
     </div>
 
     <select class="input-field" id="joinOrg">
@@ -792,7 +777,8 @@
     const feed = document.getElementById('feed');
     feed.innerHTML = '';
 
-    let posts = allPostsCache.filter(p => p.studentId !== '00000');
+    // 학번 00000 필터 제거 — 모든 글 표시
+    let posts = allPostsCache.filter(p => p && p.id);
 
     if (showPickOnly) {
       posts = posts.filter(p => p.adminPick === true);
