@@ -308,7 +308,7 @@
             <!-- LECTURE -->
             <div id="atab-lecture">
                 <div class="select-row">
-                    <select id="answer-lecture-select" onchange="saveUIState(); renderAnswerLecture()">
+                    <select id="answer-lecture-select" onchange="onSelectChange('answer-lecture-select'); renderAnswerLecture()">
                         <option value="">강의를 선택하세요</option>
                     </select>
                 </div>
@@ -328,7 +328,7 @@
             <!-- CLASS -->
             <div id="atab-class" class="hidden">
                 <div class="select-row">
-                    <select id="class-select" onchange="saveUIState(); renderAnswerClass()">
+                    <select id="class-select" onchange="onSelectChange('class-select'); renderAnswerClass()">
                         <option value="1">1반</option>
                         <option value="2">2반</option>
                         <option value="3">3반</option>
@@ -338,7 +338,7 @@
                     </select>
                 </div>
                 <div class="select-row">
-                    <select id="class-lecture-select" onchange="saveUIState(); renderAnswerClass()">
+                    <select id="class-lecture-select" onchange="onSelectChange('class-lecture-select'); renderAnswerClass()">
                         <option value="">강의를 선택하세요</option>
                     </select>
                 </div>
@@ -350,7 +350,7 @@
             <!-- PICK -->
             <div id="atab-pick" class="hidden">
                 <div class="select-row">
-                    <select id="pick-lecture-select" onchange="saveUIState(); renderPickTab()">
+                    <select id="pick-lecture-select" onchange="onSelectChange('pick-lecture-select'); renderPickTab()">
                         <option value="">강의를 선택하세요</option>
                     </select>
                 </div>
@@ -450,9 +450,11 @@
     const db   = firebase.firestore();
     const rtdb = firebase.database();
 
-    /* ── 상태 ── */
+    /* ════════════════════════════════════════
+       상태
+    ════════════════════════════════════════ */
     const SESSION_KEY  = 'sc_admin_session';
-    const UI_STATE_KEY = 'sc_admin_ui_state'; // ★ 탭 상태 저장 키
+    const UI_STATE_KEY = 'sc_admin_ui_state';
 
     let adminPassword    = null;
     let activeLectures   = [];
@@ -463,80 +465,121 @@
     let studentsReady    = false;
 
     let answerSort   = 'recent';
-    let activityData = { absent: [], short: [], cheat: [] };
+    let activityData = { absent:[], short:[], cheat:[] };
     let activityTab  = 'absent';
 
-    let lectureUnsub    = null;
-    let submissionUnsub = null;
-    let studentsCallback = null; // ★ RTDB 콜백을 변수로 보관
+    let lectureUnsub     = null;
+    let submissionUnsub  = null;
+    let studentsCallback = null;
 
-    /* ══════════════════════════════════════
-       ★ UI 상태 저장 / 복원
-    ══════════════════════════════════════ */
+    /*
+     * ★★★ 핵심 설계 ★★★
+     * selectState: 셀렉트 선택값을 JS 변수로 관리
+     * populateAllSelects()가 DOM을 재생성해도 값이 절대 날아가지 않음
+     * onSnapshot 업데이트 후 항상 이 값으로 셀렉트를 복원
+     */
+    const selectState = {
+        'answer-lecture-select': '',
+        'class-select':          '1',
+        'class-lecture-select':  '',
+        'pick-lecture-select':   '',
+        'setting-export-select': '',
+        'setting-reset-select':  ''
+    };
+
+    /* 사용자가 셀렉트를 바꿀 때 호출 */
+    function onSelectChange(id) {
+        selectState[id] = document.getElementById(id).value;
+        saveUIState();
+    }
+
+    /* ════════════════════════════════════════
+       세션 / 비밀번호
+    ════════════════════════════════════════ */
+    function saveSession()  { sessionStorage.setItem(SESSION_KEY, '1'); }
+    function clearSession() { sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(UI_STATE_KEY); }
+    function hasSession()   { return sessionStorage.getItem(SESSION_KEY) === '1'; }
+
+    async function loadPassword() {
+        try {
+            const snap = await db.collection('settings').doc('admin').get();
+            adminPassword = (snap.exists && snap.data().password) ? snap.data().password : 'ghtjd12!@';
+        } catch(e) { adminPassword = 'ghtjd12!@'; }
+    }
+
+    /* ════════════════════════════════════════
+       UI 상태 저장 / 복원
+    ════════════════════════════════════════ */
     function saveUIState() {
         const state = {
-            mainTab:           getCurrentMainTab(),
-            qSubTab:           getCurrentQSubTab(),
-            aSubTab:           getCurrentASubTab(),
-            answerLectureId:   document.getElementById('answer-lecture-select').value,
-            classNum:          document.getElementById('class-select').value,
-            classLectureId:    document.getElementById('class-lecture-select').value,
-            pickLectureId:     document.getElementById('pick-lecture-select').value,
+            mainTab: getCurrentMainTab(),
+            qSubTab: getCurrentQSubTab(),
+            aSubTab: getCurrentASubTab(),
+            selectState: { ...selectState }
         };
         sessionStorage.setItem(UI_STATE_KEY, JSON.stringify(state));
     }
 
     function loadUIState() {
-        try {
-            const raw = sessionStorage.getItem(UI_STATE_KEY);
-            return raw ? JSON.parse(raw) : null;
-        } catch(e) { return null; }
+        try { const r = sessionStorage.getItem(UI_STATE_KEY); return r ? JSON.parse(r) : null; }
+        catch(e) { return null; }
     }
 
     function getCurrentMainTab() {
-        for (const t of ['question','answer','archive','setting']) {
+        for (const t of ['question','answer','archive','setting'])
             if (document.getElementById(`tab-btn-${t}`).classList.contains('active')) return t;
-        }
         return 'question';
     }
     function getCurrentQSubTab() {
         return document.getElementById('qtab-btn-new').classList.contains('active') ? 'new' : 'list';
     }
     function getCurrentASubTab() {
-        for (const t of ['lecture','class','pick']) {
+        for (const t of ['lecture','class','pick'])
             if (document.getElementById(`atab-btn-${t}`).classList.contains('active')) return t;
-        }
         return 'lecture';
     }
 
-    /* ── 세션 ── */
-    function saveSession()  { sessionStorage.setItem(SESSION_KEY, '1'); }
-    function clearSession() { sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(UI_STATE_KEY); }
-    function hasSession()   { return sessionStorage.getItem(SESSION_KEY) === '1'; }
-
-    /* ── 비밀번호 로드 ── */
-    async function loadPassword() {
-        try {
-            const snap = await db.collection('settings').doc('admin').get();
-            if (snap.exists && snap.data().password) {
-                adminPassword = snap.data().password;
-            } else {
-                adminPassword = 'ghtjd12!@';
-            }
-        } catch(e) {
-            adminPassword = 'ghtjd12!@';
-        }
+    /* ════════════════════════════════════════
+       셀렉트 채우기 — selectState로 값 보존 보장
+       onSnapshot이 몇 번 호출돼도 선택값이 유지됨
+    ════════════════════════════════════════ */
+    function populateAllSelects() {
+        const ids = ['answer-lecture-select','class-lecture-select','pick-lecture-select',
+                     'setting-export-select','setting-reset-select'];
+        ids.forEach(id => {
+            const sel = document.getElementById(id);
+            sel.innerHTML = '<option value="">강의를 선택하세요</option>';
+            activeLectures.forEach(l => {
+                const opt = document.createElement('option');
+                opt.value = l.docId; opt.textContent = l.title;
+                sel.appendChild(opt);
+            });
+            /* selectState 기준 복원 — 강의가 실제로 존재할 때만 */
+            const saved = selectState[id];
+            if (saved && activeLectures.some(l => l.docId === saved)) sel.value = saved;
+        });
+        /* class-select는 강의 목록과 무관 */
+        document.getElementById('class-select').value = selectState['class-select'] || '1';
     }
 
+    /* ════════════════════════════════════════
+       로드 / 로그인
+    ════════════════════════════════════════ */
     window.addEventListener('load', async () => {
         document.getElementById('admin-pw').addEventListener('keydown', e => {
             if (e.key === 'Enter') tryLogin();
         });
         await loadPassword();
+
         if (hasSession()) {
+            /* 저장된 UI 상태를 selectState에 먼저 복원 */
+            const saved = loadUIState();
+            if (saved) {
+                if (saved.selectState) Object.assign(selectState, saved.selectState);
+                applyTabState(saved); /* 탭 UI 즉시 적용 */
+            }
             hide('screen-login'); show('screen-admin');
-            await startListeners();
-            restoreUIState(); // ★ 데이터 로드 후 탭 상태 복원
+            startListeners(); /* await 없음 — 데이터 오면 알아서 렌더 */
         }
     });
 
@@ -546,8 +589,8 @@
         if (pw === adminPassword) {
             saveSession();
             hide('screen-login'); show('screen-admin');
-            await startListeners();
-            switchTab('question'); // 첫 로그인은 항상 question
+            startListeners();
+            switchTab('question');
         } else {
             show('pw-error');
             document.getElementById('admin-pw').value = '';
@@ -558,43 +601,46 @@
     function exitAdmin() {
         clearSession();
         stopListeners();
+        Object.keys(selectState).forEach(k => { selectState[k] = k === 'class-select' ? '1' : ''; });
         hide('screen-admin'); show('screen-login');
         document.getElementById('admin-pw').value = '';
         hide('pw-error');
     }
 
-    /* ══════════════════════════════════════
-       ★ 리스너 — onSnapshot만 사용 (get() 제거)
-    ══════════════════════════════════════ */
+    /* ════════════════════════════════════════
+       리스너 — onSnapshot만, Promise 패턴 제거
+       각 스냅샷이 독립적으로 도착하는 즉시 렌더
+    ════════════════════════════════════════ */
     function startListeners() {
-        return new Promise(resolve => {
-            let lecDone = false, subDone = false;
+        if (lectureUnsub)    { lectureUnsub();    lectureUnsub    = null; }
+        if (submissionUnsub) { submissionUnsub(); submissionUnsub = null; }
 
-            // ① 강의 onSnapshot (첫 콜백에서 즉시 현재 데이터 옴)
-            lectureUnsub = db.collection("lectures").orderBy("createdAt","asc").onSnapshot(snap => {
+        /* ① 강의 */
+        lectureUnsub = db.collection("lectures").orderBy("createdAt","asc")
+            .onSnapshot(snap => {
                 activeLectures = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
                 lecturesReady  = true;
+                populateAllSelects(); /* selectState로 값 자동 복원 */
                 renderLectureAdmin();
-                populateAllSelects();
                 renderArchiveAdmin();
                 renderAnswerLecture();
                 renderAnswerClass();
                 renderPickTab();
-                if (!lecDone) { lecDone = true; if (subDone) resolve(); }
-            }, err => { if (!lecDone) { lecDone = true; if (subDone) resolve(); } });
+            }, err => console.warn('lectures 오류:', err));
 
-            // ② 제출 onSnapshot
-            submissionUnsub = db.collection("submissions").orderBy("createdAt","desc").onSnapshot(snap => {
+        /* ② 제출 */
+        submissionUnsub = db.collection("submissions").orderBy("createdAt","desc")
+            .onSnapshot(snap => {
                 allSubmissions   = snap.docs.map(d => ({ subId: d.id, ...d.data() }));
                 submissionsReady = true;
                 renderLectureAdmin();
                 renderAnswerLecture();
                 renderAnswerClass();
                 renderPickTab();
-                if (!subDone) { subDone = true; if (lecDone) resolve(); }
-            }, err => { if (!subDone) { subDone = true; if (lecDone) resolve(); } });
+            }, err => console.warn('submissions 오류:', err));
 
-            // ③ RTDB students — 콜백을 변수에 보관해야 off() 가능
+        /* ③ RTDB 학생 명단 — 중복 등록 방지 */
+        if (!studentsCallback) {
             studentsCallback = snap => {
                 const data = snap.val();
                 allStudents = [];
@@ -605,106 +651,61 @@
                         if (sid && sname) allStudents.push({ studentId: sid, studentName: sname });
                     });
                 }
-                allStudents.sort((a, b) => a.studentId.localeCompare(b.studentId));
+                allStudents.sort((a,b) => a.studentId.localeCompare(b.studentId));
                 studentsReady = true;
             };
             rtdb.ref('students').on('value', studentsCallback);
-        });
+        }
     }
 
     function stopListeners() {
         if (lectureUnsub)    { lectureUnsub();    lectureUnsub    = null; }
         if (submissionUnsub) { submissionUnsub(); submissionUnsub = null; }
-        // ★ 저장된 콜백 함수로 정확히 해제
         if (studentsCallback) { rtdb.ref('students').off('value', studentsCallback); studentsCallback = null; }
         lecturesReady = submissionsReady = studentsReady = false;
         activeLectures = allSubmissions = allStudents = [];
     }
 
-    /* ══════════════════════════════════════
-       ★ 탭 상태 복원
-    ══════════════════════════════════════ */
-    function restoreUIState() {
-        const state = loadUIState();
-        if (!state) { switchTab('question'); return; }
-
-        // 메인 탭
-        switchTab(state.mainTab || 'question');
-
-        // QUESTION 서브탭
-        if (state.mainTab === 'question') {
-            switchQTab(state.qSubTab || 'list');
-        }
-
-        // ANSWER 서브탭 & 셀렉트 값
-        if (state.mainTab === 'answer') {
-            switchATab(state.aSubTab || 'lecture');
-
-            if (state.answerLectureId) {
-                const sel = document.getElementById('answer-lecture-select');
-                if (sel) sel.value = state.answerLectureId;
-                renderAnswerLecture();
-            }
-            if (state.classNum) {
-                const sel = document.getElementById('class-select');
-                if (sel) sel.value = state.classNum;
-            }
-            if (state.classLectureId) {
-                const sel = document.getElementById('class-lecture-select');
-                if (sel) sel.value = state.classLectureId;
-                renderAnswerClass();
-            }
-            if (state.pickLectureId) {
-                const sel = document.getElementById('pick-lecture-select');
-                if (sel) sel.value = state.pickLectureId;
-                renderPickTab();
-            }
-        }
+    /* ════════════════════════════════════════
+       탭 상태 적용 (데이터 없이도 즉시 실행)
+    ════════════════════════════════════════ */
+    function applyTabState(state) {
+        if (!state) return;
+        switchTabSilent(state.mainTab || 'question');
+        if (state.mainTab === 'question') switchQTabSilent(state.qSubTab || 'list');
+        if (state.mainTab === 'answer')   switchATabSilent(state.aSubTab || 'lecture');
     }
 
-    /* ── 학번 → 반 ── */
-    function classNumFromId(sid) {
-        if (!sid || sid.length < 3) return null;
-        const c = parseInt(String(sid).slice(1, 3), 10);
-        return isNaN(c) ? null : c;
-    }
-
-    /* ── 탭 전환 ── */
-    function switchTab(tab) {
+    /* Silent 버전 — saveUIState 호출 없음 (복원 시 사용) */
+    function switchTabSilent(tab) {
         ['question','answer','archive','setting'].forEach(t => {
             document.getElementById(`tab-btn-${t}`).classList.toggle('active', t === tab);
             document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tab);
         });
-        saveUIState(); // ★ 탭 바꿀 때마다 저장
     }
-    function switchQTab(tab) {
+    function switchQTabSilent(tab) {
         ['list','new'].forEach(t => {
             document.getElementById(`qtab-btn-${t}`).classList.toggle('active', t === tab);
             document.getElementById(`qtab-${t}`).classList.toggle('hidden', t !== tab);
         });
-        if (tab === 'list') renderLectureAdmin();
-        saveUIState();
     }
-    function switchATab(tab) {
+    function switchATabSilent(tab) {
         ['lecture','class','pick'].forEach(t => {
             document.getElementById(`atab-btn-${t}`).classList.toggle('active', t === tab);
             document.getElementById(`atab-${t}`).classList.toggle('hidden', t !== tab);
         });
-        saveUIState();
     }
 
-    /* ── 셀렉트 채우기 ── */
-    function populateAllSelects() {
-        const selects = ['answer-lecture-select','class-lecture-select','pick-lecture-select','setting-export-select','setting-reset-select'];
-        selects.forEach(id => {
-            const sel = document.getElementById(id);
-            const cur = sel.value;
-            sel.innerHTML = `<option value="">강의를 선택하세요</option>`;
-            activeLectures.forEach(l => {
-                sel.innerHTML += `<option value="${l.docId}">${l.title}</option>`;
-            });
-            if (cur && activeLectures.some(l => l.docId === cur)) sel.value = cur;
-        });
+    /* ── 탭 전환 (사용자 클릭용 — saveUIState 포함) ── */
+    function switchTab(tab)  { switchTabSilent(tab);  saveUIState(); }
+    function switchQTab(tab) { switchQTabSilent(tab); if (tab==='list') renderLectureAdmin(); saveUIState(); }
+    function switchATab(tab) { switchATabSilent(tab); saveUIState(); }
+
+    /* 학번 → 반 */
+    function classNumFromId(sid) {
+        if (!sid || sid.length < 3) return null;
+        const c = parseInt(String(sid).slice(1,3), 10);
+        return isNaN(c) ? null : c;
     }
 
     /* ══════════════════════════════════════
@@ -849,129 +850,101 @@
 
     /* ── LECTURE 탭 렌더 ── */
     function renderAnswerLecture() {
-        const lecId   = document.getElementById('answer-lecture-select').value;
+        /* ★ DOM 값 대신 selectState에서 읽음 → onSnapshot 재렌더 시 값 유지 */
+        const lecId   = selectState['answer-lecture-select'];
         const titleEl = document.getElementById('answer-lecture-title');
         const statsEl = document.getElementById('answer-lecture-stats');
         const listEl  = document.getElementById('answer-lecture-list');
         const sortEl  = document.getElementById('answer-sort-wrap');
 
         if (!lecId) {
-            titleEl.classList.add('hidden');
-            statsEl.classList.add('hidden');
-            sortEl.classList.add('hidden');
-            listEl.innerHTML = '';
-            return;
+            titleEl.classList.add('hidden'); statsEl.classList.add('hidden');
+            sortEl.classList.add('hidden'); listEl.innerHTML = ''; return;
         }
-
         const lec = activeLectures.find(l => l.docId === lecId);
-        titleEl.textContent = lec ? lec.title : '';
-        titleEl.classList.remove('hidden');
+        if (!lec) { listEl.innerHTML = ''; return; }
+
+        titleEl.textContent = lec.title; titleEl.classList.remove('hidden');
         sortEl.classList.remove('hidden');
 
         if (!submissionsReady) {
-            listEl.innerHTML = `<div class="loading-msg"><div class="spinner"></div><span>불러오는 중…</span></div>`;
-            return;
+            listEl.innerHTML = `<div class="loading-msg"><div class="spinner"></div><span>불러오는 중…</span></div>`; return;
         }
-
         let subs = allSubmissions.filter(s => s.lectureDocId === lecId);
-        const total = subs.length;
-        const totalStudents = allStudents.length;
-        const picked = subs.filter(s => s.isPicked).length;
-
         statsEl.classList.remove('hidden');
         statsEl.innerHTML = `
-            <div class="stat-chip"><span class="num">${total} / ${totalStudents}</span>제출 / 총인원</div>
-            <div class="stat-chip"><span class="num">${picked}</span>PICK</div>`;
-
+            <div class="stat-chip"><span class="num">${subs.length} / ${allStudents.length}</span>제출 / 총인원</div>
+            <div class="stat-chip"><span class="num">${subs.filter(s=>s.isPicked).length}</span>PICK</div>`;
         subs = applySort(subs);
-        if (!subs.length) { listEl.innerHTML = '<p class="empty-msg">제출된 답변이 없습니다.</p>'; return; }
-        listEl.innerHTML = subs.map(d => buildAnswerCard(d, false)).join('');
+        listEl.innerHTML = subs.length ? subs.map(d => buildAnswerCard(d,false)).join('') : '<p class="empty-msg">제출된 답변이 없습니다.</p>';
     }
 
     /* ── CLASS 탭 렌더 ── */
     function renderAnswerClass() {
-        const cls     = document.getElementById('class-select').value;
-        const lecId   = document.getElementById('class-lecture-select').value;
+        /* ★ DOM 값 대신 selectState에서 읽음 */
+        const cls     = selectState['class-select'] || '1';
+        const lecId   = selectState['class-lecture-select'];
         const titleEl = document.getElementById('class-lecture-title');
         const statsEl = document.getElementById('class-stats');
         const listEl  = document.getElementById('class-answer-list');
 
         if (!lecId) {
-            titleEl.classList.add('hidden');
-            statsEl.classList.add('hidden');
-            listEl.innerHTML = '';
-            return;
+            titleEl.classList.add('hidden'); statsEl.classList.add('hidden'); listEl.innerHTML = ''; return;
         }
-
         const lec = activeLectures.find(l => l.docId === lecId);
-        titleEl.textContent = lec ? lec.title : '';
-        titleEl.classList.remove('hidden');
+        if (!lec) { listEl.innerHTML = ''; return; }
+
+        titleEl.textContent = lec.title; titleEl.classList.remove('hidden');
 
         if (!submissionsReady) {
-            listEl.innerHTML = `<div class="loading-msg"><div class="spinner"></div><span>불러오는 중…</span></div>`;
-            return;
+            listEl.innerHTML = `<div class="loading-msg"><div class="spinner"></div><span>불러오는 중…</span></div>`; return;
         }
+        const clsNum        = parseInt(cls, 10);
+        const classStudents = studentsReady ? allStudents.filter(s => classNumFromId(s.studentId) === clsNum) : [];
+        const classSubs     = allSubmissions.filter(s => s.lectureDocId === lecId && classNumFromId(s.id) === clsNum);
+        const submittedIds  = new Set(classSubs.map(s => String(s.id)));
 
-        const clsNum = parseInt(cls, 10);
-        const classStudents = studentsReady
-            ? allStudents.filter(s => classNumFromId(s.studentId) === clsNum)
-            : [];
-        const classSubs = allSubmissions.filter(s =>
-            s.lectureDocId === lecId && classNumFromId(s.id) === clsNum
-        );
-        const submittedIds = new Set(classSubs.map(s => String(s.id)));
-        const picked = classSubs.filter(s => s.isPicked).length;
-
-        const absentList = classStudents.filter(s => !submittedIds.has(String(s.studentId)));
-        const shortList  = classSubs.filter(s => (s.textLength || 0) < 50);
-        const cheatList  = classSubs.filter(s => (s.cheatCount || 0) >= 3);
-
-        activityData = { absent: absentList, short: shortList, cheat: cheatList };
+        activityData = {
+            absent: classStudents.filter(s => !submittedIds.has(String(s.studentId))),
+            short:  classSubs.filter(s => (s.textLength||0) < 50),
+            cheat:  classSubs.filter(s => (s.cheatCount||0) >= 3)
+        };
 
         statsEl.classList.remove('hidden');
         statsEl.innerHTML = `
-            <div class="stat-chip"><span class="num">${classSubs.length} / ${classStudents.length || '-'}</span>제출 / ${cls}반 인원</div>
-            <div class="stat-chip"><span class="num">${picked}</span>PICK</div>
+            <div class="stat-chip"><span class="num">${classSubs.length} / ${classStudents.length||'-'}</span>제출 / ${cls}반 인원</div>
+            <div class="stat-chip"><span class="num">${classSubs.filter(s=>s.isPicked).length}</span>PICK</div>
             <div class="stat-chip stat-chip-btn" onclick="openActivityModal()" style="border:1px solid var(--border-gray);">
-                <span class="num" style="font-size:16px; line-height:1.4;">📋</span>활동 미흡
+                <span class="num" style="font-size:16px;line-height:1.4;">📋</span>활동 미흡
             </div>`;
 
-        const sorted = [...classSubs].sort((a, b) =>
-            String(a.id).localeCompare(String(b.id), undefined, { numeric: true })
-        );
-        if (!sorted.length) { listEl.innerHTML = '<p class="empty-msg">이 반의 제출된 답변이 없습니다.</p>'; return; }
-        listEl.innerHTML = sorted.map(d => buildAnswerCard(d, true)).join('');
+        const sorted = [...classSubs].sort((a,b) => String(a.id).localeCompare(String(b.id), undefined, {numeric:true}));
+        listEl.innerHTML = sorted.length ? sorted.map(d => buildAnswerCard(d,true)).join('') : '<p class="empty-msg">이 반의 제출된 답변이 없습니다.</p>';
     }
 
     /* ── PICK 탭 렌더 ── */
     function renderPickTab() {
-        const lecId   = document.getElementById('pick-lecture-select').value;
+        /* ★ DOM 값 대신 selectState에서 읽음 */
+        const lecId   = selectState['pick-lecture-select'];
         const titleEl = document.getElementById('pick-lecture-title');
         const statsEl = document.getElementById('pick-stats');
         const listEl  = document.getElementById('pick-answer-list');
 
         if (!lecId) {
-            titleEl.classList.add('hidden');
-            statsEl.classList.add('hidden');
-            listEl.innerHTML = '';
-            return;
+            titleEl.classList.add('hidden'); statsEl.classList.add('hidden'); listEl.innerHTML = ''; return;
         }
-
         const lec = activeLectures.find(l => l.docId === lecId);
-        titleEl.textContent = lec ? lec.title : '';
-        titleEl.classList.remove('hidden');
+        if (!lec) { listEl.innerHTML = ''; return; }
+
+        titleEl.textContent = lec.title; titleEl.classList.remove('hidden');
 
         if (!submissionsReady) {
-            listEl.innerHTML = `<div class="loading-msg"><div class="spinner"></div><span>불러오는 중…</span></div>`;
-            return;
+            listEl.innerHTML = `<div class="loading-msg"><div class="spinner"></div><span>불러오는 중…</span></div>`; return;
         }
-
         const picked = allSubmissions.filter(s => s.lectureDocId === lecId && s.isPicked);
         statsEl.classList.remove('hidden');
         statsEl.innerHTML = `<div class="stat-chip"><span class="num">${picked.length}</span>PICK된 답변</div>`;
-
-        if (!picked.length) { listEl.innerHTML = '<p class="empty-msg">PICK된 답변이 없습니다.</p>'; return; }
-        listEl.innerHTML = picked.map(d => buildAnswerCard(d, false)).join('');
+        listEl.innerHTML = picked.length ? picked.map(d => buildAnswerCard(d,false)).join('') : '<p class="empty-msg">PICK된 답변이 없습니다.</p>';
     }
 
     /* ══════════════════════════════════════
