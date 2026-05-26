@@ -798,8 +798,9 @@
                 renderPickTab();
             }, err => console.warn('submissions 오류:', err));
 
-        /* ③ RTDB 학생 명단 — localStorage 캐시 + 비동기 업데이트
-           모바일 WebSocket 첫 연결이 느려서 인원수 '-' 표시되는 문제 해결 */
+        /* ③ RTDB 학생 명단 — once + 캐시 + 5초 타임아웃 재시도
+           실시간 구독(on) 대신 1회 조회(once)로 변경 →
+           WebSocket 지속 연결 불필요, 모바일에서 훨씬 빠름 */
 
         /* (1) localStorage 캐시 즉시 로드 — 첫 렌더부터 인원수 표시 */
         try {
@@ -815,38 +816,55 @@
             }
         } catch(e) {}
 
-        /* (2) RTDB에서 최신 데이터 받아 캐시 갱신 */
-        if (!studentsCallback) {
-            studentsCallback = snap => {
-                const data = snap.val();
-                const newList = [];
-                if (data) {
-                    Object.entries(data).forEach(([key, val]) => {
-                        const sid   = String(val.studentId || key);
-                        const sname = val.name || val.studentName || val.realName || '';
-                        if (sid && sname) newList.push({ studentId: sid, studentName: sname });
-                    });
+        /* (2) once로 1회 조회 — 5초 타임아웃 + 자동 재시도 */
+        let studentsRetry = 0;
+        const fetchStudents = () => {
+            let resolved = false;
+            const timeoutId = setTimeout(() => {
+                if (!resolved) {
+                    studentsRetry++;
+                    if (studentsRetry <= 3) {
+                        console.warn(`[RTDB students] 응답 지연 — 재시도 ${studentsRetry}회`);
+                        fetchStudents();
+                    } else {
+                        console.warn('[RTDB students] 3회 재시도 실패 — 캐시본 사용');
+                    }
                 }
-                newList.sort((a,b) => a.studentId.localeCompare(b.studentId));
-                allStudents  = newList;
-                studentsReady = true;
+            }, 5000);
 
-                /* localStorage 캐시 저장 */
-                try {
-                    localStorage.setItem('sc_students_cache', JSON.stringify(newList));
-                } catch(e) {}
-
-                renderAnswerLecture();
-                renderAnswerClass();
-            };
-            rtdb.ref('students').on('value', studentsCallback);
-        }
+            rtdb.ref('students').once('value')
+                .then(snap => {
+                    resolved = true;
+                    clearTimeout(timeoutId);
+                    const data = snap.val();
+                    const newList = [];
+                    if (data) {
+                        Object.entries(data).forEach(([key, val]) => {
+                            const sid   = String(val.studentId || key);
+                            const sname = val.name || val.studentName || val.realName || '';
+                            if (sid && sname) newList.push({ studentId: sid, studentName: sname });
+                        });
+                    }
+                    newList.sort((a,b) => a.studentId.localeCompare(b.studentId));
+                    allStudents  = newList;
+                    studentsReady = true;
+                    try { localStorage.setItem('sc_students_cache', JSON.stringify(newList)); } catch(e) {}
+                    renderAnswerLecture();
+                    renderAnswerClass();
+                })
+                .catch(err => {
+                    resolved = true;
+                    clearTimeout(timeoutId);
+                    console.warn('[RTDB students] 조회 실패:', err);
+                });
+        };
+        fetchStudents();
     }
 
     function stopListeners() {
         if (lectureUnsub)    { lectureUnsub();    lectureUnsub    = null; }
         if (submissionUnsub) { submissionUnsub(); submissionUnsub = null; }
-        if (studentsCallback) { rtdb.ref('students').off('value', studentsCallback); studentsCallback = null; }
+        /* RTDB students는 once()를 쓰므로 unsubscribe 불필요 */
         lecturesReady = submissionsReady = studentsReady = false;
         activeLectures = allSubmissions = allStudents = [];
     }
