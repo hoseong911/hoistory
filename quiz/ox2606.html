@@ -6,6 +6,10 @@
 <title>역사 OX 퀴즈 🌊</title>
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 <style>
 :root {
   --bg-gradient: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 50%, #ffffff 100%);
@@ -1014,60 +1018,44 @@ body {
 
 <script>
 // ══════════════════════════════════════════════════
-// STATE & MOCK DATA
+// FIREBASE CONFIG & INIT
+// ══════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain: "ho0911seong-56638.firebaseapp.com",
+  databaseURL: "https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ho0911seong-56638",
+  storageBucket: "ho0911seong-56638.firebasestorage.app",
+  messagingSenderId: "994509567071",
+  appId: "1:994509567071:web:de99e71c125ec2a3f557ea"
+};
+firebase.initializeApp(firebaseConfig);
+const fs = firebase.firestore();              // Firestore (문제/랭킹/X바로잡기)
+const rtdb = firebase.database();             // Realtime DB (학생 명단)
+const COL = {
+  questions: 'ox2606_questions',
+  rankings: 'ox2606_rankings',
+  corrections: 'ox2606_corrections',
+  responses: 'ox2606_responses',
+  admin: 'ox2606_admin',
+};
+
+// ══════════════════════════════════════════════════
+// STATE
 // ══════════════════════════════════════════════════
 const state = {
   student: null,
   selectedLectures: new Set(),
   selectedCount: 0,
   currentQ: 0, score: 0, correct: 0, wrong: 0, corrections: 0,
-  questions: [], currentAnswer: null,
+  questions: [],                  // 현재 퀴즈에서 풀고 있는 문제들
+  currentAnswer: null,
   timer: null, timeLeft: 20,
+  allQuestions: [],               // Firestore에서 받아온 전체 문제 캐시
+  lectureCounts: {},              // 강의별 문항 수
 };
 
 const LECTURES = [12,13,14,15,16,17,18,19,20,21];
-
-// Mock 문항 수 (실제로는 Firebase에서 받아옴)
-const MOCK_LECTURE_COUNTS = {
-  12: 28, 13: 32, 14: 30, 15: 29,
-  16: 31, 17: 33, 18: 27,
-  19: 30, 20: 31, 21: 29,
-};
-
-// Mock 문제
-const MOCK_QUESTIONS = [
-  { lec:12, q:"조선은 1392년에 건국되었다.", a:"O", exp:"이성계가 고려를 무너뜨리고 조선을 건국" },
-  { lec:12, q:"세종대왕은 훈민정음을 1446년에 반포하였다.", a:"O", exp:"" },
-  { lec:13, q:"임진왜란은 1582년에 발발하였다.", a:"X", exp:"임진왜란은 1592년에 발발 (임진년)" },
-  { lec:13, q:"병자호란은 1636년에 발생하였다.", a:"O", exp:"" },
-  { lec:14, q:"강화도 조약은 1876년에 체결되었다.", a:"O", exp:"" },
-  { lec:14, q:"3·1 운동은 1920년에 일어났다.", a:"X", exp:"3·1 운동은 1919년" },
-  { lec:15, q:"대한민국 정부는 1948년 8월 15일에 수립되었다.", a:"O", exp:"" },
-  { lec:16, q:"6·25 전쟁은 북한의 기습 남침으로 시작되었다.", a:"O", exp:"" },
-  { lec:17, q:"을사늑약은 1903년에 체결되었다.", a:"X", exp:"을사늑약은 1905년" },
-  { lec:18, q:"갑오개혁은 1894년에 시작되었다.", a:"O", exp:"" },
-  { lec:19, q:"4·19 혁명은 1960년에 일어났다.", a:"O", exp:"이승만 하야의 계기" },
-  { lec:20, q:"5·18 민주화 운동은 1985년에 일어났다.", a:"X", exp:"5·18은 1980년" },
-  { lec:21, q:"IMF 외환위기는 1997년에 발생하였다.", a:"O", exp:"" },
-];
-
-const MOCK_RANKINGS = {
-  30: [
-    {n:"김민준",sid:"30101",s:28400,c:5,m:"열심히 했는데 아쉽다!"},
-    {n:"이수진",sid:"30215",s:27100,c:3,m:"다음엔 더 잘할게요"},
-    {n:"박지호",sid:"30312",s:25800,c:4,m:""},
-    {n:"최예린",sid:"30408",s:24200,c:2,m:"역사 재밌다"},
-    {n:"정하늘",sid:"30521",s:23900,c:6,m:""},
-    {n:"강도현",sid:"30117",s:22500,c:1,m:""},
-    {n:"윤서아",sid:"30234",s:21000,c:0,m:""},
-  ],
-  50: [
-    {n:"한지우",sid:"30105",s:46200,c:8,m:"최선을 다했어요!"},
-    {n:"오태양",sid:"30311",s:44100,c:5,m:""},
-  ],
-  100: [],
-  200: [],
-};
 
 // ══════════════════════════════════════════════════
 // PAGE NAVIGATION
@@ -1077,15 +1065,20 @@ function goPage(id) {
   document.getElementById(id).classList.add('active');
   document.getElementById('card').scrollTop = 0;
 
-  if (id === 'page-ranking') renderRanking(30);
+  if (id === 'page-ranking') {
+    renderRanking(state.currentRankFilter || 30);
+  }
   if (id === 'page-lecture') renderLectures();
 }
 
 function toggleDev() { document.getElementById('dev-menu').classList.toggle('open'); }
 function devGo(id) {
-  // dev 진입 시 mock 데이터 세팅
   if (id === 'page-quiz') {
-    state.questions = MOCK_QUESTIONS.slice(0, 10);
+    if (state.allQuestions.length === 0) {
+      miniToast('먼저 Firestore에 문제를 등록해주세요');
+      return;
+    }
+    state.questions = [...state.allQuestions].sort(() => Math.random() - 0.5).slice(0, 10);
     state.currentQ = 0; state.score = 0; state.correct = 0; state.wrong = 0; state.corrections = 0;
     state.selectedCount = 10;
     state.student = state.student || {sid:'30101', name:'테스트'};
@@ -1108,9 +1101,35 @@ function devGo(id) {
 function goAdmin() { window.location.href = 'ox2606_a.html'; }
 
 // ══════════════════════════════════════════════════
-// LOGIN
+// FIREBASE: 문제 불러오기
 // ══════════════════════════════════════════════════
-function tryLogin() {
+async function loadQuestions() {
+  try {
+    const snap = await fs.collection(COL.questions).get();
+    state.allQuestions = [];
+    state.lectureCounts = {};
+    snap.forEach(doc => {
+      const d = doc.data();
+      state.allQuestions.push({
+        id: doc.id,
+        lec: d.lec,
+        q: d.q,
+        a: d.a,
+        exp: d.exp || ''
+      });
+      state.lectureCounts[d.lec] = (state.lectureCounts[d.lec] || 0) + 1;
+    });
+    renderLectures();
+  } catch (err) {
+    console.error('문제 불러오기 실패:', err);
+    miniToast('문제를 불러오지 못했어요. 새로고침해주세요.');
+  }
+}
+
+// ══════════════════════════════════════════════════
+// LOGIN (Realtime DB로 학생 명단 검증)
+// ══════════════════════════════════════════════════
+async function tryLogin() {
   const id = document.getElementById('login-id').value.trim();
   const name = document.getElementById('login-name').value.trim();
   const err = document.getElementById('login-error');
@@ -1118,11 +1137,37 @@ function tryLogin() {
   if (!id || !name) { err.textContent = '학번과 이름을 모두 입력해주세요.'; return; }
   if (!/^\d{5}$/.test(id)) { err.textContent = '학번은 숫자 5자리여야 합니다.'; return; }
 
-  // TODO: Firebase에서 student2026 명단 검증
-  err.textContent = '';
-  state.student = { sid: id, name: name };
-  document.getElementById('menu-section').style.display = 'block';
-  miniToast(`${name} 학생, 환영해요! 🌊`);
+  err.textContent = '확인 중...';
+  try {
+    const snap = await rtdb.ref('students').once('value');
+    const data = snap.val() || {};
+    let found = null;
+    Object.values(data).forEach(s => {
+      const sid = s.studentId || '';
+      const sname = s.name || s.studentName || '';
+      if (sid === id) found = { sid, name: sname };
+    });
+
+    if (!found) {
+      err.textContent = '등록되지 않은 학번입니다. 선생님께 문의해주세요.';
+      return;
+    }
+    // 이름이 일치하는지 체크 (공백 제거, 부분 일치 허용)
+    const cleanInput = name.replace(/\s+/g,'');
+    const cleanDb = found.name.replace(/\s+/g,'');
+    if (cleanInput !== cleanDb) {
+      err.textContent = `학번에 등록된 이름과 다릅니다. (등록명: ${found.name})`;
+      return;
+    }
+
+    err.textContent = '';
+    state.student = { sid: id, name: found.name };
+    document.getElementById('menu-section').style.display = 'block';
+    miniToast(`${found.name} 학생, 환영해요! 🌊`);
+  } catch (e) {
+    console.error(e);
+    err.textContent = '로그인 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.';
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -1132,7 +1177,7 @@ function renderLectures() {
   const grid = document.getElementById('lecture-grid');
   grid.innerHTML = LECTURES.map(l => {
     const isActive = state.selectedLectures.has(l);
-    const count = MOCK_LECTURE_COUNTS[l] || 0;
+    const count = state.lectureCounts[l] || 0;
     return `<div class="lecture-chip ${isActive ? 'active' : ''}" data-lec="${l}" onclick="toggleLecture(${l},this)">
       ${l}강
       <span class="lec-count">${count}문항</span>
@@ -1149,9 +1194,7 @@ function toggleLecture(lec, el) {
     state.selectedLectures.add(lec);
     el.classList.add('active');
   }
-  // 프리셋 해제 (사용자가 개별 선택 시작 시)
   document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
-  // 만약 전 범위와 정확히 일치하면 "전 범위" 활성화
   if (state.selectedLectures.size === LECTURES.length) {
     document.querySelector('.preset-chip').classList.add('active');
   }
@@ -1167,7 +1210,6 @@ function applyPreset(type, el) {
     back: [19,20,21],
   };
   (presets[type] || []).forEach(l => state.selectedLectures.add(l));
-  // 프리셋 시각 표시
   document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
   renderLectures();
@@ -1175,16 +1217,13 @@ function applyPreset(type, el) {
 
 function updateLectureSummary() {
   const lecCount = state.selectedLectures.size;
-  const totalQ = [...state.selectedLectures].reduce((s,l) => s + (MOCK_LECTURE_COUNTS[l] || 0), 0);
+  const totalQ = [...state.selectedLectures].reduce((s,l) => s + (state.lectureCounts[l] || 0), 0);
   document.getElementById('sel-lec-count').textContent = lecCount;
   document.getElementById('sel-q-count').textContent = totalQ;
   document.getElementById('go-count-btn').disabled = lecCount === 0;
 }
 
-function resetLectures() {
-  // 뒤로가기 시 선택 유지 (UX적으로 자연스러움). 초기화하려면 아래 주석 해제
-  // state.selectedLectures.clear();
-}
+function resetLectures() { /* 선택 유지 */ }
 
 // ══════════════════════════════════════════════════
 // COUNT SELECTION
@@ -1192,10 +1231,9 @@ function resetLectures() {
 const COUNT_OPTIONS = [10, 20, 30, 50, 100, 200];
 
 function renderCountOptions() {
-  const totalAvailable = [...state.selectedLectures].reduce((s,l) => s + (MOCK_LECTURE_COUNTS[l] || 0), 0);
+  const totalAvailable = [...state.selectedLectures].reduce((s,l) => s + (state.lectureCounts[l] || 0), 0);
   const isFullRange = state.selectedLectures.size === LECTURES.length;
 
-  // 선택 강의 표시
   const lecs = [...state.selectedLectures].sort((a,b)=>a-b);
   let lecText = '';
   if (lecs.length === LECTURES.length) lecText = '전 범위 (12~21강)';
@@ -1203,7 +1241,6 @@ function renderCountOptions() {
   else lecText = lecs.map(l=>l+'강').join(', ');
   document.getElementById('count-sub-lecs').textContent = lecText;
 
-  // 카드 렌더
   const grid = document.getElementById('count-grid');
   grid.innerHTML = COUNT_OPTIONS.map(n => {
     const isDisabled = n > totalAvailable;
@@ -1217,10 +1254,8 @@ function renderCountOptions() {
     </div>`;
   }).join('');
 
-  // 랭킹 안내
   document.getElementById('rank-warning').style.display = isFullRange ? 'none' : 'block';
 
-  // 시작 버튼 비활성
   state.selectedCount = 0;
   document.getElementById('start-quiz-btn').disabled = true;
 }
@@ -1238,16 +1273,13 @@ function selectCount(n, el) {
 // ══════════════════════════════════════════════════
 function startQuiz() {
   if (!state.selectedCount) return;
-  // 문제 풀 (선택 강의 + 셔플 + 슬라이스)
-  const pool = MOCK_QUESTIONS.filter(q => state.selectedLectures.has(q.lec));
-  // 실제로는 풀 부족하면 mock 데이터 한계라 그대로 진행
+  const pool = state.allQuestions.filter(q => state.selectedLectures.has(q.lec));
+  if (pool.length === 0) {
+    miniToast('선택한 강의에 문제가 없어요');
+    return;
+  }
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
   state.questions = shuffled.slice(0, Math.min(state.selectedCount, shuffled.length));
-
-  // mock 데이터 부족하면 그냥 가용한만큼 진행
-  if (state.questions.length === 0) {
-    state.questions = [...MOCK_QUESTIONS].sort(() => Math.random() - 0.5).slice(0, Math.min(state.selectedCount, MOCK_QUESTIONS.length));
-  }
 
   state.currentQ = 0;
   state.score = 0;
@@ -1314,6 +1346,19 @@ function selectAnswer(choice) {
   if (correct) { state.correct++; state.score += points; }
   else state.wrong++;
 
+  // 응답 기록 (반별 통계용) — fire-and-forget
+  if (state.student && choice) {
+    fs.collection(COL.responses).add({
+      studentId: state.student.sid,
+      studentName: state.student.name,
+      questionId: q.id,
+      lec: q.lec,
+      answer: choice,
+      isCorrect: correct,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }).catch(e => console.error('응답 기록 실패:', e));
+  }
+
   showResultToast(correct, points, q);
 }
 
@@ -1336,7 +1381,6 @@ function showResultToast(correct, points, q) {
 
   setTimeout(() => {
     overlay.classList.remove('show');
-    // X정답 문제는 바로잡기 단계로 (맞췄든 틀렸든)
     if (q.a === 'X') showCorrectionInput(q);
     else nextQuestion();
   }, duration);
@@ -1356,37 +1400,61 @@ function skipCorrection() {
   nextQuestion();
 }
 
-function submitCorrection() {
+async function submitCorrection() {
   const text = document.getElementById('cc-text').value.trim();
   if (!text) { miniToast('내용을 입력해주세요'); return; }
-  // TODO: Firebase 저장
-  state.corrections++;
-  state.score += 200;
-  document.getElementById('correction-overlay').classList.remove('show');
-  miniToast('+200점 획득! 친구들의 메모를 확인해보세요 ✨');
-  showNotesOverlay();
+  const q = state.questions[state.currentQ];
+
+  try {
+    await fs.collection(COL.corrections).add({
+      questionId: q.id,
+      lec: q.lec,
+      question: q.q,
+      studentId: state.student.sid,
+      studentName: state.student.name,
+      text: text,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    state.corrections++;
+    state.score += 200;
+    document.getElementById('correction-overlay').classList.remove('show');
+    miniToast('+200점 획득! 친구들 메모도 확인해보세요 ✨');
+    showNotesOverlay(q);
+  } catch (e) {
+    console.error('X바로잡기 저장 실패:', e);
+    miniToast('저장에 실패했어요. 다시 시도해주세요.');
+  }
 }
 
-function showNotesOverlay() {
-  // 다른 학생들 메모 (Mock)
+async function showNotesOverlay(q) {
   const notesList = document.getElementById('notes-list');
-  const mockNotes = [
-    { author: '30215 이수진', text: '임진왜란은 1592년에 일어난 전쟁이에요. 임진년이라서 임진왜란!' },
-    { author: '30312 박지호', text: '도요토미 히데요시가 조선을 침략한 시기는 1592년입니다.' },
-    { author: '30101 김민준', text: '1582년이 아니라 1592년이에요. 10년 차이!' },
-  ];
-  // 랜덤으로 0~3개 보여줌
-  const shown = mockNotes.slice(0, Math.floor(Math.random()*3)+1);
-  if (shown.length === 0) {
-    notesList.innerHTML = '<div class="note-empty">아직 작성된 메모가 없어요. 첫 번째 주인공이 되어주세요! ✨</div>';
-  } else {
-    notesList.innerHTML = shown.map(n => `
-      <div class="note-item">
-        <div class="note-author">${n.author}</div>
-        ${n.text}
-      </div>`).join('');
-  }
+  notesList.innerHTML = '<div class="note-empty">로딩 중... ⏳</div>';
   document.getElementById('notes-overlay').classList.add('show');
+
+  try {
+    const snap = await fs.collection(COL.corrections)
+      .where('questionId', '==', q.id)
+      .limit(20)
+      .get();
+
+    if (snap.empty) {
+      notesList.innerHTML = '<div class="note-empty">아직 작성된 메모가 없어요. 첫 번째 주인공이 되어주세요! ✨</div>';
+      return;
+    }
+
+    const items = [];
+    snap.forEach(doc => {
+      const d = doc.data();
+      items.push(`<div class="note-item">
+        <div class="note-author">${esc(d.studentId)} ${esc(d.studentName)}</div>
+        ${esc(d.text)}
+      </div>`);
+    });
+    notesList.innerHTML = items.join('');
+  } catch (e) {
+    console.error('메모 로딩 실패:', e);
+    notesList.innerHTML = '<div class="note-empty">메모를 불러오지 못했어요.</div>';
+  }
 }
 
 function closeNotesAndNext() {
@@ -1403,10 +1471,32 @@ function nextQuestion() {
 // ══════════════════════════════════════════════════
 // END / RESULT
 // ══════════════════════════════════════════════════
-function endQuiz() {
+async function endQuiz() {
   clearInterval(state.timer);
   updateResultScreen();
   goPage('page-result');
+
+  // 랭킹 등재 조건: 전 범위 + 30문항 이상
+  const isFullRange = state.selectedLectures.size === LECTURES.length;
+  if (isFullRange && state.selectedCount >= 30 && state.student) {
+    // 자동 저장 (한줄 소감은 입력 후 별도 업데이트)
+    try {
+      const docRef = await fs.collection(COL.rankings).add({
+        studentId: state.student.sid,
+        studentName: state.student.name,
+        count: state.selectedCount,
+        score: state.score,
+        correct: state.correct,
+        wrong: state.wrong,
+        corrections: state.corrections,
+        comment: '',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      state.lastRankingDocId = docRef.id;
+    } catch (e) {
+      console.error('랭킹 저장 실패:', e);
+    }
+  }
 }
 
 function updateResultScreen() {
@@ -1417,14 +1507,26 @@ function updateResultScreen() {
   document.getElementById('result-name').textContent =
     state.student ? `${state.student.name} 학생` : '';
 
-  // 한줄쓰기 (전 범위 + 30문항 이상일 때만)
   const isFullRange = state.selectedLectures.size === LECTURES.length;
   const showOneliner = state.selectedCount >= 30 && isFullRange;
   document.getElementById('oneliner-section').style.display = showOneliner ? 'block' : 'none';
 }
 
+// 한줄 소감 입력하면 자동으로 랭킹 doc 업데이트
+document.addEventListener('input', e => {
+  if (e.target && e.target.id === 'oneliner-input' && state.lastRankingDocId) {
+    clearTimeout(state.onelinerTimer);
+    state.onelinerTimer = setTimeout(() => {
+      fs.collection(COL.rankings).doc(state.lastRankingDocId).update({
+        comment: e.target.value.trim()
+      }).catch(err => console.error('소감 저장 실패:', err));
+    }, 600);
+  }
+});
+
 function restartQuiz() {
   state.selectedCount = 0;
+  state.lastRankingDocId = null;
   goPage('page-lecture');
 }
 
@@ -1434,54 +1536,86 @@ function restartQuiz() {
 function filterRanking(n, el) {
   document.querySelectorAll('.rank-chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
+  state.currentRankFilter = n;
   renderRanking(n);
 }
 
-function renderRanking(n) {
-  const data = MOCK_RANKINGS[n] || [];
+async function renderRanking(n) {
   const podium = document.getElementById('podium');
   const list = document.getElementById('rank-list');
+  podium.innerHTML = '';
+  list.innerHTML = `<div class="empty-rank">랭킹을 불러오는 중... ⏳</div>`;
 
-  if (data.length === 0) {
-    podium.innerHTML = '';
-    list.innerHTML = `<div class="empty-rank">아직 랭킹에 등록된 학생이 없어요.<br>전 범위 ${n}문항에 도전해보세요! 🚀</div>`;
-    return;
+  try {
+    const snap = await fs.collection(COL.rankings)
+      .where('count', '==', n)
+      .orderBy('score', 'desc')
+      .orderBy('corrections', 'desc')  // 동점일 때 X바로잡기 많은 사람 우선
+      .limit(50)
+      .get();
+
+    const data = [];
+    snap.forEach(doc => {
+      const d = doc.data();
+      data.push({
+        id: doc.id,
+        n: d.studentName,
+        sid: d.studentId,
+        s: d.score,
+        c: d.corrections || 0,
+        m: d.comment || '',
+      });
+    });
+
+    if (data.length === 0) {
+      podium.innerHTML = '';
+      list.innerHTML = `<div class="empty-rank">아직 랭킹에 등록된 학생이 없어요.<br>전 범위 ${n}문항에 도전해보세요! 🚀</div>`;
+      return;
+    }
+
+    // 포디움 (1~3위)
+    const top3 = data.slice(0, 3);
+    const podiumOrder = [1, 0, 2];
+    podium.innerHTML = podiumOrder.map(idx => {
+      if (!top3[idx]) return `<div class="podium-item"></div>`;
+      const s = top3[idx];
+      const medals = ['🥇','🥈','🥉'];
+      const blockClasses = ['podium-1','podium-2','podium-3'];
+      return `<div class="podium-item">
+        <div class="podium-medal">${medals[idx]}</div>
+        <div class="podium-name">${esc(s.n)}</div>
+        <div class="podium-score">${s.s.toLocaleString()}</div>
+        <div class="podium-block ${blockClasses[idx]}">${idx+1}</div>
+      </div>`;
+    }).join('');
+
+    // 4위~
+    list.innerHTML = data.slice(3).map((s, i) => {
+      const isMe = state.student && s.sid === state.student.sid;
+      return `<div class="rank-row ${isMe ? 'me' : ''}">
+        <div class="rank-num">${i + 4}</div>
+        <div class="rank-info">
+          <div class="rank-name">${esc(s.n)}</div>
+          <div class="rank-meta">${esc(s.sid)} · X바로잡기 ${s.c}회</div>
+          ${s.m ? `<div class="rank-comment">"${esc(s.m)}"</div>` : ''}
+        </div>
+        <div class="rank-score">${s.s.toLocaleString()}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    console.error('랭킹 로딩 실패:', e);
+    list.innerHTML = `<div class="empty-rank">랭킹을 불러오지 못했어요.<br><span style="font-size:11px;">${e.message}</span></div>`;
   }
-
-  // 포디움 (1~3위)
-  const top3 = data.slice(0, 3);
-  const podiumOrder = [1, 0, 2]; // 2, 1, 3 순서로 배치
-  podium.innerHTML = podiumOrder.map(idx => {
-    if (!top3[idx]) return `<div class="podium-item"></div>`;
-    const s = top3[idx];
-    const medals = ['🥇','🥈','🥉'];
-    const blockClasses = ['podium-1','podium-2','podium-3'];
-    return `<div class="podium-item">
-      <div class="podium-medal">${medals[idx]}</div>
-      <div class="podium-name">${s.n}</div>
-      <div class="podium-score">${s.s.toLocaleString()}</div>
-      <div class="podium-block ${blockClasses[idx]}">${idx+1}</div>
-    </div>`;
-  }).join('');
-
-  // 4위~
-  list.innerHTML = data.slice(3).map((s, i) => {
-    const isMe = state.student && s.sid === state.student.sid;
-    return `<div class="rank-row ${isMe ? 'me' : ''}">
-      <div class="rank-num">${i + 4}</div>
-      <div class="rank-info">
-        <div class="rank-name">${s.n}</div>
-        <div class="rank-meta">${s.sid} · X바로잡기 ${s.c}회</div>
-        ${s.m ? `<div class="rank-comment">"${s.m}"</div>` : ''}
-      </div>
-      <div class="rank-score">${s.s.toLocaleString()}</div>
-    </div>`;
-  }).join('');
 }
 
 // ══════════════════════════════════════════════════
 // UTILITIES
 // ══════════════════════════════════════════════════
+function esc(str) {
+  if (typeof str !== 'string') str = String(str || '');
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
+}
+
 let toastTimer;
 function miniToast(msg) {
   const el = document.getElementById('mini-toast');
@@ -1500,7 +1634,8 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// 초기 강의 렌더
+// 초기 로드
+loadQuestions();
 renderLectures();
 </script>
 </body>
