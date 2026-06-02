@@ -369,8 +369,15 @@
       font-size: 12px; font-weight: 700; margin: 3px;
     }
     .chip-absent { background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.25); color: var(--danger); }
+    .chip-fail-marked { background: rgba(240,165,0,0.1); border: 1px solid rgba(240,165,0,0.3); color: #b87800; }
     .chip-pass { background: rgba(46,204,113,0.1); border: 1px solid rgba(46,204,113,0.3); color: var(--ok); }
     .chip-ok { color: var(--ok); font-size: 14px; font-weight: 700; padding: 16px 0; display: block; text-align: center; }
+
+    /* 사유 섹션 헤더 */
+    .reason-section-title {
+      font-size: 11px; font-weight: 800; color: var(--muted);
+      letter-spacing: 0.05em; margin-bottom: 8px;
+    }
 
     /* AI 리뷰 카드 (참고 코드 review-card 패턴) */
     .review-card {
@@ -525,16 +532,22 @@
 
     <div class="content">
 
-      <!-- ★ 통계 칩 — 3×2 그리드 -->
+      <!-- ★ 통계 칩 — 3×2 그리드 (통과/미흡/미제출/AI 모두 클릭 가능) -->
       <div class="stat-chips" id="classStats">
         <div class="stat-chip"><span class="stat-num" id="stTotal">-</span><div class="stat-lbl">총 인원</div></div>
         <div class="stat-chip"><span class="stat-num" id="stSubmit">-</span><div class="stat-lbl">제출</div></div>
-        <div class="stat-chip"><span class="stat-num red" id="stMissing">-</span><div class="stat-lbl">미제출</div></div>
-        <div class="stat-chip"><span class="stat-num green" id="stPass">-</span><div class="stat-lbl">통과</div></div>
-        <div class="stat-chip"><span class="stat-num yellow" id="stFail">-</span><div class="stat-lbl">미흡</div></div>
-        <div class="stat-chip stat-chip-btn" onclick="openGradeModalWithLoad()">
-          <span class="stat-num emoji">📋</span>
-          <div class="stat-lbl">미흡 명단</div>
+        <div class="stat-chip stat-chip-btn" onclick="openGradeModalWithLoad('fail')">
+          <span class="stat-num red" id="stMissing">-</span><div class="stat-lbl">미제출</div>
+        </div>
+        <div class="stat-chip stat-chip-btn" onclick="openGradeModalWithLoad('pass')">
+          <span class="stat-num green" id="stPass">-</span><div class="stat-lbl">통과</div>
+        </div>
+        <div class="stat-chip stat-chip-btn" onclick="openGradeModalWithLoad('fail')">
+          <span class="stat-num yellow" id="stFail">-</span><div class="stat-lbl">미흡</div>
+        </div>
+        <div class="stat-chip stat-chip-btn" onclick="openGradeModalWithLoad('review')">
+          <span class="stat-num emoji">🤖</span>
+          <div class="stat-lbl">AI 채점</div>
         </div>
       </div>
 
@@ -636,7 +649,7 @@
 
 </div>
 
-<!-- ── 채점 결과 모달 ── -->
+<!-- ── 채점 결과 모달 (탭: 통과 / 미흡 / AI 채점) ── -->
 <div class="modal-overlay" id="gradeModal">
   <div class="modal-sheet">
     <div class="modal-handle"></div>
@@ -648,8 +661,9 @@
       <button class="modal-close" onclick="closeGradeModal()">✕</button>
     </div>
     <div class="modal-tabs">
-      <button class="modal-tab active" onclick="switchGradeTab('absent', this)">⚠️ 미제출</button>
-      <button class="modal-tab" onclick="switchGradeTab('review', this)">🤖 미흡 후보</button>
+      <button class="modal-tab active" onclick="switchGradeTab('pass', this)">✅ 통과</button>
+      <button class="modal-tab" onclick="switchGradeTab('fail', this)">❌ 미흡</button>
+      <button class="modal-tab" onclick="switchGradeTab('review', this)">🤖 AI 채점</button>
     </div>
     <div class="modal-body" id="gradeModalBody"></div>
   </div>
@@ -704,7 +718,7 @@
   let feedPickOnly  = false;
   let classTab      = 1;
   let classSort     = 'newest';
-  let gradeTabState = 'absent';
+  let gradeTabState = 'pass'; // 'pass' | 'fail' | 'review'
 
   // AI 분석 캐시 (반별): { [classNum]: [{postId, reason, ...}] }
   let aiReviewCache = {};
@@ -1009,23 +1023,44 @@
     );
     const submittedIds = new Set(classPosts.map(p => p.studentId));
 
+    // 학생별 게시글 그룹핑
+    const postsByStudent = {};
+    classPosts.forEach(p => {
+      if (!postsByStudent[p.studentId]) postsByStudent[p.studentId] = [];
+      postsByStudent[p.studentId].push(p);
+    });
+
     // 통계
     const total   = classStudents.length;
     const submit  = submittedIds.size;
     const missing = classStudents.length ? classStudents.length - submittedIds.size : 0;
 
-    // 통과/미흡 계산
-    // - 미흡: 채점 결과가 'fail'인 글의 학생 + 미제출자
-    // - 통과: 제출한 학생 중 fail이 아닌 학생
+    /* ★★★ ALL-fail 로직 ★★★
+       - 미흡: (1) 미제출  OR  (2) 제출한 모든 글이 fail로 마킹됨
+       - 통과: 제출했고 적어도 1개 글이 fail이 아님 (= "1글이라도 통과면 통과")
+       - AI가 분류만 한 상태에서는 fail 마킹이 없으므로 자동 미흡 처리되지 않음
+    */
     const failStudentIds = new Set();
-    // 미제출자는 자동 미흡
+    const failReasons = {}; // { studentId: 'absent' | 'all_fail' }
+
+    // (1) 미제출자
     classStudents.forEach(s => {
-      if (!submittedIds.has(s.studentId)) failStudentIds.add(s.studentId);
+      if (!submittedIds.has(s.studentId)) {
+        failStudentIds.add(s.studentId);
+        failReasons[s.studentId] = 'absent';
+      }
     });
-    // fail로 마킹된 게시글 작성자도 미흡
-    classPosts.forEach(p => {
-      if (allGrades[p.id] === 'fail') failStudentIds.add(p.studentId);
+
+    // (2) 제출했지만 모든 글이 fail로 마킹된 학생
+    Object.entries(postsByStudent).forEach(([sid, posts]) => {
+      if (failStudentIds.has(sid)) return; // 이미 미제출로 잡힌 경우는 패스
+      const allFail = posts.length > 0 && posts.every(p => allGrades[p.id] === 'fail');
+      if (allFail) {
+        failStudentIds.add(sid);
+        failReasons[sid] = 'all_fail';
+      }
     });
+
     const failCount = failStudentIds.size;
     const passCount = classStudents.length ? classStudents.length - failCount : 0;
 
@@ -1036,9 +1071,12 @@
     document.getElementById('stFail').textContent    = total ? failCount : '-';
 
     // 모달용 저장
-    window._classStudents = classStudents;
-    window._submittedIds  = submittedIds;
-    window._classPosts    = classPosts;
+    window._classStudents  = classStudents;
+    window._submittedIds   = submittedIds;
+    window._classPosts     = classPosts;
+    window._failStudentIds = failStudentIds;
+    window._failReasons    = failReasons;
+    window._postsByStudent = postsByStudent;
 
     // 정렬
     if (classSort === 'newest') {
@@ -1316,12 +1354,13 @@
   };
 
   /* ════════════════════════════════════════
-     채점 모달
+     채점 모달 (탭: pass / fail / review)
   ════════════════════════════════════════ */
-  window.openGradeModalWithLoad = () => {
-    gradeTabState = 'absent';
+  window.openGradeModalWithLoad = (initialTab = 'pass') => {
+    gradeTabState = initialTab;
+    const tabIndex = { 'pass': 0, 'fail': 1, 'review': 2 }[initialTab] ?? 0;
     document.querySelectorAll('#gradeModal .modal-tab').forEach((b, i) => {
-      b.classList.toggle('active', i === 0);
+      b.classList.toggle('active', i === tabIndex);
     });
     updateGradeSummary();
     renderGradeModalBody();
@@ -1339,13 +1378,7 @@
 
   function updateGradeSummary() {
     const students = window._classStudents || [];
-    const submitted = window._submittedIds || new Set();
-    const posts = window._classPosts || [];
-
-    const failIds = new Set();
-    students.forEach(s => { if (!submitted.has(s.studentId)) failIds.add(s.studentId); });
-    posts.forEach(p => { if (allGrades[p.id] === 'fail') failIds.add(p.studentId); });
-
+    const failIds = window._failStudentIds || new Set();
     const total = students.length;
     const fail = failIds.size;
     const pass = total - fail;
@@ -1356,22 +1389,71 @@
   function renderGradeModalBody() {
     const body = document.getElementById('gradeModalBody');
     const students = window._classStudents || [];
-    const submitted = window._submittedIds || new Set();
+    const failIds = window._failStudentIds || new Set();
+    const failReasons = window._failReasons || {};
+    const postsByStudent = window._postsByStudent || {};
     const posts = window._classPosts || [];
 
-    if (gradeTabState === 'absent') {
-      const absent = students.filter(s => !submitted.has(s.studentId));
-      if (!absent.length) {
-        body.innerHTML = '<span class="chip-ok">✅ 미제출자 없음!</span>';
+    if (gradeTabState === 'pass') {
+      /* ── 통과 명단 ── */
+      const passStudents = students.filter(s => !failIds.has(s.studentId));
+      if (!passStudents.length) {
+        body.innerHTML = '<div class="empty-state"><div class="icon">📋</div>통과한 학생이 없습니다.</div>';
         return;
       }
       body.innerHTML = `
-        <p style="font-size:12px; color:var(--muted); margin-bottom:12px; line-height:1.5;">
-          미제출자는 자동으로 <strong style="color:var(--danger)">미흡</strong> 처리됩니다.
-        </p>` +
-        absent.map(s =>
-          `<span class="activity-chip chip-absent">${esc(s.studentId)} ${esc(s.name)}</span>`
-        ).join('');
+        <p style="font-size:12px; color:var(--muted); margin-bottom:14px; line-height:1.6;">
+          총 <strong style="color:var(--ok)">${passStudents.length}명</strong> 통과<br>
+          <span style="font-size:11px;">제출했고, 1개 이상의 글이 미흡 처리되지 않은 학생입니다.</span>
+        </p>
+        <div>` +
+        passStudents.map(s => {
+          const postCount = (postsByStudent[s.studentId] || []).length;
+          const cnt = postCount > 1 ? ` <span style="opacity:0.75; font-weight:500;">(${postCount}글)</span>` : '';
+          return `<span class="activity-chip chip-pass">${esc(s.studentId)} ${esc(s.name)}${cnt}</span>`;
+        }).join('') +
+        `</div>`;
+    } else if (gradeTabState === 'fail') {
+      /* ── 미흡 명단 (사유별로 그룹핑) ── */
+      const absentStudents = students.filter(s => failReasons[s.studentId] === 'absent');
+      const allFailStudents = students.filter(s => failReasons[s.studentId] === 'all_fail');
+
+      if (!absentStudents.length && !allFailStudents.length) {
+        body.innerHTML = '<span class="chip-ok">✅ 미흡 학생 없음!</span>';
+        return;
+      }
+
+      let html = `
+        <p style="font-size:12px; color:var(--muted); margin-bottom:14px; line-height:1.6;">
+          총 <strong style="color:var(--danger)">${absentStudents.length + allFailStudents.length}명</strong> 미흡
+        </p>`;
+
+      if (absentStudents.length) {
+        html += `
+          <div style="margin-bottom:20px;">
+            <div class="reason-section-title">
+              ⚠️ 미제출 · ${absentStudents.length}명
+              <span style="font-weight:500; text-transform:none; letter-spacing:0; color:var(--muted); margin-left:4px;">— 글을 한 개도 작성하지 않음</span>
+            </div>
+            <div>${absentStudents.map(s =>
+              `<span class="activity-chip chip-absent">${esc(s.studentId)} ${esc(s.name)}</span>`
+            ).join('')}</div>
+          </div>`;
+      }
+      if (allFailStudents.length) {
+        html += `
+          <div>
+            <div class="reason-section-title">
+              📝 모든 글 미흡 처리됨 · ${allFailStudents.length}명
+              <span style="font-weight:500; text-transform:none; letter-spacing:0; color:var(--muted); margin-left:4px;">— AI 채점에서 미흡 토글 확정됨</span>
+            </div>
+            <div>${allFailStudents.map(s => {
+              const postCount = (postsByStudent[s.studentId] || []).length;
+              return `<span class="activity-chip chip-fail-marked" title="제출한 글 ${postCount}개가 모두 미흡 처리됨">${esc(s.studentId)} ${esc(s.name)} <span style="opacity:0.7; font-weight:500;">(${postCount}글)</span></span>`;
+            }).join('')}</div>
+          </div>`;
+      }
+      body.innerHTML = html;
     } else if (gradeTabState === 'review') {
       renderReviewTab(body, posts);
     }
@@ -1424,7 +1506,7 @@
     if (!visible.length) {
       body.innerHTML = `
         <div style="text-align:center; padding:24px 16px;">
-          <span class="chip-ok">✅ 모든 학생이 통과 처리되었습니다!</span>
+          <span class="chip-ok">✅ 모든 후보가 검토되었습니다!</span>
           <div style="margin-top:14px;">
             <button class="btn-ai" style="padding:8px 18px; font-size:12px;" onclick="runAiReview()">🔄 다시 채점</button>
           </div>
@@ -1433,14 +1515,18 @@
     }
 
     body.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
-        <div>
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+        <div style="flex:1; min-width:200px;">
           <div style="font-size:12px; color:var(--muted); font-weight:700;">
             🤖 AI가 ${visible.length}건을 미흡 후보로 분류했습니다
           </div>
-          ${aiReviewTimestamps[classTab] ? `<div style="font-size:10px; color:var(--muted); margin-top:3px;">채점 시각: ${formatTime(aiReviewTimestamps[classTab])}</div>` : ''}
+          <div style="font-size:11px; color:var(--muted); margin-top:4px; line-height:1.55;">
+            기본값은 <strong style="color:var(--ok)">통과</strong>입니다.<br>
+            <strong style="color:var(--danger)">미흡</strong> 토글을 눌러야 미흡으로 확정됩니다.
+          </div>
+          ${aiReviewTimestamps[classTab] ? `<div style="font-size:10px; color:var(--muted); margin-top:6px;">채점 시각: ${formatTime(aiReviewTimestamps[classTab])}</div>` : ''}
         </div>
-        <button class="btn-ai" style="padding:7px 14px; font-size:12px;" onclick="runAiReview()">🔄 재분석</button>
+        <button class="btn-ai" style="padding:7px 14px; font-size:12px; flex-shrink:0;" onclick="runAiReview()">🔄 재분석</button>
       </div>` +
       visible.map(item => {
         const post = classPosts.find(p => p.id === item.postId);
@@ -1448,9 +1534,9 @@
         const sid = post.studentId;
         const name = studentMap[sid] || post.realName || '';
         const grade = allGrades[item.postId];
-        const isPass = grade === 'pass';
-        // 기본값: AI가 미흡으로 분류했고, 아직 사용자가 결정 안 했으면 'fail' 활성
-        const isFailActive = !isPass; // pass가 아니면 fail이 활성 (미결정 상태도 fail로 표시)
+        /* ★ 기본값: 미결정/통과 → 통과 토글 활성. 명시적 fail일 때만 미흡 토글 활성. */
+        const isPassActive = grade !== 'fail';
+        const isFailActive = grade === 'fail';
         return `
           <div class="review-card">
             <div class="review-card-top">
@@ -1459,7 +1545,7 @@
                 <span class="review-card-org">${esc(post.org?.name||'')}</span>
               </span>
               <div class="grade-toggle-wrap">
-                <button class="grade-toggle-btn pass ${isPass ? 'active' : ''}"
+                <button class="grade-toggle-btn pass ${isPassActive ? 'active' : ''}"
                   onclick="setGrade('${item.postId}', 'pass')">통과</button>
                 <button class="grade-toggle-btn fail ${isFailActive ? 'active' : ''}"
                   onclick="setGrade('${item.postId}', 'fail')">미흡</button>
@@ -1477,7 +1563,7 @@
   window.setGrade = async (postId, value) => {
     const current = allGrades[postId];
     if (current === value) {
-      // 같은 값 다시 누르면 해제
+      // 같은 값 다시 누르면 해제 (미결정 상태로 복귀)
       await update(gradesRef, { [postId]: null });
     } else {
       await update(gradesRef, { [postId]: value });
