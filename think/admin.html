@@ -249,7 +249,17 @@
         .chip-short  { background: rgba(240,165,0,0.12);   border: 1px solid rgba(240,165,0,0.3);   color: #f0a500; }
         .chip-cheat  { background: rgba(61,145,244,0.12);  border: 1px solid rgba(61,145,244,0.3);  color: #3d91f4; }
         .chip-wrong  { background: rgba(180,80,255,0.12);  border: 1px solid rgba(180,80,255,0.3);  color: #b450ff; }
+        .chip-pass   { background: rgba(30,215,96,0.12);   border: 1px solid rgba(30,215,96,0.3);   color: var(--brand-green); }
         .chip-ok     { color: var(--brand-green); font-size: 14px; font-weight: 700; padding: 20px 0; display: block; }
+
+        /* 사유 섹션 헤더 */
+        .reason-section-title {
+            font-size: 11px; font-weight: 800; color: var(--text-muted);
+            letter-spacing: 0.05em; margin-bottom: 8px;
+        }
+        .reason-section-title .sub-note {
+            font-weight: 500; letter-spacing: 0; color: var(--text-muted); margin-left: 4px;
+        }
 
         /* 답변 이상 탭 — 카드형 */
         .review-card { background: var(--bg-interactive); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; border: 1px solid var(--border-gray); overflow: hidden; }
@@ -495,10 +505,10 @@
             <button class="grade-modal-close" onclick="closeGradeModal()">✕</button>
         </div>
         <div class="grade-modal-tabs">
-            <button class="grade-modal-tab active" onclick="switchGradeTab('absent',this)">⚠️ 미제출</button>
-            <button class="grade-modal-tab" onclick="switchGradeTab('short',this)">✏️ 50자 미만</button>
-            <button class="grade-modal-tab" onclick="switchGradeTab('cheat',this)">🚨 이탈 3회↑</button>
-            <button class="grade-modal-tab" onclick="switchGradeTab('review',this)">🤖 답변 이상</button>
+            <button class="grade-modal-tab active" onclick="switchGradeTab('pass',this)">✅ 통과</button>
+            <button class="grade-modal-tab" onclick="switchGradeTab('fail',this)">❌ 미흡</button>
+            <button class="grade-modal-tab" onclick="switchGradeTab('cheat',this)">🚨 이탈</button>
+            <button class="grade-modal-tab" onclick="switchGradeTab('review',this)">🤖 AI 채점</button>
         </div>
         <div class="grade-modal-body" id="grade-modal-body"></div>
     </div>
@@ -550,11 +560,11 @@
     let activityTab  = 'absent';
 
     /* 채점 관련 */
-    let gradeTab        = 'absent';         // 현재 채점 모달 탭
+    let gradeTab        = 'pass';            // 현재 채점 모달 탭 (pass/fail/cheat/review)
     let gradeContext    = { lecId:'', cls:'' }; // 현재 채점 대상
     let claudeApiKey    = '';               // Firebase에서 로드
     /* gradeOverrides: { [subId]: 'pass'|'fail' }
-       AI가 '이상'으로 분류했지만 선생님이 통과시킨 것 + 반대 경우 모두 보관 */
+       AI/이탈이 '의심'으로 분류했지만 선생님이 통과시킨 것 + 반대 경우 모두 보관 */
     let gradeOverrides  = {};               // 메모리 캐시
     /* aiReviewCache: { [lecId_cls]: [{subId, reason}] } — AI 결과 캐시 */
     let aiReviewCache   = {};
@@ -659,6 +669,7 @@
     /* ════════════════════════════════════════
        셀렉트 채우기 — selectState로 값 보존 보장
        onSnapshot이 몇 번 호출돼도 선택값이 유지됨
+       ★ 강의 목록은 desc 정렬되어 최신 강의가 위에 표시됨
     ════════════════════════════════════════ */
     function populateAllSelects() {
         const ids = ['answer-lecture-select','class-lecture-select','pick-lecture-select',
@@ -769,8 +780,8 @@
         };
         startWatchdog();
 
-        /* ① 강의 */
-        lectureUnsub = db.collection("lectures").orderBy("createdAt","asc")
+        /* ① 강의 — ★ 최신순(desc)으로 정렬해서 최신 강의가 위로 */
+        lectureUnsub = db.collection("lectures").orderBy("createdAt","desc")
             .onSnapshot(snap => {
                 lecGot = true;
                 retryCount = 0; /* 성공 시 카운터 리셋 */
@@ -1113,12 +1124,32 @@
             cheat:  classSubs.filter(s => (s.cheatCount||0) >= 3)
         };
 
+        /* ★ 통과/미흡 인원 계산 — 메모리에 있는 override + AI 캐시 반영
+           (override는 모달이 한 번이라도 열리면 로드됨; 첫 진입엔 약간 부정확할 수 있으나 모달 열면 즉시 동기화) */
+        const failIds = new Set();
+        activityData.absent.forEach(s => failIds.add(String(s.studentId)));
+        activityData.short.forEach(s  => failIds.add(String(s.id))); /* 50자 미만은 무조건 미흡 */
+        activityData.cheat.forEach(s  => { if (!isOverridePass(s.subId)) failIds.add(String(s.id)); });
+        const aiCacheKey = `${lecId}_${cls}`;
+        const aiCached   = aiReviewCache[aiCacheKey] || [];
+        aiCached.forEach(s => { if (isOverrideFail(s.subId)) failIds.add(String(s.id)); });
+
+        const totalCount = classStudents.length;
+        const failCount  = failIds.size;
+        const passCount  = totalCount > 0 ? Math.max(0, totalCount - failCount) : 0;
+
         statsEl.classList.remove('hidden');
         statsEl.innerHTML = `
             <div class="stat-chip"><span class="num">${classSubs.length} / ${classStudents.length||'-'}</span>제출 / ${cls}반 인원</div>
             <div class="stat-chip"><span class="num">${classSubs.filter(s=>s.isPicked).length}</span>PICK</div>
-            <div class="stat-chip stat-chip-btn" onclick="openGradeModalWithLoad()" style="border:1px solid var(--border-gray);">
-                <span class="num" style="font-size:16px;line-height:1.4;">📊</span>채점 결과
+            <div class="stat-chip stat-chip-btn" onclick="openGradeModalWithLoad('pass')">
+                <span class="num">${totalCount ? passCount : '-'}</span>통과
+            </div>
+            <div class="stat-chip stat-chip-btn" onclick="openGradeModalWithLoad('fail')">
+                <span class="num red">${totalCount ? failCount : '-'}</span>미흡
+            </div>
+            <div class="stat-chip stat-chip-btn" onclick="openGradeModalWithLoad('review')" style="border:1px solid var(--border-gray);">
+                <span class="num" style="font-size:16px;line-height:1.4;">🤖</span>AI 채점
             </div>`;
 
         const sorted = [...classSubs].sort((a,b) => String(a.id).localeCompare(String(b.id), undefined, {numeric:true}));
@@ -1153,12 +1184,14 @@
     /* ══════════════════════════════════════
        채점 결과 모달
     ══════════════════════════════════════ */
-    function openGradeModal() {
-        gradeTab = 'absent';
+    function openGradeModal(initialTab) {
+        const tab = initialTab || 'pass';
+        gradeTab = tab;
+        const tabIndex = { 'pass': 0, 'fail': 1, 'cheat': 2, 'review': 3 }[tab] ?? 0;
         /* gradeContext 갱신 */
         gradeContext.lecId = selectState['class-lecture-select'];
         gradeContext.cls   = selectState['class-select'] || '1';
-        document.querySelectorAll('.grade-modal-tab').forEach((b,i) => b.classList.toggle('active', i===0));
+        document.querySelectorAll('.grade-modal-tab').forEach((b,i) => b.classList.toggle('active', i===tabIndex));
         updateGradeSummary();
         renderGradeModalBody();
         show('grade-modal');
@@ -1172,26 +1205,25 @@
         renderGradeModalBody();
     }
 
-    /* 미흡 인원 카운트 — override 반영 (50자 미만은 무조건 미흡) */
+    /* 미흡 인원 카운트 — override 반영 (미제출/50자 미만은 무조건 미흡) */
     function countFail() {
         const { absent, short, cheat } = activityData;
-        const reviewFails = getReviewFails();
+        const reviewFails = getReviewFails(); /* 이제 명시적 미흡만 반환 */
         const failIds = new Set();
         absent.forEach(s => failIds.add(s.studentId));
         short.forEach(s  => failIds.add(s.id)); /* ★ 50자 미만은 무조건 미흡 */
         cheat.forEach(s  => { if (!isOverridePass(s.subId)) failIds.add(s.id); });
-        reviewFails.forEach(s => { if (!isOverridePass(s.subId)) failIds.add(s.id); });
+        reviewFails.forEach(s => failIds.add(s.id));
         return failIds.size;
     }
 
     function updateGradeSummary() {
-        const total = (activityData.absent.length > 0
-            ? allStudents.filter(s => classNumFromId(s.studentId) === parseInt(gradeContext.cls,10)).length
-            : allStudents.filter(s => classNumFromId(s.studentId) === parseInt(gradeContext.cls,10)).length);
-        const fail  = countFail();
-        const pass  = total - fail;
+        const clsNum = parseInt(gradeContext.cls,10);
+        const total  = allStudents.filter(s => classNumFromId(s.studentId) === clsNum).length;
+        const fail   = countFail();
+        const pass   = Math.max(0, total - fail);
         document.getElementById('grade-summary-text').textContent =
-            `통과 ${pass}명 / 미흡 ${fail}명 / 전체 ${total}명`;
+            `${gradeContext.cls}반 · 통과 ${pass}명 / 미흡 ${fail}명 / 전체 ${total}명`;
     }
 
     /* Firebase에서 override 로드 (처음 모달 열 때) */
@@ -1221,59 +1253,163 @@
         } catch(e) {}
         updateGradeSummary();
         renderGradeModalBody();
+        renderAnswerClass(); /* 배경의 통과/미흡 칩도 동기화 */
     }
 
-    /* AI 분석 결과 중 미흡으로 남은 것 */
+    /* AI 분석 결과 중 ★ 사용자가 명시적으로 미흡으로 표시한 것만 반환
+       (기본값은 통과 — 사용자가 미흡 토글을 눌러야만 미흡 처리됨) */
     function getReviewFails() {
         const cacheKey = `${gradeContext.lecId}_${gradeContext.cls}`;
         const cached = aiReviewCache[cacheKey] || [];
-        return cached.filter(s => !isOverridePass(s.subId));
+        return cached.filter(s => isOverrideFail(s.subId));
     }
 
     function renderGradeModalBody() {
         const body = document.getElementById('grade-modal-body');
 
-        if (gradeTab === 'absent') {
-            const list = activityData.absent;
-            if (!list.length) { body.innerHTML = '<span class="chip-ok">✅ 미제출자 없음!</span>'; return; }
-            body.innerHTML = list.map(s =>
-                `<span class="activity-chip chip-absent">${s.studentId} ${s.studentName}</span>`
-            ).join('');
+        if (gradeTab === 'pass') {
+            renderPassTab(body);
 
-        } else if (gradeTab === 'short') {
-            const list = activityData.short;
-            if (!list.length) { body.innerHTML = '<span class="chip-ok">✅ 50자 미만 없음!</span>'; return; }
-            /* ★ 50자 미만은 무조건 미흡 — 칩 목록만 표시, 토글 없음 */
-            body.innerHTML = `<p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;line-height:1.5;">
-                50자 미만은 자동으로 미흡 처리됩니다.
-            </p>` + list.map(s =>
-                `<span class="activity-chip chip-short">${s.id} ${s.name} <small style="opacity:.75;">${s.textLength}자</small></span>`
-            ).join('');
+        } else if (gradeTab === 'fail') {
+            renderFailTab(body);
 
         } else if (gradeTab === 'cheat') {
             const list = activityData.cheat;
             if (!list.length) { body.innerHTML = '<span class="chip-ok">✅ 이탈 3회 이상 없음!</span>'; return; }
-            body.innerHTML = [...list].sort((a,b)=>b.cheatCount-a.cheatCount).map(s => {
-                const isPassing = isOverridePass(s.subId);
-                return `<div class="review-card" style="${isPassing ? 'opacity:0.45;' : ''}">
-                    <div class="review-card-top">
-                        <span class="review-card-name">${s.id} ${s.name}</span>
-                        <span class="review-card-reason" style="background:rgba(61,145,244,0.12);border-color:rgba(61,145,244,0.3);color:#3d91f4;">🚨 ${s.cheatCount}회 이탈</span>
-                        <div class="grade-toggle-wrap">
-                            <button class="grade-toggle-btn pass ${isPassing?'active':''}" onclick="toggleGradeOverride('${s.subId}','pass')">통과</button>
-                            <button class="grade-toggle-btn fail ${!isPassing?'active':''}" onclick="toggleGradeOverride('${s.subId}','fail')">미흡</button>
+            body.innerHTML = `
+                <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;line-height:1.55;">
+                    이탈 ${list.length}건. 기본적으로 미흡 처리되며, 사정에 따라 <strong style="color:var(--brand-green)">통과</strong>로 변경할 수 있습니다.
+                </p>` +
+                [...list].sort((a,b)=>b.cheatCount-a.cheatCount).map(s => {
+                    const isPassing = isOverridePass(s.subId);
+                    return `<div class="review-card" style="${isPassing ? 'opacity:0.55;' : ''}">
+                        <div class="review-card-top">
+                            <span class="review-card-name">${s.id} ${s.name}</span>
+                            <span class="review-card-reason" style="background:rgba(61,145,244,0.12);border-color:rgba(61,145,244,0.3);color:#3d91f4;">🚨 ${s.cheatCount}회 이탈</span>
+                            <div class="grade-toggle-wrap">
+                                <button class="grade-toggle-btn pass ${isPassing?'active':''}" onclick="toggleGradeOverride('${s.subId}','pass')">통과</button>
+                                <button class="grade-toggle-btn fail ${!isPassing?'active':''}" onclick="toggleGradeOverride('${s.subId}','fail')">미흡</button>
+                            </div>
                         </div>
-                    </div>
-                    <div class="review-card-text">${escHtml(s.text||'')}</div>
-                </div>`;
-            }).join('');
+                        <div class="review-card-text">${escHtml(s.text||'')}</div>
+                    </div>`;
+                }).join('');
 
         } else if (gradeTab === 'review') {
             renderReviewTab(body);
         }
     }
 
-    /* ── 답변 이상 탭 ── */
+    /* ── 통과 명단 탭 ── */
+    function renderPassTab(body) {
+        const clsNum = parseInt(gradeContext.cls, 10);
+        const classStudents = allStudents.filter(s => classNumFromId(s.studentId) === clsNum);
+
+        /* 미흡 학생 ID 집합 구성 */
+        const failIds = new Set();
+        activityData.absent.forEach(s => failIds.add(String(s.studentId)));
+        activityData.short.forEach(s  => failIds.add(String(s.id)));
+        activityData.cheat.forEach(s  => { if (!isOverridePass(s.subId)) failIds.add(String(s.id)); });
+        const cacheKey = `${gradeContext.lecId}_${gradeContext.cls}`;
+        const aiCached = aiReviewCache[cacheKey] || [];
+        aiCached.forEach(s => { if (isOverrideFail(s.subId)) failIds.add(String(s.id)); });
+
+        const passStudents = classStudents.filter(s => !failIds.has(String(s.studentId)));
+
+        if (!passStudents.length) {
+            body.innerHTML = '<p class="empty-msg">통과한 학생이 없습니다.</p>';
+            return;
+        }
+
+        body.innerHTML = `
+            <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px; line-height:1.6;">
+                총 <strong style="color:var(--brand-green)">${passStudents.length}명</strong> 통과<br>
+                <span style="font-size:11px;">제출 + 50자 이상 + 이탈 3회 미만 + AI 미흡 확정이 아닌 학생입니다.</span>
+            </p>
+            <div>` +
+            passStudents.map(s =>
+                `<span class="activity-chip chip-pass">${s.studentId} ${s.studentName}</span>`
+            ).join('') +
+            `</div>`;
+    }
+
+    /* ── 미흡 명단 탭 (사유별 그룹) ── */
+    function renderFailTab(body) {
+        const absent = activityData.absent;
+        const short  = activityData.short;
+        const cheatFailList = activityData.cheat.filter(s => !isOverridePass(s.subId));
+        const cacheKey = `${gradeContext.lecId}_${gradeContext.cls}`;
+        const aiCached = aiReviewCache[cacheKey] || [];
+        const aiFailList = aiCached.filter(s => isOverrideFail(s.subId));
+
+        const totalFail = absent.length + short.length + cheatFailList.length + aiFailList.length;
+
+        if (!totalFail) {
+            body.innerHTML = '<span class="chip-ok">✅ 미흡 학생 없음!</span>';
+            return;
+        }
+
+        let html = `
+            <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px; line-height:1.6;">
+                총 <strong style="color:var(--text-error)">${totalFail}명</strong> 미흡
+            </p>`;
+
+        if (absent.length) {
+            html += `
+                <div style="margin-bottom:18px;">
+                    <div class="reason-section-title">
+                        ⚠️ 미제출 · ${absent.length}명
+                        <span class="sub-note">— 답변을 작성하지 않음</span>
+                    </div>
+                    <div>${absent.map(s =>
+                        `<span class="activity-chip chip-absent">${s.studentId} ${s.studentName}</span>`
+                    ).join('')}</div>
+                </div>`;
+        }
+
+        if (short.length) {
+            html += `
+                <div style="margin-bottom:18px;">
+                    <div class="reason-section-title">
+                        ✏️ 50자 미만 · ${short.length}명
+                        <span class="sub-note">— 답변이 너무 짧음 (자동 미흡)</span>
+                    </div>
+                    <div>${short.map(s =>
+                        `<span class="activity-chip chip-short">${s.id} ${s.name} <small style="opacity:.75;">${s.textLength}자</small></span>`
+                    ).join('')}</div>
+                </div>`;
+        }
+
+        if (cheatFailList.length) {
+            html += `
+                <div style="margin-bottom:18px;">
+                    <div class="reason-section-title">
+                        🚨 이탈 3회 이상 · ${cheatFailList.length}명
+                        <span class="sub-note">— 자세히는 이탈 탭에서 확인</span>
+                    </div>
+                    <div>${cheatFailList.map(s =>
+                        `<span class="activity-chip chip-cheat">${s.id} ${s.name} <small style="opacity:.75;">${s.cheatCount}회</small></span>`
+                    ).join('')}</div>
+                </div>`;
+        }
+
+        if (aiFailList.length) {
+            html += `
+                <div>
+                    <div class="reason-section-title">
+                        🤖 AI 분석 미흡 · ${aiFailList.length}명
+                        <span class="sub-note">— AI 채점 탭에서 미흡 토글 확정</span>
+                    </div>
+                    <div>${aiFailList.map(s =>
+                        `<span class="activity-chip chip-wrong">${s.id} ${s.name}</span>`
+                    ).join('')}</div>
+                </div>`;
+        }
+
+        body.innerHTML = html;
+    }
+
+    /* ── 답변 이상 탭 (AI 채점) ── */
     function renderReviewTab(body) {
         const cacheKey = `${gradeContext.lecId}_${gradeContext.cls}`;
         const cached   = aiReviewCache[cacheKey];
@@ -1296,24 +1432,40 @@
         }
 
         if (!cached.length) {
-            body.innerHTML = '<span class="chip-ok">✅ AI가 이상 답변을 발견하지 못했습니다.</span>';
+            body.innerHTML = `
+                <div style="text-align:center; padding:24px 0;">
+                    <span class="chip-ok">✅ AI가 이상 답변을 발견하지 못했습니다.</span>
+                    <div style="margin-top:14px;">
+                        <button class="btn-ai" style="padding:8px 18px; font-size:12px;" onclick="runAiReview()">🔄 다시 분석</button>
+                    </div>
+                </div>`;
             return;
         }
 
         body.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
-                <span style="font-size:12px;color:var(--text-muted);font-weight:700;">AI 분석 결과 · ${cached.length}건 검토 필요</span>
-                <button class="btn-ai" style="padding:7px 14px;font-size:12px;" onclick="runAiReview()">🔄 재분석</button>
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+                <div style="flex:1; min-width:200px;">
+                    <div style="font-size:12px;color:var(--text-muted);font-weight:700;">
+                        🤖 AI가 ${cached.length}건을 미흡 후보로 분류했습니다
+                    </div>
+                    <div style="font-size:11px; color:var(--text-muted); margin-top:4px; line-height:1.55;">
+                        기본값은 <strong style="color:var(--brand-green)">통과</strong>입니다.<br>
+                        <strong style="color:var(--text-error)">미흡</strong> 토글을 눌러야 미흡으로 확정됩니다.
+                    </div>
+                </div>
+                <button class="btn-ai" style="padding:7px 14px;font-size:12px;flex-shrink:0;" onclick="runAiReview()">🔄 재분석</button>
             </div>` +
             cached.map(s => {
-                const isPassing = isOverridePass(s.subId);
-                return `<div class="review-card" style="${isPassing ? 'opacity:0.45;' : ''}">
+                /* ★ 기본값: 미결정/통과 → 통과 토글 활성. 명시적 fail일 때만 미흡 토글 활성. */
+                const isFailActive = isOverrideFail(s.subId);
+                const isPassActive = !isFailActive;
+                return `<div class="review-card">
                     <div class="review-card-top">
                         <span class="review-card-name">${s.id} ${s.name}</span>
                         <span class="review-card-reason">🤖 AI 의심</span>
                         <div class="grade-toggle-wrap">
-                            <button class="grade-toggle-btn pass ${isPassing?'active':''}" onclick="toggleGradeOverride('${s.subId}','pass')">통과</button>
-                            <button class="grade-toggle-btn fail ${!isPassing?'active':''}" onclick="toggleGradeOverride('${s.subId}','fail')">미흡</button>
+                            <button class="grade-toggle-btn pass ${isPassActive?'active':''}" onclick="toggleGradeOverride('${s.subId}','pass')">통과</button>
+                            <button class="grade-toggle-btn fail ${isFailActive?'active':''}" onclick="toggleGradeOverride('${s.subId}','fail')">미흡</button>
                         </div>
                     </div>
                     <div class="review-card-text">${escHtml(s.text||'')}</div>
@@ -1333,7 +1485,7 @@
         const clsNum    = parseInt(cls, 10);
         const classSubs = allSubmissions.filter(s =>
             s.lectureDocId === lecId && classNumFromId(s.id) === clsNum
-        ).filter(s => (s.textLength||0) >= 50); /* 이미 50자 미만은 별도 탭 */
+        ).filter(s => (s.textLength||0) >= 50); /* 이미 50자 미만은 별도 처리 */
 
         if (!classSubs.length) {
             const cacheKey = `${lecId}_${cls}`;
@@ -1401,17 +1553,16 @@ ${JSON.stringify(classSubs.map(s => ({ subId: s.subId, id: s.id, name: s.name, t
         document.querySelectorAll('.btn-ai').forEach(b => b.disabled = false);
         updateGradeSummary();
         renderGradeModalBody();
+        renderAnswerClass(); /* 배경의 통과/미흡 칩도 동기화 */
     }
 
-    /* openGradeModal 개선 — override 로드 포함 */
-    const _origOpenGradeModal = openGradeModal;
-    // override 로드를 비동기로 처리 (모달은 즉시 열고 데이터는 뒤에서 로드)
-    async function openGradeModalWithLoad() {
+    /* openGradeModal 진입점 — override 로드 포함 */
+    async function openGradeModalWithLoad(initialTab) {
         await loadGradeOverrides(
             selectState['class-lecture-select'],
             selectState['class-select'] || '1'
         );
-        openGradeModal();
+        openGradeModal(initialTab);
     }
 
     /* ══════════════════════════════════════
