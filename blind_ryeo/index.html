@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Blind - 려</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  <!-- ★ 공유 디자인 시스템 -->
+  <link rel="stylesheet" href="../shared/theme.css">
+  <style>
+    /* ─── 이 앱 고유 스타일 (디자인 시스템에 없는 부분만) ─── */
+    body {
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    /* 로그인 화면 (이 앱은 풀스크린 화이트 로그인) */
+    #loginOverlay {
+      position: fixed; inset: 0; background: #fff;
+      z-index: 1000; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px; overflow-y: auto;
+    }
+    .login-wrap { width: 100%; max-width: 380px; }
+    .login-logo { text-align: center; margin-bottom: 28px; }
+    .logo-text {
+      font-size: 2rem; font-weight: 800; color: var(--hi-accent);
+      letter-spacing: -0.03em;
+    }
+    .logo-sub { font-size: 12px; color: var(--hi-text-muted); margin-top: 4px; }
+
+    /* 메인 앱 컨테이너 */
+    #appContainer {
+      display: none; width: 100%; max-width: 480px;
+      min-height: 100vh; flex-direction: column;
+      background: var(--hi-bg-base);
+    }
+
+    /* 헤더 */
+    header {
+      background: #fff; border-bottom: 1px solid var(--hi-border);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .header-top {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 14px; height: 52px; gap: 8px;
+    }
+    .header-logo {
+      font-size: 1.25rem; font-weight: 800; color: var(--hi-accent);
+      letter-spacing: -0.02em; flex-shrink: 0;
+    }
+    .profile-btn {
+      background: none; border: none; cursor: pointer;
+      font-family: inherit; padding: 0;
+    }
+    .pb-nick {
+      font-size: 14px; font-weight: 700; color: var(--hi-accent);
+      max-width: 140px; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* 카테고리 탭 (앱 고유) */
+    .tab-bar { display: flex; border-top: 1px solid var(--hi-border); }
+    .tab-item {
+      flex: 1; padding: 9px 2px; font-size: 11px; font-weight: 500;
+      color: var(--hi-text-muted); cursor: pointer;
+      border: none; background: none;
+      border-bottom: 2px solid transparent;
+      font-family: inherit;
+    }
+    .tab-item.active {
+      color: var(--hi-accent);
+      border-bottom-color: var(--hi-accent);
+      font-weight: 700;
+    }
+
+    /* 정렬바 */
+    .sort-bar {
+      display: flex; justify-content: flex-end; align-items: center;
+      padding: 8px 14px; background: #fff;
+      border-bottom: 1px solid var(--hi-border); gap: 6px;
+    }
+    .sort-box {
+      display: flex; background: var(--hi-bg-base);
+      border-radius: 20px; padding: 2px;
+    }
+    .sort-btn {
+      font-size: 11px; font-weight: 700; border: none;
+      border-radius: 15px; padding: 4px 10px;
+      cursor: pointer; font-family: inherit;
+      color: var(--hi-text-muted); background: none;
+      transition: 0.15s;
+    }
+    .sort-btn.active { color: #fff; background: var(--hi-accent); }
+    .pick-filter-btn {
+      font-size: 11px; font-weight: 700;
+      border: 1px solid var(--hi-border-light);
+      border-radius: 15px; padding: 4px 10px;
+      cursor: pointer; font-family: inherit;
+      color: var(--hi-text-muted); background: #fff;
+    }
+    .pick-filter-btn.active {
+      background: #fff8e1; color: #b8860b;
+      border-color: #ffe082;
+    }
+
+    /* 글 작성 영역 */
+    .post-composer {
+      background: #fff; padding: 14px 16px;
+      border-bottom: 6px solid var(--hi-bg-base);
+    }
+    .composer-top { display: flex; align-items: flex-start; gap: 10px; }
+    .org-badge {
+      font-size: 11px; font-weight: 700; color: var(--hi-accent);
+      background: var(--hi-accent-soft);
+      border: 1px solid var(--hi-accent);
+      border-radius: 4px; padding: 3px 8px;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .composer-input {
+      flex: 1; border: none; outline: none; font-size: 15px;
+      font-family: inherit; color: var(--hi-text);
+      resize: none; min-height: 48px; background: transparent;
+    }
+    .composer-input::placeholder { color: var(--hi-text-muted); }
+    .composer-bottom {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 10px; padding-top: 10px;
+      border-top: 1px solid var(--hi-border);
+    }
+    .char-count { font-size: 11px; color: var(--hi-text-muted); }
+
+    /* 피드 카드 */
+    #feed { flex: 1; }
+    .post-card {
+      background: #fff; margin-bottom: 1px;
+      padding: 16px 16px 12px;
+    }
+    .post-top {
+      display: flex; align-items: center;
+      margin-bottom: 3px; gap: 6px; flex-wrap: wrap;
+    }
+    .post-nick { font-size: 12px; font-weight: 700; color: var(--hi-text); }
+    .post-org {
+      font-size: 12px; font-weight: 700; color: var(--hi-accent);
+      background: var(--hi-accent-soft);
+      border: 1px solid var(--hi-accent);
+      border-radius: 4px; padding: 1px 7px;
+    }
+    .post-time {
+      font-size: 11px; color: var(--hi-text-muted); margin-left: auto;
+    }
+    .cat-dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    }
+    .cat-dot.central  { background: var(--hi-accent); }
+    .cat-dot.local    { background: #4a90e2; }
+    .cat-dot.military { background: #e24a4a; }
+    .cat-dot.edu      { background: #9b4ae2; }
+    .edited-tag { font-size: 10px; color: var(--hi-text-muted); }
+    .post-body {
+      font-size: 14px; color: var(--hi-text-soft); line-height: 1.6;
+      margin: 6px 0 10px; white-space: pre-wrap;
+    }
+    .post-actions {
+      display: flex; align-items: center; gap: 14px;
+      padding-top: 8px; border-top: 1px solid var(--hi-border);
+    }
+    .action-btn {
+      display: flex; align-items: center; gap: 4px;
+      font-size: 12px; color: var(--hi-text-muted);
+      cursor: pointer; user-select: none;
+      border: none; background: none;
+      font-family: inherit; padding: 0;
+    }
+    .action-btn.liked { color: var(--hi-negative); }
+    .action-btn svg { width: 15px; height: 15px; }
+    .edit-btn {
+      font-size: 12px; color: var(--hi-text-muted);
+      border: none; background: none; cursor: pointer;
+      font-family: inherit; padding: 0;
+    }
+    .pick-badge {
+      display: inline-block; background: #fff8e1; color: #b8860b;
+      border: 1px solid #ffe082; border-radius: 5px;
+      padding: 1px 7px; font-size: 11px; font-weight: 700;
+      margin-right: 4px;
+    }
+
+    footer {
+      padding: 24px 16px; text-align: center;
+      font-size: 11px; color: var(--hi-text-muted);
+    }
+  </style>
+</head>
+<body class="hi-preset-blind">
+
+<!-- ── 로그인 화면 ── -->
+<div id="loginOverlay">
+  <div class="login-wrap">
+    <div class="login-logo">
+      <div class="logo-text">blind</div>
+      <div class="logo-sub">고려 관료 익명 커뮤니티</div>
+    </div>
+
+    <!-- 학번 입력 (status icon 자동 표시) -->
+    <div class="hi-input-with-status" style="margin-bottom: 4px;">
+      <input class="hi-input" type="text" id="joinId"
+        placeholder="학번 (5자리)" maxlength="5"
+        inputmode="numeric" autocomplete="off">
+      <span class="hi-verify-status" id="idStatus"></span>
+    </div>
+    <span class="hi-verify-msg" id="idMsg"></span>
+
+    <!-- 이름 입력 -->
+    <div class="hi-input-with-status" style="margin-bottom: 4px;">
+      <input class="hi-input" type="text" id="joinName"
+        placeholder="이름 (실명)" autocomplete="off" disabled>
+      <span class="hi-verify-status" id="nameStatus"></span>
+    </div>
+    <span class="hi-verify-msg" id="nameMsg"></span>
+
+    <!-- 닉네임 -->
+    <input class="hi-input" type="text" id="joinNick"
+      placeholder="닉네임 (영문/숫자/_)"
+      oninput="validateNick(this)" autocomplete="off"
+      style="margin-bottom: 8px;">
+
+    <!-- 조직 선택 -->
+    <select class="hi-select" id="joinOrg" style="margin-bottom: 12px;">
+      <option value="">근무 기관을 선택하세요</option>
+      <optgroup label="🏛️ 중앙 기관">
+        <option value="중서문하성" data-cat="central">중서문하성</option>
+        <option value="상서성"     data-cat="central">상서성</option>
+        <option value="중추원"     data-cat="central">중추원</option>
+        <option value="어사대"     data-cat="central">어사대</option>
+        <option value="삼사"       data-cat="central">삼사</option>
+      </optgroup>
+      <optgroup label="🗺️ 지방 기관">
+        <option value="5도 소속"  data-cat="local">5도 소속</option>
+        <option value="양계 소속" data-cat="local">양계 소속</option>
+        <option value="경기 소속" data-cat="local">경기 소속</option>
+      </optgroup>
+      <optgroup label="⚔️ 군사 기관">
+        <option value="2군 소속"    data-cat="military">2군 소속</option>
+        <option value="6위 소속"    data-cat="military">6위 소속</option>
+        <option value="주현군 소속" data-cat="military">주현군 소속</option>
+        <option value="주진군 소속" data-cat="military">주진군 소속</option>
+      </optgroup>
+      <optgroup label="📚 교육 기관">
+        <option value="국자감" data-cat="edu">국자감</option>
+      </optgroup>
+    </select>
+
+    <button class="hi-btn hi-btn-primary hi-btn-block" id="enterBtn" disabled>
+      접속하기
+    </button>
+
+    <div style="text-align:center; margin-top:18px;">
+      <a href="blind_ryeo_admin.html"
+        style="color:var(--hi-text-muted); font-size:11px; text-decoration:none;">
+        관리자 센터
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ── 메인 앱 ── -->
+<div id="appContainer">
+  <header>
+    <div class="header-top">
+      <div class="header-logo">blind</div>
+      <button class="profile-btn" onclick="openProfileModal()">
+        <span class="pb-nick" id="headerNick">...</span>
+      </button>
+    </div>
+    <div class="tab-bar">
+      <button class="tab-item active" onclick="setFilter('all',this)">전체</button>
+      <button class="tab-item" onclick="setFilter('central',this)">중앙</button>
+      <button class="tab-item" onclick="setFilter('local',this)">지방</button>
+      <button class="tab-item" onclick="setFilter('military',this)">군사</button>
+      <button class="tab-item" onclick="setFilter('edu',this)">교육</button>
+    </div>
+  </header>
+
+  <div class="sort-bar">
+    <div class="sort-box">
+      <button class="sort-btn active" id="sortNewest" onclick="changeSort('newest')">최신순</button>
+      <button class="sort-btn" id="sortPopular" onclick="changeSort('popular')">인기순</button>
+    </div>
+    <button class="pick-filter-btn" id="pickFilterBtn" onclick="togglePickFilter()">⭐ PICK</button>
+  </div>
+
+  <div class="post-composer">
+    <div class="composer-top">
+      <div class="org-badge" id="composerBadge">-</div>
+      <textarea class="composer-input" id="postInput"
+        placeholder="고려 관료로서 하고 싶은 말을 남겨보세요..." rows="2"></textarea>
+    </div>
+    <div class="composer-bottom">
+      <span class="char-count" id="charCount">0/300</span>
+      <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="createPost()">게시</button>
+    </div>
+  </div>
+
+  <div id="feed"></div>
+  <footer>Blind 려 · 인천동양중학교 · 고려의 체제 정비</footer>
+</div>
+
+<!-- 프로필 모달 (바텀시트) -->
+<div class="hi-sheet-backdrop hi-hidden" id="profileModal">
+  <div class="hi-sheet">
+    <div class="hi-sheet-handle"></div>
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+      <div style="width:44px; height:44px; background:var(--hi-accent-soft);
+                  border-radius:50%; display:flex; align-items:center;
+                  justify-content:center; font-size:18px; font-weight:700;
+                  color:var(--hi-accent);" id="modalIcon">👤</div>
+      <div>
+        <div style="font-size:15px; font-weight:800;" id="modalName">-</div>
+        <div style="font-size:11px; color:var(--hi-text-muted); margin-top:2px;" id="modalSub">-</div>
+      </div>
+    </div>
+
+    <label class="hi-label">닉네임 변경</label>
+    <input class="hi-input" type="text" id="editNick" placeholder="닉네임"
+      oninput="validateNick(this)" style="margin-bottom: 14px;">
+
+    <label class="hi-label">근무 기관 변경</label>
+    <select class="hi-select" id="editOrg">
+      <option value="">근무 기관을 선택하세요</option>
+      <optgroup label="🏛️ 중앙 기관">
+        <option value="중서문하성" data-cat="central">중서문하성</option>
+        <option value="상서성"     data-cat="central">상서성</option>
+        <option value="중추원"     data-cat="central">중추원</option>
+        <option value="어사대"     data-cat="central">어사대</option>
+        <option value="삼사"       data-cat="central">삼사</option>
+      </optgroup>
+      <optgroup label="🗺️ 지방 기관">
+        <option value="5도 소속"  data-cat="local">5도 소속</option>
+        <option value="양계 소속" data-cat="local">양계 소속</option>
+        <option value="경기 소속" data-cat="local">경기 소속</option>
+      </optgroup>
+      <optgroup label="⚔️ 군사 기관">
+        <option value="2군 소속"    data-cat="military">2군 소속</option>
+        <option value="6위 소속"    data-cat="military">6위 소속</option>
+        <option value="주현군 소속" data-cat="military">주현군 소속</option>
+        <option value="주진군 소속" data-cat="military">주진군 소속</option>
+      </optgroup>
+      <optgroup label="📚 교육 기관">
+        <option value="국자감" data-cat="edu">국자감</option>
+      </optgroup>
+    </select>
+
+    <div id="editErr" style="font-size:12px; color:var(--hi-negative);
+         margin-top:6px; display:none;"></div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 20px;">
+      <button class="hi-btn hi-btn-primary hi-btn-block" onclick="saveProfile()">저장</button>
+      <button class="hi-btn hi-btn-outline hi-btn-block hi-btn-danger" onclick="logout()">로그아웃</button>
+      <button class="hi-btn hi-btn-outline hi-btn-block" onclick="closeProfileModal()">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 글 수정 모달 -->
+<div class="hi-sheet-backdrop hi-hidden" id="editPostModal">
+  <div class="hi-sheet">
+    <div class="hi-sheet-handle"></div>
+    <div class="hi-sheet-title">✏️ 글 수정</div>
+    <textarea class="hi-textarea" id="editPostContent"
+      placeholder="내용을 수정하세요..." style="height: 140px;"></textarea>
+    <div style="font-size:11px; color:var(--hi-text-muted);
+         text-align:right; margin:4px 0 14px;" id="editCharCount">0 / 300</div>
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <button class="hi-btn hi-btn-primary hi-btn-block" onclick="submitPostEdit()">수정 완료</button>
+      <button class="hi-btn hi-btn-outline hi-btn-block" onclick="closeEditPost()">취소</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, set, push, onValue, update, get }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+// ★ 공유 모듈 임포트
+import { initAuth, mountLoginVerification, verifyStudentId }
+  from '../shared/auth.js';
+import { containsBadWord }
+  from '../shared/profanity.js';
+import { mountCharCounter, validateText }
+  from '../shared/textLimit.js';
+import { showRichToast, subscribePickChannel }
+  from '../shared/toast.js';
+
+// ─── Firebase 초기화 ──────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain: "ho0911seong-56638.firebaseapp.com",
+  databaseURL: "https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ho0911seong-56638",
+  storageBucket: "ho0911seong-56638.firebasestorage.app",
+  messagingSenderId: "994509567071",
+  appId: "1:994509567071:web:de99e71c125ec2a3f557ea"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+const postsRef = ref(db, 'goryeo_v2');
+const toastRef = ref(db, 'goryeo_v2_toast');
+
+// ★ 학번 검증 모듈 초기화
+initAuth(db);
+
+const MIN_LEN = 30;
+
+// ─── 상태 ────────────────────────────────────────────────
+let currentUser   = null;
+let currentSort   = 'newest';
+let currentFilter = 'all';
+let showPickOnly  = false;
+let allPostsCache = [];
+let editingPostId = null;
+let loginGuard    = null;
+
+// ─── 로그인 화면 wiring ──────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // ★ 학번/이름 검증을 한 번에 wiring
+  loginGuard = mountLoginVerification({
+    idInput:      document.getElementById('joinId'),
+    nameInput:    document.getElementById('joinName'),
+    idStatusEl:   document.getElementById('idStatus'),
+    nameStatusEl: document.getElementById('nameStatus'),
+    idMsgEl:      document.getElementById('idMsg'),
+    nameMsgEl:    document.getElementById('nameMsg'),
+    onChange: () => updateEnterBtn()
+  });
+
+  // 닉네임/조직 입력 감지
+  document.getElementById('joinNick').addEventListener('input', updateEnterBtn);
+  document.getElementById('joinOrg').addEventListener('change', updateEnterBtn);
+
+  // ★ 글자수 카운터
+  mountCharCounter({
+    input: document.getElementById('postInput'),
+    counter: document.getElementById('charCount'),
+    max: 300,
+    excludeSpaces: true,
+    format: (n, m) => `${n}/${m}`
+  });
+
+  // 엔터키로 로그인
+  document.getElementById('enterBtn').addEventListener('click', enterApp);
+
+  // 저장된 로그인 복원
+  const saved = localStorage.getItem('goryeo_v2_user');
+  if (saved) {
+    try {
+      currentUser = JSON.parse(saved);
+      showApp();
+    } catch (e) {
+      localStorage.removeItem('goryeo_v2_user');
+    }
+  }
+});
+
+window.validateNick = (el) => {
+  el.value = el.value.toLowerCase().replace(/[^a-z0-9_.]/g, '');
+  updateEnterBtn();
+};
+
+function updateEnterBtn() {
+  const status = loginGuard?.getStatus() || { allValid: false };
+  const nick = document.getElementById('joinNick').value.trim();
+  const org  = document.getElementById('joinOrg').value;
+  document.getElementById('enterBtn').disabled =
+    !(status.allValid && nick && org);
+}
+
+function getOrgFromSelect(selId) {
+  const sel = document.getElementById(selId);
+  const val = sel.value;
+  if (!val) return null;
+  const opt = [...sel.options].find(o => o.value === val);
+  return { name: val, cat: opt?.dataset.cat || '' };
+}
+
+function enterApp() {
+  const id   = document.getElementById('joinId').value.trim();
+  const name = document.getElementById('joinName').value.trim();
+  const nick = document.getElementById('joinNick').value.trim();
+  const org  = getOrgFromSelect('joinOrg');
+  if (!id || !name || !nick || !org) return;
+
+  currentUser = { id, name, nick, org };
+  localStorage.setItem('goryeo_v2_user', JSON.stringify(currentUser));
+  showApp();
+}
+
+function showApp() {
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('appContainer').style.display = 'flex';
+  document.getElementById('headerNick').textContent = currentUser.nick;
+  document.getElementById('composerBadge').textContent = currentUser.org?.name || '-';
+  listenFeed();
+  // ★ PICK 토스트 자동 구독
+  subscribePickChannel({
+    dbRef: toastRef, onValue,
+    title: '선생님이 이 글을 Pick 했어요!',
+    icon: '⭐',
+    buildMessage: ({ content, nickname }) =>
+      `"${content.length > 40 ? content.slice(0, 40) + '…' : content}"<br>` +
+      `<span style="font-weight:700;">— ${nickname}</span>`
+  });
+}
+
+// ─── 피드 ───────────────────────────────────────────────
+function listenFeed() {
+  onValue(postsRef, snap => {
+    const data = snap.val();
+    allPostsCache = data
+      ? Object.values(data).filter(p => p && p.id)
+      : [];
+    renderFeed();
+  });
+}
+
+window.setFilter = (f, btn) => {
+  currentFilter = f;
+  document.querySelectorAll('.tab-item').forEach(el => el.classList.remove('active'));
+  btn.classList.add('active');
+  renderFeed();
+};
+
+window.changeSort = (type) => {
+  currentSort = type;
+  document.getElementById('sortNewest').classList.toggle('active', type === 'newest');
+  document.getElementById('sortPopular').classList.toggle('active', type === 'popular');
+  renderFeed();
+};
+
+window.togglePickFilter = () => {
+  showPickOnly = !showPickOnly;
+  document.getElementById('pickFilterBtn').classList.toggle('active', showPickOnly);
+  renderFeed();
+};
+
+function isMyPost(post) {
+  if (!currentUser) return false;
+  return post.studentId === currentUser.id &&
+         post.realName  === currentUser.name &&
+         post.nickname  === currentUser.nick;
+}
+
+function renderFeed() {
+  const feed = document.getElementById('feed');
+  feed.innerHTML = '';
+
+  let posts = allPostsCache.filter(p => p && p.id);
+  if (showPickOnly) posts = posts.filter(p => p.adminPick === true);
+  else if (currentFilter !== 'all') posts = posts.filter(p => p.org?.cat === currentFilter);
+
+  if (currentSort === 'popular') {
+    posts.sort((a, b) =>
+      (b.likes || 0) - (a.likes || 0) ||
+      (b.timestamp || 0) - (a.timestamp || 0)
+    );
+  } else {
+    posts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  }
+
+  if (!posts.length) {
+    feed.innerHTML = '<div class="hi-empty" style="padding:60px 20px;">📋 아직 게시글이 없습니다.<br>첫 번째 글을 남겨보세요!</div>';
+    return;
+  }
+
+  posts.forEach(post => {
+    const isLiked = !!(post.likedBy && post.likedBy[currentUser.id]);
+    const mine    = isMyPost(post);
+    const org     = post.org || null;
+
+    const card = document.createElement('div');
+    card.className = 'post-card';
+
+    const top = document.createElement('div');
+    top.className = 'post-top';
+
+    if (post.adminPick) {
+      const b = document.createElement('span');
+      b.className = 'pick-badge'; b.textContent = '⭐ Pick';
+      top.appendChild(b);
+    }
+    if (org) {
+      const dot = document.createElement('span');
+      dot.className = `cat-dot ${org.cat}`;
+      top.appendChild(dot);
+    }
+
+    const nick = document.createElement('span');
+    nick.className = 'post-nick'; nick.textContent = post.nickname;
+
+    const orgEl = document.createElement('span');
+    orgEl.className = 'post-org'; orgEl.textContent = org?.name || '';
+
+    top.append(nick, orgEl);
+
+    if (post.edited) {
+      const et = document.createElement('span');
+      et.className = 'edited-tag'; et.textContent = '수정됨';
+      top.appendChild(et);
+    }
+    const time = document.createElement('span');
+    time.className = 'post-time'; time.textContent = post.time;
+    top.appendChild(time);
+
+    const body = document.createElement('div');
+    body.className = 'post-body'; body.textContent = post.content;
+
+    const actions = document.createElement('div');
+    actions.className = 'post-actions';
+
+    const likeBtn = document.createElement('button');
+    likeBtn.className = `action-btn${isLiked ? ' liked' : ''}`;
+    likeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="${isLiked?'currentColor':'none'}" stroke="currentColor" stroke-width="2">
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+    </svg> ${post.likes || 0}`;
+    likeBtn.onclick = () => toggleLike(post.id, isLiked);
+    actions.appendChild(likeBtn);
+
+    if (mine) {
+      const eb = document.createElement('button');
+      eb.className = 'edit-btn'; eb.textContent = '수정';
+      eb.onclick = () => openEditPost(post);
+      actions.appendChild(eb);
+    }
+
+    card.append(top, body, actions);
+    feed.appendChild(card);
+  });
+}
+
+window.toggleLike = async (postId, isLiked) => {
+  const snap = await get(ref(db, `goryeo_v2/${postId}`));
+  const post = snap.val(); if (!post) return;
+  await update(ref(db), {
+    [`goryeo_v2/${postId}/likes`]: Math.max(0, isLiked ? post.likes - 1 : post.likes + 1),
+    [`goryeo_v2/${postId}/likedBy/${currentUser.id}`]: isLiked ? null : true
+  });
+};
+
+// ─── 게시글 작성 ─────────────────────────────────────────
+window.createPost = () => {
+  const content = document.getElementById('postInput').value.trim();
+
+  // ★ 글자수 검증
+  const validation = validateText(content, { min: MIN_LEN });
+  if (!validation.ok) {
+    showRichToast({ icon: '✏️', title: '글자 수 부족', message: validation.message });
+    return;
+  }
+  // ★ 욕설 필터
+  if (containsBadWord(content)) {
+    showRichToast({
+      icon: '🚫', title: '게시 불가',
+      message: '부적절한 표현이 포함되어 있어 게시할 수 없습니다.',
+      kind: 'error'
+    });
+    return;
+  }
+
+  const now  = new Date();
+  const time = `${now.getMonth()+1}.${now.getDate()}. ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const r    = push(postsRef);
+  set(r, {
+    id: r.key,
+    studentId: currentUser.id,
+    realName:  currentUser.name,
+    nickname:  currentUser.nick,
+    org:       currentUser.org,
+    content, time,
+    timestamp: Date.now(),
+    likes: 0, likedBy: { init: true }, edited: false
+  });
+  const inp = document.getElementById('postInput');
+  inp.value = '';
+  inp.dispatchEvent(new Event('input')); // 카운터 갱신
+};
+
+// ─── 글 수정 ────────────────────────────────────────────
+window.openEditPost = (post) => {
+  editingPostId = post.id;
+  const ta = document.getElementById('editPostContent');
+  ta.value = post.content;
+  document.getElementById('editCharCount').textContent =
+    `${post.content.replace(/\s/g,'').length} / 300`;
+
+  // 글자수 카운터 (이미 마운트 안되어있다면 마운트)
+  if (!ta._counterMounted) {
+    mountCharCounter({
+      input: ta,
+      counter: document.getElementById('editCharCount'),
+      max: 300, excludeSpaces: true,
+      format: (n, m) => `${n} / ${m}`
+    });
+    ta._counterMounted = true;
+  }
+  document.getElementById('editPostModal').classList.remove('hi-hidden');
+};
+
+window.closeEditPost = () => {
+  document.getElementById('editPostModal').classList.add('hi-hidden');
+  editingPostId = null;
+};
+
+window.submitPostEdit = async () => {
+  if (!editingPostId) return;
+  const content = document.getElementById('editPostContent').value.trim();
+
+  const validation = validateText(content, { min: MIN_LEN });
+  if (!validation.ok) {
+    showRichToast({ icon: '✏️', title: '글자 수 부족', message: validation.message });
+    return;
+  }
+  if (containsBadWord(content)) {
+    showRichToast({
+      icon: '🚫', title: '수정 불가',
+      message: '부적절한 표현이 포함되어 있습니다.',
+      kind: 'error'
+    });
+    return;
+  }
+
+  const snap = await get(ref(db, `goryeo_v2/${editingPostId}`));
+  const post = snap.val(); if (!post) { closeEditPost(); return; }
+  if (post.studentId !== currentUser.id ||
+      post.realName  !== currentUser.name ||
+      post.nickname  !== currentUser.nick) {
+    showRichToast({ icon: '🚫', title: '권한 없음',
+      message: '수정 권한이 없습니다.', kind: 'error' });
+    closeEditPost(); return;
+  }
+  await update(ref(db), {
+    [`goryeo_v2/${editingPostId}/content`]: content,
+    [`goryeo_v2/${editingPostId}/edited`]:  true
+  });
+  closeEditPost();
+};
+
+// ─── 프로필 모달 ────────────────────────────────────────
+window.openProfileModal = () => {
+  document.getElementById('editNick').value = currentUser.nick;
+  document.getElementById('editOrg').value  = currentUser.org?.name || '';
+  document.getElementById('modalName').textContent = `${currentUser.name} (${currentUser.nick})`;
+  document.getElementById('modalSub').textContent  = `학번 ${currentUser.id} · ${currentUser.org?.name || '-'}`;
+  document.getElementById('modalIcon').textContent = currentUser.org?.name?.[0] || '👤';
+  document.getElementById('editErr').style.display = 'none';
+  document.getElementById('profileModal').classList.remove('hi-hidden');
+};
+
+window.closeProfileModal = () => {
+  document.getElementById('profileModal').classList.add('hi-hidden');
+};
+
+window.saveProfile = () => {
+  const nick  = document.getElementById('editNick').value.trim();
+  const errEl = document.getElementById('editErr');
+  if (!nick) {
+    errEl.textContent = '닉네임을 입력하세요.'; errEl.style.display = 'block'; return;
+  }
+  const org = getOrgFromSelect('editOrg');
+  if (!org) {
+    errEl.textContent = '근무 기관을 선택하세요.'; errEl.style.display = 'block'; return;
+  }
+  errEl.style.display = 'none';
+  currentUser.nick = nick; currentUser.org = org;
+  localStorage.setItem('goryeo_v2_user', JSON.stringify(currentUser));
+  document.getElementById('headerNick').textContent = currentUser.nick;
+  document.getElementById('composerBadge').textContent = currentUser.org.name;
+  closeProfileModal();
+};
+
+window.logout = () => {
+  if (confirm('로그아웃 하시겠습니까?')) {
+    localStorage.removeItem('goryeo_v2_user'); location.reload();
+  }
+};
+</script>
+</body>
+</html>
