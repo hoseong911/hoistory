@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>S_threads | 신라 하대</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+  <!-- ★ 공유 디자인 시스템 -->
+  <link rel="stylesheet" href="../shared/theme.css">
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── 로그인 풀스크린 ── */
+    #loginOverlay {
+      position: fixed; inset: 0; background: var(--hi-bg-base);
+      z-index: 1000; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .login-box { width: 100%; max-width: 400px; }
+    .login-logo {
+      font-family: 'Jua', sans-serif; font-size: 3rem;
+      text-align: center; margin-bottom: 8px; color: var(--hi-text);
+    }
+    .login-sub {
+      text-align: center; font-size: 12px;
+      color: var(--hi-text-muted);
+      margin-bottom: 28px; letter-spacing: 0.04em;
+    }
+
+    /* ── 메인 앱 ── */
+    #appContainer {
+      display: none; width: 100%; max-width: 600px;
+      min-height: 100vh; flex-direction: column;
+      border-left: 1px solid var(--hi-border);
+      border-right: 1px solid var(--hi-border);
+    }
+
+    header {
+      padding: 12px 16px;
+      display: flex; flex-direction: column;
+      position: sticky; top: 0;
+      background: rgba(0,0,0,0.85); backdrop-filter: blur(15px);
+      z-index: 100;
+      border-bottom: 1px solid var(--hi-border);
+    }
+    .header-top {
+      display: flex; justify-content: space-between;
+      align-items: center; width: 100%; margin-bottom: 8px;
+    }
+    .header-logo { font-family: 'Jua', sans-serif; font-size: 1.4rem; }
+
+    .profile-btn {
+      display: flex; align-items: center; gap: 7px;
+      background: var(--hi-bg-mid); border: 1px solid var(--hi-border);
+      border-radius: 20px; padding: 5px 12px 5px 6px;
+      cursor: pointer; transition: 0.15s;
+      font-family: inherit;
+    }
+    .profile-btn:hover {
+      border-color: var(--hi-border-light);
+      background: var(--hi-bg-card);
+    }
+    .pb-avatar {
+      width: 26px; height: 26px; background: var(--hi-bg-card);
+      border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; font-size: 14px;
+    }
+    .pb-nick {
+      font-size: 12px; font-weight: 700;
+      color: var(--hi-text-soft);
+      max-width: 80px; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* 신분 탭 */
+    .role-tabs {
+      display: flex; overflow-x: auto;
+      scrollbar-width: none; width: 100%;
+    }
+    .role-tabs::-webkit-scrollbar { display: none; }
+    .role-tab {
+      flex-shrink: 0; padding: 8px 14px; border: none; background: none;
+      font-size: 12px; font-weight: 500;
+      color: var(--hi-text-muted); cursor: pointer;
+      border-bottom: 2px solid transparent;
+      font-family: inherit; white-space: nowrap;
+    }
+    .role-tab.active {
+      color: var(--hi-text);
+      border-bottom-color: var(--hi-text);
+      font-weight: 700;
+    }
+
+    .sort-container {
+      display: flex; justify-content: flex-end;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--hi-border);
+      background: var(--hi-bg-base);
+    }
+    .sort-box {
+      display: flex; background: var(--hi-bg-mid);
+      border-radius: 20px; padding: 3px;
+    }
+    .sort-btn {
+      padding: 5px 12px; border: none; border-radius: 15px;
+      font-size: 11px; font-weight: 700;
+      color: var(--hi-text-muted); background: none;
+      cursor: pointer; transition: 0.2s; font-family: inherit;
+    }
+    .sort-btn.active { color: var(--hi-bg-base); background: var(--hi-text); }
+
+    /* 글 작성 */
+    .post-area {
+      padding: 16px;
+      border-bottom: 1px solid var(--hi-border);
+    }
+    .post-input-wrapper { display: flex; gap: 12px; }
+    .avatar-circle {
+      width: 42px; height: 42px;
+      background: var(--hi-bg-card);
+      border-radius: 50%; display: flex;
+      align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
+    }
+    .composer-textarea {
+      background: transparent; border: none;
+      font-size: 17px; height: 50px; outline: none;
+      width: 100%; resize: none;
+      color: var(--hi-text); font-family: inherit;
+    }
+    .composer-textarea::placeholder {
+      color: var(--hi-text-muted);
+      font-style: italic; font-size: 15px;
+    }
+
+    /* 피드 */
+    #feed { flex: 1; }
+    .thread-card {
+      padding: 15px 16px;
+      border-bottom: 1px solid var(--hi-border);
+      display: flex; gap: 12px;
+    }
+    .nickname { font-weight: bold; font-size: 14px; }
+    .role-tag {
+      font-size: 10px; color: var(--hi-text-muted);
+      background: var(--hi-bg-mid);
+      padding: 2px 6px; border-radius: 4px; margin-left: 5px;
+    }
+    .dummy-tag {
+      font-size: 10px; color: var(--hi-text-muted);
+      background: var(--hi-bg-mid);
+      padding: 2px 6px; border-radius: 4px; margin-left: 5px;
+      border: 1px solid var(--hi-border);
+    }
+    .edited-tag {
+      font-size: 10px; color: var(--hi-text-muted); margin-left: 5px;
+    }
+    .post-time {
+      color: var(--hi-text-muted); font-size: 11px; margin-left: auto;
+    }
+    .content-text {
+      font-size: 15px; line-height: 1.5;
+      margin: 6px 0; color: var(--hi-text-soft);
+      white-space: pre-wrap;
+    }
+
+    .pick-badge {
+      display: inline-block;
+      background: var(--hi-accent-soft);
+      color: var(--hi-accent-strong);
+      border: 1px solid var(--hi-accent-strong);
+      border-radius: 4px; padding: 1px 7px;
+      font-size: 10px; font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .post-actions {
+      display: flex; align-items: center;
+      gap: 12px; margin-top: 4px;
+    }
+    .like-btn {
+      color: var(--hi-text-muted);
+      cursor: pointer; font-size: 13px;
+      display: inline-flex; align-items: center;
+    }
+    .like-btn.liked { color: #f91880; }
+    .edit-btn {
+      color: var(--hi-text-muted); cursor: pointer; font-size: 12px;
+      background: none; border: none; padding: 0;
+      font-family: inherit;
+    }
+    .edit-btn:hover { color: var(--hi-text-soft); }
+
+    footer {
+      padding: 30px 20px; text-align: center;
+      color: var(--hi-text-muted); font-size: 11px;
+    }
+
+    /* ═════════ 아카이브 뷰 ═════════ */
+    #archiveView {
+      display: none; width: 100%; max-width: 600px;
+      min-height: 100vh; flex-direction: column;
+      border-left: 1px solid var(--hi-border);
+      border-right: 1px solid var(--hi-border);
+    }
+    .arc-header {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(0,0,0,0.9); backdrop-filter: blur(15px);
+      border-bottom: 1px solid var(--hi-border);
+      padding: 12px 16px;
+    }
+    .arc-header-top {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+    }
+    .arc-header-logo {
+      font-family: 'Jua', sans-serif; font-size: 1.2rem;
+      color: var(--hi-text);
+    }
+    .arc-header-sub {
+      font-size: 11px; color: var(--hi-text-muted); margin-top: 1px;
+    }
+
+    .arc-menu-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+    }
+    .arc-menu-btn {
+      padding: 10px 8px;
+      background: var(--hi-bg-surface);
+      border: 1px solid var(--hi-border);
+      border-radius: 10px;
+      color: var(--hi-text-muted);
+      font-size: 12px; font-weight: 700;
+      cursor: pointer; text-align: center; transition: 0.15s;
+      font-family: inherit; white-space: nowrap;
+    }
+    .arc-menu-btn:hover {
+      border-color: var(--hi-border-light);
+      color: var(--hi-text-soft);
+    }
+    .arc-menu-btn.active {
+      background: var(--hi-text);
+      border-color: var(--hi-text);
+      color: var(--hi-bg-base);
+    }
+    .arc-menu-btn.pick-btn.active {
+      background: var(--hi-accent-soft);
+      border-color: var(--hi-accent-strong);
+      color: var(--hi-accent-strong);
+    }
+
+    .arc-body { flex: 1; padding-bottom: 40px; }
+    .arc-card {
+      padding: 15px 16px;
+      border-bottom: 1px solid var(--hi-border);
+      display: flex; gap: 12px;
+    }
+    .arc-card.is-pick { background: var(--hi-accent-soft); }
+    .arc-card-body { flex: 1; }
+    .arc-card-meta {
+      display: flex; align-items: center; flex-wrap: wrap;
+      margin-bottom: 4px;
+    }
+    .arc-nick { font-weight: 800; font-size: 13px; color: var(--hi-text-soft); }
+    .arc-role-tag {
+      font-size: 10px; color: var(--hi-text-muted);
+      background: var(--hi-bg-mid);
+      padding: 2px 6px; border-radius: 4px; margin-left: 6px;
+    }
+    .arc-time {
+      font-size: 11px; color: var(--hi-text-muted); margin-left: auto;
+    }
+    .arc-content {
+      font-size: 15px; line-height: 1.55; color: var(--hi-text-soft);
+      white-space: pre-wrap; margin-bottom: 5px;
+    }
+    .arc-likes { font-size: 12px; color: var(--hi-text-muted); }
+    .arc-pick-info {
+      font-size: 11px; color: var(--hi-accent-strong);
+      font-weight: 700; margin-top: 3px;
+    }
+
+    .btn-arc-more {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      width: calc(100% - 32px); margin: 12px 16px;
+      padding: 13px; background: var(--hi-bg-surface);
+      border: 1px solid var(--hi-border); border-radius: 10px;
+      font-size: 14px; font-weight: 700; color: var(--hi-text-muted);
+      cursor: pointer; transition: 0.15s; font-family: inherit;
+    }
+    .btn-arc-more:hover {
+      border-color: var(--hi-border-light); color: var(--hi-text-soft);
+    }
+  </style>
+</head>
+<body class="hi-preset-mono-dark">
+
+<!-- ── 로그인 ── -->
+<div id="loginOverlay">
+  <div class="login-box">
+    <div class="login-logo">S_threads</div>
+    <div class="login-sub">신라 하대 스레드</div>
+
+    <div class="hi-input-with-status" style="margin-bottom: 4px;">
+      <input class="hi-input" type="text" id="joinId"
+        placeholder="학번 (5자리)" maxlength="5"
+        inputmode="numeric" autocomplete="off">
+      <span class="hi-verify-status" id="idStatus"></span>
+    </div>
+    <span class="hi-verify-msg" id="idMsg"></span>
+
+    <div class="hi-input-with-status" style="margin-bottom: 4px;">
+      <input class="hi-input" type="text" id="joinName"
+        placeholder="이름 (실명)" autocomplete="off" disabled>
+      <span class="hi-verify-status" id="nameStatus"></span>
+    </div>
+    <span class="hi-verify-msg" id="nameMsg"></span>
+
+    <input class="hi-input" type="text" id="joinNick"
+      placeholder="nickname (영문/숫자/_)"
+      oninput="validateNick(this)" autocomplete="off"
+      style="margin-bottom: 8px;">
+
+    <select class="hi-select" id="joinRole" style="margin-bottom: 12px;">
+      <option value="진골">👑 진골 귀족</option>
+      <option value="6두품">📜 6두품 지식인</option>
+      <option value="호족">🏰 지방 호족</option>
+      <option value="농민">🌾 일반 농민</option>
+      <option value="선종 승려">🧘 선종 승려</option>
+      <option value="풍수지리사">🧭 풍수지리사</option>
+    </select>
+
+    <button class="hi-btn hi-btn-primary hi-btn-block" id="enterBtn" disabled>
+      신라 접속하기
+    </button>
+
+    <button class="hi-btn hi-btn-outline hi-btn-block" style="margin-top:10px;"
+            onclick="openArchive()">
+      📚 활동 아카이브 보기
+    </button>
+
+    <div style="text-align:center; margin-top:20px;">
+      <a href="s_threads_admin.html"
+         style="color:var(--hi-text-muted); font-size:11px; text-decoration:none;">
+        관리자 센터
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ── 메인 앱 ── -->
+<div id="appContainer">
+  <header>
+    <div class="header-top">
+      <span class="header-logo">S_threads</span>
+      <button class="profile-btn" onclick="openProfile()">
+        <div class="pb-avatar" id="headerAvatar">?</div>
+        <span class="pb-nick" id="headerNick">...</span>
+      </button>
+    </div>
+    <div class="role-tabs">
+      <button class="role-tab active" onclick="setRoleFilter('all', this)">전체</button>
+      <button class="role-tab" onclick="setRoleFilter('진골', this)">👑 진골</button>
+      <button class="role-tab" onclick="setRoleFilter('6두품', this)">📜 6두품</button>
+      <button class="role-tab" onclick="setRoleFilter('호족', this)">🏰 호족</button>
+      <button class="role-tab" onclick="setRoleFilter('농민', this)">🌾 농민</button>
+      <button class="role-tab" onclick="setRoleFilter('선종 승려', this)">🧘 승려</button>
+      <button class="role-tab" onclick="setRoleFilter('풍수지리사', this)">🧭 풍수</button>
+      <button class="role-tab" onclick="setRoleFilter('pick', this)">⭐ Pick</button>
+    </div>
+  </header>
+
+  <div class="sort-container">
+    <div class="sort-box">
+      <button id="sortNewest" class="sort-btn active" onclick="changeSort('newest')">최신순</button>
+      <button id="sortPopular" class="sort-btn" onclick="changeSort('popular')">인기순</button>
+    </div>
+  </div>
+
+  <div class="post-area">
+    <div class="post-input-wrapper">
+      <div class="avatar-circle" id="myAvatar">?</div>
+      <div style="flex:1">
+        <textarea class="composer-textarea" id="postInput"
+          placeholder="신라 하대, 당신의 생각은 무엇인가요..."></textarea>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span id="charCount" style="font-size:11px; color:var(--hi-text-muted);">0 / 300</span>
+          <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="createPost()">게시</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="feed"></div>
+  <footer>
+    v2.3 · Incheon Dongyang Middle School
+    <div style="margin-top:10px;">
+      <a href="s_threads_admin.html" style="color:var(--hi-text-muted); font-size:11px; text-decoration:none;">관리자 센터</a>
+    </div>
+  </footer>
+</div>
+
+<!-- ── 아카이브 뷰 ── -->
+<div id="archiveView">
+  <div class="arc-header">
+    <div class="arc-header-top">
+      <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="closeArchive()">← 돌아가기</button>
+      <div>
+        <div class="arc-header-logo">S_threads</div>
+        <div class="arc-header-sub">신라 하대 활동 아카이브</div>
+      </div>
+    </div>
+    <div class="arc-menu-grid">
+      <button class="arc-menu-btn active" onclick="arcSetFilter('all',this)">📋 전체</button>
+      <button class="arc-menu-btn pick-btn" onclick="arcSetFilter('pick',this)">⭐ Pick</button>
+      <button class="arc-menu-btn" onclick="arcSetFilter('진골',this)">👑 진골 귀족</button>
+      <button class="arc-menu-btn" onclick="arcSetFilter('농민',this)">🌾 일반 농민</button>
+      <button class="arc-menu-btn" onclick="arcSetFilter('호족',this)">🏰 지방 호족</button>
+      <button class="arc-menu-btn" onclick="arcSetFilter('6두품',this)">📜 6두품</button>
+      <button class="arc-menu-btn" onclick="arcSetFilter('선종 승려',this)">🧘 선종 승려</button>
+      <button class="arc-menu-btn" onclick="arcSetFilter('풍수지리사',this)">🧭 풍수지리사</button>
+    </div>
+  </div>
+  <div class="arc-body">
+    <div id="arcFeed"></div>
+    <button class="btn-arc-more" id="arcMoreBtn" onclick="arcLoadMore()" style="display:none;">
+      더보기 <span id="arcMoreCount"></span>
+    </button>
+  </div>
+</div>
+
+<!-- 프로필 모달 (바텀시트) -->
+<div class="hi-sheet-backdrop hi-hidden" id="profileModal">
+  <div class="hi-sheet">
+    <div class="hi-sheet-handle"></div>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:22px;">
+      <div style="width:44px; height:44px; background:var(--hi-bg-card);
+                  border-radius:50%; display:flex; align-items:center;
+                  justify-content:center; font-size:22px;" id="modalAvatar">?</div>
+      <div>
+        <div style="font-size:15px; font-weight:800;" id="modalName">-</div>
+        <div style="font-size:11px; color:var(--hi-text-muted); margin-top:2px;" id="modalId">-</div>
+      </div>
+    </div>
+
+    <label class="hi-label">닉네임 변경</label>
+    <input class="hi-input" type="text" id="editNick"
+      placeholder="new_nickname" oninput="validateNick(this)"
+      autocomplete="off" style="margin-bottom:14px;">
+
+    <label class="hi-label">신분 변경</label>
+    <select class="hi-select" id="editRole">
+      <option value="진골">👑 진골 귀족</option>
+      <option value="6두품">📜 6두품 지식인</option>
+      <option value="호족">🏰 지방 호족</option>
+      <option value="농민">🌾 일반 농민</option>
+      <option value="선종 승려">🧘 선종 승려</option>
+      <option value="풍수지리사">🧭 풍수지리사</option>
+    </select>
+
+    <div style="display:flex; flex-direction:column; gap:8px; margin-top:18px;">
+      <button class="hi-btn hi-btn-primary hi-btn-block" onclick="saveProfile()">수정 완료</button>
+      <button class="hi-btn hi-btn-outline hi-btn-block" onclick="closeProfile()">취소</button>
+      <button class="hi-btn hi-btn-outline hi-btn-block hi-btn-danger" onclick="logout()">로그아웃</button>
+    </div>
+  </div>
+</div>
+
+<!-- 글 수정 모달 -->
+<div class="hi-sheet-backdrop hi-hidden" id="editPostModal">
+  <div class="hi-sheet">
+    <div class="hi-sheet-handle"></div>
+    <div class="hi-sheet-title">✏️ 글 수정</div>
+
+    <label class="hi-label">내용 수정</label>
+    <textarea class="hi-textarea" id="editPostContent"
+      placeholder="내용을 수정하세요..." style="height:160px;"></textarea>
+    <div id="editCharCount" style="font-size:11px; color:var(--hi-text-muted);
+         text-align:right; margin:4px 0 14px;">0 / 300</div>
+
+    <label class="hi-label">계층 변경</label>
+    <select class="hi-select" id="editPostRole">
+      <option value="진골">👑 진골 귀족</option>
+      <option value="6두품">📜 6두품 지식인</option>
+      <option value="호족">🏰 지방 호족</option>
+      <option value="농민">🌾 일반 농민</option>
+      <option value="선종 승려">🧘 선종 승려</option>
+      <option value="풍수지리사">🧭 풍수지리사</option>
+    </select>
+
+    <div style="display:flex; flex-direction:column; gap:8px; margin-top:18px;">
+      <button class="hi-btn hi-btn-primary hi-btn-block" onclick="submitPostEdit()">수정 완료</button>
+      <button class="hi-btn hi-btn-outline hi-btn-block" onclick="closeEditPost()">취소</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getDatabase, ref, set, push, onValue, update, get }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+// ★ 공유 모듈
+import { initAuth, mountLoginVerification }
+  from '../shared/auth.js';
+import { containsBadWord }
+  from '../shared/profanity.js';
+import { mountCharCounter, validateText }
+  from '../shared/textLimit.js';
+import { showRichToast, subscribePickChannel }
+  from '../shared/toast.js';
+
+// ─── Firebase 초기화 ───
+const firebaseConfig = {
+  apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain: "ho0911seong-56638.firebaseapp.com",
+  databaseURL: "https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ho0911seong-56638",
+  storageBucket: "ho0911seong-56638.firebasestorage.app",
+  messagingSenderId: "994509567071",
+  appId: "1:994509567071:web:de99e71c125ec2a3f557ea"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+const postsRef = ref(db, 'posts');
+const toastRef = ref(db, 'silla_toast');
+
+initAuth(db);
+
+const MIN_LEN = 30;
+
+const roleIcons = {
+  "진골":"👑","6두품":"📜","호족":"🏰",
+  "농민":"🌾","선종 승려":"🧘","풍수지리사":"🧭"
+};
+
+// ─── 상태 ───
+let currentUser = null;
+let currentSort = 'newest';
+let currentRoleFilter = 'all';
+let allPostsCache = [];
+let editingPostId = null;
+let loginGuard = null;
+
+// 아카이브 상태
+let arcFilter = 'all';
+let arcPage = 1;
+const ARC_PAGE_SIZE = 10;
+let arcListening = false;
+
+// ─── 로그인 화면 wiring ───
+document.addEventListener('DOMContentLoaded', () => {
+  loginGuard = mountLoginVerification({
+    idInput:      document.getElementById('joinId'),
+    nameInput:    document.getElementById('joinName'),
+    idStatusEl:   document.getElementById('idStatus'),
+    nameStatusEl: document.getElementById('nameStatus'),
+    idMsgEl:      document.getElementById('idMsg'),
+    nameMsgEl:    document.getElementById('nameMsg'),
+    onChange: () => updateEnterBtn()
+  });
+
+  document.getElementById('joinNick').addEventListener('input', updateEnterBtn);
+  document.getElementById('joinRole').addEventListener('change', updateEnterBtn);
+  document.getElementById('enterBtn').addEventListener('click', enterApp);
+
+  // 글자수 카운터
+  mountCharCounter({
+    input: document.getElementById('postInput'),
+    counter: document.getElementById('charCount'),
+    max: 300, excludeSpaces: true,
+    format: (n, m) => `${n} / ${m}`
+  });
+
+  // 저장된 로그인 복원
+  const saved = localStorage.getItem('s_threads_user');
+  if (saved) {
+    try {
+      currentUser = JSON.parse(saved);
+      showApp();
+    } catch (e) {
+      localStorage.removeItem('s_threads_user');
+    }
+  }
+});
+
+window.validateNick = (el) => {
+  el.value = el.value.toLowerCase().replace(/[^a-z0-9_.]/g, '');
+  updateEnterBtn();
+};
+
+function updateEnterBtn() {
+  const status = loginGuard?.getStatus() || { allValid: false };
+  const nick = document.getElementById('joinNick').value.trim();
+  document.getElementById('enterBtn').disabled = !(status.allValid && nick);
+}
+
+function enterApp() {
+  const id   = document.getElementById('joinId').value.trim();
+  const name = document.getElementById('joinName').value.trim();
+  const nick = document.getElementById('joinNick').value.trim();
+  const role = document.getElementById('joinRole').value;
+  if (!id || !name || !nick) return;
+
+  currentUser = { id, name, nick, role };
+  localStorage.setItem('s_threads_user', JSON.stringify(currentUser));
+  showApp();
+}
+
+function showApp() {
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('archiveView').style.display = 'none';
+  document.getElementById('appContainer').style.display = 'flex';
+  updateUI();
+  listenFeed();
+  // PICK 토스트 자동 구독
+  subscribePickChannel({
+    dbRef: toastRef, onValue,
+    title: '선생님이 이 글을 Pick 했어요!',
+    icon: '⭐',
+    buildMessage: ({ content, nickname }) =>
+      `"${content.length > 40 ? content.slice(0, 40) + '…' : content}"<br>` +
+      `<span style="font-weight:700;">— ${nickname}</span>`
+  });
+}
+
+function updateUI() {
+  const icon = roleIcons[currentUser.role] || '?';
+  document.getElementById('myAvatar').textContent = icon;
+  document.getElementById('headerAvatar').textContent = icon;
+  document.getElementById('headerNick').textContent = currentUser.nick;
+  document.getElementById('modalAvatar').textContent = icon;
+  document.getElementById('modalName').textContent = `${currentUser.name} (${currentUser.nick})`;
+  document.getElementById('modalId').textContent = `학번 ${currentUser.id} · ${currentUser.role}`;
+  document.getElementById('editNick').value = currentUser.nick;
+  document.getElementById('editRole').value = currentUser.role;
+}
+
+// ─── 피드 구독 ───
+function listenFeed() {
+  onValue(postsRef, snap => {
+    const data = snap.val();
+    allPostsCache = data ? Object.values(data).filter(p => p && p.id) : [];
+    renderFeed();
+    // 아카이브 열려있으면 같이 갱신
+    if (document.getElementById('archiveView').style.display !== 'none') {
+      renderArcFeed();
+    }
+  });
+}
+
+window.setRoleFilter = (role, btn) => {
+  currentRoleFilter = role;
+  document.querySelectorAll('.role-tab').forEach(el => el.classList.remove('active'));
+  btn.classList.add('active');
+  renderFeed();
+};
+window.changeSort = (type) => {
+  currentSort = type;
+  document.getElementById('sortNewest').classList.toggle('active', type === 'newest');
+  document.getElementById('sortPopular').classList.toggle('active', type === 'popular');
+  renderFeed();
+};
+
+function isMyPost(post) {
+  if (!currentUser) return false;
+  return post.studentId === currentUser.id
+      && post.realName  === currentUser.name
+      && post.nickname  === currentUser.nick
+      && post.role      === currentUser.role;
+}
+
+function renderFeed() {
+  const feed = document.getElementById('feed');
+  feed.innerHTML = '';
+
+  let posts = [...allPostsCache];
+  if (currentRoleFilter === 'pick') posts = posts.filter(p => p.adminPick === true);
+  else if (currentRoleFilter !== 'all') posts = posts.filter(p => p.role === currentRoleFilter);
+
+  if (currentSort === 'popular') {
+    posts.sort((a, b) =>
+      (b.likes || 0) - (a.likes || 0) || ((b.timestamp || 0) - (a.timestamp || 0))
+    );
+  } else {
+    posts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  }
+
+  if (!posts.length) {
+    feed.innerHTML = `<div class="hi-empty">📭 아직 게시글이 없습니다.</div>`;
+    return;
+  }
+
+  posts.forEach(post => {
+    const isDummy = post.studentId === '00000';
+    const isLiked = post.likedBy && post.likedBy[currentUser.id];
+    const mine = !isDummy && isMyPost(post);
+
+    const card = document.createElement('div');
+    card.className = 'thread-card';
+    if (isDummy) card.style.opacity = '0.75';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar-circle';
+    avatar.textContent = roleIcons[post.role] || '?';
+
+    const body = document.createElement('div');
+    body.style.flex = '1';
+
+    if (post.adminPick) {
+      const badge = document.createElement('div');
+      badge.className = 'pick-badge'; badge.textContent = '⭐ Pick';
+      body.appendChild(badge);
+    }
+
+    const meta = document.createElement('div');
+    meta.style.cssText = 'display:flex; align-items:center; flex-wrap:wrap;';
+
+    const nick = document.createElement('span');
+    nick.className = 'nickname'; nick.textContent = post.nickname;
+
+    const roleTag = document.createElement('span');
+    roleTag.className = 'role-tag'; roleTag.textContent = post.role;
+
+    meta.append(nick, roleTag);
+
+    if (isDummy) {
+      const dt = document.createElement('span');
+      dt.className = 'dummy-tag'; dt.textContent = '예시';
+      meta.appendChild(dt);
+    }
+    if (post.edited) {
+      const et = document.createElement('span');
+      et.className = 'edited-tag'; et.textContent = '수정됨';
+      meta.appendChild(et);
+    }
+    const time = document.createElement('span');
+    time.className = 'post-time'; time.textContent = post.time;
+    meta.appendChild(time);
+
+    const contentEl = document.createElement('div');
+    contentEl.className = 'content-text';
+    contentEl.textContent = post.content;
+
+    const actions = document.createElement('div');
+    actions.className = 'post-actions';
+
+    const likeBtn = document.createElement('div');
+    likeBtn.className = `like-btn${isLiked ? ' liked' : ''}`;
+    likeBtn.textContent = `${isLiked ? '❤️' : '♡'} ${post.likes || 0}`;
+    if (!isDummy) likeBtn.onclick = () => toggleLike(post.id, !!isLiked);
+    actions.appendChild(likeBtn);
+
+    if (mine) {
+      const editBtn = document.createElement('button');
+      editBtn.className = 'edit-btn'; editBtn.textContent = '수정';
+      editBtn.onclick = () => openEditPost(post);
+      actions.appendChild(editBtn);
+    }
+
+    body.append(meta, contentEl, actions);
+    card.append(avatar, body);
+    feed.appendChild(card);
+  });
+}
+
+window.toggleLike = async (postId, isLiked) => {
+  const snap = await get(ref(db, `posts/${postId}`));
+  const post = snap.val(); if (!post) return;
+  const updates = {};
+  updates[`posts/${postId}/likes`] = Math.max(0, isLiked ? post.likes - 1 : post.likes + 1);
+  updates[`posts/${postId}/likedBy/${currentUser.id}`] = isLiked ? null : true;
+  update(ref(db), updates);
+};
+
+// ─── 게시글 작성 ───
+window.createPost = () => {
+  const content = document.getElementById('postInput').value.trim();
+  const v = validateText(content, { min: MIN_LEN });
+  if (!v.ok) {
+    showRichToast({ icon: '✏️', title: '글자 수 부족', message: v.message });
+    return;
+  }
+  if (containsBadWord(content)) {
+    showRichToast({ icon: '🚫', title: '게시 불가',
+      message: '부적절한 표현이 포함되어 있어 게시할 수 없습니다.', kind: 'error' });
+    return;
+  }
+  const now = new Date();
+  const time = `${now.getMonth()+1}.${now.getDate()}. ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const r = push(postsRef);
+  set(r, {
+    id: r.key,
+    studentId: currentUser.id, realName: currentUser.name,
+    nickname: currentUser.nick, role: currentUser.role,
+    content, time, timestamp: Date.now(),
+    likes: 0, likedBy: { init: true }, edited: false
+  });
+  const inp = document.getElementById('postInput');
+  inp.value = '';
+  inp.dispatchEvent(new Event('input'));
+};
+
+// ─── 글 수정 ───
+window.openEditPost = (post) => {
+  editingPostId = post.id;
+  const ta = document.getElementById('editPostContent');
+  ta.value = post.content;
+  document.getElementById('editCharCount').textContent =
+    `${post.content.replace(/\s/g,'').length} / 300`;
+  document.getElementById('editPostRole').value = post.role;
+
+  if (!ta._counterMounted) {
+    mountCharCounter({
+      input: ta, counter: document.getElementById('editCharCount'),
+      max: 300, excludeSpaces: true,
+      format: (n, m) => `${n} / ${m}`
+    });
+    ta._counterMounted = true;
+  }
+  document.getElementById('editPostModal').classList.remove('hi-hidden');
+};
+
+window.closeEditPost = () => {
+  document.getElementById('editPostModal').classList.add('hi-hidden');
+  editingPostId = null;
+};
+
+window.submitPostEdit = async () => {
+  if (!editingPostId) return;
+  const content = document.getElementById('editPostContent').value.trim();
+  const role = document.getElementById('editPostRole').value;
+  const v = validateText(content, { min: MIN_LEN });
+  if (!v.ok) {
+    showRichToast({ icon: '✏️', title: '글자 수 부족', message: v.message });
+    return;
+  }
+  if (containsBadWord(content)) {
+    showRichToast({ icon: '🚫', title: '수정 불가',
+      message: '부적절한 표현이 포함되어 있어 수정할 수 없습니다.', kind: 'error' });
+    return;
+  }
+  const snap = await get(ref(db, `posts/${editingPostId}`));
+  const post = snap.val();
+  if (!post) { closeEditPost(); return; }
+  const valid = post.studentId === currentUser.id
+             && post.realName === currentUser.name
+             && post.nickname === currentUser.nick;
+  if (!valid) {
+    showRichToast({ icon: '🚫', title: '권한 없음',
+      message: '수정 권한이 없습니다.', kind: 'error' });
+    closeEditPost(); return;
+  }
+  const updates = {};
+  updates[`posts/${editingPostId}/content`] = content;
+  updates[`posts/${editingPostId}/role`] = role;
+  updates[`posts/${editingPostId}/edited`] = true;
+  await update(ref(db), updates);
+  closeEditPost();
+};
+
+// ─── 프로필 모달 ───
+window.openProfile = () => {
+  updateUI();
+  document.getElementById('profileModal').classList.remove('hi-hidden');
+};
+window.closeProfile = () => {
+  document.getElementById('profileModal').classList.add('hi-hidden');
+};
+window.saveProfile = () => {
+  const nick = document.getElementById('editNick').value.trim();
+  if (!nick) {
+    showRichToast({ icon: '⚠️', title: '닉네임 필요',
+      message: '닉네임을 입력하세요.', kind: 'error' });
+    return;
+  }
+  currentUser.nick = nick;
+  currentUser.role = document.getElementById('editRole').value;
+  localStorage.setItem('s_threads_user', JSON.stringify(currentUser));
+  updateUI();
+  closeProfile();
+};
+window.logout = () => {
+  if (confirm('로그아웃 하시겠습니까?')) {
+    localStorage.removeItem('s_threads_user'); location.reload();
+  }
+};
+
+// ─── 아카이브 ───
+window.openArchive = () => {
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('appContainer').style.display = 'none';
+  document.getElementById('archiveView').style.display = 'flex';
+  window.scrollTo(0, 0);
+  arcPage = 1;
+  if (!arcListening) {
+    arcListening = true;
+    onValue(postsRef, snap => {
+      const data = snap.val();
+      allPostsCache = data ? Object.values(data).filter(p => p && p.id) : [];
+      renderArcFeed();
+    });
+  } else renderArcFeed();
+};
+
+window.closeArchive = () => {
+  document.getElementById('archiveView').style.display = 'none';
+  if (currentUser) {
+    document.getElementById('appContainer').style.display = 'flex';
+  } else {
+    document.getElementById('loginOverlay').style.display = 'flex';
+  }
+  window.scrollTo(0, 0);
+};
+
+window.arcSetFilter = (filter, btnEl) => {
+  arcFilter = filter; arcPage = 1;
+  document.querySelectorAll('.arc-menu-btn').forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  renderArcFeed();
+};
+
+window.arcLoadMore = () => { arcPage++; renderArcFeed(); };
+
+function renderArcFeed() {
+  const feed = document.getElementById('arcFeed');
+  feed.innerHTML = '';
+  let posts = [...allPostsCache].filter(p => p.studentId !== '00000');
+
+  if (arcFilter === 'pick') posts = posts.filter(p => p.adminPick === true);
+  else if (arcFilter !== 'all') posts = posts.filter(p => p.role === arcFilter);
+
+  if (arcFilter === 'pick') {
+    posts.sort((a, b) =>
+      ((b.pickTimestamp || b.timestamp || 0) - (a.pickTimestamp || a.timestamp || 0))
+    );
+  } else {
+    posts.sort((a, b) => ((b.timestamp || 0) - (a.timestamp || 0)));
+  }
+
+  if (!posts.length) {
+    feed.innerHTML = `<div class="hi-empty">📭 ${arcFilter==='pick'?'아직 Pick된 글이 없어요.':'아직 게시글이 없어요.'}</div>`;
+    document.getElementById('arcMoreBtn').style.display = 'none';
+    return;
+  }
+
+  const visible = posts.slice(0, arcPage * ARC_PAGE_SIZE);
+
+  visible.forEach(post => {
+    const card = document.createElement('div');
+    card.className = `arc-card${post.adminPick ? ' is-pick' : ''}`;
+
+    const avatarEl = document.createElement('div');
+    avatarEl.className = 'avatar-circle';
+    avatarEl.style.cssText = 'width:38px; height:38px; font-size:16px; flex-shrink:0;';
+    avatarEl.textContent = roleIcons[post.role] || '?';
+
+    const body = document.createElement('div');
+    body.className = 'arc-card-body';
+
+    if (post.adminPick) {
+      const badge = document.createElement('div');
+      badge.className = 'pick-badge'; badge.textContent = '⭐ Pick';
+      body.appendChild(badge);
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'arc-card-meta';
+    const nick = document.createElement('span');
+    nick.className = 'arc-nick'; nick.textContent = post.nickname;
+    const roleTag = document.createElement('span');
+    roleTag.className = 'arc-role-tag'; roleTag.textContent = post.role;
+    const time = document.createElement('span');
+    time.className = 'arc-time'; time.textContent = post.time || '';
+    meta.append(nick, roleTag);
+    if (post.edited) {
+      const et = document.createElement('span');
+      et.className = 'edited-tag'; et.textContent = '수정됨';
+      meta.appendChild(et);
+    }
+    meta.appendChild(time);
+
+    const contentEl = document.createElement('div');
+    contentEl.className = 'arc-content'; contentEl.textContent = post.content;
+    const likesEl = document.createElement('div');
+    likesEl.className = 'arc-likes'; likesEl.textContent = `♡ ${post.likes || 0}`;
+
+    body.append(meta, contentEl, likesEl);
+
+    if (post.adminPick && post.realName && post.studentId) {
+      const pickInfo = document.createElement('div');
+      pickInfo.className = 'arc-pick-info';
+      pickInfo.textContent = `✦ ${post.studentId} ${post.realName}`;
+      body.appendChild(pickInfo);
+    }
+
+    card.append(avatarEl, body);
+    feed.appendChild(card);
+  });
+
+  const moreBtn = document.getElementById('arcMoreBtn');
+  if (visible.length < posts.length) {
+    moreBtn.style.display = 'flex';
+    document.getElementById('arcMoreCount').textContent =
+      `(${posts.length - visible.length}개 남음)`;
+  } else moreBtn.style.display = 'none';
+}
+</script>
+</body>
+</html>
