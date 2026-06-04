@@ -991,19 +991,34 @@ window._rtdbPush = push;
 window._studentsRef = studentsRef;
 window._onValue = onValue;
 
-// 카테고리 구독
+// 카테고리 구독 (새 구조: { list: [{key, en, ko}, ...] })
 const catsDocRef = doc(fdb, "settings", "categories");
 window._catsDocRef = catsDocRef;
 onSnapshot(catsDocRef, (snap) => {
+  let list = [];
   if (snap.exists()) {
-    window._categoryNames = snap.data();
-  } else {
-    window._categoryNames = window._defaultCategoryNames;
+    const d = snap.data();
+    if (Array.isArray(d.list)) list = d.list;
   }
-  if (window._cards && document.getElementById('adminApp').style.display !== 'none') {
-    renderHub();
-    if (document.getElementById('hubTab-cats').style.display !== 'none') buildCatEditor();
+  window._categoryList = list;
+  if (document.getElementById('adminApp').style.display !== 'none') {
+    if (typeof renderHub === 'function') renderHub();
+    if (typeof updateCategorySelect === 'function') updateCategorySelect();
+    if (document.getElementById('hubTab-cats')?.style.display !== 'none' && typeof buildCatEditor === 'function') buildCatEditor();
   }
+}, (err) => console.error(err));
+
+// 사이드바 항목 구독 (settings/admin_links)
+const linksDocRef = doc(fdb, "settings", "admin_links");
+window._linksDocRef = linksDocRef;
+onSnapshot(linksDocRef, (snap) => {
+  let list = [];
+  if (snap.exists() && Array.isArray(snap.data().list)) {
+    list = snap.data().list;
+  }
+  window._adminLinks = list;
+  if (typeof renderSidebarLinks === 'function') renderSidebarLinks();
+  if (typeof renderLinkEditList === 'function') renderLinkEditList();
 }, (err) => console.error(err));
 
 // 카드 구독
@@ -1041,15 +1056,9 @@ onValue(studentsRef, snap => {
 
 <script>
 const PW = 'ghtjd12!@';
-const CATEGORY_ORDER = ['upcoming', 'past', 'quiz', 'other'];
-const DEFAULT_CATEGORY_NAMES = {
-  upcoming: { en: 'Next Dive', ko: '곧 만날 이야기' },
-  past:     { en: 'Past Dives', ko: '함께 걸어온 길' },
-  quiz:     { en: 'Quiz Quest', ko: '놀면서 떠올리기' },
-  other:    { en: 'Deeper Waters', ko: '역사 한 스푼' },
-};
-window._defaultCategoryNames = DEFAULT_CATEGORY_NAMES;
-window._categoryNames = DEFAULT_CATEGORY_NAMES;
+const MAX_CATEGORIES = 4;
+window._categoryList = window._categoryList || [];
+window._adminLinks = window._adminLinks || [];
 
 const EMOJI_DATA = {
   '교육·역사': ['🏛️','📚','📖','📜','🗺️','🗿','⚔️','🛡️','🏺','🪙','🔭','🔬','✏️','📝','🎓','🏫','🧭','🗓️','📅','🪶'],
@@ -1100,8 +1109,7 @@ function goPage(page) {
   document.querySelectorAll('.page-section').forEach(s => s.classList.toggle('active', s.id === `page-${page}`));
   const titles = {
     dashboard: '대시보드', hub: '허브 관리', students: '학생 명단',
-    blind_ryeo: 'Blind 려', s_threads: 'S_threads', sillaver: 'SILLAVER',
-    sadaebu: '난세의 사대부', think: '생각 Check'
+    menu_edit: '메뉴 편집'
   };
   document.getElementById('pageBreadcrumb').textContent = titles[page] || '';
   closeSidebar();
