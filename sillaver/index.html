@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SILLAVER - 통일 신라 포털</title>
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+    <!-- ★ 공유 디자인 시스템 -->
+    <link rel="stylesheet" href="../shared/theme.css">
+    <style>
+        :root {
+            --green: #03c75a;
+            --green-light: rgba(3,199,90,0.08);
+            --bg: #f5f6f7;
+            --border: #e3e5e8;
+            --gold: #ffb300;
+            --red: #ff5872;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+            font-size: 16px; background: var(--bg);
+            -webkit-tap-highlight-color: transparent; color: #111;
+        }
+
+        header { background: white; padding: 13px 16px; text-align: center; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; }
+        .logo { color: var(--green); font-size: 26px; font-weight: 900; letter-spacing: -1.5px; cursor: pointer; }
+
+        .step-bar { display: flex; align-items: center; justify-content: center; padding: 14px 20px; background: white; border-bottom: 1px solid var(--border); }
+        .step-dot { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+        .step-circle { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--border); background: white; color: #bbb; font-size: 15px; font-weight: 800; display: flex; align-items: center; justify-content: center; transition: 0.3s; }
+        .step-circle.active { border-color: var(--green); background: var(--green); color: white; }
+        .step-circle.done { border-color: var(--green); background: white; color: var(--green); }
+        .step-label { font-size: 13px; font-weight: 700; color: #bbb; white-space: nowrap; transition: 0.3s; }
+        .step-label.active, .step-label.done { color: var(--green); }
+        .step-line { width: 40px; height: 2px; background: var(--border); margin: 0 6px 20px; transition: 0.3s; flex-shrink: 0; }
+        .step-line.done { background: var(--green); }
+
+        .container { max-width: 600px; margin: 0 auto; padding: 20px 15px 40px; }
+        .box { background: white; border-radius: 14px; padding: 22px; border: 1px solid var(--border); margin-bottom: 14px; }
+        .step-title { font-size: 21px; font-weight: 900; color: #111; margin-bottom: 12px; }
+        #step1 .step-title { text-align: center; }
+
+        .guide-box { background: var(--green-light); border: 1px solid rgba(3,199,90,0.28); border-radius: 10px; padding: 14px 16px; margin-bottom: 20px; }
+        .guide-label { font-size: 13px; font-weight: 800; color: var(--green); margin-bottom: 6px; }
+        .guide-text { font-size: 16px; color: #333; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
+        .guide-box.empty { display: none; }
+
+        .field-group { margin-bottom: 16px; }
+        input[type="text"], input[type="password"] {
+            width: 100%; padding: 14px 15px;
+            border: 1.5px solid var(--border); border-radius: 10px;
+            font-size: 16px; font-family: inherit;
+            outline: none; transition: border-color 0.2s;
+            -webkit-appearance: none; background: white; color: #111;
+        }
+        input:focus { border-color: var(--green); }
+        input::placeholder { color: #bbb; }
+
+        .keyword-field { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .keyword-num { width: 28px; height: 28px; border-radius: 50%; background: var(--green); color: white; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .keyword-num.opt { background: #ddd; color: #999; }
+        .keyword-field input { flex: 1; }
+
+        .news-group { margin-bottom: 18px; }
+        .news-cat-badge { font-size: 16px; font-weight: 800; color: #222; display: block; margin-bottom: 8px; }
+        .news-textarea, .ad-textarea {
+            width: 100%; padding: 13px 15px;
+            border: 1.5px solid var(--border); border-radius: 10px;
+            font-family: inherit; font-size: 16px; resize: none; outline: none;
+            line-height: 1.6; transition: border-color 0.2s; color: #111;
+        }
+        .news-textarea { min-height: 78px; }
+        .ad-textarea { min-height: 140px; line-height: 1.65; }
+        .news-textarea:focus, .ad-textarea:focus { border-color: var(--green); }
+        .news-textarea::placeholder, .ad-textarea::placeholder { color: #bbb; }
+        .char-count { font-size: 13px; text-align: right; margin-top: 4px; color: #bbb; }
+        .char-count.ok { color: var(--green); font-weight: 700; }
+        .char-count.warn { color: var(--red); }
+
+        .btn-next {
+            background: var(--green); color: white; border: none; width: 100%;
+            padding: 17px; border-radius: 11px; font-size: 17px; font-weight: 800;
+            cursor: pointer; transition: 0.15s; margin-top: 8px;
+            box-shadow: 0 4px 14px rgba(3,199,90,0.22); font-family: inherit;
+        }
+        .btn-next:active { transform: scale(0.97); }
+        .btn-next:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
+        .btn-back {
+            background: white; color: #888; border: 1.5px solid var(--border); width: 100%;
+            padding: 14px; border-radius: 11px; font-size: 16px; font-weight: 700;
+            cursor: pointer; transition: 0.15s; margin-top: 10px; font-family: inherit;
+        }
+        .btn-back:active { background: #f5f5f5; }
+
+        .pick-btn-wrap { margin-bottom: 20px; }
+        .btn-pick-view {
+            display: flex; align-items: center; gap: 8px;
+            background: var(--green-light); border: 1.5px solid rgba(3,199,90,0.4);
+            color: #028c3e; border-radius: 10px; padding: 13px 18px;
+            font-size: 16px; font-weight: 800; cursor: pointer;
+            width: 100%; justify-content: center; transition: 0.15s; font-family: inherit;
+        }
+        .btn-pick-view:active { transform: scale(0.97); background: rgba(3,199,90,0.14); }
+
+        .pick-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 500; display: none; align-items: flex-end; justify-content: center; }
+        .pick-modal.show { display: flex; }
+        .pick-panel { background: white; border-radius: 20px 20px 0 0; width: 100%; max-width: 600px; max-height: 80vh; display: flex; flex-direction: column; overflow: hidden; animation: slideUp 0.25s ease; }
+        @keyframes slideUp { from { transform: translateY(60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .pick-panel-header { padding: 18px 20px 13px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .pick-panel-title { font-size: 17px; font-weight: 900; color: #111; }
+        .pick-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #888; padding: 0 4px; line-height: 1; }
+        .pick-cat-tabs { display: flex; gap: 7px; padding: 11px 14px; overflow-x: auto; border-bottom: 1px solid var(--border); flex-shrink: 0; scrollbar-width: none; }
+        .pick-cat-tabs::-webkit-scrollbar { display: none; }
+        .pick-cat-btn { padding: 8px 16px; border-radius: 18px; border: 1.5px solid var(--border); background: white; font-size: 14px; font-weight: 700; color: #555; white-space: nowrap; cursor: pointer; font-family: inherit; }
+        .pick-cat-btn.active { background: var(--green); border-color: var(--green); color: white; }
+        .pick-list { overflow-y: auto; padding: 14px; flex: 1; }
+        .pick-item { background: var(--green-light); border: 1px solid rgba(3,199,90,0.25); border-radius: 10px; padding: 14px 16px; margin-bottom: 8px; }
+        .pick-item-content { font-size: 16px; font-weight: 600; color: #222; line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+        .pick-item-cat { font-size: 13px; font-weight: 700; color: var(--green); margin-top: 6px; }
+        .pick-empty { text-align: center; padding: 40px 20px; color: #bbb; font-size: 15px; }
+
+        #result-view { display: none; }
+        .rank-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #f2f2f2; }
+        .rank-left { display: flex; align-items: center; gap: 12px; }
+        .rank-num { color: var(--green); font-weight: 800; font-size: 17px; width: 24px; }
+        .rank-word { font-weight: 600; font-size: 16px; color: #333; }
+        .rank-count { font-size: 14px; color: #aaa; font-weight: 500; }
+        .section-title { font-size: 18px; font-weight: 800; color: #333; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+        .section-title::before { content: ''; width: 4px; height: 18px; background: var(--green); display: inline-block; border-radius: 2px; }
+        .tabs { display: flex; gap: 7px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 4px; scrollbar-width: none; }
+        .tabs::-webkit-scrollbar { display: none; }
+        .tab-btn { padding: 9px 17px; border-radius: 20px; border: 1px solid var(--border); background: white; white-space: nowrap; font-size: 14px; cursor: pointer; font-weight: 600; font-family: inherit; }
+        .tab-btn.active { background: var(--green); color: white; border-color: var(--green); }
+        .sort-tabs { display: flex; gap: 7px; margin-bottom: 14px; flex-wrap: wrap; }
+        .sort-btn { padding: 8px 14px; border-radius: 16px; border: 1px solid var(--border); background: white; font-size: 14px; cursor: pointer; font-weight: 600; color: #555; font-family: inherit; }
+        .sort-btn.active { background: #333; color: white; border-color: #333; }
+        .sort-btn.pick-active.active { background: var(--gold); border-color: var(--gold); color: white; }
+        .news-card { border-bottom: 1px solid #f2f2f2; padding: 15px 0; }
+        .news-card.picked { background: linear-gradient(90deg, rgba(255,179,0,0.08), transparent); border-left: 3px solid var(--gold); padding-left: 12px; margin-left: -12px; border-radius: 5px; }
+        .news-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; line-height: 1.45; color: #222; }
+        .news-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .news-reporter { font-size: 13px; color: var(--green); font-weight: 600; }
+        .pick-badge { display: inline-flex; align-items: center; gap: 3px; background: var(--gold); color: white; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 8px; margin-left: 6px; }
+        .like-btn { display: inline-flex; align-items: center; gap: 5px; background: #f5f6f7; border: 1px solid var(--border); padding: 7px 13px; border-radius: 15px; font-size: 14px; cursor: pointer; color: #555; font-weight: 600; flex-shrink: 0; font-family: inherit; }
+        .like-btn.liked { background: #ffe8ec; border-color: var(--red); color: var(--red); }
+        .ad-feed-item { background: #f9fdfa; border: 1px dashed var(--green); padding: 17px; border-radius: 12px; margin-bottom: 10px; }
+        .ad-feed-item.picked { background: linear-gradient(135deg, rgba(255,179,0,0.07), #f9fdfa 50%); border: 1px solid var(--gold); }
+        .ad-feed-content { font-size: 16px; line-height: 1.65; color: #333; white-space: pre-wrap; word-break: break-word; }
+        .ad-feed-bottom { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+        .ad-feed-author { font-size: 13px; color: #aaa; }
+        .loading-text { text-align: center; padding: 30px; color: var(--green); font-weight: 700; font-size: 16px; }
+        .btn-more { display: block; width: 100%; padding: 13px; margin-top: 10px; background: white; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; font-weight: 700; color: #555; cursor: pointer; font-family: inherit; }
+
+        .step-intro { font-size: 17px; color: #666; line-height: 1.75; margin-bottom: 22px; word-break: keep-all; text-align: center; font-weight: 600; }
+        .btn-archive { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px; margin-top: 12px; background: white; border: 1.5px solid var(--border); border-radius: 11px; font-size: 15px; font-weight: 700; color: #555; cursor: pointer; font-family: inherit; }
+
+        #archive-view { display: none; }
+        .archive-banner { background: linear-gradient(135deg, #021a0e 0%, #043d1e 60%, #065c2e 100%); border-radius: 14px; padding: 24px 22px 20px; margin-bottom: 14px; position: relative; overflow: hidden; }
+        .archive-banner::before { content: '📜'; font-size: 80px; position: absolute; right: -10px; top: -10px; opacity: 0.12; line-height: 1; }
+        .archive-banner-label { font-size: 12px; font-weight: 800; color: rgba(3,199,90,0.8); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
+        .archive-banner-title { font-size: 22px; font-weight: 900; color: white; margin-bottom: 6px; line-height: 1.3; }
+        .archive-banner-sub { font-size: 14px; color: rgba(255,255,255,0.55); font-weight: 500; }
+        .archive-menu { display: flex; gap: 8px; margin-bottom: 16px; }
+        .archive-menu-btn { flex: 1; padding: 14px 8px; border-radius: 12px; border: 1.5px solid var(--border); background: white; font-size: 13px; font-weight: 800; color: #666; cursor: pointer; text-align: center; line-height: 1.4; font-family: inherit; }
+        .archive-menu-btn .amenu-icon { font-size: 22px; display: block; margin-bottom: 5px; }
+        .archive-menu-btn.active { background: var(--green); border-color: var(--green); color: white; box-shadow: 0 4px 12px rgba(3,199,90,0.3); }
+        .archive-section { display: none; }
+        .archive-section.show { display: block; }
+        .rank-top3 { display: flex; gap: 8px; margin-bottom: 16px; }
+        .rank-top-card { flex: 1; border-radius: 12px; padding: 14px 10px; text-align: center; border: 1.5px solid var(--border); background: white; position: relative; overflow: hidden; }
+        .rank-top-card.r1 { background: linear-gradient(135deg, #fffbe6, #fff8d0); border-color: #f5c800; }
+        .rank-top-card.r2 { background: linear-gradient(135deg, #f5f5f5, #ececec); border-color: #ccc; }
+        .rank-top-card.r3 { background: linear-gradient(135deg, #fff4ee, #ffe8d8); border-color: #e8a070; }
+        .rank-top-medal { font-size: 22px; display: block; margin-bottom: 4px; }
+        .rank-top-word { font-size: 15px; font-weight: 900; color: #222; word-break: break-all; line-height: 1.3; margin-bottom: 4px; }
+        .rank-top-count { font-size: 12px; font-weight: 700; color: #888; }
+        .rank-list-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f2f2f2; }
+        .rank-list-num { min-width: 28px; height: 28px; border-radius: 8px; background: #f0f0f0; color: #666; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+        .rank-list-word { flex: 1; font-size: 16px; font-weight: 700; color: #222; }
+        .rank-list-count { font-size: 14px; color: #aaa; font-weight: 500; }
+        .arc-subtabs { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 2px; scrollbar-width: none; }
+        .arc-subtabs::-webkit-scrollbar { display: none; }
+        .arc-subtab { padding: 8px 16px; border-radius: 18px; border: 1.5px solid var(--border); background: white; font-size: 14px; font-weight: 700; color: #555; white-space: nowrap; cursor: pointer; flex-shrink: 0; font-family: inherit; }
+        .arc-subtab.active { background: var(--green); border-color: var(--green); color: white; }
+        .pick-section-header { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 800; color: #b8860b; background: linear-gradient(90deg, rgba(255,179,0,0.12), transparent); border-left: 3px solid var(--gold); padding: 8px 12px; border-radius: 0 8px 8px 0; margin-bottom: 12px; }
+        .more-section-header { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #888; margin: 16px 0 10px; border-top: 1px solid #f0f0f0; padding-top: 14px; }
+        .arc-news-card { padding: 14px 0; border-bottom: 1px solid #f5f5f5; }
+        .arc-news-card.is-picked { border-left: 3px solid var(--gold); padding-left: 12px; margin-left: -12px; background: linear-gradient(90deg, rgba(255,179,0,0.06), transparent); border-radius: 4px; }
+        .arc-news-title { font-size: 16px; font-weight: 700; color: #222; line-height: 1.45; margin-bottom: 5px; }
+        .arc-news-meta { font-size: 13px; color: #bbb; font-weight: 500; }
+        .arc-news-meta .picked-by { color: #b8860b; font-weight: 700; }
+        .arc-ad-card { background: #f9fdfa; border: 1px dashed var(--green); padding: 16px; border-radius: 12px; margin-bottom: 10px; }
+        .arc-ad-card.is-picked { background: linear-gradient(135deg, rgba(255,179,0,0.07), #f9fdfa 50%); border: 1.5px solid var(--gold); }
+        .arc-ad-content { font-size: 16px; line-height: 1.65; color: #333; white-space: pre-wrap; word-break: break-word; }
+        .arc-ad-meta { font-size: 13px; margin-top: 8px; color: #bbb; }
+        .arc-ad-meta .picked-by { color: #b8860b; font-weight: 700; }
+        .btn-arc-more { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; padding: 13px; margin-top: 10px; background: white; border: 1.5px solid var(--border); border-radius: 10px; font-size: 15px; font-weight: 700; color: #555; cursor: pointer; font-family: inherit; }
+        .arc-empty { text-align: center; padding: 36px 20px; color: #ccc; font-size: 15px; font-weight: 600; }
+        .btn-archive-back { display: flex; align-items: center; gap: 6px; background: white; border: 1.5px solid var(--border); color: #666; border-radius: 10px; padding: 11px 16px; font-size: 14px; font-weight: 700; cursor: pointer; margin-bottom: 14px; width: fit-content; font-family: inherit; }
+
+        .footer { text-align: center; padding: 10px 0 30px; color: #ccc; }
+        .footer-ver { font-size: 13px; font-weight: 700; margin-bottom: 7px; }
+        .footer-admin { background: none; border: none; color: #ccc; font-size: 13px; cursor: pointer; text-decoration: underline; font-family: inherit; }
+    </style>
+</head>
+<body class="hi-preset-naver">
+
+<header>
+    <span class="logo" onclick="confirmReset()">SILLAVER</span>
+</header>
+
+<div class="step-bar" id="step-bar" style="display:none;">
+    <div class="step-dot"><div class="step-circle active" id="sc1">1</div><div class="step-label active" id="sl1">로그인</div></div>
+    <div class="step-line" id="sline1"></div>
+    <div class="step-dot"><div class="step-circle" id="sc2">2</div><div class="step-label" id="sl2">검색어</div></div>
+    <div class="step-line" id="sline2"></div>
+    <div class="step-dot"><div class="step-circle" id="sc3">3</div><div class="step-label" id="sl3">헤드라인</div></div>
+    <div class="step-line" id="sline3"></div>
+    <div class="step-dot"><div class="step-circle" id="sc4">4</div><div class="step-label" id="sl4">광고배너</div></div>
+</div>
+
+<div class="container">
+    <div id="step1">
+        <div class="box">
+            <div class="step-title">👋 안녕하세요!</div>
+            <div class="step-intro">통일 신라 시대의 사람들에게 네이버와 같은 포털이 있었다면,<br>무엇을 검색하고 무엇을 읽었을까요? 📜✨</div>
+            <div id="guide-step1" class="guide-box empty">
+                <div class="guide-label">📌 선생님 안내</div>
+                <div class="guide-text" id="guide-text-step1"></div>
+            </div>
+            <div class="field-group">
+                <input type="text" id="user-id" placeholder="학번 입력 (예 : 30xxx)" maxlength="5" inputmode="numeric" pattern="[0-9]{5}">
+            </div>
+            <div class="field-group">
+                <input type="text" id="user-name" placeholder="이름 입력 (실명)">
+            </div>
+            <button class="btn-next" id="btn-step1" onclick="goStep1()">시작하기</button>
+            <button class="btn-archive" onclick="openArchive()"><span>📚</span> 활동 아카이브 보기</button>
+        </div>
+    </div>
+
+    <div id="step2" style="display:none;">
+        <div class="box">
+            <div class="step-title">🔍 검색어 입력</div>
+            <div id="guide-step2" class="guide-box empty"><div class="guide-label">📌 선생님 안내</div><div class="guide-text" id="guide-text-step2"></div></div>
+            <div class="keyword-field"><div class="keyword-num">1</div><input type="text" class="kw-input" placeholder="검색어 1 (필수)" maxlength="30"></div>
+            <div class="keyword-field"><div class="keyword-num">2</div><input type="text" class="kw-input" placeholder="검색어 2 (필수)" maxlength="30"></div>
+            <div class="keyword-field"><div class="keyword-num">3</div><input type="text" class="kw-input" placeholder="검색어 3 (필수)" maxlength="30"></div>
+            <div class="keyword-field"><div class="keyword-num opt">4</div><input type="text" class="kw-input" placeholder="검색어 4 (선택)" maxlength="30"></div>
+            <div class="keyword-field"><div class="keyword-num opt">5</div><input type="text" class="kw-input" placeholder="검색어 5 (선택)" maxlength="30"></div>
+            <button class="btn-next" id="btn-step2" onclick="goStep2()" style="margin-top:18px;">다음</button>
+            <button class="btn-back" onclick="showStep(1)">이전</button>
+        </div>
+    </div>
+
+    <div id="step3" style="display:none;">
+        <div class="box">
+            <div class="step-title">📰 뉴스 헤드라인 작성</div>
+            <div class="pick-btn-wrap"><button class="btn-pick-view" onclick="openPickModal('news')">⭐ 선생님 PICK 모아보기</button></div>
+            <div id="guide-step3" class="guide-box empty"><div class="guide-label">📌 선생님 안내</div><div class="guide-text" id="guide-text-step3"></div></div>
+            <div class="news-group"><span class="news-cat-badge">🏛️ 정치</span><textarea class="news-textarea" data-cat="정치" placeholder="정치 관련 기사 제목 (10자 이상)" oninput="updateCharCount(this)"></textarea><div class="char-count" id="cc-정치">0자</div></div>
+            <div class="news-group"><span class="news-cat-badge">📜 중앙제도</span><textarea class="news-textarea" data-cat="중앙제도" placeholder="중앙제도 관련 기사 제목 (10자 이상)" oninput="updateCharCount(this)"></textarea><div class="char-count" id="cc-중앙제도">0자</div></div>
+            <div class="news-group"><span class="news-cat-badge">🗺️ 지방행정</span><textarea class="news-textarea" data-cat="지방행정" placeholder="지방행정 관련 기사 제목 (10자 이상)" oninput="updateCharCount(this)"></textarea><div class="char-count" id="cc-지방행정">0자</div></div>
+            <div class="news-group"><span class="news-cat-badge">⚔️ 군사</span><textarea class="news-textarea" data-cat="군사" placeholder="군사 관련 기사 제목 (10자 이상)" oninput="updateCharCount(this)"></textarea><div class="char-count" id="cc-군사">0자</div></div>
+            <div class="news-group"><span class="news-cat-badge">🌾 토지/경제</span><textarea class="news-textarea" data-cat="토지" placeholder="토지/경제 관련 기사 제목 (10자 이상)" oninput="updateCharCount(this)"></textarea><div class="char-count" id="cc-토지">0자</div></div>
+            <button class="btn-next" id="btn-step3" onclick="goStep3()" style="margin-top:12px;">다음</button>
+            <button class="btn-back" onclick="showStep(2)">이전</button>
+        </div>
+    </div>
+
+    <div id="step4" style="display:none;">
+        <div class="box">
+            <div class="step-title">📢 광고 홍보 배너 작성</div>
+            <div class="pick-btn-wrap"><button class="btn-pick-view" onclick="openPickModal('ad')">⭐ 선생님 PICK 모아보기</button></div>
+            <div id="guide-step4" class="guide-box empty"><div class="guide-label">📌 선생님 안내</div><div class="guide-text" id="guide-text-step4"></div></div>
+            <textarea id="ad-banner" class="ad-textarea" placeholder="아이디어가 돋보이는 홍보 문구를 작성해 봅시다."></textarea>
+            <button class="btn-next" id="btn-step4" onclick="submitSilla()" style="margin-top:16px;">기사 발행 및 포털 접속</button>
+            <button class="btn-back" onclick="showStep(3)">이전</button>
+        </div>
+    </div>
+
+    <div id="result-view">
+        <div class="box"><div class="section-title">실시간 급상승 검색어</div><div id="trend-list"><div class="loading-text">집계 중...</div></div></div>
+        <div class="box">
+            <div class="section-title">분야별 실시간 뉴스</div>
+            <div class="tabs">
+                <button class="tab-btn active" onclick="filterNews('전체',this)">전체</button>
+                <button class="tab-btn" onclick="filterNews('정치',this)">정치</button>
+                <button class="tab-btn" onclick="filterNews('중앙제도',this)">중앙</button>
+                <button class="tab-btn" onclick="filterNews('지방행정',this)">지방</button>
+                <button class="tab-btn" onclick="filterNews('군사',this)">군사</button>
+                <button class="tab-btn" onclick="filterNews('토지',this)">토지</button>
+            </div>
+            <div class="sort-tabs" id="news-sort-tabs">
+                <button class="sort-btn active" data-sort="latest" onclick="setNewsSort('latest')">⏰ 최신순</button>
+                <button class="sort-btn" data-sort="likes" onclick="setNewsSort('likes')">❤️ 좋아요순</button>
+                <button class="sort-btn pick-active" data-sort="pick" onclick="setNewsSort('pick')">⭐ 픽 모아보기</button>
+            </div>
+            <div id="news-feed"></div>
+        </div>
+        <div class="box">
+            <div class="section-title">SILLAVER 추천 광고</div>
+            <div class="sort-tabs" id="ad-sort-tabs">
+                <button class="sort-btn active" data-sort="latest" onclick="setAdSort('latest')">⏰ 최신순</button>
+                <button class="sort-btn" data-sort="likes" onclick="setAdSort('likes')">❤️ 좋아요순</button>
+                <button class="sort-btn pick-active" data-sort="pick" onclick="setAdSort('pick')">⭐ 픽 모아보기</button>
+            </div>
+            <div id="ad-feed"></div>
+        </div>
+        <button class="btn-next" style="background:#888;box-shadow:none;" onclick="confirmReset()">새로 작성하기</button>
+    </div>
+
+    <div id="archive-view">
+        <button class="btn-archive-back" onclick="closeArchive()">← 돌아가기</button>
+        <div class="archive-banner">
+            <div class="archive-banner-label">SILLAVER ARCHIVE</div>
+            <div class="archive-banner-title">📜 통일 신라 포털 활동 기록</div>
+            <div class="archive-banner-sub">우리 반 친구들이 만든 신라 시대의 인터넷</div>
+        </div>
+        <div class="archive-menu">
+            <button class="archive-menu-btn active" id="amenu-trend" onclick="switchArchiveMenu('trend', this)"><span class="amenu-icon">🔥</span>실시간<br>검색어</button>
+            <button class="archive-menu-btn" id="amenu-news" onclick="switchArchiveMenu('news', this)"><span class="amenu-icon">📰</span>뉴스<br>헤드라인</button>
+            <button class="archive-menu-btn" id="amenu-ad" onclick="switchArchiveMenu('ad', this)"><span class="amenu-icon">📢</span>광고<br>배너</button>
+        </div>
+        <div class="archive-section show" id="arc-trend">
+            <div class="box">
+                <div class="section-title">실시간 급상승 검색어</div>
+                <div id="arc-trend-top3" class="rank-top3"></div>
+                <div id="arc-trend-list"></div>
+                <button class="btn-arc-more" id="arc-trend-more" onclick="arcTrendMore()" style="display:none;">더보기 <span id="arc-trend-more-count"></span></button>
+            </div>
+        </div>
+        <div class="archive-section" id="arc-news">
+            <div class="box">
+                <div class="section-title">뉴스 헤드라인 모아보기</div>
+                <div class="arc-subtabs" id="arc-news-tabs">
+                    <button class="arc-subtab active" onclick="switchArcNewsCat('전체',this)">전체</button>
+                    <button class="arc-subtab" onclick="switchArcNewsCat('정치',this)">🏛️ 정치</button>
+                    <button class="arc-subtab" onclick="switchArcNewsCat('중앙제도',this)">📜 중앙제도</button>
+                    <button class="arc-subtab" onclick="switchArcNewsCat('지방행정',this)">🗺️ 지방행정</button>
+                    <button class="arc-subtab" onclick="switchArcNewsCat('군사',this)">⚔️ 군사</button>
+                    <button class="arc-subtab" onclick="switchArcNewsCat('토지',this)">🌾 토지</button>
+                </div>
+                <div id="arc-news-feed"></div>
+                <button class="btn-arc-more" id="arc-news-more" onclick="arcNewsMore()" style="display:none;">더보기 <span id="arc-news-more-count"></span></button>
+            </div>
+        </div>
+        <div class="archive-section" id="arc-ad">
+            <div class="box">
+                <div class="section-title">광고 홍보 배너 모아보기</div>
+                <div id="arc-ad-feed"></div>
+                <button class="btn-arc-more" id="arc-ad-more" onclick="arcAdMore()" style="display:none;">더보기 <span id="arc-ad-more-count"></span></button>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="footer-ver">SILLAVER v2.0.0</div>
+        <button class="footer-admin" onclick="location.href='sillaver_admin.html'">관리자 모드</button>
+    </div>
+</div>
+
+<div class="pick-modal" id="pick-modal" onclick="closePickModal(event)">
+    <div class="pick-panel">
+        <div class="pick-panel-header">
+            <div class="pick-panel-title">⭐ 선생님 PICK</div>
+            <button class="pick-close" onclick="closePickModalDirect()">✕</button>
+        </div>
+        <div class="pick-cat-tabs" id="pick-cat-tabs" style="display:none;"></div>
+        <div class="pick-list" id="pick-list"></div>
+    </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getFirestore, collection, addDoc, setDoc, updateDoc, onSnapshot, query, orderBy, getDocs, getDoc, where, serverTimestamp, doc } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+// ★ RTDB - 학생 명단용 (다른 앱과 통합)
+import { getDatabase } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+// ★ 공유 모듈
+import { initAuth, verifyStudentName } from '../shared/auth.js';
+import { showCelebration } from '../shared/toast.js';
+
+const firebaseConfig = {
+    apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+    authDomain:"ho0911seong-56638.firebaseapp.com",
+    databaseURL:"https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId:"ho0911seong-56638",
+    storageBucket:"ho0911seong-56638.firebasestorage.app",
+    messagingSenderId:"994509567071",
+    appId:"1:994509567071:web:778c95931e95e9cbf557ea"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const rtdb = getDatabase(app);
+
+// ★ 학생 명단 백그라운드 로드 (RTDB의 students 사용 — 다른 앱들과 공유)
+initAuth(rtdb);
+
+let allDocs=[], currentUserId="", currentUserName="", currentDocId="";
+let newsPage=1, adPage=1;
+const PAGE_SIZE=10;
+let newsSortMode="latest", adSortMode="latest", currentNewsCategory="전체";
+let lastPickedSelfTimes={}, isFirstSnapshot=true;
+let currentStep=1, stepStartTime=Date.now(), stepTimes={};
+let pasteCount=0, leaveCount=0;
+let pickModalMode='news', pickNewsCat='전체';
+
+let arcTrendPage=1, arcNewsPage=1, arcAdPage=1;
+const ARC_PAGE=10;
+let arcNewsCat='전체';
+let archiveListening=false;
+
+const SS={ VIEW:'sv_view', USER_ID:'sv_userId', USER_NAME:'sv_userName', DOC_ID:'sv_docId', STEP:'sv_step', KW:'sv_kw', NEWS:'sv_news', AD:'sv_ad' };
+
+function esc(s){ if(typeof s!=='string')return''; return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;'); }
+function trimC(s){ return s.trim().replace(/\s+/g,' '); }
+
+window.addEventListener('beforeunload',(e)=>{
+    if(currentStep>=1&&currentStep<=4&&document.getElementById('result-view').style.display==='none'&&document.getElementById('archive-view').style.display==='none'){
+        leaveCount++; sessionStorage.setItem('sv_leaveCount',leaveCount); sessionStorage.setItem('sv_pasteCount',pasteCount);
+        e.preventDefault(); e.returnValue='';
+    }
+});
+
+function blockPaste(e){ e.preventDefault(); pasteCount++; sessionStorage.setItem('sv_pasteCount',pasteCount); showMiniToast('복사 붙여넣기는 사용할 수 없어요! ✋'); }
+function blockCC(e){ e.preventDefault(); }
+function attachAC(el){
+    el.addEventListener('paste',blockPaste); el.addEventListener('copy',blockCC); el.addEventListener('cut',blockCC);
+    el.addEventListener('contextmenu',e=>e.preventDefault());
+    el.addEventListener('blur',()=>{ el.value=trimC(el.value); });
+}
+function attachAllAC(){ document.querySelectorAll('input[type="text"],textarea').forEach(attachAC); }
+
+function showMiniToast(msg){
+    const ex=document.getElementById('mt'); if(ex)ex.remove();
+    const el=document.createElement('div'); el.id='mt';
+    el.style.cssText='position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:white;padding:12px 20px;border-radius:20px;font-size:15px;font-weight:700;z-index:9999;white-space:nowrap;animation:fadeInOut 2s ease forwards;font-family:Pretendard,sans-serif;';
+    el.textContent=msg; document.body.appendChild(el);
+    if(!document.getElementById('mts')){ const s=document.createElement('style');s.id='mts';s.textContent='@keyframes fadeInOut{0%{opacity:0;transform:translateX(-50%) translateY(10px)}15%{opacity:1;transform:translateX(-50%) translateY(0)}85%{opacity:1}100%{opacity:0}}';document.head.appendChild(s); }
+    setTimeout(()=>el.remove(),2000);
+}
+
+async function loadGuides(){
+    try{
+        const snap=await getDoc(doc(db,'silla_settings','guides')); if(!snap.exists())return;
+        const data=snap.data();
+        [1,2,3,4].forEach(n=>{ const t=(data[`step${n}`]||'').trim(),b=document.getElementById(`guide-step${n}`),e=document.getElementById(`guide-text-step${n}`); if(t&&b&&e){e.textContent=t;b.classList.remove('empty');} });
+    }catch(e){}
+}
+
+window.updateCharCount=function(ta){
+    const cat=ta.dataset.cat, len=trimC(ta.value).length, el=document.getElementById('cc-'+cat); if(!el)return;
+    el.textContent=len+'자'; el.className='char-count'+(len>=10?' ok':len>0?' warn':'');
+};
+
+function updateStepBar(step){
+    document.getElementById('step-bar').style.display='flex';
+    [1,2,3,4].forEach(n=>{
+        const c=document.getElementById('sc'+n),l=document.getElementById('sl'+n);
+        c.classList.remove('active','done'); l.classList.remove('active','done');
+        if(n<step){c.classList.add('done');c.textContent='✓';l.classList.add('done');}
+        else if(n===step){c.classList.add('active');c.textContent=n;l.classList.add('active');}
+        else c.textContent=n;
+        if(n<4)document.getElementById('sline'+n).classList.toggle('done',n<step);
+    });
+}
+
+window.showStep=function(step){
+    if(currentStep>=1&&currentStep<=4)stepTimes[currentStep]=(stepTimes[currentStep]||0)+(Date.now()-stepStartTime);
+    currentStep=step; stepStartTime=Date.now();
+    [1,2,3,4].forEach(n=>document.getElementById('step'+n).style.display=n===step?'block':'none');
+    document.getElementById('result-view').style.display='none';
+    document.getElementById('archive-view').style.display='none';
+    updateStepBar(step); window.scrollTo(0,0); sessionStorage.setItem(SS.STEP,step);
+};
+
+window.openArchive=function(){
+    [1,2,3,4].forEach(n=>document.getElementById('step'+n).style.display='none');
+    document.getElementById('result-view').style.display='none';
+    document.getElementById('step-bar').style.display='none';
+    document.getElementById('archive-view').style.display='block';
+    window.scrollTo(0,0);
+    if(!archiveListening){ archiveListening=true; startArchiveListening(); }
+    else { renderArcTrend(); renderArcNews(); renderArcAd(); }
+};
+
+window.closeArchive=function(){
+    document.getElementById('archive-view').style.display='none';
+    document.getElementById('step1').style.display='block';
+    document.getElementById('step-bar').style.display='none';
+    window.scrollTo(0,0);
+};
+
+function startArchiveListening(){
+    onSnapshot(query(collection(db,'silla_v3'),orderBy('timestamp','desc')),snap=>{
+        allDocs=[]; snap.forEach(d=>allDocs.push({id:d.id,...d.data()}));
+        renderArcTrend(); renderArcNews(); renderArcAd();
+        if(document.getElementById('result-view').style.display!=='none'){
+            let tm={};
+            allDocs.forEach(d=>(d.keywords||[]).forEach(w=>{const k=w.replace(/\s+/g,'');if(!tm[k])tm[k]={display:w,count:0};tm[k].count++;}));
+            checkPickToast(); renderTrends(tm); renderNewsFeed(true); renderAdFeed(true);
+        }
+        isFirstSnapshot=false;
+    });
+}
+
+window.switchArchiveMenu=function(menu, btnEl){
+    document.querySelectorAll('.archive-menu-btn').forEach(b=>b.classList.remove('active'));
+    if(btnEl) btnEl.classList.add('active');
+    document.querySelectorAll('.archive-section').forEach(s=>s.classList.remove('show'));
+    document.getElementById('arc-'+menu).classList.add('show');
+};
+
+function buildTrendMap(){
+    const tm={};
+    allDocs.forEach(d=>(d.keywords||[]).forEach(w=>{const k=w.replace(/\s+/g,'');if(!tm[k])tm[k]={display:w,count:0};tm[k].count++;}));
+    return Object.values(tm).sort((a,b)=>b.count-a.count);
+}
+
+function renderArcTrend(){
+    const arr=buildTrendMap();
+    const top3=arr.slice(0,3), rest=arr.slice(3);
+    const medals=['🥇','🥈','🥉'];
+    document.getElementById('arc-trend-top3').innerHTML=top3.length?top3.map((item,i)=>`<div class="rank-top-card r${i+1}"><span class="rank-top-medal">${medals[i]}</span><div class="rank-top-word">${esc(item.display)}</div><div class="rank-top-count">${item.count}회</div></div>`).join(''):'';
+    const visible=rest.slice(0, arcTrendPage*ARC_PAGE);
+    document.getElementById('arc-trend-list').innerHTML=visible.map((item,i)=>`<div class="rank-list-item"><div class="rank-list-num">${i+4}</div><div class="rank-list-word">${esc(item.display)}</div><div class="rank-list-count">${item.count}회</div></div>`).join('');
+    const moreBtn=document.getElementById('arc-trend-more');
+    if(visible.length<rest.length){
+        moreBtn.style.display='flex';
+        document.getElementById('arc-trend-more-count').textContent=`(${rest.length-visible.length}개 남음)`;
+    } else moreBtn.style.display='none';
+}
+window.arcTrendMore=function(){ arcTrendPage++; renderArcTrend(); };
+
+window.switchArcNewsCat=function(cat,btnEl){
+    arcNewsCat=cat; arcNewsPage=1;
+    document.querySelectorAll('.arc-subtab').forEach(b=>b.classList.remove('active'));
+    if(btnEl) btnEl.classList.add('active');
+    renderArcNews();
+};
+
+function getArcNewsItems(){
+    const arr=[];
+    allDocs.forEach(d=>{
+        (d.news||[]).forEach(n=>{
+            const pick=(d.newsPicks&&d.newsPicks[n.category])||{};
+            arr.push({title:n.title, category:n.category, studentId:d.studentId, studentName:d.studentName, picked:!!pick.picked, pickedAt:pick.pickedAt||null});
+        });
+    });
+    return arr;
+}
+
+function renderArcNews(){
+    let items=getArcNewsItems();
+    if(arcNewsCat!=='전체') items=items.filter(n=>n.category===arcNewsCat);
+    const picked=items.filter(n=>n.picked).sort((a,b)=>(b.pickedAt?.toMillis?.()||0)-(a.pickedAt?.toMillis?.()||0));
+    const notPicked=items.filter(n=>!n.picked).sort((a,b)=>a.studentId.localeCompare(b.studentId));
+    const feed=document.getElementById('arc-news-feed');
+    let html='';
+    if(!picked.length&&!notPicked.length){ feed.innerHTML='<div class="arc-empty">아직 작성된 헤드라인이 없어요</div>'; document.getElementById('arc-news-more').style.display='none'; return; }
+    if(picked.length){
+        html+=`<div class="pick-section-header">⭐ 선생님 PICK</div>`;
+        html+=picked.map(n=>`<div class="arc-news-card is-picked"><div class="arc-news-title">${esc(n.title)} <span class="pick-badge">⭐ PICK</span></div><div class="arc-news-meta"><span class="picked-by">${esc(n.studentId)} ${esc(n.studentName)}</span>${arcNewsCat==='전체'?' · '+esc(n.category):''}</div></div>`).join('');
+    }
+    const visibleMore=notPicked.slice(0,arcNewsPage*ARC_PAGE);
+    if(notPicked.length){
+        html+=`<div class="more-section-header">📋 전체 헤드라인 (${notPicked.length}개)</div>`;
+        html+=visibleMore.map(n=>`<div class="arc-news-card"><div class="arc-news-title">${esc(n.title)}</div><div class="arc-news-meta">${arcNewsCat==='전체'?esc(n.category):''}</div></div>`).join('');
+    }
+    feed.innerHTML=html;
+    const moreBtn=document.getElementById('arc-news-more');
+    if(visibleMore.length<notPicked.length){
+        moreBtn.style.display='flex';
+        document.getElementById('arc-news-more-count').textContent=`(${notPicked.length-visibleMore.length}개 남음)`;
+    } else moreBtn.style.display='none';
+}
+window.arcNewsMore=function(){ arcNewsPage++; renderArcNews(); };
+
+function renderArcAd(){
+    const picked=allDocs.filter(d=>d.adPick&&d.ad).sort((a,b)=>(b.adPickedAt?.toMillis?.()||0)-(a.adPickedAt?.toMillis?.()||0));
+    const notPicked=allDocs.filter(d=>!d.adPick&&d.ad).sort((a,b)=>a.studentId.localeCompare(b.studentId));
+    const feed=document.getElementById('arc-ad-feed');
+    let html='';
+    if(!picked.length&&!notPicked.length){ feed.innerHTML='<div class="arc-empty">아직 작성된 광고가 없어요</div>'; document.getElementById('arc-ad-more').style.display='none'; return; }
+    if(picked.length){
+        html+=`<div class="pick-section-header">⭐ 선생님 PICK</div>`;
+        html+=picked.map(d=>`<div class="arc-ad-card is-picked"><div class="arc-ad-content">${esc(d.ad)} <span class="pick-badge">⭐ PICK</span></div><div class="arc-ad-meta"><span class="picked-by">${esc(d.studentId)} ${esc(d.studentName)}</span></div></div>`).join('');
+    }
+    const visibleMore=notPicked.slice(0,arcAdPage*ARC_PAGE);
+    if(notPicked.length){
+        html+=`<div class="more-section-header">📋 전체 광고 (${notPicked.length}개)</div>`;
+        html+=visibleMore.map(d=>`<div class="arc-ad-card"><div class="arc-ad-content">${esc(d.ad)}</div><div class="arc-ad-meta">${esc(d.studentId)}</div></div>`).join('');
+    }
+    feed.innerHTML=html;
+    const moreBtn=document.getElementById('arc-ad-more');
+    if(visibleMore.length<notPicked.length){
+        moreBtn.style.display='flex';
+        document.getElementById('arc-ad-more-count').textContent=`(${notPicked.length-visibleMore.length}개 남음)`;
+    } else moreBtn.style.display='none';
+}
+window.arcAdMore=function(){ arcAdPage++; renderArcAd(); };
+
+// ★ 학번 검증 — Firestore 대신 shared/auth.js (RTDB) 사용
+window.goStep1=async function(){
+    const uid=document.getElementById('user-id').value.trim();
+    const uname=document.getElementById('user-name').value.trim();
+    if(!uid||!uname){alert('학번과 이름을 모두 입력해주세요!');return;}
+    if(!/^\d{5}$/.test(uid)){alert('학번은 숫자 5자리로 입력해주세요!');return;}
+
+    const btn=document.getElementById('btn-step1'); btn.disabled=true; btn.textContent='확인 중...';
+
+    // shared/auth.js의 verifyStudentName 사용
+    const result = verifyStudentName(uid, uname);
+    if (!result.ok) {
+        if (result.reason === 'loading') {
+            alert('명단 로드 중입니다. 잠시 후 다시 시도해주세요.');
+        } else if (result.reason === 'not_in_roster') {
+            alert('명단에 없는 학번입니다.\n학번을 다시 확인해주세요.');
+        } else if (result.reason === 'name_mismatch') {
+            alert(`이름이 일치하지 않습니다.\n입력한 이름: ${uname}\n등록된 이름: ${result.registeredName}`);
+        } else {
+            alert('학번을 다시 확인해주세요.');
+        }
+        btn.disabled = false; btn.textContent = '시작하기'; return;
+    }
+
+    currentUserId = uid;
+    currentUserName = result.registeredName || uname;
+    sessionStorage.setItem(SS.USER_ID, uid);
+    sessionStorage.setItem(SS.USER_NAME, currentUserName);
+    btn.disabled = false; btn.textContent = '시작하기';
+    showStep(2);
+    startListeningForPicks();
+};
+
+window.goStep2=function(){
+    const vals=Array.from(document.querySelectorAll('.kw-input')).map(i=>trimC(i.value)).filter(v=>v.replace(/\s/g,'').length>0);
+    if(vals.length<3){alert('검색어를 3개 이상 입력해주세요!');return;}
+    sessionStorage.setItem(SS.KW,JSON.stringify(vals)); showStep(3);
+};
+
+window.goStep3=function(){
+    const areas=document.querySelectorAll('.news-textarea'); let ff=null;
+    areas.forEach(ta=>{ta.value=trimC(ta.value);updateCharCount(ta);if(ta.value.replace(/\s/g,'').length<10&&!ff)ff=ta;});
+    if(ff){alert('모든 분야의 헤드라인을 10자 이상 작성해주세요!');ff.focus();return;}
+    const nd={};areas.forEach(ta=>{nd[ta.dataset.cat]=trimC(ta.value);}); sessionStorage.setItem(SS.NEWS,JSON.stringify(nd)); showStep(4);
+};
+
+window.submitSilla=async function(){
+    const ad=trimC(document.getElementById('ad-banner').value);
+    if(!ad||ad.replace(/\s/g,'').length<5){alert('광고 배너 문구를 작성해주세요! (5자 이상)');return;}
+    stepTimes[4]=(stepTimes[4]||0)+(Date.now()-stepStartTime);
+    const rawKw=JSON.parse(sessionStorage.getItem(SS.KW)||'[]');
+    const nd=JSON.parse(sessionStorage.getItem(SS.NEWS)||'{}');
+    const newsArr=Object.entries(nd).map(([cat,title])=>({category:cat,title}));
+    const btn=document.getElementById('btn-step4'); btn.disabled=true; btn.textContent='발행 중...';
+    let eid=null;
+    try{
+        const es=await getDocs(query(collection(db,'silla_v3'),where('studentId','==',currentUserId)));
+        if(!es.empty){
+            const ed=es.docs[0],edata=ed.data(),ts=edata.timestamp; let ts2='시각 미상';
+            if(ts&&ts.toDate){const d=ts.toDate(),p=n=>String(n).padStart(2,'0');ts2=`${p(d.getMonth()+1)}월 ${p(d.getDate())}일 ${p(d.getHours())}:${p(d.getMinutes())}`;}
+            if(!confirm(`이미 제출한 기록이 있습니다.\n\n▪ 학번: ${edata.studentId}\n▪ 이름: ${edata.studentName}\n▪ 제출 시각: ${ts2}\n\n다시 제출하시겠습니까?\n(기존 내용이 덮어쓰기 됩니다.)`)){btn.disabled=false;btn.textContent='기사 발행 및 포털 접속';return;}
+            eid=ed.id;
+        }
+    }catch(e){console.error(e);}
+    try{
+        const payload={
+            studentId:currentUserId,studentName:currentUserName,keywords:rawKw.slice(0,5),news:newsArr,ad,timestamp:serverTimestamp(),
+            stepTimes:{login:Math.round((stepTimes[1]||0)/1000),keyword:Math.round((stepTimes[2]||0)/1000),news:Math.round((stepTimes[3]||0)/1000),ad:Math.round((stepTimes[4]||0)/1000)},
+            pasteCount:pasteCount+parseInt(sessionStorage.getItem('sv_pasteCount')||0),
+            leaveCount:leaveCount+parseInt(sessionStorage.getItem('sv_leaveCount')||0),
+        };
+        let sid;
+        if(eid){
+            const or=doc(db,'silla_v3',eid),od=(await getDoc(or)).data()||{};
+            payload.newsLikes=od.newsLikes||{}; payload.newsPicks=od.newsPicks||{};
+            payload.adLikes=od.adLikes||[]; payload.adPick=od.adPick||false; payload.adPickedAt=od.adPickedAt||null;
+            await setDoc(or,payload); sid=eid;
+        }else{
+            payload.newsLikes={}; payload.newsPicks={}; payload.adLikes=[]; payload.adPick=false; payload.adPickedAt=null;
+            sid=(await addDoc(collection(db,'silla_v3'),payload)).id;
+        }
+        currentDocId=sid; sessionStorage.setItem(SS.VIEW,'result'); sessionStorage.setItem(SS.DOC_ID,sid);
+        [1,2,3,4].forEach(n=>document.getElementById('step'+n).style.display='none');
+        document.getElementById('result-view').style.display='block';
+        document.getElementById('step-bar').style.display='none';
+        window.scrollTo(0,0);
+        if(!archiveListening){ archiveListening=true; startArchiveListening(); } else startListening();
+    }catch(e){alert('저장 오류: '+e.message);btn.disabled=false;btn.textContent='기사 발행 및 포털 접속';}
+};
+
+let unsubP=null;
+function startListeningForPicks(){ if(unsubP)return; unsubP=onSnapshot(query(collection(db,'silla_v3'),orderBy('timestamp','desc')),snap=>{allDocs=[];snap.forEach(d=>allDocs.push({id:d.id,...d.data()}));}); }
+
+function startListening(){
+    onSnapshot(query(collection(db,'silla_v3'),orderBy('timestamp','desc')),snap=>{
+        allDocs=[]; let tm={};
+        snap.forEach(d=>{const data=d.data();allDocs.push({id:d.id,...data});(data.keywords||[]).forEach(w=>{const k=w.replace(/\s+/g,'');if(!tm[k])tm[k]={display:w,count:0};tm[k].count++;});});
+        checkPickToast(); renderTrends(tm); renderNewsFeed(true); renderAdFeed(true); isFirstSnapshot=false;
+    });
+}
+
+function checkPickToast(){
+    if(!currentUserId)return; const my=allDocs.find(d=>d.studentId===currentUserId); if(!my)return;
+    const np=my.newsPicks||{};
+    Object.entries(np).forEach(([cat,info])=>{
+        if(info&&info.picked&&info.pickedAt){
+            const ms=info.pickedAt.toMillis?info.pickedAt.toMillis():new Date(info.pickedAt).getTime();
+            const key='news_'+cat,last=lastPickedSelfTimes[key]||0;
+            if(ms>last){lastPickedSelfTimes[key]=ms;if(!isFirstSnapshot){const ni=(my.news||[]).find(n=>n.category===cat);showPickCelebration(`"${ni?ni.title:cat}"`, '기사');}}
+        }
+    });
+    if(my.adPick&&my.adPickedAt){
+        const ms=my.adPickedAt.toMillis?my.adPickedAt.toMillis():new Date(my.adPickedAt).getTime();
+        if(ms>(lastPickedSelfTimes['ad']||0)){lastPickedSelfTimes['ad']=ms;if(!isFirstSnapshot)showPickCelebration('내가 만든 광고','광고');}
+    }
+    if(isFirstSnapshot){
+        Object.entries(np).forEach(([cat,info])=>{if(info&&info.picked&&info.pickedAt)lastPickedSelfTimes['news_'+cat]=info.pickedAt.toMillis?info.pickedAt.toMillis():new Date(info.pickedAt).getTime();});
+        if(my.adPick&&my.adPickedAt)lastPickedSelfTimes['ad']=my.adPickedAt.toMillis?my.adPickedAt.toMillis():new Date(my.adPickedAt).getTime();
+    }
+}
+
+// ★ shared/toast.js의 showCelebration 사용
+function showPickCelebration(title, kind) {
+    showCelebration({
+        icon: '⭐',
+        title: '선생님 PICK!',
+        message: `${currentUserName}님의 ${kind}이(가) 선택되었습니다<br>${title}`,
+        allowHtml: true,
+        duration: 4000
+    });
+}
+
+function renderTrends(map){ document.getElementById('trend-list').innerHTML=Object.values(map).sort((a,b)=>b.count-a.count).slice(0,10).map((item,i)=>`<div class="rank-item"><div class="rank-left"><span class="rank-num">${i+1}</span><span class="rank-word">${esc(item.display)}</span></div><span class="rank-count">${item.count}회</span></div>`).join('')||'데이터가 없습니다.'; }
+
+function getFN(){ const arr=[]; allDocs.forEach(d=>(d.news||[]).forEach(n=>{const cat=n.category,likes=(d.newsLikes&&d.newsLikes[cat])||[],pick=(d.newsPicks&&d.newsPicks[cat])||{};arr.push({docId:d.id,title:n.title,category:cat,studentId:d.studentId,studentName:d.studentName,timestamp:d.timestamp,likes,likeCount:likes.length,picked:!!pick.picked,pickedAt:pick.pickedAt||null});})); return arr; }
+
+window.setNewsSort=function(mode){ newsSortMode=mode; document.querySelectorAll('#news-sort-tabs .sort-btn').forEach(b=>b.classList.toggle('active',b.dataset.sort===mode)); renderNewsFeed(true); };
+window.setAdSort=function(mode){ adSortMode=mode; document.querySelectorAll('#ad-sort-tabs .sort-btn').forEach(b=>b.classList.toggle('active',b.dataset.sort===mode)); renderAdFeed(true); };
+window.filterNews=function(cat,btnEl){ currentNewsCategory=cat; document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active')); if(btnEl)btnEl.classList.add('active'); renderNewsFeed(true); };
+
+function renderNewsFeed(reset){
+    if(reset) newsPage=1;
+    const t=document.getElementById('news-feed'); let items=getFN();
+    if(currentNewsCategory!=='전체')items=items.filter(n=>n.category===currentNewsCategory);
+    if(newsSortMode==='latest')items.sort((a,b)=>(b.timestamp?.toMillis?.()||0)-(a.timestamp?.toMillis?.()||0));
+    else if(newsSortMode==='likes')items.sort((a,b)=>b.likeCount-a.likeCount);
+    else if(newsSortMode==='pick'){items=items.filter(n=>n.picked);items.sort((a,b)=>(b.pickedAt?.toMillis?.()||0)-(a.pickedAt?.toMillis?.()||0));}
+    if(!items.length){t.innerHTML=`<p style="padding:20px;color:#999;text-align:center;font-size:15px;">${newsSortMode==='pick'?'아직 픽된 기사가 없습니다.':'작성된 기사가 없습니다.'}</p>`;return;}
+    const visible=items.slice(0,newsPage*PAGE_SIZE);
+    const cards=visible.map(n=>{const cl=currentNewsCategory==='전체'?` | ${esc(n.category)}`:'',liked=currentUserId&&n.likes.includes(currentUserId);return`<div class="news-card${n.picked?' picked':''}"><div class="news-title">${esc(n.title)}${n.picked?`<span class="pick-badge">⭐ PICK</span>`:''}</div><div class="news-meta"><div class="news-reporter">${esc(n.studentId)} ${esc(n.studentName)} 기자${cl}</div><button class="like-btn ${liked?'liked':''}" onclick="toggleNewsLike('${n.docId}','${esc(n.category)}')"><span>${liked?'❤️':'🤍'}</span> ${n.likeCount}</button></div></div>`;}).join('');
+    const moreBtn=visible.length<items.length?`<button class="btn-more" onclick="newsPage++;renderNewsFeed()">더보기 (${items.length-visible.length}개 남음)</button>`:'';
+    t.innerHTML=cards+moreBtn;
+}
+
+function getFA(){ return allDocs.filter(d=>d.ad).map(d=>({docId:d.id,content:d.ad,studentId:d.studentId,studentName:d.studentName,timestamp:d.timestamp,likes:d.adLikes||[],likeCount:(d.adLikes||[]).length,picked:!!d.adPick,pickedAt:d.adPickedAt||null})); }
+
+function renderAdFeed(reset){
+    if(reset) adPage=1;
+    const t=document.getElementById('ad-feed'); let items=getFA();
+    if(adSortMode==='latest')items.sort((a,b)=>(b.timestamp?.toMillis?.()||0)-(a.timestamp?.toMillis?.()||0));
+    else if(adSortMode==='likes')items.sort((a,b)=>b.likeCount-a.likeCount);
+    else if(adSortMode==='pick'){items=items.filter(a=>a.picked);items.sort((a,b)=>(b.pickedAt?.toMillis?.()||0)-(a.pickedAt?.toMillis?.()||0));}
+    if(!items.length){t.innerHTML=`<p style="padding:20px;color:#999;text-align:center;font-size:15px;">${adSortMode==='pick'?'아직 픽된 광고가 없습니다.':'등록된 광고가 없습니다.'}</p>`;return;}
+    const visible=items.slice(0,adPage*PAGE_SIZE);
+    const cards=visible.map(ad=>{const liked=currentUserId&&ad.likes.includes(currentUserId);return`<div class="ad-feed-item${ad.picked?' picked':''}"><div class="ad-feed-content">${esc(ad.content)}${ad.picked?`<span class="pick-badge">⭐ PICK</span>`:''}</div><div class="ad-feed-bottom"><span class="ad-feed-author">AD BY. ${esc(ad.studentId)} ${esc(ad.studentName)}</span><button class="like-btn ${liked?'liked':''}" onclick="toggleAdLike('${ad.docId}')"><span>${liked?'❤️':'🤍'}</span> ${ad.likeCount}</button></div></div>`;}).join('');
+    const moreBtn=visible.length<items.length?`<button class="btn-more" onclick="adPage++;renderAdFeed()">더보기 (${items.length-visible.length}개 남음)</button>`:'';
+    t.innerHTML=cards+moreBtn;
+}
+
+window.toggleNewsLike=async function(docId,category){ if(!currentUserId){alert('좋아요는 제출 후에 누를 수 있어요!');return;} try{const ref=doc(db,'silla_v3',docId),snap=await getDoc(ref);if(!snap.exists())return;const data=snap.data(),nl=data.newsLikes||{},arr=nl[category]||[];const idx=arr.indexOf(currentUserId);if(idx>=0)arr.splice(idx,1);else arr.push(currentUserId);nl[category]=arr;await updateDoc(ref,{newsLikes:nl});}catch(e){console.error(e);} };
+window.toggleAdLike=async function(docId){ if(!currentUserId){alert('좋아요는 제출 후에 누를 수 있어요!');return;} try{const ref=doc(db,'silla_v3',docId),snap=await getDoc(ref);if(!snap.exists())return;const arr=snap.data().adLikes||[],idx=arr.indexOf(currentUserId);if(idx>=0)arr.splice(idx,1);else arr.push(currentUserId);await updateDoc(ref,{adLikes:arr});}catch(e){console.error(e);} };
+
+window.openPickModal=function(mode){
+    pickModalMode=mode; pickNewsCat='전체';
+    const ct=document.getElementById('pick-cat-tabs');
+    if(mode==='news'){ct.style.display='flex';ct.innerHTML=['전체','정치','중앙제도','지방행정','군사','토지'].map(c=>`<button class="pick-cat-btn ${c==='전체'?'active':''}" onclick="pickFilterCat('${c}',this)">${c}</button>`).join('');}
+    else ct.style.display='none';
+    renderPickList(); document.getElementById('pick-modal').classList.add('show');
+};
+window.pickFilterCat=function(cat,btnEl){ pickNewsCat=cat; document.querySelectorAll('.pick-cat-btn').forEach(b=>b.classList.remove('active')); if(btnEl)btnEl.classList.add('active'); renderPickList(); };
+
+function renderPickList(){
+    const list=document.getElementById('pick-list');
+    if(pickModalMode==='news'){
+        const items=[]; allDocs.forEach(d=>(d.news||[]).forEach(n=>{const p=(d.newsPicks&&d.newsPicks[n.category])||{};if(p.picked)items.push({title:n.title,category:n.category,pickedAt:p.pickedAt});}));
+        const filtered=pickNewsCat==='전체'?items:items.filter(i=>i.category===pickNewsCat);
+        filtered.sort((a,b)=>(b.pickedAt?.toMillis?.()||0)-(a.pickedAt?.toMillis?.()||0));
+        if(!filtered.length){list.innerHTML=`<div class="pick-empty">⭐ 아직 픽된 기사가 없어요</div>`;return;}
+        list.innerHTML=filtered.map(item=>`<div class="pick-item"><div class="pick-item-content">${esc(item.title)}</div><div class="pick-item-cat">${esc(item.category)}</div></div>`).join('');
+    }else{
+        const items=allDocs.filter(d=>d.adPick&&d.ad); items.sort((a,b)=>(b.adPickedAt?.toMillis?.()||0)-(a.adPickedAt?.toMillis?.()||0));
+        if(!items.length){list.innerHTML=`<div class="pick-empty">⭐ 아직 픽된 광고가 없어요</div>`;return;}
+        list.innerHTML=items.map(item=>`<div class="pick-item"><div class="pick-item-content">${esc(item.ad)}</div></div>`).join('');
+    }
+}
+window.closePickModal=function(e){if(e.target===document.getElementById('pick-modal'))closePickModalDirect();};
+window.closePickModalDirect=function(){document.getElementById('pick-modal').classList.remove('show');};
+
+window.confirmReset=function(){
+    if(document.getElementById('result-view').style.display!=='none'){if(!confirm('처음으로 돌아가시겠습니까?'))return;}
+    if(document.getElementById('archive-view').style.display!=='none'){closeArchive();return;}
+    Object.values(SS).forEach(k=>sessionStorage.removeItem(k));
+    sessionStorage.removeItem('sv_leaveCount'); sessionStorage.removeItem('sv_pasteCount'); location.reload();
+};
+
+window.addEventListener('DOMContentLoaded',async()=>{
+    await loadGuides(); attachAllAC();
+    leaveCount=parseInt(sessionStorage.getItem('sv_leaveCount')||0);
+    pasteCount=parseInt(sessionStorage.getItem('sv_pasteCount')||0);
+    const sv=sessionStorage.getItem(SS.VIEW);
+    if(sv==='result'){
+        currentUserId=sessionStorage.getItem(SS.USER_ID)||''; currentUserName=sessionStorage.getItem(SS.USER_NAME)||''; currentDocId=sessionStorage.getItem(SS.DOC_ID)||'';
+        [1,2,3,4].forEach(n=>document.getElementById('step'+n).style.display='none');
+        document.getElementById('result-view').style.display='block'; document.getElementById('step-bar').style.display='none';
+        archiveListening=true; startArchiveListening(); return;
+    }
+    const ss=parseInt(sessionStorage.getItem(SS.STEP)||'1');
+    currentUserId=sessionStorage.getItem(SS.USER_ID)||''; currentUserName=sessionStorage.getItem(SS.USER_NAME)||'';
+    if(ss>1&&currentUserId){
+        const kw=JSON.parse(sessionStorage.getItem(SS.KW)||'[]'), ki=document.querySelectorAll('.kw-input');
+        kw.forEach((v,i)=>{if(ki[i])ki[i].value=v;});
+        const nd=JSON.parse(sessionStorage.getItem(SS.NEWS)||'{}');
+        document.querySelectorAll('.news-textarea').forEach(ta=>{if(nd[ta.dataset.cat]){ta.value=nd[ta.dataset.cat];updateCharCount(ta);}});
+        const av=sessionStorage.getItem(SS.AD)||''; if(av)document.getElementById('ad-banner').value=av;
+        document.getElementById('user-id').value=currentUserId; document.getElementById('user-name').value=currentUserName;
+        showStep(Math.min(ss,4)); startListeningForPicks();
+    }else showStep(1);
+    document.getElementById('ad-banner').addEventListener('input',()=>sessionStorage.setItem(SS.AD,document.getElementById('ad-banner').value));
+});
+</script>
+</body>
+</html>
