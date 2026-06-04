@@ -454,6 +454,94 @@
   #toast.error { background: var(--hi-negative); }
   #toast.success { background: var(--hi-positive); }
 
+  /* ── 메뉴 편집 / 링크 행 ── */
+  .link-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--hi-border);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    background: var(--hi-bg-surface);
+    transition: 0.15s;
+  }
+  .link-row:hover { border-color: var(--hi-border-light); }
+  .link-row-emoji {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: var(--hi-bg-mid);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .link-row-text { flex: 1; min-width: 0; overflow: hidden; }
+  .link-row-name {
+    font-size: 14px; font-weight: 700; color: var(--hi-text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .link-row-url {
+    font-size: 11px; color: var(--hi-text-muted); margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .link-row-actions {
+    display: flex; gap: 4px; flex-shrink: 0;
+    flex-wrap: wrap; justify-content: flex-end;
+  }
+  .link-row-actions .mini-btn { padding: 4px 8px; font-size: 11px; }
+  .link-row-actions .mini-btn[disabled] { opacity: 0.3; cursor: not-allowed; }
+
+  /* 동적 사이드바 항목 */
+  .dynamic-link {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 8px;
+    color: var(--hi-text-soft);
+    font-size: 14px; font-weight: 600;
+    cursor: pointer; text-decoration: none;
+    transition: background 0.15s, color 0.15s;
+    margin-bottom: 2px;
+  }
+  .dynamic-link:hover { background: var(--hi-bg-mid); color: var(--hi-text); }
+  .dynamic-link-icon { font-size: 18px; width: 22px; text-align: center; flex-shrink: 0; }
+  .dynamic-link-text {
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .dynamic-link-ext { font-size: 11px; color: var(--hi-text-muted); flex-shrink: 0; }
+
+  .empty-sidebar-hint {
+    padding: 14px 12px;
+    font-size: 11px;
+    color: var(--hi-text-muted);
+    text-align: center;
+    line-height: 1.6;
+  }
+  .empty-sidebar-hint a {
+    color: var(--hi-accent);
+    text-decoration: none;
+    font-weight: 700;
+  }
+
+  /* 링크 편집 모달 */
+  .link-modal-bg {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 1000;
+    align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .link-modal-bg.show { display: flex; }
+  .link-modal-content {
+    background: var(--hi-bg-surface);
+    border: 1px solid var(--hi-border);
+    border-radius: 16px;
+    padding: 26px;
+    width: 100%; max-width: 440px;
+    box-shadow: var(--hi-shadow-dialog);
+    max-height: 85vh; overflow-y: auto;
+  }
+
   /* 모바일 */
   @media (max-width: 880px) {
     .menu-toggle { display: block; }
@@ -535,29 +623,14 @@
         <span class="sb-item-text">학생 명단</span>
         <span class="sb-item-badge" id="studentsCountBadge">0</span>
       </button>
+      <button class="sb-item" data-page="menu_edit" onclick="goPage('menu_edit')">
+        <span class="sb-item-icon">⚙️</span>
+        <span class="sb-item-text">메뉴 편집</span>
+      </button>
 
       <div class="sb-divider"></div>
-      <div class="sb-section-label">앱 어드민</div>
-      <button class="sb-item" data-page="blind_ryeo" onclick="goPage('blind_ryeo')">
-        <span class="sb-item-icon">📝</span>
-        <span class="sb-item-text">Blind 려</span>
-      </button>
-      <button class="sb-item" data-page="s_threads" onclick="goPage('s_threads')">
-        <span class="sb-item-icon">📰</span>
-        <span class="sb-item-text">S_threads</span>
-      </button>
-      <button class="sb-item" data-page="sillaver" onclick="goPage('sillaver')">
-        <span class="sb-item-icon">🔍</span>
-        <span class="sb-item-text">SILLAVER</span>
-      </button>
-      <button class="sb-item" data-page="sadaebu" onclick="goPage('sadaebu')">
-        <span class="sb-item-icon">⚔️</span>
-        <span class="sb-item-text">난세의 사대부</span>
-      </button>
-      <button class="sb-item" data-page="think" onclick="goPage('think')">
-        <span class="sb-item-icon">💭</span>
-        <span class="sb-item-text">생각 Check</span>
-      </button>
+      <div class="sb-section-label">웹앱 관리자</div>
+      <div id="dynamicLinksContainer"></div>
     </aside>
 
     <!-- 메인 -->
@@ -567,7 +640,7 @@
       <section class="page-section active" id="page-dashboard">
         <div class="page-header">
           <div class="page-title">📊 대시보드</div>
-          <div class="page-sub">호이스토리 어드민에 오신 것을 환영합니다, 김호성 선생님</div>
+          <div class="page-sub">Dive into History 관리자 콘솔에 오신 것을 환영합니다, 김호성 선생님</div>
         </div>
 
         <div class="stat-grid">
@@ -662,10 +735,7 @@
               <div class="full">
                 <label class="form-label">카테고리</label>
                 <select class="hi-select" id="fCategory">
-                  <option value="upcoming">Next Dive · 곧 만날 이야기</option>
-                  <option value="past">Past Dives · 함께 걸어온 길</option>
-                  <option value="quiz">Quiz Quest · 놀면서 떠올리기</option>
-                  <option value="other" selected>Deeper Waters · 역사 한 스푼</option>
+                  <option value="">⚠️ 카테고리를 먼저 만들어주세요</option>
                 </select>
               </div>
               <div class="full">
@@ -706,12 +776,20 @@
           <div class="panel">
             <div class="panel-header">
               <div>
-                <div class="panel-title">카테고리 이름</div>
-                <div class="panel-sub">학생 허브에 표시되는 4개 카테고리의 영문/한글 이름을 자유롭게 수정할 수 있습니다</div>
+                <div class="panel-title">카테고리 관리</div>
+                <div class="panel-sub">학생 허브에 표시되는 카테고리를 직접 만들 수 있습니다 · 최대 4개</div>
               </div>
+              <span class="panel-hint" id="catCountInfo">0 / 4</span>
             </div>
             <div id="catEditList"></div>
-            <button class="hi-btn hi-btn-primary" onclick="saveCategoriesAction()" style="margin-top:12px;">카테고리 저장</button>
+            <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+              <button class="hi-btn hi-btn-outline" id="addCatBtn" onclick="addNewCategoryRow()">+ 카테고리 추가</button>
+              <button class="hi-btn hi-btn-primary" onclick="saveCategoriesAction()">💾 저장</button>
+            </div>
+            <div style="font-size:11px; color:var(--hi-text-muted); margin-top:14px; line-height:1.6;">
+              💡 카테고리를 삭제하면 그 안의 카드는 "분류 없음" 상태가 됩니다 (사라지지 않음).<br>
+              💡 변경 사항은 <strong>저장 버튼</strong>을 눌러야 학생 허브에 반영됩니다.
+            </div>
           </div>
         </div>
       </section>
@@ -807,82 +885,60 @@
         </div>
       </section>
 
-      <!-- 앱 어드민 플레이스홀더들 -->
-      <section class="page-section" id="page-blind_ryeo">
+      <!-- 메뉴 편집 페이지 -->
+      <section class="page-section" id="page-menu_edit">
         <div class="page-header">
-          <div class="page-title">📝 Blind 려 어드민</div>
-          <div class="page-sub">고려 관료 익명 SNS 관리</div>
+          <div class="page-title">⚙️ 메뉴 편집</div>
+          <div class="page-sub">사이드바의 "웹앱 관리자" 항목을 직접 추가·수정·삭제할 수 있습니다</div>
         </div>
-        <div class="panel" style="text-align:center; padding:40px;">
-          <div style="font-size:40px; margin-bottom:12px;">🚧</div>
-          <div style="font-size:15px; font-weight:700; margin-bottom:6px;">통합 준비 중</div>
-          <div style="font-size:13px; color:var(--hi-text-muted); margin-bottom:16px;">
-            기존 어드민 페이지를 어드민 콘솔에 통합하는 작업 예정입니다.<br>
-            지금은 별도 페이지로 접속하세요.
+        <div class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">웹앱 항목 목록</div>
+              <div class="panel-sub"><span id="linkCount">0</span>개 등록됨</div>
+            </div>
+            <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="openLinkEditModal()">+ 새 항목 추가</button>
           </div>
-          <a class="hi-btn hi-btn-primary" href="blind_ryeo/blind_ryeo_admin.html" target="_blank">기존 어드민 열기 →</a>
-        </div>
-      </section>
-
-      <section class="page-section" id="page-s_threads">
-        <div class="page-header">
-          <div class="page-title">📰 S_threads 어드민</div>
-          <div class="page-sub">신라 하대 스레드 관리</div>
-        </div>
-        <div class="panel" style="text-align:center; padding:40px;">
-          <div style="font-size:40px; margin-bottom:12px;">🚧</div>
-          <div style="font-size:15px; font-weight:700; margin-bottom:6px;">통합 준비 중</div>
-          <div style="font-size:13px; color:var(--hi-text-muted); margin-bottom:16px;">
-            기존 어드민 페이지를 어드민 콘솔에 통합하는 작업 예정입니다.
-          </div>
-          <a class="hi-btn hi-btn-primary" href="s_threads/s_threads_admin.html" target="_blank">기존 어드민 열기 →</a>
-        </div>
-      </section>
-
-      <section class="page-section" id="page-sillaver">
-        <div class="page-header">
-          <div class="page-title">🔍 SILLAVER 어드민</div>
-          <div class="page-sub">통일신라 포털 관리</div>
-        </div>
-        <div class="panel" style="text-align:center; padding:40px;">
-          <div style="font-size:40px; margin-bottom:12px;">🚧</div>
-          <div style="font-size:15px; font-weight:700; margin-bottom:6px;">통합 준비 중</div>
-          <div style="font-size:13px; color:var(--hi-text-muted); margin-bottom:16px;">
-            기존 어드민 페이지를 어드민 콘솔에 통합하는 작업 예정입니다.
-          </div>
-          <a class="hi-btn hi-btn-primary" href="sillaver/sillaver_admin.html" target="_blank">기존 어드민 열기 →</a>
-        </div>
-      </section>
-
-      <section class="page-section" id="page-sadaebu">
-        <div class="page-header">
-          <div class="page-title">⚔️ 난세의 사대부 어드민</div>
-          <div class="page-sub">고려 말 시뮬레이션 관리</div>
-        </div>
-        <div class="panel" style="text-align:center; padding:40px;">
-          <div style="font-size:40px; margin-bottom:12px;">📜</div>
-          <div style="font-size:15px; font-weight:700; margin-bottom:6px;">어드민 페이지 없음</div>
-          <div style="font-size:13px; color:var(--hi-text-muted); margin-bottom:16px;">
-            이 앱은 별도의 어드민 페이지가 없습니다.<br>
-            제출 기록은 Firebase의 <code>goryeo_results</code>에서 확인할 수 있습니다.
+          <div id="linkEditList"></div>
+          <div style="font-size:11px; color:var(--hi-text-muted); margin-top:14px; line-height:1.6;">
+            💡 항목 클릭 시 새 탭에서 해당 페이지가 열립니다.<br>
+            💡 URL은 상대 경로(<code>blind_ryeo/blind_ryeo_admin.html</code>) 또는 절대 URL(<code>https://...</code>) 둘 다 가능합니다.
           </div>
         </div>
       </section>
 
-      <section class="page-section" id="page-think">
-        <div class="page-header">
-          <div class="page-title">💭 생각 Check 어드민</div>
-          <div class="page-sub">강의별 학생 답변 관리</div>
-        </div>
-        <div class="panel" style="text-align:center; padding:40px;">
-          <div style="font-size:40px; margin-bottom:12px;">🚧</div>
-          <div style="font-size:15px; font-weight:700; margin-bottom:6px;">통합 준비 중</div>
-          <div style="font-size:13px; color:var(--hi-text-muted); margin-bottom:16px;">
-            기존 어드민 페이지를 어드민 콘솔에 통합하는 작업 예정입니다.
+      <!-- 항목 편집 모달 -->
+      <div class="link-modal-bg" id="linkEditModal">
+        <div class="link-modal-content">
+          <h3 id="linkEditModalTitle" style="font-size:16px;font-weight:800;margin-bottom:18px;color:var(--hi-text);">새 항목 추가</h3>
+          <input type="hidden" id="linkEditId">
+          <div style="margin-bottom:14px;">
+            <label class="form-label">아이콘 이모지</label>
+            <div class="emoji-palette-wrap">
+              <div class="emoji-display" onclick="toggleLinkEmojiPicker(event)">
+                <span id="linkSelectedEmoji">🔗</span>
+                <span class="hint">클릭해서 선택</span>
+              </div>
+              <div class="emoji-picker" id="linkEmojiPicker">
+                <div class="emoji-cats" id="linkEmojiCats"></div>
+                <div class="emoji-grid" id="linkEmojiGrid"></div>
+              </div>
+            </div>
           </div>
-          <a class="hi-btn hi-btn-primary" href="think/admin.html" target="_blank">기존 어드민 열기 →</a>
+          <div style="margin-bottom:14px;">
+            <label class="form-label">이름</label>
+            <input class="hi-input" type="text" id="linkName" placeholder="예) Blind 려">
+          </div>
+          <div style="margin-bottom:14px;">
+            <label class="form-label">링크 URL</label>
+            <input class="hi-input" type="text" id="linkUrl" placeholder="예) blind_ryeo/blind_ryeo_admin.html">
+          </div>
+          <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:18px;">
+            <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="closeLinkEditModal()">취소</button>
+            <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="saveLinkEdit()">저장</button>
+          </div>
         </div>
-      </section>
+      </div>
 
     </main>
   </div>
