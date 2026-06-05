@@ -1163,37 +1163,52 @@ window.hubSwitchTab = hubSwitchTab;
 
 function renderHub() {
   const cards = window._cards || [];
-  const cats = window._categoryNames || DEFAULT_CATEGORY_NAMES;
+  const cats = window._categoryList || [];
   const board = document.getElementById('hubBoard');
   if (!board) return;
   board.innerHTML = '';
 
-  const grouped = { upcoming: [], past: [], quiz: [], other: [] };
+  if (cats.length === 0) {
+    board.innerHTML = `<div class="empty" style="padding:48px 20px;grid-column:1/-1;background:var(--hi-bg-mid);border-radius:10px;">
+      <div class="empty-icon">🏷️</div>
+      <div class="empty-text">아직 카테고리가 없습니다.<br>먼저 카테고리를 만들어주세요.</div>
+      <button class="hi-btn hi-btn-primary hi-btn-sm" style="margin-top:14px;" onclick="hubSwitchTab('cats')">카테고리 만들기 →</button>
+    </div>`;
+    return;
+  }
+
+  // 그룹핑
+  const grouped = {};
+  cats.forEach(c => { grouped[c.key] = []; });
+  const orphans = [];
   cards.forEach(c => {
-    const cat = c.category && grouped[c.category] !== undefined ? c.category : 'other';
-    grouped[cat].push(c);
+    if (c.category && grouped[c.category] !== undefined) {
+      grouped[c.category].push(c);
+    } else {
+      orphans.push(c);
+    }
   });
 
-  CATEGORY_ORDER.forEach(catKey => {
+  // 카테고리 컬럼들
+  cats.forEach(catObj => {
     const col = document.createElement('div');
     col.className = 'hub-col';
-    col.dataset.catKey = catKey;
-    const name = cats[catKey] || DEFAULT_CATEGORY_NAMES[catKey];
+    col.dataset.catKey = catObj.key;
     col.innerHTML = `
       <div class="hub-col-header">
-        <div class="hub-col-title">${esc(name.en)}</div>
-        <div class="hub-col-sub">${esc(name.ko)}</div>
+        <div class="hub-col-title">${esc(catObj.en || '(이름 없음)')}</div>
+        <div class="hub-col-sub">${esc(catObj.ko || '')}</div>
       </div>
       <div class="hub-col-cards"></div>
     `;
     const cardsBox = col.querySelector('.hub-col-cards');
-    if (grouped[catKey].length === 0) {
+    if (grouped[catObj.key].length === 0) {
       const empty = document.createElement('div');
       empty.className = 'hub-col-empty';
       empty.textContent = '여기로 끌어다 놓으세요';
       cardsBox.appendChild(empty);
     } else {
-      grouped[catKey].forEach(card => cardsBox.appendChild(createHubCardEl(card)));
+      grouped[catObj.key].forEach(card => cardsBox.appendChild(createHubCardEl(card)));
     }
     col.addEventListener('dragover', e => { e.preventDefault(); col.classList.add('drag-target'); });
     col.addEventListener('dragleave', e => {
@@ -1203,11 +1218,31 @@ function renderHub() {
       e.preventDefault();
       col.classList.remove('drag-target');
       if (!window._dragSrcCard) return;
-      await handleHubDrop(window._dragSrcCard, catKey, null, 'end');
+      await handleHubDrop(window._dragSrcCard, catObj.key, null, 'end');
       window._dragSrcCard = null;
     });
     board.appendChild(col);
   });
+
+  // Orphan (분류 없음)
+  if (orphans.length > 0) {
+    const orphanCol = document.createElement('div');
+    orphanCol.className = 'hub-col';
+    orphanCol.dataset.catKey = '__orphan__';
+    orphanCol.style.gridColumn = '1 / -1';
+    orphanCol.style.background = '#fef9e7';
+    orphanCol.style.border = '1px dashed #f5c849';
+    orphanCol.innerHTML = `
+      <div class="hub-col-header" style="border-bottom-color:#f5c849;">
+        <div class="hub-col-title" style="color:#92400e;">⚠️ 분류 없음 (${orphans.length})</div>
+        <div class="hub-col-sub" style="color:#92400e;">카테고리가 삭제되었거나 분류되지 않은 카드입니다. 다른 섹션으로 끌어다 옮기세요.</div>
+      </div>
+      <div class="hub-col-cards"></div>
+    `;
+    const cardsBox = orphanCol.querySelector('.hub-col-cards');
+    orphans.forEach(card => cardsBox.appendChild(createHubCardEl(card)));
+    board.appendChild(orphanCol);
+  }
 }
 
 function createHubCardEl(card) {
@@ -1264,8 +1299,11 @@ function createHubCardEl(card) {
 
 async function handleHubDrop(srcCard, targetCat, targetDocId, pos) {
   const allCards = [...(window._cards || [])];
+  const cats = window._categoryList || [];
+  const catKeys = cats.map(c => c.key);
+
   const targetCatCards = allCards
-    .filter(c => (c.category || 'other') === targetCat && c.docId !== srcCard.docId)
+    .filter(c => c.category === targetCat && c.docId !== srcCard.docId)
     .sort((a,b) => (a.order||0) - (b.order||0));
   let newList;
   if (pos === 'end' || !targetDocId) {
@@ -1281,12 +1319,12 @@ async function handleHubDrop(srcCard, targetCat, targetDocId, pos) {
   try {
     const batch = window._writeBatch(window._fdb);
     let globalIdx = 0;
-    for (const catKey of CATEGORY_ORDER) {
+    for (const catKey of catKeys) {
       let groupList;
       if (catKey === targetCat) groupList = newList;
       else {
         groupList = allCards
-          .filter(c => (c.category || 'other') === catKey && c.docId !== srcCard.docId)
+          .filter(c => c.category === catKey && c.docId !== srcCard.docId)
           .sort((a,b) => (a.order||0) - (b.order||0));
       }
       groupList.forEach(c => {
@@ -1374,7 +1412,9 @@ function hubResetForm() {
   document.getElementById('fTitle').value = '';
   document.getElementById('fDesc').value = '';
   document.getElementById('fUrl').value = '';
-  document.getElementById('fCategory').value = 'other';
+  const cats = window._categoryList || [];
+  const fCat = document.getElementById('fCategory');
+  if (fCat && cats.length > 0) fCat.value = cats[0].key;
   selectedEmoji = '🏛️';
   document.getElementById('selectedEmoji').textContent = '🏛️';
   document.getElementById('hubSubmitBtn').textContent = '카드 추가하기';
@@ -1383,42 +1423,120 @@ function hubResetForm() {
 window.hubResetForm = hubResetForm;
 
 /* ===== 카테고리 편집 ===== */
+let _tempCategoryList = null; // 편집 중인 임시 리스트
+
+function ensureTempList() {
+  if (_tempCategoryList === null) {
+    _tempCategoryList = (window._categoryList || []).map(c => ({...c}));
+  }
+}
+
+function updateTempCat(idx, field, value) {
+  ensureTempList();
+  if (_tempCategoryList[idx]) _tempCategoryList[idx][field] = value;
+}
+window.updateTempCat = updateTempCat;
+
 function buildCatEditor() {
   const wrap = document.getElementById('catEditList');
   if (!wrap) return;
-  const cats = window._categoryNames || DEFAULT_CATEGORY_NAMES;
-  wrap.innerHTML = '';
-  CATEGORY_ORDER.forEach(key => {
-    const cur = cats[key] || DEFAULT_CATEGORY_NAMES[key];
-    const def = DEFAULT_CATEGORY_NAMES[key];
-    const row = document.createElement('div');
-    row.className = 'cat-edit-row';
-    row.innerHTML = `
-      <div class="cat-edit-key">${key} · 기본: ${esc(def.en)} / ${esc(def.ko)}</div>
-      <div class="cat-fields">
-        <input class="hi-input" type="text" data-cat-key="${key}" data-cat-field="en" value="${esc(cur.en || '')}" placeholder="영문 이름">
-        <input class="hi-input" type="text" data-cat-key="${key}" data-cat-field="ko" value="${esc(cur.ko || '')}" placeholder="한글 부제">
+  const list = _tempCategoryList !== null ? _tempCategoryList : (window._categoryList || []);
+
+  const countEl = document.getElementById('catCountInfo');
+  if (countEl) countEl.textContent = `${list.length} / ${MAX_CATEGORIES}`;
+  const addBtn = document.getElementById('addCatBtn');
+  if (addBtn) addBtn.disabled = list.length >= MAX_CATEGORIES;
+
+  if (list.length === 0) {
+    wrap.innerHTML = `<div class="empty" style="padding:30px;">
+      <div class="empty-icon">🏷️</div>
+      <div class="empty-text">아직 카테고리가 없습니다.<br>아래 "+ 카테고리 추가" 버튼으로 시작하세요.</div>
+    </div>`;
+    return;
+  }
+
+  wrap.innerHTML = list.map((cat, idx) => `
+    <div class="cat-edit-row">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div class="cat-edit-key">카테고리 ${idx + 1}</div>
+        <button class="mini-btn danger" onclick="removeCategoryRow(${idx})">🗑️ 삭제</button>
       </div>
-    `;
-    wrap.appendChild(row);
-  });
+      <div class="cat-fields">
+        <input class="hi-input" type="text" data-cat-idx="${idx}" data-cat-field="en" value="${esc(cat.en || '')}" placeholder="영문 이름 (예: Next Dive)" oninput="updateTempCat(${idx},'en',this.value)">
+        <input class="hi-input" type="text" data-cat-idx="${idx}" data-cat-field="ko" value="${esc(cat.ko || '')}" placeholder="한글 부제 (예: 곧 만날 이야기)" oninput="updateTempCat(${idx},'ko',this.value)">
+      </div>
+    </div>
+  `).join('');
 }
 
-async function saveCategoriesAction() {
-  const newCats = {};
-  CATEGORY_ORDER.forEach(key => {
-    const en = document.querySelector(`[data-cat-key="${key}"][data-cat-field="en"]`).value.trim() || DEFAULT_CATEGORY_NAMES[key].en;
-    const ko = document.querySelector(`[data-cat-key="${key}"][data-cat-field="ko"]`).value.trim() || DEFAULT_CATEGORY_NAMES[key].ko;
-    newCats[key] = { en, ko };
+function addNewCategoryRow() {
+  ensureTempList();
+  if (_tempCategoryList.length >= MAX_CATEGORIES) {
+    toast(`최대 ${MAX_CATEGORIES}개까지만 가능합니다`, 'error');
+    return;
+  }
+  _tempCategoryList.push({
+    key: 'tmp_' + Date.now() + '_' + Math.random().toString(36).substring(2,6),
+    en: '', ko: ''
   });
+  buildCatEditor();
+}
+window.addNewCategoryRow = addNewCategoryRow;
+
+function removeCategoryRow(idx) {
+  ensureTempList();
+  const cat = _tempCategoryList[idx];
+  if (!cat) return;
+  const cardsInCat = (window._cards || []).filter(c => c.category === cat.key).length;
+  const msg = cardsInCat > 0
+    ? `이 카테고리에 카드 ${cardsInCat}개가 있습니다.\n삭제하면 카드는 "분류 없음" 상태가 됩니다 (사라지지 않음). 진행할까요?`
+    : '이 카테고리를 삭제할까요?';
+  if (!confirm(msg)) return;
+  _tempCategoryList.splice(idx, 1);
+  buildCatEditor();
+}
+window.removeCategoryRow = removeCategoryRow;
+
+async function saveCategoriesAction() {
+  const list = _tempCategoryList !== null ? _tempCategoryList : (window._categoryList || []);
+  const invalid = list.filter(c => !c.en || !c.en.trim());
+  if (invalid.length > 0) {
+    toast('카테고리 영문 이름은 비울 수 없습니다', 'error');
+    return;
+  }
+  const cleanList = list.map(c => ({
+    key: c.key.startsWith('tmp_') ? 'cat_' + Math.random().toString(36).substring(2,10) : c.key,
+    en: (c.en || '').trim(),
+    ko: (c.ko || '').trim()
+  }));
   try {
-    await window._setDoc(window._catsDocRef, newCats);
+    await window._setDoc(window._catsDocRef, { list: cleanList });
+    _tempCategoryList = null;
     toast('✅ 카테고리 저장 완료', 'success');
   } catch (e) {
-    toast('오류: ' + e.message, 'error');
+    toast('저장 오류: ' + e.message, 'error');
   }
 }
 window.saveCategoriesAction = saveCategoriesAction;
+
+/* ===== 카드 추가 폼: 카테고리 select 동적 ===== */
+function updateCategorySelect() {
+  const sel = document.getElementById('fCategory');
+  if (!sel) return;
+  const cats = window._categoryList || [];
+  const cur = sel.value;
+  if (cats.length === 0) {
+    sel.innerHTML = '<option value="">⚠️ 카테고리를 먼저 만들어주세요</option>';
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  sel.innerHTML = cats.map(c =>
+    `<option value="${esc(c.key)}">${esc(c.en)}${c.ko ? ' · ' + esc(c.ko) : ''}</option>`
+  ).join('');
+  if (cats.some(c => c.key === cur)) sel.value = cur;
+}
+window.updateCategorySelect = updateCategorySelect;
 
 /* ===== 이모지 피커 ===== */
 function initEmojiPicker() {
@@ -1665,6 +1783,198 @@ document.addEventListener('DOMContentLoaded', () => {
     const file = e.dataTransfer.files[0];
     if (file) handleStuFile({ target: { files: [file] } });
   });
+});
+
+/* ============================================
+ * 사이드바 동적 항목 (웹앱 관리자)
+ * ============================================ */
+function renderSidebarLinks() {
+  const container = document.getElementById('dynamicLinksContainer');
+  if (!container) return;
+  const links = window._adminLinks || [];
+  if (links.length === 0) {
+    container.innerHTML = `<div class="empty-sidebar-hint">
+      등록된 웹앱 없음<br>
+      <a onclick="goPage('menu_edit')">메뉴 편집 →</a>
+    </div>`;
+    return;
+  }
+  container.innerHTML = links.map(link => `
+    <a class="dynamic-link" href="${esc(link.url)}" target="_blank" rel="noopener" title="${esc(link.name)}">
+      <span class="dynamic-link-icon">${esc(link.emoji || '🔗')}</span>
+      <span class="dynamic-link-text">${esc(link.name)}</span>
+      <span class="dynamic-link-ext">↗</span>
+    </a>
+  `).join('');
+}
+window.renderSidebarLinks = renderSidebarLinks;
+
+/* ============================================
+ * 메뉴 편집 페이지
+ * ============================================ */
+let editingLinkId = null;
+let linkSelectedEmoji = '🔗';
+let linkCurrentEmojiCat = Object.keys(EMOJI_DATA)[0];
+
+function renderLinkEditList() {
+  const wrap = document.getElementById('linkEditList');
+  if (!wrap) return;
+  const list = window._adminLinks || [];
+  const countEl = document.getElementById('linkCount');
+  if (countEl) countEl.textContent = list.length;
+
+  if (list.length === 0) {
+    wrap.innerHTML = `<div class="empty" style="padding:30px;">
+      <div class="empty-icon">🔗</div>
+      <div class="empty-text">아직 등록된 웹앱이 없습니다.<br>위 "+ 새 항목 추가" 버튼으로 시작하세요.</div>
+    </div>`;
+    return;
+  }
+
+  wrap.innerHTML = list.map((link, idx) => `
+    <div class="link-row">
+      <div class="link-row-emoji">${esc(link.emoji || '🔗')}</div>
+      <div class="link-row-text">
+        <div class="link-row-name">${esc(link.name)}</div>
+        <div class="link-row-url">${esc(link.url)}</div>
+      </div>
+      <div class="link-row-actions">
+        <button class="mini-btn" onclick="moveLink('${esc(link.id)}', -1)" ${idx === 0 ? 'disabled' : ''}>↑</button>
+        <button class="mini-btn" onclick="moveLink('${esc(link.id)}', 1)" ${idx === list.length - 1 ? 'disabled' : ''}>↓</button>
+        <button class="mini-btn" onclick="openLinkEditModal('${esc(link.id)}')">수정</button>
+        <button class="mini-btn danger" onclick="deleteLink('${esc(link.id)}','${esc(link.name).replace(/'/g, '&#39;')}')">삭제</button>
+      </div>
+    </div>
+  `).join('');
+}
+window.renderLinkEditList = renderLinkEditList;
+
+function openLinkEditModal(id) {
+  editingLinkId = id || null;
+  initLinkEmojiPicker();
+  if (id) {
+    const link = (window._adminLinks || []).find(l => l.id === id);
+    if (!link) return;
+    document.getElementById('linkEditModalTitle').textContent = '항목 수정';
+    document.getElementById('linkEditId').value = id;
+    document.getElementById('linkName').value = link.name || '';
+    document.getElementById('linkUrl').value = link.url || '';
+    linkSelectedEmoji = link.emoji || '🔗';
+  } else {
+    document.getElementById('linkEditModalTitle').textContent = '새 항목 추가';
+    document.getElementById('linkEditId').value = '';
+    document.getElementById('linkName').value = '';
+    document.getElementById('linkUrl').value = '';
+    linkSelectedEmoji = '🔗';
+  }
+  document.getElementById('linkSelectedEmoji').textContent = linkSelectedEmoji;
+  document.getElementById('linkEmojiPicker').classList.remove('open');
+  document.getElementById('linkEditModal').classList.add('show');
+}
+window.openLinkEditModal = openLinkEditModal;
+
+function closeLinkEditModal() {
+  document.getElementById('linkEditModal').classList.remove('show');
+  document.getElementById('linkEmojiPicker').classList.remove('open');
+}
+window.closeLinkEditModal = closeLinkEditModal;
+
+async function saveLinkEdit() {
+  const name = document.getElementById('linkName').value.trim();
+  const url = document.getElementById('linkUrl').value.trim();
+  if (!name || !url) { toast('이름과 URL을 모두 입력하세요', 'error'); return; }
+
+  const list = [...(window._adminLinks || [])];
+  if (editingLinkId) {
+    const idx = list.findIndex(l => l.id === editingLinkId);
+    if (idx >= 0) list[idx] = { ...list[idx], name, url, emoji: linkSelectedEmoji };
+  } else {
+    list.push({
+      id: 'link_' + Date.now() + '_' + Math.random().toString(36).substring(2,6),
+      name, url, emoji: linkSelectedEmoji
+    });
+  }
+  try {
+    await window._setDoc(window._linksDocRef, { list });
+    closeLinkEditModal();
+    toast('✅ 저장 완료', 'success');
+  } catch (e) { toast('저장 오류: ' + e.message, 'error'); }
+}
+window.saveLinkEdit = saveLinkEdit;
+
+async function deleteLink(id, name) {
+  if (!confirm(`"${name}" 항목을 삭제할까요?`)) return;
+  const list = (window._adminLinks || []).filter(l => l.id !== id);
+  try {
+    await window._setDoc(window._linksDocRef, { list });
+    toast('🗑️ 삭제됨', 'success');
+  } catch (e) { toast('오류: ' + e.message, 'error'); }
+}
+window.deleteLink = deleteLink;
+
+async function moveLink(id, dir) {
+  const list = [...(window._adminLinks || [])];
+  const idx = list.findIndex(l => l.id === id);
+  if (idx < 0) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= list.length) return;
+  [list[idx], list[newIdx]] = [list[newIdx], list[idx]];
+  try {
+    await window._setDoc(window._linksDocRef, { list });
+  } catch (e) { toast('오류: ' + e.message, 'error'); }
+}
+window.moveLink = moveLink;
+
+/* ===== 링크 모달용 이모지 피커 ===== */
+function initLinkEmojiPicker() {
+  const cats = document.getElementById('linkEmojiCats');
+  if (!cats || cats.children.length > 0) return;
+  Object.keys(EMOJI_DATA).forEach((cat, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'emoji-cat-btn' + (i === 0 ? ' active' : '');
+    btn.textContent = cat;
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      linkCurrentEmojiCat = cat;
+      cats.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderLinkEmojiGrid();
+    };
+    cats.appendChild(btn);
+  });
+  renderLinkEmojiGrid();
+}
+
+function renderLinkEmojiGrid() {
+  const grid = document.getElementById('linkEmojiGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  (EMOJI_DATA[linkCurrentEmojiCat] || []).forEach(em => {
+    const btn = document.createElement('button');
+    btn.className = 'emoji-btn';
+    btn.textContent = em;
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      linkSelectedEmoji = em;
+      document.getElementById('linkSelectedEmoji').textContent = em;
+      document.getElementById('linkEmojiPicker').classList.remove('open');
+    };
+    grid.appendChild(btn);
+  });
+}
+
+function toggleLinkEmojiPicker(e) {
+  if (e) e.stopPropagation();
+  document.getElementById('linkEmojiPicker').classList.toggle('open');
+}
+window.toggleLinkEmojiPicker = toggleLinkEmojiPicker;
+
+// 모달 바깥 클릭 시 닫기
+document.addEventListener('click', (e) => {
+  const modal = document.getElementById('linkEditModal');
+  if (modal && modal.classList.contains('show') && e.target === modal) {
+    closeLinkEditModal();
+  }
 });
 </script>
 </body>
