@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>亂世의 士大夫 — 관리자</title>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Serif+KR:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../shared/theme.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    html, body { height: 100%; font-family: 'Pretendard', sans-serif; background: var(--hi-bg-base); color: var(--hi-text); }
+
+    /* ── 로그인 ── */
+    #loginScreen {
+      position: fixed; inset: 0; z-index: 1000;
+      background: var(--hi-bg-base);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .login-card {
+      background: var(--hi-bg-surface);
+      border-radius: 16px;
+      padding: 40px 32px;
+      width: 100%; max-width: 380px;
+      box-shadow: var(--hi-shadow-dialog);
+      border: 1px solid var(--hi-border);
+      text-align: center;
+    }
+    .login-logo { font-family: 'Noto Serif KR', serif; font-size: 28px; font-weight: 900; margin-bottom: 4px; color: var(--hi-text); letter-spacing: 2px; }
+    .login-sub { font-size: 12px; color: var(--hi-text-muted); margin-bottom: 28px; letter-spacing: 0.5px; }
+    .login-error { font-size: 13px; color: var(--hi-negative); margin-top: 10px; min-height: 18px; display:none; }
+
+    /* ── 상단바 ── */
+    #adminApp { display: none; min-height: 100vh; }
+    .topbar {
+      height: 56px; background: var(--hi-bg-surface);
+      border-bottom: 1px solid var(--hi-border);
+      display: flex; align-items: center;
+      padding: 0 20px;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .topbar-left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+    .back-btn {
+      background: none; border: 1px solid var(--hi-border);
+      padding: 6px 12px; border-radius: 8px;
+      font-size: 12px; font-weight: 700;
+      color: var(--hi-text-soft);
+      cursor: pointer; font-family: inherit;
+      transition: 0.15s; white-space: nowrap;
+    }
+    .back-btn:hover { border-color: var(--hi-text); color: var(--hi-text); }
+    .topbar-title { font-family: 'Noto Serif KR', serif; font-size: 16px; font-weight: 900; color: var(--hi-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .topbar-title small { font-family: 'Pretendard', sans-serif; font-size: 11px; color: var(--hi-text-muted); font-weight: 700; margin-left: 8px; padding: 3px 8px; background: var(--hi-bg-mid); border-radius: 6px; letter-spacing: 0.5px; }
+    .topbar-right { display: flex; align-items: center; gap: 8px; }
+
+    /* ── 메인 탭 ── */
+    .main-tabs {
+      display: flex; background: var(--hi-bg-surface);
+      border-bottom: 1px solid var(--hi-border);
+      padding: 0 20px; gap: 4px;
+      position: sticky; top: 56px; z-index: 90;
+      overflow-x: auto;
+    }
+    .main-tab {
+      padding: 13px 18px; font-size: 13px; font-weight: 700;
+      color: var(--hi-text-muted);
+      background: none; border: none; cursor: pointer;
+      border-bottom: 2px solid transparent;
+      font-family: inherit;
+      transition: 0.12s; letter-spacing: 0.5px;
+      white-space: nowrap; margin-bottom: -1px;
+    }
+    .main-tab:hover { color: var(--hi-text); }
+    .main-tab.active { color: var(--hi-accent); border-bottom-color: var(--hi-accent); }
+
+    /* ── 서브 탭 ── */
+    .sub-tabs {
+      display: flex; background: var(--hi-bg-surface);
+      border-bottom: 1px solid var(--hi-border);
+      padding: 0 20px;
+      overflow-x: auto; gap: 0;
+    }
+    .sub-tab {
+      padding: 11px 14px; font-size: 12px; font-weight: 700;
+      color: var(--hi-text-muted);
+      background: none; border: none; cursor: pointer;
+      border-bottom: 2px solid transparent;
+      font-family: inherit;
+      transition: 0.12s;
+      white-space: nowrap; margin-bottom: -1px;
+    }
+    .sub-tab:hover { color: var(--hi-text); }
+    .sub-tab.active { color: var(--hi-accent); border-bottom-color: var(--hi-accent); }
+
+    /* ── 컨테이너 ── */
+    .container { max-width: 760px; margin: 0 auto; padding: 18px 14px 60px; }
+
+    /* ── 정렬 + 도구 바 ── */
+    .toolbar-row {
+      display: flex; justify-content: space-between;
+      align-items: center; gap: 8px;
+      padding: 4px 0 14px; flex-wrap: wrap;
+    }
+    .toolbar-row .summary { font-size: 12px; color: var(--hi-text-muted); }
+    .toolbar-row .summary strong { color: var(--hi-text); font-weight: 800; }
+    .sort-box {
+      display: flex; background: var(--hi-bg-surface);
+      border: 1px solid var(--hi-border); border-radius: 9999px;
+      padding: 2px;
+    }
+    .sort-btn {
+      font-size: 11px; font-weight: 700;
+      border: none; border-radius: 9999px;
+      padding: 5px 12px; cursor: pointer;
+      font-family: inherit;
+      color: var(--hi-text-muted);
+      background: none; transition: 0.15s;
+    }
+    .sort-btn.active { color: var(--hi-on-accent); background: var(--hi-accent); }
+
+    /* ── 결말 통계 ── */
+    .stats-block { margin-bottom: 18px; }
+    .stats-title {
+      font-size: 11px; font-weight: 700;
+      color: var(--hi-text-muted);
+      letter-spacing: 1.2px;
+      margin: 0 4px 8px;
+    }
+    .path-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 8px; margin-bottom: 14px;
+    }
+    .path-card {
+      background: var(--hi-bg-surface);
+      border: 1px solid var(--hi-border);
+      border-radius: 10px;
+      padding: 14px 10px;
+      text-align: center;
+      position: relative;
+    }
+    .path-card .path-name {
+      font-size: 11px; color: var(--hi-text-muted);
+      font-weight: 700; margin-bottom: 4px;
+      letter-spacing: 0.5px;
+    }
+    .path-card .path-count {
+      font-size: 26px; font-weight: 900;
+      font-family: 'Noto Serif KR', serif;
+      color: var(--hi-text); line-height: 1;
+    }
+    .path-card .path-pct {
+      font-size: 10px; color: var(--hi-text-muted);
+      margin-top: 4px; font-weight: 600;
+    }
+    .path-card.open { border-top: 3px solid #b08c4a; }
+    .path-card.retreat { border-top: 3px solid #6b7d4f; }
+    .path-card.martyr { border-top: 3px solid #a94d4d; }
+
+    /* 12개 세부 결말 칩 */
+    .ending-chips-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 6px;
+    }
+    .ending-chip {
+      background: var(--hi-bg-surface);
+      border: 1px solid var(--hi-border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      display: flex; align-items: center;
+      gap: 8px;
+      transition: border-color 0.15s;
+    }
+    .ending-chip.zero { opacity: 0.45; }
+    .ending-chip-char {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 18px; font-weight: 900;
+      color: var(--hi-text);
+      width: 28px; text-align: center;
+      flex-shrink: 0;
+    }
+    .ending-chip-info {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column;
+    }
+    .ending-chip-title {
+      font-size: 11px; font-weight: 700;
+      color: var(--hi-text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ending-chip-meta {
+      font-size: 9px; color: var(--hi-text-muted);
+      letter-spacing: 0.5px;
+    }
+    .ending-chip-count {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 16px; font-weight: 800;
+      color: var(--hi-text);
+      flex-shrink: 0;
+    }
+    .ending-chip.zero .ending-chip-count { color: var(--hi-text-muted); }
+    /* 경로별 색 보더 */
+    .ending-chip.path-open { border-left: 3px solid #b08c4a; }
+    .ending-chip.path-retreat { border-left: 3px solid #6b7d4f; }
+    .ending-chip.path-martyr { border-left: 3px solid #a94d4d; }
+
+    /* ── 결과 카드 ── */
+    .result-card {
+      background: var(--hi-bg-surface);
+      border: 1px solid var(--hi-border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+    }
+    .rc-header {
+      display: flex; align-items: center;
+      gap: 8px; flex-wrap: wrap;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--hi-border-faint);
+      margin-bottom: 10px;
+    }
+    .rc-sid {
+      font-size: 11px; font-weight: 700;
+      color: var(--hi-text-muted);
+      letter-spacing: 0.5px;
+      background: var(--hi-bg-mid);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .rc-sname { font-size: 14px; font-weight: 800; color: var(--hi-text); }
+    .rc-charname {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 13px; font-weight: 700;
+      color: var(--hi-accent);
+      background: var(--hi-accent-soft);
+      border: 1px solid var(--hi-accent);
+      padding: 2px 9px; border-radius: 5px;
+    }
+    .rc-time {
+      font-size: 10px; color: var(--hi-text-muted);
+      margin-left: auto;
+    }
+
+    /* 인물 설정 + 결말 행 */
+    .rc-meta {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    @media (min-width: 520px) {
+      .rc-meta { grid-template-columns: 1fr 1fr; }
+    }
+    .rc-meta-item {
+      display: flex; flex-direction: column;
+      gap: 3px;
+    }
+    .rc-meta-label {
+      font-size: 9px; color: var(--hi-text-muted);
+      font-weight: 700; letter-spacing: 1px;
+    }
+    .rc-meta-value {
+      font-size: 13px; color: var(--hi-text);
+      font-weight: 600;
+      word-break: keep-all;
+    }
+    .rc-ending {
+      font-family: 'Noto Serif KR', serif;
+      font-weight: 900;
+    }
+    .rc-ending-char {
+      display: inline-block;
+      font-family: 'Noto Serif KR', serif;
+      font-size: 14px; font-weight: 900;
+      color: var(--hi-on-accent);
+      background: var(--hi-text);
+      width: 22px; height: 22px;
+      line-height: 22px;
+      text-align: center;
+      border-radius: 4px;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    /* 스탯 */
+    .rc-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+    .rc-stat {
+      background: var(--hi-bg-mid);
+      border: 1px solid var(--hi-border-faint);
+      border-radius: 6px;
+      padding: 6px 4px;
+      text-align: center;
+    }
+    .rc-stat-label {
+      font-size: 9px; color: var(--hi-text-muted);
+      font-weight: 700; letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+    .rc-stat-value {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 16px; font-weight: 900;
+      color: var(--hi-text); line-height: 1;
+    }
+    .rc-stat.low .rc-stat-value { color: var(--hi-negative); }
+    .rc-stat.high .rc-stat-value { color: var(--hi-positive); }
+
+    /* 소감 */
+    .rc-reflection-label {
+      font-size: 9px; color: var(--hi-text-muted);
+      font-weight: 700; letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+    .rc-reflection {
+      font-size: 12px; color: var(--hi-text-soft);
+      line-height: 1.7;
+      background: var(--hi-bg-mid);
+      border-left: 3px solid var(--hi-border);
+      border-radius: 0 6px 6px 0;
+      padding: 10px 12px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .rc-reflection.empty {
+      color: var(--hi-text-muted);
+      font-style: italic;
+    }
+
+    .rc-actions {
+      margin-top: 10px; padding-top: 10px;
+      border-top: 1px solid var(--hi-border-faint);
+      display: flex; gap: 6px; justify-content: flex-end;
+    }
+    .btn-del {
+      font-size: 10px; font-weight: 700;
+      color: var(--hi-negative);
+      background: var(--hi-bg-surface);
+      border: 1px solid var(--hi-border);
+      border-radius: 5px; padding: 4px 10px;
+      cursor: pointer; font-family: inherit; transition: 0.12s;
+    }
+    .btn-del:hover {
+      border-color: var(--hi-negative);
+      background: #fef2f2;
+    }
+
+    /* ── 설정 패널 ── */
+    .panel {
+      background: var(--hi-bg-surface);
+      border: 1px solid var(--hi-border);
+      border-radius: 12px;
+      padding: 18px 20px;
+      margin-bottom: 14px;
+    }
+    .panel h3 {
+      font-size: 14px; font-weight: 800;
+      color: var(--hi-text); margin-bottom: 6px;
+    }
+    .panel p {
+      font-size: 12px; color: var(--hi-text-muted);
+      margin-bottom: 14px; line-height: 1.6;
+    }
+    .panel-danger {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+    }
+    .panel-danger h3 { color: var(--hi-negative); }
+    .panel-danger p { color: #b91c1c; }
+    .field-group { margin-bottom: 12px; }
+    .field-label {
+      display: block; font-size: 10px; font-weight: 700;
+      color: var(--hi-text-muted);
+      letter-spacing: 0.8px; text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pw-msg { font-size: 12px; font-weight: 700; margin-top: 10px; min-height: 18px; }
+    .pw-msg.ok { color: var(--hi-positive); }
+    .pw-msg.err { color: var(--hi-negative); }
+
+    /* ── 빈 상태 / 로딩 ── */
+    .empty {
+      padding: 48px 20px; text-align: center;
+      color: var(--hi-text-muted); font-size: 13px;
+    }
+    .empty-icon { font-size: 32px; margin-bottom: 10px; opacity: 0.4; }
+    .loading-state {
+      padding: 40px 20px; text-align: center;
+      color: var(--hi-text-muted); font-size: 13px;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .spinner {
+      width: 22px; height: 22px;
+      border: 2px solid var(--hi-border);
+      border-top-color: var(--hi-accent);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 패널 섹션 */
+    .panel-section { display: none; }
+    .panel-section.active { display: block; }
+
+    /* 확인 모달 */
+    .confirm-bg {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 600; display: none;
+      align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .confirm-bg.show { display: flex; }
+    .confirm-box {
+      background: var(--hi-bg-surface);
+      border: 1px solid var(--hi-border);
+      border-radius: 16px; padding: 24px;
+      width: 100%; max-width: 340px;
+      box-shadow: var(--hi-shadow-dialog);
+    }
+    .confirm-box h3 { font-size: 15px; font-weight: 800; margin-bottom: 8px; color: var(--hi-text); }
+    .confirm-box p { font-size: 13px; color: var(--hi-text-soft); margin-bottom: 20px; line-height: 1.6; }
+    .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+    /* 토스트 */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: var(--hi-text);
+      color: var(--hi-bg-surface);
+      padding: 12px 20px;
+      border-radius: 9999px;
+      font-size: 13px; font-weight: 700;
+      box-shadow: var(--hi-shadow-dialog);
+      opacity: 0; transition: 0.25s;
+      pointer-events: none;
+      z-index: 9999;
+      white-space: nowrap;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* 모바일 미세 조정 */
+    @media (max-width: 420px) {
+      .container { padding: 14px 10px 60px; }
+      .path-card .path-count { font-size: 22px; }
+      .ending-chips-row { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); }
+      .ending-chip { padding: 6px 8px; gap: 6px; }
+      .ending-chip-char { font-size: 16px; width: 22px; }
+      .ending-chip-title { font-size: 10px; }
+      .topbar-title { font-size: 14px; }
+      .main-tab { padding: 12px 14px; font-size: 12px; }
+      .sub-tab { padding: 10px 11px; font-size: 11px; }
+    }
+  </style>
+</head>
+<body class="hi-preset-admin">
+
+<!-- ── 로그인 ── -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">亂世의 士大夫</div>
+    <div class="login-sub">관리자 센터 · 고려 말 선택 시뮬레이션</div>
+    <input class="hi-input" type="password" id="adminPw"
+      placeholder="비밀번호" style="text-align:center;letter-spacing:3px;"
+      onkeydown="if(event.key==='Enter') tryLogin()">
+    <button class="hi-btn hi-btn-primary hi-btn-block" onclick="tryLogin()" style="margin-top:12px;">접속</button>
+    <div class="login-error" id="loginErr">비밀번호가 올바르지 않습니다.</div>
+    <div style="margin-top:18px;">
+      <a href="../admin.html" style="font-size:11px;color:var(--hi-text-muted);text-decoration:none;letter-spacing:0.5px;">← 어드민 콘솔로</a>
+    </div>
+  </div>
+</div>
+
+<!-- ── 어드민 앱 ── -->
+<div id="adminApp">
+  <!-- 상단바 -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="back-btn" onclick="location.href='../admin.html'">← 콘솔</button>
+      <div class="topbar-title">亂世의 士大夫 <small>관리자</small></div>
+    </div>
+    <div class="topbar-right">
+      <a href="sadaebu.html" style="font-size:12px;color:var(--hi-text-muted);text-decoration:none;padding:6px 10px;">학생 화면</a>
+      <button class="back-btn" onclick="logoutAdmin()" style="color:var(--hi-negative);">로그아웃</button>
+    </div>
+  </div>
+
+  <!-- 메인 탭 -->
+  <div class="main-tabs">
+    <button class="main-tab active" id="mt-class" onclick="showPanel('class')">👥 CLASS</button>
+    <button class="main-tab" id="mt-setting" onclick="showPanel('setting')">⚙️ SETTING</button>
+  </div>
+
+  <!-- ══════════ CLASS 패널 ══════════ -->
+  <section class="panel-section active" id="panel-class">
+    <div class="sub-tabs" id="classSubTabs">
+      <button class="sub-tab active" data-class="all" onclick="setClassTab('all', this)">전체</button>
+      <button class="sub-tab" data-class="1" onclick="setClassTab(1, this)">1반</button>
+      <button class="sub-tab" data-class="2" onclick="setClassTab(2, this)">2반</button>
+      <button class="sub-tab" data-class="3" onclick="setClassTab(3, this)">3반</button>
+      <button class="sub-tab" data-class="4" onclick="setClassTab(4, this)">4반</button>
+      <button class="sub-tab" data-class="5" onclick="setClassTab(5, this)">5반</button>
+      <button class="sub-tab" data-class="6" onclick="setClassTab(6, this)">6반</button>
+    </div>
+
+    <div class="container">
+      <!-- 결말 통계 -->
+      <div class="stats-block">
+        <div class="stats-title">▪ 결말 통계 — 경로별</div>
+        <div class="path-grid">
+          <div class="path-card open">
+            <div class="path-name">조선 합류</div>
+            <div class="path-count" id="pathCountOpen">0</div>
+            <div class="path-pct" id="pathPctOpen">—</div>
+          </div>
+          <div class="path-card retreat">
+            <div class="path-name">두문동 은거</div>
+            <div class="path-count" id="pathCountRetreat">0</div>
+            <div class="path-pct" id="pathPctRetreat">—</div>
+          </div>
+          <div class="path-card martyr">
+            <div class="path-name">충절의 순사</div>
+            <div class="path-count" id="pathCountMartyr">0</div>
+            <div class="path-pct" id="pathPctMartyr">—</div>
+          </div>
+        </div>
+
+        <div class="stats-title">▪ 결말 통계 — 세부 (12종)</div>
+        <div class="ending-chips-row" id="endingChips"></div>
+      </div>
+
+      <!-- 도구 바 -->
+      <div class="toolbar-row">
+        <div class="summary" id="resultSummary">—</div>
+        <div class="sort-box">
+          <button class="sort-btn active" id="sortSid" onclick="setResultSort('sid')">학번순</button>
+          <button class="sort-btn" id="sortNewest" onclick="setResultSort('newest')">최신순</button>
+        </div>
+      </div>
+
+      <!-- 결과 리스트 -->
+      <div id="resultList">
+        <div class="loading-state"><div class="spinner"></div><span>결과 불러오는 중…</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ SETTING 패널 ══════════ -->
+  <section class="panel-section" id="panel-setting">
+    <div class="container">
+      <!-- 엑셀 내보내기 -->
+      <div class="panel">
+        <h3>📥 엑셀로 내보내기</h3>
+        <p>플레이 결과 또는 학생 명단을 엑셀(.xlsx) 파일로 다운로드합니다.</p>
+        <div class="row-actions">
+          <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="exportResultsExcel()">📋 결과 저장</button>
+          <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportStudentsExcel()">👥 학생 명단 저장</button>
+        </div>
+        <div style="font-size:11px; color:var(--hi-text-muted); margin-top:10px;">
+          포함 항목: 학번 · 이름 · 호 · 출신 · 성향 · 결말 · 최종 스탯 · 소감 · 작성시각
+        </div>
+      </div>
+
+      <!-- 반별 삭제 -->
+      <div class="panel">
+        <h3>🎓 반별 결과 삭제</h3>
+        <p>특정 반의 모든 플레이 결과를 일괄 삭제합니다.</p>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <select class="hi-select" id="classDeleteSelect" style="flex:1; min-width:140px;">
+            <option value="">반 선택</option>
+            <option value="1">1반</option>
+            <option value="2">2반</option>
+            <option value="3">3반</option>
+            <option value="4">4반</option>
+            <option value="5">5반</option>
+            <option value="6">6반</option>
+          </select>
+          <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="deleteAllByClass()">해당 반 삭제</button>
+        </div>
+      </div>
+
+      <!-- 결말별 삭제 -->
+      <div class="panel">
+        <h3>📜 결말별 삭제</h3>
+        <p>특정 경로(조선 합류 / 두문동 은거 / 순사)의 모든 결과를 일괄 삭제합니다.</p>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <select class="hi-select" id="pathDeleteSelect" style="flex:1; min-width:140px;">
+            <option value="">경로 선택</option>
+            <option value="open">조선 합류 (open 계열)</option>
+            <option value="retreat">두문동 은거 (retreat 계열)</option>
+            <option value="martyr">충절의 순사 (martyr 계열)</option>
+          </select>
+          <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="deleteAllByPath()">해당 경로 삭제</button>
+        </div>
+      </div>
+
+      <!-- 비밀번호 변경 -->
+      <div class="panel">
+        <h3>🔑 관리자 비밀번호 재설정</h3>
+        <p>새 비밀번호를 입력하고 저장하세요. 현재 세션에만 적용됩니다.</p>
+        <div class="field-group">
+          <label class="field-label">새 비밀번호</label>
+          <input class="hi-input" type="password" id="newPw1" placeholder="새 비밀번호 (6자 이상)">
+        </div>
+        <div class="field-group">
+          <label class="field-label">새 비밀번호 확인</label>
+          <input class="hi-input" type="password" id="newPw2" placeholder="새 비밀번호 재입력">
+        </div>
+        <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="changePassword()">비밀번호 변경</button>
+        <div class="pw-msg" id="pwMsg"></div>
+      </div>
+
+      <!-- 위험 구역 -->
+      <div class="panel panel-danger">
+        <h3>⚠️ 위험 구역</h3>
+        <p>아래 기능은 되돌릴 수 없습니다. 신중하게 사용하세요.</p>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="resetAll()" style="color:var(--hi-negative); border-color:var(--hi-negative);">🗑️ 전체 결과 초기화</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- 확인 모달 -->
+<div class="confirm-bg" id="confirmModal">
+  <div class="confirm-box">
+    <h3 id="confirmTitle"></h3>
+    <p id="confirmDesc"></p>
+    <div class="confirm-actions">
+      <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="closeConfirm()">취소</button>
+      <button class="hi-btn hi-btn-primary hi-btn-sm" id="confirmOk">확인</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getDatabase, ref, set, onValue, remove, update
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+/* ===== Firebase ===== */
+const firebaseConfig = {
+  apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain: "ho0911seong-56638.firebaseapp.com",
+  databaseURL: "https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ho0911seong-56638",
+  storageBucket: "ho0911seong-56638.firebasestorage.app",
+  messagingSenderId: "994509567071",
+  appId: "1:994509567071:web:de99e71c125ec2a3f557ea"
+};
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const resultsRef = ref(db, 'goryeo_results');
+
+const ADMIN_PW_HASH = "57765044de4726b8a55db8c3846a7b6a038a2beaff40c0cc5113744ad8b62694";
+const SESSION_KEY = 'sadaebu_admin_v1';
+
+/* ===== 12개 결말 정의 (sadaebu.html과 동기화) ===== */
+const ENDINGS_META = {
+  // open 계열
+  open:             { char:'功', title:'개국공신',         path:'open' },
+  open_architect:   { char:'設', title:'창업의 설계자',    path:'open' },
+  open_scholar:     { char:'經', title:'학자관료',         path:'open' },
+  open_pragmatist:  { char:'濟', title:'경세가',           path:'open' },
+  // retreat 계열
+  retreat:          { char:'隱', title:'두문동 은거',      path:'retreat' },
+  retreat_teacher:  { char:'師', title:'사림의 시조',      path:'retreat' },
+  retreat_purist:   { char:'節', title:'절개의 선비',      path:'retreat' },
+  retreat_recluse:  { char:'逸', title:'은일거사',         path:'retreat' },
+  // martyr 계열
+  martyr:           { char:'節', title:'충절의 순사',      path:'martyr' },
+  martyr_icon:      { char:'烈', title:'충신열전',         path:'martyr' },
+  martyr_scholar:   { char:'文', title:'학문의 순교자',    path:'martyr' },
+  martyr_unknown:   { char:'魂', title:'무명의 충혼',      path:'martyr' },
+};
+const ENDING_ORDER = [
+  'open_architect','open_scholar','open_pragmatist','open',
+  'retreat_teacher','retreat_purist','retreat_recluse','retreat',
+  'martyr_icon','martyr_scholar','martyr_unknown','martyr'
+];
+const PATH_LABEL = { open:'조선 합류', retreat:'두문동 은거', martyr:'충절의 순사' };
+
+/* ===== 상태 ===== */
+let allResults = [];       // [{_key, ...data}]
+let allStudents = [];      // [{studentId, name}]
+let studentMap = {};       // sid → name
+let classTab = 'all';      // 'all' or 1~6
+let resultSort = 'sid';    // 'sid' | 'newest'
+
+/* ===== 유틸 ===== */
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+function esc(s) {
+  const d = document.createElement('div'); d.textContent = String(s == null ? '' : s); return d.innerHTML;
+}
+function classNumFromId(sid) {
+  if (!sid || String(sid).length < 3) return null;
+  const c = parseInt(String(sid).slice(1, 3), 10);
+  return isNaN(c) ? null : c;
+}
+function classLabel(sid) {
+  const cls = (sid || '').slice(0, 3);
+  return /^\d{3}$/.test(cls) ? `${cls[0]}학년 ${parseInt(cls.slice(1))}반` : '-';
+}
+function pathOfEndingKey(key) {
+  if (!key) return null;
+  if (ENDINGS_META[key]) return ENDINGS_META[key].path;
+  // legacy fallback: 'open' / 'retreat' / 'martyr' base
+  const base = String(key).split('_')[0];
+  return ['open','retreat','martyr'].includes(base) ? base : null;
+}
+
+/* ===== 로그인 ===== */
+window.tryLogin = async () => {
+  const hash = await sha256(document.getElementById('adminPw').value);
+  if (hash === ADMIN_PW_HASH) {
+    sessionStorage.setItem(SESSION_KEY, '1');
+    enterAdmin();
+  } else {
+    document.getElementById('loginErr').style.display = 'block';
+  }
+};
+window.logoutAdmin = () => {
+  if (!confirm('로그아웃 하시겠습니까?')) return;
+  sessionStorage.removeItem(SESSION_KEY); location.reload();
+};
+function enterAdmin() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('adminApp').style.display = 'block';
+  startListening();
+}
+window.addEventListener('DOMContentLoaded', () => {
+  if (sessionStorage.getItem(SESSION_KEY) === '1') enterAdmin();
+});
+
+/* ===== Firebase 구독 ===== */
+function startListening() {
+  // 학생 명단 (sadaebu의 ../shared/auth.js와 동일 경로)
+  onValue(ref(db, 'students'), snap => {
+    const data = snap.val();
+    allStudents = []; studentMap = {};
+    if (data) {
+      Object.entries(data).forEach(([key, val]) => {
+        const sid = val.studentId || '';
+        const name = val.name || val.studentName || val.realName || '';
+        allStudents.push({ _key: key, studentId: sid, name });
+        if (sid && name) studentMap[sid] = name;
+      });
+      allStudents.sort((a, b) => a.studentId.localeCompare(b.studentId));
+    }
+    renderAll();
+  });
+  // 게임 결과
+  onValue(resultsRef, snap => {
+    const data = snap.val();
+    allResults = data
+      ? Object.entries(data).map(([k, v]) => ({ _key: k, ...v }))
+      : [];
+    renderAll();
+  });
+}
+
+function renderAll() { renderClass(); }
+
+/* ===== 패널 전환 ===== */
+window.showPanel = (name) => {
+  document.querySelectorAll('.panel-section').forEach(el => el.classList.remove('active'));
+  document.getElementById(`panel-${name}`)?.classList.add('active');
+  document.querySelectorAll('.main-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById(`mt-${name}`)?.classList.add('active');
+  window.scrollTo(0, 0);
+};
+
+/* ===== CLASS 패널 ===== */
+window.setClassTab = (val, btn) => {
+  classTab = val;
+  document.querySelectorAll('#classSubTabs .sub-tab').forEach(el => el.classList.remove('active'));
+  btn.classList.add('active');
+  renderClass();
+};
+window.setResultSort = (sort) => {
+  resultSort = sort;
+  document.getElementById('sortSid').classList.toggle('active', sort === 'sid');
+  document.getElementById('sortNewest').classList.toggle('active', sort === 'newest');
+  renderClass();
+};
+
+function filteredResults() {
+  if (classTab === 'all') return allResults;
+  return allResults.filter(r => classNumFromId(r.studentId) === classTab);
+}
+
+function renderClass() {
+  const results = filteredResults();
+  renderStats(results);
+  renderResultList(results);
+}
+
+function renderStats(results) {
+  // 경로별 카운트
+  const pathCount = { open: 0, retreat: 0, martyr: 0 };
+  const endingCount = {};
+  ENDING_ORDER.forEach(k => endingCount[k] = 0);
+
+  results.forEach(r => {
+    const key = r.ending;
+    const path = pathOfEndingKey(key);
+    if (path) pathCount[path]++;
+    if (endingCount.hasOwnProperty(key)) endingCount[key]++;
+  });
+
+  const total = results.length;
+  const pct = (n) => total ? Math.round(n / total * 100) + '%' : '—';
+
+  document.getElementById('pathCountOpen').textContent = pathCount.open;
+  document.getElementById('pathCountRetreat').textContent = pathCount.retreat;
+  document.getElementById('pathCountMartyr').textContent = pathCount.martyr;
+  document.getElementById('pathPctOpen').textContent = pct(pathCount.open);
+  document.getElementById('pathPctRetreat').textContent = pct(pathCount.retreat);
+  document.getElementById('pathPctMartyr').textContent = pct(pathCount.martyr);
+
+  // 12개 결말 칩
+  const chipsHtml = ENDING_ORDER.map(key => {
+    const meta = ENDINGS_META[key];
+    const count = endingCount[key];
+    const zero = count === 0 ? ' zero' : '';
+    return `
+      <div class="ending-chip path-${meta.path}${zero}">
+        <div class="ending-chip-char">${meta.char}</div>
+        <div class="ending-chip-info">
+          <div class="ending-chip-title">${meta.title}</div>
+          <div class="ending-chip-meta">${PATH_LABEL[meta.path]}</div>
+        </div>
+        <div class="ending-chip-count">${count}</div>
+      </div>`;
+  }).join('');
+  document.getElementById('endingChips').innerHTML = chipsHtml;
+}
+
+function renderResultList(results) {
+  const container = document.getElementById('resultList');
+  const summary = document.getElementById('resultSummary');
+
+  if (!results.length) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">📜</div>${classTab==='all'?'아직 플레이 결과가 없습니다':'이 반의 플레이 결과가 없습니다'}</div>`;
+    summary.textContent = '0건';
+    return;
+  }
+
+  // 정렬: 학번 → 시간(오래된 순) / 또는 최신순
+  let sorted;
+  if (resultSort === 'sid') {
+    sorted = [...results].sort((a, b) => {
+      const sa = String(a.studentId || ''), sb = String(b.studentId || '');
+      if (sa !== sb) return sa.localeCompare(sb);
+      return (a.timestamp || 0) - (b.timestamp || 0);
+    });
+  } else {
+    sorted = [...results].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  }
+
+  const uniqueStudents = new Set(sorted.map(r => r.studentId)).size;
+  summary.innerHTML = `<strong>${sorted.length}</strong>건 · <strong>${uniqueStudents}</strong>명`;
+
+  container.innerHTML = sorted.map(r => buildResultCard(r)).join('');
+}
+
+function buildResultCard(r) {
+  const meta = ENDINGS_META[r.ending] || null;
+  const endingTitle = r.endingTitle || (meta ? meta.title : '—');
+  const endingChar = meta ? meta.char : '?';
+  const endingPath = pathOfEndingKey(r.ending);
+
+  const name = studentMap[r.studentId] || r.studentName || '';
+  const cls = classLabel(r.studentId);
+
+  // 스탯 (15점 만점). 5 이하 → low(red), 12 이상 → high(green)
+  const fs = r.finalStats || {};
+  const renderStat = (label, val) => {
+    let cls = '';
+    if (typeof val === 'number') {
+      if (val <= 5) cls = ' low';
+      else if (val >= 12) cls = ' high';
+    }
+    return `
+      <div class="rc-stat${cls}">
+        <div class="rc-stat-label">${label}</div>
+        <div class="rc-stat-value">${val ?? '—'}</div>
+      </div>`;
+  };
+
+  const reflection = (r.reflection || '').trim();
+
+  return `
+    <div class="result-card">
+      <div class="rc-header">
+        <span class="rc-sid">${esc(r.studentId)} · ${esc(cls)}</span>
+        <span class="rc-sname">${esc(name)}</span>
+        ${r.charName ? `<span class="rc-charname">호 · ${esc(r.charName)}</span>` : ''}
+        <span class="rc-time">${esc(r.time || '')}</span>
+      </div>
+
+      <div class="rc-meta">
+        <div class="rc-meta-item">
+          <div class="rc-meta-label">▪ 인물 설정</div>
+          <div class="rc-meta-value">${esc(r.origin || '—')} · ${esc(r.align || '—')}</div>
+        </div>
+        <div class="rc-meta-item">
+          <div class="rc-meta-label">▪ 결말</div>
+          <div class="rc-meta-value rc-ending">
+            <span class="rc-ending-char">${endingChar}</span>${esc(endingTitle)}
+          </div>
+        </div>
+      </div>
+
+      <div class="rc-stats">
+        ${renderStat('명망', fs.fame)}
+        ${renderStat('의리', fs.loyalty)}
+        ${renderStat('학문', fs.study)}
+        ${renderStat('생존', fs.survive)}
+      </div>
+
+      <div class="rc-reflection-label">▪ 소감</div>
+      <div class="rc-reflection${reflection ? '' : ' empty'}">${reflection ? esc(reflection) : '(소감 미작성)'}</div>
+
+      <div class="rc-actions">
+        <button class="btn-del" onclick="deleteResult('${r._key}')">삭제</button>
+      </div>
+    </div>`;
+}
+
+/* ===== 결과 삭제 ===== */
+window.deleteResult = (key) => {
+  openConfirm('결과 삭제', '이 플레이 결과를 삭제하시겠습니까?', () => {
+    remove(ref(db, `goryeo_results/${key}`));
+    showToast('삭제 완료');
+  });
+};
+
+/* ===== 확인 모달 ===== */
+function openConfirm(title, desc, onOk) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmDesc').textContent = desc;
+  document.getElementById('confirmOk').onclick = () => { closeConfirm(); onOk(); };
+  document.getElementById('confirmModal').classList.add('show');
+}
+function closeConfirm() { document.getElementById('confirmModal').classList.remove('show'); }
+window.closeConfirm = closeConfirm;
+
+/* ===== 토스트 ===== */
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+/* ===== SETTING — 일괄 삭제 ===== */
+window.resetAll = () => {
+  openConfirm('⚠️ 전체 초기화', '전체 플레이 결과를 삭제합니다. 되돌릴 수 없습니다.', () => {
+    openConfirm('정말 삭제하시겠습니까?', '이 작업은 취소할 수 없습니다.', () => {
+      remove(resultsRef); showToast('전체 결과 삭제됨');
+    });
+  });
+};
+window.deleteAllByClass = () => {
+  const cls = document.getElementById('classDeleteSelect').value;
+  if (!cls) { showToast('반을 선택하세요'); return; }
+  const target = allResults.filter(r => classNumFromId(r.studentId) === parseInt(cls, 10));
+  if (!target.length) { showToast('해당 반의 결과가 없습니다'); return; }
+  openConfirm('반별 삭제', `${cls}반의 결과 ${target.length}개를 삭제합니까?`, () => {
+    target.forEach(r => remove(ref(db, `goryeo_results/${r._key}`)));
+    showToast(`${target.length}개 삭제`);
+  });
+};
+window.deleteAllByPath = () => {
+  const path = document.getElementById('pathDeleteSelect').value;
+  if (!path) { showToast('경로를 선택하세요'); return; }
+  const target = allResults.filter(r => pathOfEndingKey(r.ending) === path);
+  if (!target.length) { showToast('해당 경로의 결과가 없습니다'); return; }
+  openConfirm('경로별 삭제', `${PATH_LABEL[path]} 결과 ${target.length}개를 삭제합니까?`, () => {
+    target.forEach(r => remove(ref(db, `goryeo_results/${r._key}`)));
+    showToast(`${target.length}개 삭제`);
+  });
+};
+
+/* ===== 비밀번호 변경 (세션 한정) ===== */
+window.changePassword = async () => {
+  const p1 = document.getElementById('newPw1').value;
+  const p2 = document.getElementById('newPw2').value;
+  const msg = document.getElementById('pwMsg');
+  if (p1.length < 6) { msg.className='pw-msg err'; msg.textContent='❌ 6자 이상 입력해주세요'; return; }
+  if (p1 !== p2) { msg.className='pw-msg err'; msg.textContent='❌ 비밀번호가 일치하지 않습니다'; return; }
+  msg.className = 'pw-msg ok'; msg.textContent = '✅ 변경 완료 (현재 세션에만 적용)';
+  document.getElementById('newPw1').value = '';
+  document.getElementById('newPw2').value = '';
+};
+
+/* ===== 엑셀 내보내기 ===== */
+window.exportResultsExcel = () => {
+  if (!allResults.length) { showToast('내보낼 결과가 없습니다'); return; }
+  const rows = [...allResults]
+    .sort((a, b) => String(a.studentId||'').localeCompare(String(b.studentId||'')) || (a.timestamp||0) - (b.timestamp||0))
+    .map((r, i) => {
+      const meta = ENDINGS_META[r.ending];
+      const fs = r.finalStats || {};
+      return {
+        '번호': i+1,
+        '학번': r.studentId || '',
+        '이름': studentMap[r.studentId] || r.studentName || '',
+        '반': classLabel(r.studentId),
+        '호': r.charName || '',
+        '출신': r.origin || '',
+        '성향': r.align || '',
+        '결말 경로': meta ? PATH_LABEL[meta.path] : '',
+        '결말': r.endingTitle || (meta ? meta.title : ''),
+        '명망': fs.fame ?? '',
+        '의리': fs.loyalty ?? '',
+        '학문': fs.study ?? '',
+        '생존': fs.survive ?? '',
+        '소감': r.reflection || '',
+        '작성시각': r.time || ''
+      };
+    });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [
+    { wch: 5 }, { wch: 8 }, { wch: 10 }, { wch: 9 }, { wch: 8 },
+    { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 18 },
+    { wch: 6 }, { wch: 6 }, { wch: 6 }, { wch: 6 },
+    { wch: 50 }, { wch: 18 }
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '플레이 결과');
+  const now = new Date(), pad = n => String(n).padStart(2,'0');
+  XLSX.writeFile(wb, `사대부_결과_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.xlsx`);
+  showToast('결과 다운로드 완료');
+};
+
+window.exportStudentsExcel = () => {
+  if (!allStudents.length) { showToast('학생 명단이 없습니다'); return; }
+  const rows = allStudents.map((s, i) => {
+    const mine = allResults.filter(r => r.studentId === s.studentId);
+    return {
+      '번호': i+1,
+      '학번': s.studentId || '',
+      '이름': s.name || '',
+      '반': classLabel(s.studentId),
+      '플레이 횟수': mine.length,
+      '소감 작성 수': mine.filter(r => (r.reflection||'').trim().length > 0).length
+    };
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = Array(Object.keys(rows[0]).length).fill({ wch: 14 });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '학생 명단');
+  const now = new Date(), pad = n => String(n).padStart(2,'0');
+  XLSX.writeFile(wb, `사대부_학생명단_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.xlsx`);
+  showToast('학생 명단 다운로드 완료');
+};
+</script>
+</body>
+</html>
