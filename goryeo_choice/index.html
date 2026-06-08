@@ -115,9 +115,30 @@ body::before {
 .login-title { font-size:clamp(24px,7vw,32px); font-weight:900; color:var(--paper); line-height:1.2; margin-bottom:4px; }
 .login-title-hangeul { font-size:clamp(13px,4vw,16px); font-weight:700; color:var(--ink5); letter-spacing:3px; margin-bottom:28px; font-family:'Noto Sans KR'; }
 .login-label { font-size:11px; letter-spacing:2px; color:var(--ink4); margin-bottom:10px; display:block; font-family:'Noto Sans KR'; }
-.login-input { width:100%; padding:14px 20px; background:rgba(245,240,228,0.08); border:1px solid rgba(245,240,228,0.2); border-radius:2px; color:var(--paper); font-family:'Noto Sans KR'; font-size:16px; outline:none; text-align:center; letter-spacing:4px; margin-bottom:12px; transition:border-color 0.2s; -webkit-appearance:none; }
+.login-input { width:100%; padding:14px 20px; background:rgba(245,240,228,0.08); border:1px solid rgba(245,240,228,0.2); border-radius:2px; color:var(--paper); font-family:'Noto Sans KR'; font-size:16px; outline:none; text-align:center; letter-spacing:4px; margin-bottom:8px; transition:border-color 0.2s; -webkit-appearance:none; }
 .login-input:focus { border-color:var(--ink5); }
 .login-input::placeholder { color:rgba(245,240,228,0.3); letter-spacing:1px; font-size:14px; }
+
+/* ★ 학번 입력 시 이름 표시 */
+.login-name-display {
+  min-height: 24px;
+  font-size: 14px;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-weight: 500;
+  letter-spacing: 2px;
+  margin-bottom: 14px;
+  transition: color 0.2s;
+  color: transparent;
+}
+.login-name-display.found {
+  color: var(--gold2);
+}
+.login-name-display.notfound {
+  color: #ef9a9a;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
 .login-btn { width:100%; padding:15px; background:var(--gold); color:var(--ink); border:none; font-family:'Noto Serif KR',serif; font-size:15px; font-weight:700; letter-spacing:3px; cursor:pointer; border-radius:2px; transition:background 0.2s; }
 .login-btn:hover { background:var(--gold2); }
 .login-err { font-size:12px; color:#ef9a9a; margin-top:10px; min-height:18px; font-family:'Noto Sans KR'; }
@@ -214,16 +235,68 @@ body::before {
 .stat-value.flash-up { color: #a5d6a7; transform: scale(1.25); }
 .stat-value.flash-down { color: #ef9a9a; transform: scale(1.25); }
 
-#credits-screen { background:var(--ink); overflow:hidden; align-items:center; justify-content:center; position:relative; }
-.credits-bg-char { position:absolute; font-size:clamp(180px,55vw,400px); font-weight:900; color:rgba(245,240,228,0.025); pointer-events:none; user-select:none; top:50%; left:50%; transform:translate(-50%,-50%); }
-.credits-wrapper {
-  position:absolute; left:0; right:0; bottom:-100vh;
-  padding:100vh 20px 80px;
-  animation: creditsRoll 30s linear forwards;
-  max-width:560px; margin:0 auto;
+/* ───── 크레딧 화면 (★ 자동 스크롤 수정) ───── */
+#credits-screen {
+  background: var(--ink);
+  overflow: hidden;
+  position: relative;
 }
-@keyframes creditsRoll { 0%{transform:translateY(0)} 100%{transform:translateY(-100%)} }
+.credits-bg-char {
+  position: absolute;
+  font-size: clamp(180px, 55vw, 400px);
+  font-weight: 900;
+  color: rgba(245,240,228,0.025);
+  pointer-events: none;
+  user-select: none;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+}
+.credits-wrapper {
+  position: absolute;
+  top: 100vh;           /* 화면 바로 아래에서 시작 */
+  left: 0;
+  right: 0;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 40px 20px 50px;
+  box-sizing: border-box;
+  animation: creditsRoll 32s linear forwards;
+  z-index: 2;
+}
+@keyframes creditsRoll {
+  /* 시작: wrapper 윗쪽이 화면 바로 아래(top:100vh)에서 출발 */
+  from { transform: translateY(0); }
+  /* 종료: wrapper 윗변을 (높이 + 40vh)만큼 위로 → 바닥이 화면의 60vh 위치에 멈춤
+     ⇒ CTA(버튼) 영역이 화면 중하단에 또렷이 보임 */
+  to   { transform: translateY(calc(-100% - 40vh)); }
+}
 .credits-wrapper.paused { animation-play-state: paused; }
+
+/* ★ 스킵 버튼 (크레딧 빠르게 넘기기) */
+.credits-skip-btn {
+  position: fixed;
+  top: 14px; right: 14px;
+  background: rgba(245,240,228,0.1);
+  color: var(--ink5);
+  border: 1px solid rgba(245,240,228,0.2);
+  padding: 8px 14px;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 11px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.2s;
+  z-index: 50;
+}
+.credits-skip-btn:hover {
+  background: rgba(245,240,228,0.18);
+  color: var(--paper);
+  border-color: rgba(245,240,228,0.4);
+}
+.credits-skip-btn.hidden { display: none; }
+
 .credits-label { font-size:10px; letter-spacing:5px; color:var(--ink4); text-align:center; margin-bottom:8px; font-family:'Noto Sans KR'; }
 .credits-title-big { font-size:clamp(20px,6vw,28px); font-weight:900; color:var(--paper); text-align:center; line-height:1.3; margin-bottom:6px; }
 .credits-line { width:50px; height:1px; background:var(--ink4); margin:14px auto 18px; }
@@ -233,7 +306,7 @@ body::before {
 .credits-narrative p { margin-bottom:14px; }
 .credits-narrative p:last-child { margin-bottom:0; }
 .credits-narrative strong { color:var(--gold2); font-weight:700; }
-.credits-ending-reveal { text-align:center; padding:28px 0; }
+.credits-ending-reveal { text-align:center; padding:28px 0 20px; }
 .credits-ending-name { font-size:clamp(22px,7vw,32px); font-weight:900; color:var(--paper); margin-bottom:10px; word-break:keep-all; }
 .credits-ending-desc { font-size:13px; color:rgba(245,240,228,0.7); line-height:2; max-width:380px; margin:0 auto; word-break:keep-all; }
 .credits-stat-row { display:flex; gap:20px; justify-content:center; margin-top:16px; flex-wrap:wrap; }
@@ -241,23 +314,65 @@ body::before {
 .credits-stat-num { font-size:26px; font-weight:900; color:var(--gold); }
 .credits-stat-lbl { font-size:10px; color:var(--ink5); letter-spacing:2px; font-family:'Noto Sans KR'; }
 
-.credits-reflection-cta {
-  text-align: center; padding: 40px 20px 60px;
-  opacity: 0; animation: ctaFadeIn 0.8s ease forwards;
-  animation-delay: 0.3s;
+/* ★ 크레딧 종료 후 액션 버튼 영역 */
+.credits-end-actions {
+  background: rgba(184,134,11,0.08);
+  border: 1px solid rgba(184,134,11,0.3);
+  border-radius: 3px;
+  padding: 24px 20px;
+  text-align: center;
+  margin-top: 16px;
 }
-@keyframes ctaFadeIn { to { opacity: 1; } }
-.credits-reflection-btn {
-  display: inline-block; padding: 16px 36px;
-  background: var(--gold); color: var(--ink);
-  border: none; border-radius: 2px;
+.credits-end-actions-label {
+  font-size: 11px;
+  letter-spacing: 4px;
+  color: var(--gold2);
+  margin-bottom: 6px;
+  font-family: 'Noto Sans KR';
+}
+.credits-end-actions-title {
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--paper);
+  margin-bottom: 18px;
+  letter-spacing: 1px;
+}
+.credits-action-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.credits-action-btn {
+  flex: 1;
+  min-width: 130px;
+  padding: 14px 18px;
   font-family: 'Noto Serif KR', serif;
-  font-size: 15px; font-weight: 700;
-  letter-spacing: 3px; cursor: pointer;
-  transition: background 0.2s;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: all 0.2s;
+  border: none;
+  word-break: keep-all;
 }
-.credits-reflection-btn:hover { background: var(--gold2); }
-.credits-reflection-hint { font-size: 11px; color: rgba(245,240,228,0.4); margin-top: 12px; font-family: 'Noto Sans KR'; letter-spacing: 1px; }
+.credits-action-btn.primary {
+  background: var(--gold);
+  color: var(--ink);
+}
+.credits-action-btn.primary:hover {
+  background: var(--gold2);
+}
+.credits-action-btn.secondary {
+  background: transparent;
+  color: var(--paper);
+  border: 1.5px solid rgba(245,240,228,0.4);
+}
+.credits-action-btn.secondary:hover {
+  background: rgba(245,240,228,0.1);
+  border-color: var(--paper);
+}
 
 #reflection-screen { align-items:center; padding:0; }
 .reflection-header { background:var(--ink); padding:16px 18px; width:100%; }
@@ -268,9 +383,9 @@ body::before {
 .reflection-ending-title { font-size:clamp(18px,5vw,24px); font-weight:900; color:var(--ink); margin-bottom:10px; word-break:keep-all; }
 .reflection-ending-quote { font-size:13px; color:var(--ink2); line-height:2; background:rgba(255,255,255,0.5); padding:14px 16px; border-left:3px solid var(--ink5); margin-bottom:22px; word-break:keep-all; }
 .reflection-label { font-size:11px; letter-spacing:3px; color:var(--ink3); margin-bottom:10px; font-family:'Noto Sans KR'; }
-.reflection-textarea { width:100%; min-height:130px; padding:14px 16px; background:rgba(255,255,255,0.6); border:1.5px solid var(--border2); border-radius:2px; color:var(--ink); font-family:'Noto Serif KR',serif; font-size:14px; line-height:1.9; outline:none; resize:vertical; transition:border-color 0.2s; -webkit-appearance:none; }
+.reflection-textarea { width:100%; min-height:160px; padding:14px 16px; background:rgba(255,255,255,0.6); border:1.5px solid var(--border2); border-radius:2px; color:var(--ink); font-family:'Noto Serif KR',serif; font-size:14px; line-height:1.9; outline:none; resize:vertical; transition:border-color 0.2s; -webkit-appearance:none; }
 .reflection-textarea:focus { border-color:var(--ink); background:rgba(255,255,255,0.85); }
-.reflection-textarea::placeholder { color:var(--ink5); font-size:13px; }
+.reflection-textarea::placeholder { color:var(--ink5); font-size:13px; line-height: 1.7; }
 .reflection-char-count { font-size:11px; color:var(--ink5); text-align:right; margin-top:5px; font-family:'Noto Sans KR'; }
 .reflection-char-count.hi-count-ok { color:#2e7d32; }
 .reflection-submit-row { display:flex; gap:10px; align-items:center; justify-content: center; margin-top:20px; flex-wrap:wrap; }
@@ -313,7 +428,10 @@ body::before {
     <div class="login-title-hangeul">난세의 사대부</div>
     <label class="login-label">학번 (5자리)</label>
     <input type="text" id="login-id" class="login-input" maxlength="5" inputmode="numeric" placeholder="00000"
+      oninput="checkStudentName()"
       onkeydown="if(event.key==='Enter') doLogin()">
+    <!-- ★ 학번 입력 시 이름 표시 -->
+    <div id="login-name-display" class="login-name-display">&nbsp;</div>
     <button class="login-btn" onclick="doLogin()">입장하기</button>
     <div class="login-err" id="login-err"></div>
     <div class="login-skip" onclick="skipLogin()">학번 없이 체험하기</div>
@@ -432,6 +550,7 @@ body::before {
 <div id="credits-screen" class="screen">
   <div class="credits-bg-char" id="credits-bg-char">道</div>
   <div class="credits-wrapper" id="credits-wrapper"></div>
+  <button class="credits-skip-btn" id="credits-skip-btn" onclick="skipCredits()">▼ 스킵</button>
 </div>
 
 <div id="reflection-screen" class="screen">
@@ -446,7 +565,7 @@ body::before {
     <div id="reflection-form-area">
       <div class="reflection-label">▪ 소감을 남겨주세요 (공백 제외 50자 이상)</div>
       <textarea class="reflection-textarea" id="reflection-text"
-        placeholder="게임을 하면서 느낀 점, 선택이 어려웠던 순간, 역사적으로 새롭게 알게 된 사실 등을 자유롭게 적어주세요."
+        placeholder="왜 그러한 선택을 했는지, 그에 따른 결과는 어땠는지 자유롭게 적어주세요.&#10;게임을 하면서 느낀 점, 역사적으로 새롭게 알게 된 사실도 좋습니다."
         maxlength="600"></textarea>
       <div class="reflection-char-count" id="char-count-display">0 / 50자 이상</div>
       <div class="reflection-submit-row">
@@ -467,7 +586,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import { getDatabase, ref, set, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 // ★ 공유 모듈
-import { initAuth, verifyStudentId } from '../shared/auth.js';
+import { initAuth, verifyStudentId, loadStudents } from '../shared/auth.js';
 import { mountCharCounter, validateText } from '../shared/textLimit.js';
 import { showToast } from '../shared/toast.js';
 
@@ -492,6 +611,7 @@ let fame = 5, loyalty = 5, study = 5, survive = 10;
 let choiceLog = [], currentScene = 0, endingKey = null, lastAct = 0;
 let currentScreen = 'login-screen';
 let pendingAction = null;
+let studentsLoaded = false;
 
 const ACT_INTROS = {
   1: { label:'제1막', name:'입신(立身)의 길', sub:'1385 — 1388 · 성리학자로 첫 발을 내딛다' },
@@ -733,6 +853,7 @@ function loadState() {
       lastAct = SCENES[currentScene].act; showScreen('story-screen');
     } else if (currentScreen === 'credits-screen') {
       buildCreditsContent(); showScreen('credits-screen');
+      attachCreditsAnimationEnd();
     } else if (currentScreen === 'reflection-screen') {
       const ending = ENDINGS[endingKey];
       document.getElementById('ref-ending-title').textContent = ending.title;
@@ -756,14 +877,72 @@ function clearState() {
   try { sessionStorage.removeItem(STORAGE_KEY); } catch(e) {}
 }
 
-/* ===== 로그인 — ★ shared/auth.js 사용 ===== */
+/* ===== ★ 학번 입력 시 실시간 이름 확인 ===== */
+let nameCheckTimer = null;
+window.checkStudentName = async function() {
+  const sid = document.getElementById('login-id').value.trim();
+  const display = document.getElementById('login-name-display');
+
+  // 숫자만 허용
+  if (sid && !/^\d+$/.test(sid)) {
+    display.textContent = '숫자만 입력 가능합니다';
+    display.className = 'login-name-display notfound';
+    return;
+  }
+
+  if (sid.length === 0) {
+    display.innerHTML = '&nbsp;';
+    display.className = 'login-name-display';
+    return;
+  }
+
+  if (sid.length < 5) {
+    display.textContent = `${sid.length}/5자리`;
+    display.className = 'login-name-display';
+    display.style.color = 'rgba(245,240,228,0.35)';
+    display.style.fontSize = '12px';
+    return;
+  }
+
+  // 5자리 완성 — 명단 확인
+  display.style.color = '';
+  display.style.fontSize = '';
+
+  // 명단이 아직 로드되지 않았으면 로드
+  if (!studentsLoaded) {
+    display.textContent = '확인 중…';
+    display.className = 'login-name-display';
+    display.style.color = 'rgba(245,240,228,0.5)';
+    try {
+      await loadStudents();
+      studentsLoaded = true;
+    } catch(e) {}
+    display.style.color = '';
+  }
+
+  const result = verifyStudentId(sid);
+  if (result.ok) {
+    display.textContent = `✓ ${result.name || ''}`;
+    display.className = 'login-name-display found';
+  } else {
+    if (result.reason === 'not_in_roster') {
+      display.textContent = '✗ 등록되지 않은 학번';
+    } else {
+      display.textContent = '✗ 확인할 수 없음';
+    }
+    display.className = 'login-name-display notfound';
+  }
+};
+
+/* ===== 로그인 ===== */
 window.doLogin = async function() {
   const sid = document.getElementById('login-id').value.trim();
   const errEl = document.getElementById('login-err');
 
   // 명단 로드 대기
-  const { loadStudents } = await import('../shared/auth.js');
-  await loadStudents().catch(() => {});
+  if (!studentsLoaded) {
+    try { await loadStudents(); studentsLoaded = true; } catch(e) {}
+  }
 
   const result = verifyStudentId(sid);
   if (!result.ok) {
@@ -794,6 +973,8 @@ window.goBack = function(target) {
     studentId = null; studentName = '';
     document.getElementById('title-student-info').textContent = '';
     document.getElementById('login-err').textContent = '';
+    document.getElementById('login-name-display').innerHTML = '&nbsp;';
+    document.getElementById('login-name-display').className = 'login-name-display';
     currentScreen = 'login-screen'; clearState();
     showScreen('login-screen');
   } else if (target === 'title') {
@@ -861,9 +1042,12 @@ window.startGame = function() {
   charName = document.getElementById('char-name').value.trim();
   const v = validateCharName(charName);
   if (!v.ok) { showToast(v.msg, 'error'); return; }
+  // 스탯 초기화 (재시작 시 누적 방지)
+  fame = 5; loyalty = 5; study = 5; survive = 10;
   if (origin === 'rural') survive += 1; else fame += 1;
   if (align === 'reform') loyalty += 2; else { study += 1; fame += 1; }
-  currentScene = 0; currentScreen = 'story-screen'; saveState();
+  currentScene = 0; choiceLog = []; lastAct = 0; endingKey = null;
+  currentScreen = 'story-screen'; saveState();
   showActTransition(1, () => { showScene(0); updateStatBar(); showScreen('story-screen'); });
 };
 
@@ -1060,21 +1244,76 @@ function buildCreditsContent() {
       <div class="credits-ending-desc">${ending.quote}</div>
       <div style="margin-top:12px;font-size:11px;color:rgba(196,168,122,0.5);line-height:1.8;font-family:'Noto Sans KR';">${ending.history}</div>
     </div>
-    <div class="credits-reflection-cta">
-      <button class="credits-reflection-btn" onclick="goReflection()">소감 작성하러 가기 ▶</button>
-      <div class="credits-reflection-hint">그대의 여정을 기록할 시간입니다</div>
-    </div>
-    <div style="height:8vh;"></div>`;
+    <!-- ★ 종료 후 액션 버튼: 다시 하기 + 소감 쓰기 -->
+    <div class="credits-end-actions">
+      <div class="credits-end-actions-label">▪ 다음 발걸음</div>
+      <div class="credits-end-actions-title">어디로 가시겠습니까?</div>
+      <div class="credits-action-row">
+        <button class="credits-action-btn primary" onclick="goReflection()">📝 소감 쓰기</button>
+        <button class="credits-action-btn secondary" onclick="goSetupFromCredits()">↻ 다시 하기</button>
+      </div>
+    </div>`;
+}
+
+/* ★ 크레딧 애니메이션 종료 후 스킵 버튼 숨기기 */
+function attachCreditsAnimationEnd() {
+  const wrapper = document.getElementById('credits-wrapper');
+  const skipBtn = document.getElementById('credits-skip-btn');
+  wrapper.addEventListener('animationend', () => {
+    wrapper.classList.add('paused');
+    skipBtn.classList.add('hidden');
+  }, { once: true });
 }
 
 function showCredits() {
   buildCreditsContent();
-  showScreen('credits-screen');
+  // 애니메이션 재시작 (이전 paused 상태 초기화)
   const wrapper = document.getElementById('credits-wrapper');
-  wrapper.addEventListener('animationend', () => { wrapper.classList.add('paused'); }, { once: true });
+  wrapper.classList.remove('paused');
+  wrapper.style.animation = 'none';
+  void wrapper.offsetWidth;  // reflow
+  wrapper.style.animation = '';
+  document.getElementById('credits-skip-btn').classList.remove('hidden');
+  showScreen('credits-screen');
+  attachCreditsAnimationEnd();
 }
 
-/* ===== 소감 작성 — ★ shared/textLimit.js 사용 ===== */
+/* ★ 스킵 — 애니메이션을 빠르게 종료시킴 */
+window.skipCredits = function() {
+  const wrapper = document.getElementById('credits-wrapper');
+  // 1초 안에 종료되도록 가속
+  wrapper.style.animationDuration = '0.8s';
+};
+
+/* ★ 크레딧 → 인물 설정 (다시 하기) */
+window.goSetupFromCredits = function() {
+  // 학생 정보는 유지, 게임 진행 상태만 초기화
+  origin = null; align = null; charName = '';
+  fame = 5; loyalty = 5; study = 5; survive = 10;
+  choiceLog = []; currentScene = 0; endingKey = null; lastAct = 0;
+
+  // UI 초기화
+  document.getElementById('char-name').value = '';
+  document.querySelectorAll('.choice-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('setup-next-btn').disabled = true;
+  document.getElementById('setup-progress').style.width = '0%';
+  document.getElementById('name-hint').textContent = '한글 또는 한자 2~3글자. 자음만/특수문자 사용 불가.';
+  document.getElementById('name-hint').className = 'name-hint';
+  document.getElementById('name-hint').style.color = '';
+  document.getElementById('char-name').classList.remove('error');
+  document.getElementById('story-progress').style.width = '0%';
+
+  // 크레딧 애니메이션 리셋
+  const wrapper = document.getElementById('credits-wrapper');
+  wrapper.classList.remove('paused');
+  wrapper.style.animationDuration = '';
+
+  currentScreen = 'setup-screen';
+  saveState();
+  showScreen('setup-screen');
+};
+
+/* ===== 소감 작성 ===== */
 window.goReflection = function() {
   const ending = ENDINGS[endingKey];
   document.getElementById('ref-ending-title').textContent = ending.title;
@@ -1089,7 +1328,7 @@ window.goReflection = function() {
       input: ta,
       counter: document.getElementById('char-count-display'),
       max: 600, excludeSpaces: true,
-      format: (n, m) => n >= 50 ? `${n}자 ✓` : `${n} / 50자 이상`
+      format: (n, m) => n >= 50 ? `${n}자 ✓ (공백 제외)` : `${n} / 50자 이상 (공백 제외)`
     });
     ta.addEventListener('input', saveState);
     ta._counterMounted = true;
@@ -1098,10 +1337,10 @@ window.goReflection = function() {
 
 window.submitReflection = function() {
   const text = document.getElementById('reflection-text').value;
-  // ★ shared validateText: 최소 50자 + 반복 검사
+  // ★ 공백 제외 50자 검증
   const v = validateText(text, { min: 50, checkRepeats: true });
   if (!v.ok) { showToast(v.message, 'error'); return; }
-  // 띄어쓰기 비율 검사 (사대부 고유 룰)
+  // 띄어쓰기 비율 검사
   const noSpace = text.replace(/\s/g, '');
   if (text.length > 10 && (text.length - noSpace.length) / text.length > 0.4) {
     showToast('과도한 띄어쓰기가 감지되었습니다.', 'error'); return;
@@ -1125,6 +1364,8 @@ window.restartGame = function() {
   currentScreen = 'login-screen'; clearState();
   document.getElementById('login-id').value = '';
   document.getElementById('login-err').textContent = '';
+  document.getElementById('login-name-display').innerHTML = '&nbsp;';
+  document.getElementById('login-name-display').className = 'login-name-display';
   document.getElementById('char-name').value = '';
   document.getElementById('reflection-text').value = '';
   document.getElementById('reflection-form-area').style.display = 'block';
@@ -1136,6 +1377,7 @@ window.restartGame = function() {
   document.getElementById('title-student-info').textContent = '';
   document.getElementById('name-hint').textContent = '한글 또는 한자 2~3글자. 자음만/특수문자 사용 불가.';
   document.getElementById('name-hint').className = 'name-hint';
+  document.getElementById('name-hint').style.color = '';
   showScreen('login-screen');
 };
 
@@ -1162,7 +1404,11 @@ function showScreen(id) {
   window.scrollTo(0,0);
 }
 
-window.addEventListener('DOMContentLoaded', () => { loadState(); });
+// ★ 페이지 로드 시 학생 명단 미리 로드 (이름 표시 지연 최소화)
+window.addEventListener('DOMContentLoaded', () => {
+  loadState();
+  loadStudents().then(() => { studentsLoaded = true; }).catch(() => {});
+});
 </script>
 </body>
 </html>
