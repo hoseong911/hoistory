@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>IDY 역사 열공 마일리지</title>
+
+    <!-- Pretendard -->
+    <link rel="stylesheet" as="style" crossorigin
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+
+    <!-- 공통 디자인 시스템 (theme.css 기본값: 다크 + 그린) -->
+    <link rel="stylesheet" href="../shared/theme.css">
+
+    <style>
+        /* ════════════════════════════════════════════════════════
+           앱 전용 스타일 — 전부 --hi-* 토큰만 사용
+           ════════════════════════════════════════════════════════ */
+
+        /* ─── 로그인 화면 ─── */
+        .login-wrap { max-width: 480px; margin: 40px auto 0; }
+        .login-logo { text-align: center; margin-bottom: 32px; }
+        .login-logo h1 {
+            font-size: 32px; font-weight: 900; letter-spacing: -1px;
+            color: var(--hi-text); margin: 0;
+        }
+        .login-logo h1 span { color: var(--hi-accent); }
+        .login-logo p {
+            color: var(--hi-text-muted); font-size: 13px;
+            margin-top: 8px; letter-spacing: 0.3px;
+        }
+        .hi-input-with-status { position: relative; }
+        .hi-input-with-status .hi-input { padding-right: 42px; }
+
+        /* ─── 본인 통계 카드 (홈 hero) ─── */
+        .stats-hero {
+            background: linear-gradient(160deg,
+                var(--hi-accent-soft) 0%,
+                var(--hi-bg-surface) 60%);
+            border: 1px solid var(--hi-border);
+            border-radius: var(--hi-r-card);
+            padding: 32px 28px 24px;
+            margin-bottom: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+        .stats-hero::before {
+            content: '';
+            position: absolute;
+            top: -40px; right: -40px;
+            width: 180px; height: 180px;
+            background: radial-gradient(circle, var(--hi-accent-soft) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        .stats-big-num {
+            display: flex; align-items: baseline; gap: 8px;
+            position: relative; z-index: 1;
+        }
+        .stats-big-num .num {
+            font-size: 72px; font-weight: 900;
+            color: var(--hi-accent); letter-spacing: -3px;
+            line-height: 1; font-feature-settings: 'tnum';
+        }
+        .stats-big-num .label {
+            font-size: 18px; font-weight: 800;
+            color: var(--hi-text); letter-spacing: -0.5px;
+        }
+        .stats-sub {
+            font-size: 12px; color: var(--hi-text-muted);
+            margin-top: 8px; letter-spacing: 0.4px; font-weight: 600;
+            position: relative; z-index: 1;
+        }
+        .stats-row {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 12px; margin-top: 22px;
+            position: relative; z-index: 1;
+        }
+        .stat-cell {
+            background: var(--hi-bg-mid);
+            border-radius: var(--hi-r-input);
+            padding: 12px 14px;
+        }
+        .stat-cell .l {
+            font-size: 10px; font-weight: 700; letter-spacing: 1.2px;
+            color: var(--hi-text-muted); text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .stat-cell .v {
+            font-size: 18px; font-weight: 800; color: var(--hi-text);
+            font-feature-settings: 'tnum';
+        }
+        .stat-cell .v small {
+            font-size: 11px; color: var(--hi-text-muted); margin-left: 2px;
+            font-weight: 600;
+        }
+        .level-bar {
+            margin-top: 16px; position: relative; z-index: 1;
+        }
+        .level-bar-track {
+            background: var(--hi-bg-mid); height: 6px;
+            border-radius: var(--hi-r-pill); overflow: hidden;
+        }
+        .level-bar-fill {
+            background: var(--hi-accent); height: 100%;
+            width: 0%; border-radius: var(--hi-r-pill);
+            transition: width 0.8s ease;
+        }
+        .level-bar-meta {
+            display: flex; justify-content: space-between;
+            font-size: 11px; color: var(--hi-text-muted);
+            margin-top: 8px; font-weight: 700; letter-spacing: 0.3px;
+        }
+
+        /* ─── 섹션 헤딩 ─── */
+        .sec-h {
+            font-size: 11px; font-weight: 800; letter-spacing: 1.6px;
+            color: var(--hi-text-muted); text-transform: uppercase;
+            margin: 24px 4px 12px;
+        }
+
+        /* ─── 최근 인증 내역 ─── */
+        .history-item {
+            background: var(--hi-bg-mid);
+            border-radius: var(--hi-r-input);
+            padding: 14px 16px;
+            margin-bottom: 8px;
+            display: flex; align-items: center; gap: 12px;
+        }
+        .history-day-tag {
+            background: var(--hi-accent); color: var(--hi-on-accent);
+            border-radius: var(--hi-r-pill);
+            padding: 4px 12px; font-size: 11px; font-weight: 800;
+            letter-spacing: 0.3px; flex-shrink: 0;
+            font-feature-settings: 'tnum';
+        }
+        .history-body { flex: 1; min-width: 0; }
+        .history-content {
+            font-size: 13px; color: var(--hi-text);
+            font-weight: 600; overflow: hidden; text-overflow: ellipsis;
+            white-space: nowrap; margin-bottom: 2px;
+        }
+        .history-date {
+            font-size: 11px; color: var(--hi-text-muted);
+            font-feature-settings: 'tnum';
+        }
+
+        /* ─── 사용 안내 ─── */
+        .guide-step {
+            display: flex; gap: 14px; padding: 14px 16px;
+            background: var(--hi-bg-mid);
+            border-radius: var(--hi-r-input);
+            margin-bottom: 8px;
+        }
+        .guide-num {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: var(--hi-accent); color: var(--hi-on-accent);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 13px; flex-shrink: 0;
+            font-feature-settings: 'tnum';
+        }
+        .guide-body { flex: 1; }
+        .guide-title { font-size: 14px; font-weight: 800; color: var(--hi-text); margin-bottom: 3px; }
+        .guide-desc { font-size: 12px; color: var(--hi-text-muted); line-height: 1.6; }
+
+        /* ─── 사진 업로드 (CHECK 탭) ─── */
+        .upload-area {
+            background: var(--hi-bg-mid);
+            border: 2px dashed var(--hi-border);
+            border-radius: var(--hi-r-card);
+            min-height: 220px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 14px; cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            overflow: hidden;
+        }
+        .upload-area:hover {
+            border-color: var(--hi-accent);
+            background: var(--hi-bg-card);
+        }
+        .upload-placeholder {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 10px; padding: 32px 16px; text-align: center;
+        }
+        .upload-placeholder .ic { font-size: 36px; }
+        .upload-placeholder .t {
+            font-size: 14px; font-weight: 800; color: var(--hi-text);
+        }
+        .upload-placeholder .d {
+            font-size: 12px; color: var(--hi-text-muted); line-height: 1.6;
+        }
+        #cert-preview {
+            display: none; width: 100%; max-height: 360px;
+            object-fit: contain; border-radius: var(--hi-r-input);
+        }
+
+        .upload-actions { display: flex; gap: 8px; margin-bottom: 14px; }
+        .upload-actions button { flex: 1; }
+
+        .info-tag {
+            background: var(--hi-accent-soft);
+            color: var(--hi-accent);
+            border-radius: var(--hi-r-input);
+            padding: 10px 14px;
+            font-size: 12px; font-weight: 700;
+            text-align: center; line-height: 1.6;
+            margin-bottom: 16px;
+        }
+
+        /* ─── AI 판정 결과 ─── */
+        .cert-result {
+            border-radius: var(--hi-r-card);
+            padding: 24px;
+            text-align: center;
+            margin-top: 16px;
+            border: 1.5px solid var(--hi-border);
+        }
+        .cert-result.pass {
+            background: var(--hi-accent-soft);
+            border-color: var(--hi-accent);
+        }
+        .cert-result.fail {
+            background: rgba(243,114,127,0.08);
+            border-color: var(--hi-negative);
+        }
+        .cert-result-icon { font-size: 48px; margin-bottom: 6px; }
+        .cert-result-title {
+            font-size: 18px; font-weight: 900;
+            color: var(--hi-text); margin-bottom: 6px;
+            letter-spacing: -0.3px;
+        }
+        .cert-result.pass .cert-result-title { color: var(--hi-accent); }
+        .cert-result.fail .cert-result-title { color: var(--hi-negative); }
+        .cert-result-desc {
+            font-size: 13px; color: var(--hi-text-muted);
+            line-height: 1.6; margin-bottom: 4px;
+        }
+        .cert-result-meta {
+            font-size: 12px; font-weight: 700;
+            color: var(--hi-accent);
+            margin-top: 8px;
+        }
+
+        /* ─── 랭킹 ─── */
+        .rank-controls {
+            display: flex; gap: 10px;
+            margin-bottom: 18px;
+            align-items: center; flex-wrap: wrap;
+        }
+        .rank-controls .hi-select { width: auto; min-width: 100px; padding: 10px 38px 10px 14px; }
+        .sort-toggle {
+            display: inline-flex; background: var(--hi-bg-mid);
+            border-radius: var(--hi-r-pill); padding: 3px;
+        }
+        .sort-toggle button {
+            background: transparent; border: none;
+            font-family: inherit; cursor: pointer;
+            color: var(--hi-text-muted);
+            padding: 7px 14px; border-radius: var(--hi-r-pill);
+            font-size: 11px; font-weight: 800; letter-spacing: 0.6px;
+            transition: all 0.15s;
+        }
+        .sort-toggle button.active {
+            background: var(--hi-text); color: var(--hi-bg-base);
+        }
+        .rank-row {
+            background: var(--hi-bg-mid);
+            border-radius: var(--hi-r-input);
+            padding: 12px 16px;
+            margin-bottom: 6px;
+            display: flex; align-items: center; gap: 14px;
+            transition: background 0.15s;
+        }
+        .rank-row.self {
+            background: var(--hi-accent-soft);
+            border: 1px solid var(--hi-accent);
+        }
+        .rank-row.top1 { background: linear-gradient(135deg, var(--hi-accent-soft), var(--hi-bg-mid)); }
+        .rank-num {
+            font-size: 16px; font-weight: 900;
+            color: var(--hi-text); width: 36px; text-align: center;
+            font-feature-settings: 'tnum'; flex-shrink: 0;
+        }
+        .rank-row.top1 .rank-num,
+        .rank-row.top2 .rank-num,
+        .rank-row.top3 .rank-num { color: var(--hi-accent); font-size: 20px; }
+        .rank-info { flex: 1; min-width: 0; }
+        .rank-name-line {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 2px; flex-wrap: wrap;
+        }
+        .rank-name {
+            font-size: 14px; font-weight: 800; color: var(--hi-text);
+        }
+        .rank-cls {
+            font-size: 10px; font-weight: 800; letter-spacing: 0.6px;
+            color: var(--hi-text-muted);
+            background: var(--hi-bg-surface);
+            border-radius: var(--hi-r-pill);
+            padding: 2px 8px;
+        }
+        .rank-me {
+            font-size: 10px; font-weight: 900; letter-spacing: 0.6px;
+            color: var(--hi-on-accent); background: var(--hi-accent);
+            border-radius: var(--hi-r-pill); padding: 2px 8px;
+        }
+        .rank-meta {
+            font-size: 11px; color: var(--hi-text-muted);
+            font-feature-settings: 'tnum';
+        }
+        .rank-days {
+            font-size: 22px; font-weight: 900;
+            color: var(--hi-accent);
+            font-feature-settings: 'tnum'; flex-shrink: 0;
+        }
+        .rank-days small {
+            font-size: 11px; color: var(--hi-text-muted);
+            font-weight: 700; margin-left: 2px;
+        }
+
+        /* ─── 글자 카운터 (textLimit.js와 연결) ─── */
+        .hi-count-ok { color: var(--hi-text-muted); }
+        .hi-count-warn { color: var(--hi-negative) !important; }
+        .char-count {
+            font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+            text-align: right; margin-top: 6px;
+            font-feature-settings: 'tnum';
+        }
+
+        /* ─── 푸터 / 관리자 진입 ─── */
+        .admin-footer { text-align: center; margin-top: 40px; }
+
+        /* ─── 모바일 ─── */
+        @media (max-width: 600px) {
+            .stats-big-num .num { font-size: 56px; }
+            .stats-big-num .label { font-size: 16px; }
+            .stat-cell .v { font-size: 16px; }
+        }
+    </style>
+</head>
+
+<body class="hi-theme-dark hi-accent-green">
+<div class="hi-page">
+
+    <!-- ════════════════════════════════════════════════════════
+         로그인 화면
+         ════════════════════════════════════════════════════════ -->
+    <div id="screen-login">
+        <div class="login-wrap">
+            <div class="login-logo">
+                <h1>역사 <span>열공</span></h1>
+                <p>IDY 역사 마일리지 · 인천동양중학교</p>
+            </div>
+
+            <div class="hi-card">
+                <div class="hi-form-group hi-input-with-status">
+                    <label class="hi-label">학번 (5자리)</label>
+                    <input class="hi-input" type="text" id="login-id"
+                           maxlength="5" inputmode="numeric" placeholder="예: 10324">
+                    <span class="hi-verify-status" id="login-id-status"></span>
+                    <div class="hi-verify-msg" id="login-id-msg"></div>
+                </div>
+
+                <div class="hi-form-group hi-input-with-status">
+                    <label class="hi-label">이름</label>
+                    <input class="hi-input" type="text" id="login-name" placeholder="이름" disabled>
+                    <span class="hi-verify-status" id="login-name-status"></span>
+                    <div class="hi-verify-msg" id="login-name-msg"></div>
+                </div>
+
+                <div class="hi-form-group">
+                    <label class="hi-label">비밀번호</label>
+                    <input class="hi-input" type="text" id="login-pw"
+                           placeholder="본인 확인용 비밀번호">
+                </div>
+
+                <button class="hi-btn hi-btn-primary hi-btn-block"
+                        id="login-btn" disabled onclick="window.doLogin()">접속하기</button>
+            </div>
+
+            <div class="admin-footer">
+                <button class="hi-btn hi-btn-ghost" onclick="location.href='admin.html'">⚙ 관리자</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════════════════════════════════════════════════════════
+         메인 화면 (로그인 후)
+         ════════════════════════════════════════════════════════ -->
+    <div id="screen-main" class="hi-hidden">
+
+        <header class="hi-header">
+            <h1 class="hi-header-title">역사 <span>열공</span></h1>
+            <div class="hi-header-controls">
+                <span class="hi-chip" id="user-chip"></span>
+                <button class="hi-btn hi-btn-outline hi-btn-sm"
+                        onclick="window.doLogout()">로그아웃</button>
+            </div>
+        </header>
+
+        <div class="hi-tabs">
+            <button class="hi-tab active" id="tab-btn-home" onclick="window.switchTab('home')">HOME</button>
+            <button class="hi-tab" id="tab-btn-check" onclick="window.switchTab('check')">CHECK</button>
+            <button class="hi-tab" id="tab-btn-rank" onclick="window.switchTab('rank')">RANK</button>
+        </div>
+
+        <!-- ─── HOME 탭 ─── -->
+        <div id="tab-home">
+            <!-- 본인 통계 hero -->
+            <div class="stats-hero">
+                <div class="stats-big-num">
+                    <span class="num" id="home-day-count">0</span>
+                    <span class="label">일째 열공</span>
+                </div>
+                <div class="stats-sub" id="home-day-sub">아직 시작 전 — 첫 체크를 해보세요!</div>
+
+                <div class="stats-row">
+                    <div class="stat-cell">
+                        <div class="l">이번주</div>
+                        <div class="v"><span id="home-week-count">0</span><small>/5일</small></div>
+                    </div>
+                    <div class="stat-cell">
+                        <div class="l">레벨</div>
+                        <div class="v" id="home-level">Lv.1</div>
+                    </div>
+                    <div class="stat-cell">
+                        <div class="l">반 내 순위</div>
+                        <div class="v" id="home-class-rank">-</div>
+                    </div>
+                </div>
+
+                <div class="level-bar">
+                    <div class="level-bar-track">
+                        <div class="level-bar-fill" id="home-level-bar"></div>
+                    </div>
+                    <div class="level-bar-meta">
+                        <span id="home-level-cur">Lv.1</span>
+                        <span id="home-level-prog">0 / 10일</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 최근 내 인증 내역 -->
+            <p class="sec-h">📋 최근 내 인증 내역</p>
+            <div id="home-history-list">
+                <p class="hi-empty">아직 인증 기록이 없어요</p>
+            </div>
+
+            <!-- 사용 안내 -->
+            <p class="sec-h">📖 어떻게 참여하나요?</p>
+            <div class="guide-step">
+                <div class="guide-num">1</div>
+                <div class="guide-body">
+                    <div class="guide-title">역사 공부 사진 찍기</div>
+                    <div class="guide-desc">교과서·필기·문제집과 함께 <b>오늘 날짜 타임스탬프</b>가 찍힌 사진을 준비하세요. (타임스탬프 카메라 앱 활용)</div>
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="guide-num">2</div>
+                <div class="guide-body">
+                    <div class="guide-title">CHECK 탭에서 업로드</div>
+                    <div class="guide-desc">사진 + 오늘 공부한 내용을 적어 제출하세요.</div>
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="guide-num">3</div>
+                <div class="guide-body">
+                    <div class="guide-title">AI 자동 판정 → 1일 적립</div>
+                    <div class="guide-desc">통과하면 <b>1일</b>이 카운트돼요. <b>하루 1회</b>까지만 인증 가능.</div>
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="guide-num">4</div>
+                <div class="guide-body">
+                    <div class="guide-title">랭킹에서 친구들과 비교</div>
+                    <div class="guide-desc">누적 일수로 우리 반·전체 랭킹이 매겨져요. 꾸준한 사람이 이깁니다!</div>
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="guide-num">⏰</div>
+                <div class="guide-body">
+                    <div class="guide-title">인증 가능 시간</div>
+                    <div class="guide-desc">평일은 <b>오후 3시 이후</b>, 주말·공휴일은 <b>오전 6시 이후</b>에 인증할 수 있어요.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── CHECK 탭 ─── -->
+        <div id="tab-check" class="hi-hidden">
+            <div class="info-tag">
+                하루 1회 · AI 자동 판정<br>
+                <b>역사 자료 + 오늘 날짜 타임스탬프</b> 필수 · 통과 시 1일 적립
+            </div>
+
+            <div class="hi-card">
+                <div class="upload-area" onclick="document.getElementById('cert-file').click()">
+                    <div class="upload-placeholder" id="cert-placeholder">
+                        <div class="ic">📷</div>
+                        <div class="t">사진을 탭하여 선택</div>
+                        <div class="d">역사 교재·노트 + 오늘 날짜 타임스탬프</div>
+                    </div>
+                    <img id="cert-preview" alt="미리보기">
+                </div>
+                <input type="file" id="cert-file" accept="image/*" style="display:none"
+                       onchange="window.previewPhoto(this)">
+
+                <div class="upload-actions">
+                    <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="window.triggerCamera()">📷 촬영</button>
+                    <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="window.triggerGallery()">🖼️ 갤러리</button>
+                </div>
+
+                <div class="hi-form-group">
+                    <label class="hi-label">오늘 공부한 내용</label>
+                    <textarea class="hi-textarea" id="cert-content" rows="3"
+                              style="min-height:80px;"
+                              placeholder="예: 조선 후기 정치 변동, 산업혁명, 삼국시대 통일과정"></textarea>
+                    <div class="char-count" id="cert-content-count"></div>
+                </div>
+
+                <button class="hi-btn hi-btn-primary hi-btn-block"
+                        id="cert-submit-btn" onclick="window.submitCert()">스터디 체크하기</button>
+            </div>
+
+            <!-- AI 판정 결과 -->
+            <div id="cert-result" class="cert-result" style="display:none;">
+                <div class="cert-result-icon" id="cert-result-icon"></div>
+                <div class="cert-result-title" id="cert-result-title"></div>
+                <div class="cert-result-desc" id="cert-result-desc"></div>
+                <div class="cert-result-meta" id="cert-result-meta"></div>
+            </div>
+        </div>
+
+        <!-- ─── RANK 탭 ─── -->
+        <div id="tab-rank" class="hi-hidden">
+            <div class="rank-controls">
+                <select class="hi-select" id="rank-class-filter" onchange="window.renderRank()">
+                    <option value="all">전체</option>
+                </select>
+                <div class="sort-toggle" id="rank-sort-toggle">
+                    <button class="active" data-sort="days" onclick="window.setRankSort('days')">마일리지</button>
+                    <button data-sort="num" onclick="window.setRankSort('num')">학번</button>
+                </div>
+            </div>
+            <div id="rank-list"></div>
+        </div>
+
+    </div>
+
+    <footer class="hi-footer">
+        <p class="hi-footer-tag">매일 한 장 <span>✦</span> Dive into HISTORY</p>
+    </footer>
+</div>
+
+<!-- ════════════════════════════════════════════════════════
+     SCRIPTS
+     ════════════════════════════════════════════════════════ -->
+<script type="module">
+    // ── Firebase (modular, v10.7.1 — shared/auth.js와 버전 일치 필수) ──
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import {
+        getDatabase, ref, set, push, get, onValue, update
+    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import {
+        getStorage, ref as sRef, uploadBytes, getDownloadURL
+    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+
+    // ── 공통 라이브러리 ──
+    import {
+        initAuth, mountLoginVerification, getStudentName,
+        verifyStudentId, verifyStudentName
+    } from "../shared/auth.js";
+    import { showToast, showRichToast, showCelebration } from "../shared/toast.js";
+    import { mountCharCounter, validateText, blockPaste } from "../shared/textLimit.js";
+    import { containsBadWord } from "../shared/profanity.js";
+
+    // ────────────────────────────────────────────────────────
+    // ⚠️ Firebase 설정 — 본인 프로젝트 정보로 교체
+    // ────────────────────────────────────────────────────────
+    const firebaseConfig = {
+        apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+        authDomain: "ho0911seong-56638.firebaseapp.com",
+        databaseURL: "https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "ho0911seong-56638",
+        storageBucket: "ho0911seong-56638.firebasestorage.app",
+        messagingSenderId: "994509567071",
+        appId: "1:994509567071:web:be8ed4e8e9b0a833f557ea"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const storage = getStorage(app);
+
+    // 공휴일 (필요 시 admin에서 관리 가능)
+    const holidays = []; // 예: ["2026-03-01","2026-05-05"]
+
+    // ── 상태 ──
+    let currentUser = null;
+    let globalData = {};
+    let studentList = [];
+    let rankSort = 'days';
+
+    // ── 공통 auth 모듈 초기화 ──
+    initAuth(db);
+
+    // ────────────────────────────────────────────────────────
+    // 데이터 구독
+    // ────────────────────────────────────────────────────────
+    // 앱 데이터 (마일리지 · 인증 · 설정) — 이 앱만 사용
+    onValue(ref(db, 'historyMileage'), snap => {
+        globalData = snap.val() || {};
+        renderAll();
+    });
+
+    // 학생 명단 — 모든 HOISTORY 앱과 공유 (루트 /students)
+    onValue(ref(db, 'students'), snap => {
+        const data = snap.val() || {};
+        studentList = Object.values(data)
+            .filter(s => s && (s.studentId || s.id))
+            .map(s => {
+                const sid = String(s.studentId || s.id);
+                return {
+                    num: parseInt(sid, 10),
+                    studentIdStr: sid,
+                    name: s.name || s.studentName || s.realName || '',
+                    cls: parseClass(sid)
+                };
+            })
+            .filter(s => !isNaN(s.num) && s.name)
+            .sort((a,b) => a.num - b.num);
+        renderAll();
+    });
+
+    // ────────────────────────────────────────────────────────
+    // 학번 → 반 추출 (5자리 학번의 3번째 자리)
+    // 예: "10324" → "3" (1학년 3반)
+    // ────────────────────────────────────────────────────────
+    function parseClass(studentId) {
+        const s = String(studentId);
+        if (s.length !== 5) return '';
+        return s.charAt(2); // 3번째 자리
+    }
+
+    function parseGrade(studentId) {
+        const s = String(studentId);
+        if (s.length !== 5) return '';
+        return s.substring(0, 2); // 앞 2자리
+    }
+
+    function formatClass(studentId) {
+        const g = parseGrade(studentId);
+        const c = parseClass(studentId);
+        if (!g || !c) return '';
+        // "10324" → "1-3" (앞2자리 중 의미있는 부분)
+        const grade = g.startsWith('0') ? g.substring(1) : g;
+        return `${grade}학년 ${c}반`;
+    }
+
+    // ────────────────────────────────────────────────────────
+    // 로그인 검증 UI — shared/auth.js의 mountLoginVerification
+    // ────────────────────────────────────────────────────────
+    const loginVerify = mountLoginVerification({
+        idInput: document.getElementById('login-id'),
+        nameInput: document.getElementById('login-name'),
+        idStatusEl: document.getElementById('login-id-status'),
+        nameStatusEl: document.getElementById('login-name-status'),
+        idMsgEl: document.getElementById('login-id-msg'),
+        nameMsgEl: document.getElementById('login-name-msg'),
+        onChange: (status) => updateLoginBtn(status)
+    });
+
+    let loginStatus = { idValid: false, nameValid: false, allValid: false };
+    function updateLoginBtn(status) {
+        loginStatus = status;
+        const pw = document.getElementById('login-pw').value.trim();
+        const btn = document.getElementById('login-btn');
+        btn.disabled = !(status.allValid && pw.length > 0);
+    }
+    document.getElementById('login-pw').addEventListener('input', () => updateLoginBtn(loginStatus));
+    document.getElementById('login-pw').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !document.getElementById('login-btn').disabled) {
+            window.doLogin();
+        }
+    });
+
+    // ────────────────────────────────────────────────────────
+    // 로그인 / 로그아웃
+    // ────────────────────────────────────────────────────────
+    window.doLogin = () => {
+        const id = document.getElementById('login-id').value.trim();
+        const name = document.getElementById('login-name').value.trim();
+        const pw = document.getElementById('login-pw').value.trim();
+        if (!id || !name || !pw) return showToast('모든 항목을 입력해주세요', 'error');
+
+        currentUser = { num: id, name, pw, cls: parseClass(id), grade: parseGrade(id) };
+        localStorage.setItem('hi_history_user', JSON.stringify(currentUser));
+        showMain();
+        showToast(`${name} 학생, 환영해요!`);
+    };
+
+    window.doLogout = () => {
+        currentUser = null;
+        localStorage.removeItem('hi_history_user');
+        document.getElementById('screen-main').classList.add('hi-hidden');
+        document.getElementById('screen-login').classList.remove('hi-hidden');
+        loginVerify.reset();
+        document.getElementById('login-pw').value = '';
+        showToast('로그아웃 되었습니다');
+    };
+
+    function showMain() {
+        document.getElementById('screen-login').classList.add('hi-hidden');
+        document.getElementById('screen-main').classList.remove('hi-hidden');
+        document.getElementById('user-chip').textContent =
+            `${currentUser.num} ${currentUser.name}`;
+        renderAll();
+    }
+
+    // 세션 복원
+    window.addEventListener('DOMContentLoaded', () => {
+        // 글자수 카운터 부착
+        mountCharCounter({
+            input: document.getElementById('cert-content'),
+            counter: document.getElementById('cert-content-count'),
+            max: 60,
+            excludeSpaces: true,
+            format: (n, m) => `${n} / ${m}자 (공백 제외)`
+        });
+
+        try {
+            const saved = localStorage.getItem('hi_history_user');
+            if (saved) {
+                currentUser = JSON.parse(saved);
+                showMain();
+            }
+        } catch(e) { localStorage.removeItem('hi_history_user'); }
+    });
+
+    // ────────────────────────────────────────────────────────
+    // 탭 전환
+    // ────────────────────────────────────────────────────────
+    window.switchTab = (tab) => {
+        ['home','check','rank'].forEach(t => {
+            document.getElementById(`tab-btn-${t}`).classList.toggle('active', t === tab);
+            document.getElementById(`tab-${t}`).classList.toggle('hi-hidden', t !== tab);
+        });
+        if (tab === 'rank') populateClassFilter();
+    };
+
+    // ────────────────────────────────────────────────────────
+    // 레벨 계산
+    // ────────────────────────────────────────────────────────
+    function getLevel(dayCount) {
+        let level = 1, required = 10, accumulated = 0;
+        while (dayCount >= accumulated + required) {
+            accumulated += required; level++; required += 10;
+        }
+        return { level, progress: dayCount - accumulated, nextRequired: required };
+    }
+
+    // ────────────────────────────────────────────────────────
+    // 사진 미리보기
+    // ────────────────────────────────────────────────────────
+    window.previewPhoto = (input) => {
+        const file = input.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            document.getElementById('cert-preview').src = e.target.result;
+            document.getElementById('cert-preview').style.display = 'block';
+            document.getElementById('cert-placeholder').style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+    };
+    window.triggerCamera = () => {
+        const i = document.getElementById('cert-file');
+        i.setAttribute('capture','environment'); i.click();
+    };
+    window.triggerGallery = () => {
+        const i = document.getElementById('cert-file');
+        i.removeAttribute('capture'); i.click();
+    };
+
+    // ────────────────────────────────────────────────────────
+    // 스터디 체크 (AI 판정)
+    // ────────────────────────────────────────────────────────
+    function getTodayCheckCount(num) {
+        const today = new Date().toISOString().slice(0,10);
+        return Object.values(globalData.studyCert || {})
+            .filter(c => String(c.studentNum) === String(num)
+                      && c.date === today
+                      && c.result === 'pass').length;
+    }
+
+    window.submitCert = async () => {
+        if (!currentUser) return showToast('로그인이 필요합니다', 'error');
+
+        const file = document.getElementById('cert-file').files[0];
+        const content = document.getElementById('cert-content').value.trim();
+        const btn = document.getElementById('cert-submit-btn');
+
+        if (!file) return showToast('사진을 선택해주세요', 'error');
+
+        // 글자수 검증
+        const v = validateText(content, { min: 4, max: 60, checkRepeats: true });
+        if (!v.ok) return showToast(v.message, 'error');
+
+        // 비속어
+        if (containsBadWord(content)) {
+            return showRichToast({
+                icon: '🚫', title: '입력 차단',
+                message: '부적절한 표현이 포함되어 있어요',
+                kind: 'error'
+            });
+        }
+
+        // 하루 1회 제한
+        if (getTodayCheckCount(currentUser.num) >= 1) {
+            return showRichToast({
+                icon: '😊', title: '오늘은 이미 체크 완료',
+                message: '내일 또 만나요!'
+            });
+        }
+
+        // 시간 제한
+        const now = new Date();
+        const hour = now.getHours();
+        const dow = now.getDay();
+        const dateStr = now.toISOString().slice(0,10);
+        const isHolidayOrWeekend = holidays.includes(dateStr) || dow === 0 || dow === 6;
+        if (isHolidayOrWeekend) {
+            if (hour < 6) return showRichToast({
+                icon: '🌙', title: '인증 시간이 아니에요',
+                message: '주말·공휴일은 오전 6시 이후에 가능해요', kind: 'error'
+            });
+        } else {
+            if (hour < 15) return showRichToast({
+                icon: '📚', title: '인증 시간이 아니에요',
+                message: '평일은 오후 3시 이후에 가능해요', kind: 'error'
+            });
+        }
+
+        // API 키
+        const apiKey = globalData.config?.claudeApiKey || '';
+        if (!apiKey) {
+            return showRichToast({
+                icon: '⚙️', title: 'API 키 미설정',
+                message: '관리자가 Claude API 키를 설정해야 합니다',
+                kind: 'error'
+            });
+        }
+
+        btn.disabled = true; btn.textContent = 'AI 분석 중…';
+        document.getElementById('cert-result').style.display = 'none';
+
+        try {
+            const base64 = await fileToBase64(file);
+            const mediaType = file.type || 'image/jpeg';
+            const todayISO = new Date().toISOString().slice(0,10);
+
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-dangerous-direct-browser-access': 'true'
+                },
+                body: JSON.stringify({
+                    model: 'claude-sonnet-4-6',
+                    max_tokens: 400,
+                    messages: [{
+                        role: 'user',
+                        content: [
+                            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+                            { type: 'text', text:
+`오늘 날짜: ${todayISO}
+학생이 신고한 공부 내용: "${content}"
+
+이 사진을 보고 아래 3가지를 판단하세요.
+
+[1] 타임스탬프 확인 — 사진에 날짜/시간 타임스탬프가 있는지 확인. 있으면 읽어서 오늘(${todayISO})과 비교. 연/월/일이 모두 일치하면 date_match: true (없거나 다르면 false, photo_date에 읽은 날짜 기록).
+
+[2] 역사 공부 여부 — 한국사·세계사·동아시아사·국사 등 역사 과목의 교과서/문제집/노트/필기/요약본/연표 등이 보이면 is_history: true. 다른 과목(수학·영어 등)이거나 공부 자료가 아니면 false.
+
+[3] 신고 내용 일치 — 학생이 적은 공부 내용("${content}")과 사진이 합리적으로 일치하는지 확인. 일치하면 content_match: true.
+
+통과 조건: date_match AND is_history AND content_match 셋 다 true.
+
+JSON만 반환:
+{"pass":bool,"date_match":bool,"is_history":bool,"content_match":bool,"photo_date":"읽은날짜","reason":"이유 30자이내","emoji":"이모지1개"}`
+                            }
+                        ]
+                    }]
+                })
+            });
+
+            const data = await response.json();
+            const rawText = data.content?.[0]?.text || '{"pass":false}';
+            let result;
+            try { result = JSON.parse(rawText.replace(/```json|```/g,'').trim()); }
+            catch { result = { pass: false, reason: '분석 오류', emoji: '⚠️' }; }
+
+            if (!result.pass) {
+                if (!result.date_match) {
+                    result.reason = `사진 날짜 불일치 (${result.photo_date || '없음'})`;
+                    result.emoji = '📅';
+                } else if (!result.is_history) {
+                    result.reason = '역사 공부 자료가 아닙니다';
+                    result.emoji = '📚';
+                } else if (!result.content_match) {
+                    result.reason = '신고한 내용과 사진이 다릅니다';
+                    result.emoji = '🔍';
+                }
+            }
+
+            // Storage 업로드
+            let photoURL = '';
+            try {
+                const ext = file.name.split('.').pop() || 'jpg';
+                const refPath = sRef(storage, `historyCert/${currentUser.num}_${Date.now()}.${ext}`);
+                await uploadBytes(refPath, file);
+                photoURL = await getDownloadURL(refPath);
+            } catch(e) { console.warn('Storage 업로드 실패:', e); }
+
+            // 인증 기록 저장
+            const certData = {
+                studentNum: String(currentUser.num),
+                studentName: currentUser.name,
+                cls: currentUser.cls,
+                grade: currentUser.grade,
+                date: todayISO,
+                time: new Date().toLocaleString('ko-KR'),
+                studyContent: content,
+                result: result.pass ? 'pass' : 'fail',
+                reason: result.reason || '',
+                photoDate: result.photo_date || '',
+                emoji: result.emoji || (result.pass ? '✅' : '❌'),
+                photoURL
+            };
+            await push(ref(db, 'historyMileage/studyCert'), certData);
+
+            // 통과 → 누적 일수 +1
+            let newDayCount = globalData.mileage?.[currentUser.num] || 0;
+            if (result.pass) {
+                const mSnap = await get(ref(db, `historyMileage/mileage/${currentUser.num}`));
+                const before = mSnap.val() || 0;
+                newDayCount = before + 1;
+                await set(ref(db, `historyMileage/mileage/${currentUser.num}`), newDayCount);
+                await set(ref(db, `historyMileage/totalEarned/${currentUser.num}`), newDayCount);
+
+                // 레벨업 체크
+                const beforeLv = getLevel(before).level;
+                const afterLv = getLevel(newDayCount).level;
+                if (afterLv > beforeLv) {
+                    setTimeout(() => showCelebration({
+                        icon: '🎉', title: `Lv.${afterLv} 달성!`,
+                        message: `${currentUser.name} · ${newDayCount}일째 열공 중`
+                    }), 1000);
+                } else if ([7, 14, 30, 50, 100].includes(newDayCount)) {
+                    setTimeout(() => showCelebration({
+                        icon: '🏆', title: `${newDayCount}일 달성!`,
+                        message: '꾸준함이 최고의 무기입니다'
+                    }), 1000);
+                }
+            }
+
+            showCertResult(result, newDayCount);
+        } catch(err) {
+            console.error(err);
+            showRichToast({
+                icon: '⚠️', title: '오류 발생',
+                message: '잠시 후 다시 시도해주세요', kind: 'error'
+            });
+        } finally {
+            btn.disabled = false; btn.textContent = '스터디 체크하기';
+            document.getElementById('cert-file').value = '';
+            document.getElementById('cert-content').value = '';
+            document.getElementById('cert-preview').style.display = 'none';
+            document.getElementById('cert-placeholder').style.display = 'flex';
+            document.getElementById('cert-content-count').textContent = '0 / 60자 (공백 제외)';
+        }
+    };
+
+    function showCertResult(result, totalDays) {
+        const box = document.getElementById('cert-result');
+        box.style.display = 'block';
+        box.className = 'cert-result ' + (result.pass ? 'pass' : 'fail');
+        document.getElementById('cert-result-icon').textContent =
+            result.emoji || (result.pass ? '🎉' : '😢');
+        document.getElementById('cert-result-title').textContent =
+            result.pass ? '체크 완료!' : '체크 실패';
+        document.getElementById('cert-result-desc').textContent =
+            result.pass
+                ? `오늘도 역사 공부 인증 완료`
+                : (result.reason || '재시도해 주세요');
+        document.getElementById('cert-result-meta').textContent =
+            result.pass
+                ? `누적 ${totalDays}일째 열공 🔥`
+                : '오늘 날짜 + 역사 자료 사진을 다시 올려주세요';
+    }
+
+    // ────────────────────────────────────────────────────────
+    // 렌더링
+    // ────────────────────────────────────────────────────────
+    function renderAll() {
+        if (!currentUser) return;
+        renderHome();
+        renderRank();
+    }
+
+    function renderHome() {
+        const mileage = globalData.mileage || {};
+        const days = mileage[currentUser.num] || 0;
+        const { level, progress, nextRequired } = getLevel(days);
+
+        document.getElementById('home-day-count').textContent = days;
+        document.getElementById('home-day-sub').textContent =
+            days === 0
+                ? '아직 시작 전 — 첫 체크를 해보세요!'
+                : `${currentUser.name} 학생 · 꾸준히 가고 있어요`;
+
+        document.getElementById('home-level').textContent = `Lv.${level}`;
+        document.getElementById('home-level-cur').textContent = `Lv.${level}`;
+        document.getElementById('home-level-prog').textContent = `${progress} / ${nextRequired}일`;
+        document.getElementById('home-level-bar').style.width =
+            Math.min((progress / nextRequired) * 100, 100) + '%';
+
+        // 이번 주 카운트 (월요일~일요일)
+        const weekCount = countThisWeek(currentUser.num);
+        document.getElementById('home-week-count').textContent = weekCount;
+
+        // 반 내 순위
+        if (currentUser.cls) {
+            const sameClass = studentList.filter(s => s.cls === currentUser.cls);
+            const ranked = sameClass
+                .map(s => ({ num: s.num, days: mileage[s.num] || 0 }))
+                .sort((a,b) => b.days - a.days);
+            const myRank = ranked.findIndex(s => String(s.num) === String(currentUser.num)) + 1;
+            document.getElementById('home-class-rank').textContent =
+                myRank > 0 ? `${myRank}위` : '-';
+        }
+
+        // 최근 5개 인증 내역
+        renderMyHistory();
+    }
+
+    function countThisWeek(num) {
+        const today = new Date();
+        const dayOfWeek = today.getDay(); // 0=일, 1=월, ..., 6=토
+        const daysFromMonday = (dayOfWeek + 6) % 7;
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - daysFromMonday);
+        monday.setHours(0,0,0,0);
+
+        return Object.values(globalData.studyCert || {})
+            .filter(c => String(c.studentNum) === String(num)
+                      && c.result === 'pass'
+                      && new Date(c.date) >= monday).length;
+    }
+
+    function renderMyHistory() {
+        const list = document.getElementById('home-history-list');
+        const my = Object.values(globalData.studyCert || {})
+            .filter(c => String(c.studentNum) === String(currentUser.num)
+                      && c.result === 'pass')
+            .sort((a,b) => new Date(b.time) - new Date(a.time))
+            .slice(0, 5);
+
+        if (my.length === 0) {
+            list.innerHTML = '<p class="hi-empty">아직 인증 기록이 없어요</p>';
+            return;
+        }
+
+        // 인증 순서대로 N일째 부여 (오래된 게 1일째)
+        const allMy = Object.values(globalData.studyCert || {})
+            .filter(c => String(c.studentNum) === String(currentUser.num)
+                      && c.result === 'pass')
+            .sort((a,b) => new Date(a.time) - new Date(b.time));
+        const dayMap = new Map();
+        allMy.forEach((c, i) => dayMap.set(c.time, i + 1));
+
+        list.innerHTML = my.map(c => `
+            <div class="history-item">
+                <span class="history-day-tag">${dayMap.get(c.time) || '?'}일째</span>
+                <div class="history-body">
+                    <div class="history-content">${escapeHtml(c.studyContent || '-')}</div>
+                    <div class="history-date">${c.date}</div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function populateClassFilter() {
+        const sel = document.getElementById('rank-class-filter');
+        const classes = [...new Set(studentList.map(s => `${s.cls}`).filter(Boolean))]
+            .sort();
+        const cur = sel.value;
+        sel.innerHTML = '<option value="all">전체</option>';
+        if (currentUser?.cls) {
+            sel.innerHTML += `<option value="${currentUser.cls}">${currentUser.cls}반 (우리반)</option>`;
+        }
+        classes.forEach(c => {
+            if (c === currentUser?.cls) return;
+            sel.innerHTML += `<option value="${c}">${c}반</option>`;
+        });
+        if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+        else if (currentUser?.cls) sel.value = currentUser.cls;
+    }
+
+    window.setRankSort = (sort) => {
+        rankSort = sort;
+        document.querySelectorAll('#rank-sort-toggle button').forEach(b => {
+            b.classList.toggle('active', b.dataset.sort === sort);
+        });
+        renderRank();
+    };
+
+    window.renderRank = () => {
+        const sel = document.getElementById('rank-class-filter');
+        const filter = sel?.value || 'all';
+        const list = document.getElementById('rank-list');
+        const mileage = globalData.mileage || {};
+
+        let rows = studentList
+            .filter(s => filter === 'all' || s.cls === filter)
+            .map(s => ({
+                num: s.num,
+                name: s.name,
+                cls: s.cls,
+                days: mileage[s.num] || 0,
+                level: getLevel(mileage[s.num] || 0).level
+            }));
+
+        if (rankSort === 'days') {
+            rows.sort((a,b) => b.days - a.days || a.num - b.num);
+        } else {
+            rows.sort((a,b) => a.num - b.num);
+        }
+
+        if (rows.length === 0) {
+            list.innerHTML = '<p class="hi-empty">학생이 없어요</p>';
+            return;
+        }
+
+        // 마일리지순일 때만 순위 표시
+        list.innerHTML = rows.map((r, idx) => {
+            const isSelf = currentUser && String(r.num) === String(currentUser.num);
+            const rankNum = rankSort === 'days' ? (idx + 1) : r.num;
+            const rankClass = rankSort === 'days' && idx === 0 ? 'top1'
+                            : rankSort === 'days' && idx === 1 ? 'top2'
+                            : rankSort === 'days' && idx === 2 ? 'top3' : '';
+            return `
+            <div class="rank-row ${isSelf ? 'self' : ''} ${rankClass}">
+                <div class="rank-num">${rankSort === 'days' && idx < 3 ? ['🥇','🥈','🥉'][idx] : rankNum}</div>
+                <div class="rank-info">
+                    <div class="rank-name-line">
+                        <span class="rank-name">${escapeHtml(r.name)}</span>
+                        <span class="rank-cls">${formatClass(r.num) || r.cls + '반'}</span>
+                        ${isSelf ? '<span class="rank-me">나</span>' : ''}
+                    </div>
+                    <div class="rank-meta">Lv.${r.level} · 학번 ${r.num}</div>
+                </div>
+                <div class="rank-days">${r.days}<small>일</small></div>
+            </div>`;
+        }).join('');
+    };
+
+    // ────────────────────────────────────────────────────────
+    // 유틸
+    // ────────────────────────────────────────────────────────
+    function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result.split(',')[1]);
+            r.onerror = reject;
+            r.readAsDataURL(file);
+        });
+    }
+
+    function escapeHtml(s) {
+        return String(s || '')
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+</script>
+</body>
+</html>
