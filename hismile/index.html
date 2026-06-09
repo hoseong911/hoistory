@@ -54,6 +54,7 @@
         }
         .stats-big-num {
             display: flex; align-items: baseline; gap: 8px;
+            justify-content: center;
             position: relative; z-index: 1;
         }
         .stats-big-num .num {
@@ -69,6 +70,7 @@
             font-size: 12px; color: var(--hi-text-muted);
             margin-top: 8px; letter-spacing: 0.4px; font-weight: 600;
             position: relative; z-index: 1;
+            text-align: center;
         }
         .stats-row {
             display: grid; grid-template-columns: repeat(3, 1fr);
@@ -245,11 +247,13 @@
             display: flex; gap: 10px;
             margin-bottom: 18px;
             align-items: center; flex-wrap: wrap;
+            justify-content: space-between;
         }
         .rank-controls .hi-select { width: auto; min-width: 100px; padding: 10px 38px 10px 14px; }
         .sort-toggle {
             display: inline-flex; background: var(--hi-bg-mid);
             border-radius: var(--hi-r-pill); padding: 3px;
+            margin-left: auto;
         }
         .sort-toggle button {
             background: transparent; border: none;
@@ -369,8 +373,11 @@
 
                 <div class="hi-form-group">
                     <label class="hi-label">비밀번호</label>
-                    <input class="hi-input" type="text" id="login-pw"
-                           placeholder="본인 확인용 비밀번호">
+                    <input class="hi-input" type="password" id="login-pw"
+                           placeholder="본인이 정한 비밀번호 (4자 이상)">
+                    <div class="hi-verify-msg" id="login-pw-msg" style="color:var(--hi-text-muted);">
+                        💡 처음 접속할 때 입력한 비밀번호가 본인의 비밀번호로 등록돼요. 다음부터는 같은 비밀번호로만 들어올 수 있으니 꼭 기억하세요.
+                    </div>
                 </div>
 
                 <button class="hi-btn hi-btn-primary hi-btn-block"
@@ -412,31 +419,6 @@
                     <span class="label">일째 열공</span>
                 </div>
                 <div class="stats-sub" id="home-day-sub">아직 시작 전 — 첫 체크를 해보세요!</div>
-
-                <div class="stats-row">
-                    <div class="stat-cell">
-                        <div class="l">이번주</div>
-                        <div class="v"><span id="home-week-count">0</span><small>/5일</small></div>
-                    </div>
-                    <div class="stat-cell">
-                        <div class="l">레벨</div>
-                        <div class="v" id="home-level">Lv.1</div>
-                    </div>
-                    <div class="stat-cell">
-                        <div class="l">반 내 순위</div>
-                        <div class="v" id="home-class-rank">-</div>
-                    </div>
-                </div>
-
-                <div class="level-bar">
-                    <div class="level-bar-track">
-                        <div class="level-bar-fill" id="home-level-bar"></div>
-                    </div>
-                    <div class="level-bar-meta">
-                        <span id="home-level-cur">Lv.1</span>
-                        <span id="home-level-prog">0 / 10일</span>
-                    </div>
-                </div>
             </div>
 
             <!-- 최근 내 인증 내역 -->
@@ -512,12 +494,13 @@
                     <label class="hi-label">오늘 공부한 내용</label>
                     <textarea class="hi-textarea" id="cert-content" rows="3"
                               style="min-height:80px;"
-                              placeholder="예: 조선 후기 정치 변동, 산업혁명, 삼국시대 통일과정"></textarea>
+                              placeholder="✏️ 문장의 형태로 작성해주세요!
+예) 오늘은 조선 후기 정치 변동을 정리했어요. 노론과 소론이 어떻게 갈라졌는지 이해했어요."></textarea>
                     <div class="char-count" id="cert-content-count"></div>
                 </div>
 
                 <button class="hi-btn hi-btn-primary hi-btn-block"
-                        id="cert-submit-btn" onclick="window.submitCert()">스터디 체크하기</button>
+                        id="cert-submit-btn" onclick="window.submitCert()">제출하기</button>
             </div>
 
             <!-- AI 판정 결과 -->
@@ -545,9 +528,30 @@
 
     </div>
 
+    <!-- 호성쌤 연락 버튼 -->
+    <div style="text-align:center; margin-top: 40px;">
+        <a href="https://open.kakao.com/o/smm3ixqi" target="_blank" rel="noopener"
+           class="hi-btn hi-btn-outline hi-btn-sm">
+            💬 호성쌤에게 연락하기
+        </a>
+    </div>
+
     <footer class="hi-footer">
-        <p class="hi-footer-tag">매일 한 장 <span>✦</span> Dive into HISTORY</p>
+        <p class="hi-footer-tag">역사는 즐겁다 <span>✦</span> Dive into HISTORY</p>
     </footer>
+</div>
+
+<!-- ─── 학생 상세 모달 (이름 클릭 시) ─── -->
+<div id="student-detail-modal" class="hi-modal-backdrop" style="display:none;"
+     onclick="if(event.target===this)window.closeStudentDetail()">
+    <div class="hi-modal" style="max-width: 440px;">
+        <h3 class="hi-modal-title" id="detail-name"></h3>
+        <p class="hi-modal-desc" id="detail-sub"></p>
+        <div id="detail-dates" style="max-height: 50vh; overflow-y: auto; margin-bottom: 16px;"></div>
+        <div class="hi-modal-actions">
+            <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="window.closeStudentDetail()">닫기</button>
+        </div>
+    </div>
 </div>
 
 <!-- ════════════════════════════════════════════════════════
@@ -630,28 +634,36 @@
     });
 
     // ────────────────────────────────────────────────────────
-    // 학번 → 반 추출 (5자리 학번의 3번째 자리)
-    // 예: "10324" → "3" (1학년 3반)
+    // 학번 파싱 (5자리)
+    //   1번째 자리: 학년
+    //   3번째 자리: 반
+    //   4~5번째 자리: 번호
+    //   예: "30324" → 3학년 3반 24번
     // ────────────────────────────────────────────────────────
+    function parseGrade(studentId) {
+        const s = String(studentId);
+        if (s.length !== 5) return '';
+        return s.charAt(0); // 1번째 자리
+    }
+
     function parseClass(studentId) {
         const s = String(studentId);
         if (s.length !== 5) return '';
         return s.charAt(2); // 3번째 자리
     }
 
-    function parseGrade(studentId) {
+    function parseNumber(studentId) {
         const s = String(studentId);
         if (s.length !== 5) return '';
-        return s.substring(0, 2); // 앞 2자리
+        return s.substring(3); // 4~5번째 자리
     }
 
-    function formatClass(studentId) {
+    function formatGradeClassNumber(studentId) {
         const g = parseGrade(studentId);
         const c = parseClass(studentId);
-        if (!g || !c) return '';
-        // "10324" → "1-3" (앞2자리 중 의미있는 부분)
-        const grade = g.startsWith('0') ? g.substring(1) : g;
-        return `${grade}학년 ${c}반`;
+        const n = parseNumber(studentId);
+        if (!g || !c || !n) return '';
+        return `${g}학년 ${c}반 ${parseInt(n, 10)}번`;
     }
 
     // ────────────────────────────────────────────────────────
@@ -670,9 +682,9 @@
     let loginStatus = { idValid: false, nameValid: false, allValid: false };
     function updateLoginBtn(status) {
         loginStatus = status;
-        const pw = document.getElementById('login-pw').value.trim();
+        const pw = document.getElementById('login-pw').value;
         const btn = document.getElementById('login-btn');
-        btn.disabled = !(status.allValid && pw.length > 0);
+        btn.disabled = !(status.allValid && pw.length >= 4);
     }
     document.getElementById('login-pw').addEventListener('input', () => updateLoginBtn(loginStatus));
     document.getElementById('login-pw').addEventListener('keydown', e => {
@@ -683,17 +695,52 @@
 
     // ────────────────────────────────────────────────────────
     // 로그인 / 로그아웃
+    //   비밀번호는 historyMileage/studentPw/{학번} 경로에 저장
+    //   첫 로그인 시 입력값을 저장, 이후 일치 검증
     // ────────────────────────────────────────────────────────
-    window.doLogin = () => {
+    window.doLogin = async () => {
         const id = document.getElementById('login-id').value.trim();
         const name = document.getElementById('login-name').value.trim();
-        const pw = document.getElementById('login-pw').value.trim();
+        const pw = document.getElementById('login-pw').value;
         if (!id || !name || !pw) return showToast('모든 항목을 입력해주세요', 'error');
+        if (pw.length < 4) return showToast('비밀번호는 4자 이상이어야 해요', 'error');
 
-        currentUser = { num: id, name, pw, cls: parseClass(id), grade: parseGrade(id) };
-        localStorage.setItem('hi_history_user', JSON.stringify(currentUser));
-        showMain();
-        showToast(`${name} 학생, 환영해요!`);
+        const btn = document.getElementById('login-btn');
+        btn.disabled = true; btn.textContent = '확인 중…';
+
+        try {
+            // 저장된 비밀번호 조회
+            const pwSnap = await get(ref(db, `historyMileage/studentPw/${id}`));
+            const storedPw = pwSnap.val();
+
+            if (storedPw) {
+                // 기존 사용자 — 비밀번호 일치 확인
+                if (storedPw !== pw) {
+                    btn.disabled = false; btn.textContent = '접속하기';
+                    return showRichToast({
+                        icon: '🔒', title: '비밀번호가 달라요',
+                        message: '처음 접속할 때 정한 비밀번호로만 들어올 수 있어요. 잊어버렸다면 호성쌤에게 문의하세요.',
+                        kind: 'error'
+                    });
+                }
+            } else {
+                // 첫 로그인 — 비밀번호 저장
+                await set(ref(db, `historyMileage/studentPw/${id}`), pw);
+                showRichToast({
+                    icon: '🔐', title: '비밀번호 등록 완료',
+                    message: '다음부터 같은 비밀번호로만 들어올 수 있어요. 꼭 기억하세요!'
+                });
+            }
+
+            currentUser = { num: id, name, cls: parseClass(id), grade: parseGrade(id) };
+            localStorage.setItem('hi_history_user', JSON.stringify(currentUser));
+            showMain();
+            setTimeout(() => showToast(`${name} 학생, 환영해요!`), 100);
+        } catch (e) {
+            console.error(e);
+            btn.disabled = false; btn.textContent = '접속하기';
+            showToast('로그인 중 오류가 발생했어요', 'error');
+        }
     };
 
     window.doLogout = () => {
@@ -799,7 +846,7 @@
         if (!file) return showToast('사진을 선택해주세요', 'error');
 
         // 글자수 검증
-        const v = validateText(content, { min: 4, max: 60, checkRepeats: true });
+        const v = validateText(content, { min: 20, max: 60, checkRepeats: true });
         if (!v.ok) return showToast(v.message, 'error');
 
         // 비속어
@@ -970,7 +1017,7 @@ JSON만 반환:
                 message: '잠시 후 다시 시도해주세요', kind: 'error'
             });
         } finally {
-            btn.disabled = false; btn.textContent = '스터디 체크하기';
+            btn.disabled = false; btn.textContent = '제출하기';
             document.getElementById('cert-file').value = '';
             document.getElementById('cert-content').value = '';
             document.getElementById('cert-preview').style.display = 'none';
@@ -1009,7 +1056,6 @@ JSON만 반환:
     function renderHome() {
         const mileage = globalData.mileage || {};
         const days = mileage[currentUser.num] || 0;
-        const { level, progress, nextRequired } = getLevel(days);
 
         document.getElementById('home-day-count').textContent = days;
         document.getElementById('home-day-sub').textContent =
@@ -1017,43 +1063,8 @@ JSON만 반환:
                 ? '아직 시작 전 — 첫 체크를 해보세요!'
                 : `${currentUser.name} 학생 · 꾸준히 가고 있어요`;
 
-        document.getElementById('home-level').textContent = `Lv.${level}`;
-        document.getElementById('home-level-cur').textContent = `Lv.${level}`;
-        document.getElementById('home-level-prog').textContent = `${progress} / ${nextRequired}일`;
-        document.getElementById('home-level-bar').style.width =
-            Math.min((progress / nextRequired) * 100, 100) + '%';
-
-        // 이번 주 카운트 (월요일~일요일)
-        const weekCount = countThisWeek(currentUser.num);
-        document.getElementById('home-week-count').textContent = weekCount;
-
-        // 반 내 순위
-        if (currentUser.cls) {
-            const sameClass = studentList.filter(s => s.cls === currentUser.cls);
-            const ranked = sameClass
-                .map(s => ({ num: s.num, days: mileage[s.num] || 0 }))
-                .sort((a,b) => b.days - a.days);
-            const myRank = ranked.findIndex(s => String(s.num) === String(currentUser.num)) + 1;
-            document.getElementById('home-class-rank').textContent =
-                myRank > 0 ? `${myRank}위` : '-';
-        }
-
         // 최근 5개 인증 내역
         renderMyHistory();
-    }
-
-    function countThisWeek(num) {
-        const today = new Date();
-        const dayOfWeek = today.getDay(); // 0=일, 1=월, ..., 6=토
-        const daysFromMonday = (dayOfWeek + 6) % 7;
-        const monday = new Date(today);
-        monday.setDate(today.getDate() - daysFromMonday);
-        monday.setHours(0,0,0,0);
-
-        return Object.values(globalData.studyCert || {})
-            .filter(c => String(c.studentNum) === String(num)
-                      && c.result === 'pass'
-                      && new Date(c.date) >= monday).length;
     }
 
     function renderMyHistory() {
@@ -1120,13 +1131,14 @@ JSON만 반환:
         const mileage = globalData.mileage || {};
 
         let rows = studentList
+            .filter(s => String(s.num) !== '0' && String(s.num) !== '00000') // 관리자 테스트 학번 집계 제외
             .filter(s => filter === 'all' || s.cls === filter)
             .map(s => ({
                 num: s.num,
+                studentIdStr: s.studentIdStr || String(s.num).padStart(5, '0'),
                 name: s.name,
                 cls: s.cls,
-                days: mileage[s.num] || 0,
-                level: getLevel(mileage[s.num] || 0).level
+                days: mileage[s.num] || 0
             }));
 
         if (rankSort === 'days') {
@@ -1140,23 +1152,43 @@ JSON만 반환:
             return;
         }
 
-        // 마일리지순일 때만 순위 표시
+        // 동점자 처리: 마일리지순일 때 같은 일수면 같은 순위 부여
+        // (예: 1, 2, 2, 4 — 표준 경기 순위)
+        let displayRank = [];
+        if (rankSort === 'days') {
+            let curRank = 1;
+            rows.forEach((r, idx) => {
+                if (idx > 0 && r.days !== rows[idx-1].days) {
+                    curRank = idx + 1;
+                }
+                displayRank.push(curRank);
+            });
+        }
+
         list.innerHTML = rows.map((r, idx) => {
             const isSelf = currentUser && String(r.num) === String(currentUser.num);
-            const rankNum = rankSort === 'days' ? (idx + 1) : r.num;
-            const rankClass = rankSort === 'days' && idx === 0 ? 'top1'
-                            : rankSort === 'days' && idx === 1 ? 'top2'
-                            : rankSort === 'days' && idx === 2 ? 'top3' : '';
+            const rank = rankSort === 'days' ? displayRank[idx] : null;
+            const rankClass = rankSort === 'days' && rank === 1 ? 'top1'
+                            : rankSort === 'days' && rank === 2 ? 'top2'
+                            : rankSort === 'days' && rank === 3 ? 'top3' : '';
+            let rankDisplay;
+            if (rankSort === 'days') {
+                if (rank === 1) rankDisplay = '🥇';
+                else if (rank === 2) rankDisplay = '🥈';
+                else if (rank === 3) rankDisplay = '🥉';
+                else rankDisplay = rank;
+            } else {
+                rankDisplay = parseInt(parseNumber(r.studentIdStr), 10); // 학번순일 때는 번호만
+            }
             return `
             <div class="rank-row ${isSelf ? 'self' : ''} ${rankClass}">
-                <div class="rank-num">${rankSort === 'days' && idx < 3 ? ['🥇','🥈','🥉'][idx] : rankNum}</div>
-                <div class="rank-info">
+                <div class="rank-num">${rankDisplay}</div>
+                <div class="rank-info" onclick="window.showStudentDetail('${r.studentIdStr}')" style="cursor:pointer;">
                     <div class="rank-name-line">
                         <span class="rank-name">${escapeHtml(r.name)}</span>
-                        <span class="rank-cls">${formatClass(r.num) || r.cls + '반'}</span>
                         ${isSelf ? '<span class="rank-me">나</span>' : ''}
                     </div>
-                    <div class="rank-meta">Lv.${r.level} · 학번 ${r.num}</div>
+                    <div class="rank-meta">${formatGradeClassNumber(r.studentIdStr) || r.cls + '반'}</div>
                 </div>
                 <div class="rank-days">${r.days}<small>일</small></div>
             </div>`;
@@ -1174,6 +1206,46 @@ JSON만 반환:
             r.readAsDataURL(file);
         });
     }
+
+    // ────────────────────────────────────────────────────────
+    // 학생 상세 모달 — 랭킹에서 이름 클릭 시
+    // ────────────────────────────────────────────────────────
+    window.showStudentDetail = (studentId) => {
+        const sid = String(studentId);
+        const student = studentList.find(s => String(s.num) === sid || s.studentIdStr === sid);
+        if (!student) return;
+
+        const certs = Object.values(globalData.studyCert || {})
+            .filter(c => String(c.studentNum) === sid && c.result === 'pass')
+            .sort((a,b) => new Date(a.time) - new Date(b.time)); // 오래된 순
+
+        const days = (globalData.mileage || {})[sid] || 0;
+
+        document.getElementById('detail-name').textContent = student.name;
+        document.getElementById('detail-sub').textContent =
+            `${formatGradeClassNumber(sid)} · 누적 ${days}일째 열공`;
+
+        const datesEl = document.getElementById('detail-dates');
+        if (certs.length === 0) {
+            datesEl.innerHTML = '<p class="hi-empty" style="padding: 24px 0;">아직 인증 기록이 없어요</p>';
+        } else {
+            datesEl.innerHTML = certs.map((c, i) => {
+                const d = new Date(c.date);
+                const dow = ['일','월','화','수','목','금','토'][d.getDay()];
+                return `
+                <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:var(--hi-bg-mid); border-radius:8px; margin-bottom:4px;">
+                    <span style="background:var(--hi-accent); color:var(--hi-on-accent); border-radius:9999px; padding:3px 10px; font-size:11px; font-weight:800; min-width:48px; text-align:center;">${i+1}일째</span>
+                    <span style="flex:1; font-size:13px; font-feature-settings:'tnum';">${c.date} (${dow})</span>
+                    <span style="font-size:11px; color:var(--hi-text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:140px;">${escapeHtml(c.studyContent || '')}</span>
+                </div>`;
+            }).join('');
+        }
+        document.getElementById('student-detail-modal').style.display = 'flex';
+    };
+
+    window.closeStudentDetail = () => {
+        document.getElementById('student-detail-modal').style.display = 'none';
+    };
 
     function escapeHtml(s) {
         return String(s || '')
