@@ -2,502 +2,583 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IDY 역사 열공 마일리지 · 관리자 콘솔</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>IDY 역사 열공 마일리지</title>
 
+    <!-- Pretendard -->
     <link rel="stylesheet" as="style" crossorigin
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+
+    <!-- 공통 디자인 시스템 (theme.css 기본값: 다크 + 그린) -->
     <link rel="stylesheet" href="../shared/theme.css">
 
     <style>
-        /* ════════════════════════════════════════════════════
-           관리자 콘솔 — hi-preset-admin (라이트 + 블루)
-           ════════════════════════════════════════════════════ */
-        .admin-page { max-width: 1100px; }
+        /* ════════════════════════════════════════════════════════
+           앱 전용 스타일 — 전부 --hi-* 토큰만 사용
+           ════════════════════════════════════════════════════════ */
 
-        /* ─── 로그인 ─── */
-        .login-wrap { max-width: 420px; margin: 80px auto; }
-        .login-title {
-            text-align: center; font-size: 24px; font-weight: 900;
-            margin-bottom: 4px; letter-spacing: -0.5px;
+        /* ─── 로그인 화면 ─── */
+        .login-wrap { max-width: 480px; margin: 40px auto 0; }
+        .login-logo { text-align: center; margin-bottom: 32px; }
+        .login-logo h1 {
+            font-size: 32px; font-weight: 900; letter-spacing: -1px;
+            color: var(--hi-text); margin: 0;
         }
-        .login-title span { color: var(--hi-accent); }
-        .login-sub {
-            text-align: center; font-size: 11px; color: var(--hi-text-muted);
-            margin-bottom: 32px; letter-spacing: 1.4px; text-transform: uppercase;
-            font-weight: 700;
+        .login-logo h1 span { color: var(--hi-accent); }
+        .login-logo p {
+            color: var(--hi-text-muted); font-size: 13px;
+            margin-top: 8px; letter-spacing: 0.3px;
         }
+        .hi-input-with-status { position: relative; }
+        .hi-input-with-status .hi-input { padding-right: 42px; }
 
-        /* ─── 서브 탭 (SETTINGS 내부) ─── */
-        .sub-tabs {
-            display: flex; gap: 6px;
-            background: var(--hi-bg-mid);
-            border-radius: var(--hi-r-pill);
-            padding: 4px;
-            margin: 0 auto 24px;
-            width: fit-content;
-            box-shadow: var(--hi-shadow-card);
-        }
-        .sub-tab {
-            background: transparent; border: none;
-            font-family: inherit;
-            padding: 8px 22px;
-            font-size: 12px; font-weight: 700;
-            color: var(--hi-text-muted);
-            border-radius: var(--hi-r-pill);
-            cursor: pointer;
-            letter-spacing: 0.8px;
-            transition: all 0.15s;
-        }
-        .sub-tab:hover:not(.active) { color: var(--hi-text); }
-        .sub-tab.active {
-            background: var(--hi-bg-surface);
-            color: var(--hi-accent);
-            box-shadow: var(--hi-shadow-card);
-        }
-
-        /* ─── 학생 일괄 등록 카드 (가독성 강조) ─── */
-        .upload-card {
-            background: var(--hi-bg-surface);
+        /* ─── 본인 통계 카드 (홈 hero) ─── */
+        .stats-hero {
+            background: linear-gradient(160deg,
+                var(--hi-accent-soft) 0%,
+                var(--hi-bg-surface) 60%);
             border: 1px solid var(--hi-border);
             border-radius: var(--hi-r-card);
-            padding: 28px;
-            margin-bottom: 24px;
-            box-shadow: var(--hi-shadow-card);
+            padding: 32px 28px 24px;
+            margin-bottom: 16px;
+            position: relative;
+            overflow: hidden;
         }
-        .upload-card-title {
-            font-size: 18px; font-weight: 800;
-            color: var(--hi-text); margin-bottom: 4px;
-            letter-spacing: -0.3px;
+        .stats-hero::before {
+            content: '';
+            position: absolute;
+            top: -40px; right: -40px;
+            width: 180px; height: 180px;
+            background: radial-gradient(circle, var(--hi-accent-soft) 0%, transparent 70%);
+            pointer-events: none;
         }
-        .upload-card-sub {
-            font-size: 13px; color: var(--hi-text-muted);
-            margin-bottom: 20px;
-        }
-        .upload-guide {
-            background: var(--hi-bg-mid);
-            border-left: 3px solid var(--hi-accent);
-            border-radius: 0 var(--hi-r-input) var(--hi-r-input) 0;
-            padding: 14px 18px;
-            font-size: 13px;
-            color: var(--hi-text-soft);
-            line-height: 1.7;
-            margin-bottom: 18px;
-        }
-        .upload-guide b { color: var(--hi-text); }
-        .upload-card textarea {
-            font-family: ui-monospace, monospace !important;
-            font-size: 14px !important;
-            min-height: 160px !important;
-        }
-
-        /* ─── 등록 학생 카운트 헤더 ─── */
-        .students-count-row {
+        .stats-big-num {
             display: flex; align-items: baseline; gap: 8px;
-            margin: 28px 0 14px;
+            justify-content: center;
+            position: relative; z-index: 1;
         }
-        .students-count-label {
-            font-size: 12px; font-weight: 800;
-            letter-spacing: 1px; color: var(--hi-text-muted);
-            text-transform: uppercase;
+        .stats-big-num .num {
+            font-size: 72px; font-weight: 900;
+            color: var(--hi-accent); letter-spacing: -3px;
+            line-height: 1; font-feature-settings: 'tnum';
         }
-        .students-count-num {
-            font-size: 14px; font-weight: 800;
-            color: var(--hi-accent);
+        .stats-big-num .label {
+            font-size: 18px; font-weight: 800;
+            color: var(--hi-text); letter-spacing: -0.5px;
+        }
+        .stats-sub {
+            font-size: 12px; color: var(--hi-text-muted);
+            margin-top: 8px; letter-spacing: 0.4px; font-weight: 600;
+            position: relative; z-index: 1;
+            text-align: center;
+        }
+        .stats-row {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 12px; margin-top: 22px;
+            position: relative; z-index: 1;
+        }
+        .stat-cell {
+            background: var(--hi-bg-mid);
+            border-radius: var(--hi-r-input);
+            padding: 12px 14px;
+        }
+        .stat-cell .l {
+            font-size: 10px; font-weight: 700; letter-spacing: 1.2px;
+            color: var(--hi-text-muted); text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        .stat-cell .v {
+            font-size: 18px; font-weight: 800; color: var(--hi-text);
             font-feature-settings: 'tnum';
         }
+        .stat-cell .v small {
+            font-size: 11px; color: var(--hi-text-muted); margin-left: 2px;
+            font-weight: 600;
+        }
+        .level-bar {
+            margin-top: 16px; position: relative; z-index: 1;
+        }
+        .level-bar-track {
+            background: var(--hi-bg-mid); height: 6px;
+            border-radius: var(--hi-r-pill); overflow: hidden;
+        }
+        .level-bar-fill {
+            background: var(--hi-accent); height: 100%;
+            width: 0%; border-radius: var(--hi-r-pill);
+            transition: width 0.8s ease;
+        }
+        .level-bar-meta {
+            display: flex; justify-content: space-between;
+            font-size: 11px; color: var(--hi-text-muted);
+            margin-top: 8px; font-weight: 700; letter-spacing: 0.3px;
+        }
 
-        /* ─── 데이터 행 ─── */
-        .data-row {
-            background: var(--hi-bg-surface);
-            border: 1px solid var(--hi-border);
+        /* ─── 섹션 헤딩 ─── */
+        .sec-h {
+            font-size: 11px; font-weight: 800; letter-spacing: 1.6px;
+            color: var(--hi-text-muted); text-transform: uppercase;
+            margin: 24px 4px 12px;
+        }
+
+        /* ─── 최근 인증 내역 ─── */
+        .history-item {
+            background: var(--hi-bg-mid);
             border-radius: var(--hi-r-input);
-            padding: 12px 16px; margin-bottom: 6px;
+            padding: 14px 16px;
+            margin-bottom: 8px;
             display: flex; align-items: center; gap: 12px;
         }
-        .data-row-cell-id {
-            font-size: 13px; font-weight: 700;
+        .history-day-tag {
+            background: var(--hi-accent); color: var(--hi-on-accent);
+            border-radius: var(--hi-r-pill);
+            padding: 4px 12px; font-size: 11px; font-weight: 800;
+            letter-spacing: 0.3px; flex-shrink: 0;
             font-feature-settings: 'tnum';
-            width: 60px; flex-shrink: 0;
-            color: var(--hi-text);
         }
-        .data-row-cell-name {
-            flex: 1; min-width: 0;
+        .history-body { flex: 1; min-width: 0; }
+        .history-content {
+            font-size: 13px; color: var(--hi-text);
+            font-weight: 600; overflow: hidden; text-overflow: ellipsis;
+            white-space: nowrap; margin-bottom: 2px;
         }
-        .data-row-cell-name .name-main {
-            font-size: 14px; font-weight: 700; color: var(--hi-text);
-        }
-        .data-row-cell-name .name-sub {
+        .history-date {
             font-size: 11px; color: var(--hi-text-muted);
-        }
-        .data-row-cell-days {
-            font-size: 16px; font-weight: 800; color: var(--hi-accent);
-            font-feature-settings: 'tnum'; flex-shrink: 0;
-        }
-        .data-row-cell-days small {
-            font-size: 11px; color: var(--hi-text-muted);
-            font-weight: 500; margin-left: 2px;
+            font-feature-settings: 'tnum';
         }
 
-        /* ─── 필터 ─── */
-        .filter-row {
-            display: flex; gap: 10px; margin-bottom: 16px;
-            align-items: center; flex-wrap: wrap;
-        }
-        .filter-row .hi-select,
-        .filter-row .hi-input {
-            width: auto; min-width: 120px;
-            padding: 9px 14px;
-        }
-        .filter-row .hi-select { padding-right: 38px; }
-        .filter-row input[type="text"].hi-input { min-width: 200px; }
-
-        /* ─── 인증 카드 ─── */
-        .cert-detail {
-            display: flex; gap: 14px; align-items: flex-start;
-            background: var(--hi-bg-surface);
-            border: 1px solid var(--hi-border);
-            border-radius: var(--hi-r-card);
-            padding: 14px; margin-bottom: 8px;
-        }
-        .cert-thumb {
-            width: 72px; height: 72px;
+        /* ─── 사용 안내 ─── */
+        .guide-step {
+            display: flex; gap: 14px; padding: 14px 16px;
+            background: var(--hi-bg-mid);
             border-radius: var(--hi-r-input);
-            object-fit: cover; background: var(--hi-bg-mid);
-            cursor: pointer; flex-shrink: 0;
-            border: 1px solid var(--hi-border);
+            margin-bottom: 8px;
+        }
+        .guide-num {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: var(--hi-accent); color: var(--hi-on-accent);
             display: flex; align-items: center; justify-content: center;
-            font-size: 28px; color: var(--hi-text-muted);
-        }
-        .cert-detail .body { flex: 1; min-width: 0; }
-        .cert-detail .body .name {
-            font-weight: 700; font-size: 14px;
-            color: var(--hi-text); display: flex; align-items: center;
-            gap: 8px; flex-wrap: wrap; margin-bottom: 4px;
-        }
-        .cert-detail .body .name .meta-inline {
-            font-weight: 500; color: var(--hi-text-muted); font-size: 12px;
-        }
-        .cert-detail .body .content {
-            font-size: 13px; color: var(--hi-text-soft);
-            margin: 4px 0; line-height: 1.5;
-        }
-        .cert-detail .body .meta {
-            font-size: 11px; color: var(--hi-text-muted);
+            font-weight: 900; font-size: 13px; flex-shrink: 0;
             font-feature-settings: 'tnum';
         }
-        .cert-detail .actions {
-            display: flex; gap: 6px; flex-wrap: wrap;
-            margin-top: 10px;
-            justify-content: center;
+        .guide-body { flex: 1; }
+        .guide-title { font-size: 14px; font-weight: 800; color: var(--hi-text); margin-bottom: 3px; }
+        .guide-desc { font-size: 12px; color: var(--hi-text-muted); line-height: 1.6; }
+
+        /* ─── 사진 업로드 (CHECK 탭) ─── */
+        .upload-area {
+            background: var(--hi-bg-mid);
+            border: 2px dashed var(--hi-border);
+            border-radius: var(--hi-r-card);
+            min-height: 220px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 14px; cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            overflow: hidden;
+        }
+        .upload-area:hover {
+            border-color: var(--hi-accent);
+            background: var(--hi-bg-card);
+        }
+        .upload-placeholder {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 10px; padding: 32px 16px; text-align: center;
+        }
+        .upload-placeholder .ic { font-size: 36px; }
+        .upload-placeholder .t {
+            font-size: 14px; font-weight: 800; color: var(--hi-text);
+        }
+        .upload-placeholder .d {
+            font-size: 12px; color: var(--hi-text-muted); line-height: 1.6;
+        }
+        #cert-preview {
+            display: none; width: 100%; max-height: 360px;
+            object-fit: contain; border-radius: var(--hi-r-input);
         }
 
-        /* ─── 배지 ─── */
-        .badge {
-            display: inline-flex; align-items: center;
-            font-size: 11px; font-weight: 700;
-            padding: 3px 10px; border-radius: var(--hi-r-pill);
-            letter-spacing: 0.3px;
-        }
-        .badge-pass { background: #dcfce7; color: #16a34a; }
-        .badge-fail { background: #fee2e2; color: #dc2626; }
-        .badge-override {
-            background: #fef3c7; color: #d97706;
-            margin-left: 4px;
+        .upload-actions { display: flex; gap: 8px; margin-bottom: 14px; }
+        .upload-actions button { flex: 1; }
+
+        .info-tag {
+            background: var(--hi-accent-soft);
+            color: var(--hi-accent);
+            border-radius: var(--hi-r-input);
+            padding: 10px 14px;
+            font-size: 12px; font-weight: 700;
+            text-align: center; line-height: 1.6;
+            margin-bottom: 16px;
         }
 
-        /* ─── 설정 카드 ─── */
-        .setting-row {
-            background: var(--hi-bg-surface);
-            border: 1px solid var(--hi-border);
+        /* ─── AI 판정 결과 ─── */
+        .cert-result {
             border-radius: var(--hi-r-card);
             padding: 24px;
-            margin-bottom: 14px;
+            text-align: center;
+            margin-top: 16px;
+            border: 1.5px solid var(--hi-border);
         }
-        .setting-row.danger {
+        .cert-result.pass {
+            background: var(--hi-accent-soft);
+            border-color: var(--hi-accent);
+        }
+        .cert-result.fail {
+            background: rgba(243,114,127,0.08);
             border-color: var(--hi-negative);
-            background: rgba(220, 38, 38, 0.03);
         }
-        .setting-row .setting-label {
-            font-size: 16px; font-weight: 800;
+        .cert-result-icon { font-size: 48px; margin-bottom: 6px; }
+        .cert-result-title {
+            font-size: 18px; font-weight: 900;
             color: var(--hi-text); margin-bottom: 6px;
             letter-spacing: -0.3px;
         }
-        .setting-row .setting-desc {
+        .cert-result.pass .cert-result-title { color: var(--hi-accent); }
+        .cert-result.fail .cert-result-title { color: var(--hi-negative); }
+        .cert-result-desc {
             font-size: 13px; color: var(--hi-text-muted);
-            margin-bottom: 14px; line-height: 1.7;
+            line-height: 1.6; margin-bottom: 4px;
         }
-        .setting-row.danger .setting-label { color: var(--hi-negative); }
+        .cert-result-meta {
+            font-size: 12px; font-weight: 700;
+            color: var(--hi-accent);
+            margin-top: 8px;
+        }
 
-        /* ─── 버튼 중앙정렬 행 ─── */
-        .btn-row-center {
+        /* ─── 랭킹 ─── */
+        .rank-controls {
             display: flex; gap: 10px;
-            justify-content: center;
-            margin-top: 14px;
-            flex-wrap: wrap;
+            margin-bottom: 18px;
+            align-items: center; flex-wrap: wrap;
+            justify-content: space-between;
         }
-
-        /* ─── 학생 행 액션 (인라인, 중앙정렬) ─── */
-        .row-actions {
-            display: flex; gap: 6px;
+        .rank-controls .hi-select { width: auto; min-width: 100px; padding: 10px 38px 10px 14px; }
+        .sort-toggle {
+            display: inline-flex; background: var(--hi-bg-mid);
+            border-radius: var(--hi-r-pill); padding: 3px;
             margin-left: auto;
-            flex-shrink: 0;
-            justify-content: center;
+        }
+        .sort-toggle button {
+            background: transparent; border: none;
+            font-family: inherit; cursor: pointer;
+            color: var(--hi-text-muted);
+            padding: 7px 14px; border-radius: var(--hi-r-pill);
+            font-size: 11px; font-weight: 800; letter-spacing: 0.6px;
+            transition: all 0.15s;
+        }
+        .sort-toggle button.active {
+            background: var(--hi-text); color: var(--hi-bg-base);
+        }
+        .rank-row {
+            background: var(--hi-bg-mid);
+            border-radius: var(--hi-r-input);
+            padding: 12px 16px;
+            margin-bottom: 6px;
+            display: flex; align-items: center; gap: 14px;
+            transition: background 0.15s;
+        }
+        .rank-row.self {
+            background: var(--hi-accent-soft);
+            border: 1px solid var(--hi-accent);
+        }
+        .rank-row.top1 { background: linear-gradient(135deg, var(--hi-accent-soft), var(--hi-bg-mid)); }
+        .rank-num {
+            font-size: 16px; font-weight: 900;
+            color: var(--hi-text); width: 36px; text-align: center;
+            font-feature-settings: 'tnum'; flex-shrink: 0;
+        }
+        .rank-row.top1 .rank-num,
+        .rank-row.top2 .rank-num,
+        .rank-row.top3 .rank-num { color: var(--hi-accent); font-size: 20px; }
+        .rank-info { flex: 1; min-width: 0; }
+        .rank-name-line {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 2px; flex-wrap: wrap;
+        }
+        .rank-name {
+            font-size: 14px; font-weight: 800; color: var(--hi-text);
+        }
+        .rank-cls {
+            font-size: 10px; font-weight: 800; letter-spacing: 0.6px;
+            color: var(--hi-text-muted);
+            background: var(--hi-bg-surface);
+            border-radius: var(--hi-r-pill);
+            padding: 2px 8px;
+        }
+        .rank-me {
+            font-size: 10px; font-weight: 900; letter-spacing: 0.6px;
+            color: var(--hi-on-accent); background: var(--hi-accent);
+            border-radius: var(--hi-r-pill); padding: 2px 8px;
+        }
+        .rank-meta {
+            font-size: 11px; color: var(--hi-text-muted);
+            font-feature-settings: 'tnum';
+        }
+        .rank-days {
+            font-size: 22px; font-weight: 900;
+            color: var(--hi-accent);
+            font-feature-settings: 'tnum'; flex-shrink: 0;
+        }
+        .rank-days small {
+            font-size: 11px; color: var(--hi-text-muted);
+            font-weight: 700; margin-left: 2px;
         }
 
-        /* ─── 사진 모달 ─── */
-        .photo-modal {
-            position: fixed; inset: 0; z-index: 9999;
-            background: rgba(0, 0, 0, 0.85);
-            display: none; align-items: center; justify-content: center;
-            cursor: zoom-out; padding: 24px;
-        }
-        .photo-modal.open { display: flex; }
-        .photo-modal img {
-            max-width: 100%; max-height: 100%;
-            border-radius: var(--hi-r-card);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        /* ─── 글자 카운터 (textLimit.js와 연결) ─── */
+        .hi-count-ok { color: var(--hi-text-muted); }
+        .hi-count-warn { color: var(--hi-negative) !important; }
+        .char-count {
+            font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+            text-align: right; margin-top: 6px;
+            font-feature-settings: 'tnum';
         }
 
-        /* ─── 모달 액션 중앙정렬 ─── */
-        .hi-modal-actions {
-            justify-content: center !important;
-        }
+        /* ─── 푸터 / 관리자 진입 ─── */
+        .admin-footer { text-align: center; margin-top: 40px; }
 
+        /* ─── 모바일 ─── */
         @media (max-width: 600px) {
-            .data-row { flex-wrap: wrap; }
-            .row-actions { width: 100%; margin-left: 0; margin-top: 8px; justify-content: center; }
-            .filter-row { gap: 8px; }
-            .filter-row > * { width: 100%; }
+            .stats-big-num .num { font-size: 56px; }
+            .stats-big-num .label { font-size: 16px; }
+            .stat-cell .v { font-size: 16px; }
         }
     </style>
 </head>
 
-<body class="hi-preset-admin">
-<div class="hi-page admin-page">
+<body class="hi-theme-dark hi-accent-green">
+<div class="hi-page">
 
-    <!-- ════════════════════════════════════════
-         로그인
-         ════════════════════════════════════════ -->
+    <!-- ════════════════════════════════════════════════════════
+         로그인 화면
+         ════════════════════════════════════════════════════════ -->
     <div id="screen-login">
         <div class="login-wrap">
-            <h1 class="login-title">IDY 역사 <span>열공</span></h1>
-            <p class="login-sub">관리자 콘솔</p>
-
-            <div class="hi-card">
-                <div class="hi-form-group">
-                    <label class="hi-label">관리자 비밀번호</label>
-                    <input class="hi-input" type="password" id="login-pw"
-                           placeholder="비밀번호"
-                           onkeydown="if(event.key==='Enter')window.doAdminLogin()">
-                    <div class="hi-verify-msg" id="login-msg"></div>
-                </div>
-                <button class="hi-btn hi-btn-primary hi-btn-block"
-                        onclick="window.doAdminLogin()">접속</button>
+            <div class="login-logo">
+                <h1>역사 <span>열공</span></h1>
+                <p>IDY 역사 마일리지 · 인천동양중학교</p>
             </div>
 
-            <p style="text-align:center;margin-top:24px;">
-                <a href="index.html" style="font-size:12px;color:var(--hi-text-muted);text-decoration:none;font-weight:700;letter-spacing:0.5px;">
-                    ← 학생 페이지로
-                </a>
-            </p>
+            <div class="hi-card">
+                <div class="hi-form-group hi-input-with-status">
+                    <label class="hi-label">학번 (5자리)</label>
+                    <input class="hi-input" type="text" id="login-id"
+                           maxlength="5" inputmode="numeric" placeholder="예: 10324">
+                    <span class="hi-verify-status" id="login-id-status"></span>
+                    <div class="hi-verify-msg" id="login-id-msg"></div>
+                </div>
+
+                <div class="hi-form-group hi-input-with-status">
+                    <label class="hi-label">이름</label>
+                    <input class="hi-input" type="text" id="login-name" placeholder="이름" disabled>
+                    <span class="hi-verify-status" id="login-name-status"></span>
+                    <div class="hi-verify-msg" id="login-name-msg"></div>
+                </div>
+
+                <div class="hi-form-group">
+                    <label class="hi-label">비밀번호</label>
+                    <input class="hi-input" type="password" id="login-pw"
+                           placeholder="본인이 정한 비밀번호 (4자 이상)">
+                    <div class="hi-verify-msg" id="login-pw-msg" style="color:var(--hi-text-muted);">
+                        💡 처음 접속할 때 입력한 비밀번호가 본인의 비밀번호로 등록돼요. 다음부터는 같은 비밀번호로만 들어올 수 있으니 꼭 기억하세요.
+                    </div>
+                </div>
+
+                <button class="hi-btn hi-btn-primary hi-btn-block"
+                        id="login-btn" disabled onclick="window.doLogin()">접속하기</button>
+            </div>
+
+            <div class="admin-footer">
+                <button class="hi-btn hi-btn-ghost" onclick="location.href='admin.html'">⚙ 관리자</button>
+            </div>
         </div>
     </div>
 
-    <!-- ════════════════════════════════════════
-         메인
-         ════════════════════════════════════════ -->
+    <!-- ════════════════════════════════════════════════════════
+         메인 화면 (로그인 후)
+         ════════════════════════════════════════════════════════ -->
     <div id="screen-main" class="hi-hidden">
 
         <header class="hi-header">
-            <h1 class="hi-header-title">IDY 역사 <span>열공</span> · 관리자 콘솔</h1>
+            <h1 class="hi-header-title">역사 <span>열공</span></h1>
             <div class="hi-header-controls">
-                <a href="index.html" class="hi-btn hi-btn-outline hi-btn-sm">학생 페이지</a>
-                <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="window.adminLogout()">로그아웃</button>
+                <span class="hi-chip" id="user-chip"></span>
+                <button class="hi-btn hi-btn-outline hi-btn-sm"
+                        onclick="window.doLogout()">로그아웃</button>
             </div>
         </header>
 
-        <!-- 메인 탭: CERTS / SETTINGS -->
         <div class="hi-tabs">
-            <button class="hi-tab active" id="tab-btn-certs" onclick="window.switchTab('certs')">CERTS</button>
-            <button class="hi-tab" id="tab-btn-settings" onclick="window.switchTab('settings')">SETTINGS</button>
+            <button class="hi-tab active" id="tab-btn-home" onclick="window.switchTab('home')">HOME</button>
+            <button class="hi-tab" id="tab-btn-check" onclick="window.switchTab('check')">CHECK</button>
+            <button class="hi-tab" id="tab-btn-rank" onclick="window.switchTab('rank')">RANK</button>
         </div>
 
-        <!-- ─── CERTS ─── -->
-        <div id="tab-certs">
-            <div class="filter-row">
-                <select class="hi-select" id="certs-class-filter" onchange="window.renderCerts()">
-                    <option value="all">전체 반</option>
+        <!-- ─── HOME 탭 ─── -->
+        <div id="tab-home">
+            <!-- 본인 통계 hero -->
+            <div class="stats-hero">
+                <div class="stats-big-num">
+                    <span class="num" id="home-day-count">0</span>
+                    <span class="label">일째 열공</span>
+                </div>
+                <div class="stats-sub" id="home-day-sub">아직 시작 전 — 첫 체크를 해보세요!</div>
+            </div>
+
+            <!-- 최근 내 인증 내역 -->
+            <p class="sec-h">📋 최근 내 인증 내역</p>
+            <div id="home-history-list">
+                <p class="hi-empty">아직 인증 기록이 없어요</p>
+            </div>
+
+            <!-- 사용 안내 -->
+            <p class="sec-h">📖 어떻게 참여하나요?</p>
+            <div class="guide-step">
+                <div class="guide-num">1</div>
+                <div class="guide-body">
+                    <div class="guide-title">역사 공부 사진 찍기</div>
+                    <div class="guide-desc">교과서·필기·문제집과 함께 <b>오늘 날짜 타임스탬프</b>가 찍힌 사진을 준비하세요. (타임스탬프 카메라 앱 활용)</div>
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="guide-num">2</div>
+                <div class="guide-body">
+                    <div class="guide-title">CHECK 탭에서 업로드</div>
+                    <div class="guide-desc">사진 + 오늘 공부한 내용을 적어 제출하세요.</div>
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="guide-num">3</div>
+                <div class="guide-body">
+                    <div class="guide-title">AI 자동 판정 → 1일 적립</div>
+                    <div class="guide-desc">통과하면 <b>1일</b>이 카운트돼요. <b>하루 1회</b>까지만 인증 가능.</div>
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="guide-num">4</div>
+                <div class="guide-body">
+                    <div class="guide-title">랭킹에서 친구들과 비교</div>
+                    <div class="guide-desc">누적 일수로 우리 반·전체 랭킹이 매겨져요. 꾸준한 사람이 이깁니다!</div>
+                </div>
+            </div>
+            <div class="guide-step">
+                <div class="guide-num">⏰</div>
+                <div class="guide-body">
+                    <div class="guide-title">인증 가능 시간</div>
+                    <div class="guide-desc">평일은 <b>오후 3시 이후</b>, 주말·공휴일은 <b>오전 6시 이후</b>에 인증할 수 있어요.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ─── CHECK 탭 ─── -->
+        <div id="tab-check" class="hi-hidden">
+            <div class="info-tag">
+                하루 1회 · AI 자동 판정<br>
+                <b>역사 자료 + 오늘 날짜 타임스탬프</b> 필수 · 통과 시 1일 적립
+            </div>
+
+            <div class="hi-card">
+                <div class="upload-area" onclick="document.getElementById('cert-file').click()">
+                    <div class="upload-placeholder" id="cert-placeholder">
+                        <div class="ic">📷</div>
+                        <div class="t">사진을 탭하여 선택</div>
+                        <div class="d">역사 교재·노트 + 오늘 날짜 타임스탬프</div>
+                    </div>
+                    <img id="cert-preview" alt="미리보기">
+                </div>
+                <input type="file" id="cert-file" accept="image/*" style="display:none"
+                       onchange="window.previewPhoto(this)">
+
+                <div class="upload-actions">
+                    <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="window.triggerCamera()">📷 촬영</button>
+                    <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="window.triggerGallery()">🖼️ 갤러리</button>
+                </div>
+
+                <div class="hi-form-group">
+                    <label class="hi-label">오늘 공부한 내용</label>
+                    <textarea class="hi-textarea" id="cert-content" rows="3"
+                              style="min-height:80px;"
+                              placeholder="✏️ 문장의 형태로 작성해주세요!
+예) 오늘은 조선 후기 정치 변동을 정리했어요. 노론과 소론이 어떻게 갈라졌는지 이해했어요."></textarea>
+                    <div class="char-count" id="cert-content-count"></div>
+                </div>
+
+                <button class="hi-btn hi-btn-primary hi-btn-block"
+                        id="cert-submit-btn" onclick="window.submitCert()">제출하기</button>
+            </div>
+
+            <!-- AI 판정 결과 -->
+            <div id="cert-result" class="cert-result" style="display:none;">
+                <div class="cert-result-icon" id="cert-result-icon"></div>
+                <div class="cert-result-title" id="cert-result-title"></div>
+                <div class="cert-result-desc" id="cert-result-desc"></div>
+                <div class="cert-result-meta" id="cert-result-meta"></div>
+            </div>
+        </div>
+
+        <!-- ─── RANK 탭 ─── -->
+        <div id="tab-rank" class="hi-hidden">
+            <div class="rank-controls">
+                <select class="hi-select" id="rank-class-filter" onchange="window.renderRank()">
+                    <option value="all">전체</option>
                 </select>
-                <select class="hi-select" id="certs-result-filter" onchange="window.renderCerts()">
-                    <option value="all">전체 결과</option>
-                    <option value="pass">통과만</option>
-                    <option value="fail">실패만</option>
-                </select>
-                <input class="hi-input" type="date" id="certs-date-filter"
-                       onchange="window.renderCerts()">
-                <button class="hi-btn hi-btn-outline hi-btn-sm"
-                        onclick="window.clearCertsFilter()">필터 초기화</button>
+                <div class="sort-toggle" id="rank-sort-toggle">
+                    <button class="active" data-sort="days" onclick="window.setRankSort('days')">마일리지</button>
+                    <button data-sort="num" onclick="window.setRankSort('num')">학번</button>
+                </div>
             </div>
-            <div id="certs-list"></div>
+            <div id="rank-list"></div>
         </div>
 
-        <!-- ─── SETTINGS (내부에 sub-tabs) ─── -->
-        <div id="tab-settings" class="hi-hidden">
+    </div>
 
-            <!-- 서브 탭 -->
-            <div class="sub-tabs">
-                <button class="sub-tab active" id="sub-btn-students"
-                        onclick="window.switchSubTab('students')">학생 관리</button>
-                <button class="sub-tab" id="sub-btn-general"
-                        onclick="window.switchSubTab('general')">일반 설정</button>
-            </div>
-
-            <!-- 학생 관리 sub-tab -->
-            <div id="sub-students">
-
-                <!-- 일괄 등록 카드 (가독성 강조) -->
-                <div class="upload-card">
-                    <div class="upload-card-title">📥 학생 명단 일괄 등록</div>
-                    <div class="upload-card-sub">엑셀에서 학번·이름 두 열을 그대로 복사해 붙여넣으세요</div>
-
-                    <div class="upload-guide">
-                        <b>입력 형식</b> · 한 줄에 <b>학번(5자리) + 이름</b><br>
-                        구분자: 탭 · 공백 · 콤마 모두 인식<br>
-                        같은 학번이면 <b>이름 업데이트</b>, 새 학번이면 <b>신규 추가</b>
-                    </div>
-
-                    <textarea class="hi-textarea" id="bulk-input" rows="7"
-                              placeholder="10101&#9;홍길동&#13;&#10;10102&#9;김철수&#13;&#10;10103&#9;이영희&#13;&#10;10201&#9;박지민"></textarea>
-
-                    <div class="btn-row-center">
-                        <button class="hi-btn hi-btn-primary" onclick="window.bulkUpload()">추가 / 업데이트</button>
-                        <button class="hi-btn hi-btn-outline" onclick="document.getElementById('bulk-input').value=''">지우기</button>
-                    </div>
-                </div>
-
-                <!-- 등록 학생 목록 -->
-                <div class="students-count-row">
-                    <span class="students-count-label">등록 학생</span>
-                    <span class="students-count-num" id="students-total-count">0명</span>
-                </div>
-
-                <div class="filter-row">
-                    <select class="hi-select" id="students-class-filter" onchange="window.renderStudents()">
-                        <option value="all">전체 반</option>
-                    </select>
-                    <input class="hi-input" type="text" id="students-search"
-                           placeholder="이름 또는 학번 검색"
-                           oninput="window.renderStudents()">
-                </div>
-                <div id="students-list"></div>
-            </div>
-
-            <!-- 일반 설정 sub-tab -->
-            <div id="sub-general" class="hi-hidden">
-
-                <div class="setting-row">
-                    <div class="setting-label">🤖 Claude API 키</div>
-                    <div class="setting-desc">
-                        스터디 체크 사진 판정에 사용되는 Anthropic API 키예요.<br>
-                        <a href="https://console.anthropic.com/" target="_blank"
-                           style="color:var(--hi-accent);font-weight:700;">Anthropic Console</a>에서 발급받으세요.
-                    </div>
-                    <input class="hi-input" type="password" id="setting-api-key"
-                           placeholder="sk-ant-api03-...">
-                    <div class="btn-row-center">
-                        <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="window.saveApiKey()">저장</button>
-                        <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="window.toggleApiKeyVisible()">표시 / 숨김</button>
-                    </div>
-                    <div id="api-key-status" style="font-size:12px;color:var(--hi-text-muted);margin-top:12px;font-weight:600;text-align:center;"></div>
-                </div>
-
-                <div class="setting-row">
-                    <div class="setting-label">📅 공휴일 관리</div>
-                    <div class="setting-desc">
-                        토·일요일은 <b>자동으로 주말 규칙(오전 6시 이후 인증 가능)</b>이 적용돼요. 따로 입력 안 해도 됩니다.<br>
-                        평일이지만 학교가 쉬는 날(삼일절, 어린이날 등)만 추가하세요. 한 줄에 하나씩 <code style="background:var(--hi-bg-mid);padding:1px 6px;border-radius:4px;">YYYY-MM-DD</code> 형식.
-                    </div>
-                    <textarea class="hi-textarea" id="setting-holidays" rows="5"
-                              style="font-family:ui-monospace,monospace;min-height:120px;font-size:13px;"
-                              placeholder="2026-03-01&#13;&#10;2026-05-05&#13;&#10;2026-06-06"></textarea>
-                    <div class="btn-row-center">
-                        <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="window.saveHolidays()">저장</button>
-                    </div>
-                </div>
-
-                <div class="setting-row">
-                    <div class="setting-label">🔐 관리자 비밀번호 변경</div>
-                    <div class="setting-desc">새 비밀번호는 4자 이상으로 설정하세요.</div>
-                    <input class="hi-input" type="password" id="setting-new-pw"
-                           placeholder="새 비밀번호" style="margin-bottom: 8px;">
-                    <input class="hi-input" type="password" id="setting-new-pw2"
-                           placeholder="비밀번호 확인">
-                    <div class="btn-row-center">
-                        <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="window.changeAdminPw()">변경</button>
-                    </div>
-                </div>
-
-                <div class="setting-row danger">
-                    <div class="setting-label">⚠️ 위험 영역</div>
-                    <div class="setting-desc">
-                        <b>인증 기록 전체 삭제</b> · 학생 명단과 누적 일수는 유지됩니다.<br>
-                        이 작업은 <b>되돌릴 수 없습니다.</b>
-                    </div>
-                    <div class="btn-row-center">
-                        <button class="hi-btn hi-btn-outline hi-btn-sm hi-btn-danger"
-                                onclick="window.resetAllCerts()">모든 인증 기록 삭제</button>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <!-- 호성쌤 연락 버튼 -->
+    <div style="text-align:center; margin-top: 40px;">
+        <a href="https://open.kakao.com/o/smm3ixqi" target="_blank" rel="noopener"
+           class="hi-btn hi-btn-outline hi-btn-sm">
+            💬 호성쌤에게 연락하기
+        </a>
     </div>
 
     <footer class="hi-footer">
-        <p class="hi-footer-tag">관리자 콘솔 <span>✦</span> HOISTORY</p>
+        <p class="hi-footer-tag">역사는 즐겁다 <span>✦</span> Dive into HISTORY</p>
     </footer>
 </div>
 
-<!-- ─── 학생 정보 수정 모달 ─── -->
-<div id="student-edit-modal" class="hi-modal-backdrop" style="display:none;">
-    <div class="hi-modal">
-        <h3 class="hi-modal-title">학생 정보 수정</h3>
-        <p class="hi-modal-desc">학번은 식별자이므로 변경할 수 없어요. 잘못된 학번은 삭제 후 재등록하세요.</p>
-        <div class="hi-form-group">
-            <label class="hi-label">학번</label>
-            <input class="hi-input" id="edit-id" type="text" disabled>
-        </div>
-        <div class="hi-form-group">
-            <label class="hi-label">이름</label>
-            <input class="hi-input" id="edit-name" type="text">
-        </div>
-        <div class="hi-form-group">
-            <label class="hi-label">누적 일수 (직접 수정)</label>
-            <input class="hi-input" id="edit-days" type="number" min="0">
-        </div>
+<!-- ─── 학생 상세 모달 (이름 클릭 시) ─── -->
+<div id="student-detail-modal" class="hi-modal-backdrop" style="display:none;"
+     onclick="if(event.target===this)window.closeStudentDetail()">
+    <div class="hi-modal" style="max-width: 440px;">
+        <h3 class="hi-modal-title" id="detail-name"></h3>
+        <p class="hi-modal-desc" id="detail-sub"></p>
+        <div id="detail-dates" style="max-height: 50vh; overflow-y: auto; margin-bottom: 16px;"></div>
         <div class="hi-modal-actions">
-            <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="window.closeStudentEdit()">취소</button>
-            <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="window.saveStudentEdit()">저장</button>
+            <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="window.closeStudentDetail()">닫기</button>
         </div>
     </div>
 </div>
 
-<!-- ─── 사진 확대 모달 ─── -->
-<div id="photo-modal" class="photo-modal" onclick="this.classList.remove('open')">
-    <img id="photo-modal-img" src="" alt="">
-</div>
-
+<!-- ════════════════════════════════════════════════════════
+     SCRIPTS
+     ════════════════════════════════════════════════════════ -->
 <script type="module">
+    // ── Firebase (modular, v10.7.1 — shared/auth.js와 버전 일치 필수) ──
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import {
-        getDatabase, ref, set, push, get, onValue, update, remove
+        getDatabase, ref, set, push, get, onValue, update
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import {
+        getStorage, ref as sRef, uploadBytes, getDownloadURL
+    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
-    import { showToast, showRichToast } from "../shared/toast.js";
+    // ── 공통 라이브러리 ──
+    import {
+        initAuth, mountLoginVerification, getStudentName,
+        verifyStudentId, verifyStudentName
+    } from "../shared/auth.js";
+    import { showToast, showRichToast, showCelebration } from "../shared/toast.js";
+    import { mountCharCounter, validateText, blockPaste } from "../shared/textLimit.js";
+    import { containsBadWord } from "../shared/profanity.js";
 
-    // ─────────────────────────────────────
-    // Firebase (학생 페이지와 같은 프로젝트)
-    // ─────────────────────────────────────
+    // ────────────────────────────────────────────────────────
+    // ⚠️ Firebase 설정 — 본인 프로젝트 정보로 교체
+    // ────────────────────────────────────────────────────────
     const firebaseConfig = {
         apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
         authDomain: "ho0911seong-56638.firebaseapp.com",
@@ -508,500 +589,668 @@
         appId: "1:994509567071:web:be8ed4e8e9b0a833f557ea"
     };
 
-    // ⚠️ 기본 관리자 비밀번호 — 첫 접속 후 즉시 SETTINGS → 일반 설정에서 변경하세요
-    const DEFAULT_ADMIN_PW = "hoseong2026";
-
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
+    const storage = getStorage(app);
 
-    // ─────────────────────────────────────
-    // 상태
-    // ─────────────────────────────────────
-    let students = [];
-    let allCerts = [];
-    let mileage = {};
-    let config = {};
-    let editingStudentId = null;
+    // 공휴일 (필요 시 admin에서 관리 가능)
+    const holidays = []; // 예: ["2026-03-01","2026-05-05"]
 
-    // ─────────────────────────────────────
+    // ── 상태 ──
+    let currentUser = null;
+    let globalData = {};
+    let studentList = [];
+    let rankSort = 'days';
+
+    // ── 공통 auth 모듈 초기화 ──
+    initAuth(db);
+
+    // ────────────────────────────────────────────────────────
     // 데이터 구독
-    // ─────────────────────────────────────
+    // ────────────────────────────────────────────────────────
+    // 앱 데이터 (마일리지 · 인증 · 설정) — 이 앱만 사용
+    onValue(ref(db, 'historyMileage'), snap => {
+        globalData = snap.val() || {};
+        renderAll();
+    });
+
+    // 학생 명단 — 모든 HOISTORY 앱과 공유 (루트 /students)
     onValue(ref(db, 'students'), snap => {
         const data = snap.val() || {};
-        students = Object.entries(data)
-            .map(([key, s]) => {
-                if (!s) return null;
-                const sid = String(s.studentId || s.id || '');
-                if (!sid) return null;
+        studentList = Object.values(data)
+            .filter(s => s && (s.studentId || s.id))
+            .map(s => {
+                const sid = String(s.studentId || s.id);
                 return {
-                    key,
-                    studentId: sid,
                     num: parseInt(sid, 10),
+                    studentIdStr: sid,
                     name: s.name || s.studentName || s.realName || '',
-                    cls: sid.length === 5 ? sid.charAt(2) : ''
+                    cls: parseClass(sid)
                 };
             })
-            .filter(s => s && !isNaN(s.num) && s.name)
-            .sort((a, b) => a.num - b.num);
+            .filter(s => !isNaN(s.num) && s.name)
+            .sort((a,b) => a.num - b.num);
         renderAll();
     });
 
-    onValue(ref(db, 'historyMileage'), snap => {
-        const data = snap.val() || {};
-        allCerts = data.studyCert
-            ? Object.entries(data.studyCert).map(([id, c]) => ({ id, ...c }))
-            : [];
-        mileage = data.mileage || {};
-        config = data.config || {};
+    // ────────────────────────────────────────────────────────
+    // 학번 파싱 (5자리)
+    //   1번째 자리: 학년
+    //   3번째 자리: 반
+    //   4~5번째 자리: 번호
+    //   예: "30324" → 3학년 3반 24번
+    // ────────────────────────────────────────────────────────
+    function parseGrade(studentId) {
+        const s = String(studentId);
+        if (s.length !== 5) return '';
+        return s.charAt(0); // 1번째 자리
+    }
 
-        // API key 상태 표시
-        const apiStatusEl = document.getElementById('api-key-status');
-        if (apiStatusEl) {
-            apiStatusEl.textContent = config.claudeApiKey
-                ? `✓ 키 등록됨 (${config.claudeApiKey.slice(0, 12)}...${config.claudeApiKey.slice(-4)})`
-                : '⚠ 아직 키가 등록되지 않았어요. 스터디 체크가 동작하지 않습니다.';
-            apiStatusEl.style.color = config.claudeApiKey
-                ? 'var(--hi-accent)' : 'var(--hi-negative)';
-        }
+    function parseClass(studentId) {
+        const s = String(studentId);
+        if (s.length !== 5) return '';
+        return s.charAt(2); // 3번째 자리
+    }
 
-        // 공휴일 textarea 채우기 (한 번만)
-        const holEl = document.getElementById('setting-holidays');
-        if (holEl && !holEl.dataset.initialized) {
-            holEl.value = (config.holidays || []).join('\n');
-            holEl.dataset.initialized = '1';
-        }
+    function parseNumber(studentId) {
+        const s = String(studentId);
+        if (s.length !== 5) return '';
+        return s.substring(3); // 4~5번째 자리
+    }
 
-        renderAll();
+    function formatGradeClassNumber(studentId) {
+        const g = parseGrade(studentId);
+        const c = parseClass(studentId);
+        const n = parseNumber(studentId);
+        if (!g || !c || !n) return '';
+        return `${g}학년 ${c}반 ${parseInt(n, 10)}번`;
+    }
+
+    // ────────────────────────────────────────────────────────
+    // 로그인 검증 UI — shared/auth.js의 mountLoginVerification
+    // ────────────────────────────────────────────────────────
+    const loginVerify = mountLoginVerification({
+        idInput: document.getElementById('login-id'),
+        nameInput: document.getElementById('login-name'),
+        idStatusEl: document.getElementById('login-id-status'),
+        nameStatusEl: document.getElementById('login-name-status'),
+        idMsgEl: document.getElementById('login-id-msg'),
+        nameMsgEl: document.getElementById('login-name-msg'),
+        onChange: (status) => updateLoginBtn(status)
     });
 
-    // ─────────────────────────────────────
-    // 로그인
-    // ─────────────────────────────────────
-    window.doAdminLogin = async () => {
+    let loginStatus = { idValid: false, nameValid: false, allValid: false };
+    function updateLoginBtn(status) {
+        loginStatus = status;
         const pw = document.getElementById('login-pw').value;
-        const msg = document.getElementById('login-msg');
-        msg.textContent = ''; msg.className = 'hi-verify-msg';
-
-        if (!pw) {
-            msg.textContent = '비밀번호를 입력해주세요';
-            msg.className = 'hi-verify-msg err';
-            return;
+        const btn = document.getElementById('login-btn');
+        btn.disabled = !(status.allValid && pw.length >= 4);
+    }
+    document.getElementById('login-pw').addEventListener('input', () => updateLoginBtn(loginStatus));
+    document.getElementById('login-pw').addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !document.getElementById('login-btn').disabled) {
+            window.doLogin();
         }
+    });
+
+    // ────────────────────────────────────────────────────────
+    // 로그인 / 로그아웃
+    //   비밀번호는 historyMileage/studentPw/{학번} 경로에 저장
+    //   첫 로그인 시 입력값을 저장, 이후 일치 검증
+    // ────────────────────────────────────────────────────────
+    window.doLogin = async () => {
+        const id = document.getElementById('login-id').value.trim();
+        const name = document.getElementById('login-name').value.trim();
+        const pw = document.getElementById('login-pw').value;
+        if (!id || !name || !pw) return showToast('모든 항목을 입력해주세요', 'error');
+        if (pw.length < 4) return showToast('비밀번호는 4자 이상이어야 해요', 'error');
+
+        const btn = document.getElementById('login-btn');
+        btn.disabled = true; btn.textContent = '확인 중…';
 
         try {
-            const snap = await get(ref(db, 'historyMileage/config/adminPw'));
-            const storedPw = snap.val() || DEFAULT_ADMIN_PW;
+            // 저장된 비밀번호 조회
+            const pwSnap = await get(ref(db, `historyMileage/studentPw/${id}`));
+            const storedPw = pwSnap.val();
 
-            if (pw === storedPw) {
-                sessionStorage.setItem('hi_admin_ok', '1');
-                document.getElementById('screen-login').classList.add('hi-hidden');
-                document.getElementById('screen-main').classList.remove('hi-hidden');
-                document.getElementById('login-pw').value = '';
-                showToast('관리자 로그인 완료');
+            if (storedPw) {
+                // 기존 사용자 — 비밀번호 일치 확인
+                if (storedPw !== pw) {
+                    btn.disabled = false; btn.textContent = '접속하기';
+                    return showRichToast({
+                        icon: '🔒', title: '비밀번호가 달라요',
+                        message: '처음 접속할 때 정한 비밀번호로만 들어올 수 있어요. 잊어버렸다면 호성쌤에게 문의하세요.',
+                        kind: 'error'
+                    });
+                }
             } else {
-                msg.textContent = '비밀번호가 일치하지 않습니다';
-                msg.className = 'hi-verify-msg err';
+                // 첫 로그인 — 비밀번호 저장
+                await set(ref(db, `historyMileage/studentPw/${id}`), pw);
+                showRichToast({
+                    icon: '🔐', title: '비밀번호 등록 완료',
+                    message: '다음부터 같은 비밀번호로만 들어올 수 있어요. 꼭 기억하세요!'
+                });
             }
+
+            currentUser = { num: id, name, cls: parseClass(id), grade: parseGrade(id) };
+            localStorage.setItem('hi_history_user', JSON.stringify(currentUser));
+            showMain();
+            setTimeout(() => showToast(`${name} 학생, 환영해요!`), 100);
         } catch (e) {
             console.error(e);
-            msg.textContent = '로그인 중 오류가 발생했어요';
-            msg.className = 'hi-verify-msg err';
+            btn.disabled = false; btn.textContent = '접속하기';
+            showToast('로그인 중 오류가 발생했어요', 'error');
         }
     };
 
-    window.adminLogout = () => {
-        sessionStorage.removeItem('hi_admin_ok');
+    window.doLogout = () => {
+        currentUser = null;
+        localStorage.removeItem('hi_history_user');
         document.getElementById('screen-main').classList.add('hi-hidden');
         document.getElementById('screen-login').classList.remove('hi-hidden');
+        loginVerify.reset();
+        document.getElementById('login-pw').value = '';
         showToast('로그아웃 되었습니다');
     };
 
+    function showMain() {
+        document.getElementById('screen-login').classList.add('hi-hidden');
+        document.getElementById('screen-main').classList.remove('hi-hidden');
+        document.getElementById('user-chip').textContent =
+            `${currentUser.num} ${currentUser.name}`;
+        renderAll();
+    }
+
     // 세션 복원
     window.addEventListener('DOMContentLoaded', () => {
-        if (sessionStorage.getItem('hi_admin_ok') === '1') {
-            document.getElementById('screen-login').classList.add('hi-hidden');
-            document.getElementById('screen-main').classList.remove('hi-hidden');
-        }
+        // 글자수 카운터 부착
+        mountCharCounter({
+            input: document.getElementById('cert-content'),
+            counter: document.getElementById('cert-content-count'),
+            max: 60,
+            excludeSpaces: true,
+            format: (n, m) => `${n} / ${m}자 (공백 제외)`
+        });
+
+        try {
+            const saved = localStorage.getItem('hi_history_user');
+            if (saved) {
+                currentUser = JSON.parse(saved);
+                showMain();
+            }
+        } catch(e) { localStorage.removeItem('hi_history_user'); }
     });
 
-    // ─────────────────────────────────────
-    // 탭 (메인 탭: CERTS / SETTINGS)
-    // ─────────────────────────────────────
+    // ────────────────────────────────────────────────────────
+    // 탭 전환
+    // ────────────────────────────────────────────────────────
     window.switchTab = (tab) => {
-        ['certs', 'settings'].forEach(t => {
+        ['home','check','rank'].forEach(t => {
             document.getElementById(`tab-btn-${t}`).classList.toggle('active', t === tab);
             document.getElementById(`tab-${t}`).classList.toggle('hi-hidden', t !== tab);
         });
-        if (tab === 'certs') {
-            populateCertsClassFilter();
-            window.renderCerts();
-        }
-        if (tab === 'settings') {
-            // 진입 시 학생 관리 sub-tab이 활성
-            populateStudentClassFilter();
-            window.renderStudents();
-        }
+        if (tab === 'rank') populateClassFilter();
     };
 
-    // ─────────────────────────────────────
-    // SETTINGS 내부 sub-tab (STUDENTS / GENERAL)
-    // ─────────────────────────────────────
-    window.switchSubTab = (sub) => {
-        ['students', 'general'].forEach(s => {
-            document.getElementById(`sub-btn-${s}`).classList.toggle('active', s === sub);
-            document.getElementById(`sub-${s}`).classList.toggle('hi-hidden', s !== sub);
-        });
-        if (sub === 'students') {
-            populateStudentClassFilter();
-            window.renderStudents();
+    // ────────────────────────────────────────────────────────
+    // 레벨 계산
+    // ────────────────────────────────────────────────────────
+    function getLevel(dayCount) {
+        let level = 1, required = 10, accumulated = 0;
+        while (dayCount >= accumulated + required) {
+            accumulated += required; level++; required += 10;
         }
-    };
-
-    // ─────────────────────────────────────
-    // 학생 명단
-    // ─────────────────────────────────────
-    function populateStudentClassFilter() {
-        const sel = document.getElementById('students-class-filter');
-        if (!sel) return;
-        const classes = [...new Set(students.map(s => s.cls).filter(Boolean))].sort();
-        const cur = sel.value;
-        sel.innerHTML = '<option value="all">전체 반</option>';
-        classes.forEach(c => {
-            sel.innerHTML += `<option value="${c}">${c}반</option>`;
-        });
-        if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+        return { level, progress: dayCount - accumulated, nextRequired: required };
     }
 
-    window.renderStudents = () => {
-        const filter = document.getElementById('students-class-filter')?.value || 'all';
-        const search = document.getElementById('students-search')?.value.trim().toLowerCase() || '';
-        const list = document.getElementById('students-list');
-        const totalEl = document.getElementById('students-total-count');
-        if (!list) return;
-
-        let rows = students;
-        if (filter !== 'all') rows = rows.filter(s => s.cls === filter);
-        if (search) {
-            rows = rows.filter(s =>
-                s.name.toLowerCase().includes(search) ||
-                s.studentId.includes(search)
-            );
-        }
-
-        if (totalEl) totalEl.textContent = `${rows.length}명${filter !== 'all' || search ? ` (전체 ${students.length}명 중)` : ''}`;
-
-        if (rows.length === 0) {
-            list.innerHTML = '<p class="hi-empty">조건에 맞는 학생이 없어요</p>';
-            return;
-        }
-
-        list.innerHTML = rows.map(s => {
-            const days = mileage[s.studentId] || 0;
-            return `
-            <div class="data-row">
-                <div class="data-row-cell-id">${s.studentId}</div>
-                <div class="data-row-cell-name">
-                    <div class="name-main">${escapeHtml(s.name)}</div>
-                    <div class="name-sub">${s.cls}반</div>
-                </div>
-                <div class="data-row-cell-days">${days}<small>일</small></div>
-                <div class="row-actions">
-                    <button class="hi-btn hi-btn-outline hi-btn-xs" onclick="window.openStudentEdit('${s.studentId}')">수정</button>
-                    <button class="hi-btn hi-btn-outline hi-btn-xs hi-btn-danger" onclick="window.deleteStudent('${s.studentId}')">삭제</button>
-                </div>
-            </div>`;
-        }).join('');
+    // ────────────────────────────────────────────────────────
+    // 사진 미리보기
+    // ────────────────────────────────────────────────────────
+    window.previewPhoto = (input) => {
+        const file = input.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            document.getElementById('cert-preview').src = e.target.result;
+            document.getElementById('cert-preview').style.display = 'block';
+            document.getElementById('cert-placeholder').style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+    };
+    window.triggerCamera = () => {
+        const i = document.getElementById('cert-file');
+        i.setAttribute('capture','environment'); i.click();
+    };
+    window.triggerGallery = () => {
+        const i = document.getElementById('cert-file');
+        i.removeAttribute('capture'); i.click();
     };
 
-    // 일괄 등록
-    window.bulkUpload = async () => {
-        const text = document.getElementById('bulk-input').value.trim();
-        if (!text) return showToast('입력값이 비어있어요', 'error');
+    // ────────────────────────────────────────────────────────
+    // 스터디 체크 (AI 판정)
+    // ────────────────────────────────────────────────────────
+    function getTodayCheckCount(num) {
+        const today = new Date().toISOString().slice(0,10);
+        return Object.values(globalData.studyCert || {})
+            .filter(c => String(c.studentNum) === String(num)
+                      && c.date === today
+                      && c.result === 'pass').length;
+    }
 
-        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-        const parsed = [];
-        let invalid = 0;
+    window.submitCert = async () => {
+        if (!currentUser) return showToast('로그인이 필요합니다', 'error');
 
-        for (const line of lines) {
-            const parts = line.split(/[\s\t,]+/).filter(Boolean);
-            if (parts.length < 2) { invalid++; continue; }
-            const id = parts[0].trim();
-            const name = parts.slice(1).join(' ').trim();
-            if (!/^\d{5}$/.test(id) || !name) { invalid++; continue; }
-            parsed.push({ studentId: id, name });
-        }
+        const file = document.getElementById('cert-file').files[0];
+        const content = document.getElementById('cert-content').value.trim();
+        const btn = document.getElementById('cert-submit-btn');
 
-        if (parsed.length === 0) {
+        if (!file) return showToast('사진을 선택해주세요', 'error');
+
+        // 글자수 검증
+        const v = validateText(content, { min: 20, max: 60, checkRepeats: true });
+        if (!v.ok) return showToast(v.message, 'error');
+
+        // 비속어
+        if (containsBadWord(content)) {
             return showRichToast({
-                icon: '⚠️', title: '등록할 학생이 없어요',
-                message: '학번은 5자리 숫자, 이름은 필수입니다',
+                icon: '🚫', title: '입력 차단',
+                message: '부적절한 표현이 포함되어 있어요',
                 kind: 'error'
             });
         }
 
-        if (!confirm(`${parsed.length}명을 추가/업데이트하시겠습니까?${invalid > 0 ? `\n(${invalid}줄은 형식이 맞지 않아 무시됩니다)` : ''}`)) return;
-
-        const existingMap = {};
-        students.forEach(s => existingMap[s.studentId] = s.key);
-
-        let added = 0, updated = 0, failed = 0;
-
-        for (const p of parsed) {
-            try {
-                if (existingMap[p.studentId]) {
-                    await update(ref(db, `students/${existingMap[p.studentId]}`), {
-                        studentId: p.studentId,
-                        name: p.name
-                    });
-                    updated++;
-                } else {
-                    await push(ref(db, 'students'), {
-                        studentId: p.studentId,
-                        name: p.name
-                    });
-                    added++;
-                }
-            } catch (e) {
-                console.error(e); failed++;
-            }
+        // 하루 1회 제한
+        if (getTodayCheckCount(currentUser.num) >= 1) {
+            return showRichToast({
+                icon: '😊', title: '오늘은 이미 체크 완료',
+                message: '내일 또 만나요!'
+            });
         }
 
-        document.getElementById('bulk-input').value = '';
-        showRichToast({
-            icon: '✅', title: '명단 처리 완료',
-            message: `${added}명 추가 · ${updated}명 업데이트${failed > 0 ? ` · ${failed}건 실패` : ''}`
-        });
-    };
+        // 시간 제한
+        const now = new Date();
+        const hour = now.getHours();
+        const dow = now.getDay();
+        const dateStr = now.toISOString().slice(0,10);
+        const isHolidayOrWeekend = holidays.includes(dateStr) || dow === 0 || dow === 6;
+        if (isHolidayOrWeekend) {
+            if (hour < 6) return showRichToast({
+                icon: '🌙', title: '인증 시간이 아니에요',
+                message: '주말·공휴일은 오전 6시 이후에 가능해요', kind: 'error'
+            });
+        } else {
+            if (hour < 15) return showRichToast({
+                icon: '📚', title: '인증 시간이 아니에요',
+                message: '평일은 오후 3시 이후에 가능해요', kind: 'error'
+            });
+        }
 
-    // 수정
-    window.openStudentEdit = (studentId) => {
-        const s = students.find(x => x.studentId === studentId);
-        if (!s) return;
-        editingStudentId = studentId;
-        document.getElementById('edit-id').value = s.studentId;
-        document.getElementById('edit-name').value = s.name;
-        document.getElementById('edit-days').value = mileage[studentId] || 0;
-        document.getElementById('student-edit-modal').style.display = 'flex';
-    };
+        // API 키
+        const apiKey = globalData.config?.claudeApiKey || '';
+        if (!apiKey) {
+            return showRichToast({
+                icon: '⚙️', title: 'API 키 미설정',
+                message: '관리자가 Claude API 키를 설정해야 합니다',
+                kind: 'error'
+            });
+        }
 
-    window.closeStudentEdit = () => {
-        document.getElementById('student-edit-modal').style.display = 'none';
-        editingStudentId = null;
-    };
-
-    window.saveStudentEdit = async () => {
-        if (!editingStudentId) return;
-        const s = students.find(x => x.studentId === editingStudentId);
-        if (!s) return;
-
-        const newName = document.getElementById('edit-name').value.trim();
-        const newDays = parseInt(document.getElementById('edit-days').value, 10);
-
-        if (!newName) return showToast('이름을 입력해주세요', 'error');
-        if (isNaN(newDays) || newDays < 0) return showToast('일수는 0 이상의 숫자여야 해요', 'error');
+        btn.disabled = true; btn.textContent = 'AI 분석 중…';
+        document.getElementById('cert-result').style.display = 'none';
 
         try {
-            await update(ref(db, `students/${s.key}`), { name: newName });
-            await set(ref(db, `historyMileage/mileage/${editingStudentId}`), newDays);
-            await set(ref(db, `historyMileage/totalEarned/${editingStudentId}`), newDays);
-            window.closeStudentEdit();
-            showToast('저장 완료');
-        } catch (e) {
-            showToast('저장 실패', 'error');
+            const base64 = await fileToBase64(file);
+            const mediaType = file.type || 'image/jpeg';
+            const todayISO = new Date().toISOString().slice(0,10);
+
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01',
+                    'anthropic-dangerous-direct-browser-access': 'true'
+                },
+                body: JSON.stringify({
+                    model: 'claude-sonnet-4-6',
+                    max_tokens: 400,
+                    messages: [{
+                        role: 'user',
+                        content: [
+                            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+                            { type: 'text', text:
+`오늘 날짜: ${todayISO}
+학생이 신고한 공부 내용: "${content}"
+
+이 사진을 보고 아래 3가지를 판단하세요.
+
+[1] 타임스탬프 확인 — 사진에 날짜/시간 타임스탬프가 있는지 확인. 있으면 읽어서 오늘(${todayISO})과 비교. 연/월/일이 모두 일치하면 date_match: true (없거나 다르면 false, photo_date에 읽은 날짜 기록).
+
+[2] 역사 공부 여부 — 한국사·세계사·동아시아사·국사 등 역사 과목의 교과서/문제집/노트/필기/요약본/연표 등이 보이면 is_history: true. 다른 과목(수학·영어 등)이거나 공부 자료가 아니면 false.
+
+[3] 신고 내용 일치 — 학생이 적은 공부 내용("${content}")과 사진이 합리적으로 일치하는지 확인. 일치하면 content_match: true.
+
+통과 조건: date_match AND is_history AND content_match 셋 다 true.
+
+JSON만 반환:
+{"pass":bool,"date_match":bool,"is_history":bool,"content_match":bool,"photo_date":"읽은날짜","reason":"이유 30자이내","emoji":"이모지1개"}`
+                            }
+                        ]
+                    }]
+                })
+            });
+
+            const data = await response.json();
+            const rawText = data.content?.[0]?.text || '{"pass":false}';
+            let result;
+            try { result = JSON.parse(rawText.replace(/```json|```/g,'').trim()); }
+            catch { result = { pass: false, reason: '분석 오류', emoji: '⚠️' }; }
+
+            if (!result.pass) {
+                if (!result.date_match) {
+                    result.reason = `사진 날짜 불일치 (${result.photo_date || '없음'})`;
+                    result.emoji = '📅';
+                } else if (!result.is_history) {
+                    result.reason = '역사 공부 자료가 아닙니다';
+                    result.emoji = '📚';
+                } else if (!result.content_match) {
+                    result.reason = '신고한 내용과 사진이 다릅니다';
+                    result.emoji = '🔍';
+                }
+            }
+
+            // Storage 업로드
+            let photoURL = '';
+            try {
+                const ext = file.name.split('.').pop() || 'jpg';
+                const refPath = sRef(storage, `historyCert/${currentUser.num}_${Date.now()}.${ext}`);
+                await uploadBytes(refPath, file);
+                photoURL = await getDownloadURL(refPath);
+            } catch(e) { console.warn('Storage 업로드 실패:', e); }
+
+            // 인증 기록 저장
+            const certData = {
+                studentNum: String(currentUser.num),
+                studentName: currentUser.name,
+                cls: currentUser.cls,
+                grade: currentUser.grade,
+                date: todayISO,
+                time: new Date().toLocaleString('ko-KR'),
+                studyContent: content,
+                result: result.pass ? 'pass' : 'fail',
+                reason: result.reason || '',
+                photoDate: result.photo_date || '',
+                emoji: result.emoji || (result.pass ? '✅' : '❌'),
+                photoURL
+            };
+            await push(ref(db, 'historyMileage/studyCert'), certData);
+
+            // 통과 → 누적 일수 +1
+            let newDayCount = globalData.mileage?.[currentUser.num] || 0;
+            if (result.pass) {
+                const mSnap = await get(ref(db, `historyMileage/mileage/${currentUser.num}`));
+                const before = mSnap.val() || 0;
+                newDayCount = before + 1;
+                await set(ref(db, `historyMileage/mileage/${currentUser.num}`), newDayCount);
+                await set(ref(db, `historyMileage/totalEarned/${currentUser.num}`), newDayCount);
+
+                // 레벨업 체크
+                const beforeLv = getLevel(before).level;
+                const afterLv = getLevel(newDayCount).level;
+                if (afterLv > beforeLv) {
+                    setTimeout(() => showCelebration({
+                        icon: '🎉', title: `Lv.${afterLv} 달성!`,
+                        message: `${currentUser.name} · ${newDayCount}일째 열공 중`
+                    }), 1000);
+                } else if ([7, 14, 30, 50, 100].includes(newDayCount)) {
+                    setTimeout(() => showCelebration({
+                        icon: '🏆', title: `${newDayCount}일 달성!`,
+                        message: '꾸준함이 최고의 무기입니다'
+                    }), 1000);
+                }
+            }
+
+            showCertResult(result, newDayCount);
+        } catch(err) {
+            console.error(err);
+            showRichToast({
+                icon: '⚠️', title: '오류 발생',
+                message: '잠시 후 다시 시도해주세요', kind: 'error'
+            });
+        } finally {
+            btn.disabled = false; btn.textContent = '제출하기';
+            document.getElementById('cert-file').value = '';
+            document.getElementById('cert-content').value = '';
+            document.getElementById('cert-preview').style.display = 'none';
+            document.getElementById('cert-placeholder').style.display = 'flex';
+            document.getElementById('cert-content-count').textContent = '0 / 60자 (공백 제외)';
         }
     };
 
-    window.deleteStudent = async (studentId) => {
-        if (!confirm(`학번 ${studentId} 학생을 명단에서 삭제하시겠습니까?\n\n· 인증 기록과 누적 일수는 데이터베이스에 그대로 남습니다\n· 다른 HOISTORY 앱에서도 이 학생이 사라집니다`)) return;
-        const s = students.find(x => x.studentId === studentId);
-        if (!s) return;
-        await remove(ref(db, `students/${s.key}`));
-        showToast('삭제 완료');
-    };
-
-    // ─────────────────────────────────────
-    // 인증 내역
-    // ─────────────────────────────────────
-    function populateCertsClassFilter() {
-        const sel = document.getElementById('certs-class-filter');
-        if (!sel) return;
-        const classes = [...new Set(students.map(s => s.cls).filter(Boolean))].sort();
-        const cur = sel.value;
-        sel.innerHTML = '<option value="all">전체 반</option>';
-        classes.forEach(c => {
-            sel.innerHTML += `<option value="${c}">${c}반</option>`;
-        });
-        if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+    function showCertResult(result, totalDays) {
+        const box = document.getElementById('cert-result');
+        box.style.display = 'block';
+        box.className = 'cert-result ' + (result.pass ? 'pass' : 'fail');
+        document.getElementById('cert-result-icon').textContent =
+            result.emoji || (result.pass ? '🎉' : '😢');
+        document.getElementById('cert-result-title').textContent =
+            result.pass ? '체크 완료!' : '체크 실패';
+        document.getElementById('cert-result-desc').textContent =
+            result.pass
+                ? `오늘도 역사 공부 인증 완료`
+                : (result.reason || '재시도해 주세요');
+        document.getElementById('cert-result-meta').textContent =
+            result.pass
+                ? `누적 ${totalDays}일째 열공 🔥`
+                : '오늘 날짜 + 역사 자료 사진을 다시 올려주세요';
     }
 
-    window.renderCerts = () => {
-        const classF = document.getElementById('certs-class-filter')?.value || 'all';
-        const resultF = document.getElementById('certs-result-filter')?.value || 'all';
-        const dateF = document.getElementById('certs-date-filter')?.value || '';
-        const list = document.getElementById('certs-list');
-        if (!list) return;
+    // ────────────────────────────────────────────────────────
+    // 렌더링
+    // ────────────────────────────────────────────────────────
+    function renderAll() {
+        if (!currentUser) return;
+        renderHome();
+        renderRank();
+    }
 
-        let rows = [...allCerts].sort((a, b) => new Date(b.time) - new Date(a.time));
-        if (classF !== 'all') rows = rows.filter(c => c.cls === classF);
-        if (resultF !== 'all') rows = rows.filter(c => c.result === resultF);
-        if (dateF) rows = rows.filter(c => c.date === dateF);
+    function renderHome() {
+        const mileage = globalData.mileage || {};
+        const days = mileage[currentUser.num] || 0;
 
-        if (rows.length === 0) {
-            list.innerHTML = '<p class="hi-empty">조건에 맞는 인증이 없어요</p>';
+        document.getElementById('home-day-count').textContent = days;
+        document.getElementById('home-day-sub').textContent =
+            days === 0
+                ? '아직 시작 전 — 첫 체크를 해보세요!'
+                : `${currentUser.name} 학생 · 꾸준히 가고 있어요`;
+
+        // 최근 5개 인증 내역
+        renderMyHistory();
+    }
+
+    function renderMyHistory() {
+        const list = document.getElementById('home-history-list');
+        const my = Object.values(globalData.studyCert || {})
+            .filter(c => String(c.studentNum) === String(currentUser.num)
+                      && c.result === 'pass')
+            .sort((a,b) => new Date(b.time) - new Date(a.time))
+            .slice(0, 5);
+
+        if (my.length === 0) {
+            list.innerHTML = '<p class="hi-empty">아직 인증 기록이 없어요</p>';
             return;
         }
 
-        const showLimit = 100;
-        const showRows = rows.slice(0, showLimit);
+        // 인증 순서대로 N일째 부여 (오래된 게 1일째)
+        const allMy = Object.values(globalData.studyCert || {})
+            .filter(c => String(c.studentNum) === String(currentUser.num)
+                      && c.result === 'pass')
+            .sort((a,b) => new Date(a.time) - new Date(b.time));
+        const dayMap = new Map();
+        allMy.forEach((c, i) => dayMap.set(c.time, i + 1));
 
-        list.innerHTML = showRows.map(c => `
-            <div class="cert-detail">
-                ${c.photoURL
-                    ? `<img class="cert-thumb" src="${c.photoURL}" onclick="window.showPhoto('${c.photoURL}')">`
-                    : `<div class="cert-thumb">📷</div>`}
-                <div class="body">
-                    <div class="name">
-                        ${escapeHtml(c.studentName || '-')}
-                        <span class="meta-inline">${c.studentNum || ''} · ${c.cls || '?'}반</span>
-                        <span class="badge ${c.result === 'pass' ? 'badge-pass' : 'badge-fail'}">${c.emoji || ''} ${c.result === 'pass' ? '통과' : '실패'}</span>
-                        ${c.manualOverride ? '<span class="badge badge-override">수동 변경</span>' : ''}
-                    </div>
-                    <div class="content">"${escapeHtml(c.studyContent || '-')}"</div>
-                    <div class="meta">${c.time || ''} · ${escapeHtml(c.reason || '-')}</div>
-                    <div class="actions">
-                        ${c.result === 'fail'
-                            ? `<button class="hi-btn hi-btn-outline hi-btn-xs" onclick="window.overrideCert('${c.id}', 'pass')">✓ 통과로 변경 (+1일)</button>`
-                            : `<button class="hi-btn hi-btn-outline hi-btn-xs hi-btn-danger" onclick="window.overrideCert('${c.id}', 'fail')">✗ 통과 취소 (-1일)</button>`}
-                        <button class="hi-btn hi-btn-outline hi-btn-xs hi-btn-danger" onclick="window.deleteCert('${c.id}')">기록 삭제</button>
-                    </div>
+        list.innerHTML = my.map(c => `
+            <div class="history-item">
+                <span class="history-day-tag">${dayMap.get(c.time) || '?'}일째</span>
+                <div class="history-body">
+                    <div class="history-content">${escapeHtml(c.studyContent || '-')}</div>
+                    <div class="history-date">${c.date}</div>
                 </div>
             </div>
         `).join('');
-
-        if (rows.length > showLimit) {
-            list.innerHTML += `<p class="hi-empty">최근 ${showLimit}건만 표시됩니다 (전체 ${rows.length}건)</p>`;
-        }
-    };
-
-    window.clearCertsFilter = () => {
-        document.getElementById('certs-class-filter').value = 'all';
-        document.getElementById('certs-result-filter').value = 'all';
-        document.getElementById('certs-date-filter').value = '';
-        window.renderCerts();
-    };
-
-    window.showPhoto = (url) => {
-        document.getElementById('photo-modal-img').src = url;
-        document.getElementById('photo-modal').classList.add('open');
-    };
-
-    window.overrideCert = async (certId, newResult) => {
-        const cert = allCerts.find(c => c.id === certId);
-        if (!cert) return;
-        const oldResult = cert.result;
-        if (oldResult === newResult) return;
-
-        const delta = newResult === 'pass' ? 1 : -1;
-        const studentNum = cert.studentNum;
-
-        if (!confirm(`이 인증을 "${newResult === 'pass' ? '통과' : '실패'}"로 변경하시겠습니까?\n\n· ${cert.studentName}(${studentNum}) 누적 일수가 ${delta > 0 ? '+' : ''}${delta} 됩니다`)) return;
-
-        const curDays = mileage[studentNum] || 0;
-        const newDays = Math.max(0, curDays + delta);
-
-        try {
-            await update(ref(db, `historyMileage/studyCert/${certId}`), {
-                result: newResult,
-                manualOverride: {
-                    at: new Date().toLocaleString('ko-KR'),
-                    from: oldResult,
-                    to: newResult
-                }
-            });
-            await set(ref(db, `historyMileage/mileage/${studentNum}`), newDays);
-            await set(ref(db, `historyMileage/totalEarned/${studentNum}`), newDays);
-            showToast('변경 완료');
-        } catch (e) {
-            showToast('변경 실패', 'error');
-        }
-    };
-
-    window.deleteCert = async (certId) => {
-        if (!confirm('이 인증 기록을 삭제하시겠습니까?\n\n⚠️ 누적 일수는 자동으로 조정되지 않습니다.\n필요하면 학생 수정에서 일수를 따로 조정해주세요.')) return;
-        await remove(ref(db, `historyMileage/studyCert/${certId}`));
-        showToast('삭제 완료');
-    };
-
-    // ─────────────────────────────────────
-    // 설정
-    // ─────────────────────────────────────
-    window.saveApiKey = async () => {
-        const key = document.getElementById('setting-api-key').value.trim();
-        if (!key) return showToast('API 키를 입력해주세요', 'error');
-        if (!key.startsWith('sk-ant-')) {
-            if (!confirm('Anthropic 키 형식(sk-ant-...)이 아닌 것 같아요. 그래도 저장하시겠습니까?')) return;
-        }
-        await set(ref(db, 'historyMileage/config/claudeApiKey'), key);
-        document.getElementById('setting-api-key').value = '';
-        showToast('API 키 저장 완료');
-    };
-
-    window.toggleApiKeyVisible = () => {
-        const el = document.getElementById('setting-api-key');
-        el.type = el.type === 'password' ? 'text' : 'password';
-    };
-
-    window.saveHolidays = async () => {
-        const text = document.getElementById('setting-holidays').value;
-        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-        const valid = lines.filter(l => /^\d{4}-\d{2}-\d{2}$/.test(l));
-        const invalid = lines.length - valid.length;
-
-        await set(ref(db, 'historyMileage/config/holidays'), valid);
-        showToast(`${valid.length}개 공휴일 저장${invalid > 0 ? ` (${invalid}개 무시)` : ''}`);
-    };
-
-    window.changeAdminPw = async () => {
-        const pw1 = document.getElementById('setting-new-pw').value;
-        const pw2 = document.getElementById('setting-new-pw2').value;
-
-        if (!pw1 || pw1.length < 4) return showToast('비밀번호는 4자 이상이어야 해요', 'error');
-        if (pw1 !== pw2) return showToast('비밀번호가 일치하지 않아요', 'error');
-
-        await set(ref(db, 'historyMileage/config/adminPw'), pw1);
-        document.getElementById('setting-new-pw').value = '';
-        document.getElementById('setting-new-pw2').value = '';
-        showToast('비밀번호 변경 완료');
-    };
-
-    window.resetAllCerts = async () => {
-        if (!confirm('⚠️ 모든 인증 기록을 삭제합니다.\n\n· 학생 명단과 누적 일수는 유지됩니다\n· 인증 내역(사진, 신고 내용)만 사라집니다\n\n정말 진행하시겠습니까?')) return;
-        if (!confirm('마지막 확인: 정말로 모든 인증 기록을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) return;
-        await remove(ref(db, 'historyMileage/studyCert'));
-        showToast('모든 인증 기록 삭제 완료');
-    };
-
-    // ─────────────────────────────────────
-    // 전체 렌더
-    // ─────────────────────────────────────
-    function renderAll() {
-        // CERTS 탭이 활성이면 갱신
-        if (!document.getElementById('tab-certs').classList.contains('hi-hidden')) {
-            populateCertsClassFilter();
-            window.renderCerts();
-        }
-        // SETTINGS > STUDENTS sub-tab이 활성이면 갱신
-        if (!document.getElementById('tab-settings').classList.contains('hi-hidden') &&
-            !document.getElementById('sub-students').classList.contains('hi-hidden')) {
-            populateStudentClassFilter();
-            window.renderStudents();
-        }
     }
+
+    function populateClassFilter() {
+        const sel = document.getElementById('rank-class-filter');
+        const classes = [...new Set(studentList.map(s => `${s.cls}`).filter(Boolean))]
+            .sort();
+        const cur = sel.value;
+        sel.innerHTML = '<option value="all">전체</option>';
+        if (currentUser?.cls) {
+            sel.innerHTML += `<option value="${currentUser.cls}">${currentUser.cls}반 (우리반)</option>`;
+        }
+        classes.forEach(c => {
+            if (c === currentUser?.cls) return;
+            sel.innerHTML += `<option value="${c}">${c}반</option>`;
+        });
+        if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+        else if (currentUser?.cls) sel.value = currentUser.cls;
+    }
+
+    window.setRankSort = (sort) => {
+        rankSort = sort;
+        document.querySelectorAll('#rank-sort-toggle button').forEach(b => {
+            b.classList.toggle('active', b.dataset.sort === sort);
+        });
+        renderRank();
+    };
+
+    window.renderRank = () => {
+        const sel = document.getElementById('rank-class-filter');
+        const filter = sel?.value || 'all';
+        const list = document.getElementById('rank-list');
+        const mileage = globalData.mileage || {};
+
+        let rows = studentList
+            .filter(s => String(s.num) !== '0' && String(s.num) !== '00000') // 관리자 테스트 학번 집계 제외
+            .filter(s => filter === 'all' || s.cls === filter)
+            .map(s => ({
+                num: s.num,
+                studentIdStr: s.studentIdStr || String(s.num).padStart(5, '0'),
+                name: s.name,
+                cls: s.cls,
+                days: mileage[s.num] || 0
+            }));
+
+        if (rankSort === 'days') {
+            rows.sort((a,b) => b.days - a.days || a.num - b.num);
+        } else {
+            rows.sort((a,b) => a.num - b.num);
+        }
+
+        if (rows.length === 0) {
+            list.innerHTML = '<p class="hi-empty">학생이 없어요</p>';
+            return;
+        }
+
+        // 동점자 처리: 마일리지순일 때 같은 일수면 같은 순위 부여
+        // (예: 1, 2, 2, 4 — 표준 경기 순위)
+        let displayRank = [];
+        if (rankSort === 'days') {
+            let curRank = 1;
+            rows.forEach((r, idx) => {
+                if (idx > 0 && r.days !== rows[idx-1].days) {
+                    curRank = idx + 1;
+                }
+                displayRank.push(curRank);
+            });
+        }
+
+        list.innerHTML = rows.map((r, idx) => {
+            const isSelf = currentUser && String(r.num) === String(currentUser.num);
+            const rank = rankSort === 'days' ? displayRank[idx] : null;
+            const rankClass = rankSort === 'days' && rank === 1 ? 'top1'
+                            : rankSort === 'days' && rank === 2 ? 'top2'
+                            : rankSort === 'days' && rank === 3 ? 'top3' : '';
+            let rankDisplay;
+            if (rankSort === 'days') {
+                if (rank === 1) rankDisplay = '🥇';
+                else if (rank === 2) rankDisplay = '🥈';
+                else if (rank === 3) rankDisplay = '🥉';
+                else rankDisplay = rank;
+            } else {
+                rankDisplay = parseInt(parseNumber(r.studentIdStr), 10); // 학번순일 때는 번호만
+            }
+            return `
+            <div class="rank-row ${isSelf ? 'self' : ''} ${rankClass}">
+                <div class="rank-num">${rankDisplay}</div>
+                <div class="rank-info" onclick="window.showStudentDetail('${r.studentIdStr}')" style="cursor:pointer;">
+                    <div class="rank-name-line">
+                        <span class="rank-name">${escapeHtml(r.name)}</span>
+                        ${isSelf ? '<span class="rank-me">나</span>' : ''}
+                    </div>
+                    <div class="rank-meta">${formatGradeClassNumber(r.studentIdStr) || r.cls + '반'}</div>
+                </div>
+                <div class="rank-days">${r.days}<small>일</small></div>
+            </div>`;
+        }).join('');
+    };
+
+    // ────────────────────────────────────────────────────────
+    // 유틸
+    // ────────────────────────────────────────────────────────
+    function fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result.split(',')[1]);
+            r.onerror = reject;
+            r.readAsDataURL(file);
+        });
+    }
+
+    // ────────────────────────────────────────────────────────
+    // 학생 상세 모달 — 랭킹에서 이름 클릭 시
+    // ────────────────────────────────────────────────────────
+    window.showStudentDetail = (studentId) => {
+        const sid = String(studentId);
+        const student = studentList.find(s => String(s.num) === sid || s.studentIdStr === sid);
+        if (!student) return;
+
+        const certs = Object.values(globalData.studyCert || {})
+            .filter(c => String(c.studentNum) === sid && c.result === 'pass')
+            .sort((a,b) => new Date(a.time) - new Date(b.time)); // 오래된 순
+
+        const days = (globalData.mileage || {})[sid] || 0;
+
+        document.getElementById('detail-name').textContent = student.name;
+        document.getElementById('detail-sub').textContent =
+            `${formatGradeClassNumber(sid)} · 누적 ${days}일째 열공`;
+
+        const datesEl = document.getElementById('detail-dates');
+        if (certs.length === 0) {
+            datesEl.innerHTML = '<p class="hi-empty" style="padding: 24px 0;">아직 인증 기록이 없어요</p>';
+        } else {
+            datesEl.innerHTML = certs.map((c, i) => {
+                const d = new Date(c.date);
+                const dow = ['일','월','화','수','목','금','토'][d.getDay()];
+                return `
+                <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:var(--hi-bg-mid); border-radius:8px; margin-bottom:4px;">
+                    <span style="background:var(--hi-accent); color:var(--hi-on-accent); border-radius:9999px; padding:3px 10px; font-size:11px; font-weight:800; min-width:48px; text-align:center;">${i+1}일째</span>
+                    <span style="flex:1; font-size:13px; font-feature-settings:'tnum';">${c.date} (${dow})</span>
+                    <span style="font-size:11px; color:var(--hi-text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:140px;">${escapeHtml(c.studyContent || '')}</span>
+                </div>`;
+            }).join('');
+        }
+        document.getElementById('student-detail-modal').style.display = 'flex';
+    };
+
+    window.closeStudentDetail = () => {
+        document.getElementById('student-detail-modal').style.display = 'none';
+    };
 
     function escapeHtml(s) {
         return String(s || '')
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 </script>
 </body>
