@@ -6,260 +6,22 @@
   <title>Blind 려 어드민 — 호이스토리 콘솔</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
   <link rel="stylesheet" href="../shared/theme.css">
+  <link rel="stylesheet" href="../shared/admin-base.css">
   <style>
-    html, body { height: 100%; font-family: 'Pretendard', sans-serif; background: var(--hi-bg-base); color: var(--hi-text); }
+    /* ── blind_ryeo 고유 스타일 ── */
 
-    /* 로그인 */
-    #loginScreen {
-      position: fixed; inset: 0; z-index: 1000;
-      background: var(--hi-bg-base);
-      display: flex; align-items: center; justify-content: center; padding: 24px;
-    }
-    .login-card {
-      background: var(--hi-bg-surface);
-      border-radius: 16px;
-      padding: 40px 32px;
-      width: 100%; max-width: 380px;
-      box-shadow: var(--hi-shadow-dialog);
-      border: 1px solid var(--hi-border);
-      text-align: center;
-    }
-    .login-icon { font-size: 40px; margin-bottom: 12px; }
-    .login-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; color: var(--hi-text); }
-    .login-sub { font-size: 13px; color: var(--hi-text-muted); margin-bottom: 28px; }
-    .login-err { font-size: 13px; color: var(--hi-negative); margin-top: 10px; min-height: 18px; display: none; }
-    .login-err.show { display: block; }
-
-    /* 어드민 앱 */
-    #adminApp { display: none; min-height: 100vh; }
-
-    /* 상단바 */
-    .topbar {
-      background: var(--hi-bg-surface);
-      border-bottom: 1px solid var(--hi-border);
-      padding: 0 20px;
-      height: 56px;
-      display: flex; align-items: center; justify-content: space-between;
-      position: sticky; top: 0; z-index: 200;
-    }
-    .topbar-left { display: flex; align-items: center; gap: 12px; }
-    .topbar-back {
-      display: inline-flex; align-items: center; gap: 4px;
-      font-size: 12px; color: var(--hi-text-muted);
-      text-decoration: none; padding: 6px 10px;
-      border-radius: 6px; transition: background 0.15s;
-    }
-    .topbar-back:hover { background: var(--hi-bg-mid); color: var(--hi-text); }
-    .topbar-title { font-size: 16px; font-weight: 800; color: var(--hi-text); }
-    .topbar-badge {
-      font-size: 10px; font-weight: 800;
-      background: var(--hi-accent-soft);
-      color: var(--hi-accent);
-      border-radius: 9999px; padding: 3px 10px;
-      letter-spacing: 0.5px;
-    }
-    .topbar-right { display: flex; align-items: center; gap: 10px; }
-
-    /* 메인 탭 */
-    .main-tabs {
-      display: flex;
-      background: var(--hi-bg-surface);
-      border-bottom: 1px solid var(--hi-border);
-      padding: 0 20px;
-      position: sticky; top: 56px; z-index: 100;
-    }
-    .main-tab {
-      padding: 14px 20px;
-      font-size: 13px; font-weight: 700;
-      color: var(--hi-text-muted);
-      border: none; background: none; cursor: pointer;
-      border-bottom: 2px solid transparent;
-      font-family: inherit;
-      transition: 0.15s;
-      letter-spacing: 0.5px;
-    }
-    .main-tab:hover { color: var(--hi-text); }
-    .main-tab.active { color: var(--hi-accent); border-bottom-color: var(--hi-accent); }
-
-    /* 서브탭 */
-    .sub-tabs {
-      display: flex; gap: 6px;
-      padding: 14px 20px 0;
-      border-bottom: 1px solid var(--hi-border);
-      background: var(--hi-bg-surface);
-      overflow-x: auto;
-    }
-    .sub-tab {
-      padding: 8px 16px;
-      font-size: 12px; font-weight: 700;
-      color: var(--hi-text-muted);
-      border: none; background: none; cursor: pointer;
-      border-bottom: 2px solid transparent;
-      font-family: inherit;
-      transition: 0.15s;
-      margin-bottom: -1px;
-      white-space: nowrap;
-    }
-    .sub-tab:hover { color: var(--hi-text); }
-    .sub-tab.active { color: var(--hi-accent); border-bottom-color: var(--hi-accent); }
-
-    .content { max-width: 720px; margin: 0 auto; padding: 24px 20px 60px; }
-
-    /* 패널 */
-    .panel { display: none; }
-    .panel.active { display: block; }
-
-    /* 정렬 바 */
-    .sort-bar {
-      display: flex; justify-content: flex-end; align-items: center;
-      padding: 4px 0; gap: 8px; margin-bottom: 12px;
-    }
-    .sort-box {
-      display: flex; background: var(--hi-bg-mid);
-      border-radius: 9999px; padding: 3px;
-      border: 1px solid var(--hi-border);
-    }
-    .sort-btn {
-      font-size: 11px; font-weight: 700; border: none;
-      border-radius: 9999px; padding: 5px 12px;
-      cursor: pointer; font-family: inherit;
-      color: var(--hi-text-muted); background: none;
-      transition: 0.15s;
-    }
-    .sort-btn.active { background: var(--hi-accent); color: white; }
-    .pick-filter-btn {
-      font-size: 11px; font-weight: 700;
-      border: 1px solid var(--hi-border);
-      border-radius: 9999px; padding: 5px 12px;
-      cursor: pointer; font-family: inherit;
-      background: var(--hi-bg-surface);
-      color: var(--hi-text-muted);
-      transition: 0.15s;
-    }
-    .pick-filter-btn.active {
-      background: #fef3c7; color: #92400e; border-color: #fcd34d;
-    }
-
-    /* 통계 칩 */
-    .stat-chips {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
-      margin-bottom: 16px;
-    }
-    .stat-chip {
-      background: var(--hi-bg-surface);
-      border: 1px solid var(--hi-border);
-      border-radius: 10px;
-      padding: 14px 10px;
-      text-align: center;
-    }
-    .stat-chip-btn { cursor: pointer; transition: 0.15s; }
-    .stat-chip-btn:hover { border-color: var(--hi-accent); }
-    .stat-num {
-      font-size: 22px; font-weight: 800;
-      color: var(--hi-accent);
-      display: block; margin-bottom: 3px;
-    }
-    .stat-num.red { color: var(--hi-negative); }
-    .stat-num.yellow { color: var(--hi-warning); }
-    .stat-num.green { color: var(--hi-positive); }
-    .stat-num.gray { color: var(--hi-text-muted); }
-    .stat-num.emoji { font-size: 20px; line-height: 1.3; }
-    .stat-lbl { font-size: 11px; color: var(--hi-text-muted); }
-
-    /* 게시글 카드 */
-    .feed-wrap {
-      background: var(--hi-bg-surface);
-      border: 1px solid var(--hi-border);
-      border-radius: 12px; overflow: hidden;
-      margin-bottom: 16px;
-    }
-    .post-card {
-      padding: 16px;
-      border-bottom: 1px solid var(--hi-border-faint);
-    }
-    .post-card:last-child { border-bottom: none; }
-    .post-top {
-      display: flex; align-items: center; gap: 6px;
-      margin-bottom: 4px; flex-wrap: wrap;
-    }
-    .post-org { font-size: 12px; font-weight: 700; color: var(--hi-text); }
-    .post-nick { font-size: 12px; color: var(--hi-text-muted); }
-    .post-identity {
-      font-size: 11px; color: var(--hi-accent); font-weight: 700;
-      background: var(--hi-accent-soft);
-      border: 1px solid var(--hi-accent-soft);
-      border-radius: 4px; padding: 1px 6px;
-    }
-    .post-time { font-size: 11px; color: var(--hi-text-muted); margin-left: auto; }
+    /* 카테고리 점 색상 */
     .cat-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-    .cat-dot.central { background: #14b8a6; }
-    .cat-dot.local { background: #3b82f6; }
+    .cat-dot.central  { background: #14b8a6; }
+    .cat-dot.local    { background: #3b82f6; }
     .cat-dot.military { background: #ef4444; }
-    .cat-dot.edu { background: #a855f7; }
-    .edited-tag { font-size: 10px; color: var(--hi-text-muted); }
+    .cat-dot.edu      { background: #a855f7; }
 
-    .grade-badge {
-      font-size: 10px; font-weight: 800;
-      border-radius: 4px; padding: 2px 6px; margin-left: 2px;
-    }
-    .grade-badge.pass { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
-    .grade-badge.fail { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    /* 기관명 (base에 없는 요소) */
+    .post-org { font-size: 12px; font-weight: 700; color: var(--hi-text); }
 
-    .post-body {
-      font-size: 14px; color: var(--hi-text-soft);
-      line-height: 1.6; margin: 6px 0 10px;
-      white-space: pre-wrap;
-    }
-    .post-actions {
-      display: flex; align-items: center; gap: 14px;
-      padding-top: 8px; border-top: 1px solid var(--hi-border-faint);
-    }
-    .like-count {
-      display: flex; align-items: center; gap: 4px;
-      font-size: 12px; color: var(--hi-text-muted);
-    }
-    .pick-badge {
-      display: inline-block;
-      background: #fef3c7; color: #92400e;
-      border: 1px solid #fcd34d;
-      border-radius: 5px; padding: 1px 7px;
-      font-size: 11px; font-weight: 700; margin-right: 2px;
-    }
-    .admin-actions { margin-left: auto; display: flex; gap: 6px; align-items: center; }
-    .btn-pick {
-      font-size: 14px; background: none; border: none;
-      cursor: pointer; color: var(--hi-text-muted);
-      transition: color 0.15s; padding: 0 2px; line-height: 1;
-    }
-    .btn-pick.picked { color: var(--hi-warning); }
-    .btn-pick:hover { color: var(--hi-warning); }
-    .btn-del {
-      font-size: 11px; font-weight: 700; color: var(--hi-negative);
-      background: var(--hi-bg-surface);
-      border: 1px solid var(--hi-border); border-radius: 5px;
-      padding: 3px 9px; cursor: pointer; font-family: inherit;
-      transition: 0.15s;
-    }
-    .btn-del:hover { border-color: var(--hi-negative); background: #fee2e2; }
-
-    /* CLASS 카드 */
-    .class-card {
-      background: var(--hi-bg-surface);
-      border: 1px solid var(--hi-border);
-      border-radius: 12px; overflow: hidden;
-      margin-bottom: 12px;
-    }
-    .class-card-header {
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--hi-border);
-      display: flex; align-items: center; gap: 8px;
-      background: var(--hi-bg-mid);
-    }
-    .student-name { font-size: 13px; font-weight: 800; color: var(--hi-text); }
-    .student-id { font-size: 11px; color: var(--hi-text-muted); }
-    .no-post { font-size: 12px; color: var(--hi-text-muted); margin-left: auto; font-style: italic; }
-    .post-count { font-size: 11px; color: var(--hi-accent); margin-left: auto; font-weight: 700; }
-
+    /* 설정 탭 전용 */
+    .form-group { margin-bottom: 14px; }
     .filter-select {
       padding: 9px 12px;
       border: 1px solid var(--hi-border);
@@ -270,259 +32,6 @@
       color: var(--hi-text); cursor: pointer;
     }
     .filter-select:focus { border-color: var(--hi-accent); }
-
-    /* 설정 섹션 */
-    .setting-section {
-      background: var(--hi-bg-surface);
-      border: 1px solid var(--hi-border);
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 14px;
-    }
-    .setting-section h3 {
-      font-size: 14px; font-weight: 800; margin-bottom: 6px; color: var(--hi-text);
-    }
-    .setting-section p {
-      font-size: 13px; color: var(--hi-text-muted);
-      margin-bottom: 16px; line-height: 1.6;
-    }
-    .setting-row {
-      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-    }
-    .setting-row select, .setting-row input { flex: 1; min-width: 160px; }
-
-    /* 위험 구역 */
-    .danger-section {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 14px;
-    }
-    .danger-section h3 {
-      font-size: 14px; font-weight: 800;
-      color: var(--hi-negative); margin-bottom: 6px;
-    }
-    .danger-section p {
-      font-size: 13px; color: #991b1b;
-      margin-bottom: 14px; line-height: 1.6;
-    }
-
-    /* AI 분석 버튼 */
-    .btn-ai {
-      background: linear-gradient(135deg, #7c3aed, #4f46e5);
-      color: #fff; padding: 11px 22px;
-      border-radius: 9999px;
-      font-size: 13px; font-weight: 800;
-      border: none; cursor: pointer;
-      font-family: inherit;
-      transition: 0.15s;
-      display: inline-flex; align-items: center; gap: 6px;
-    }
-    .btn-ai:hover { opacity: 0.88; transform: scale(1.02); }
-    .btn-ai:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-    .ai-status {
-      font-size: 12px; color: var(--hi-text-muted);
-      font-weight: 700; margin-top: 10px; min-height: 18px;
-    }
-
-    /* 빈 상태 */
-    .empty-state {
-      padding: 48px 20px; text-align: center;
-      color: var(--hi-text-muted); font-size: 14px; line-height: 1.7;
-    }
-    .empty-state .icon { font-size: 36px; margin-bottom: 10px; }
-
-    /* 로딩 */
-    .loading-state {
-      padding: 48px 20px; text-align: center;
-      color: var(--hi-text-muted); font-size: 14px;
-      display: flex; flex-direction: column; align-items: center; gap: 12px;
-    }
-    .spinner {
-      width: 22px; height: 22px;
-      border: 2px solid var(--hi-border);
-      border-top-color: var(--hi-accent);
-      border-radius: 50%; animation: spin 0.7s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* 모달 */
-    .modal-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
-      z-index: 500; display: none; align-items: flex-end; justify-content: center;
-    }
-    .modal-overlay.show { display: flex; }
-    .modal-sheet {
-      background: var(--hi-bg-surface);
-      width: 100%; max-width: 540px;
-      border-radius: 16px 16px 0 0;
-      padding: 0 0 40px;
-      max-height: 92vh; overflow-y: auto;
-    }
-    .modal-handle {
-      width: 36px; height: 4px;
-      background: var(--hi-border-light);
-      border-radius: 2px; margin: 16px auto 0;
-    }
-    .modal-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 16px 20px; border-bottom: 1px solid var(--hi-border);
-    }
-    .modal-header h3 { font-size: 15px; font-weight: 800; color: var(--hi-text); }
-    .header-sub {
-      font-size: 11px; color: var(--hi-text-muted);
-      font-weight: 700; margin-top: 3px;
-    }
-    .modal-close {
-      background: none; border: none; cursor: pointer;
-      font-size: 18px; color: var(--hi-text-muted);
-      padding: 4px 8px; font-family: inherit;
-    }
-    .modal-tabs { display: flex; border-bottom: 1px solid var(--hi-border); }
-    .modal-tab {
-      flex: 1; background: none; border: none;
-      padding: 11px 4px;
-      font-size: 12px; font-weight: 700;
-      color: var(--hi-text-muted); cursor: pointer;
-      font-family: inherit;
-      text-align: center; transition: 0.15s;
-      border-bottom: 2px solid transparent;
-      margin-bottom: -1px;
-    }
-    .modal-tab:hover { color: var(--hi-text); }
-    .modal-tab.active {
-      color: var(--hi-accent);
-      border-bottom-color: var(--hi-accent);
-    }
-    .modal-body { padding: 16px 20px; }
-
-    /* 활동 칩 */
-    .activity-chip {
-      display: inline-block;
-      padding: 5px 12px; border-radius: 9999px;
-      font-size: 12px; font-weight: 700; margin: 3px;
-    }
-    .chip-absent { background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; }
-    .chip-fail-marked { background: #fef3c7; border: 1px solid #fcd34d; color: #92400e; }
-    .chip-pass { background: #d1fae5; border: 1px solid #6ee7b7; color: #065f46; }
-    .chip-ok {
-      color: var(--hi-positive);
-      font-size: 14px; font-weight: 700;
-      padding: 16px 0; display: block; text-align: center;
-    }
-
-    .reason-section-title {
-      font-size: 11px; font-weight: 800;
-      color: var(--hi-text-muted);
-      letter-spacing: 0.05em; margin-bottom: 8px;
-    }
-
-    /* AI 리뷰 카드 */
-    .review-card {
-      background: var(--hi-bg-mid);
-      border-radius: 10px;
-      padding: 14px 16px;
-      margin-bottom: 10px;
-      border: 1px solid var(--hi-border);
-      overflow: hidden;
-    }
-    .review-card-top {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 8px; gap: 8px; flex-wrap: wrap;
-    }
-    .review-card-name {
-      font-size: 14px; font-weight: 800;
-      word-break: break-all;
-      display: flex; align-items: center; gap: 6px;
-    }
-    .review-card-org {
-      font-size: 11px; color: var(--hi-text-muted); font-weight: 700;
-      background: var(--hi-bg-surface);
-      border: 1px solid var(--hi-border);
-      border-radius: 4px; padding: 1px 6px;
-    }
-    .review-card-reason {
-      font-size: 11px; font-weight: 700; color: #7c3aed;
-      background: #ede9fe;
-      border: 1px solid #c4b5fd;
-      padding: 3px 10px; border-radius: 9999px;
-      white-space: nowrap;
-    }
-    .review-card-text {
-      font-size: 13px; line-height: 1.65;
-      color: var(--hi-text-soft);
-      margin-bottom: 10px;
-      word-break: break-word;
-      background: var(--hi-bg-surface);
-      padding: 8px 12px; border-radius: 6px;
-      border: 1px solid var(--hi-border);
-    }
-    .review-card-meta {
-      font-size: 11px; color: var(--hi-text-muted);
-      margin-bottom: 10px;
-      word-break: break-word; line-height: 1.5;
-    }
-
-    .grade-toggle-wrap {
-      display: flex; align-items: center; gap: 0;
-      border: 1px solid var(--hi-border);
-      border-radius: 9999px; overflow: hidden;
-      flex-shrink: 0;
-    }
-    .grade-toggle-btn {
-      background: var(--hi-bg-surface);
-      color: var(--hi-text-muted);
-      padding: 6px 14px;
-      font-size: 12px; font-weight: 800;
-      cursor: pointer; transition: 0.15s; border: none;
-      font-family: inherit;
-    }
-    .grade-toggle-btn.pass.active {
-      background: var(--hi-positive); color: white;
-    }
-    .grade-toggle-btn.fail.active {
-      background: var(--hi-negative); color: white;
-    }
-    .grade-toggle-btn:hover:not(.active) { color: var(--hi-text); }
-
-    /* 확인 모달 */
-    .confirm-overlay {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
-      z-index: 600; display: none; align-items: center; justify-content: center; padding: 20px;
-    }
-    .confirm-overlay.show { display: flex; }
-    .confirm-box {
-      background: var(--hi-bg-surface);
-      border-radius: 14px; padding: 24px;
-      width: 100%; max-width: 320px;
-      box-shadow: var(--hi-shadow-dialog);
-      border: 1px solid var(--hi-border);
-    }
-    .confirm-box h3 {
-      font-size: 16px; font-weight: 800;
-      margin-bottom: 8px; color: var(--hi-text);
-    }
-    .confirm-box p {
-      font-size: 13px; color: var(--hi-text-muted);
-      margin-bottom: 20px; line-height: 1.6;
-    }
-    .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
-
-    /* pw / api 메시지 */
-    #pwMsg, #apiKeyMsg {
-      font-size: 13px; font-weight: 700;
-      margin-top: 10px; min-height: 20px;
-    }
-
-    .form-group { margin-bottom: 14px; }
-    .form-label {
-      display: block;
-      font-size: 11px; font-weight: 800;
-      color: var(--hi-text-muted);
-      letter-spacing: 0.06em; text-transform: uppercase;
-      margin-bottom: 6px;
-    }
     .api-display {
       font-size: 13px; color: var(--hi-text-soft);
       padding: 10px 14px;
@@ -530,13 +39,18 @@
       border-radius: 8px;
       font-family: 'JetBrains Mono', monospace;
     }
-
-    /* 모바일 */
-    @media (max-width: 600px) {
-      .stat-chips { grid-template-columns: repeat(3, 1fr); }
-      .main-tab { padding: 12px 14px; }
-      .content { padding: 18px 14px 60px; }
+    #pwMsg, #apiKeyMsg {
+      font-size: 13px; font-weight: 700;
+      margin-top: 10px; min-height: 20px;
     }
+
+    /* ── base.css override ── */
+    /* 뒤로가기: base는 border 버튼, 여기선 텍스트 링크 유지 */
+    .topbar-back { border: none; padding: 6px 10px; border-radius: 6px; font-weight: 400; }
+    .topbar-back:hover { background: var(--hi-bg-mid); border-color: transparent; }
+
+    /* 통계 기본 색상: base는 --hi-text, 여기선 accent 유지 */
+    .stat-num { color: var(--hi-accent); }
   </style>
 </head>
 <body class="hi-preset-admin">
@@ -569,8 +83,8 @@
       <span class="topbar-badge">ADMIN</span>
     </div>
     <div class="topbar-right">
-      <a href="index.html" style="font-size:12px; color:var(--hi-text-muted); text-decoration:none;">학생 화면</a>
-      <button class="mini-btn" onclick="logoutAdmin()" style="padding:5px 12px; font-size:12px; border-radius:6px; border:1px solid var(--hi-border); background:var(--hi-bg-surface); color:var(--hi-text-soft); cursor:pointer; font-family:inherit;">로그아웃</button>
+      <a href="index.html" class="topbar-link">학생 화면</a>
+      <button class="mini-btn" onclick="logoutAdmin()">로그아웃</button>
     </div>
   </header>
 
@@ -581,7 +95,7 @@
   </div>
 
   <!-- FEED -->
-  <div id="panel-feed" class="panel active">
+  <div id="panel-feed" class="panel-section active">
     <div class="sub-tabs">
       <button class="sub-tab active" onclick="showFeedSub('all', this)">전체</button>
       <button class="sub-tab" onclick="showFeedSub('central', this)">중앙</button>
@@ -589,13 +103,13 @@
       <button class="sub-tab" onclick="showFeedSub('military', this)">군사</button>
       <button class="sub-tab" onclick="showFeedSub('edu', this)">교육</button>
     </div>
-    <div class="content">
+    <div class="admin-container">
       <div class="sort-bar">
         <div class="sort-box">
           <button class="sort-btn active" id="feedSortNewest" onclick="setFeedSort('newest', this)">최신순</button>
           <button class="sort-btn" id="feedSortPopular" onclick="setFeedSort('popular', this)">인기순</button>
         </div>
-        <button class="pick-filter-btn" id="feedPickBtn" onclick="toggleFeedPick()">⭐ PICK</button>
+        <button class="filter-toggle" id="feedPickBtn" onclick="toggleFeedPick()">⭐ PICK</button>
       </div>
       <div class="feed-wrap" id="feedList">
         <div class="loading-state"><div class="spinner"></div><span>게시글 불러오는 중…</span></div>
@@ -605,7 +119,7 @@
   </div>
 
   <!-- CLASS -->
-  <div id="panel-class" class="panel">
+  <div id="panel-class" class="panel-section">
     <div class="sub-tabs" id="classSubTabs">
       <button class="sub-tab active" onclick="setClassTab(1, this)">1반</button>
       <button class="sub-tab" onclick="setClassTab(2, this)">2반</button>
@@ -614,8 +128,8 @@
       <button class="sub-tab" onclick="setClassTab(5, this)">5반</button>
       <button class="sub-tab" onclick="setClassTab(6, this)">6반</button>
     </div>
-    <div class="content">
-      <div class="stat-chips" id="classStats">
+    <div class="admin-container">
+      <div class="stat-grid" id="classStats">
         <div class="stat-chip"><span class="stat-num" id="stTotal">-</span><div class="stat-lbl">총 인원</div></div>
         <div class="stat-chip"><span class="stat-num" id="stSubmit">-</span><div class="stat-lbl">제출</div></div>
         <div class="stat-chip stat-chip-btn" onclick="openGradeModalWithLoad('fail')">
@@ -646,9 +160,9 @@
   </div>
 
   <!-- SETTING -->
-  <div id="panel-setting" class="panel">
-    <div class="content">
-      <div class="setting-section">
+  <div id="panel-setting" class="panel-section">
+    <div class="admin-container">
+      <div class="panel">
         <h3>📝 더미 게시글</h3>
         <p>테스트용 더미 게시글을 생성하거나 삭제합니다. 학번 <code>00000</code> · System 계정으로 저장됩니다.</p>
         <div class="setting-row">
@@ -657,7 +171,7 @@
         </div>
       </div>
 
-      <div class="setting-section">
+      <div class="panel">
         <h3>📥 엑셀로 내보내기</h3>
         <p>게시글 데이터를 CSV 파일로 다운로드합니다.</p>
         <div class="setting-row" style="margin-bottom:10px;">
@@ -674,7 +188,7 @@
         </div>
       </div>
 
-      <div class="setting-section">
+      <div class="panel">
         <h3>🤖 Claude API 키</h3>
         <p>AI 채점 기능을 사용하려면 Anthropic API 키가 필요합니다. Firebase에 저장되어 모든 관리자가 공유합니다.</p>
         <div class="form-group">
@@ -690,7 +204,7 @@
         <div id="apiKeyMsg"></div>
       </div>
 
-      <div class="setting-section">
+      <div class="panel">
         <h3>🔑 관리자 비밀번호 재설정</h3>
         <p>새 비밀번호를 입력하고 저장하세요. 다음 로그인 시 즉시 적용됩니다.</p>
         <div class="form-group">
@@ -705,7 +219,7 @@
         <div id="pwMsg"></div>
       </div>
 
-      <div class="danger-section">
+      <div class="panel panel-danger">
         <h3>⚠️ 위험 구역</h3>
         <p>아래 기능은 되돌릴 수 없습니다. 신중하게 사용하세요.</p>
         <button class="hi-btn hi-btn-outline hi-btn-sm hi-btn-danger" onclick="resetAll()">🗑️ 전체 게시글 초기화</button>
@@ -721,7 +235,7 @@
     <div class="modal-header">
       <div>
         <h3>📊 채점 결과</h3>
-        <div class="header-sub" id="gradeSummaryText"></div>
+        <div class="modal-header-sub" id="gradeSummaryText"></div>
       </div>
       <button class="modal-close" onclick="closeGradeModal()">✕</button>
     </div>
@@ -1069,7 +583,7 @@ window.exportCSV = () => {
   let posts = allPosts.filter(p => p.studentId !== '00000');
   if (cls !== 'all') posts = posts.filter(p => classNumFromId(p.studentId) === parseInt(cls));
   posts.sort((a, b) => (a.studentId||'').localeCompare(b.studentId||'') || (a.timestamp||0)-(b.timestamp||0));
-  const BOM = '\uFEFF';
+  const BOM = '﻿';
   const headers = ['학번','이름','닉네임','기관명','기관유형','게시글 내용','좋아요 수','작성시간','PICK','AI 채점'];
   const rows = posts.map(p => {
     const name = studentMap[p.studentId] || p.realName || '';
