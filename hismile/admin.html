@@ -298,7 +298,7 @@
 
             <p style="text-align:center;margin-top:24px;">
                 <a href="index.html" style="font-size:12px;color:var(--hi-text-muted);text-decoration:none;font-weight:700;letter-spacing:0.5px;">
-                    ← 학생 페이지로
+                    학생 페이지로
                 </a>
             </p>
         </div>
@@ -331,8 +331,9 @@
                 </select>
                 <select class="hi-select" id="certs-result-filter" onchange="window.renderCerts()">
                     <option value="all">전체 결과</option>
-                    <option value="pass">통과만</option>
-                    <option value="fail">실패만</option>
+                    <option value="pending">⏳ 보류 (검토 필요)</option>
+                    <option value="pass">통과</option>
+                    <option value="fail">실패</option>
                 </select>
                 <input class="hi-input" type="date" id="certs-date-filter"
                        onchange="window.renderCerts()">
@@ -854,7 +855,22 @@
         const showLimit = 100;
         const showRows = rows.slice(0, showLimit);
 
-        list.innerHTML = showRows.map(c => `
+        list.innerHTML = showRows.map(c => {
+            const r = c.result || 'fail';
+            const badgeClass = r === 'pass' ? 'badge-pass' : (r === 'pending' ? 'badge-pending' : 'badge-fail');
+            const badgeLabel = r === 'pass' ? '통과' : (r === 'pending' ? '보류' : '실패');
+            let actionsHtml = '';
+            if (r === 'pending') {
+                actionsHtml = `
+                    <button class="hi-btn hi-btn-primary hi-btn-xs" onclick="window.overrideCert('${c.id}', 'pass')">✓ 승인 (+1일)</button>
+                    <button class="hi-btn hi-btn-outline hi-btn-xs hi-btn-danger" onclick="window.overrideCert('${c.id}', 'fail')">✗ 반려</button>
+                `;
+            } else if (r === 'fail') {
+                actionsHtml = `<button class="hi-btn hi-btn-outline hi-btn-xs" onclick="window.overrideCert('${c.id}', 'pass')">✓ 통과로 변경 (+1일)</button>`;
+            } else { // pass
+                actionsHtml = `<button class="hi-btn hi-btn-outline hi-btn-xs hi-btn-danger" onclick="window.overrideCert('${c.id}', 'fail')">✗ 통과 취소 (-1일)</button>`;
+            }
+            return `
             <div class="cert-detail">
                 ${c.photoURL
                     ? `<img class="cert-thumb" src="${c.photoURL}" onclick="window.showPhoto('${c.photoURL}')">`
@@ -863,20 +879,19 @@
                     <div class="name">
                         ${escapeHtml(c.studentName || '-')}
                         <span class="meta-inline">${c.studentNum || ''} · ${c.cls || '?'}반</span>
-                        <span class="badge ${c.result === 'pass' ? 'badge-pass' : 'badge-fail'}">${c.emoji || ''} ${c.result === 'pass' ? '통과' : '실패'}</span>
+                        <span class="badge ${badgeClass}">${c.emoji || ''} ${badgeLabel}</span>
                         ${c.manualOverride ? '<span class="badge badge-override">수동 변경</span>' : ''}
                     </div>
-                    <div class="content">"${escapeHtml(c.studyContent || '-')}"</div>
+                    <div class="content">📚 "${escapeHtml(c.studyContent || '-')}"</div>
+                    ${c.studyFeeling ? `<div class="content" style="color:var(--hi-text-muted);">💭 "${escapeHtml(c.studyFeeling)}"</div>` : ''}
                     <div class="meta">${c.time || ''} · ${escapeHtml(c.reason || '-')}</div>
                     <div class="actions">
-                        ${c.result === 'fail'
-                            ? `<button class="hi-btn hi-btn-outline hi-btn-xs" onclick="window.overrideCert('${c.id}', 'pass')">✓ 통과로 변경 (+1일)</button>`
-                            : `<button class="hi-btn hi-btn-outline hi-btn-xs hi-btn-danger" onclick="window.overrideCert('${c.id}', 'fail')">✗ 통과 취소 (-1일)</button>`}
+                        ${actionsHtml}
                         <button class="hi-btn hi-btn-outline hi-btn-xs hi-btn-danger" onclick="window.deleteCert('${c.id}')">기록 삭제</button>
                     </div>
                 </div>
-            </div>
-        `).join('');
+            </div>`;
+        }).join('');
 
         if (rows.length > showLimit) {
             list.innerHTML += `<p class="hi-empty">최근 ${showLimit}건만 표시됩니다 (전체 ${rows.length}건)</p>`;
@@ -901,13 +916,21 @@
         const oldResult = cert.result;
         if (oldResult === newResult) return;
 
-        const delta = newResult === 'pass' ? 1 : -1;
+        // 마일리지 delta: pass만 +1, 그 외(pending, fail)는 0
+        // delta = (new이 pass ? 1 : 0) - (old가 pass ? 1 : 0)
+        const oldHasMileage = oldResult === 'pass' ? 1 : 0;
+        const newHasMileage = newResult === 'pass' ? 1 : 0;
+        const delta = newHasMileage - oldHasMileage;
+
         const studentNum = cert.studentNum;
+        const resultLabel = newResult === 'pass' ? '통과'
+                          : newResult === 'pending' ? '보류'
+                          : '실패';
+        const deltaText = delta === 0
+            ? '누적 일수 변화 없음'
+            : `누적 일수 ${delta > 0 ? '+' : ''}${delta}일`;
 
-        if (!confirm(`이 인증을 "${newResult === 'pass' ? '통과' : '실패'}"로 변경하시겠습니까?\n\n· ${cert.studentName}(${studentNum}) 누적 일수가 ${delta > 0 ? '+' : ''}${delta} 됩니다`)) return;
-
-        const curDays = mileage[studentNum] || 0;
-        const newDays = Math.max(0, curDays + delta);
+        if (!confirm(`이 인증을 "${resultLabel}"(으)로 변경하시겠습니까?\n\n· ${cert.studentName}(${studentNum})\n· ${deltaText}`)) return;
 
         try {
             await update(ref(db, `historyMileage/studyCert/${certId}`), {
@@ -918,9 +941,13 @@
                     to: newResult
                 }
             });
-            await set(ref(db, `historyMileage/mileage/${studentNum}`), newDays);
-            await set(ref(db, `historyMileage/totalEarned/${studentNum}`), newDays);
-            showToast('변경 완료');
+            if (delta !== 0) {
+                const curDays = mileage[studentNum] || 0;
+                const newDays = Math.max(0, curDays + delta);
+                await set(ref(db, `historyMileage/mileage/${studentNum}`), newDays);
+                await set(ref(db, `historyMileage/totalEarned/${studentNum}`), newDays);
+            }
+            showToast(`${resultLabel}(으)로 변경 완료`);
         } catch (e) {
             showToast('변경 실패', 'error');
         }
