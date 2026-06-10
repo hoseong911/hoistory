@@ -144,6 +144,18 @@
         .stat-chip-btn { cursor: pointer; }
         .stat-chip-btn:hover { background: var(--bg-card-hover); }
 
+        /* ★ CLASS 탭 통계 칩만 2x2 그리드로 */
+        #class-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            max-width: 460px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        #class-stats .stat-chip { margin: 0; width: 100%; }
+        .num-red-inline { color: var(--text-error); }
+
         /* ── 답변 카드 ── */
         .answer-card {
             background: var(--bg-surface); border-radius: 10px; padding: 16px 18px;
@@ -558,6 +570,7 @@
     let answerSort   = 'recent';
     let activityData = { absent:[], short:[], cheat:[] };
     let activityTab  = 'absent';
+    let failSort     = 'reason'; // ★ 미흡 명단 정렬: 'reason' | 'id'
 
     /* 채점 관련 */
     let gradeTab        = 'pass';            // 현재 채점 모달 탭 (pass/fail/cheat/review)
@@ -1029,6 +1042,12 @@
         });
     }
 
+    /* ★ 미흡 명단 정렬 토글 */
+    function setFailSort(mode) {
+        failSort = mode;
+        renderGradeModalBody();
+    }
+
     function buildAnswerCard(data, showMeta) {
         const isPicked = data.isPicked;
         const metaHtml = showMeta
@@ -1139,14 +1158,12 @@
         const passCount  = totalCount > 0 ? Math.max(0, totalCount - failCount) : 0;
 
         statsEl.classList.remove('hidden');
+        /* ★ 4개 칩 2x2: 제출/인원, PICK, 통과/미흡(클릭=미흡 명단), AI 채점 */
         statsEl.innerHTML = `
             <div class="stat-chip"><span class="num">${classSubs.length} / ${classStudents.length||'-'}</span>제출 / ${cls}반 인원</div>
             <div class="stat-chip"><span class="num">${classSubs.filter(s=>s.isPicked).length}</span>PICK</div>
-            <div class="stat-chip stat-chip-btn" onclick="openGradeModalWithLoad('pass')">
-                <span class="num">${totalCount ? passCount : '-'}</span>통과
-            </div>
             <div class="stat-chip stat-chip-btn" onclick="openGradeModalWithLoad('fail')">
-                <span class="num red">${totalCount ? failCount : '-'}</span>미흡
+                <span class="num">${totalCount ? passCount : '-'} / <span class="num-red-inline">${totalCount ? failCount : '-'}</span></span>통과 / 미흡
             </div>
             <div class="stat-chip stat-chip-btn" onclick="openGradeModalWithLoad('review')" style="border:1px solid var(--border-gray);">
                 <span class="num" style="font-size:16px;line-height:1.4;">🤖</span>AI 채점
@@ -1238,7 +1255,7 @@
     function isOverridePass(subId) { return gradeOverrides[subId] === 'pass'; }
     function isOverrideFail(subId) { return gradeOverrides[subId] === 'fail'; }
 
-    /* 토글 클릭 — Firebase에 저장 */
+    /* 토글 클릭 — Firebase에 저장 (이탈 탭 등에서 사용; 같은 값 다시 누르면 초기화) */
     async function toggleGradeOverride(subId, value) {
         const prev = gradeOverrides[subId];
         if (prev === value) {
@@ -1247,6 +1264,18 @@
             gradeOverrides[subId] = value;
         }
         /* Firebase 저장 */
+        const key = `${gradeContext.lecId}_${gradeContext.cls}`;
+        try {
+            await db.collection('gradeOverrides').doc(key).set(gradeOverrides, { merge: false });
+        } catch(e) {}
+        updateGradeSummary();
+        renderGradeModalBody();
+        renderAnswerClass(); /* 배경의 통과/미흡 칩도 동기화 */
+    }
+
+    /* ★ AI 의심 답변 확정 — 통과/미흡 둘 다 누르면 즉시 처리 완료(카드 사라짐) */
+    async function confirmAiReview(subId, value) {
+        gradeOverrides[subId] = value;
         const key = `${gradeContext.lecId}_${gradeContext.cls}`;
         try {
             await db.collection('gradeOverrides').doc(key).set(gradeOverrides, { merge: false });
@@ -1333,7 +1362,7 @@
             `</div>`;
     }
 
-    /* ── 미흡 명단 탭 (사유별 그룹) ── */
+    /* ── 미흡 명단 탭 (사유별 그룹 / 번호순 토글) ── */
     function renderFailTab(body) {
         const absent = activityData.absent;
         const short  = activityData.short;
@@ -1349,11 +1378,52 @@
             return;
         }
 
+        /* 헤더 (총 인원 + 정렬 옵션) */
         let html = `
-            <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px; line-height:1.6;">
-                총 <strong style="color:var(--text-error)">${totalFail}명</strong> 미흡
-            </p>`;
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
+                <p style="font-size:12px; color:var(--text-muted); line-height:1.6; margin:0;">
+                    총 <strong style="color:var(--text-error)">${totalFail}명</strong> 미흡
+                </p>
+                <div class="sort-wrap">
+                    <span class="sort-wrap-label">정렬</span>
+                    <button class="sort-btn ${failSort==='reason'?'active':''}" onclick="setFailSort('reason')">사유별</button>
+                    <button class="sort-btn ${failSort==='id'?'active':''}" onclick="setFailSort('id')">번호순</button>
+                </div>
+            </div>`;
 
+        /* ★ 번호순: 사유 무관하게 학번순으로 평탄화 */
+        if (failSort === 'id') {
+            const allFails = [];
+            absent.forEach(s => allFails.push({
+                id: s.studentId, name: s.studentName,
+                reason: '미제출', chipClass: 'chip-absent'
+            }));
+            short.forEach(s => allFails.push({
+                id: s.id, name: s.name,
+                reason: `${s.textLength}자`, chipClass: 'chip-short'
+            }));
+            cheatFailList.forEach(s => allFails.push({
+                id: s.id, name: s.name,
+                reason: `이탈 ${s.cheatCount}회`, chipClass: 'chip-cheat'
+            }));
+            aiFailList.forEach(s => allFails.push({
+                id: s.id, name: s.name,
+                reason: 'AI 미흡', chipClass: 'chip-wrong'
+            }));
+
+            allFails.sort((a,b) =>
+                String(a.id).localeCompare(String(b.id), undefined, {numeric:true})
+            );
+
+            html += '<div>' + allFails.map(f =>
+                `<span class="activity-chip ${f.chipClass}">${f.id} ${f.name} <small style="opacity:.75;">${f.reason}</small></span>`
+            ).join('') + '</div>';
+
+            body.innerHTML = html;
+            return;
+        }
+
+        /* 기본: 사유별 그룹 */
         if (absent.length) {
             html += `
                 <div style="margin-bottom:18px;">
@@ -1431,10 +1501,17 @@
             return;
         }
 
-        if (!cached.length) {
+        /* ★ override(pass 또는 fail)가 있는 항목은 처리 완료 → 카드 숨김 */
+        const pending = cached.filter(s => !gradeOverrides[s.subId]);
+        const processedCount = cached.length - pending.length;
+
+        if (!pending.length) {
             body.innerHTML = `
                 <div style="text-align:center; padding:24px 0;">
-                    <span class="chip-ok">✅ AI가 이상 답변을 발견하지 못했습니다.</span>
+                    ${cached.length
+                        ? `<span class="chip-ok">✅ ${cached.length}건 모두 검토 완료!</span>`
+                        : `<span class="chip-ok">✅ AI가 이상 답변을 발견하지 못했습니다.</span>`
+                    }
                     <div style="margin-top:14px;">
                         <button class="btn-ai" style="padding:8px 18px; font-size:12px;" onclick="runAiReview()">🔄 다시 분석</button>
                     </div>
@@ -1446,32 +1523,28 @@
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
                 <div style="flex:1; min-width:200px;">
                     <div style="font-size:12px;color:var(--text-muted);font-weight:700;">
-                        🤖 AI가 ${cached.length}건을 미흡 후보로 분류했습니다
+                        🤖 검토 대기 ${pending.length}건${processedCount ? ` <span style="opacity:.7;">(완료 ${processedCount}건)</span>` : ''}
                     </div>
                     <div style="font-size:11px; color:var(--text-muted); margin-top:4px; line-height:1.55;">
-                        기본값은 <strong style="color:var(--brand-green)">통과</strong>입니다.<br>
-                        <strong style="color:var(--text-error)">미흡</strong> 토글을 눌러야 미흡으로 확정됩니다.
+                        각 답변을 <strong style="color:var(--brand-green)">통과</strong> 또는 <strong style="color:var(--text-error)">미흡</strong>으로 분류하세요. 누르면 목록에서 사라집니다.
                     </div>
                 </div>
                 <button class="btn-ai" style="padding:7px 14px;font-size:12px;flex-shrink:0;" onclick="runAiReview()">🔄 재분석</button>
             </div>` +
-            cached.map(s => {
-                /* ★ 기본값: 미결정/통과 → 통과 토글 활성. 명시적 fail일 때만 미흡 토글 활성. */
-                const isFailActive = isOverrideFail(s.subId);
-                const isPassActive = !isFailActive;
-                return `<div class="review-card">
+            pending.map(s => `
+                <div class="review-card">
                     <div class="review-card-top">
                         <span class="review-card-name">${s.id} ${s.name}</span>
                         <span class="review-card-reason">🤖 AI 의심</span>
                         <div class="grade-toggle-wrap">
-                            <button class="grade-toggle-btn pass ${isPassActive?'active':''}" onclick="toggleGradeOverride('${s.subId}','pass')">통과</button>
-                            <button class="grade-toggle-btn fail ${isFailActive?'active':''}" onclick="toggleGradeOverride('${s.subId}','fail')">미흡</button>
+                            <button class="grade-toggle-btn pass" onclick="confirmAiReview('${s.subId}','pass')">통과</button>
+                            <button class="grade-toggle-btn fail" onclick="confirmAiReview('${s.subId}','fail')">미흡</button>
                         </div>
                     </div>
                     <div class="review-card-text">${escHtml(s.text||'')}</div>
                     <div class="review-card-meta">AI 판단 이유: ${escHtml(s.reason||'')}</div>
-                </div>`;
-            }).join('');
+                </div>
+            `).join('');
     }
 
     /* ── AI 분석 실행 ── */
