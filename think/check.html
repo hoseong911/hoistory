@@ -791,12 +791,27 @@
     }
     function closeConfirmModal() { document.getElementById('confirm-modal').classList.add('hidden'); }
 
-    /* ── 제출 (중복 제출 방지 — 기존 답변이 있으면 update로 덮어쓰기) ── */
+    /* ── 제출 (50자 미만 확인 → 중복 제출 확인 → 실제 제출) ── */
     function submitAnswer() {
         const text = document.getElementById('answer-text').value.trim();
         if (!text) { alert("내용을 작성해주세요!"); return; }
 
-        /* ★ 기존 제출 답변 확인 */
+        /* ★ 50자 미만이면 한 번 더 확인 (공백 제외 기준) */
+        const textLen = text.replace(/\s/g,'').length;
+        if (textLen < 50) {
+            openConfirmModal(
+                '⚠️ 글자 수 확인',
+                `현재 작성한 내용이 <b>50자 미만</b>입니다. (현재 ${textLen}자, 공백 제외)<br><br>조금 더 자세히 적어보는 건 어때요?<br><span style="font-size:12px;">그래도 이대로 제출하시겠습니까?</span>`,
+                () => checkExistingAndSubmit(text)
+            );
+            return;
+        }
+
+        checkExistingAndSubmit(text);
+    }
+
+    /* 기존 답변 유무 확인 후 제출 분기 */
+    function checkExistingAndSubmit(text) {
         const myId = String(currentUser.id).trim();
         const existing = allSubmissions.find(
             s => s.lectureDocId === currentLecture.docId
@@ -815,7 +830,7 @@
             doSubmit(text, null);
         }
     }
-
+    
     function doSubmit(text, existingSubId) {
         const subData = {
             lectureDocId: currentLecture.docId,
