@@ -220,6 +220,10 @@
             background: var(--hi-accent-soft);
             border-color: var(--hi-accent);
         }
+        .cert-result.pending {
+            background: rgba(217, 119, 6, 0.08);
+            border-color: #d97706;
+        }
         .cert-result.fail {
             background: rgba(243,114,127,0.08);
             border-color: var(--hi-negative);
@@ -231,6 +235,7 @@
             letter-spacing: -0.3px;
         }
         .cert-result.pass .cert-result-title { color: var(--hi-accent); }
+        .cert-result.pending .cert-result-title { color: #d97706; }
         .cert-result.fail .cert-result-title { color: var(--hi-negative); }
         .cert-result-desc {
             font-size: 13px; color: var(--hi-text-muted);
@@ -332,6 +337,11 @@
 
         /* ─── 푸터 / 관리자 진입 ─── */
         .admin-footer { text-align: center; margin-top: 40px; }
+
+        /* ─── 모달 액션 중앙정렬 (theme.css 기본 우측 override) ─── */
+        .hi-modal-actions {
+            justify-content: center !important;
+        }
 
         /* ─── 모바일 ─── */
         @media (max-width: 600px) {
@@ -446,7 +456,7 @@
             <div class="guide-step">
                 <div class="guide-num">3</div>
                 <div class="guide-body">
-                    <div class="guide-title">AI 자동 판정 → 1일 적립</div>
+                    <div class="guide-title">AI 자동 판정, 통과 시 1일 적립</div>
                     <div class="guide-desc">통과하면 <b>1일</b>이 카운트돼요. <b>하루 1회</b>까지만 인증 가능.</div>
                 </div>
             </div>
@@ -461,7 +471,11 @@
                 <div class="guide-num">⏰</div>
                 <div class="guide-body">
                     <div class="guide-title">인증 가능 시간</div>
-                    <div class="guide-desc">평일은 <b>오후 3시 이후</b>, 주말·공휴일은 <b>오전 6시 이후</b>에 인증할 수 있어요.</div>
+                    <div class="guide-desc">
+                        평일: <b>오후 3시 ~ 자정</b><br>
+                        주말·공휴일: <b>오전 6시 ~ 자정</b><br>
+                        <span style="opacity:0.8;">(자정 이후는 수면 보장을 위해 차단됩니다)</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -470,15 +484,15 @@
         <div id="tab-check" class="hi-hidden">
             <div class="info-tag">
                 하루 1회 · AI 자동 판정<br>
-                <b>역사 자료 + 오늘 날짜 타임스탬프</b> 필수 · 통과 시 1일 적립
+                <b>타임스탬프 앱으로 찍은 역사 공부 사진</b> 필수 · 통과 시 1일 적립
             </div>
 
             <div class="hi-card">
                 <div class="upload-area" onclick="document.getElementById('cert-file').click()">
                     <div class="upload-placeholder" id="cert-placeholder">
-                        <div class="ic">📷</div>
+                        <div class="ic">🖼️</div>
                         <div class="t">사진을 탭하여 선택</div>
-                        <div class="d">역사 교재·노트 + 오늘 날짜 타임스탬프</div>
+                        <div class="d">타임스탬프 앱으로 찍어둔 사진을 갤러리에서 선택하세요</div>
                     </div>
                     <img id="cert-preview" alt="미리보기">
                 </div>
@@ -486,8 +500,8 @@
                        onchange="window.previewPhoto(this)">
 
                 <div class="upload-actions">
-                    <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="window.triggerCamera()">📷 촬영</button>
-                    <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="window.triggerGallery()">🖼️ 갤러리</button>
+                    <button class="hi-btn hi-btn-outline" style="flex:1;"
+                            onclick="window.triggerGallery()">🖼️ 갤러리에서 사진 선택</button>
                 </div>
 
                 <div class="hi-form-group">
@@ -497,6 +511,15 @@
                               placeholder="✏️ 문장의 형태로 작성해주세요!
 예) 오늘은 조선 후기 정치 변동을 정리했어요. 노론과 소론이 어떻게 갈라졌는지 이해했어요."></textarea>
                     <div class="char-count" id="cert-content-count"></div>
+                </div>
+
+                <div class="hi-form-group">
+                    <label class="hi-label">공부하면서 느낀 점</label>
+                    <textarea class="hi-textarea" id="cert-feeling" rows="3"
+                              style="min-height:80px;"
+                              placeholder="💭 공부하면서 든 생각, 어려웠던 점, 새로 알게 된 점을 자유롭게 적어주세요!
+예) 노론과 소론의 갈등이 결국 학문적 차이에서 시작된 게 흥미로웠어요."></textarea>
+                    <div class="char-count" id="cert-feeling-count"></div>
                 </div>
 
                 <button class="hi-btn hi-btn-primary hi-btn-block"
@@ -763,13 +786,22 @@
 
     // 세션 복원
     window.addEventListener('DOMContentLoaded', () => {
-        // 글자수 카운터 부착
+        // 글자수 카운터 부착 (최대 제한 없음, 최소 10자 안내)
         mountCharCounter({
             input: document.getElementById('cert-content'),
             counter: document.getElementById('cert-content-count'),
-            max: 60,
+            max: 99999,
+            truncate: false,
             excludeSpaces: true,
-            format: (n, m) => `${n} / ${m}자 (공백 제외)`
+            format: (n) => `${n}자 (최소 10자, 공백 제외)`
+        });
+        mountCharCounter({
+            input: document.getElementById('cert-feeling'),
+            counter: document.getElementById('cert-feeling-count'),
+            max: 99999,
+            truncate: false,
+            excludeSpaces: true,
+            format: (n) => `${n}자 (최소 10자, 공백 제외)`
         });
 
         try {
@@ -816,10 +848,6 @@
         };
         reader.readAsDataURL(file);
     };
-    window.triggerCamera = () => {
-        const i = document.getElementById('cert-file');
-        i.setAttribute('capture','environment'); i.click();
-    };
     window.triggerGallery = () => {
         const i = document.getElementById('cert-file');
         i.removeAttribute('capture'); i.click();
@@ -841,16 +869,20 @@
 
         const file = document.getElementById('cert-file').files[0];
         const content = document.getElementById('cert-content').value.trim();
+        const feeling = document.getElementById('cert-feeling').value.trim();
         const btn = document.getElementById('cert-submit-btn');
 
         if (!file) return showToast('사진을 선택해주세요', 'error');
 
-        // 글자수 검증
-        const v = validateText(content, { min: 20, max: 60, checkRepeats: true });
-        if (!v.ok) return showToast(v.message, 'error');
+        // 글자수 검증 — 최소 10자, 최대 제한 없음
+        const v1 = validateText(content, { min: 10, checkRepeats: true });
+        if (!v1.ok) return showToast('[공부한 내용] ' + v1.message, 'error');
+
+        const v2 = validateText(feeling, { min: 10, checkRepeats: true });
+        if (!v2.ok) return showToast('[느낀 점] ' + v2.message, 'error');
 
         // 비속어
-        if (containsBadWord(content)) {
+        if (containsBadWord(content) || containsBadWord(feeling)) {
             return showRichToast({
                 icon: '🚫', title: '입력 차단',
                 message: '부적절한 표현이 포함되어 있어요',
@@ -866,7 +898,7 @@
             });
         }
 
-        // 시간 제한
+        // 시간 제한 (수면 보장 목적, 자정 이후는 자동으로 다음 날 새벽이 되어 차단)
         const now = new Date();
         const hour = now.getHours();
         const dow = now.getDay();
@@ -874,13 +906,13 @@
         const isHolidayOrWeekend = holidays.includes(dateStr) || dow === 0 || dow === 6;
         if (isHolidayOrWeekend) {
             if (hour < 6) return showRichToast({
-                icon: '🌙', title: '인증 시간이 아니에요',
-                message: '주말·공휴일은 오전 6시 이후에 가능해요', kind: 'error'
+                icon: '🌙', title: '아직 인증 시간이 아니에요',
+                message: '주말·공휴일은 오전 6시부터 자정까지 가능해요 (수면 보장)', kind: 'error'
             });
         } else {
             if (hour < 15) return showRichToast({
-                icon: '📚', title: '인증 시간이 아니에요',
-                message: '평일은 오후 3시 이후에 가능해요', kind: 'error'
+                icon: '📚', title: '아직 인증 시간이 아니에요',
+                message: '평일은 오후 3시부터 자정까지 가능해요 (수면 보장)', kind: 'error'
             });
         }
 
@@ -929,10 +961,20 @@
 
 [3] 신고 내용 일치 — 학생이 적은 공부 내용("${content}")과 사진이 합리적으로 일치하는지 확인. 일치하면 content_match: true.
 
-통과 조건: date_match AND is_history AND content_match 셋 다 true.
+판정 기준 (3단계):
+- 셋 다 명확히 true → "pass": true, "pending": false (= 통과)
+- 셋 중 하나라도 명확히 false → "pass": false, "pending": false (= 실패)
+- 일부가 애매하거나 사진이 흐려서 확신이 어려운 경우 → "pass": false, "pending": true (= 보류, 선생님 검토 대기)
+
+보류로 보내야 할 사례 (확신할 수 없을 때):
+- 사진이 흐리거나 어두워 정확히 읽기 어려움
+- 타임스탬프가 부분적으로만 보이거나 일부 가려짐
+- 역사 자료 같지만 단정하기 어려움 (다른 과목과 헷갈리는 표지/필기)
+- 신고 내용이 사진에서 명확히 확인되지 않으나 가능성은 있음
+- 손글씨 노트인데 무슨 과목인지 단정 어려움
 
 JSON만 반환:
-{"pass":bool,"date_match":bool,"is_history":bool,"content_match":bool,"photo_date":"읽은날짜","reason":"이유 30자이내","emoji":"이모지1개"}`
+{"pass":bool,"pending":bool,"date_match":bool,"is_history":bool,"content_match":bool,"photo_date":"읽은날짜","reason":"이유 30자이내","emoji":"이모지1개"}`
                             }
                         ]
                     }]
@@ -945,7 +987,11 @@ JSON만 반환:
             try { result = JSON.parse(rawText.replace(/```json|```/g,'').trim()); }
             catch { result = { pass: false, reason: '분석 오류', emoji: '⚠️' }; }
 
-            if (!result.pass) {
+            if (result.pending) {
+                // 보류 — AI가 적은 reason 그대로 유지, 없으면 기본값
+                if (!result.reason) result.reason = '판단이 어려워 선생님 검토 대기';
+                if (!result.emoji) result.emoji = '⏳';
+            } else if (!result.pass) {
                 if (!result.date_match) {
                     result.reason = `사진 날짜 불일치 (${result.photo_date || '없음'})`;
                     result.emoji = '📅';
@@ -976,10 +1022,11 @@ JSON만 반환:
                 date: todayISO,
                 time: new Date().toLocaleString('ko-KR'),
                 studyContent: content,
-                result: result.pass ? 'pass' : 'fail',
+                studyFeeling: feeling,
+                result: result.pass ? 'pass' : (result.pending ? 'pending' : 'fail'),
                 reason: result.reason || '',
                 photoDate: result.photo_date || '',
-                emoji: result.emoji || (result.pass ? '✅' : '❌'),
+                emoji: result.emoji || (result.pass ? '✅' : (result.pending ? '⏳' : '❌')),
                 photoURL
             };
             await push(ref(db, 'historyMileage/studyCert'), certData);
@@ -987,6 +1034,21 @@ JSON만 반환:
             // 통과 → 누적 일수 +1
             let newDayCount = globalData.mileage?.[currentUser.num] || 0;
             if (result.pass) {
+                // 같은 날의 보류 인증 자동 정리 (관리자가 추후 승인해도 중복 적립 안 되게)
+                const todayPending = Object.entries(globalData.studyCert || {})
+                    .filter(([, c]) => String(c.studentNum) === String(currentUser.num)
+                                    && c.date === todayISO
+                                    && c.result === 'pending');
+                for (const [pid] of todayPending) {
+                    try {
+                        await update(ref(db, `historyMileage/studyCert/${pid}`), {
+                            result: 'fail',
+                            reason: '같은 날 다른 인증이 통과되어 자동 정리됨',
+                            autoResolved: true
+                        });
+                    } catch (e) { console.warn('보류 자동 정리 실패:', e); }
+                }
+
                 const mSnap = await get(ref(db, `historyMileage/mileage/${currentUser.num}`));
                 const before = mSnap.val() || 0;
                 newDayCount = before + 1;
@@ -1010,6 +1072,23 @@ JSON만 반환:
             }
 
             showCertResult(result, newDayCount);
+
+            if (result.pass) {
+                // 통과 → 모두 초기화
+                document.getElementById('cert-file').value = '';
+                document.getElementById('cert-content').value = '';
+                document.getElementById('cert-feeling').value = '';
+                document.getElementById('cert-preview').style.display = 'none';
+                document.getElementById('cert-placeholder').style.display = 'flex';
+                document.getElementById('cert-content').dispatchEvent(new Event('input'));
+                document.getElementById('cert-feeling').dispatchEvent(new Event('input'));
+            } else if (result.pending) {
+                // 보류 → 사진만 초기화 (텍스트는 유지, 다른 사진으로 재제출 가능)
+                document.getElementById('cert-file').value = '';
+                document.getElementById('cert-preview').style.display = 'none';
+                document.getElementById('cert-placeholder').style.display = 'flex';
+            }
+            // 실패 → 모두 보존 (재시도 편의)
         } catch(err) {
             console.error(err);
             showRichToast({
@@ -1018,30 +1097,28 @@ JSON만 반환:
             });
         } finally {
             btn.disabled = false; btn.textContent = '제출하기';
-            document.getElementById('cert-file').value = '';
-            document.getElementById('cert-content').value = '';
-            document.getElementById('cert-preview').style.display = 'none';
-            document.getElementById('cert-placeholder').style.display = 'flex';
-            document.getElementById('cert-content-count').textContent = '0 / 60자 (공백 제외)';
         }
     };
 
     function showCertResult(result, totalDays) {
         const box = document.getElementById('cert-result');
         box.style.display = 'block';
-        box.className = 'cert-result ' + (result.pass ? 'pass' : 'fail');
+        const kind = result.pass ? 'pass' : (result.pending ? 'pending' : 'fail');
+        box.className = 'cert-result ' + kind;
+
         document.getElementById('cert-result-icon').textContent =
-            result.emoji || (result.pass ? '🎉' : '😢');
+            result.emoji || (result.pass ? '🎉' : (result.pending ? '⏳' : '😢'));
         document.getElementById('cert-result-title').textContent =
-            result.pass ? '체크 완료!' : '체크 실패';
+            result.pass ? '체크 완료!' :
+            result.pending ? '선생님 검토 중' : '체크 실패';
         document.getElementById('cert-result-desc').textContent =
-            result.pass
-                ? `오늘도 역사 공부 인증 완료`
-                : (result.reason || '재시도해 주세요');
+            result.pass ? '오늘도 역사 공부 인증 완료'
+            : result.pending ? (result.reason || '판단이 어려워 선생님이 직접 확인해요')
+            : (result.reason || '재시도해 주세요');
         document.getElementById('cert-result-meta').textContent =
-            result.pass
-                ? `누적 ${totalDays}일째 열공 🔥`
-                : '오늘 날짜 + 역사 자료 사진을 다시 올려주세요';
+            result.pass ? `누적 ${totalDays}일째 열공 🔥`
+            : result.pending ? '더 또렷한 사진으로 다시 제출하면 통과할 수 있어요. 검토되면 자동 반영됩니다.'
+            : '오늘 날짜 + 역사 자료 사진을 다시 올려주세요';
     }
 
     // ────────────────────────────────────────────────────────
@@ -1101,11 +1178,13 @@ JSON만 반환:
 
     function populateClassFilter() {
         const sel = document.getElementById('rank-class-filter');
-        const classes = [...new Set(studentList.map(s => `${s.cls}`).filter(Boolean))]
+        // cls가 '0'(관리자 테스트 학번)이나 빈 값은 필터에서 제외
+        const classes = [...new Set(studentList.map(s => `${s.cls}`).filter(c => c && c !== '0'))]
             .sort();
         const cur = sel.value;
         sel.innerHTML = '<option value="all">전체</option>';
-        if (currentUser?.cls) {
+        // 현재 사용자의 cls도 '0'이 아닐 때만 "우리반" 옵션 노출
+        if (currentUser?.cls && currentUser.cls !== '0') {
             sel.innerHTML += `<option value="${currentUser.cls}">${currentUser.cls}반 (우리반)</option>`;
         }
         classes.forEach(c => {
@@ -1113,7 +1192,7 @@ JSON만 반환:
             sel.innerHTML += `<option value="${c}">${c}반</option>`;
         });
         if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
-        else if (currentUser?.cls) sel.value = currentUser.cls;
+        else if (currentUser?.cls && currentUser.cls !== '0') sel.value = currentUser.cls;
     }
 
     window.setRankSort = (sort) => {
