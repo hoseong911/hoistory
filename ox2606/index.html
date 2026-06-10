@@ -1,0 +1,1680 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>역사 OX 퀴즈 🌊</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<style>
+:root {
+  --bg-gradient: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 50%, #ffffff 100%);
+  --glass-bg: rgba(255,255,255,0.55);
+  --glass-border: rgba(255,255,255,0.7);
+  --glass-shadow: 0 8px 32px rgba(0, 119, 159, 0.12);
+
+  --aqua-deep:  #006978;   /* 딥 아쿠아 (강조 텍스트) */
+  --aqua:       #0097a7;   /* 메인 아쿠아 */
+  --aqua-light: #4fc3f7;   /* 라이트 아쿠아 */
+  --aqua-bg:    #e0f7fa;
+
+  --o-color:    #00acc1;   /* O 버튼 */
+  --x-color:    #ef5350;   /* X 버튼 (서브 컬러) */
+
+  --text-main:  #1a3a47;
+  --text-sub:   #5c7d8a;
+  --text-dim:   #9bb4bd;
+
+  --gold:       #ffb300;
+  --silver:     #b0bec5;
+  --bronze:     #d49671;
+
+  --r-lg: 28px;
+  --r-md: 18px;
+  --r-sm: 12px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  font-family: 'Pretendard', sans-serif;
+  background: var(--bg-gradient);
+  background-attachment: fixed;
+  min-height: 100vh;
+  display: flex; justify-content: center; align-items: center;
+  color: var(--text-main);
+  padding: 20px 14px;
+  overflow-x: hidden;
+}
+
+.jua { font-family: 'Jua', sans-serif; font-weight: normal; }
+
+/* ── 글래스 카드 ── */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  padding: 36px 32px;
+  width: 100%; max-width: 500px;
+  max-height: 92vh;
+  overflow-y: auto;
+  scrollbar-width: none;
+  position: relative;
+}
+.glass-card::-webkit-scrollbar { display: none; }
+
+/* ── 페이지 컨테이너 ── */
+.page { display: none; }
+.page.active { display: block; }
+
+/* ── 헤더(상단 타이틀) ── */
+.title-block { text-align: center; margin-bottom: 28px; }
+.title-block .top-line {
+  font-size: 13px; color: var(--text-sub); font-weight: 600;
+  letter-spacing: 0.3px; margin-bottom: 6px;
+}
+.title-block h1 {
+  font-family: 'Jua', sans-serif; font-weight: normal;
+  font-size: 28px; color: var(--aqua-deep);
+  letter-spacing: -0.5px; line-height: 1.2;
+}
+.title-block h1 .wave { display: inline-block; }
+.title-block .sub-text {
+  font-size: 12px; color: var(--text-dim);
+  margin-top: 6px;
+}
+
+/* ── 입력 ── */
+.input-row { margin-bottom: 14px; }
+.input-label {
+  display: block; font-size: 12px; font-weight: 700;
+  color: var(--text-sub); margin-bottom: 6px; padding-left: 8px;
+  letter-spacing: 0.3px;
+}
+.input-box {
+  width: 100%; padding: 14px 18px;
+  background: rgba(255,255,255,0.85);
+  border: 1.5px solid transparent;
+  border-radius: 14px;
+  font-family: inherit; font-size: 15px;
+  color: var(--text-main); outline: none;
+  transition: all .2s;
+}
+.input-box:focus {
+  border-color: var(--aqua);
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(0,151,167,0.1);
+}
+.input-box::placeholder { color: var(--text-dim); }
+
+/* ── 메인 버튼 ── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px; border: none;
+  font-family: 'Pretendard', sans-serif; font-weight: 800;
+  cursor: pointer; transition: all .2s;
+  text-decoration: none;
+}
+.btn-pill { border-radius: 50px; }
+.btn-lg { padding: 15px 28px; font-size: 16px; }
+.btn-md { padding: 12px 22px; font-size: 14px; }
+.btn-sm { padding: 8px 16px; font-size: 13px; }
+
+.btn-aqua {
+  background: linear-gradient(135deg, var(--aqua-light), var(--aqua));
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(0,151,167,0.35);
+}
+.btn-aqua:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,151,167,0.45); }
+.btn-aqua:active { transform: translateY(0); }
+.btn-aqua:disabled {
+  background: #cfd8dc; color: #fff;
+  box-shadow: none; cursor: not-allowed; transform: none;
+}
+.btn-ghost {
+  background: rgba(255,255,255,0.8);
+  color: var(--aqua-deep);
+  border: 1.5px solid rgba(0,151,167,0.2);
+}
+.btn-ghost:hover { background: #fff; border-color: var(--aqua); }
+.btn-soft {
+  background: #e8eaed; color: var(--text-sub);
+}
+.btn-soft:hover { background: #dce0e3; }
+.btn-full { width: 100%; }
+
+/* ── 메뉴 그리드 (로그인 후) ── */
+.menu-divider {
+  text-align: center; font-size: 12px;
+  color: var(--text-dim); margin: 20px 0 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+.menu-divider::before, .menu-divider::after {
+  content: ''; flex: 1; height: 1px;
+  background: rgba(0,151,167,0.15);
+}
+.menu-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.menu-card {
+  background: rgba(255,255,255,0.7);
+  border: 1.5px solid rgba(0,151,167,0.15);
+  border-radius: var(--r-md);
+  padding: 22px 14px;
+  text-align: center; cursor: pointer;
+  transition: all .2s;
+}
+.menu-card:hover {
+  border-color: var(--aqua);
+  background: rgba(224,247,250,0.9);
+  transform: translateY(-2px);
+}
+.menu-icon { font-size: 32px; margin-bottom: 6px; }
+.menu-name { font-size: 15px; font-weight: 800; color: var(--aqua-deep); }
+.menu-desc { font-size: 11px; color: var(--text-sub); margin-top: 3px; }
+
+/* ── 강의 선택 ── */
+.back-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: none; border: none;
+  color: var(--text-sub); font-size: 13px; font-weight: 600;
+  cursor: pointer; padding: 6px 0; margin-bottom: 16px;
+  font-family: inherit;
+}
+.back-btn:hover { color: var(--aqua-deep); }
+
+.preset-row {
+  display: grid; grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 8px; margin-bottom: 18px;
+}
+.preset-chip {
+  padding: 11px 8px;
+  background: rgba(255,255,255,0.7);
+  border: 1.5px solid rgba(0,151,167,0.15);
+  border-radius: 14px;
+  font-family: inherit; font-size: 13px; font-weight: 700;
+  color: var(--aqua-deep); cursor: pointer;
+  transition: all .15s;
+  text-align: center;
+}
+.preset-chip:hover { background: rgba(224,247,250,0.9); }
+.preset-chip.active {
+  background: var(--aqua); color: #fff;
+  border-color: var(--aqua);
+  box-shadow: 0 3px 10px rgba(0,151,167,0.3);
+}
+
+.lecture-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 8px; margin-bottom: 18px;
+}
+.lecture-chip {
+  padding: 14px 4px;
+  background: rgba(255,255,255,0.7);
+  border: 1.5px solid rgba(0,151,167,0.15);
+  border-radius: 14px;
+  font-family: 'Jua', sans-serif;
+  font-size: 16px; color: var(--aqua-deep);
+  cursor: pointer; text-align: center;
+  transition: all .15s; position: relative;
+}
+.lecture-chip:hover { background: rgba(224,247,250,0.9); }
+.lecture-chip.active {
+  background: var(--aqua); color: #fff;
+  border-color: var(--aqua);
+  box-shadow: 0 3px 10px rgba(0,151,167,0.3);
+}
+.lecture-chip .lec-count {
+  display: block; font-family: 'Pretendard', sans-serif;
+  font-size: 10px; font-weight: 600;
+  color: var(--text-dim); margin-top: 2px;
+}
+.lecture-chip.active .lec-count { color: rgba(255,255,255,0.85); }
+
+.lecture-summary {
+  background: rgba(255,255,255,0.7);
+  border-radius: 14px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.lecture-summary .ls-label { font-size: 12px; color: var(--text-sub); }
+.lecture-summary .ls-val { font-size: 18px; font-weight: 800; color: var(--aqua-deep); }
+.lecture-summary .ls-val .ls-unit { font-size: 12px; font-weight: 600; color: var(--text-sub); margin-left: 2px; }
+
+/* ── 문항 수 선택 ── */
+.count-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px; margin-bottom: 20px;
+}
+.count-card {
+  background: rgba(255,255,255,0.7);
+  border: 1.5px solid rgba(0,151,167,0.15);
+  border-radius: 16px;
+  padding: 18px 8px;
+  text-align: center; cursor: pointer;
+  transition: all .15s; position: relative;
+}
+.count-card:hover:not(.disabled) {
+  background: rgba(224,247,250,0.9);
+  transform: translateY(-2px);
+}
+.count-card.active {
+  background: var(--aqua); color: #fff;
+  border-color: var(--aqua);
+  box-shadow: 0 3px 12px rgba(0,151,167,0.3);
+}
+.count-card .cc-num {
+  font-family: 'Jua', sans-serif; font-size: 28px;
+  color: var(--aqua-deep); line-height: 1;
+}
+.count-card.active .cc-num { color: #fff; }
+.count-card .cc-label {
+  font-size: 11px; color: var(--text-sub);
+  margin-top: 4px; font-weight: 600;
+}
+.count-card.active .cc-label { color: rgba(255,255,255,0.9); }
+.count-card .cc-badge {
+  position: absolute; top: -6px; right: -6px;
+  background: var(--gold); color: #fff;
+  font-size: 9px; font-weight: 900;
+  padding: 3px 8px; border-radius: 999px;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 6px rgba(255,179,0,0.4);
+}
+.count-card.disabled {
+  background: #f0f2f4; opacity: 0.45;
+  cursor: not-allowed;
+}
+.count-card.disabled .cc-num { color: var(--text-dim); }
+
+.info-box {
+  background: rgba(0,151,167,0.06);
+  border-radius: 14px;
+  padding: 12px 18px; margin-bottom: 18px;
+  display: flex; gap: 14px; flex-wrap: wrap;
+  justify-content: space-between;
+}
+.info-item { text-align: center; flex: 1; min-width: 90px; }
+.info-item .v { font-size: 14px; font-weight: 800; color: var(--aqua); }
+.info-item .l { font-size: 10px; color: var(--text-sub); margin-top: 2px; }
+
+/* ── 퀴즈 화면 ── */
+.quiz-top {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px; margin-bottom: 14px;
+}
+.quiz-counter {
+  font-family: 'Jua', sans-serif;
+  font-size: 16px; color: var(--aqua-deep);
+}
+.quiz-score-mini {
+  background: rgba(0,151,167,0.1); color: var(--aqua-deep);
+  padding: 5px 14px; border-radius: 999px;
+  font-weight: 800; font-size: 13px;
+}
+.progress-bar {
+  height: 8px; background: rgba(255,255,255,0.6);
+  border-radius: 999px; overflow: hidden;
+  margin-bottom: 22px;
+}
+.progress-fill {
+  height: 100%; background: linear-gradient(90deg, var(--aqua-light), var(--aqua));
+  border-radius: 999px; transition: width .3s ease;
+  width: 0%;
+}
+
+.timer-section { text-align: center; margin-bottom: 8px; }
+.timer-ring {
+  position: relative; width: 70px; height: 70px;
+  margin: 0 auto 4px;
+}
+.timer-ring svg { transform: rotate(-90deg); }
+.timer-ring circle { fill: none; stroke-width: 5; }
+.timer-ring .track { stroke: rgba(0,151,167,0.15); }
+.timer-ring .prog {
+  stroke: var(--aqua);
+  stroke-linecap: round;
+  transition: stroke-dashoffset .15s linear, stroke .3s;
+}
+.timer-num {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Jua', sans-serif; font-size: 22px;
+  color: var(--aqua-deep);
+}
+.timer-label {
+  font-size: 10px; color: var(--text-dim);
+  letter-spacing: 1px; text-transform: uppercase;
+}
+
+.question-text {
+  font-size: 19px; font-weight: 700;
+  line-height: 1.55; text-align: center;
+  color: var(--text-main);
+  margin: 24px 0 30px;
+  min-height: 90px;
+  word-break: keep-all;
+}
+
+.ox-buttons {
+  display: flex; gap: 18px; justify-content: center;
+}
+.ox-btn {
+  width: 130px; height: 130px;
+  border-radius: 30px; border: none;
+  font-family: 'Jua', sans-serif; font-size: 56px;
+  cursor: pointer;
+  transition: all .15s;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
+.ox-btn-o {
+  background: linear-gradient(135deg, #4fc3f7, #00acc1);
+  color: #fff;
+}
+.ox-btn-x {
+  background: linear-gradient(135deg, #ff8a80, #ef5350);
+  color: #fff;
+}
+.ox-btn:hover:not(:disabled) {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+}
+.ox-btn:active:not(:disabled) { transform: translateY(-1px); }
+.ox-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── 정답/오답 토스트 (오버레이) ── */
+.toast-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  display: none; align-items: center; justify-content: center;
+  background: rgba(176,228,235,0.4);
+  backdrop-filter: blur(6px);
+}
+.toast-overlay.show { display: flex; }
+.toast-card {
+  background: rgba(255,255,255,0.95);
+  border-radius: 28px;
+  padding: 36px 32px;
+  text-align: center; width: 86%; max-width: 340px;
+  box-shadow: 0 20px 50px rgba(0, 119, 159, 0.25);
+  animation: popIn .35s cubic-bezier(.34,1.56,.64,1) forwards;
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+.toast-icon { font-size: 60px; margin-bottom: 10px; }
+.toast-verdict {
+  font-family: 'Jua', sans-serif; font-size: 28px;
+  margin-bottom: 8px;
+}
+.toast-verdict.correct { color: var(--aqua); }
+.toast-verdict.wrong { color: var(--x-color); }
+.toast-points {
+  font-size: 18px; font-weight: 800;
+  color: var(--aqua-deep); margin-bottom: 8px;
+}
+.toast-answer {
+  font-size: 13px; color: var(--text-sub);
+  line-height: 1.5; word-break: keep-all;
+}
+.toast-progress-bar {
+  height: 4px; background: var(--aqua);
+  border-radius: 999px; margin-top: 18px;
+  transform-origin: left;
+}
+.toast-progress-bar.run { animation: shrink linear forwards; }
+@keyframes shrink { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+/* ── X 바로잡기 ── */
+.correction-card .cc-title {
+  font-family: 'Jua', sans-serif; font-size: 22px;
+  color: var(--x-color);
+  text-align: center; margin-bottom: 6px;
+}
+.correction-card .cc-sub {
+  font-size: 13px; color: var(--text-sub);
+  text-align: center; margin-bottom: 16px;
+}
+.correction-q-preview {
+  background: rgba(0,151,167,0.06);
+  border-left: 3px solid var(--aqua);
+  border-radius: 0 10px 10px 0;
+  padding: 12px 14px;
+  font-size: 14px; font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
+.correction-textarea {
+  width: 100%; min-height: 90px;
+  background: rgba(255,255,255,0.95);
+  border: 1.5px solid transparent;
+  border-radius: 14px;
+  font-family: inherit; font-size: 14px;
+  color: var(--text-main); padding: 14px 16px;
+  resize: vertical; outline: none;
+  transition: all .2s; line-height: 1.5;
+}
+.correction-textarea:focus {
+  border-color: var(--aqua);
+  box-shadow: 0 0 0 4px rgba(0,151,167,0.1);
+}
+.correction-note {
+  font-size: 12px; color: var(--text-sub);
+  text-align: center; margin: 10px 0;
+}
+.correction-note .pts { color: var(--aqua-deep); font-weight: 800; }
+.correction-actions {
+  display: flex; gap: 8px; margin-top: 8px;
+}
+.correction-actions .btn { flex: 1; }
+
+/* X바로잡기 보기(다른 학생들 글) */
+.note-list {
+  max-height: 240px; overflow-y: auto;
+  background: rgba(255,255,255,0.7);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.note-list::-webkit-scrollbar { width: 4px; }
+.note-list::-webkit-scrollbar-thumb { background: rgba(0,151,167,0.3); border-radius: 4px; }
+.note-item {
+  padding: 10px 0;
+  border-bottom: 1px dashed rgba(0,151,167,0.15);
+  font-size: 13px; line-height: 1.5;
+}
+.note-item:last-child { border-bottom: none; }
+.note-author {
+  font-weight: 800; color: var(--aqua); font-size: 12px;
+  margin-bottom: 2px;
+}
+.note-empty {
+  text-align: center; padding: 24px 0;
+  color: var(--text-sub); font-size: 13px;
+}
+
+/* ── 결과 화면 ── */
+.result-celebrate { text-align: center; margin-bottom: 22px; }
+.result-celebrate .emoji {
+  font-size: 56px; margin-bottom: 8px;
+  display: inline-block;
+  animation: bounce 1s ease infinite alternate;
+}
+@keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-6px); } }
+.result-celebrate h2 {
+  font-family: 'Jua', sans-serif; font-size: 26px;
+  color: var(--aqua-deep);
+}
+.result-celebrate .sub-name {
+  font-size: 13px; color: var(--text-sub); margin-top: 4px;
+}
+
+.result-score-card {
+  background: linear-gradient(135deg, rgba(79,195,247,0.15), rgba(0,151,167,0.15));
+  border-radius: 22px;
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+.result-score-card .score-val {
+  font-family: 'Jua', sans-serif;
+  font-size: 56px; color: var(--aqua-deep);
+  line-height: 1;
+}
+.result-score-card .score-label {
+  font-size: 12px; color: var(--text-sub);
+  margin-top: 4px; letter-spacing: 0.5px;
+}
+.result-stats {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px; margin-bottom: 16px;
+}
+.result-stat {
+  background: rgba(255,255,255,0.7);
+  border-radius: 14px;
+  padding: 14px 8px;
+  text-align: center;
+}
+.result-stat .v {
+  font-family: 'Jua', sans-serif;
+  font-size: 22px; color: var(--aqua-deep);
+}
+.result-stat .l {
+  font-size: 10px; color: var(--text-sub);
+  margin-top: 2px; letter-spacing: 0.5px;
+}
+
+.oneliner-section {
+  background: rgba(255,255,255,0.7);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.oneliner-section h4 {
+  font-family: 'Jua', sans-serif;
+  font-size: 15px; color: var(--aqua-deep);
+  margin-bottom: 10px;
+}
+.oneliner-input {
+  width: 100%; padding: 12px 16px;
+  background: #fff;
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  font-family: inherit; font-size: 14px;
+  outline: none; transition: all .2s;
+}
+.oneliner-input:focus {
+  border-color: var(--aqua);
+  box-shadow: 0 0 0 4px rgba(0,151,167,0.1);
+}
+
+.result-actions {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.result-actions .btn { flex: 1; min-width: 120px; }
+
+.ranking-warning {
+  background: rgba(255,179,0,0.12);
+  border: 1px solid rgba(255,179,0,0.3);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 12px;
+  color: #8a5a00;
+  margin-bottom: 14px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* ── 랭킹 화면 ── */
+.ranking-header {
+  text-align: center; margin-bottom: 20px;
+}
+.ranking-header h2 {
+  font-family: 'Jua', sans-serif;
+  font-size: 26px; color: var(--aqua-deep);
+}
+.ranking-header .sub { font-size: 12px; color: var(--text-sub); margin-top: 4px; }
+
+.ranking-filter {
+  display: flex; gap: 6px; justify-content: center;
+  flex-wrap: wrap; margin-bottom: 20px;
+}
+.rank-chip {
+  padding: 7px 14px;
+  background: rgba(255,255,255,0.7);
+  border: 1.5px solid rgba(0,151,167,0.15);
+  border-radius: 999px;
+  font-family: inherit; font-size: 12px; font-weight: 700;
+  color: var(--aqua-deep); cursor: pointer;
+  transition: all .15s;
+}
+.rank-chip.active {
+  background: var(--aqua); color: #fff;
+  border-color: var(--aqua);
+}
+
+.podium {
+  display: flex; align-items: flex-end; justify-content: center;
+  gap: 10px; margin-bottom: 20px;
+  padding: 0 4px;
+}
+.podium-item {
+  display: flex; flex-direction: column; align-items: center;
+  flex: 1; max-width: 100px;
+}
+.podium-medal { font-size: 28px; margin-bottom: 4px; }
+.podium-name {
+  font-size: 13px; font-weight: 800;
+  color: var(--aqua-deep);
+  max-width: 100%; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.podium-score {
+  font-family: 'Jua', sans-serif;
+  font-size: 14px; color: var(--aqua);
+  margin: 2px 0 6px;
+}
+.podium-block {
+  width: 100%;
+  border-radius: 10px 10px 0 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Jua', sans-serif; font-size: 20px;
+  color: #fff;
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,0.08);
+}
+.podium-1 { height: 80px; background: linear-gradient(135deg, #ffd54f, var(--gold)); }
+.podium-2 { height: 60px; background: linear-gradient(135deg, #eceff1, var(--silver)); }
+.podium-3 { height: 44px; background: linear-gradient(135deg, #ffccbc, var(--bronze)); }
+
+.rank-list { padding: 0 4px; }
+.rank-row {
+  display: flex; align-items: center; gap: 12px;
+  background: rgba(255,255,255,0.7);
+  border-radius: 14px;
+  padding: 12px 16px;
+  margin-bottom: 6px;
+  transition: all .15s;
+}
+.rank-row:hover { background: rgba(255,255,255,0.9); }
+.rank-row.me {
+  background: rgba(0,151,167,0.15);
+  border: 1.5px solid var(--aqua);
+}
+.rank-num {
+  width: 26px; text-align: center;
+  font-family: 'Jua', sans-serif; font-size: 16px;
+  color: var(--text-sub);
+}
+.rank-info { flex: 1; min-width: 0; }
+.rank-name {
+  font-size: 14px; font-weight: 800; color: var(--aqua-deep);
+}
+.rank-meta {
+  font-size: 11px; color: var(--text-sub); margin-top: 1px;
+}
+.rank-comment {
+  font-size: 12px; color: var(--text-sub);
+  margin-top: 3px; font-style: italic;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rank-score {
+  font-family: 'Jua', sans-serif;
+  font-size: 18px; color: var(--aqua);
+}
+.empty-rank {
+  text-align: center; padding: 40px 0;
+  color: var(--text-sub); font-size: 13px;
+}
+
+/* ── 관리자 진입 버튼 ── */
+.admin-link {
+  display: block; text-align: center;
+  margin: 24px auto 0;
+  background: none; border: none;
+  color: var(--text-dim); font-size: 11px;
+  font-family: inherit; cursor: pointer;
+  padding: 4px 12px;
+}
+.admin-link:hover { color: var(--text-sub); }
+
+/* ── 선생님 연락 ── */
+.teacher-contact {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px dashed rgba(0,151,167,0.15);
+  text-align: center;
+}
+.teacher-contact .tc-text {
+  font-size: 11px; color: var(--text-dim);
+  margin-bottom: 8px;
+}
+.teacher-contact .tc-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 18px;
+  background: linear-gradient(135deg, #ffe14d, #fee500);
+  color: #3a2e00;
+  border-radius: 999px;
+  font-family: 'Pretendard', sans-serif;
+  font-size: 12px; font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 3px 10px rgba(254,229,0,0.35);
+  transition: all .15s;
+}
+.teacher-contact .tc-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 14px rgba(254,229,0,0.5);
+}
+.teacher-contact .tc-btn:active { transform: translateY(0); }
+
+/* ── 토스트(작은 알림) ── */
+#mini-toast {
+  position: fixed; bottom: 28px; left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: rgba(0,105,120,0.92);
+  color: #fff; padding: 12px 22px;
+  border-radius: 999px; font-size: 13px; font-weight: 700;
+  opacity: 0; transition: all .25s;
+  pointer-events: none; z-index: 999;
+  box-shadow: 0 6px 20px rgba(0,105,120,0.3);
+}
+#mini-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* ── 개발자 네비게이터 ── */
+#dev-nav {
+  position: fixed; bottom: 18px; right: 18px;
+  z-index: 9999;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+}
+#dev-toggle {
+  width: 46px; height: 46px;
+  background: linear-gradient(135deg, #7c3aed, #5b21b6);
+  border: none; border-radius: 50%;
+  color: #fff; font-size: 18px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(124,58,237,0.4);
+  transition: transform .2s;
+  display: flex; align-items: center; justify-content: center;
+}
+#dev-toggle:hover { transform: scale(1.08) rotate(15deg); }
+#dev-menu {
+  display: none; flex-direction: column; gap: 5px;
+  background: rgba(26,16,37,0.95); backdrop-filter: blur(10px);
+  border: 1px solid rgba(124,58,237,0.4);
+  border-radius: 14px; padding: 12px;
+  box-shadow: 0 10px 32px rgba(0,0,0,0.4);
+  min-width: 180px;
+}
+#dev-menu.open { display: flex; }
+#dev-menu .dev-label {
+  font-size: 9px; font-weight: 800; color: #b794ff;
+  letter-spacing: 1px; text-transform: uppercase;
+  padding: 2px 4px 6px; border-bottom: 1px solid rgba(124,58,237,0.25);
+  margin-bottom: 4px;
+}
+#dev-menu button {
+  background: rgba(124,58,237,0.15);
+  border: 1px solid rgba(124,58,237,0.25);
+  color: #d4b8ff; border-radius: 8px;
+  padding: 7px 11px; font-size: 12px; font-weight: 700;
+  cursor: pointer; text-align: left;
+  font-family: inherit; transition: .15s;
+}
+#dev-menu button:hover { background: rgba(124,58,237,0.4); color: #fff; }
+
+/* ── 모바일 ── */
+@media (max-width: 480px) {
+  .glass-card { padding: 26px 22px; }
+  .title-block h1 { font-size: 24px; }
+  .question-text { font-size: 17px; margin: 18px 0 24px; min-height: 70px; }
+  .ox-btn { width: 110px; height: 110px; font-size: 48px; border-radius: 26px; }
+  .ox-buttons { gap: 14px; }
+  .preset-row { grid-template-columns: 1fr 1fr; }
+  .lecture-grid { grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .lecture-chip { padding: 12px 2px; font-size: 14px; }
+  .count-grid { gap: 8px; }
+  .count-card { padding: 14px 6px; }
+  .count-card .cc-num { font-size: 24px; }
+}
+</style>
+</head>
+<body>
+
+<div class="glass-card" id="card">
+
+  <!-- ════════ 페이지 1: 로그인 ════════ -->
+  <div class="page active" id="page-login">
+    <div class="title-block">
+      <div class="top-line">3학년 1학기 시험 대비</div>
+      <h1>역사 OX 퀴즈 <span class="wave">🌊</span></h1>
+      <div class="sub-text">학번과 이름을 입력해주세요</div>
+    </div>
+
+    <div class="input-row">
+      <label class="input-label">학번 (5자리)</label>
+      <input type="number" class="input-box" id="login-id" placeholder="예: 30101" maxlength="5" autocomplete="off">
+    </div>
+    <div class="input-row">
+      <label class="input-label">이름</label>
+      <input type="text" class="input-box" id="login-name" placeholder="이름 입력" autocomplete="off" onkeydown="if(event.key==='Enter')tryLogin()">
+    </div>
+    <button class="btn btn-pill btn-aqua btn-lg btn-full" onclick="tryLogin()">접속하기 🚀</button>
+
+    <div id="login-error" style="text-align:center;color:var(--x-color);font-size:13px;margin-top:10px;min-height:18px;"></div>
+
+    <div id="menu-section" style="display:none;">
+      <div class="menu-divider">메뉴 선택</div>
+      <div class="menu-grid">
+        <div class="menu-card" onclick="goPage('page-lecture')">
+          <div class="menu-icon">📝</div>
+          <div class="menu-name">OX 퀴즈</div>
+          <div class="menu-desc">시험 대비 문제</div>
+        </div>
+        <div class="menu-card" onclick="goPage('page-ranking')">
+          <div class="menu-icon">🏆</div>
+          <div class="menu-name">랭킹</div>
+          <div class="menu-desc">명예의 전당</div>
+        </div>
+      </div>
+    </div>
+
+    <button class="admin-link" onclick="goAdmin()">⚙️ 관리자 모드</button>
+
+    <!-- 선생님 연락 -->
+    <div class="teacher-contact">
+      <div class="tc-text">오류나 문제가 이상한 경우 알려주세요</div>
+      <a href="https://open.kakao.com/o/smm3ixqi" target="_blank" rel="noopener" class="tc-btn">
+        💬 호성쌤에게 메시지 보내기
+      </a>
+    </div>
+  </div>
+
+  <!-- ════════ 페이지 2: 강의 선택 ════════ -->
+  <div class="page" id="page-lecture">
+    <button class="back-btn" onclick="goPage('page-login');resetLectures();">← 뒤로</button>
+    <div class="title-block">
+      <h1>강의 선택 📚</h1>
+      <div class="sub-text">시험 범위에서 풀고 싶은 강의를 골라주세요</div>
+    </div>
+
+    <label class="input-label" style="text-align:center;display:block;margin-bottom:8px;">빠른 선택</label>
+    <div class="preset-row">
+      <div class="preset-chip" onclick="applyPreset('all', this)">전 범위</div>
+      <div class="preset-chip" onclick="applyPreset('front', this)">전반부<br><span style="font-size:10px;opacity:.7;">12-15강</span></div>
+      <div class="preset-chip" onclick="applyPreset('mid', this)">중반부<br><span style="font-size:10px;opacity:.7;">16-18강</span></div>
+      <div class="preset-chip" onclick="applyPreset('back', this)">후반부<br><span style="font-size:10px;opacity:.7;">19-21강</span></div>
+    </div>
+
+    <label class="input-label" style="text-align:center;display:block;margin-bottom:8px;">개별 선택 (탭하여 선택/해제)</label>
+    <div class="lecture-grid" id="lecture-grid">
+      <!-- JS로 12~21강 카드 생성 -->
+    </div>
+
+    <div class="lecture-summary">
+      <div>
+        <div class="ls-label">선택 강의 / 총 문항</div>
+        <div class="ls-val"><span id="sel-lec-count">0</span><span class="ls-unit">강</span> / <span id="sel-q-count">0</span><span class="ls-unit">문항</span></div>
+      </div>
+      <button class="btn btn-pill btn-aqua btn-md" id="go-count-btn" onclick="goPage('page-count');renderCountOptions();" disabled>다음 →</button>
+    </div>
+  </div>
+
+  <!-- ════════ 페이지 3: 문항 수 선택 ════════ -->
+  <div class="page" id="page-count">
+    <button class="back-btn" onclick="goPage('page-lecture')">← 뒤로</button>
+    <div class="title-block">
+      <h1>문항 수 선택 🎯</h1>
+      <div class="sub-text" id="count-sub-text">선택한 강의: <span id="count-sub-lecs">-</span></div>
+    </div>
+
+    <div class="count-grid" id="count-grid">
+      <!-- JS로 동적 생성 -->
+    </div>
+
+    <div class="info-box">
+      <div class="info-item">
+        <div class="v">⏱ 20초</div>
+        <div class="l">문항당 시간</div>
+      </div>
+      <div class="info-item">
+        <div class="v">⚡ 빠를수록↑</div>
+        <div class="l">점수 가산</div>
+      </div>
+      <div class="info-item">
+        <div class="v">✏️ +200점</div>
+        <div class="l">X바로잡기</div>
+      </div>
+    </div>
+
+    <div class="ranking-warning" id="rank-warning">
+      🏆 <strong>랭킹은 "전 범위(12~21강)" 선택 시에만 등재</strong>됩니다.<br>
+      현재 선택은 랭킹에 등록되지 않아요.
+    </div>
+
+    <button class="btn btn-pill btn-aqua btn-lg btn-full" id="start-quiz-btn" onclick="startQuiz()" disabled>퀴즈 시작 🚀</button>
+  </div>
+
+  <!-- ════════ 페이지 4: 퀴즈 진행 ════════ -->
+  <div class="page" id="page-quiz">
+    <div class="quiz-top">
+      <div class="quiz-counter"><span id="q-num-now">1</span> / <span id="q-num-total">10</span></div>
+      <div class="quiz-score-mini"><span id="q-score">0</span>점</div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+
+    <div class="timer-section">
+      <div class="timer-ring">
+        <svg width="70" height="70" viewBox="0 0 70 70">
+          <circle class="track" cx="35" cy="35" r="30" stroke-dasharray="188.5" stroke-dashoffset="0"/>
+          <circle class="prog" id="timer-circle" cx="35" cy="35" r="30" stroke-dasharray="188.5" stroke-dashoffset="0"/>
+        </svg>
+        <div class="timer-num" id="timer-num">20</div>
+      </div>
+      <div class="timer-label">SECONDS</div>
+    </div>
+
+    <div class="question-text" id="question-text">문제 표시 영역</div>
+
+    <div class="ox-buttons">
+      <button class="ox-btn ox-btn-o" id="btn-o" onclick="selectAnswer('O')">O</button>
+      <button class="ox-btn ox-btn-x" id="btn-x" onclick="selectAnswer('X')">X</button>
+    </div>
+  </div>
+
+  <!-- ════════ 페이지 5: 결과 ════════ -->
+  <div class="page" id="page-result">
+    <div class="result-celebrate">
+      <div class="emoji">🎉</div>
+      <h2>퀴즈 완료!</h2>
+      <div class="sub-name" id="result-name">홍길동 학생</div>
+    </div>
+
+    <div class="result-score-card">
+      <div class="score-val" id="final-score">0</div>
+      <div class="score-label">최종 점수</div>
+    </div>
+
+    <div class="result-stats">
+      <div class="result-stat"><div class="v" id="r-correct">0</div><div class="l">정답</div></div>
+      <div class="result-stat"><div class="v" id="r-wrong">0</div><div class="l">오답</div></div>
+      <div class="result-stat"><div class="v" id="r-corr">0</div><div class="l">X바로잡기</div></div>
+    </div>
+
+    <div class="oneliner-section" id="oneliner-section" style="display:none;">
+      <h4>🖊️ 한줄 소감 (랭킹에 표시돼요)</h4>
+      <input type="text" class="oneliner-input" id="oneliner-input" maxlength="40" placeholder="예: 다음엔 더 잘 볼게요!">
+    </div>
+
+    <div class="result-actions">
+      <button class="btn btn-pill btn-ghost btn-md" onclick="goPage('page-ranking')">🏆 랭킹 보기</button>
+      <button class="btn btn-pill btn-aqua btn-md" onclick="restartQuiz()">다시 풀기 🔄</button>
+    </div>
+  </div>
+
+  <!-- ════════ 페이지 6: 랭킹 ════════ -->
+  <div class="page" id="page-ranking">
+    <button class="back-btn" onclick="goPage('page-login')">← 뒤로</button>
+    <div class="ranking-header">
+      <h2>🏆 명예의 전당</h2>
+      <div class="sub">전 범위 도전자들의 점수 랭킹</div>
+    </div>
+
+    <div class="ranking-filter">
+      <button class="rank-chip active" onclick="filterRanking(30,this)">30문항</button>
+      <button class="rank-chip" onclick="filterRanking(50,this)">50문항</button>
+      <button class="rank-chip" onclick="filterRanking(100,this)">100문항</button>
+      <button class="rank-chip" onclick="filterRanking(200,this)">200문항</button>
+    </div>
+
+    <div class="podium" id="podium"></div>
+    <div class="rank-list" id="rank-list"></div>
+  </div>
+
+</div>
+
+<!-- 정답/오답 토스트 -->
+<div class="toast-overlay" id="result-toast">
+  <div class="toast-card">
+    <div class="toast-icon" id="toast-icon">🎉</div>
+    <div class="toast-verdict" id="toast-verdict">정답!</div>
+    <div class="toast-points" id="toast-points">+850점</div>
+    <div class="toast-answer" id="toast-answer"></div>
+    <div class="toast-progress-bar" id="toast-bar"></div>
+  </div>
+</div>
+
+<!-- X 바로잡기 입력 -->
+<div class="toast-overlay" id="correction-overlay">
+  <div class="toast-card correction-card" style="max-width:420px;width:92%;">
+    <div class="cc-title">✏️ X 바로잡기</div>
+    <div class="cc-sub">이 문장의 어느 부분이 틀렸는지 적어주세요</div>
+    <div class="correction-q-preview" id="cc-preview"></div>
+    <textarea class="correction-textarea" id="cc-text" placeholder="예) '1582년'이 아니라 '1592년'에 발발했어요. 임진년이라서 임진왜란!"></textarea>
+    <div class="correction-note">✅ 작성 시 <span class="pts">+200점</span> · 다른 친구들 X바로잡기 열람 가능</div>
+    <div class="correction-actions">
+      <button class="btn btn-pill btn-soft btn-md" onclick="skipCorrection()">건너뛰기</button>
+      <button class="btn btn-pill btn-aqua btn-md" onclick="submitCorrection()">제출하기 📝</button>
+    </div>
+  </div>
+</div>
+
+<!-- 다른 학생들 X바로잡기 보기 -->
+<div class="toast-overlay" id="notes-overlay">
+  <div class="toast-card" style="max-width:420px;width:92%;text-align:left;">
+    <div class="cc-title" style="text-align:center;">👀 친구들의 X 바로잡기</div>
+    <div class="cc-sub" style="text-align:center;">같은 문제에 다른 친구들이 남긴 메모예요</div>
+    <div class="note-list" id="notes-list"></div>
+    <button class="btn btn-pill btn-aqua btn-md btn-full" onclick="closeNotesAndNext()">다음 문제로 ➡️</button>
+  </div>
+</div>
+
+<!-- 미니 토스트 -->
+<div id="mini-toast"></div>
+
+<!-- 개발자 네비게이터 -->
+<div id="dev-nav">
+  <div id="dev-menu">
+    <div class="dev-label">🛠 DEV NAV</div>
+    <button onclick="devGo('page-login')">① 로그인</button>
+    <button onclick="devGo('page-lecture')">② 강의 선택</button>
+    <button onclick="devGo('page-count')">③ 문항 수</button>
+    <button onclick="devGo('page-quiz')">④ 퀴즈</button>
+    <button onclick="devGo('page-result')">⑤ 결과</button>
+    <button onclick="devGo('page-ranking')">⑥ 랭킹</button>
+  </div>
+  <button id="dev-toggle" onclick="toggleDev()" title="개발자 메뉴">🛠</button>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════
+// FIREBASE CONFIG & INIT
+// ══════════════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain: "ho0911seong-56638.firebaseapp.com",
+  databaseURL: "https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ho0911seong-56638",
+  storageBucket: "ho0911seong-56638.firebasestorage.app",
+  messagingSenderId: "994509567071",
+  appId: "1:994509567071:web:de99e71c125ec2a3f557ea"
+};
+firebase.initializeApp(firebaseConfig);
+const fs = firebase.firestore();              // Firestore (문제/랭킹/X바로잡기)
+const rtdb = firebase.database();             // Realtime DB (학생 명단)
+const COL = {
+  questions: 'ox2606_questions',
+  rankings: 'ox2606_rankings',
+  corrections: 'ox2606_corrections',
+  responses: 'ox2606_responses',
+  admin: 'ox2606_admin',
+};
+
+// ══════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════
+const state = {
+  student: null,
+  selectedLectures: new Set(),
+  selectedCount: 0,
+  currentQ: 0, score: 0, correct: 0, wrong: 0, corrections: 0,
+  questions: [],                  // 현재 퀴즈에서 풀고 있는 문제들
+  currentAnswer: null,
+  timer: null, timeLeft: 20,
+  allQuestions: [],               // Firestore에서 받아온 전체 문제 캐시
+  lectureCounts: {},              // 강의별 문항 수
+};
+
+const LECTURES = [12,13,14,15,16,17,18,19,20,21];
+
+// ══════════════════════════════════════════════════
+// PAGE NAVIGATION
+// ══════════════════════════════════════════════════
+function goPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.getElementById('card').scrollTop = 0;
+
+  if (id === 'page-ranking') {
+    renderRanking(state.currentRankFilter || 30);
+  }
+  if (id === 'page-lecture') renderLectures();
+}
+
+function toggleDev() { document.getElementById('dev-menu').classList.toggle('open'); }
+function devGo(id) {
+  if (id === 'page-quiz') {
+    if (state.allQuestions.length === 0) {
+      miniToast('먼저 Firestore에 문제를 등록해주세요');
+      return;
+    }
+    state.questions = [...state.allQuestions].sort(() => Math.random() - 0.5).slice(0, 10);
+    state.currentQ = 0; state.score = 0; state.correct = 0; state.wrong = 0; state.corrections = 0;
+    state.selectedCount = 10;
+    state.student = state.student || {sid:'30101', name:'테스트'};
+    showQuestion();
+  }
+  if (id === 'page-count') { renderCountOptions(); }
+  if (id === 'page-result') {
+    state.score = 8450; state.correct = 28; state.wrong = 2; state.corrections = 3;
+    state.selectedCount = 30;
+    state.student = state.student || {sid:'30101', name:'테스트'};
+    updateResultScreen();
+  }
+  if (id === 'page-login' && !state.student) {
+    document.getElementById('menu-section').style.display = 'none';
+  }
+  goPage(id);
+  document.getElementById('dev-menu').classList.remove('open');
+}
+
+function goAdmin() { window.location.href = 'ox2606_a.html'; }
+
+// ══════════════════════════════════════════════════
+// FIREBASE: 문제 불러오기
+// ══════════════════════════════════════════════════
+async function loadQuestions() {
+  try {
+    const snap = await fs.collection(COL.questions).get();
+    state.allQuestions = [];
+    state.lectureCounts = {};
+    snap.forEach(doc => {
+      const d = doc.data();
+      state.allQuestions.push({
+        id: doc.id,
+        lec: d.lec,
+        q: d.q,
+        a: d.a,
+        exp: d.exp || ''
+      });
+      state.lectureCounts[d.lec] = (state.lectureCounts[d.lec] || 0) + 1;
+    });
+    renderLectures();
+  } catch (err) {
+    console.error('문제 불러오기 실패:', err);
+    miniToast('문제를 불러오지 못했어요. 새로고침해주세요.');
+  }
+}
+
+// ══════════════════════════════════════════════════
+// LOGIN (Realtime DB로 학생 명단 검증)
+// ══════════════════════════════════════════════════
+async function tryLogin() {
+  const id = document.getElementById('login-id').value.trim();
+  const name = document.getElementById('login-name').value.trim();
+  const err = document.getElementById('login-error');
+
+  if (!id || !name) { err.textContent = '학번과 이름을 모두 입력해주세요.'; return; }
+  if (!/^\d{5}$/.test(id)) { err.textContent = '학번은 숫자 5자리여야 합니다.'; return; }
+
+  err.textContent = '확인 중...';
+  try {
+    const snap = await rtdb.ref('students').once('value');
+    const data = snap.val() || {};
+    let found = null;
+    Object.values(data).forEach(s => {
+      const sid = s.studentId || '';
+      const sname = s.name || s.studentName || '';
+      if (sid === id) found = { sid, name: sname };
+    });
+
+    if (!found) {
+      err.textContent = '등록되지 않은 학번입니다. 선생님께 문의해주세요.';
+      return;
+    }
+    // 이름이 일치하는지 체크 (공백 제거, 부분 일치 허용)
+    const cleanInput = name.replace(/\s+/g,'');
+    const cleanDb = found.name.replace(/\s+/g,'');
+    if (cleanInput !== cleanDb) {
+      err.textContent = `학번에 등록된 이름과 다릅니다. (등록명: ${found.name})`;
+      return;
+    }
+
+    err.textContent = '';
+    state.student = { sid: id, name: found.name };
+    document.getElementById('menu-section').style.display = 'block';
+    miniToast(`${found.name} 학생, 환영해요! 🌊`);
+  } catch (e) {
+    console.error(e);
+    err.textContent = '로그인 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.';
+  }
+}
+
+// ══════════════════════════════════════════════════
+// LECTURE SELECTION
+// ══════════════════════════════════════════════════
+function renderLectures() {
+  const grid = document.getElementById('lecture-grid');
+  grid.innerHTML = LECTURES.map(l => {
+    const isActive = state.selectedLectures.has(l);
+    const count = state.lectureCounts[l] || 0;
+    return `<div class="lecture-chip ${isActive ? 'active' : ''}" data-lec="${l}" onclick="toggleLecture(${l},this)">
+      ${l}강
+      <span class="lec-count">${count}문항</span>
+    </div>`;
+  }).join('');
+  updateLectureSummary();
+}
+
+function toggleLecture(lec, el) {
+  if (state.selectedLectures.has(lec)) {
+    state.selectedLectures.delete(lec);
+    el.classList.remove('active');
+  } else {
+    state.selectedLectures.add(lec);
+    el.classList.add('active');
+  }
+  document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+  if (state.selectedLectures.size === LECTURES.length) {
+    document.querySelector('.preset-chip').classList.add('active');
+  }
+  updateLectureSummary();
+}
+
+function applyPreset(type, el) {
+  state.selectedLectures.clear();
+  const presets = {
+    all: LECTURES,
+    front: [12,13,14,15],
+    mid: [16,17,18],
+    back: [19,20,21],
+  };
+  (presets[type] || []).forEach(l => state.selectedLectures.add(l));
+  document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderLectures();
+}
+
+function updateLectureSummary() {
+  const lecCount = state.selectedLectures.size;
+  const totalQ = [...state.selectedLectures].reduce((s,l) => s + (state.lectureCounts[l] || 0), 0);
+  document.getElementById('sel-lec-count').textContent = lecCount;
+  document.getElementById('sel-q-count').textContent = totalQ;
+  document.getElementById('go-count-btn').disabled = lecCount === 0;
+}
+
+function resetLectures() { /* 선택 유지 */ }
+
+// ══════════════════════════════════════════════════
+// COUNT SELECTION
+// ══════════════════════════════════════════════════
+const COUNT_OPTIONS = [10, 20, 30, 50, 100, 200];
+
+function renderCountOptions() {
+  const totalAvailable = [...state.selectedLectures].reduce((s,l) => s + (state.lectureCounts[l] || 0), 0);
+  const isFullRange = state.selectedLectures.size === LECTURES.length;
+
+  const lecs = [...state.selectedLectures].sort((a,b)=>a-b);
+  let lecText = '';
+  if (lecs.length === LECTURES.length) lecText = '전 범위 (12~21강)';
+  else if (lecs.length === 0) lecText = '없음';
+  else lecText = lecs.map(l=>l+'강').join(', ');
+  document.getElementById('count-sub-lecs').textContent = lecText;
+
+  const grid = document.getElementById('count-grid');
+  grid.innerHTML = COUNT_OPTIONS.map(n => {
+    const isDisabled = n > totalAvailable;
+    const isRankable = n >= 30 && isFullRange;
+    return `<div class="count-card ${isDisabled ? 'disabled' : ''}"
+                 data-n="${n}"
+                 onclick="${isDisabled ? '' : `selectCount(${n}, this)`}">
+      <div class="cc-num">${n}</div>
+      <div class="cc-label">문항</div>
+      ${isRankable ? '<div class="cc-badge">🏆 랭킹</div>' : ''}
+    </div>`;
+  }).join('');
+
+  document.getElementById('rank-warning').style.display = isFullRange ? 'none' : 'block';
+
+  state.selectedCount = 0;
+  document.getElementById('start-quiz-btn').disabled = true;
+}
+
+function selectCount(n, el) {
+  if (el.classList.contains('disabled')) return;
+  document.querySelectorAll('.count-card').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  state.selectedCount = n;
+  document.getElementById('start-quiz-btn').disabled = false;
+}
+
+// ══════════════════════════════════════════════════
+// QUIZ
+// ══════════════════════════════════════════════════
+function startQuiz() {
+  if (!state.selectedCount) return;
+  const pool = state.allQuestions.filter(q => state.selectedLectures.has(q.lec));
+  if (pool.length === 0) {
+    miniToast('선택한 강의에 문제가 없어요');
+    return;
+  }
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  state.questions = shuffled.slice(0, Math.min(state.selectedCount, shuffled.length));
+
+  state.currentQ = 0;
+  state.score = 0;
+  state.correct = 0;
+  state.wrong = 0;
+  state.corrections = 0;
+
+  goPage('page-quiz');
+  showQuestion();
+}
+
+function showQuestion() {
+  const q = state.questions[state.currentQ];
+  if (!q) { endQuiz(); return; }
+
+  document.getElementById('question-text').textContent = q.q;
+  document.getElementById('q-num-now').textContent = state.currentQ + 1;
+  document.getElementById('q-num-total').textContent = state.questions.length;
+  document.getElementById('q-score').textContent = state.score.toLocaleString();
+
+  const pct = (state.currentQ / state.questions.length) * 100;
+  document.getElementById('progress-fill').style.width = pct + '%';
+
+  document.getElementById('btn-o').disabled = false;
+  document.getElementById('btn-x').disabled = false;
+
+  startTimer();
+}
+
+function startTimer() {
+  clearInterval(state.timer);
+  state.timeLeft = 20;
+  updateTimerUI();
+  state.timer = setInterval(() => {
+    state.timeLeft--;
+    updateTimerUI();
+    if (state.timeLeft <= 0) {
+      clearInterval(state.timer);
+      selectAnswer(null);
+    }
+  }, 1000);
+}
+
+function updateTimerUI() {
+  const t = state.timeLeft;
+  document.getElementById('timer-num').textContent = t;
+  const circle = document.getElementById('timer-circle');
+  const offset = 188.5 * (1 - t / 20);
+  circle.style.strokeDashoffset = offset;
+  circle.style.stroke = t > 10 ? 'var(--aqua)' : t > 5 ? '#ff9800' : 'var(--x-color)';
+}
+
+function selectAnswer(choice) {
+  clearInterval(state.timer);
+  document.getElementById('btn-o').disabled = true;
+  document.getElementById('btn-x').disabled = true;
+
+  const q = state.questions[state.currentQ];
+  const correct = choice === q.a;
+  const timeBonus = Math.round((state.timeLeft / 20) * 800) + 200;
+  const points = correct ? timeBonus : 0;
+  state.currentAnswer = choice;
+
+  if (correct) { state.correct++; state.score += points; }
+  else state.wrong++;
+
+  // 응답 기록 (반별 통계용) — fire-and-forget
+  if (state.student && choice) {
+    fs.collection(COL.responses).add({
+      studentId: state.student.sid,
+      studentName: state.student.name,
+      questionId: q.id,
+      lec: q.lec,
+      answer: choice,
+      isCorrect: correct,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }).catch(e => console.error('응답 기록 실패:', e));
+  }
+
+  showResultToast(correct, points, q);
+}
+
+function showResultToast(correct, points, q) {
+  const overlay = document.getElementById('result-toast');
+  document.getElementById('toast-icon').textContent = correct ? '🎉' : (state.currentAnswer ? '😢' : '⏰');
+  const verdict = document.getElementById('toast-verdict');
+  verdict.textContent = correct ? '정답!' : (state.currentAnswer ? '아쉬워요!' : '시간 초과');
+  verdict.className = 'toast-verdict ' + (correct ? 'correct' : 'wrong');
+  document.getElementById('toast-points').textContent = correct ? `+${points.toLocaleString()}점` : '0점';
+  const ans = `정답: ${q.a}` + (q.exp ? `  ·  ${q.exp}` : '');
+  document.getElementById('toast-answer').textContent = ans;
+
+  overlay.classList.add('show');
+  const bar = document.getElementById('toast-bar');
+  bar.classList.remove('run'); void bar.offsetWidth;
+  const duration = correct ? 2000 : 2500;
+  bar.style.animationDuration = duration + 'ms';
+  bar.classList.add('run');
+
+  setTimeout(() => {
+    overlay.classList.remove('show');
+    if (q.a === 'X') showCorrectionInput(q);
+    else nextQuestion();
+  }, duration);
+}
+
+// ══════════════════════════════════════════════════
+// X 바로잡기
+// ══════════════════════════════════════════════════
+function showCorrectionInput(q) {
+  document.getElementById('cc-preview').textContent = '📌 ' + q.q;
+  document.getElementById('cc-text').value = '';
+  document.getElementById('correction-overlay').classList.add('show');
+}
+
+function skipCorrection() {
+  document.getElementById('correction-overlay').classList.remove('show');
+  nextQuestion();
+}
+
+async function submitCorrection() {
+  const text = document.getElementById('cc-text').value.trim();
+  if (!text) { miniToast('내용을 입력해주세요'); return; }
+  const q = state.questions[state.currentQ];
+
+  try {
+    await fs.collection(COL.corrections).add({
+      questionId: q.id,
+      lec: q.lec,
+      question: q.q,
+      studentId: state.student.sid,
+      studentName: state.student.name,
+      text: text,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    state.corrections++;
+    state.score += 200;
+    document.getElementById('correction-overlay').classList.remove('show');
+    miniToast('+200점 획득! 친구들 메모도 확인해보세요 ✨');
+    showNotesOverlay(q);
+  } catch (e) {
+    console.error('X바로잡기 저장 실패:', e);
+    miniToast('저장에 실패했어요. 다시 시도해주세요.');
+  }
+}
+
+async function showNotesOverlay(q) {
+  const notesList = document.getElementById('notes-list');
+  notesList.innerHTML = '<div class="note-empty">로딩 중... ⏳</div>';
+  document.getElementById('notes-overlay').classList.add('show');
+
+  try {
+    const snap = await fs.collection(COL.corrections)
+      .where('questionId', '==', q.id)
+      .limit(20)
+      .get();
+
+    if (snap.empty) {
+      notesList.innerHTML = '<div class="note-empty">아직 작성된 메모가 없어요. 첫 번째 주인공이 되어주세요! ✨</div>';
+      return;
+    }
+
+    const items = [];
+    snap.forEach(doc => {
+      const d = doc.data();
+      items.push(`<div class="note-item">
+        <div class="note-author">${esc(d.studentId)} ${esc(d.studentName)}</div>
+        ${esc(d.text)}
+      </div>`);
+    });
+    notesList.innerHTML = items.join('');
+  } catch (e) {
+    console.error('메모 로딩 실패:', e);
+    notesList.innerHTML = '<div class="note-empty">메모를 불러오지 못했어요.</div>';
+  }
+}
+
+function closeNotesAndNext() {
+  document.getElementById('notes-overlay').classList.remove('show');
+  nextQuestion();
+}
+
+function nextQuestion() {
+  state.currentQ++;
+  if (state.currentQ >= state.questions.length) endQuiz();
+  else showQuestion();
+}
+
+// ══════════════════════════════════════════════════
+// END / RESULT
+// ══════════════════════════════════════════════════
+async function endQuiz() {
+  clearInterval(state.timer);
+  updateResultScreen();
+  goPage('page-result');
+
+  // 랭킹 등재 조건: 전 범위 + 30문항 이상
+  const isFullRange = state.selectedLectures.size === LECTURES.length;
+  if (isFullRange && state.selectedCount >= 30 && state.student) {
+    // 자동 저장 (한줄 소감은 입력 후 별도 업데이트)
+    try {
+      const docRef = await fs.collection(COL.rankings).add({
+        studentId: state.student.sid,
+        studentName: state.student.name,
+        count: state.selectedCount,
+        score: state.score,
+        correct: state.correct,
+        wrong: state.wrong,
+        corrections: state.corrections,
+        comment: '',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      state.lastRankingDocId = docRef.id;
+    } catch (e) {
+      console.error('랭킹 저장 실패:', e);
+    }
+  }
+}
+
+function updateResultScreen() {
+  document.getElementById('final-score').textContent = state.score.toLocaleString();
+  document.getElementById('r-correct').textContent = state.correct;
+  document.getElementById('r-wrong').textContent = state.wrong;
+  document.getElementById('r-corr').textContent = state.corrections;
+  document.getElementById('result-name').textContent =
+    state.student ? `${state.student.name} 학생` : '';
+
+  const isFullRange = state.selectedLectures.size === LECTURES.length;
+  const showOneliner = state.selectedCount >= 30 && isFullRange;
+  document.getElementById('oneliner-section').style.display = showOneliner ? 'block' : 'none';
+}
+
+// 한줄 소감 입력하면 자동으로 랭킹 doc 업데이트
+document.addEventListener('input', e => {
+  if (e.target && e.target.id === 'oneliner-input' && state.lastRankingDocId) {
+    clearTimeout(state.onelinerTimer);
+    state.onelinerTimer = setTimeout(() => {
+      fs.collection(COL.rankings).doc(state.lastRankingDocId).update({
+        comment: e.target.value.trim()
+      }).catch(err => console.error('소감 저장 실패:', err));
+    }, 600);
+  }
+});
+
+function restartQuiz() {
+  state.selectedCount = 0;
+  state.lastRankingDocId = null;
+  goPage('page-lecture');
+}
+
+// ══════════════════════════════════════════════════
+// RANKING
+// ══════════════════════════════════════════════════
+function filterRanking(n, el) {
+  document.querySelectorAll('.rank-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  state.currentRankFilter = n;
+  renderRanking(n);
+}
+
+async function renderRanking(n) {
+  const podium = document.getElementById('podium');
+  const list = document.getElementById('rank-list');
+  podium.innerHTML = '';
+  list.innerHTML = `<div class="empty-rank">랭킹을 불러오는 중... ⏳</div>`;
+
+  try {
+    const snap = await fs.collection(COL.rankings)
+      .where('count', '==', n)
+      .orderBy('score', 'desc')
+      .orderBy('corrections', 'desc')  // 동점일 때 X바로잡기 많은 사람 우선
+      .limit(50)
+      .get();
+
+    const data = [];
+    snap.forEach(doc => {
+      const d = doc.data();
+      data.push({
+        id: doc.id,
+        n: d.studentName,
+        sid: d.studentId,
+        s: d.score,
+        c: d.corrections || 0,
+        m: d.comment || '',
+      });
+    });
+
+    if (data.length === 0) {
+      podium.innerHTML = '';
+      list.innerHTML = `<div class="empty-rank">아직 랭킹에 등록된 학생이 없어요.<br>전 범위 ${n}문항에 도전해보세요! 🚀</div>`;
+      return;
+    }
+
+    // 포디움 (1~3위)
+    const top3 = data.slice(0, 3);
+    const podiumOrder = [1, 0, 2];
+    podium.innerHTML = podiumOrder.map(idx => {
+      if (!top3[idx]) return `<div class="podium-item"></div>`;
+      const s = top3[idx];
+      const medals = ['🥇','🥈','🥉'];
+      const blockClasses = ['podium-1','podium-2','podium-3'];
+      return `<div class="podium-item">
+        <div class="podium-medal">${medals[idx]}</div>
+        <div class="podium-name">${esc(s.n)}</div>
+        <div class="podium-score">${s.s.toLocaleString()}</div>
+        <div class="podium-block ${blockClasses[idx]}">${idx+1}</div>
+      </div>`;
+    }).join('');
+
+    // 4위~
+    list.innerHTML = data.slice(3).map((s, i) => {
+      const isMe = state.student && s.sid === state.student.sid;
+      return `<div class="rank-row ${isMe ? 'me' : ''}">
+        <div class="rank-num">${i + 4}</div>
+        <div class="rank-info">
+          <div class="rank-name">${esc(s.n)}</div>
+          <div class="rank-meta">${esc(s.sid)} · X바로잡기 ${s.c}회</div>
+          ${s.m ? `<div class="rank-comment">"${esc(s.m)}"</div>` : ''}
+        </div>
+        <div class="rank-score">${s.s.toLocaleString()}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    console.error('랭킹 로딩 실패:', e);
+    list.innerHTML = `<div class="empty-rank">랭킹을 불러오지 못했어요.<br><span style="font-size:11px;">${e.message}</span></div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════════════════════
+function esc(str) {
+  if (typeof str !== 'string') str = String(str || '');
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
+}
+
+let toastTimer;
+function miniToast(msg) {
+  const el = document.getElementById('mini-toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
+}
+
+// 키보드 단축키
+document.addEventListener('keydown', e => {
+  const active = document.querySelector('.page.active')?.id;
+  if (active === 'page-quiz') {
+    if (e.key.toLowerCase() === 'o') selectAnswer('O');
+    if (e.key.toLowerCase() === 'x') selectAnswer('X');
+  }
+});
+
+// 초기 로드
+loadQuestions();
+renderLectures();
+</script>
+</body>
+</html>
