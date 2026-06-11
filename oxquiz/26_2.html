@@ -150,6 +150,20 @@ body {
 .btn-full { width: 100%; }
 
 /* ── 메뉴 그리드 (로그인 후) ── */
+.welcome-text {
+  text-align: center;
+  font-family: 'Jua', sans-serif;
+  font-size: 18px;
+  color: var(--aqua-deep);
+  margin-bottom: 18px;
+  padding: 12px 16px;
+  background: rgba(0,151,167,0.06);
+  border-radius: 14px;
+}
+.welcome-text #welcome-name {
+  color: var(--aqua);
+  font-size: 20px;
+}
 .menu-divider {
   text-align: center; font-size: 12px;
   color: var(--text-dim); margin: 20px 0 14px;
@@ -819,20 +833,24 @@ body {
       <div class="sub-text">학번과 이름을 입력해주세요</div>
     </div>
 
-    <div class="input-row">
-      <label class="input-label">학번 (5자리)</label>
-      <input type="number" class="input-box" id="login-id" placeholder="예: 30101" maxlength="5" autocomplete="off">
-    </div>
-    <div class="input-row">
-      <label class="input-label">이름</label>
-      <input type="text" class="input-box" id="login-name" placeholder="이름 입력" autocomplete="off" onkeydown="if(event.key==='Enter')tryLogin()">
-    </div>
-    <button class="btn btn-pill btn-aqua btn-lg btn-full" onclick="tryLogin()">접속하기 🚀</button>
+    <div id="login-form-section">
+      <div class="input-row">
+        <label class="input-label">학번 (5자리)</label>
+        <input type="number" class="input-box" id="login-id" placeholder="예: 30101" maxlength="5" autocomplete="off">
+      </div>
+      <div class="input-row">
+        <label class="input-label">이름</label>
+        <input type="text" class="input-box" id="login-name" placeholder="이름 입력" autocomplete="off" onkeydown="if(event.key==='Enter')tryLogin()">
+      </div>
+      <button class="btn btn-pill btn-aqua btn-lg btn-full" onclick="tryLogin()">접속하기 🚀</button>
 
-    <div id="login-error" style="text-align:center;color:var(--x-color);font-size:13px;margin-top:10px;min-height:18px;"></div>
+      <div id="login-error" style="text-align:center;color:var(--x-color);font-size:13px;margin-top:10px;min-height:18px;"></div>
+    </div>
 
     <div id="menu-section" style="display:none;">
-      <div class="menu-divider">메뉴 선택</div>
+      <div class="welcome-text">
+        <span id="welcome-name">홍길동</span> 학생 환영해요! 🌊
+      </div>
       <div class="menu-grid">
         <div class="menu-card" onclick="goPage('page-lecture')">
           <div class="menu-icon">📝</div>
@@ -845,6 +863,7 @@ body {
           <div class="menu-desc">명예의 전당</div>
         </div>
       </div>
+      <button class="btn btn-pill btn-soft btn-md" style="width:100%;margin-top:14px;" onclick="logoutStudent()">다시 로그인하기 🔄</button>
     </div>
 
     <button class="admin-link" onclick="goAdmin()">⚙️ 관리자 모드</button>
@@ -1167,6 +1186,17 @@ async function loadQuestions() {
 // ══════════════════════════════════════════════════
 // LOGIN (Realtime DB로 학생 명단 검증)
 // ══════════════════════════════════════════════════
+function logoutStudent() {
+  state.student = null;
+  state.selectedLectures.clear();
+  state.selectedCount = 0;
+  document.getElementById('login-form-section').style.display = 'block';
+  document.getElementById('menu-section').style.display = 'none';
+  document.getElementById('login-id').value = '';
+  document.getElementById('login-name').value = '';
+  document.getElementById('login-error').textContent = '';
+}
+
 async function tryLogin() {
   const id = document.getElementById('login-id').value.trim();
   const name = document.getElementById('login-name').value.trim();
@@ -1200,7 +1230,9 @@ async function tryLogin() {
 
     err.textContent = '';
     state.student = { sid: id, name: found.name };
+    document.getElementById('login-form-section').style.display = 'none';
     document.getElementById('menu-section').style.display = 'block';
+    document.getElementById('welcome-name').textContent = found.name;
     miniToast(`${found.name} 학생, 환영해요! 🌊`);
   } catch (e) {
     console.error(e);
@@ -1240,16 +1272,32 @@ function toggleLecture(lec, el) {
 }
 
 function applyPreset(type, el) {
-  state.selectedLectures.clear();
   const presets = {
     all: LECTURES,
     front: [12,13,14,15],
     mid: [16,17,18],
     back: [19,20,21],
   };
-  (presets[type] || []).forEach(l => state.selectedLectures.add(l));
-  document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
+  const targetLecs = presets[type] || [];
+
+  // 이미 이 프리셋이 활성 상태(=현재 선택과 정확히 일치)면 해제
+  const currentLecs = [...state.selectedLectures].sort((a,b)=>a-b);
+  const sortedTarget = [...targetLecs].sort((a,b)=>a-b);
+  const isSameAsCurrent = el.classList.contains('active') &&
+                          currentLecs.length === sortedTarget.length &&
+                          currentLecs.every((v, i) => v === sortedTarget[i]);
+
+  if (isSameAsCurrent) {
+    // 해제
+    state.selectedLectures.clear();
+    el.classList.remove('active');
+  } else {
+    // 적용
+    state.selectedLectures.clear();
+    targetLecs.forEach(l => state.selectedLectures.add(l));
+    document.querySelectorAll('.preset-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+  }
   renderLectures();
 }
 
@@ -1642,7 +1690,8 @@ async function renderRanking(n) {
     }).join('');
   } catch (e) {
     console.error('랭킹 로딩 실패:', e);
-    list.innerHTML = `<div class="empty-rank">랭킹을 불러오지 못했어요.<br><span style="font-size:11px;">${e.message}</span></div>`;
+    podium.innerHTML = '';
+    list.innerHTML = `<div class="empty-rank">아직 랭킹에 등록된 학생이 없어요.<br>전 범위 ${n}문항에 도전해보세요! 🚀</div>`;
   }
 }
 
