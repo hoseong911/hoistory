@@ -1,529 +1,418 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-    <title>IDY History : 생각 Check(ADMIN)</title>
-    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
-    <style>
-        :root {
-            --bg-base: #121212;
-            --bg-surface: #181818;
-            --bg-interactive: #1f1f1f;
-            --bg-card-hover: #252525;
-            --brand-green: #1ed760;
-            --brand-green-hover: #1db954;
-            --text-base: #ffffff;
-            --text-muted: #b3b3b3;
-            --text-error: #f3727f;
-            --border-gray: #4d4d4d;
-            --shadow-heavy: rgba(0,0,0,0.5) 0px 8px 24px;
-            --shadow-medium: rgba(0,0,0,0.3) 0px 8px 8px;
-            --input-inset: rgb(18,18,18) 0px 1px 0px, rgb(124,124,124) 0px 0px 0px 1px inset;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Pretendard', 'Helvetica Neue', sans-serif;
-            background: var(--bg-base); color: var(--text-base);
-            min-height: 100vh; display: flex; flex-direction: column; align-items: center;
-            padding: 24px 16px 80px;
-        }
-        .container { width: 100%; max-width: 860px; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>생각 Check — 관리자 콘솔</title>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" crossorigin>
+  <link rel="stylesheet" href="../shared/theme.css">
+  <link rel="stylesheet" href="../shared/admin-base.css">
+  <style>
+    /* ── think 고유 스타일 ── */
+    .hidden { display: none !important; }
+    #adminApp { display: block; }
 
-        /* ── 로그인 ── */
-        .login-wrap { max-width: 480px; margin: 60px auto 0; }
-        .login-logo { text-align: center; margin-bottom: 32px; }
-        .login-logo h1 { font-size: 28px; font-weight: 900; letter-spacing: -1px; }
-        .login-logo h1 span { color: var(--brand-green); }
-        .login-logo .sub { color: var(--text-muted); font-size: 14px; margin-top: 6px; }
-        .login-logo .admin-label {
-            display: inline-block; margin-top: 14px;
-            background: var(--bg-interactive); border: 1px solid var(--border-gray);
-            border-radius: 8px; padding: 8px 20px;
-            font-size: 13px; font-weight: 800; letter-spacing: 1px; color: var(--brand-green);
-        }
+    /* 컨테이너 */
+    .container { width: 100%; max-width: 860px; margin: 0 auto; padding: 24px 16px 80px; }
 
-        .surface-card {
-            background: var(--bg-surface); border-radius: 12px;
-            padding: 28px; box-shadow: var(--shadow-heavy); margin-bottom: 20px;
-        }
-        .surface-card h3 { font-size: 15px; font-weight: 800; margin-bottom: 16px; }
+    /* 폼 요소 */
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--hi-text-muted); margin-bottom: 8px; text-transform: uppercase; }
 
-        .form-group { margin-bottom: 16px; }
-        label { display: block; font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; }
-        input[type="text"], input[type="password"], select, textarea {
-            width: 100%; padding: 14px 20px;
-            background: var(--bg-interactive); color: var(--text-base);
-            border: none; border-radius: 8px;
-            box-shadow: var(--input-inset); font-size: 14px; font-family: inherit;
-        }
-        textarea { border-radius: 12px; resize: vertical; line-height: 1.7; min-height: 120px; }
-        textarea.large { min-height: 200px; }
-        input:focus, textarea:focus, select:focus { outline: 2px solid var(--brand-green); box-shadow: none; }
-        select { cursor: pointer; }
+    /* 서브탭 */
+    .sub-tabs { display: flex; gap: 6px; margin-bottom: 20px; border-bottom: 1px solid var(--hi-border); padding-bottom: 12px; justify-content: center; }
+    .sub-tabs button { background: transparent; color: var(--hi-text-muted); padding: 8px 18px; border-radius: 9999px; font-size: 13px; font-weight: 700; border: none; font-family: inherit; cursor: pointer; transition: all 0.15s; }
+    .sub-tabs button.active { background: var(--hi-bg-mid); color: var(--hi-text); border: 1px solid var(--hi-border); }
+    .sub-tabs button:hover:not(.active) { color: var(--hi-text); }
 
-        button { font-family: inherit; cursor: pointer; transition: all 0.15s; border: none; }
-        .btn-primary { background: var(--brand-green); color: #000; padding: 14px 32px; border-radius: 500px; font-size: 14px; font-weight: 800; letter-spacing: 0.5px; width: 100%; }
-        .btn-primary:hover { background: var(--brand-green-hover); transform: scale(1.01); }
-        .btn-primary:active { transform: scale(0.98); }
-        .btn-outline { background: transparent; color: var(--text-base); border: 1px solid var(--border-gray); padding: 10px 20px; border-radius: 500px; font-size: 13px; font-weight: 700; }
-        .btn-outline:hover { border-color: var(--text-base); }
-        .btn-danger { background: transparent; color: var(--text-error); border: 1px solid var(--text-error); padding: 8px 16px; border-radius: 500px; font-size: 12px; font-weight: 700; }
-        .btn-danger:hover { background: rgba(243,114,127,0.1); }
-        .btn-sm { padding: 8px 16px; font-size: 12px; }
-        .btn-logout { background: rgba(243,114,127,0.12); color: var(--text-error); border: 1px solid rgba(243,114,127,0.4); padding: 8px 18px; border-radius: 500px; font-size: 13px; font-weight: 700; }
-        .btn-logout:hover { background: rgba(243,114,127,0.24); border-color: var(--text-error); }
-        .btn-icon { background: transparent; border: 1px solid var(--border-gray); color: var(--text-muted); padding: 6px 12px; border-radius: 500px; font-size: 13px; font-weight: 700; }
-        .btn-icon:hover { color: var(--text-base); border-color: var(--text-base); }
-        .btn-icon.picked { background: var(--brand-green); color: #000; border-color: var(--brand-green); }
+    /* 패널 카드 */
+    .surface-card { background: var(--hi-bg-surface); border-radius: 12px; padding: 28px; border: 1px solid var(--hi-border); margin-bottom: 20px; }
+    .surface-card h3 { font-size: 15px; font-weight: 800; margin-bottom: 16px; color: var(--hi-text); }
 
-        /* ── 어드민 헤더 ── */
-        .admin-header { display: flex; flex-direction: column; align-items: center; padding: 0 4px; margin-bottom: 28px; gap: 12px; }
-        .admin-title { font-size: 20px; font-weight: 900; letter-spacing: -0.5px; text-align: center; }
-        .admin-title span { color: var(--brand-green); }
-        .admin-title .badge { display: inline-block; background: var(--brand-green); color: #000; font-size: 10px; font-weight: 900; letter-spacing: 1px; padding: 3px 8px; border-radius: 4px; margin-left: 10px; vertical-align: middle; }
-        .admin-header-links { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; width: 100%; }
+    /* 강의 카드 */
+    .lecture-card { background: var(--hi-bg-surface); border-radius: 10px; padding: 18px 20px; margin-bottom: 12px; border: 1px solid var(--hi-border); }
+    .lecture-card .lec-title { font-size: 16px; font-weight: 800; margin-bottom: 12px; color: var(--hi-text); }
+    .lecture-card .lec-actions { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; justify-content: flex-end; }
+    .inline-edit { background: var(--hi-bg-mid); padding: 16px; border-radius: 8px; margin-top: 14px; border: 1px solid var(--hi-border); }
+    .more-detail { background: var(--hi-bg-mid); border-radius: 8px; padding: 14px 16px; margin-top: 12px; font-size: 13px; line-height: 1.7; border: 1px solid var(--hi-border); }
+    .more-detail .detail-label { font-size: 11px; font-weight: 700; color: var(--hi-text-muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+    .more-detail .detail-val { color: var(--hi-text); margin-bottom: 10px; }
+    .more-detail .detail-val:last-child { margin-bottom: 0; }
 
-        /* ── 메인 탭 ── */
-        .nav-tabs { display: flex; gap: 6px; margin-bottom: 24px; flex-wrap: wrap; justify-content: center; }
-        .nav-tabs button { background: var(--bg-interactive); color: var(--text-muted); padding: 10px 18px; border-radius: 500px; font-size: 13px; font-weight: 700; }
-        .nav-tabs button.active { background: var(--text-base); color: #000; }
-        .nav-tabs button:hover:not(.active) { color: var(--text-base); }
+    /* 토글 스위치 */
+    .open-toggle-wrap { display: inline-flex; align-items: center; gap: 8px; background: var(--hi-bg-mid); border-radius: 9999px; padding: 6px 12px 6px 14px; border: 1px solid var(--hi-border); flex-shrink: 0; height: 36px; }
+    .open-toggle-label { font-size: 12px; font-weight: 700; white-space: nowrap; line-height: 1; }
+    .open-toggle-label.on  { color: var(--hi-accent); }
+    .open-toggle-label.off { color: var(--hi-text-muted); }
+    .toggle-switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; display: inline-block; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-switch .slider { position: absolute; inset: 0; background: var(--hi-border); border-radius: 9999px; cursor: pointer; transition: background 0.2s; }
+    .toggle-switch .slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 4px; top: 4px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
+    .toggle-switch input:checked + .slider { background: var(--hi-accent); }
+    .toggle-switch input:checked + .slider::before { transform: translateX(20px); }
 
-        /* ── 서브 탭 ── */
-        .sub-tabs { display: flex; gap: 6px; margin-bottom: 20px; border-bottom: 1px solid var(--border-gray); padding-bottom: 12px; justify-content: center; }
-        .sub-tabs button { background: transparent; color: var(--text-muted); padding: 8px 18px; border-radius: 500px; font-size: 13px; font-weight: 700; }
-        .sub-tabs button.active { background: var(--bg-interactive); color: var(--text-base); border: 1px solid var(--border-gray); }
-        .sub-tabs button:hover:not(.active) { color: var(--text-base); }
+    /* 이모지 버튼 */
+    .btn-emoji { background: var(--hi-bg-mid); border: 1px solid var(--hi-border); border-radius: 8px; padding: 0; width: 36px; height: 36px; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; transition: all 0.15s; color: inherit; }
+    .btn-emoji:hover { border-color: var(--hi-text-muted); }
+    .btn-emoji.danger:hover { border-color: var(--hi-negative); background: rgba(220,38,38,.08); }
 
-        /* ── 강의 카드 (LIST) ── */
-        .lecture-card {
-            background: var(--bg-surface); border-radius: 10px; padding: 18px 20px;
-            margin-bottom: 12px; border: 1px solid var(--border-gray);
-        }
-        .lecture-card .lec-title { font-size: 16px; font-weight: 800; margin-bottom: 12px; }
-        .lecture-card .lec-actions {
-            display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
-        }
-        .lecture-card .lec-actions-row2 { display: flex; margin-top: 8px; }
-        .inline-edit { background: var(--bg-interactive); padding: 16px; border-radius: 8px; margin-top: 14px; border: 1px solid var(--border-gray); }
+    /* 통계 칩 */
+    .stat-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; justify-content: center; }
+    .stat-chip { background: var(--hi-bg-mid); border-radius: 8px; padding: 10px 16px; font-size: 13px; color: var(--hi-text-muted); min-width: 80px; text-align: center; border: 1px solid var(--hi-border); }
+    .stat-chip .num { font-size: 20px; font-weight: 900; color: var(--hi-accent); display: block; }
+    .stat-chip .num.red { color: var(--hi-negative); }
+    .stat-chip-btn { cursor: pointer; }
+    .stat-chip-btn:hover { background: var(--hi-bg-card-hover, #f1f3f4); }
 
-        .open-toggle-wrap { display: inline-flex; align-items: center; gap: 8px; background: var(--bg-interactive); border-radius: 500px; padding: 6px 12px 6px 14px; border: 1px solid var(--border-gray); flex-shrink: 0; height: 36px; }
-        .open-toggle-label { font-size: 12px; font-weight: 700; white-space: nowrap; line-height: 1; }
-        .open-toggle-label.on  { color: var(--brand-green); }
-        .open-toggle-label.off { color: var(--text-muted); }
-        .toggle-switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; display: inline-block; }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .toggle-switch .slider { position: absolute; inset: 0; background: var(--border-gray); border-radius: 500px; cursor: pointer; transition: background 0.2s; }
-        .toggle-switch .slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 4px; top: 4px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
-        .toggle-switch input:checked + .slider { background: var(--brand-green); }
-        .toggle-switch input:checked + .slider::before { transform: translateX(20px); }
+    /* CLASS 탭 2x2 그리드 */
+    #class-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-width: 460px; margin-left: auto; margin-right: auto; }
+    #class-stats .stat-chip { margin: 0; width: 100%; }
+    .num-red-inline { color: var(--hi-negative); }
 
-        /* 이모지 액션 버튼 */
-        .btn-emoji { background: var(--bg-interactive); border: 1px solid var(--border-gray); border-radius: 8px; padding: 0; width: 36px; height: 36px; font-size: 16px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; cursor: pointer; transition: all 0.15s; }
-        .btn-emoji:hover { background: var(--bg-card-hover); border-color: var(--text-muted); }
-        .btn-emoji.danger:hover { border-color: var(--text-error); background: rgba(243,114,127,0.1); }
+    /* 답변 카드 */
+    .answer-card { background: var(--hi-bg-surface); border-radius: 10px; padding: 16px 18px; margin-bottom: 10px; border: 1px solid var(--hi-border); }
+    .answer-card .student-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px; flex-wrap: wrap; }
+    .answer-card .student-info strong { font-size: 15px; font-weight: 800; color: var(--hi-text); }
+    .answer-card .student-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .answer-card .answer-text { font-size: 14px; line-height: 1.7; color: var(--hi-text); }
+    .answer-card .answer-meta { font-size: 12px; color: var(--hi-text-muted); margin-top: 8px; }
 
-        /* 강의카드 액션 오른쪽 정렬 */
-        .lecture-card .lec-actions { justify-content: flex-end; }
+    /* 드롭다운/정렬 */
+    .select-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+    .select-row select { flex: 1; min-width: 160px; }
+    .sort-row { display: flex; justify-content: flex-end; margin-bottom: 16px; }
+    .sort-wrap { display: inline-flex; align-items: center; gap: 4px; background: var(--hi-bg-mid); border-radius: 9999px; padding: 4px; border: 1px solid var(--hi-border); }
+    .sort-wrap-label { font-size: 11px; font-weight: 700; color: var(--hi-text-muted); letter-spacing: 0.5px; padding: 0 4px 0 8px; }
+    .sort-btn { background: transparent; color: var(--hi-text-muted); padding: 6px 12px; border-radius: 9999px; font-size: 12px; font-weight: 700; border: none; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+    .sort-btn.active { background: var(--hi-accent); color: #fff; }
+    .sort-btn:hover:not(.active) { color: var(--hi-text); }
 
-        .more-detail { background: var(--bg-interactive); border-radius: 8px; padding: 14px 16px; margin-top: 12px; font-size: 13px; line-height: 1.7; border: 1px solid var(--border-gray); }
-        .more-detail .detail-label { font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
-        .more-detail .detail-val { color: var(--text-base); margin-bottom: 10px; }
-        .more-detail .detail-val:last-child { margin-bottom: 0; }
+    /* 강의 제목 */
+    .lec-heading { font-size: 18px; font-weight: 900; color: var(--hi-accent); margin-bottom: 16px; padding: 0 2px; text-align: center; }
 
-        /* ── 통계 칩 ── */
-        .stat-chips { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; justify-content: center; }
-        .stat-chip { background: var(--bg-interactive); border-radius: 8px; padding: 10px 16px; font-size: 13px; color: var(--text-muted); min-width: 80px; text-align: center; }
-        .stat-chip .num { font-size: 20px; font-weight: 900; color: var(--brand-green); display: block; }
-        .stat-chip .num.red { color: var(--text-error); }
-        .stat-chip .num.yellow { color: #f0a500; }
-        .stat-chip .num.blue { color: #3d91f4; }
-        .stat-chip-btn { cursor: pointer; }
-        .stat-chip-btn:hover { background: var(--bg-card-hover); }
+    /* 아카이브 카드 */
+    .archive-card { background: var(--hi-bg-surface); border-radius: 10px; padding: 16px 20px; margin-bottom: 10px; border: 1px solid var(--hi-border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .archive-card .arc-title { font-size: 15px; font-weight: 700; flex: 1; min-width: 0; color: var(--hi-text); }
+    .archive-card .arc-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .arc-status { font-size: 12px; font-weight: 700; white-space: nowrap; }
+    .arc-status.on { color: var(--hi-accent); }
+    .arc-status.off { color: var(--hi-text-muted); }
 
-        /* ★ CLASS 탭 통계 칩만 2x2 그리드로 */
-        #class-stats {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            max-width: 460px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        #class-stats .stat-chip { margin: 0; width: 100%; }
-        .num-red-inline { color: var(--text-error); }
+    /* 설정 섹션 */
+    .setting-section { background: var(--hi-bg-surface); border-radius: 12px; padding: 24px; border: 1px solid var(--hi-border); margin-bottom: 16px; }
+    .setting-section h3 { font-size: 15px; font-weight: 800; margin-bottom: 6px; color: var(--hi-text); }
+    .setting-section p { font-size: 13px; color: var(--hi-text-muted); margin-bottom: 16px; line-height: 1.6; }
+    .setting-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .setting-row select { flex: 1; min-width: 160px; }
 
-        /* ── 답변 카드 ── */
-        .answer-card {
-            background: var(--bg-surface); border-radius: 10px; padding: 16px 18px;
-            margin-bottom: 10px; border: 1px solid var(--border-gray);
-        }
-        .answer-card .student-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; gap: 8px; flex-wrap: wrap; }
-        .answer-card .student-info strong { font-size: 15px; font-weight: 800; }
-        .answer-card .student-actions { display: flex; gap: 6px; flex-shrink: 0; }
-        .answer-card .answer-text { font-size: 14px; line-height: 1.7; color: var(--text-base); }
-        .answer-card .answer-meta { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+    /* 로딩/빈 상태 */
+    .loading-msg { text-align: center; color: var(--hi-text-muted); padding: 48px 0; font-size: 14px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+    .spinner { width: 28px; height: 28px; border: 3px solid var(--hi-border); border-top-color: var(--hi-accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .empty-msg { text-align: center; color: var(--hi-text-muted); padding: 48px 0; font-size: 14px; }
 
-        /* ── 드롭다운 섹션 ── */
-        .select-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
-        .select-row select { flex: 1; min-width: 160px; margin-bottom: 0; }
+    /* 버튼들 */
+    .btn-primary { background: var(--hi-accent); color: #fff; padding: 14px 32px; border-radius: 9999px; font-size: 14px; font-weight: 800; letter-spacing: 0.5px; width: 100%; border: none; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-outline { background: transparent; color: var(--hi-text); border: 1px solid var(--hi-border); padding: 10px 20px; border-radius: 9999px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+    .btn-outline:hover { border-color: var(--hi-text); }
+    .btn-danger { background: transparent; color: var(--hi-negative); border: 1px solid var(--hi-negative); padding: 8px 16px; border-radius: 9999px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+    .btn-danger:hover { background: rgba(220,38,38,.08); }
+    .btn-sm { padding: 8px 16px !important; font-size: 12px !important; }
+    .btn-icon { background: transparent; border: 1px solid var(--hi-border); color: var(--hi-text-muted); padding: 6px 12px; border-radius: 9999px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+    .btn-icon:hover { color: var(--hi-text); border-color: var(--hi-text); }
+    .btn-icon.picked { background: var(--hi-accent); color: #fff; border-color: var(--hi-accent); }
 
-        /* ── 정렬 ── */
-        .sort-row { display: flex; justify-content: flex-end; margin-bottom: 16px; }
-        .sort-wrap { display: inline-flex; align-items: center; gap: 4px; background: var(--bg-interactive); border-radius: 500px; padding: 4px; border: 1px solid var(--border-gray); }
-        .sort-wrap-label { font-size: 11px; font-weight: 700; color: var(--text-muted); letter-spacing: 0.5px; padding: 0 4px 0 8px; }
-        .sort-btn { background: transparent; color: var(--text-muted); padding: 6px 12px; border-radius: 500px; font-size: 12px; font-weight: 700; border: none; cursor: pointer; transition: all 0.15s; }
-        .sort-btn.active { background: var(--text-base); color: #000; }
-        .sort-btn:hover:not(.active) { color: var(--text-base); }
+    /* 모달 */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: flex-start; padding-top: 60px; z-index: 9999; backdrop-filter: blur(6px); overflow-y: auto; }
+    .modal-box { background: var(--hi-bg-surface); padding: 32px 28px; border-radius: 16px; width: 90%; max-width: 460px; box-shadow: 0 20px 60px rgba(0,0,0,.15); border: 1px solid var(--hi-border); margin: auto; }
+    .modal-box h3 { font-size: 18px; font-weight: 800; color: var(--hi-accent); margin-bottom: 14px; }
+    .modal-box p { font-size: 14px; color: var(--hi-text-muted); margin-bottom: 20px; line-height: 1.6; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
 
-        /* ── 강의 제목 표시 ── */
-        .lec-heading { font-size: 18px; font-weight: 900; color: var(--brand-green); margin-bottom: 16px; padding: 0 2px; text-align: center; }
+    /* 활동미흡 모달 */
+    .activity-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: flex-start; padding: 40px 16px; z-index: 10000; backdrop-filter: blur(6px); overflow-y: auto; }
+    .activity-modal-box { background: var(--hi-bg-surface); border-radius: 16px; width: 100%; max-width: 500px; box-shadow: 0 20px 60px rgba(0,0,0,.15); border: 1px solid var(--hi-border); margin: auto; overflow: hidden; }
+    .activity-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--hi-border); }
+    .activity-modal-header h3 { font-size: 16px; font-weight: 800; color: var(--hi-text); }
+    .activity-modal-close { background: transparent; border: none; color: var(--hi-text-muted); font-size: 20px; cursor: pointer; padding: 4px 8px; }
+    .activity-modal-close:hover { color: var(--hi-text); }
+    .activity-modal-body { padding: 20px 24px; max-height: 420px; overflow-y: auto; }
 
-        /* ── 아카이브 카드 ── */
-        .archive-card { background: var(--bg-surface); border-radius: 10px; padding: 16px 20px; margin-bottom: 10px; border: 1px solid var(--border-gray); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-        .archive-card .arc-title { font-size: 15px; font-weight: 700; flex: 1; min-width: 0; }
-        .archive-card .arc-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-        .arc-status { font-size: 12px; font-weight: 700; white-space: nowrap; }
-        .arc-status.on { color: var(--brand-green); }
-        .arc-status.off { color: var(--text-muted); }
+    /* 채점 모달 */
+    .grade-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: flex-start; padding: 40px 16px; z-index: 10000; backdrop-filter: blur(6px); overflow-y: auto; overflow-x: hidden; }
+    .grade-modal-box { background: var(--hi-bg-surface); border-radius: 16px; width: 100%; max-width: 600px; box-shadow: 0 20px 60px rgba(0,0,0,.15); border: 1px solid var(--hi-border); margin: auto; overflow: hidden; }
+    .grade-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--hi-border); gap: 12px; }
+    .grade-modal-header h3 { font-size: 16px; font-weight: 800; color: var(--hi-text); }
+    .grade-modal-header .grade-summary { font-size: 12px; color: var(--hi-text-muted); font-weight: 700; margin-top: 3px; }
+    .grade-modal-close { background: transparent; border: none; color: var(--hi-text-muted); font-size: 20px; cursor: pointer; padding: 4px 8px; flex-shrink: 0; }
+    .grade-modal-close:hover { color: var(--hi-text); }
+    .grade-modal-tabs { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--hi-border); }
+    .grade-modal-tab { background: transparent; border: none; color: var(--hi-text-muted); padding: 11px 8px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; font-family: inherit; }
+    .grade-modal-tab.active { color: var(--hi-text); background: var(--hi-bg-mid); border-bottom: 2px solid var(--hi-accent); }
+    .grade-modal-tab:hover:not(.active) { color: var(--hi-text); }
+    @media (max-width: 560px) {
+      .grade-modal-tabs { grid-template-columns: repeat(2, 1fr); }
+      .grade-modal-tab { border-right: 1px solid var(--hi-border); border-bottom: 1px solid var(--hi-border); }
+      .grade-modal-tab:nth-child(2n) { border-right: none; }
+      .grade-modal-tab:nth-child(n+3) { border-bottom: none; }
+      .grade-modal-tab.active { border-bottom: 2px solid var(--hi-accent); }
+    }
+    .grade-modal-body { padding: 16px 20px; max-height: 480px; overflow-y: auto; overflow-x: hidden; }
 
-        /* ── SETTING ── */
-        .setting-section { background: var(--bg-surface); border-radius: 12px; padding: 24px; border: 1px solid var(--border-gray); margin-bottom: 16px; }
-        .setting-section h3 { font-size: 15px; font-weight: 800; margin-bottom: 6px; }
-        .setting-section p { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.6; }
-        .setting-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-        .setting-row select { flex: 1; min-width: 160px; margin-bottom: 0; }
-        .setting-row button { white-space: nowrap; }
+    /* 채점 결과 칩 */
+    .activity-chip { display: inline-block; padding: 6px 14px; border-radius: 9999px; font-size: 13px; font-weight: 700; margin: 4px; max-width: 100%; word-break: break-word; }
+    .chip-absent { background: rgba(220,38,38,.08);   border: 1px solid rgba(220,38,38,.25);  color: var(--hi-negative); }
+    .chip-short  { background: rgba(240,165,0,.08);   border: 1px solid rgba(240,165,0,.25);  color: #b45309; }
+    .chip-cheat  { background: rgba(59,130,246,.08);  border: 1px solid rgba(59,130,246,.25); color: #2563eb; }
+    .chip-wrong  { background: rgba(139,92,246,.08);  border: 1px solid rgba(139,92,246,.25); color: #7c3aed; }
+    .chip-pass   { background: rgba(34,197,94,.08);   border: 1px solid rgba(34,197,94,.25);  color: #16a34a; }
+    .chip-ok     { color: var(--hi-accent); font-size: 14px; font-weight: 700; padding: 20px 0; display: block; text-align: center; }
 
-        /* ── 로딩 ── */
-        .loading-msg { text-align: center; color: var(--text-muted); padding: 48px 0; font-size: 14px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
-        .spinner { width: 28px; height: 28px; border: 3px solid var(--border-gray); border-top-color: var(--brand-green); border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+    /* 사유 섹션 헤더 */
+    .reason-section-title { font-size: 11px; font-weight: 800; color: var(--hi-text-muted); letter-spacing: 0.05em; margin-bottom: 8px; }
+    .reason-section-title .sub-note { font-weight: 500; letter-spacing: 0; color: var(--hi-text-muted); margin-left: 4px; }
 
-        .empty-msg { text-align: center; color: var(--text-muted); padding: 48px 0; font-size: 14px; }
+    /* 답변 이상 카드 */
+    .review-card { background: var(--hi-bg-mid); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; border: 1px solid var(--hi-border); overflow: hidden; }
+    .review-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px; flex-wrap: wrap; }
+    .review-card-name { font-size: 14px; font-weight: 800; word-break: break-all; color: var(--hi-text); }
+    .review-card-reason { font-size: 11px; font-weight: 700; color: #7c3aed; background: rgba(139,92,246,.08); border: 1px solid rgba(139,92,246,.25); padding: 3px 10px; border-radius: 9999px; white-space: nowrap; }
+    .review-card-text { font-size: 13px; line-height: 1.65; color: var(--hi-text-muted); margin-bottom: 10px; word-break: break-word; overflow-wrap: anywhere; }
+    .review-card-meta { font-size: 11px; color: var(--hi-text-muted); margin-bottom: 10px; word-break: break-word; }
 
-        /* ── 모달 ── */
-        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.88); display: flex; justify-content: center; align-items: flex-start; padding-top: 60px; z-index: 9999; backdrop-filter: blur(10px); overflow-y: auto; }
-        .modal-box { background: var(--bg-surface); padding: 32px 28px; border-radius: 16px; width: 90%; max-width: 460px; box-shadow: var(--shadow-heavy); border: 1px solid var(--border-gray); margin: auto; }
-        .modal-box h3 { font-size: 18px; font-weight: 800; color: var(--brand-green); margin-bottom: 14px; }
-        .modal-box p { font-size: 14px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.6; }
-        .modal-actions { display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
+    /* 통과/미흡 토글 */
+    .grade-toggle-wrap { display: flex; align-items: center; gap: 0; border: 1px solid var(--hi-border); border-radius: 9999px; overflow: hidden; flex-shrink: 0; }
+    .grade-toggle-btn { background: transparent; color: var(--hi-text-muted); padding: 6px 14px; font-size: 12px; font-weight: 800; cursor: pointer; transition: all 0.15s; border: none; font-family: inherit; }
+    .grade-toggle-btn.pass.active { background: var(--hi-accent); color: #fff; }
+    .grade-toggle-btn.fail.active { background: var(--hi-negative); color: #fff; }
+    .grade-toggle-btn:hover:not(.active) { color: var(--hi-text); }
 
-        /* ── 활동미흡 모달 ── */
-        .activity-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.88); display: flex; justify-content: center; align-items: flex-start; padding: 40px 16px; z-index: 10000; backdrop-filter: blur(10px); overflow-y: auto; }
-        .activity-modal-box { background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 500px; box-shadow: var(--shadow-heavy); border: 1px solid var(--border-gray); margin: auto; overflow: hidden; }
-        .activity-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--border-gray); }
-        .activity-modal-header h3 { font-size: 16px; font-weight: 800; }
-        .activity-modal-close { background: transparent; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px 8px; }
-        .activity-modal-close:hover { color: var(--text-base); }
-        .activity-modal-tabs { display: flex; border-bottom: 1px solid var(--border-gray); }
-        .activity-modal-tab { flex: 1; background: transparent; border: none; color: var(--text-muted); padding: 12px 8px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s; text-align: center; }
-        .activity-modal-tab.active { color: var(--text-base); background: var(--bg-interactive); }
-        .activity-modal-tab:hover:not(.active) { color: var(--text-base); }
-        .activity-modal-body { padding: 20px 24px; max-height: 420px; overflow-y: auto; }
-        .activity-chip { display: inline-block; padding: 6px 14px; border-radius: 500px; font-size: 13px; font-weight: 700; margin: 4px; }
-        .chip-absent { background: rgba(243,114,127,0.12); border: 1px solid rgba(243,114,127,0.3); color: var(--text-error); }
-        .chip-short { background: rgba(240,165,0,0.12); border: 1px solid rgba(240,165,0,0.3); color: #f0a500; }
-        .chip-cheat { background: rgba(61,145,244,0.12); border: 1px solid rgba(61,145,244,0.3); color: #3d91f4; }
-        .chip-ok { color: var(--brand-green); font-size: 14px; font-weight: 700; padding: 20px 0; display: block; }
+    /* AI 버튼 */
+    .btn-ai { background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff; padding: 10px 20px; border-radius: 9999px; font-size: 13px; font-weight: 800; border: none; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; }
+    .btn-ai:hover { opacity: 0.88; transform: scale(1.02); }
+    .btn-ai:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .ai-status { font-size: 12px; color: var(--hi-text-muted); font-weight: 700; margin-top: 8px; min-height: 18px; }
 
+    /* pw 에러 */
+    #pw-error { color: var(--hi-negative); font-size: 13px; margin-top: 8px; font-weight: 700; text-align: center; }
 
-        /* ── 채점 모달 ── */
-        .grade-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.88); display: flex; justify-content: center; align-items: flex-start; padding: 40px 16px; z-index: 10000; backdrop-filter: blur(10px); overflow-y: auto; overflow-x: hidden; }
-        .grade-modal-box { background: var(--bg-surface); border-radius: 16px; width: 100%; max-width: 600px; box-shadow: var(--shadow-heavy); border: 1px solid var(--border-gray); margin: auto; overflow: hidden; }
-        .grade-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border-gray); gap: 12px; }
-        .grade-modal-header h3 { font-size: 16px; font-weight: 800; }
-        .grade-modal-header .grade-summary { font-size: 12px; color: var(--text-muted); font-weight: 700; margin-top: 3px; }
-        .grade-modal-close { background: transparent; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer; padding: 4px 8px; flex-shrink: 0; }
-        .grade-modal-close:hover { color: var(--text-base); }
-
-        /* ★ 탭: 데스크탑은 4개 가로, 모바일은 2x2 그리드 */
-        .grade-modal-tabs { display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--border-gray); }
-        .grade-modal-tab { background: transparent; border: none; color: var(--text-muted); padding: 11px 8px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-        .grade-modal-tab.active { color: var(--text-base); background: var(--bg-interactive); border-bottom: 2px solid var(--brand-green); }
-        .grade-modal-tab:hover:not(.active) { color: var(--text-base); }
-        @media (max-width: 560px) {
-            .grade-modal-tabs { grid-template-columns: repeat(2, 1fr); }
-            .grade-modal-tab { border-right: 1px solid var(--border-gray); border-bottom: 1px solid var(--border-gray); }
-            .grade-modal-tab:nth-child(2n) { border-right: none; }
-            .grade-modal-tab:nth-child(n+3) { border-bottom: none; }
-            .grade-modal-tab.active { border-bottom: 2px solid var(--brand-green); }
-        }
-
-        .grade-modal-body { padding: 16px 20px; max-height: 480px; overflow-y: auto; overflow-x: hidden; }
-
-        /* 채점 결과 칩 */
-        .activity-chip { display: inline-block; padding: 6px 14px; border-radius: 500px; font-size: 13px; font-weight: 700; margin: 4px; max-width: 100%; word-break: break-word; }
-        .chip-absent { background: rgba(243,114,127,0.12); border: 1px solid rgba(243,114,127,0.3); color: var(--text-error); }
-        .chip-short  { background: rgba(240,165,0,0.12);   border: 1px solid rgba(240,165,0,0.3);   color: #f0a500; }
-        .chip-cheat  { background: rgba(61,145,244,0.12);  border: 1px solid rgba(61,145,244,0.3);  color: #3d91f4; }
-        .chip-wrong  { background: rgba(180,80,255,0.12);  border: 1px solid rgba(180,80,255,0.3);  color: #b450ff; }
-        .chip-pass   { background: rgba(30,215,96,0.12);   border: 1px solid rgba(30,215,96,0.3);   color: var(--brand-green); }
-        .chip-ok     { color: var(--brand-green); font-size: 14px; font-weight: 700; padding: 20px 0; display: block; }
-
-        /* 사유 섹션 헤더 */
-        .reason-section-title {
-            font-size: 11px; font-weight: 800; color: var(--text-muted);
-            letter-spacing: 0.05em; margin-bottom: 8px;
-        }
-        .reason-section-title .sub-note {
-            font-weight: 500; letter-spacing: 0; color: var(--text-muted); margin-left: 4px;
-        }
-
-        /* 답변 이상 탭 — 카드형 */
-        .review-card { background: var(--bg-interactive); border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; border: 1px solid var(--border-gray); overflow: hidden; }
-        .review-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px; flex-wrap: wrap; }
-        .review-card-name { font-size: 14px; font-weight: 800; word-break: break-all; }
-        .review-card-reason { font-size: 11px; font-weight: 700; color: #b450ff; background: rgba(180,80,255,0.12); border: 1px solid rgba(180,80,255,0.3); padding: 3px 10px; border-radius: 500px; white-space: nowrap; }
-        .review-card-text { font-size: 13px; line-height: 1.65; color: var(--text-muted); margin-bottom: 10px; word-break: break-word; overflow-wrap: anywhere; }
-        .review-card-meta { font-size: 11px; color: var(--text-muted); margin-bottom: 10px; word-break: break-word; }
-
-        /* 통과/미흡 토글 */
-        .grade-toggle-wrap { display: flex; align-items: center; gap: 0; border: 1px solid var(--border-gray); border-radius: 500px; overflow: hidden; flex-shrink: 0; }
-        .grade-toggle-btn { background: transparent; color: var(--text-muted); padding: 6px 14px; font-size: 12px; font-weight: 800; cursor: pointer; transition: all 0.15s; border: none; }
-        .grade-toggle-btn.pass.active  { background: var(--brand-green); color: #000; }
-        .grade-toggle-btn.fail.active  { background: var(--text-error);  color: #fff; }
-        .grade-toggle-btn:hover:not(.active) { color: var(--text-base); }
-
-        /* AI 분석 버튼 */
-        .btn-ai { background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff; padding: 10px 20px; border-radius: 500px; font-size: 13px; font-weight: 800; border: none; cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
-        .btn-ai:hover { opacity: 0.88; transform: scale(1.02); }
-        .btn-ai:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
-        .ai-status { font-size: 12px; color: var(--text-muted); font-weight: 700; margin-top: 8px; min-height: 18px; }
-
-        .hidden { display: none !important; }
-
-        @media (max-width: 600px) {
-            .nav-tabs { gap: 4px; }
-            .nav-tabs button { padding: 8px 12px; font-size: 12px; }
-            .sub-tabs button { padding: 8px 12px; font-size: 12px; }
-            .lec-actions { flex-wrap: nowrap !important; gap: 6px !important; }
-        }
-    </style>
+    @media (max-width: 600px) {
+      .sub-tabs button { padding: 8px 12px; font-size: 12px; }
+      .lec-actions { flex-wrap: nowrap !important; gap: 6px !important; }
+    }
+  </style>
 </head>
-<body>
-<div class="container">
+<body class="hi-preset-admin">
 
-    <!-- ══ 로그인 ══ -->
-    <div id="screen-login">
-        <div class="login-wrap">
-            <div class="login-logo">
-                <h1>생각 <span>Check</span></h1>
-                <p class="sub">2026 인천동양중학교 역사 수업</p>
-                <div class="admin-label">관리자 센터 진입</div>
-            </div>
-            <div class="surface-card">
-                <div class="form-group">
-                    <label>비밀번호</label>
-                    <input type="password" id="admin-pw" placeholder="비밀번호를 입력하세요">
-                </div>
-                <div id="pw-error" class="hidden" style="color:var(--text-error); font-size:13px; margin-bottom:12px; font-weight:700;">비밀번호가 틀렸습니다.</div>
-                <button class="btn-primary" style="margin-top:8px;" onclick="tryLogin()">접속하기</button>
-            </div>
-            <div style="margin-top:20px; text-align:center;">
-                <a href="check.html" style="color:var(--text-muted); font-size:13px; text-decoration:none;">← 학생 화면으로</a>
-            </div>
-        </div>
-    </div>
-
-    <!-- ══ 관리자 패널 ══ -->
-    <div id="screen-admin" class="hidden">
-
-        <div class="admin-header">
-            <div class="admin-title">생각 <span>Check</span> <span class="badge">ADMIN</span></div>
-            <div class="admin-header-links">
-                <a href="check.html" style="color:var(--text-muted); font-size:13px; text-decoration:none;">학생 화면</a>
-                <a href="archive.html" target="_blank" style="color:var(--text-muted); font-size:13px; text-decoration:none;">전시 페이지 ↗</a>
-                <button class="btn-logout" onclick="exitAdmin()">🚪 로그아웃</button>
-            </div>
-        </div>
-
-        <div class="nav-tabs">
-            <button id="tab-btn-question" class="active" onclick="switchTab('question')">QUESTION</button>
-            <button id="tab-btn-answer" onclick="switchTab('answer')">ANSWER</button>
-            <button id="tab-btn-archive" onclick="switchTab('archive')">ARCHIVE</button>
-            <button id="tab-btn-setting" onclick="switchTab('setting')">SETTING</button>
-        </div>
-
-        <!-- ══════════ QUESTION ══════════ -->
-        <div id="tab-question">
-            <div class="sub-tabs">
-                <button id="qtab-btn-list" class="active" onclick="switchQTab('list')">LIST</button>
-                <button id="qtab-btn-new" onclick="switchQTab('new')">NEW</button>
-            </div>
-
-            <!-- LIST (기본) -->
-            <div id="qtab-list">
-                <div id="lecture-list-admin">
-                    <div class="loading-msg"><div class="spinner"></div><span>강의 목록 불러오는 중…</span></div>
-                </div>
-            </div>
-
-            <!-- NEW -->
-            <div id="qtab-new" class="hidden">
-                <div class="surface-card">
-                    <div class="form-group"><label>강의명</label><input type="text" id="new-title" placeholder="예: 1강 선사시대"></div>
-                    <div class="form-group"><label>오늘의 질문</label><input type="text" id="new-question" placeholder="생각 질문을 입력하세요"></div>
-                    <div class="form-group"><label>설명</label><textarea id="new-reference" class="large" placeholder="참고 내용이나 설명을 자유롭게 작성하세요"></textarea></div>
-                    <button class="btn-primary" onclick="addLecture()">강의 생성 (기본: 비공개)</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- ══════════ ANSWER ══════════ -->
-        <div id="tab-answer" class="hidden">
-            <div class="sub-tabs">
-                <button id="atab-btn-lecture" class="active" onclick="switchATab('lecture')">LECTURE</button>
-                <button id="atab-btn-class" onclick="switchATab('class')">CLASS</button>
-                <button id="atab-btn-pick" onclick="switchATab('pick')">PICK</button>
-            </div>
-
-            <!-- LECTURE -->
-            <div id="atab-lecture">
-                <div class="select-row">
-                    <select id="answer-lecture-select" onchange="onSelectChange('answer-lecture-select'); renderAnswerLecture()">
-                        <option value="">강의를 선택하세요</option>
-                    </select>
-                </div>
-                <div id="answer-lecture-title" class="lec-heading hidden"></div>
-                <div class="sort-row hidden" id="answer-sort-wrap">
-                    <div class="sort-wrap">
-                        <span class="sort-wrap-label">정렬</span>
-                        <button class="sort-btn active" onclick="setAnswerSort('recent', this)">최신순</button>
-                        <button class="sort-btn" onclick="setAnswerSort('id-asc', this)">학번 ↑</button>
-                        <button class="sort-btn" onclick="setAnswerSort('id-desc', this)">학번 ↓</button>
-                    </div>
-                </div>
-                <div id="answer-lecture-stats" class="stat-chips hidden"></div>
-                <div id="answer-lecture-list"></div>
-            </div>
-
-            <!-- CLASS -->
-            <div id="atab-class" class="hidden">
-                <div class="select-row">
-                    <select id="class-select" onchange="onSelectChange('class-select'); renderAnswerClass()">
-                        <option value="1">1반</option>
-                        <option value="2">2반</option>
-                        <option value="3">3반</option>
-                        <option value="4">4반</option>
-                        <option value="5">5반</option>
-                        <option value="6">6반</option>
-                    </select>
-                </div>
-                <div class="select-row">
-                    <select id="class-lecture-select" onchange="onSelectChange('class-lecture-select'); renderAnswerClass()">
-                        <option value="">강의를 선택하세요</option>
-                    </select>
-                </div>
-                <div id="class-lecture-title" class="lec-heading hidden"></div>
-                <div id="class-stats" class="stat-chips hidden"></div>
-                <div id="class-answer-list"></div>
-            </div>
-
-            <!-- PICK -->
-            <div id="atab-pick" class="hidden">
-                <div class="select-row">
-                    <select id="pick-lecture-select" onchange="onSelectChange('pick-lecture-select'); renderPickTab()">
-                        <option value="">강의를 선택하세요</option>
-                    </select>
-                </div>
-                <div id="pick-lecture-title" class="lec-heading hidden"></div>
-                <div id="pick-stats" class="stat-chips hidden"></div>
-                <div id="pick-answer-list"></div>
-            </div>
-        </div>
-
-        <!-- ══════════ ARCHIVE ══════════ -->
-        <div id="tab-archive" class="hidden">
-            <p style="font-size:13px; color:var(--text-muted); margin-bottom:20px; padding:0 4px;">
-                공개하면 학생 아카이브 탭과 <a href="archive.html" target="_blank" style="color:var(--brand-green); text-decoration:none;">전시 페이지</a>에 나타납니다.
-            </p>
-            <div id="archive-list"></div>
-        </div>
-
-        <!-- ══════════ SETTING ══════════ -->
-        <div id="tab-setting" class="hidden">
-
-            <div class="setting-section">
-                <h3>📥 EXCEL로 내보내기</h3>
-                <p>강의를 선택하여 해당 강의의 답변 데이터를 CSV 파일로 다운로드합니다.</p>
-                <div class="setting-row">
-                    <select id="setting-export-select">
-                        <option value="">강의를 선택하세요</option>
-                    </select>
-                    <button class="btn-primary btn-sm" style="width:auto;" onclick="exportCSV()">다운로드</button>
-                </div>
-            </div>
-
-            <div class="setting-section">
-                <h3>🗑️ 강의 초기화</h3>
-                <p>강의를 선택하여 해당 강의의 모든 답변 데이터를 삭제합니다. 강의 자체는 유지됩니다.</p>
-                <div class="setting-row">
-                    <select id="setting-reset-select">
-                        <option value="">강의를 선택하세요</option>
-                    </select>
-                    <button class="btn-danger btn-sm" onclick="resetLecture()">초기화</button>
-                </div>
-            </div>
-
-            <div class="setting-section">
-                <h3>🤖 Claude API 키 설정</h3>
-                <p>답변 이상 AI 분석에 사용됩니다. 키는 Firebase에 암호화 없이 저장되므로 관리자만 접근하세요.</p>
-                <div class="form-group">
-                    <label>Anthropic API Key</label>
-                    <input type="password" id="setting-api-key" placeholder="sk-ant-...">
-                </div>
-                <button class="btn-primary" style="width:auto;padding:12px 28px;" onclick="saveApiKey()">저장</button>
-                <div id="setting-api-msg" style="margin-top:12px;font-size:13px;font-weight:700;"></div>
-            </div>
-
-            <div class="setting-section">
-                <h3>🔑 관리자 비밀번호 재설정</h3>
-                <p>새 비밀번호를 입력하고 저장하세요. Firebase에 저장되어 다음 로그인에 즉시 적용됩니다.</p>
-                <div class="form-group"><label>현재 비밀번호</label><input type="password" id="setting-pw-current" placeholder="현재 비밀번호"></div>
-                <div class="form-group"><label>새 비밀번호</label><input type="password" id="setting-pw-new" placeholder="새 비밀번호 (6자 이상)"></div>
-                <div class="form-group"><label>새 비밀번호 확인</label><input type="password" id="setting-pw-confirm" placeholder="새 비밀번호 재입력"></div>
-                <button class="btn-primary" style="width:auto; padding:12px 28px;" onclick="changePassword()">비밀번호 변경</button>
-                <div id="setting-pw-msg" style="margin-top:12px; font-size:13px; font-weight:700;"></div>
-            </div>
-        </div>
-
-    </div>
+<!-- 로그인 -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-icon">💭</div>
+    <div class="login-title">생각 Check</div>
+    <div class="login-sub">관리자 콘솔</div>
+    <input type="password" class="hi-input" id="admin-pw" placeholder="비밀번호"
+           style="text-align:center;letter-spacing:3px;margin-bottom:12px;">
+    <button class="hi-btn hi-btn-primary hi-btn-block" onclick="tryLogin()">접속하기</button>
+    <div id="pw-error" class="hidden">비밀번호가 틀렸습니다.</div>
+    <div class="login-foot"><a href="check.html">← 학생 화면으로</a></div>
+  </div>
 </div>
+
+<!-- 어드민 앱 -->
+<div id="adminApp" class="hidden">
+  <header class="topbar">
+    <div class="topbar-left">
+      <a href="../admin.html" class="topbar-back">← 콘솔</a>
+      <span class="topbar-title">💭 생각 Check</span>
+      <span class="topbar-badge">ADMIN</span>
+    </div>
+    <div class="topbar-right">
+      <a href="check.html" class="topbar-link">학생 화면</a>
+      <a href="archive.html" class="topbar-link" target="_blank" rel="noopener">전시 페이지 ↗</a>
+      <button class="topbar-logout" onclick="exitAdmin()">로그아웃</button>
+    </div>
+  </header>
+
+  <div class="main-tabs">
+    <button class="main-tab active" id="tab-btn-question" onclick="switchTab('question')">QUESTION</button>
+    <button class="main-tab" id="tab-btn-answer" onclick="switchTab('answer')">ANSWER</button>
+    <button class="main-tab" id="tab-btn-archive" onclick="switchTab('archive')">ARCHIVE</button>
+    <button class="main-tab" id="tab-btn-setting" onclick="switchTab('setting')">SETTING</button>
+  </div>
+
+  <div class="container">
+
+    <!-- QUESTION -->
+    <div id="tab-question">
+      <div class="sub-tabs">
+        <button id="qtab-btn-list" class="active" onclick="switchQTab('list')">LIST</button>
+        <button id="qtab-btn-new" onclick="switchQTab('new')">NEW</button>
+      </div>
+      <div id="qtab-list">
+        <div id="lecture-list-admin">
+          <div class="loading-msg"><div class="spinner"></div><span>강의 목록 불러오는 중…</span></div>
+        </div>
+      </div>
+      <div id="qtab-new" class="hidden">
+        <div class="surface-card">
+          <div class="form-group"><label>강의명</label><input type="text" class="hi-input" id="new-title" placeholder="예: 1강 선사시대"></div>
+          <div class="form-group"><label>오늘의 질문</label><input type="text" class="hi-input" id="new-question" placeholder="생각 질문을 입력하세요"></div>
+          <div class="form-group"><label>설명</label><textarea class="hi-textarea" id="new-reference" style="min-height:200px;" placeholder="참고 내용이나 설명을 자유롭게 작성하세요"></textarea></div>
+          <button class="btn-primary" onclick="addLecture()">강의 생성 (기본: 비공개)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANSWER -->
+    <div id="tab-answer" class="hidden">
+      <div class="sub-tabs">
+        <button id="atab-btn-lecture" class="active" onclick="switchATab('lecture')">LECTURE</button>
+        <button id="atab-btn-class" onclick="switchATab('class')">CLASS</button>
+        <button id="atab-btn-pick" onclick="switchATab('pick')">PICK</button>
+      </div>
+
+      <!-- LECTURE -->
+      <div id="atab-lecture">
+        <div class="select-row">
+          <select class="hi-select" id="answer-lecture-select" onchange="onSelectChange('answer-lecture-select'); renderAnswerLecture()">
+            <option value="">강의를 선택하세요</option>
+          </select>
+        </div>
+        <div id="answer-lecture-title" class="lec-heading hidden"></div>
+        <div class="sort-row hidden" id="answer-sort-wrap">
+          <div class="sort-wrap">
+            <span class="sort-wrap-label">정렬</span>
+            <button class="sort-btn active" onclick="setAnswerSort('recent', this)">최신순</button>
+            <button class="sort-btn" onclick="setAnswerSort('id-asc', this)">학번 ↑</button>
+            <button class="sort-btn" onclick="setAnswerSort('id-desc', this)">학번 ↓</button>
+          </div>
+        </div>
+        <div id="answer-lecture-stats" class="stat-chips hidden"></div>
+        <div id="answer-lecture-list"></div>
+      </div>
+
+      <!-- CLASS -->
+      <div id="atab-class" class="hidden">
+        <div class="select-row">
+          <select class="hi-select" id="class-select" onchange="onSelectChange('class-select'); renderAnswerClass()">
+            <option value="1">1반</option>
+            <option value="2">2반</option>
+            <option value="3">3반</option>
+            <option value="4">4반</option>
+            <option value="5">5반</option>
+            <option value="6">6반</option>
+          </select>
+        </div>
+        <div class="select-row">
+          <select class="hi-select" id="class-lecture-select" onchange="onSelectChange('class-lecture-select'); renderAnswerClass()">
+            <option value="">강의를 선택하세요</option>
+          </select>
+        </div>
+        <div id="class-lecture-title" class="lec-heading hidden"></div>
+        <div id="class-stats" class="stat-chips hidden"></div>
+        <div id="class-answer-list"></div>
+      </div>
+
+      <!-- PICK -->
+      <div id="atab-pick" class="hidden">
+        <div class="select-row">
+          <select class="hi-select" id="pick-lecture-select" onchange="onSelectChange('pick-lecture-select'); renderPickTab()">
+            <option value="">강의를 선택하세요</option>
+          </select>
+        </div>
+        <div id="pick-lecture-title" class="lec-heading hidden"></div>
+        <div id="pick-stats" class="stat-chips hidden"></div>
+        <div id="pick-answer-list"></div>
+      </div>
+    </div>
+
+    <!-- ARCHIVE -->
+    <div id="tab-archive" class="hidden">
+      <p style="font-size:13px; color:var(--hi-text-muted); margin-bottom:20px; padding:0 4px; line-height:1.7;">
+        공개하면 학생 아카이브 탭과 <a href="archive.html" target="_blank" rel="noopener" style="color:var(--hi-accent); text-decoration:none;">전시 페이지</a>에 나타납니다.
+      </p>
+      <div id="archive-list"></div>
+    </div>
+
+    <!-- SETTING -->
+    <div id="tab-setting" class="hidden">
+      <div class="setting-section">
+        <h3>📥 EXCEL로 내보내기</h3>
+        <p>강의를 선택하여 해당 강의의 답변 데이터를 CSV 파일로 다운로드합니다.</p>
+        <div class="setting-row">
+          <select class="hi-select" id="setting-export-select"><option value="">강의를 선택하세요</option></select>
+          <button class="btn-primary btn-sm" style="width:auto;" onclick="exportCSV()">다운로드</button>
+        </div>
+      </div>
+
+      <div class="setting-section">
+        <h3>🗑️ 강의 초기화</h3>
+        <p>강의를 선택하여 해당 강의의 모든 답변 데이터를 삭제합니다. 강의 자체는 유지됩니다.</p>
+        <div class="setting-row">
+          <select class="hi-select" id="setting-reset-select"><option value="">강의를 선택하세요</option></select>
+          <button class="btn-danger btn-sm" onclick="resetLecture()">초기화</button>
+        </div>
+      </div>
+
+      <div class="setting-section">
+        <h3>🤖 Claude API 키 설정</h3>
+        <p>답변 이상 AI 분석에 사용됩니다. 키는 Firebase에 암호화 없이 저장되므로 관리자만 접근하세요.</p>
+        <div class="form-group">
+          <label>Anthropic API Key</label>
+          <input type="password" class="hi-input" id="setting-api-key" placeholder="sk-ant-...">
+        </div>
+        <button class="btn-primary" style="width:auto;padding:12px 28px;" onclick="saveApiKey()">저장</button>
+        <div id="setting-api-msg" style="margin-top:12px;font-size:13px;font-weight:700;"></div>
+      </div>
+
+      <div class="setting-section">
+        <h3>🔑 관리자 비밀번호 재설정</h3>
+        <p>새 비밀번호를 입력하고 저장하세요. Firebase에 저장되어 다음 로그인에 즉시 적용됩니다.</p>
+        <div class="form-group"><label>현재 비밀번호</label><input type="password" class="hi-input" id="setting-pw-current" placeholder="현재 비밀번호"></div>
+        <div class="form-group"><label>새 비밀번호</label><input type="password" class="hi-input" id="setting-pw-new" placeholder="새 비밀번호 (6자 이상)"></div>
+        <div class="form-group"><label>새 비밀번호 확인</label><input type="password" class="hi-input" id="setting-pw-confirm" placeholder="새 비밀번호 재입력"></div>
+        <button class="btn-primary" style="width:auto; padding:12px 28px;" onclick="changePassword()">비밀번호 변경</button>
+        <div id="setting-pw-msg" style="margin-top:12px; font-size:13px; font-weight:700;"></div>
+      </div>
+    </div>
+
+  </div><!-- /.container -->
+</div><!-- /#adminApp -->
 
 <!-- 일반 모달 -->
 <div id="modal" class="modal-overlay hidden">
-    <div class="modal-box">
-        <h3 id="modal-title"></h3>
-        <p id="modal-desc"></p>
-        <div class="modal-actions">
-            <button class="btn-outline btn-sm" onclick="closeModal()">취소</button>
-            <button class="btn-primary btn-sm" id="modal-confirm" style="width:auto; padding:10px 28px;">확인</button>
-        </div>
+  <div class="modal-box">
+    <h3 id="modal-title"></h3>
+    <p id="modal-desc"></p>
+    <div class="modal-actions">
+      <button class="btn-outline btn-sm" onclick="closeModal()">취소</button>
+      <button class="btn-primary btn-sm" id="modal-confirm" style="width:auto; padding:10px 28px;">확인</button>
     </div>
+  </div>
 </div>
 
 <!-- 채점 결과 모달 -->
 <div id="grade-modal" class="grade-modal-overlay hidden">
-    <div class="grade-modal-box">
-        <div class="grade-modal-header">
-            <div>
-                <h3>📊 채점 결과</h3>
-                <div class="grade-summary" id="grade-summary-text"></div>
-            </div>
-            <button class="grade-modal-close" onclick="closeGradeModal()">✕</button>
-        </div>
-        <div class="grade-modal-tabs">
-            <button class="grade-modal-tab active" onclick="switchGradeTab('pass',this)">✅ 통과</button>
-            <button class="grade-modal-tab" onclick="switchGradeTab('fail',this)">❌ 미흡</button>
-            <button class="grade-modal-tab" onclick="switchGradeTab('cheat',this)">🚨 이탈</button>
-            <button class="grade-modal-tab" onclick="switchGradeTab('review',this)">🤖 AI 채점</button>
-        </div>
-        <div class="grade-modal-body" id="grade-modal-body"></div>
+  <div class="grade-modal-box">
+    <div class="grade-modal-header">
+      <div>
+        <h3>📊 채점 결과</h3>
+        <div class="grade-summary" id="grade-summary-text"></div>
+      </div>
+      <button class="grade-modal-close" onclick="closeGradeModal()">✕</button>
     </div>
+    <div class="grade-modal-tabs">
+      <button class="grade-modal-tab active" onclick="switchGradeTab('pass',this)">✅ 통과</button>
+      <button class="grade-modal-tab" onclick="switchGradeTab('fail',this)">❌ 미흡</button>
+      <button class="grade-modal-tab" onclick="switchGradeTab('cheat',this)">🚨 이탈</button>
+      <button class="grade-modal-tab" onclick="switchGradeTab('review',this)">🤖 AI 채점</button>
+    </div>
+    <div class="grade-modal-body" id="grade-modal-body"></div>
+  </div>
 </div>
 
 <script>
@@ -541,21 +430,10 @@
     const db   = firebase.firestore();
     const rtdb = firebase.database();
 
-    /* ════════════════════════════════════════
-       ★ Firestore 연결 안정성 — 안전 설정
-       - long-polling 강제: WebChannel 실패로 인한 hang 방지
-       - enablePersistence 제거: 모바일에서 hang 유발 가능성 있음
-       ════════════════════════════════════════ */
     try {
-        db.settings({
-            experimentalForceLongPolling: true,
-            merge: true
-        });
+        db.settings({ experimentalForceLongPolling: true, merge: true });
     } catch(e) { console.warn('Firestore settings 적용 실패:', e); }
 
-    /* ════════════════════════════════════════
-       상태
-    ════════════════════════════════════════ */
     const SESSION_KEY  = 'sc_admin_session';
     const UI_STATE_KEY = 'sc_admin_ui_state';
 
@@ -570,28 +448,17 @@
     let answerSort   = 'recent';
     let activityData = { absent:[], short:[], cheat:[] };
     let activityTab  = 'absent';
-    let failSort     = 'reason'; // ★ 미흡 명단 정렬: 'reason' | 'id'
+    let failSort     = 'reason';
 
-    /* 채점 관련 */
-    let gradeTab        = 'pass';            // 현재 채점 모달 탭 (pass/fail/cheat/review)
-    let gradeContext    = { lecId:'', cls:'' }; // 현재 채점 대상
-    let claudeApiKey    = '';               // Firebase에서 로드
-    /* gradeOverrides: { [subId]: 'pass'|'fail' }
-       AI/이탈이 '의심'으로 분류했지만 선생님이 통과시킨 것 + 반대 경우 모두 보관 */
-    let gradeOverrides  = {};               // 메모리 캐시
-    /* aiReviewCache: { [lecId_cls]: [{subId, reason}] } — AI 결과 캐시 */
+    let gradeTab        = 'pass';
+    let gradeContext    = { lecId:'', cls:'' };
+    let claudeApiKey    = '';
+    let gradeOverrides  = {};
     let aiReviewCache   = {};
 
     let lectureUnsub     = null;
     let submissionUnsub  = null;
-    let studentsCallback = null;
 
-    /*
-     * ★★★ 핵심 설계 ★★★
-     * selectState: 셀렉트 선택값을 JS 변수로 관리
-     * populateAllSelects()가 DOM을 재생성해도 값이 절대 날아가지 않음
-     * onSnapshot 업데이트 후 항상 이 값으로 셀렉트를 복원
-     */
     const selectState = {
         'answer-lecture-select': '',
         'class-select':          '1',
@@ -601,15 +468,11 @@
         'setting-reset-select':  ''
     };
 
-    /* 사용자가 셀렉트를 바꿀 때 호출 */
     function onSelectChange(id) {
         selectState[id] = document.getElementById(id).value;
         saveUIState();
     }
 
-    /* ════════════════════════════════════════
-       세션 / 비밀번호
-    ════════════════════════════════════════ */
     function saveSession()  { sessionStorage.setItem(SESSION_KEY, '1'); }
     function clearSession() { sessionStorage.removeItem(SESSION_KEY); sessionStorage.removeItem(UI_STATE_KEY); }
     function hasSession()   { return sessionStorage.getItem(SESSION_KEY) === '1'; }
@@ -631,25 +494,22 @@
         const key   = document.getElementById('setting-api-key').value.trim();
         const msgEl = document.getElementById('setting-api-msg');
         if (!key.startsWith('sk-ant-')) {
-            msgEl.style.color = 'var(--text-error)';
+            msgEl.style.color = 'var(--hi-negative)';
             msgEl.textContent = '❌ 올바른 Anthropic API 키 형식이 아닙니다 (sk-ant-...)';
             return;
         }
         try {
             await db.collection('settings').doc('claude').set({ apiKey: key }, { merge: true });
             claudeApiKey = key;
-            msgEl.style.color = 'var(--brand-green)';
+            msgEl.style.color = 'var(--hi-accent)';
             msgEl.textContent = '✅ API 키가 저장되었습니다.';
             document.getElementById('setting-api-key').value = '';
         } catch(e) {
-            msgEl.style.color = 'var(--text-error)';
+            msgEl.style.color = 'var(--hi-negative)';
             msgEl.textContent = '❌ 저장 실패. 다시 시도해주세요.';
         }
     }
 
-    /* ════════════════════════════════════════
-       UI 상태 저장 / 복원
-    ════════════════════════════════════════ */
     function saveUIState() {
         const state = {
             mainTab: getCurrentMainTab(),
@@ -679,11 +539,6 @@
         return 'lecture';
     }
 
-    /* ════════════════════════════════════════
-       셀렉트 채우기 — selectState로 값 보존 보장
-       onSnapshot이 몇 번 호출돼도 선택값이 유지됨
-       ★ 강의 목록은 desc 정렬되어 최신 강의가 위에 표시됨
-    ════════════════════════════════════════ */
     function populateAllSelects() {
         const ids = ['answer-lecture-select','class-lecture-select','pick-lecture-select',
                      'setting-export-select','setting-reset-select'];
@@ -695,33 +550,27 @@
                 opt.value = l.docId; opt.textContent = l.title;
                 sel.appendChild(opt);
             });
-            /* selectState 기준 복원 — 강의가 실제로 존재할 때만 */
             const saved = selectState[id];
             if (saved && activeLectures.some(l => l.docId === saved)) sel.value = saved;
         });
-        /* class-select는 강의 목록과 무관 */
         document.getElementById('class-select').value = selectState['class-select'] || '1';
     }
 
-    /* ════════════════════════════════════════
-       로드 / 로그인
-    ════════════════════════════════════════ */
     window.addEventListener('load', async () => {
         document.getElementById('admin-pw').addEventListener('keydown', e => {
             if (e.key === 'Enter') tryLogin();
         });
         await loadPassword();
-        loadApiKey(); // 비동기, 백그라운드
+        loadApiKey();
 
         if (hasSession()) {
-            /* 저장된 UI 상태를 selectState에 먼저 복원 */
             const saved = loadUIState();
             if (saved) {
                 if (saved.selectState) Object.assign(selectState, saved.selectState);
-                applyTabState(saved); /* 탭 UI 즉시 적용 */
+                applyTabState(saved);
             }
-            hide('screen-login'); show('screen-admin');
-            startListeners(); /* await 없음 — 데이터 오면 알아서 렌더 */
+            hide('loginScreen'); show('adminApp');
+            startListeners();
         }
     });
 
@@ -730,7 +579,7 @@
         if (!adminPassword) await loadPassword();
         if (pw === adminPassword) {
             saveSession();
-            hide('screen-login'); show('screen-admin');
+            hide('loginScreen'); show('adminApp');
             startListeners();
             switchTab('question');
         } else {
@@ -744,16 +593,11 @@
         clearSession();
         stopListeners();
         Object.keys(selectState).forEach(k => { selectState[k] = k === 'class-select' ? '1' : ''; });
-        hide('screen-admin'); show('screen-login');
+        hide('adminApp'); show('loginScreen');
         document.getElementById('admin-pw').value = '';
         hide('pw-error');
     }
 
-    /* ════════════════════════════════════════
-       리스너 — onSnapshot + 타임아웃 감시견
-       7초 안에 첫 응답이 없으면 자동으로 재연결
-       (모바일/학교망에서 hang 방지 핵심 장치)
-    ════════════════════════════════════════ */
     let retryCount = 0;
     let watchdogTimer = null;
 
@@ -764,7 +608,6 @@
 
         let lecGot = false, subGot = false;
 
-        /* ★ 감시견: 7초 안에 데이터가 안 오면 재시도 */
         const startWatchdog = () => {
             if (watchdogTimer) clearTimeout(watchdogTimer);
             watchdogTimer = setTimeout(() => {
@@ -772,16 +615,15 @@
                     retryCount++;
                     console.warn(`[Firestore] 응답 지연 — 재연결 시도 ${retryCount}회`);
                     if (retryCount <= 3) {
-                        /* 강의 목록 영역에 재시도 안내 */
                         const el = document.getElementById('lecture-list-admin');
                         if (el && !lecGot) {
                             el.innerHTML = `<div class="loading-msg"><div class="spinner"></div><span>연결 재시도 중… (${retryCount}/3)</span></div>`;
                         }
-                        startListeners(); /* 재귀 재시도 */
+                        startListeners();
                     } else {
                         const el = document.getElementById('lecture-list-admin');
                         if (el && !lecGot) {
-                            el.innerHTML = `<div class="empty-msg" style="color:var(--text-error);">
+                            el.innerHTML = `<div class="empty-msg" style="color:var(--hi-negative);">
                                 ⚠️ Firebase 연결 실패<br>
                                 <span style="font-size:12px;">네트워크 상태를 확인하고 새로고침해주세요.</span><br>
                                 <button class="btn-outline btn-sm" style="margin-top:14px;" onclick="retryCount=0; startListeners()">다시 시도</button>
@@ -793,11 +635,10 @@
         };
         startWatchdog();
 
-        /* ① 강의 — ★ 최신순(desc)으로 정렬해서 최신 강의가 위로 */
         lectureUnsub = db.collection("lectures").orderBy("createdAt","desc")
             .onSnapshot(snap => {
                 lecGot = true;
-                retryCount = 0; /* 성공 시 카운터 리셋 */
+                retryCount = 0;
                 if (lecGot && subGot && watchdogTimer) { clearTimeout(watchdogTimer); watchdogTimer = null; }
                 activeLectures = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
                 lecturesReady  = true;
@@ -809,7 +650,6 @@
                 renderPickTab();
             }, err => console.warn('lectures 오류:', err));
 
-        /* ② 제출 */
         submissionUnsub = db.collection("submissions").orderBy("createdAt","desc")
             .onSnapshot(snap => {
                 subGot = true;
@@ -822,11 +662,6 @@
                 renderPickTab();
             }, err => console.warn('submissions 오류:', err));
 
-        /* ③ RTDB 학생 명단 — once + 캐시 + 5초 타임아웃 재시도
-           실시간 구독(on) 대신 1회 조회(once)로 변경 →
-           WebSocket 지속 연결 불필요, 모바일에서 훨씬 빠름 */
-
-        /* (1) localStorage 캐시 즉시 로드 — 첫 렌더부터 인원수 표시 */
         try {
             const cached = localStorage.getItem('sc_students_cache');
             if (cached) {
@@ -840,7 +675,6 @@
             }
         } catch(e) {}
 
-        /* (2) once로 1회 조회 — 5초 타임아웃 + 자동 재시도 */
         let studentsRetry = 0;
         const fetchStudents = () => {
             let resolved = false;
@@ -888,14 +722,10 @@
     function stopListeners() {
         if (lectureUnsub)    { lectureUnsub();    lectureUnsub    = null; }
         if (submissionUnsub) { submissionUnsub(); submissionUnsub = null; }
-        /* RTDB students는 once()를 쓰므로 unsubscribe 불필요 */
         lecturesReady = submissionsReady = studentsReady = false;
         activeLectures = allSubmissions = allStudents = [];
     }
 
-    /* ════════════════════════════════════════
-       탭 상태 적용 (데이터 없이도 즉시 실행)
-    ════════════════════════════════════════ */
     function applyTabState(state) {
         if (!state) return;
         switchTabSilent(state.mainTab || 'question');
@@ -903,7 +733,6 @@
         if (state.mainTab === 'answer')   switchATabSilent(state.aSubTab || 'lecture');
     }
 
-    /* Silent 버전 — saveUIState 호출 없음 (복원 시 사용) */
     function switchTabSilent(tab) {
         ['question','answer','archive','setting'].forEach(t => {
             document.getElementById(`tab-btn-${t}`).classList.toggle('active', t === tab);
@@ -923,21 +752,17 @@
         });
     }
 
-    /* ── 탭 전환 (사용자 클릭용 — saveUIState 포함) ── */
     function switchTab(tab)  { switchTabSilent(tab);  saveUIState(); }
     function switchQTab(tab) { switchQTabSilent(tab); if (tab==='list') renderLectureAdmin(); saveUIState(); }
     function switchATab(tab) { switchATabSilent(tab); saveUIState(); }
 
-    /* 학번 → 반 */
     function classNumFromId(sid) {
         if (!sid || sid.length < 3) return null;
         const c = parseInt(String(sid).slice(1,3), 10);
         return isNaN(c) ? null : c;
     }
 
-    /* ══════════════════════════════════════
-       QUESTION 탭
-    ══════════════════════════════════════ */
+    /* ══ QUESTION ══ */
     function addLecture() {
         const title     = document.getElementById('new-title').value.trim();
         const question  = document.getElementById('new-question').value.trim();
@@ -986,9 +811,9 @@
                     </div>
                 </div>
                 <div id="edit-${lec.docId}" class="inline-edit hidden">
-                    <div class="form-group"><label>강의명</label><input type="text" id="edit-title-${lec.docId}" value="${escHtml(lec.title)}"></div>
-                    <div class="form-group"><label>질문</label><input type="text" id="edit-q-${lec.docId}" value="${escHtml(lec.question)}"></div>
-                    <div class="form-group"><label>설명</label><textarea id="edit-ref-${lec.docId}" class="large">${escHtml(lec.reference || '')}</textarea></div>
+                    <div class="form-group"><label>강의명</label><input type="text" class="hi-input" id="edit-title-${lec.docId}" value="${escHtml(lec.title)}"></div>
+                    <div class="form-group"><label>질문</label><input type="text" class="hi-input" id="edit-q-${lec.docId}" value="${escHtml(lec.question)}"></div>
+                    <div class="form-group"><label>설명</label><textarea class="hi-textarea" id="edit-ref-${lec.docId}" style="min-height:160px;">${escHtml(lec.reference || '')}</textarea></div>
                     <div style="display:flex; gap:8px;">
                         <button class="btn-primary btn-sm" style="width:auto;" onclick="saveLecture('${lec.docId}')">저장</button>
                         <button class="btn-outline btn-sm" onclick="toggleEdit('${lec.docId}', false)">취소</button>
@@ -998,16 +823,12 @@
         });
     }
 
-    function toggleOpen(docId, value) {
-        db.collection("lectures").doc(docId).update({ isOpen: value });
-    }
+    function toggleOpen(docId, value) { db.collection("lectures").doc(docId).update({ isOpen: value }); }
     function toggleEdit(docId, open) {
         document.getElementById(`view-${docId}`).classList.toggle('hidden', open);
         document.getElementById(`edit-${docId}`).classList.toggle('hidden', !open);
     }
-    function toggleMore(docId) {
-        document.getElementById(`more-${docId}`).classList.toggle('hidden');
-    }
+    function toggleMore(docId) { document.getElementById(`more-${docId}`).classList.toggle('hidden'); }
     function saveLecture(docId) {
         const title     = document.getElementById(`edit-title-${docId}`).value.trim();
         const question  = document.getElementById(`edit-q-${docId}`).value.trim();
@@ -1016,7 +837,7 @@
         db.collection("lectures").doc(docId).update({ title, question, reference }).then(() => toggleEdit(docId, false));
     }
     function deleteLecture(docId, title) {
-        openModal("강의 삭제", `<b>${title}</b>을(를) 삭제하시겠습니까?<br><span style="color:var(--text-error)">모든 답변도 함께 삭제됩니다.</span>`, () => {
+        openModal("강의 삭제", `<b>${title}</b>을(를) 삭제하시겠습니까?<br><span style="color:var(--hi-negative)">모든 답변도 함께 삭제됩니다.</span>`, () => {
             const subs  = allSubmissions.filter(s => s.lectureDocId === docId);
             const batch = db.batch();
             subs.forEach(s => batch.delete(db.collection("submissions").doc(s.subId)));
@@ -1025,9 +846,7 @@
         });
     }
 
-    /* ══════════════════════════════════════
-       ANSWER 공통 유틸
-    ══════════════════════════════════════ */
+    /* ══ ANSWER ══ */
     function setAnswerSort(mode, btn) {
         answerSort = mode;
         document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
@@ -1042,11 +861,7 @@
         });
     }
 
-    /* ★ 미흡 명단 정렬 토글 */
-    function setFailSort(mode) {
-        failSort = mode;
-        renderGradeModalBody();
-    }
+    function setFailSort(mode) { failSort = mode; renderGradeModalBody(); }
 
     function buildAnswerCard(data, showMeta) {
         const isPicked = data.isPicked;
@@ -1056,14 +871,10 @@
         return `
             <div class="answer-card">
                 <div class="student-row">
-                    <div class="student-info">
-                        <strong>${data.id} ${data.name}</strong>
-                    </div>
+                    <div class="student-info"><strong>${data.id} ${data.name}</strong></div>
                     <div class="student-actions">
-                        <button class="btn-icon btn-sm ${isPicked ? 'picked' : ''}"
-                            onclick="togglePick('${data.subId}')" title="PICK">★</button>
-                        <button class="btn-icon btn-sm" style="color:var(--text-error);"
-                            onclick="deleteSubmission('${data.subId}')" title="삭제">✕</button>
+                        <button class="btn-icon btn-sm ${isPicked ? 'picked' : ''}" onclick="togglePick('${data.subId}')" title="PICK">★</button>
+                        <button class="btn-icon btn-sm" style="color:var(--hi-negative);" onclick="deleteSubmission('${data.subId}')" title="삭제">✕</button>
                     </div>
                 </div>
                 <div class="answer-text">${data.text}</div>
@@ -1081,9 +892,7 @@
         });
     }
 
-    /* ── LECTURE 탭 렌더 ── */
     function renderAnswerLecture() {
-        /* ★ DOM 값 대신 selectState에서 읽음 → onSnapshot 재렌더 시 값 유지 */
         const lecId   = selectState['answer-lecture-select'];
         const titleEl = document.getElementById('answer-lecture-title');
         const statsEl = document.getElementById('answer-lecture-stats');
@@ -1112,9 +921,7 @@
         listEl.innerHTML = subs.length ? subs.map(d => buildAnswerCard(d,false)).join('') : '<p class="empty-msg">제출된 답변이 없습니다.</p>';
     }
 
-    /* ── CLASS 탭 렌더 ── */
     function renderAnswerClass() {
-        /* ★ DOM 값 대신 selectState에서 읽음 */
         const cls     = selectState['class-select'] || '1';
         const lecId   = selectState['class-lecture-select'];
         const titleEl = document.getElementById('class-lecture-title');
@@ -1143,11 +950,9 @@
             cheat:  classSubs.filter(s => (s.cheatCount||0) >= 3)
         };
 
-        /* ★ 통과/미흡 인원 계산 — 메모리에 있는 override + AI 캐시 반영
-           (override는 모달이 한 번이라도 열리면 로드됨; 첫 진입엔 약간 부정확할 수 있으나 모달 열면 즉시 동기화) */
         const failIds = new Set();
         activityData.absent.forEach(s => failIds.add(String(s.studentId)));
-        activityData.short.forEach(s  => failIds.add(String(s.id))); /* 50자 미만은 무조건 미흡 */
+        activityData.short.forEach(s  => failIds.add(String(s.id)));
         activityData.cheat.forEach(s  => { if (!isOverridePass(s.subId)) failIds.add(String(s.id)); });
         const aiCacheKey = `${lecId}_${cls}`;
         const aiCached   = aiReviewCache[aiCacheKey] || [];
@@ -1158,14 +963,13 @@
         const passCount  = totalCount > 0 ? Math.max(0, totalCount - failCount) : 0;
 
         statsEl.classList.remove('hidden');
-        /* ★ 4개 칩 2x2: 제출/인원, PICK, 통과/미흡(클릭=미흡 명단), AI 채점 */
         statsEl.innerHTML = `
             <div class="stat-chip"><span class="num">${classSubs.length} / ${classStudents.length||'-'}</span>제출 / ${cls}반 인원</div>
             <div class="stat-chip"><span class="num">${classSubs.filter(s=>s.isPicked).length}</span>PICK</div>
             <div class="stat-chip stat-chip-btn" onclick="openGradeModalWithLoad('fail')">
                 <span class="num">${totalCount ? passCount : '-'} / <span class="num-red-inline">${totalCount ? failCount : '-'}</span></span>통과 / 미흡
             </div>
-            <div class="stat-chip stat-chip-btn" onclick="openGradeModalWithLoad('review')" style="border:1px solid var(--border-gray);">
+            <div class="stat-chip stat-chip-btn" onclick="openGradeModalWithLoad('review')" style="border:1px solid var(--hi-border);">
                 <span class="num" style="font-size:16px;line-height:1.4;">🤖</span>AI 채점
             </div>`;
 
@@ -1173,9 +977,7 @@
         listEl.innerHTML = sorted.length ? sorted.map(d => buildAnswerCard(d,true)).join('') : '<p class="empty-msg">이 반의 제출된 답변이 없습니다.</p>';
     }
 
-    /* ── PICK 탭 렌더 ── */
     function renderPickTab() {
-        /* ★ DOM 값 대신 selectState에서 읽음 */
         const lecId   = selectState['pick-lecture-select'];
         const titleEl = document.getElementById('pick-lecture-title');
         const statsEl = document.getElementById('pick-stats');
@@ -1198,14 +1000,11 @@
         listEl.innerHTML = picked.length ? picked.map(d => buildAnswerCard(d,false)).join('') : '<p class="empty-msg">PICK된 답변이 없습니다.</p>';
     }
 
-    /* ══════════════════════════════════════
-       채점 결과 모달
-    ══════════════════════════════════════ */
+    /* ══ 채점 모달 ══ */
     function openGradeModal(initialTab) {
         const tab = initialTab || 'pass';
         gradeTab = tab;
         const tabIndex = { 'pass': 0, 'fail': 1, 'cheat': 2, 'review': 3 }[tab] ?? 0;
-        /* gradeContext 갱신 */
         gradeContext.lecId = selectState['class-lecture-select'];
         gradeContext.cls   = selectState['class-select'] || '1';
         document.querySelectorAll('.grade-modal-tab').forEach((b,i) => b.classList.toggle('active', i===tabIndex));
@@ -1222,13 +1021,12 @@
         renderGradeModalBody();
     }
 
-    /* 미흡 인원 카운트 — override 반영 (미제출/50자 미만은 무조건 미흡) */
     function countFail() {
         const { absent, short, cheat } = activityData;
-        const reviewFails = getReviewFails(); /* 이제 명시적 미흡만 반환 */
+        const reviewFails = getReviewFails();
         const failIds = new Set();
         absent.forEach(s => failIds.add(s.studentId));
-        short.forEach(s  => failIds.add(s.id)); /* ★ 50자 미만은 무조건 미흡 */
+        short.forEach(s  => failIds.add(s.id));
         cheat.forEach(s  => { if (!isOverridePass(s.subId)) failIds.add(s.id); });
         reviewFails.forEach(s => failIds.add(s.id));
         return failIds.size;
@@ -1243,7 +1041,6 @@
             `${gradeContext.cls}반 · 통과 ${pass}명 / 미흡 ${fail}명 / 전체 ${total}명`;
     }
 
-    /* Firebase에서 override 로드 (처음 모달 열 때) */
     async function loadGradeOverrides(lecId, cls) {
         const key = `${lecId}_${cls}`;
         try {
@@ -1255,38 +1052,25 @@
     function isOverridePass(subId) { return gradeOverrides[subId] === 'pass'; }
     function isOverrideFail(subId) { return gradeOverrides[subId] === 'fail'; }
 
-    /* 토글 클릭 — Firebase에 저장 (이탈 탭 등에서 사용; 같은 값 다시 누르면 초기화) */
     async function toggleGradeOverride(subId, value) {
         const prev = gradeOverrides[subId];
-        if (prev === value) {
-            delete gradeOverrides[subId]; // 같은 버튼 다시 누르면 초기화
-        } else {
-            gradeOverrides[subId] = value;
-        }
-        /* Firebase 저장 */
+        if (prev === value) { delete gradeOverrides[subId]; } else { gradeOverrides[subId] = value; }
         const key = `${gradeContext.lecId}_${gradeContext.cls}`;
-        try {
-            await db.collection('gradeOverrides').doc(key).set(gradeOverrides, { merge: false });
-        } catch(e) {}
+        try { await db.collection('gradeOverrides').doc(key).set(gradeOverrides, { merge: false }); } catch(e) {}
         updateGradeSummary();
         renderGradeModalBody();
-        renderAnswerClass(); /* 배경의 통과/미흡 칩도 동기화 */
+        renderAnswerClass();
     }
 
-    /* ★ AI 의심 답변 확정 — 통과/미흡 둘 다 누르면 즉시 처리 완료(카드 사라짐) */
     async function confirmAiReview(subId, value) {
         gradeOverrides[subId] = value;
         const key = `${gradeContext.lecId}_${gradeContext.cls}`;
-        try {
-            await db.collection('gradeOverrides').doc(key).set(gradeOverrides, { merge: false });
-        } catch(e) {}
+        try { await db.collection('gradeOverrides').doc(key).set(gradeOverrides, { merge: false }); } catch(e) {}
         updateGradeSummary();
         renderGradeModalBody();
-        renderAnswerClass(); /* 배경의 통과/미흡 칩도 동기화 */
+        renderAnswerClass();
     }
 
-    /* AI 분석 결과 중 ★ 사용자가 명시적으로 미흡으로 표시한 것만 반환
-       (기본값은 통과 — 사용자가 미흡 토글을 눌러야만 미흡 처리됨) */
     function getReviewFails() {
         const cacheKey = `${gradeContext.lecId}_${gradeContext.cls}`;
         const cached = aiReviewCache[cacheKey] || [];
@@ -1295,26 +1079,23 @@
 
     function renderGradeModalBody() {
         const body = document.getElementById('grade-modal-body');
-
         if (gradeTab === 'pass') {
             renderPassTab(body);
-
         } else if (gradeTab === 'fail') {
             renderFailTab(body);
-
         } else if (gradeTab === 'cheat') {
             const list = activityData.cheat;
             if (!list.length) { body.innerHTML = '<span class="chip-ok">✅ 이탈 3회 이상 없음!</span>'; return; }
             body.innerHTML = `
-                <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;line-height:1.55;">
-                    이탈 ${list.length}건. 기본적으로 미흡 처리되며, 사정에 따라 <strong style="color:var(--brand-green)">통과</strong>로 변경할 수 있습니다.
+                <p style="font-size:12px;color:var(--hi-text-muted);margin-bottom:12px;line-height:1.55;">
+                    이탈 ${list.length}건. 기본적으로 미흡 처리되며, 사정에 따라 <strong style="color:var(--hi-accent)">통과</strong>로 변경할 수 있습니다.
                 </p>` +
                 [...list].sort((a,b)=>b.cheatCount-a.cheatCount).map(s => {
                     const isPassing = isOverridePass(s.subId);
                     return `<div class="review-card" style="${isPassing ? 'opacity:0.55;' : ''}">
                         <div class="review-card-top">
                             <span class="review-card-name">${s.id} ${s.name}</span>
-                            <span class="review-card-reason" style="background:rgba(61,145,244,0.12);border-color:rgba(61,145,244,0.3);color:#3d91f4;">🚨 ${s.cheatCount}회 이탈</span>
+                            <span class="review-card-reason" style="background:rgba(59,130,246,.08);border-color:rgba(59,130,246,.25);color:#2563eb;">🚨 ${s.cheatCount}회 이탈</span>
                             <div class="grade-toggle-wrap">
                                 <button class="grade-toggle-btn pass ${isPassing?'active':''}" onclick="toggleGradeOverride('${s.subId}','pass')">통과</button>
                                 <button class="grade-toggle-btn fail ${!isPassing?'active':''}" onclick="toggleGradeOverride('${s.subId}','fail')">미흡</button>
@@ -1323,18 +1104,14 @@
                         <div class="review-card-text">${escHtml(s.text||'')}</div>
                     </div>`;
                 }).join('');
-
         } else if (gradeTab === 'review') {
             renderReviewTab(body);
         }
     }
 
-    /* ── 통과 명단 탭 ── */
     function renderPassTab(body) {
         const clsNum = parseInt(gradeContext.cls, 10);
         const classStudents = allStudents.filter(s => classNumFromId(s.studentId) === clsNum);
-
-        /* 미흡 학생 ID 집합 구성 */
         const failIds = new Set();
         activityData.absent.forEach(s => failIds.add(String(s.studentId)));
         activityData.short.forEach(s  => failIds.add(String(s.id)));
@@ -1342,27 +1119,18 @@
         const cacheKey = `${gradeContext.lecId}_${gradeContext.cls}`;
         const aiCached = aiReviewCache[cacheKey] || [];
         aiCached.forEach(s => { if (isOverrideFail(s.subId)) failIds.add(String(s.id)); });
-
         const passStudents = classStudents.filter(s => !failIds.has(String(s.studentId)));
-
-        if (!passStudents.length) {
-            body.innerHTML = '<p class="empty-msg">통과한 학생이 없습니다.</p>';
-            return;
-        }
-
+        if (!passStudents.length) { body.innerHTML = '<p class="empty-msg">통과한 학생이 없습니다.</p>'; return; }
         body.innerHTML = `
-            <p style="font-size:12px; color:var(--text-muted); margin-bottom:14px; line-height:1.6;">
-                총 <strong style="color:var(--brand-green)">${passStudents.length}명</strong> 통과<br>
+            <p style="font-size:12px; color:var(--hi-text-muted); margin-bottom:14px; line-height:1.6;">
+                총 <strong style="color:var(--hi-accent)">${passStudents.length}명</strong> 통과<br>
                 <span style="font-size:11px;">제출 + 50자 이상 + 이탈 3회 미만 + AI 미흡 확정이 아닌 학생입니다.</span>
             </p>
             <div>` +
-            passStudents.map(s =>
-                `<span class="activity-chip chip-pass">${s.studentId} ${s.studentName}</span>`
-            ).join('') +
+            passStudents.map(s => `<span class="activity-chip chip-pass">${s.studentId} ${s.studentName}</span>`).join('') +
             `</div>`;
     }
 
-    /* ── 미흡 명단 탭 (사유별 그룹 / 번호순 토글) ── */
     function renderFailTab(body) {
         const absent = activityData.absent;
         const short  = activityData.short;
@@ -1370,19 +1138,13 @@
         const cacheKey = `${gradeContext.lecId}_${gradeContext.cls}`;
         const aiCached = aiReviewCache[cacheKey] || [];
         const aiFailList = aiCached.filter(s => isOverrideFail(s.subId));
-
         const totalFail = absent.length + short.length + cheatFailList.length + aiFailList.length;
+        if (!totalFail) { body.innerHTML = '<span class="chip-ok">✅ 미흡 학생 없음!</span>'; return; }
 
-        if (!totalFail) {
-            body.innerHTML = '<span class="chip-ok">✅ 미흡 학생 없음!</span>';
-            return;
-        }
-
-        /* 헤더 (총 인원 + 정렬 옵션) */
         let html = `
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
-                <p style="font-size:12px; color:var(--text-muted); line-height:1.6; margin:0;">
-                    총 <strong style="color:var(--text-error)">${totalFail}명</strong> 미흡
+                <p style="font-size:12px; color:var(--hi-text-muted); line-height:1.6; margin:0;">
+                    총 <strong style="color:var(--hi-negative)">${totalFail}명</strong> 미흡
                 </p>
                 <div class="sort-wrap">
                     <span class="sort-wrap-label">정렬</span>
@@ -1391,142 +1153,60 @@
                 </div>
             </div>`;
 
-        /* ★ 번호순: 사유 무관하게 학번순으로 평탄화 */
         if (failSort === 'id') {
             const allFails = [];
-            absent.forEach(s => allFails.push({
-                id: s.studentId, name: s.studentName,
-                reason: '미제출', chipClass: 'chip-absent'
-            }));
-            short.forEach(s => allFails.push({
-                id: s.id, name: s.name,
-                reason: `${s.textLength}자`, chipClass: 'chip-short'
-            }));
-            cheatFailList.forEach(s => allFails.push({
-                id: s.id, name: s.name,
-                reason: `이탈 ${s.cheatCount}회`, chipClass: 'chip-cheat'
-            }));
-            aiFailList.forEach(s => allFails.push({
-                id: s.id, name: s.name,
-                reason: 'AI 미흡', chipClass: 'chip-wrong'
-            }));
-
-            allFails.sort((a,b) =>
-                String(a.id).localeCompare(String(b.id), undefined, {numeric:true})
-            );
-
+            absent.forEach(s => allFails.push({ id: s.studentId, name: s.studentName, reason: '미제출', chipClass: 'chip-absent' }));
+            short.forEach(s => allFails.push({ id: s.id, name: s.name, reason: `${s.textLength}자`, chipClass: 'chip-short' }));
+            cheatFailList.forEach(s => allFails.push({ id: s.id, name: s.name, reason: `이탈 ${s.cheatCount}회`, chipClass: 'chip-cheat' }));
+            aiFailList.forEach(s => allFails.push({ id: s.id, name: s.name, reason: 'AI 미흡', chipClass: 'chip-wrong' }));
+            allFails.sort((a,b) => String(a.id).localeCompare(String(b.id), undefined, {numeric:true}));
             html += '<div>' + allFails.map(f =>
                 `<span class="activity-chip ${f.chipClass}">${f.id} ${f.name} <small style="opacity:.75;">${f.reason}</small></span>`
             ).join('') + '</div>';
-
-            body.innerHTML = html;
-            return;
+            body.innerHTML = html; return;
         }
 
-        /* 기본: 사유별 그룹 */
-        if (absent.length) {
-            html += `
-                <div style="margin-bottom:18px;">
-                    <div class="reason-section-title">
-                        ⚠️ 미제출 · ${absent.length}명
-                        <span class="sub-note">— 답변을 작성하지 않음</span>
-                    </div>
-                    <div>${absent.map(s =>
-                        `<span class="activity-chip chip-absent">${s.studentId} ${s.studentName}</span>`
-                    ).join('')}</div>
-                </div>`;
-        }
-
-        if (short.length) {
-            html += `
-                <div style="margin-bottom:18px;">
-                    <div class="reason-section-title">
-                        ✏️ 50자 미만 · ${short.length}명
-                        <span class="sub-note">— 답변이 너무 짧음 (자동 미흡)</span>
-                    </div>
-                    <div>${short.map(s =>
-                        `<span class="activity-chip chip-short">${s.id} ${s.name} <small style="opacity:.75;">${s.textLength}자</small></span>`
-                    ).join('')}</div>
-                </div>`;
-        }
-
-        if (cheatFailList.length) {
-            html += `
-                <div style="margin-bottom:18px;">
-                    <div class="reason-section-title">
-                        🚨 이탈 3회 이상 · ${cheatFailList.length}명
-                        <span class="sub-note">— 자세히는 이탈 탭에서 확인</span>
-                    </div>
-                    <div>${cheatFailList.map(s =>
-                        `<span class="activity-chip chip-cheat">${s.id} ${s.name} <small style="opacity:.75;">${s.cheatCount}회</small></span>`
-                    ).join('')}</div>
-                </div>`;
-        }
-
-        if (aiFailList.length) {
-            html += `
-                <div>
-                    <div class="reason-section-title">
-                        🤖 AI 분석 미흡 · ${aiFailList.length}명
-                        <span class="sub-note">— AI 채점 탭에서 미흡 토글 확정</span>
-                    </div>
-                    <div>${aiFailList.map(s =>
-                        `<span class="activity-chip chip-wrong">${s.id} ${s.name}</span>`
-                    ).join('')}</div>
-                </div>`;
-        }
-
+        if (absent.length) html += `<div style="margin-bottom:18px;"><div class="reason-section-title">⚠️ 미제출 · ${absent.length}명<span class="sub-note">— 답변을 작성하지 않음</span></div><div>${absent.map(s=>`<span class="activity-chip chip-absent">${s.studentId} ${s.studentName}</span>`).join('')}</div></div>`;
+        if (short.length)  html += `<div style="margin-bottom:18px;"><div class="reason-section-title">✏️ 50자 미만 · ${short.length}명<span class="sub-note">— 답변이 너무 짧음 (자동 미흡)</span></div><div>${short.map(s=>`<span class="activity-chip chip-short">${s.id} ${s.name} <small style="opacity:.75;">${s.textLength}자</small></span>`).join('')}</div></div>`;
+        if (cheatFailList.length) html += `<div style="margin-bottom:18px;"><div class="reason-section-title">🚨 이탈 3회 이상 · ${cheatFailList.length}명<span class="sub-note">— 자세히는 이탈 탭에서 확인</span></div><div>${cheatFailList.map(s=>`<span class="activity-chip chip-cheat">${s.id} ${s.name} <small style="opacity:.75;">${s.cheatCount}회</small></span>`).join('')}</div></div>`;
+        if (aiFailList.length) html += `<div><div class="reason-section-title">🤖 AI 분석 미흡 · ${aiFailList.length}명<span class="sub-note">— AI 채점 탭에서 미흡 토글 확정</span></div><div>${aiFailList.map(s=>`<span class="activity-chip chip-wrong">${s.id} ${s.name}</span>`).join('')}</div></div>`;
         body.innerHTML = html;
     }
 
-    /* ── 답변 이상 탭 (AI 채점) ── */
     function renderReviewTab(body) {
         const cacheKey = `${gradeContext.lecId}_${gradeContext.cls}`;
         const cached   = aiReviewCache[cacheKey];
-
         if (!cached) {
-            /* 아직 분석 안 함 */
             const hasKey = !!claudeApiKey;
             body.innerHTML = `
                 <div style="text-align:center; padding:32px 0;">
-                    <p style="font-size:14px;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">
+                    <p style="font-size:14px;color:var(--hi-text-muted);margin-bottom:16px;line-height:1.6;">
                         AI가 질문과 무관한 답변을 자동으로 찾아드립니다.<br>
-                        ${hasKey ? '아래 버튼을 눌러 분석을 시작하세요.' : '<span style="color:var(--text-error)">먼저 SETTING에서 Claude API 키를 등록해주세요.</span>'}
+                        ${hasKey ? '아래 버튼을 눌러 분석을 시작하세요.' : '<span style="color:var(--hi-negative)">먼저 SETTING에서 Claude API 키를 등록해주세요.</span>'}
                     </p>
-                    <button class="btn-ai" ${hasKey?'':'disabled'} onclick="runAiReview()">
-                        ✨ AI 분석 시작
-                    </button>
+                    <button class="btn-ai" ${hasKey?'':'disabled'} onclick="runAiReview()">✨ AI 분석 시작</button>
                     <div class="ai-status" id="ai-status-msg"></div>
                 </div>`;
             return;
         }
-
-        /* ★ override(pass 또는 fail)가 있는 항목은 처리 완료 → 카드 숨김 */
         const pending = cached.filter(s => !gradeOverrides[s.subId]);
         const processedCount = cached.length - pending.length;
-
         if (!pending.length) {
             body.innerHTML = `
                 <div style="text-align:center; padding:24px 0;">
-                    ${cached.length
-                        ? `<span class="chip-ok">✅ ${cached.length}건 모두 검토 완료!</span>`
-                        : `<span class="chip-ok">✅ AI가 이상 답변을 발견하지 못했습니다.</span>`
-                    }
-                    <div style="margin-top:14px;">
-                        <button class="btn-ai" style="padding:8px 18px; font-size:12px;" onclick="runAiReview()">🔄 다시 분석</button>
-                    </div>
+                    ${cached.length ? `<span class="chip-ok">✅ ${cached.length}건 모두 검토 완료!</span>` : `<span class="chip-ok">✅ AI가 이상 답변을 발견하지 못했습니다.</span>`}
+                    <div style="margin-top:14px;"><button class="btn-ai" style="padding:8px 18px; font-size:12px;" onclick="runAiReview()">🔄 다시 분석</button></div>
                 </div>`;
             return;
         }
-
         body.innerHTML = `
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
                 <div style="flex:1; min-width:200px;">
-                    <div style="font-size:12px;color:var(--text-muted);font-weight:700;">
+                    <div style="font-size:12px;color:var(--hi-text-muted);font-weight:700;">
                         🤖 검토 대기 ${pending.length}건${processedCount ? ` <span style="opacity:.7;">(완료 ${processedCount}건)</span>` : ''}
                     </div>
-                    <div style="font-size:11px; color:var(--text-muted); margin-top:4px; line-height:1.55;">
-                        각 답변을 <strong style="color:var(--brand-green)">통과</strong> 또는 <strong style="color:var(--text-error)">미흡</strong>으로 분류하세요. 누르면 목록에서 사라집니다.
+                    <div style="font-size:11px; color:var(--hi-text-muted); margin-top:4px; line-height:1.55;">
+                        각 답변을 <strong style="color:var(--hi-accent)">통과</strong> 또는 <strong style="color:var(--hi-negative)">미흡</strong>으로 분류하세요.
                     </div>
                 </div>
                 <button class="btn-ai" style="padding:7px 14px;font-size:12px;flex-shrink:0;" onclick="runAiReview()">🔄 재분석</button>
@@ -1547,26 +1227,20 @@
             `).join('');
     }
 
-    /* ── AI 분석 실행 ── */
     async function runAiReview() {
         if (!claudeApiKey) { alert('SETTING에서 Claude API 키를 먼저 등록해주세요.'); return; }
-
         const { lecId, cls } = gradeContext;
         const lec = activeLectures.find(l => l.docId === lecId);
         if (!lec) return;
-
         const clsNum    = parseInt(cls, 10);
         const classSubs = allSubmissions.filter(s =>
             s.lectureDocId === lecId && classNumFromId(s.id) === clsNum
-        ).filter(s => (s.textLength||0) >= 50); /* 이미 50자 미만은 별도 처리 */
-
+        ).filter(s => (s.textLength||0) >= 50);
         if (!classSubs.length) {
             const cacheKey = `${lecId}_${cls}`;
             aiReviewCache[cacheKey] = [];
-            renderGradeModalBody();
-            return;
+            renderGradeModalBody(); return;
         }
-
         const statusEl = document.getElementById('ai-status-msg');
         if (statusEl) statusEl.textContent = `🔄 ${classSubs.length}개 답변 분석 중…`;
         document.querySelectorAll('.btn-ai').forEach(b => b.disabled = true);
@@ -1604,49 +1278,37 @@ ${JSON.stringify(classSubs.map(s => ({ subId: s.subId, id: s.id, name: s.name, t
                     messages: [{ role: 'user', content: prompt }]
                 })
             });
-
             if (!res.ok) throw new Error(`API 오류 ${res.status}`);
             const data = await res.json();
             const raw  = data.content?.[0]?.text || '[]';
             const clean = raw.replace(/```json|```/g,'').trim();
             const result = JSON.parse(clean);
-
-            /* 실제 제출 데이터와 매핑 */
             const cacheKey = `${lecId}_${cls}`;
             aiReviewCache[cacheKey] = result.map(r => {
                 const sub = classSubs.find(s => s.subId === r.subId);
                 return sub ? { ...r, text: sub.text, id: sub.id, name: sub.name } : r;
             });
-
             if (statusEl) statusEl.textContent = '';
         } catch(e) {
             if (statusEl) statusEl.textContent = `❌ 분석 실패: ${e.message}`;
         }
-
         document.querySelectorAll('.btn-ai').forEach(b => b.disabled = false);
         updateGradeSummary();
         renderGradeModalBody();
-        renderAnswerClass(); /* 배경의 통과/미흡 칩도 동기화 */
+        renderAnswerClass();
     }
 
-    /* openGradeModal 진입점 — override 로드 포함 */
     async function openGradeModalWithLoad(initialTab) {
-        await loadGradeOverrides(
-            selectState['class-lecture-select'],
-            selectState['class-select'] || '1'
-        );
+        await loadGradeOverrides(selectState['class-lecture-select'], selectState['class-select'] || '1');
         openGradeModal(initialTab);
     }
 
-    /* ══════════════════════════════════════
-       ARCHIVE 탭
-    ══════════════════════════════════════ */
+    /* ══ ARCHIVE ══ */
     function renderArchiveAdmin() {
         const el = document.getElementById('archive-list');
         if (!el) return;
         if (!lecturesReady) {
-            el.innerHTML = `<div class="loading-msg"><div class="spinner"></div><span>불러오는 중…</span></div>`;
-            return;
+            el.innerHTML = `<div class="loading-msg"><div class="spinner"></div><span>불러오는 중…</span></div>`; return;
         }
         el.innerHTML = '';
         if (!activeLectures.length) { el.innerHTML = '<p class="empty-msg">강의가 없습니다.</p>'; return; }
@@ -1677,14 +1339,12 @@ ${JSON.stringify(classSubs.map(s => ({ subId: s.subId, id: s.id, name: s.name, t
         db.collection("lectures").doc(docId).update({ isArchived: value });
     }
 
-    /* ══════════════════════════════════════
-       SETTING 탭
-    ══════════════════════════════════════ */
+    /* ══ SETTING ══ */
     function exportCSV() {
         const lecId = document.getElementById('setting-export-select').value;
         if (!lecId) { alert("강의를 선택하세요."); return; }
         const lec = activeLectures.find(l => l.docId === lecId);
-        let csv = "\uFEFF학번,이름,비밀번호,답변,글자수,작성시간(초),이탈횟수,PICK\n";
+        let csv = "﻿학번,이름,비밀번호,답변,글자수,작성시간(초),이탈횟수,PICK\n";
         allSubmissions.filter(s => s.lectureDocId === lecId).forEach(d => {
             const text = (d.text || '').replace(/"/g, '""').replace(/\n/g, ' ');
             csv += `${d.id},${d.name},${d.verify},"${text}",${d.textLength},${d.duration},${d.cheatCount},${d.isPicked ? 'O' : 'X'}\n`;
@@ -1699,7 +1359,7 @@ ${JSON.stringify(classSubs.map(s => ({ subId: s.subId, id: s.id, name: s.name, t
         const lecId = document.getElementById('setting-reset-select').value;
         if (!lecId) { alert("강의를 선택하세요."); return; }
         const lec = activeLectures.find(l => l.docId === lecId);
-        openModal("강의 초기화", `<b>${lec?.title}</b>의 모든 답변을 삭제합니다.<br><span style="color:var(--text-error)">되돌릴 수 없습니다.</span>`, () => {
+        openModal("강의 초기화", `<b>${lec?.title}</b>의 모든 답변을 삭제합니다.<br><span style="color:var(--hi-negative)">되돌릴 수 없습니다.</span>`, () => {
             const subs  = allSubmissions.filter(s => s.lectureDocId === lecId);
             const batch = db.batch();
             subs.forEach(s => batch.delete(db.collection("submissions").doc(s.subId)));
@@ -1712,20 +1372,18 @@ ${JSON.stringify(classSubs.map(s => ({ subId: s.subId, id: s.id, name: s.name, t
         const nw    = document.getElementById('setting-pw-new').value;
         const conf  = document.getElementById('setting-pw-confirm').value;
         const msgEl = document.getElementById('setting-pw-msg');
-
         if (!adminPassword) await loadPassword();
-        if (cur !== adminPassword) { msgEl.style.color = 'var(--text-error)'; msgEl.textContent = '❌ 현재 비밀번호가 틀렸습니다.'; return; }
-        if (nw.length < 6) { msgEl.style.color = 'var(--text-error)'; msgEl.textContent = '❌ 새 비밀번호는 6자 이상이어야 합니다.'; return; }
-        if (nw !== conf) { msgEl.style.color = 'var(--text-error)'; msgEl.textContent = '❌ 새 비밀번호가 일치하지 않습니다.'; return; }
-
+        if (cur !== adminPassword) { msgEl.style.color = 'var(--hi-negative)'; msgEl.textContent = '❌ 현재 비밀번호가 틀렸습니다.'; return; }
+        if (nw.length < 6) { msgEl.style.color = 'var(--hi-negative)'; msgEl.textContent = '❌ 새 비밀번호는 6자 이상이어야 합니다.'; return; }
+        if (nw !== conf) { msgEl.style.color = 'var(--hi-negative)'; msgEl.textContent = '❌ 새 비밀번호가 일치하지 않습니다.'; return; }
         try {
             await db.collection('settings').doc('admin').set({ password: nw }, { merge: true });
             adminPassword = nw;
-            msgEl.style.color = 'var(--brand-green)';
+            msgEl.style.color = 'var(--hi-accent)';
             msgEl.textContent = '✅ 비밀번호가 변경되었습니다.';
             ['setting-pw-current','setting-pw-new','setting-pw-confirm'].forEach(id => document.getElementById(id).value = '');
         } catch(e) {
-            msgEl.style.color = 'var(--text-error)';
+            msgEl.style.color = 'var(--hi-negative)';
             msgEl.textContent = '❌ 저장 실패. 다시 시도해주세요.';
         }
     }
@@ -1739,7 +1397,6 @@ ${JSON.stringify(classSubs.map(s => ({ subId: s.subId, id: s.id, name: s.name, t
     }
     function closeModal() { hide('modal'); }
 
-    /* ── 유틸 ── */
     function show(id) { document.getElementById(id).classList.remove('hidden'); }
     function hide(id) { document.getElementById(id).classList.add('hidden'); }
     function escHtml(str) {

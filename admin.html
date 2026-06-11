@@ -500,14 +500,48 @@
     cursor: pointer; text-decoration: none;
     transition: background 0.15s, color 0.15s;
     margin-bottom: 2px;
+    background: none; border: none; width: 100%; text-align: left;
+    font-family: inherit;
   }
   .dynamic-link:hover { background: var(--hi-bg-mid); color: var(--hi-text); }
+  .dynamic-link.active { background: var(--hi-accent-soft); color: var(--hi-accent); }
   .dynamic-link-icon { font-size: 18px; width: 22px; text-align: center; flex-shrink: 0; }
   .dynamic-link-text {
     flex: 1; min-width: 0;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   .dynamic-link-ext { font-size: 11px; color: var(--hi-text-muted); flex-shrink: 0; }
+
+  /* 앱 프레임 */
+  #page-app_frame {
+    margin: -28px -32px;
+    height: calc(100vh - 56px);
+    flex-direction: column;
+  }
+  #page-app_frame.active { display: flex; }
+  .frame-bar {
+    height: 44px;
+    background: var(--hi-bg-surface);
+    border-bottom: 1px solid var(--hi-border);
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 16px; flex-shrink: 0;
+  }
+  .frame-back {
+    background: none; border: 1px solid var(--hi-border);
+    border-radius: 6px; padding: 5px 12px;
+    font-size: 12px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+    color: var(--hi-text-soft); transition: 0.15s;
+  }
+  .frame-back:hover { color: var(--hi-text); border-color: var(--hi-text); }
+  .frame-name { flex: 1; font-size: 13px; font-weight: 700; color: var(--hi-text); }
+  .frame-ext {
+    font-size: 11px; color: var(--hi-accent); text-decoration: none;
+    font-weight: 700; padding: 4px 10px; border-radius: 6px;
+    border: 1px solid var(--hi-accent); transition: 0.15s; flex-shrink: 0;
+  }
+  .frame-ext:hover { background: var(--hi-accent-soft); }
+  .frame-iframe { flex: 1; border: none; width: 100%; display: block; }
 
   .empty-sidebar-hint {
     padding: 14px 12px;
@@ -566,6 +600,7 @@
     .form-grid { grid-template-columns: 1fr; }
     .add-form .field input { width: 100%; }
     .add-form .field { flex: 1; min-width: 120px; }
+    #page-app_frame { margin: -20px -16px; }
   }
 </style>
 </head>
@@ -897,7 +932,10 @@
               <div class="panel-title">웹앱 항목 목록</div>
               <div class="panel-sub"><span id="linkCount">0</span>개 등록됨</div>
             </div>
-            <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="openLinkEditModal()">+ 새 항목 추가</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="openLinkEditModal()">+ 새 항목 추가</button>
+              <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="seedDefaultApps()">기본 앱 복원</button>
+            </div>
           </div>
           <div id="linkEditList"></div>
           <div style="font-size:11px; color:var(--hi-text-muted); margin-top:14px; line-height:1.6;">
@@ -905,6 +943,16 @@
             💡 URL은 상대 경로(<code>blind_ryeo/blind_ryeo_admin.html</code>) 또는 절대 URL(<code>https://...</code>) 둘 다 가능합니다.
           </div>
         </div>
+      </section>
+
+      <!-- 앱 프레임 -->
+      <section class="page-section" id="page-app_frame">
+        <div class="frame-bar">
+          <button class="frame-back" onclick="closeFrame()">← 돌아가기</button>
+          <span class="frame-name" id="frameName"></span>
+          <a class="frame-ext" id="frameExtLink" href="#" target="_blank" rel="noopener">새 탭에서 열기 ↗</a>
+        </div>
+        <iframe class="frame-iframe" id="appFrame" src="about:blank"></iframe>
       </section>
 
       <!-- 항목 편집 모달 -->
@@ -1016,6 +1064,21 @@ onSnapshot(linksDocRef, (snap) => {
   if (snap.exists() && Array.isArray(snap.data().list)) {
     list = snap.data().list;
   }
+  // think · hismile · oxquiz 미등록 시 자동 추가 (일회성 마이그레이션)
+  if (!window._adminLinksMigrated) {
+    window._adminLinksMigrated = true;
+    const REQUIRED = [
+      { id: 'default_think',   emoji: '💭', name: '생각 Check',    url: 'think/admin.html' },
+      { id: 'default_hismile', emoji: '😊', name: '역사 마일리지', url: 'hismile/admin.html' },
+      { id: 'default_oxquiz',  emoji: '✅', name: 'OX 퀴즈',       url: 'oxquiz/admin.html' },
+    ];
+    const existingUrls = new Set(list.map(l => l.url));
+    const toAdd = REQUIRED.filter(a => !existingUrls.has(a.url));
+    if (toAdd.length > 0) {
+      setDoc(linksDocRef, { list: [...list, ...toAdd] }).catch(console.error);
+      return;
+    }
+  }
   window._adminLinks = list;
   if (typeof renderSidebarLinks === 'function') renderSidebarLinks();
   if (typeof renderLinkEditList === 'function') renderLinkEditList();
@@ -1105,6 +1168,12 @@ if (sessionStorage.getItem('admin_auth') === '1') {
 
 /* ===== 페이지 네비 ===== */
 function goPage(page) {
+  // 프레임 페이지에서 벗어날 때 iframe 초기화
+  if (page !== 'app_frame') {
+    const fr = document.getElementById('appFrame');
+    if (fr) { fr.onload = null; fr.src = 'about:blank'; }
+    document.querySelectorAll('.dynamic-link').forEach(b => b.classList.remove('active'));
+  }
   document.querySelectorAll('.sb-item').forEach(b => b.classList.toggle('active', b.dataset.page === page));
   document.querySelectorAll('.page-section').forEach(s => s.classList.toggle('active', s.id === `page-${page}`));
   const titles = {
@@ -1786,6 +1855,92 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ============================================
+ * 앱 프레임 (iframe 임베드)
+ * ============================================ */
+const IFRAME_CONFIGS = {
+  'blind_ryeo/admin.html':    { key: 'blind_ryeo_admin_session', loginSel: '#loginScreen', appSel: '#adminApp' },
+  'goryeo_choice/admin.html': { key: 'sadaebu_admin_v1',         loginSel: '#loginScreen', appSel: '#adminApp' },
+  's_threads/admin.html':     { key: 'sthreads_admin_v1',        loginSel: '#loginScreen', appSel: '#adminApp' },
+  'think/admin.html':         { key: 'sc_admin_session',         loginSel: '#loginScreen', appSel: '#adminApp', initFn: 'startListeners' },
+  'hismile/admin.html':       { key: 'hi_admin_ok',              loginSel: '#loginScreen', appSel: '#adminApp' },
+  'oxquiz/admin.html':        { key: 'ox-admin',                 loginSel: '#loginScreen', appSel: '#adminApp', initFn: 'renderAll' },
+};
+
+window.DEFAULT_APPS = [
+  { id: 'default_blind_ryeo',    emoji: '📝', name: 'Blind 려',      url: 'blind_ryeo/admin.html' },
+  { id: 'default_goryeo_choice', emoji: '📜', name: '亂世의 士大夫', url: 'goryeo_choice/admin.html' },
+  { id: 'default_s_threads',     emoji: '🧵', name: 'S_threads',     url: 's_threads/admin.html' },
+  { id: 'default_think',         emoji: '💭', name: '생각 Check',    url: 'think/admin.html' },
+  { id: 'default_hismile',       emoji: '😊', name: '역사 마일리지', url: 'hismile/admin.html' },
+  { id: 'default_oxquiz',        emoji: '✅', name: 'OX 퀴즈',       url: 'oxquiz/admin.html' },
+];
+
+function goAppFrame(url, name) {
+  document.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.dynamic-link').forEach(b => b.classList.toggle('active', b.dataset.url === url));
+  document.querySelectorAll('.page-section').forEach(s => s.classList.toggle('active', s.id === 'page-app_frame'));
+  document.getElementById('pageBreadcrumb').textContent = name;
+  document.getElementById('frameName').textContent = name;
+  document.getElementById('frameExtLink').href = url;
+  closeSidebar();
+
+  const iframe = document.getElementById('appFrame');
+  iframe.onload = null;
+  iframe.src = url;
+
+  const configKey = Object.keys(IFRAME_CONFIGS).find(k => url === k || url.endsWith('/' + k));
+  iframe.onload = () => {
+    if (configKey) injectIframeAuth(iframe, configKey);
+  };
+}
+window.goAppFrame = goAppFrame;
+
+function closeFrame() {
+  const iframe = document.getElementById('appFrame');
+  iframe.onload = null;
+  iframe.src = 'about:blank';
+  goPage('dashboard');
+}
+window.closeFrame = closeFrame;
+
+function injectIframeAuth(iframe, configKey) {
+  const cfg = IFRAME_CONFIGS[configKey];
+  if (!cfg) return;
+  try {
+    const win = iframe.contentWindow;
+    const doc = iframe.contentDocument;
+    if (cfg.key) win.sessionStorage.setItem(cfg.key, '1');
+    const loginEl = cfg.loginSel ? doc.querySelector(cfg.loginSel) : null;
+    const appEl   = cfg.appSel   ? doc.querySelector(cfg.appSel)   : null;
+    if (loginEl) {
+      if (cfg.hideCls) loginEl.classList.add(cfg.hideCls);
+      else loginEl.style.display = 'none';
+    }
+    if (appEl) {
+      if (cfg.hideCls) appEl.classList.remove(cfg.hideCls);
+      else appEl.style.display = 'block';
+    }
+    if (cfg.initFn && typeof win[cfg.initFn] === 'function') win[cfg.initFn]();
+  } catch(e) {
+    console.warn('iframe 자동 로그인 실패:', e);
+  }
+}
+
+async function seedDefaultApps() {
+  if (!confirm('기본 앱 6개를 현재 목록에 추가할까요?\n(이미 등록된 URL은 건너뜁니다)')) return;
+  const existing = window._adminLinks || [];
+  const existingUrls = new Set(existing.map(l => l.url));
+  const toAdd = (window.DEFAULT_APPS || []).filter(a => !existingUrls.has(a.url));
+  if (toAdd.length === 0) { toast('이미 모두 등록되어 있습니다', 'success'); return; }
+  const newList = [...existing, ...toAdd];
+  try {
+    await window._setDoc(window._linksDocRef, { list: newList });
+    toast(`✅ ${toAdd.length}개 앱 추가됨`, 'success');
+  } catch(e) { toast('오류: ' + e.message, 'error'); }
+}
+window.seedDefaultApps = seedDefaultApps;
+
+/* ============================================
  * 사이드바 동적 항목 (웹앱 관리자)
  * ============================================ */
 function renderSidebarLinks() {
@@ -1800,11 +1955,12 @@ function renderSidebarLinks() {
     return;
   }
   container.innerHTML = links.map(link => `
-    <a class="dynamic-link" href="${esc(link.url)}" target="_blank" rel="noopener" title="${esc(link.name)}">
+    <button class="dynamic-link" data-url="${esc(link.url)}"
+      onclick="goAppFrame(${JSON.stringify(link.url)}, ${JSON.stringify(link.name)})"
+      title="${esc(link.name)}">
       <span class="dynamic-link-icon">${esc(link.emoji || '🔗')}</span>
       <span class="dynamic-link-text">${esc(link.name)}</span>
-      <span class="dynamic-link-ext">↗</span>
-    </a>
+    </button>
   `).join('');
 }
 window.renderSidebarLinks = renderSidebarLinks;

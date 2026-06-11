@@ -3,1090 +3,547 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>역사 OX 퀴즈 · 관리자 🔧</title>
-<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<title>역사 OX 퀴즈 — 관리자 콘솔</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/admin-base.css">
 <style>
-:root {
-  --bg-gradient: linear-gradient(135deg, #e0f7fa 0%, #b2ebf2 50%, #ffffff 100%);
-  --glass-bg: rgba(255,255,255,0.55);
-  --glass-border: rgba(255,255,255,0.7);
-  --glass-shadow: 0 8px 32px rgba(0, 119, 159, 0.12);
+/* ── oxquiz 고유 스타일 ── */
+.container { max-width: 1100px; margin: 0 auto; padding: 24px; }
 
-  --aqua-deep: #006978;
-  --aqua: #0097a7;
-  --aqua-light: #4fc3f7;
-  --aqua-bg: #e0f7fa;
-
-  --o-color: #00acc1;
-  --x-color: #ef5350;
-
-  --text-main: #1a3a47;
-  --text-sub: #5c7d8a;
-  --text-dim: #9bb4bd;
-
-  --gold: #ffb300;
-  --warning-bg: rgba(255,179,0,0.12);
-  --danger-bg: rgba(239,83,80,0.1);
-
-  --r-lg: 22px;
-  --r-md: 14px;
-  --r-sm: 10px;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; }
-body {
-  font-family: 'Pretendard', sans-serif;
-  background: var(--bg-gradient);
-  background-attachment: fixed;
-  min-height: 100vh;
-  color: var(--text-main);
-  padding-bottom: 60px;
-}
-
-.jua { font-family: 'Jua', sans-serif; font-weight: normal; }
-
-/* ════════ 로그인 (게이트) ════════ */
-#gate {
-  position: fixed; inset: 0;
-  background: var(--bg-gradient);
-  display: flex; align-items: center; justify-content: center;
-  z-index: 1000;
-  padding: 20px;
-}
-.gate-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: var(--r-lg);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
-  padding: 40px 32px;
-  width: 100%; max-width: 400px;
-  text-align: center;
-}
-.gate-icon {
-  font-size: 48px; margin-bottom: 8px;
-}
-.gate-card h1 {
-  font-family: 'Jua', sans-serif;
-  font-size: 26px; color: var(--aqua-deep);
-  margin-bottom: 4px;
-}
-.gate-card .gate-sub {
-  font-size: 13px; color: var(--text-sub); margin-bottom: 24px;
-}
-.gate-card input {
-  width: 100%; padding: 14px 18px;
-  background: rgba(255,255,255,0.85);
-  border: 1.5px solid transparent;
-  border-radius: 14px;
-  font-family: inherit; font-size: 15px;
-  color: var(--text-main); outline: none;
-  margin-bottom: 14px; text-align: center;
-  letter-spacing: 4px;
-  transition: all .2s;
-}
-.gate-card input:focus {
-  border-color: var(--aqua); background: #fff;
-  box-shadow: 0 0 0 4px rgba(0,151,167,0.1);
-}
-.gate-error { color: var(--x-color); font-size: 13px; min-height: 18px; margin-top: 8px; }
-.gate-back {
-  display: block; margin: 18px auto 0;
-  background: none; border: none;
-  font-family: inherit; font-size: 12px;
-  color: var(--text-dim); cursor: pointer;
-}
-.gate-back:hover { color: var(--text-sub); }
-
-/* ════════ 헤더 ════════ */
-header {
-  background: rgba(255,255,255,0.7);
-  backdrop-filter: blur(15px);
-  border-bottom: 1px solid rgba(0,151,167,0.1);
-  padding: 14px 24px;
-  display: flex; align-items: center; justify-content: space-between;
-  position: sticky; top: 0; z-index: 50;
-  flex-wrap: wrap; gap: 10px;
-}
-.header-left { display: flex; align-items: center; gap: 12px; }
-.header-logo {
-  font-family: 'Jua', sans-serif;
-  font-size: 22px; color: var(--aqua-deep);
-  display: flex; align-items: center; gap: 8px;
-}
-.header-badge {
-  background: rgba(0,151,167,0.15);
-  color: var(--aqua-deep);
-  font-size: 11px; font-weight: 800;
-  padding: 4px 12px; border-radius: 999px;
-  letter-spacing: 0.5px;
-}
-.header-actions { display: flex; gap: 8px; align-items: center; }
-
-/* ════════ 탭 ════════ */
-.tabs {
-  background: rgba(255,255,255,0.45);
-  border-bottom: 1px solid rgba(0,151,167,0.08);
-  padding: 0 24px;
-  display: flex; gap: 4px;
-  position: sticky; top: 64px; z-index: 49;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.tabs::-webkit-scrollbar { display: none; }
-.tab-btn {
-  padding: 14px 20px;
-  background: none; border: none;
-  font-family: inherit; font-size: 14px; font-weight: 700;
-  color: var(--text-sub); cursor: pointer;
-  border-bottom: 2.5px solid transparent;
-  transition: all .15s;
-  white-space: nowrap;
-  display: flex; align-items: center; gap: 6px;
-}
-.tab-btn:hover { color: var(--aqua); }
-.tab-btn.active {
-  color: var(--aqua-deep);
-  border-bottom-color: var(--aqua);
-}
-
-/* ════════ 컨테이너 ════════ */
-.container {
-  max-width: 1100px; margin: 0 auto;
-  padding: 24px;
-}
-
-/* ════════ 페이지 ════════ */
+/* 탭 페이지 */
 .tab-page { display: none; }
 .tab-page.active { display: block; }
 
-/* ════════ 공통 카드 ════════ */
+/* 공통 카드 */
 .card {
-  background: rgba(255,255,255,0.7);
-  backdrop-filter: blur(15px);
-  border: 1px solid rgba(0,151,167,0.1);
-  border-radius: var(--r-lg);
-  box-shadow: var(--glass-shadow);
+  background: var(--hi-bg-surface);
+  border: 1px solid var(--hi-border);
+  border-radius: 14px;
   margin-bottom: 16px;
   overflow: hidden;
 }
 .card-header {
   padding: 18px 22px;
-  border-bottom: 1px solid rgba(0,151,167,0.08);
+  border-bottom: 1px solid var(--hi-border);
   display: flex; justify-content: space-between; align-items: center;
   flex-wrap: wrap; gap: 10px;
 }
 .card-title {
-  font-family: 'Jua', sans-serif; font-size: 18px;
-  color: var(--aqua-deep);
+  font-size: 16px; font-weight: 800;
+  color: var(--hi-text);
   display: flex; align-items: center; gap: 8px;
 }
-.card-hint { font-size: 12px; color: var(--text-sub); }
+.card-hint { font-size: 12px; color: var(--hi-text-muted); }
 .card-body { padding: 20px 22px; }
 
-/* ════════ 버튼 ════════ */
+/* 버튼 */
 .btn {
   display: inline-flex; align-items: center; justify-content: center;
   gap: 6px; border: none;
   font-family: 'Pretendard', sans-serif; font-weight: 800;
   cursor: pointer; transition: all .15s;
-  border-radius: 999px;
+  border-radius: 9999px;
 }
 .btn-md { padding: 10px 20px; font-size: 13px; }
 .btn-sm { padding: 7px 14px; font-size: 12px; }
 .btn-xs { padding: 5px 12px; font-size: 11px; }
+.btn-primary { background: var(--hi-accent); color: #fff; }
+.btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+.btn-ghost { background: var(--hi-bg-surface); color: var(--hi-text); border: 1px solid var(--hi-border); }
+.btn-ghost:hover { border-color: var(--hi-accent); color: var(--hi-accent); }
+.btn-soft { background: var(--hi-bg-mid); color: var(--hi-text-soft); border: 1px solid var(--hi-border); }
+.btn-soft:hover { background: var(--hi-bg-hover, #e5e7eb); }
+.btn-danger { background: rgba(220,38,38,.08); color: var(--hi-negative); border: 1px solid rgba(220,38,38,.25); }
+.btn-danger:hover { background: rgba(220,38,38,.14); }
 
-.btn-aqua {
-  background: linear-gradient(135deg, var(--aqua-light), var(--aqua));
-  color: #fff;
-  box-shadow: 0 3px 10px rgba(0,151,167,0.3);
-}
-.btn-aqua:hover { transform: translateY(-1px); box-shadow: 0 5px 14px rgba(0,151,167,0.4); }
-.btn-ghost {
-  background: rgba(255,255,255,0.8); color: var(--aqua-deep);
-  border: 1.5px solid rgba(0,151,167,0.2);
-}
-.btn-ghost:hover { background: #fff; border-color: var(--aqua); }
-.btn-soft { background: #e8eaed; color: var(--text-sub); }
-.btn-soft:hover { background: #dce0e3; }
-.btn-danger {
-  background: rgba(239,83,80,0.12);
-  color: var(--x-color);
-  border: 1.5px solid rgba(239,83,80,0.25);
-}
-.btn-danger:hover { background: rgba(239,83,80,0.2); border-color: var(--x-color); }
+/* OX 전용 색 */
+--o-color: #0097a7;
+--x-color: #ef5350;
 
-/* ════════ 통계 그리드 ════════ */
-.stat-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr);
-  gap: 12px; margin-bottom: 20px;
-}
-.stat-box {
-  background: rgba(255,255,255,0.7);
-  border: 1px solid rgba(0,151,167,0.1);
-  border-radius: var(--r-md);
-  padding: 16px 14px;
-  text-align: center;
-}
-.stat-box .stat-v {
-  font-family: 'Jua', sans-serif;
-  font-size: 26px; color: var(--aqua-deep);
-  line-height: 1;
-}
-.stat-box .stat-l {
-  font-size: 11px; color: var(--text-sub);
-  margin-top: 4px; font-weight: 600; letter-spacing: 0.3px;
-}
+/* 통계 그리드 */
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.stat-box { background: var(--hi-bg-surface); border: 1px solid var(--hi-border); border-radius: 12px; padding: 16px 14px; text-align: center; }
+.stat-box .stat-v { font-size: 26px; font-weight: 900; color: var(--hi-accent); line-height: 1; }
+.stat-box .stat-l { font-size: 11px; color: var(--hi-text-muted); margin-top: 4px; font-weight: 600; letter-spacing: 0.3px; }
 
-/* ════════ 업로드 존 ════════ */
+/* 업로드 존 */
 .upload-zone {
-  border: 2px dashed rgba(0,151,167,0.3);
-  border-radius: var(--r-md);
+  border: 2px dashed var(--hi-border);
+  border-radius: 12px;
   padding: 28px 20px;
   text-align: center; cursor: pointer;
   position: relative;
-  background: rgba(224,247,250,0.3);
+  background: var(--hi-bg-mid);
   transition: all .2s;
 }
-.upload-zone:hover, .upload-zone.drag {
-  border-color: var(--aqua);
-  background: rgba(224,247,250,0.6);
-}
-.upload-zone input {
-  position: absolute; inset: 0;
-  opacity: 0; cursor: pointer;
-  width: 100%; height: 100%;
-}
+.upload-zone:hover, .upload-zone.drag { border-color: var(--hi-accent); background: var(--hi-bg-surface); }
+.upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
 .upload-zone .uz-icon { font-size: 36px; margin-bottom: 8px; }
-.upload-zone .uz-title { font-size: 15px; font-weight: 800; color: var(--aqua-deep); margin-bottom: 4px; }
-.upload-zone .uz-desc { font-size: 12px; color: var(--text-sub); }
+.upload-zone .uz-title { font-size: 15px; font-weight: 800; color: var(--hi-text); margin-bottom: 4px; }
+.upload-zone .uz-desc { font-size: 12px; color: var(--hi-text-muted); }
 
-/* ════════ 엑셀 포맷 안내 ════════ */
+/* 형식 안내 */
 .format-info {
-  background: rgba(0,151,167,0.06);
-  border-left: 3px solid var(--aqua);
-  border-radius: 0 var(--r-md) var(--r-md) 0;
+  background: var(--hi-bg-mid);
+  border-left: 3px solid var(--hi-accent);
+  border-radius: 0 10px 10px 0;
   padding: 12px 16px;
-  font-size: 13px;
-  color: var(--text-main);
-  line-height: 1.7;
-  margin-bottom: 16px;
+  font-size: 13px; color: var(--hi-text);
+  line-height: 1.7; margin-bottom: 16px;
 }
-.format-info strong { color: var(--aqua-deep); font-weight: 800; }
-.format-info code {
-  background: #fff;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 12px;
-  color: var(--aqua-deep);
-  font-family: 'Courier New', monospace;
-}
+.format-info strong { color: var(--hi-accent); font-weight: 800; }
+.format-info code { background: var(--hi-bg-surface); padding: 2px 6px; border-radius: 4px; font-size: 12px; color: var(--hi-accent); font-family: 'Courier New', monospace; }
 
-/* ════════ 필터 & 검색 ════════ */
-.toolbar {
-  display: flex; gap: 10px; flex-wrap: wrap;
-  align-items: center; margin-bottom: 16px;
-}
+/* 필터 & 검색 */
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 16px; }
 .search-input {
   flex: 1; min-width: 200px;
   padding: 10px 16px 10px 38px;
-  background: rgba(255,255,255,0.85);
-  border: 1.5px solid transparent;
-  border-radius: 999px;
+  background: var(--hi-bg-surface);
+  border: 1px solid var(--hi-border);
+  border-radius: 9999px;
   font-family: inherit; font-size: 13px;
-  color: var(--text-main); outline: none;
+  color: var(--hi-text); outline: none;
   transition: all .2s;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%235c7d8a' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: 14px center;
 }
-.search-input:focus { border-color: var(--aqua); background-color: #fff; box-shadow: 0 0 0 4px rgba(0,151,167,0.1); }
+.search-input:focus { border-color: var(--hi-accent); box-shadow: 0 0 0 3px rgba(var(--hi-accent-rgb, 99,102,241),.1); }
 .filter-select {
   padding: 10px 16px;
-  background: rgba(255,255,255,0.85);
-  border: 1.5px solid transparent;
-  border-radius: 999px;
+  background: var(--hi-bg-surface);
+  border: 1px solid var(--hi-border);
+  border-radius: 9999px;
   font-family: inherit; font-size: 13px; font-weight: 700;
-  color: var(--aqua-deep); cursor: pointer;
-  outline: none;
+  color: var(--hi-text); cursor: pointer; outline: none;
 }
 
-.filter-chips {
-  display: flex; gap: 6px; flex-wrap: wrap;
-}
+.filter-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .chip {
   padding: 6px 14px;
-  background: rgba(255,255,255,0.7);
-  border: 1.5px solid rgba(0,151,167,0.15);
-  border-radius: 999px;
+  background: var(--hi-bg-surface);
+  border: 1px solid var(--hi-border);
+  border-radius: 9999px;
   font-family: inherit; font-size: 12px; font-weight: 700;
-  color: var(--aqua-deep); cursor: pointer;
-  transition: all .15s;
+  color: var(--hi-text); cursor: pointer; transition: all .15s;
 }
-.chip:hover { background: rgba(224,247,250,0.9); }
-.chip.active {
-  background: var(--aqua); color: #fff;
-  border-color: var(--aqua);
-}
+.chip:hover { border-color: var(--hi-accent); color: var(--hi-accent); }
+.chip.active { background: var(--hi-accent); color: #fff; border-color: var(--hi-accent); }
 
-/* ════════ 테이블 ════════ */
-.table-wrap {
-  border-radius: var(--r-md); overflow: auto;
-  background: rgba(255,255,255,0.6);
-}
+/* 테이블 */
+.table-wrap { border-radius: 10px; overflow: auto; background: var(--hi-bg-surface); border: 1px solid var(--hi-border); }
 table { width: 100%; border-collapse: collapse; }
 thead th {
-  background: rgba(0,151,167,0.08);
+  background: var(--hi-bg-mid);
   padding: 12px 14px;
   text-align: left;
   font-size: 11px; font-weight: 800;
-  color: var(--aqua-deep);
+  color: var(--hi-text-muted);
   letter-spacing: 0.8px; text-transform: uppercase;
-  border-bottom: 1px solid rgba(0,151,167,0.1);
+  border-bottom: 1px solid var(--hi-border);
   white-space: nowrap;
 }
-tbody td {
-  padding: 12px 14px;
-  border-bottom: 1px solid rgba(0,151,167,0.06);
-  font-size: 13px;
-  vertical-align: middle;
-}
-tbody tr:hover td { background: rgba(255,255,255,0.5); }
+tbody td { padding: 12px 14px; border-bottom: 1px solid var(--hi-border); font-size: 13px; vertical-align: middle; color: var(--hi-text); }
+tbody tr:hover td { background: var(--hi-bg-mid); }
 tbody tr:last-child td { border-bottom: none; }
-.td-num { color: var(--text-dim); font-size: 11px; width: 36px; }
+.td-num { color: var(--hi-text-muted); font-size: 11px; width: 36px; }
 .td-lec {
-  font-family: 'Jua', sans-serif;
-  color: var(--aqua); font-size: 14px;
+  font-weight: 800; color: var(--hi-accent); font-size: 14px;
   text-align: center;
-  background: rgba(0,151,167,0.08);
+  background: rgba(99,102,241,.08);
   border-radius: 8px;
   padding: 3px 8px;
-  display: inline-block;
-  min-width: 36px;
+  display: inline-block; min-width: 36px;
 }
-.td-question {
-  font-weight: 600;
-  word-break: keep-all;
-  position: relative;
-}
+.td-question { font-weight: 600; word-break: keep-all; position: relative; }
 .td-question .q-text { display: inline; }
 .td-question .more-btn {
   display: none;
-  background: rgba(0,151,167,0.12);
-  color: var(--aqua-deep);
-  border: none;
-  font-family: inherit;
-  font-size: 10px;
-  font-weight: 800;
-  padding: 2px 8px;
-  border-radius: 999px;
-  cursor: pointer;
-  margin-left: 6px;
-  vertical-align: middle;
-  transition: all .15s;
+  background: var(--hi-bg-mid); color: var(--hi-text);
+  border: 1px solid var(--hi-border);
+  font-family: inherit; font-size: 10px; font-weight: 800;
+  padding: 2px 8px; border-radius: 9999px;
+  cursor: pointer; margin-left: 6px; vertical-align: middle; transition: all .15s;
 }
-.td-question .more-btn:hover { background: var(--aqua); color: #fff; }
-.td-answer {
-  text-align: center; width: 60px;
-}
-.ans-o {
-  display: inline-block; width: 28px; height: 28px;
-  background: rgba(0,172,193,0.15); color: var(--o-color);
-  border-radius: 50%;
-  font-family: 'Jua', sans-serif; font-size: 14px;
-  line-height: 28px; text-align: center;
-}
-.ans-x {
-  display: inline-block; width: 28px; height: 28px;
-  background: rgba(239,83,80,0.15); color: var(--x-color);
-  border-radius: 50%;
-  font-family: 'Jua', sans-serif; font-size: 14px;
-  line-height: 28px; text-align: center;
-}
-.td-explanation {
-  color: var(--text-sub); font-size: 12px;
-  max-width: 260px; word-break: keep-all;
-}
+.td-question .more-btn:hover { background: var(--hi-accent); color: #fff; border-color: var(--hi-accent); }
+.td-answer { text-align: center; width: 60px; }
+.ans-o { display: inline-block; width: 28px; height: 28px; background: rgba(0,172,193,.15); color: #0097a7; border-radius: 50%; font-weight: 900; font-size: 14px; line-height: 28px; text-align: center; }
+.ans-x { display: inline-block; width: 28px; height: 28px; background: rgba(239,83,80,.15); color: #ef5350; border-radius: 50%; font-weight: 900; font-size: 14px; line-height: 28px; text-align: center; }
+.td-explanation { color: var(--hi-text-muted); font-size: 12px; max-width: 260px; word-break: keep-all; }
 .td-actions { display: flex; gap: 6px; white-space: nowrap; }
 
 /* 빈 상태 */
-.empty-state {
-  text-align: center; padding: 50px 20px;
-  color: var(--text-sub);
-}
+.empty-state { text-align: center; padding: 50px 20px; color: var(--hi-text-muted); }
 .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
 .empty-text { font-size: 14px; }
 
-/* ════════ Answer - 문항별 카드 ════════ */
-.q-stat-card {
-  background: rgba(255,255,255,0.7);
-  border: 1px solid rgba(0,151,167,0.1);
-  border-radius: var(--r-md);
-  padding: 16px 18px; margin-bottom: 10px;
-}
-.q-stat-header {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 12px; gap: 10px; flex-wrap: wrap;
-}
-.q-stat-title {
-  font-size: 14px; font-weight: 700;
-  color: var(--text-main); flex: 1; min-width: 200px;
-  display: flex; align-items: center; gap: 8px;
-}
-.q-stat-meta {
-  font-size: 11px; color: var(--text-sub);
-  display: flex; gap: 12px;
-}
-.q-stat-meta strong { color: var(--aqua-deep); font-weight: 800; }
+/* 문항별 카드 (Stats) */
+.q-stat-card { background: var(--hi-bg-surface); border: 1px solid var(--hi-border); border-radius: 12px; padding: 16px 18px; margin-bottom: 10px; }
+.q-stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px; flex-wrap: wrap; }
+.q-stat-title { font-size: 14px; font-weight: 700; color: var(--hi-text); flex: 1; min-width: 200px; display: flex; align-items: center; gap: 8px; }
+.q-stat-meta { font-size: 11px; color: var(--hi-text-muted); display: flex; gap: 12px; }
+.q-stat-meta strong { color: var(--hi-text); font-weight: 800; }
 .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
-.bar-label {
-  width: 22px;
-  font-family: 'Jua', sans-serif;
-  font-size: 13px;
-}
-.bar-label.o { color: var(--o-color); }
-.bar-label.x { color: var(--x-color); }
-.bar-wrap {
-  flex: 1; height: 8px;
-  background: rgba(0,151,167,0.1);
-  border-radius: 999px; overflow: hidden;
-}
-.bar-fill {
-  height: 100%; border-radius: 999px;
-  transition: width .5s ease;
-}
-.bar-fill.o { background: linear-gradient(90deg, var(--aqua-light), var(--o-color)); }
-.bar-fill.x { background: linear-gradient(90deg, #ff8a80, var(--x-color)); }
-.bar-pct {
-  width: 44px; font-size: 12px; font-weight: 700;
-  color: var(--text-sub); text-align: right;
-}
+.bar-label { width: 22px; font-weight: 900; font-size: 13px; }
+.bar-label.o { color: #0097a7; }
+.bar-label.x { color: #ef5350; }
+.bar-wrap { flex: 1; height: 8px; background: var(--hi-bg-mid); border-radius: 9999px; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 9999px; transition: width .5s ease; }
+.bar-fill.o { background: linear-gradient(90deg, #4fc3f7, #0097a7); }
+.bar-fill.x { background: linear-gradient(90deg, #ff8a80, #ef5350); }
+.bar-pct { width: 44px; font-size: 12px; font-weight: 700; color: var(--hi-text-muted); text-align: right; }
 
-/* ════════ X 바로잡기 목록 ════════ */
-.correction-item {
-  background: rgba(255,255,255,0.7);
-  border: 1px solid rgba(0,151,167,0.1);
-  border-radius: var(--r-md);
-  padding: 16px 18px; margin-bottom: 10px;
-}
-.ci-header {
-  display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 8px; gap: 10px; flex-wrap: wrap;
-}
-.ci-q-text {
-  font-size: 12px; color: var(--text-sub);
-  background: rgba(0,151,167,0.06);
-  border-left: 3px solid var(--aqua);
-  padding: 6px 12px; border-radius: 0 8px 8px 0;
-  margin-bottom: 10px; line-height: 1.4;
-}
-.ci-content {
-  font-size: 14px; font-weight: 500;
-  color: var(--text-main); line-height: 1.6;
-  margin-bottom: 10px;
-}
-.ci-meta {
-  display: flex; justify-content: space-between;
-  align-items: center; flex-wrap: wrap; gap: 8px;
-}
-.ci-author {
-  font-size: 12px;
-  display: flex; gap: 8px; align-items: center;
-}
-.ci-author .author-name { color: var(--aqua-deep); font-weight: 800; }
-.ci-author .author-date { color: var(--text-dim); }
+/* X 바로잡기 */
+.correction-item { background: var(--hi-bg-surface); border: 1px solid var(--hi-border); border-radius: 12px; padding: 16px 18px; margin-bottom: 10px; }
+.ci-q-text { font-size: 12px; color: var(--hi-text-muted); background: var(--hi-bg-mid); border-left: 3px solid var(--hi-accent); padding: 6px 12px; border-radius: 0 8px 8px 0; margin-bottom: 10px; line-height: 1.4; }
+.ci-content { font-size: 14px; font-weight: 500; color: var(--hi-text); line-height: 1.6; margin-bottom: 10px; }
+.ci-meta { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+.ci-author { font-size: 12px; display: flex; gap: 8px; align-items: center; }
+.ci-author .author-name { color: var(--hi-accent); font-weight: 800; }
+.ci-author .author-date { color: var(--hi-text-muted); }
 .ci-actions { display: flex; gap: 6px; }
 
-/* ════════ Setting ════════ */
-.setting-group {
-  background: rgba(255,255,255,0.7);
-  border: 1px solid rgba(0,151,167,0.1);
-  border-radius: var(--r-md);
-  padding: 6px 22px;
-  margin-bottom: 16px;
-}
-.setting-row {
-  display: flex; justify-content: space-between; align-items: center;
-  padding: 16px 0;
-  border-bottom: 1px solid rgba(0,151,167,0.08);
-  gap: 12px; flex-wrap: wrap;
-}
+/* Setting */
+.setting-group { background: var(--hi-bg-surface); border: 1px solid var(--hi-border); border-radius: 12px; padding: 6px 22px; margin-bottom: 16px; }
+.setting-row { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--hi-border); gap: 12px; flex-wrap: wrap; }
 .setting-row:last-child { border-bottom: none; }
 .setting-info { flex: 1; min-width: 200px; }
-.setting-name {
-  font-size: 14px; font-weight: 800;
-  color: var(--text-main); margin-bottom: 3px;
-}
-.setting-desc {
-  font-size: 12px; color: var(--text-sub);
-  line-height: 1.4;
-}
-.setting-section-title {
-  font-family: 'Jua', sans-serif;
-  font-size: 16px; color: var(--aqua-deep);
-  padding: 6px 4px; margin-bottom: 8px;
-  display: flex; align-items: center; gap: 8px;
-}
-.warning-banner {
-  background: var(--warning-bg);
-  border: 1px solid rgba(255,179,0,0.3);
-  border-radius: var(--r-md);
-  padding: 12px 16px;
-  font-size: 13px; color: #8a5a00;
-  line-height: 1.5; margin-bottom: 16px;
-  display: flex; align-items: flex-start; gap: 8px;
-}
+.setting-name { font-size: 14px; font-weight: 800; color: var(--hi-text); margin-bottom: 3px; }
+.setting-desc { font-size: 12px; color: var(--hi-text-muted); line-height: 1.4; }
+.setting-section-title { font-size: 16px; font-weight: 800; color: var(--hi-text); padding: 6px 4px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.warning-banner { background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.25); border-radius: 12px; padding: 12px 16px; font-size: 13px; color: #92400e; line-height: 1.5; margin-bottom: 16px; display: flex; align-items: flex-start; gap: 8px; }
 .warning-banner .wb-icon { font-size: 18px; flex-shrink: 0; }
 
-/* ════════ 인라인 수정 ════════ */
-.inline-input {
-  width: 100%; padding: 6px 10px;
-  background: #fff;
-  border: 1.5px solid var(--aqua);
-  border-radius: 8px;
-  font-family: inherit; font-size: 13px;
-  outline: none;
-}
-.inline-select {
-  padding: 6px 10px;
-  background: #fff;
-  border: 1.5px solid var(--aqua);
-  border-radius: 8px;
-  font-family: inherit; font-size: 13px;
-  outline: none;
-}
+/* 인라인 수정 */
+.inline-input { width: 100%; padding: 6px 10px; background: var(--hi-bg-surface); border: 1.5px solid var(--hi-accent); border-radius: 8px; font-family: inherit; font-size: 13px; color: var(--hi-text); outline: none; }
+.inline-select { padding: 6px 10px; background: var(--hi-bg-surface); border: 1.5px solid var(--hi-accent); border-radius: 8px; font-family: inherit; font-size: 13px; color: var(--hi-text); outline: none; }
 
-/* ════════ 모달 ════════ */
-.modal-backdrop {
-  position: fixed; inset: 0; z-index: 200;
-  display: none; align-items: center; justify-content: center;
-  background: rgba(176,228,235,0.5);
-  backdrop-filter: blur(6px);
-  padding: 20px;
-}
+/* 모달 */
+.modal-backdrop { position: fixed; inset: 0; z-index: 200; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,.45); backdrop-filter: blur(6px); padding: 20px; }
 .modal-backdrop.show { display: flex; }
-.modal-card {
-  background: rgba(255,255,255,0.98);
-  border-radius: 22px;
-  padding: 28px 26px;
-  width: 100%; max-width: 440px;
-  box-shadow: 0 20px 50px rgba(0,119,159,0.25);
-  animation: popIn .3s ease forwards;
-}
-@keyframes popIn {
-  from { opacity: 0; transform: scale(0.92); }
-  to { opacity: 1; transform: scale(1); }
-}
-.modal-title {
-  font-family: 'Jua', sans-serif;
-  font-size: 20px; color: var(--aqua-deep);
-  margin-bottom: 6px;
-  display: flex; align-items: center; gap: 8px;
-}
-.modal-sub {
-  font-size: 13px; color: var(--text-sub); margin-bottom: 18px;
-}
+.modal-card { background: var(--hi-bg-surface); border-radius: 20px; padding: 28px 26px; width: 100%; max-width: 440px; box-shadow: 0 20px 50px rgba(0,0,0,.15); border: 1px solid var(--hi-border); animation: popIn .3s ease forwards; }
+@keyframes popIn { from { opacity:0; transform:scale(0.92); } to { opacity:1; transform:scale(1); } }
+.modal-title { font-size: 20px; font-weight: 800; color: var(--hi-accent); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.modal-sub { font-size: 13px; color: var(--hi-text-muted); margin-bottom: 18px; }
 .modal-input-row { margin-bottom: 12px; }
-.modal-input-row label {
-  display: block; font-size: 11px; font-weight: 700;
-  color: var(--text-sub); margin-bottom: 5px; padding-left: 4px;
-  letter-spacing: 0.3px;
-}
-.modal-input, .modal-textarea, .modal-select {
-  width: 100%; padding: 11px 14px;
-  background: #fff;
-  border: 1.5px solid rgba(0,151,167,0.2);
-  border-radius: 12px;
-  font-family: inherit; font-size: 14px;
-  color: var(--text-main); outline: none;
-  transition: all .15s;
-}
-.modal-input:focus, .modal-textarea:focus, .modal-select:focus {
-  border-color: var(--aqua);
-  box-shadow: 0 0 0 3px rgba(0,151,167,0.1);
-}
+.modal-input-row label { display: block; font-size: 11px; font-weight: 700; color: var(--hi-text-muted); margin-bottom: 5px; padding-left: 4px; letter-spacing: 0.3px; }
+.modal-input, .modal-textarea, .modal-select { width: 100%; padding: 11px 14px; background: var(--hi-bg-surface); border: 1px solid var(--hi-border); border-radius: 10px; font-family: inherit; font-size: 14px; color: var(--hi-text); outline: none; transition: all .15s; }
+.modal-input:focus, .modal-textarea:focus, .modal-select:focus { border-color: var(--hi-accent); box-shadow: 0 0 0 3px rgba(99,102,241,.1); }
 .modal-textarea { min-height: 70px; resize: vertical; line-height: 1.5; }
-.modal-actions {
-  display: flex; gap: 8px; margin-top: 20px;
-  justify-content: flex-end;
-}
+.modal-actions { display: flex; gap: 8px; margin-top: 20px; justify-content: flex-end; }
+
+/* OX 라디오 */
 .ox-radio-group { display: flex; gap: 8px; }
-.ox-radio {
-  flex: 1; padding: 10px;
-  background: #fff;
-  border: 1.5px solid rgba(0,151,167,0.2);
-  border-radius: 12px;
-  cursor: pointer; text-align: center;
-  font-family: 'Jua', sans-serif; font-size: 18px;
-  transition: all .15s;
-}
-.ox-radio.o { color: var(--o-color); }
-.ox-radio.x { color: var(--x-color); }
-.ox-radio.selected {
-  border-color: currentColor;
-  box-shadow: 0 0 0 3px rgba(0,151,167,0.08);
-}
-.ox-radio.o.selected { background: rgba(0,172,193,0.1); }
-.ox-radio.x.selected { background: rgba(239,83,80,0.1); }
+.ox-radio { flex: 1; padding: 10px; background: var(--hi-bg-surface); border: 1.5px solid var(--hi-border); border-radius: 12px; cursor: pointer; text-align: center; font-size: 18px; font-weight: 900; transition: all .15s; }
+.ox-radio.o { color: #0097a7; }
+.ox-radio.x { color: #ef5350; }
+.ox-radio.selected { border-color: currentColor; }
+.ox-radio.o.selected { background: rgba(0,172,193,.08); }
+.ox-radio.x.selected { background: rgba(239,83,80,.08); }
 
-/* ════════ 문제 상세 모달 ════════ */
+/* 문제 상세 모달 */
 .qd-section { margin-bottom: 14px; }
-.qd-label {
-  font-size: 11px; font-weight: 800;
-  color: var(--text-sub);
-  letter-spacing: 0.5px; text-transform: uppercase;
-  margin-bottom: 6px; padding-left: 2px;
-}
-.qd-content {
-  background: rgba(0,151,167,0.06);
-  border-left: 3px solid var(--aqua);
-  border-radius: 0 10px 10px 0;
-  padding: 12px 14px;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-main);
-  line-height: 1.6;
-  word-break: keep-all;
-}
-.qd-content.ans-mark {
-  font-family: 'Jua', sans-serif;
-  font-size: 22px;
-  text-align: center;
-}
-.qd-content.ans-mark.is-o { color: var(--o-color); }
-.qd-content.ans-mark.is-x { color: var(--x-color); }
+.qd-label { font-size: 11px; font-weight: 800; color: var(--hi-text-muted); letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 6px; padding-left: 2px; }
+.qd-content { background: var(--hi-bg-mid); border-left: 3px solid var(--hi-accent); border-radius: 0 10px 10px 0; padding: 12px 14px; font-size: 15px; font-weight: 600; color: var(--hi-text); line-height: 1.6; word-break: keep-all; }
+.qd-content.ans-mark { font-size: 22px; text-align: center; }
+.qd-content.ans-mark.is-o { color: #0097a7; }
+.qd-content.ans-mark.is-x { color: #ef5350; }
 
-/* ════════ 토스트 ════════ */
+/* 학생 카드 */
+.student-card { background: var(--hi-bg-surface); border: 1px solid var(--hi-border); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; transition: background .15s; }
+.student-card:hover { background: var(--hi-bg-mid); }
+.student-info { flex: 1; min-width: 0; }
+.student-name { font-size: 15px; font-weight: 800; color: var(--hi-text); margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+.student-sid { font-size: 11px; font-weight: 600; color: var(--hi-text-muted); }
+.student-meta { display: flex; gap: 18px; flex-wrap: wrap; }
+.student-meta .meta-item { font-size: 12px; color: var(--hi-text-muted); }
+.student-meta .meta-val { font-weight: 800; color: var(--hi-text); margin-left: 3px; }
+
+/* 토스트 */
 #mini-toast {
   position: fixed; bottom: 28px; left: 50%;
   transform: translateX(-50%) translateY(20px);
-  background: rgba(0,105,120,0.92);
+  background: rgba(30,41,59,.92);
   color: #fff; padding: 12px 22px;
-  border-radius: 999px; font-size: 13px; font-weight: 700;
+  border-radius: 9999px; font-size: 13px; font-weight: 700;
   opacity: 0; transition: all .25s;
   pointer-events: none; z-index: 999;
-  box-shadow: 0 6px 20px rgba(0,105,120,0.3);
+  box-shadow: 0 6px 20px rgba(0,0,0,.2);
 }
 #mini-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-#mini-toast.danger { background: rgba(239,83,80,0.92); box-shadow: 0 6px 20px rgba(239,83,80,0.3); }
+#mini-toast.danger { background: rgba(220,38,38,.92); }
 
-/* ════════ Class - 학생 카드 ════════ */
-.student-card {
-  background: rgba(255,255,255,0.7);
-  border: 1px solid rgba(0,151,167,0.1);
-  border-radius: var(--r-md);
-  padding: 14px 18px;
-  margin-bottom: 10px;
-  display: flex; align-items: center;
-  justify-content: space-between; gap: 12px;
-  flex-wrap: wrap;
-  transition: background .15s;
-}
-.student-card:hover { background: rgba(255,255,255,0.9); }
-.student-info { flex: 1; min-width: 0; }
-.student-name {
-  font-size: 15px; font-weight: 800;
-  color: var(--aqua-deep); margin-bottom: 6px;
-  display: flex; align-items: center; gap: 8px;
-}
-.student-sid {
-  font-size: 11px; font-weight: 600;
-  color: var(--text-dim);
-}
-.student-meta {
-  display: flex; gap: 18px; flex-wrap: wrap;
-}
-.student-meta .meta-item {
-  font-size: 12px; color: var(--text-sub);
-}
-.student-meta .meta-val {
-  font-weight: 800; color: var(--aqua-deep); margin-left: 3px;
-}
-
-/* ════════ 모바일 ════════ */
 @media (max-width: 720px) {
   .container { padding: 16px; }
-  header { padding: 12px 16px; }
-  .tabs { padding: 0 16px; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
   .table-wrap { font-size: 12px; }
   thead th, tbody td { padding: 10px 10px; }
   .td-explanation { max-width: 140px; }
-  .header-logo { font-size: 18px; }
-
-  /* 문제 줄임 처리 */
-  .td-question {
-    max-width: 200px;
-  }
-  .td-question .q-text {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    line-height: 1.4;
-    max-height: 2.8em;
-  }
-  .td-question .more-btn {
-    display: inline-block;
-    margin-top: 4px;
-    margin-left: 0;
-  }
-  /* 해설도 모바일에서 줄임 */
-  .td-explanation {
-    max-width: 100px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+  .td-question { max-width: 200px; }
+  .td-question .q-text { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .td-question .more-btn { display: inline-block; margin-top: 4px; margin-left: 0; }
+  .td-explanation { max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 </style>
 </head>
-<body>
+<body class="hi-preset-admin">
 
-<!-- ════════ 게이트(비밀번호) ════════ -->
-<div id="gate">
-  <div class="gate-card">
-    <div class="gate-icon">🔐</div>
-    <h1>관리자 모드</h1>
-    <div class="gate-sub">비밀번호를 입력해주세요</div>
-    <input type="password" id="gate-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')tryGate()" autofocus>
-    <button class="btn btn-aqua btn-md" style="width:100%;" onclick="tryGate()">접속하기 🔑</button>
-    <div class="gate-error" id="gate-error"></div>
-    <button class="gate-back" onclick="location.href='26_2.html'">← 학생 화면으로</button>
+<!-- 로그인 -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-icon">✅</div>
+    <div class="login-title">OX 퀴즈</div>
+    <div class="login-sub">관리자 콘솔</div>
+    <input type="password" class="hi-input" id="gate-pw" placeholder="비밀번호"
+           style="text-align:center;letter-spacing:3px;margin-bottom:12px;"
+           onkeydown="if(event.key==='Enter')tryGate()">
+    <button class="hi-btn hi-btn-primary hi-btn-block" onclick="tryGate()">접속하기</button>
+    <div class="login-err" id="gate-error"></div>
+    <div class="login-foot"><a href="26_2.html">← 학생 화면으로</a></div>
   </div>
 </div>
 
-<!-- ════════ 헤더 ════════ -->
-<header>
-  <div class="header-left">
-    <div class="header-logo">🌊 OX 퀴즈</div>
-    <span class="header-badge">ADMIN</span>
-  </div>
-  <div class="header-actions">
-    <button class="btn btn-ghost btn-sm" onclick="location.href='26_2.html'">학생 화면 →</button>
-    <button class="btn btn-soft btn-sm" onclick="logout()">로그아웃</button>
-  </div>
-</header>
+<!-- 어드민 앱 -->
+<div id="adminApp" style="display:none;">
 
-<!-- ════════ 탭 ════════ -->
-<div class="tabs">
-  <button class="tab-btn active" onclick="switchTab('question',this)">📚 Question</button>
-  <button class="tab-btn" onclick="switchTab('class',this)">🏫 Class</button>
-  <button class="tab-btn" onclick="switchTab('stats',this)">📊 Stats</button>
-  <button class="tab-btn" onclick="switchTab('setting',this)">🔧 Setting</button>
-</div>
-
-<div class="container">
-
-  <!-- ════════ QUESTION 탭 ════════ -->
-  <div class="tab-page active" id="tab-question">
-
-    <!-- 통계 -->
-    <div class="stat-grid">
-      <div class="stat-box">
-        <div class="stat-v" id="q-total">3</div>
-        <div class="stat-l">전체 문항</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-v" id="q-lec-count">2</div>
-        <div class="stat-l">강의 수</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-v" id="q-o-count">2</div>
-        <div class="stat-l">O 정답</div>
-      </div>
-      <div class="stat-box">
-        <div class="stat-v" id="q-x-count">1</div>
-        <div class="stat-l">X 정답</div>
-      </div>
+  <header class="topbar">
+    <div class="topbar-left">
+      <a href="../admin.html" class="topbar-back">← 콘솔</a>
+      <span class="topbar-title">✅ OX 퀴즈</span>
+      <span class="topbar-badge">ADMIN</span>
     </div>
-
-    <!-- 엑셀 업로드 -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">📂 엑셀 업로드</div>
-        <button class="btn btn-aqua btn-sm" onclick="exportQuestions()">📤 내보내기</button>
-      </div>
-      <div class="card-body">
-        <div class="format-info">
-          📋 <strong>엑셀 형식 안내</strong><br>
-          A열: <code>강의</code>  ·  B열: <code>문제</code>  ·  C열: <code>정답(O/X)</code>  ·  D열: <code>해설</code>(선택)<br>
-          1행은 헤더로 자동 건너뜁니다.  ·  강의는 <strong>12~21</strong> 사이 숫자만 입력해주세요.
-        </div>
-        <div class="upload-zone" id="upload-zone">
-          <input type="file" accept=".xlsx,.xls" id="excel-input" onchange="handleExcel(event)">
-          <div class="uz-icon">📊</div>
-          <div class="uz-title">클릭하거나 파일을 드래그하세요</div>
-          <div class="uz-desc">.xlsx / .xls  ·  업로드 시 기존 문제는 유지되고 추가됩니다</div>
-        </div>
-      </div>
+    <div class="topbar-right">
+      <a href="26_2.html" class="topbar-link">학생 화면</a>
+      <button class="topbar-logout" onclick="logout()">로그아웃</button>
     </div>
+  </header>
 
-    <!-- 문제 목록 -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">📋 등록된 문제</div>
-        <button class="btn btn-aqua btn-sm" onclick="openAddQuestionModal()">+ 문제 추가</button>
-      </div>
-      <div class="card-body">
-        <div class="toolbar">
-          <input type="text" class="search-input" id="q-search" placeholder="문제 내용 검색..." oninput="renderQuestions()">
-          <select class="filter-select" id="q-lec-filter" onchange="renderQuestions()">
-            <option value="">전체 강의</option>
-            <option value="12">12강</option><option value="13">13강</option>
-            <option value="14">14강</option><option value="15">15강</option>
-            <option value="16">16강</option><option value="17">17강</option>
-            <option value="18">18강</option><option value="19">19강</option>
-            <option value="20">20강</option><option value="21">21강</option>
-          </select>
-          <select class="filter-select" id="q-ans-filter" onchange="renderQuestions()">
-            <option value="">전체 정답</option>
-            <option value="O">O만</option>
-            <option value="X">X만</option>
-          </select>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th style="width:40px;">#</th>
-                <th style="width:60px;">강의</th>
-                <th>문제</th>
-                <th style="width:70px;text-align:center;">정답</th>
-                <th>해설</th>
-                <th style="width:120px;">관리</th>
-              </tr>
-            </thead>
-            <tbody id="q-tbody"></tbody>
-          </table>
-          <div class="empty-state" id="q-empty" style="display:none;">
-            <div class="empty-icon">📚</div>
-            <div class="empty-text">등록된 문제가 없습니다</div>
-          </div>
-        </div>
-      </div>
-    </div>
+  <div class="main-tabs">
+    <button class="main-tab active" onclick="switchTab('question',this)">📚 QUESTION</button>
+    <button class="main-tab" onclick="switchTab('class',this)">🏫 CLASS</button>
+    <button class="main-tab" onclick="switchTab('stats',this)">📊 STATS</button>
+    <button class="main-tab" onclick="switchTab('setting',this)">🔧 SETTING</button>
   </div>
 
-  <!-- ════════ CLASS 탭 ════════ -->
-  <div class="tab-page" id="tab-class">
+  <div class="container">
 
-    <!-- 반 필터 -->
-    <div class="card">
-      <div class="card-body">
-        <div style="font-size:12px;color:var(--text-sub);font-weight:700;letter-spacing:0.5px;margin-bottom:10px;">반 선택</div>
-        <div class="filter-chips" id="class-chips-tab">
-          <button class="chip active" onclick="setClassTabFilter('all',this)">전체</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 학생 명단 -->
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">👥 학생 참여 명단</div>
-        <div class="card-hint" id="class-student-count"></div>
-      </div>
-      <div class="card-body">
-        <div id="class-student-list">
-          <div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">참여 데이터를 불러오는 중...</div></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ════════ STATS 탭 ════════ -->
-  <div class="tab-page" id="tab-stats">
-
-    <!-- 서브 탭 -->
-    <div class="filter-chips" style="margin-bottom:16px;">
-      <button class="chip active" onclick="switchStatsSub('overview',this)">📈 응답 현황</button>
-      <button class="chip" onclick="switchStatsSub('x',this)">✏️ X 바로잡기</button>
-    </div>
-
-    <!-- 응답 현황 -->
-    <div id="stats-overview-view">
-      <!-- 반 필터 -->
-      <div class="card">
-        <div class="card-body">
-          <div style="font-size:12px;color:var(--text-sub);font-weight:700;letter-spacing:0.5px;margin-bottom:10px;">반 선택</div>
-          <div class="filter-chips" id="class-chips">
-            <button class="chip active" onclick="setClassFilter('all',this)">전체</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 통계 -->
+    <!-- QUESTION -->
+    <div class="tab-page active" id="tab-question">
       <div class="stat-grid">
-        <div class="stat-box">
-          <div class="stat-v" id="ans-stat-total">0</div>
-          <div class="stat-l">총 응답 수</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-v" id="ans-stat-rate">0%</div>
-          <div class="stat-l">평균 정답률</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-v" id="ans-stat-students">0</div>
-          <div class="stat-l">참여 학생 수</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-v" id="ans-stat-corr">0</div>
-          <div class="stat-l">X바로잡기 수</div>
-        </div>
+        <div class="stat-box"><div class="stat-v" id="q-total">0</div><div class="stat-l">전체 문항</div></div>
+        <div class="stat-box"><div class="stat-v" id="q-lec-count">0</div><div class="stat-l">강의 수</div></div>
+        <div class="stat-box"><div class="stat-v" id="q-o-count">0</div><div class="stat-l">O 정답</div></div>
+        <div class="stat-box"><div class="stat-v" id="q-x-count">0</div><div class="stat-l">X 정답</div></div>
       </div>
 
-      <!-- 문항별 현황 -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title">📊 문항별 응답 현황</div>
-          <div style="display:flex;gap:8px;">
-            <select class="filter-select" style="font-size:12px;padding:7px 12px;" onchange="setLecFilter(this.value)">
-              <option value="all">전체 강의</option>
-              <option value="12">12강</option><option value="13">13강</option>
-              <option value="14">14강</option><option value="15">15강</option>
-              <option value="16">16강</option><option value="17">17강</option>
-              <option value="18">18강</option><option value="19">19강</option>
-              <option value="20">20강</option><option value="21">21강</option>
-            </select>
-            <select class="filter-select" style="font-size:12px;padding:7px 12px;" onchange="setSortStats(this.value)">
-              <option value="rate">정답률 낮은순</option>
-              <option value="count">참여 많은순</option>
-              <option value="lec">강의 순</option>
-            </select>
-          </div>
+          <div class="card-title">📂 엑셀 업로드</div>
+          <button class="btn btn-primary btn-sm" onclick="exportQuestions()">📤 내보내기</button>
         </div>
         <div class="card-body">
-          <div id="ans-q-list">
-            <div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">아직 응답 데이터가 없습니다</div></div>
+          <div class="format-info">
+            📋 <strong>엑셀 형식 안내</strong><br>
+            A열: <code>강의</code>  ·  B열: <code>문제</code>  ·  C열: <code>정답(O/X)</code>  ·  D열: <code>해설</code>(선택)<br>
+            1행은 헤더로 자동 건너뜁니다.  ·  강의는 <strong>12~21</strong> 사이 숫자만 입력해주세요.
+          </div>
+          <div class="upload-zone" id="upload-zone">
+            <input type="file" accept=".xlsx,.xls" id="excel-input" onchange="handleExcel(event)">
+            <div class="uz-icon">📊</div>
+            <div class="uz-title">클릭하거나 파일을 드래그하세요</div>
+            <div class="uz-desc">.xlsx / .xls  ·  업로드 시 기존 문제는 유지되고 추가됩니다</div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- X 바로잡기 -->
-    <div id="stats-x-view" style="display:none;">
       <div class="card">
+        <div class="card-header">
+          <div class="card-title">📋 등록된 문제</div>
+          <button class="btn btn-primary btn-sm" onclick="openAddQuestionModal()">+ 문제 추가</button>
+        </div>
         <div class="card-body">
           <div class="toolbar">
-            <input type="text" class="search-input" placeholder="작성자 또는 내용 검색..." oninput="setCorrSearch(this.value)">
-            <select class="filter-select" onchange="setCorrLec(this.value)">
-              <option value="all">전체 강의</option>
+            <input type="text" class="search-input" id="q-search" placeholder="문제 내용 검색..." oninput="renderQuestions()">
+            <select class="filter-select" id="q-lec-filter" onchange="renderQuestions()">
+              <option value="">전체 강의</option>
               <option value="12">12강</option><option value="13">13강</option>
               <option value="14">14강</option><option value="15">15강</option>
               <option value="16">16강</option><option value="17">17강</option>
               <option value="18">18강</option><option value="19">19강</option>
               <option value="20">20강</option><option value="21">21강</option>
             </select>
-            <select class="filter-select" onchange="setCorrSort(this.value)">
-              <option value="newest">최신순</option>
-              <option value="oldest">오래된순</option>
-              <option value="lec">강의순</option>
+            <select class="filter-select" id="q-ans-filter" onchange="renderQuestions()">
+              <option value="">전체 정답</option>
+              <option value="O">O만</option>
+              <option value="X">X만</option>
             </select>
           </div>
-          <div id="corrections-list">
-            <div class="empty-state"><div class="empty-icon">✏️</div><div class="empty-text">X바로잡기 내역을 불러오는 중...</div></div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:40px;">#</th>
+                  <th style="width:60px;">강의</th>
+                  <th>문제</th>
+                  <th style="width:70px;text-align:center;">정답</th>
+                  <th>해설</th>
+                  <th style="width:120px;">관리</th>
+                </tr>
+              </thead>
+              <tbody id="q-tbody"></tbody>
+            </table>
+            <div class="empty-state" id="q-empty" style="display:none;">
+              <div class="empty-icon">📚</div>
+              <div class="empty-text">등록된 문제가 없습니다</div>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- ════════ SETTING 탭 ════════ -->
-  <div class="tab-page" id="tab-setting">
-    <div class="warning-banner">
-      <span class="wb-icon">⚠️</span>
-      <div>아래 작업들은 <strong>되돌릴 수 없습니다</strong>. 신중히 진행해주세요.<br>실행 전 데이터를 내보내기로 백업하는 것을 권장합니다.</div>
-    </div>
-
-    <!-- 데이터 초기화 -->
-    <div class="setting-section-title">🗑️ 데이터 초기화</div>
-    <div class="setting-group">
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-name">문제 초기화</div>
-          <div class="setting-desc">등록된 모든 문제를 삭제합니다. 학생들이 풀 문제가 없어지니 주의하세요.</div>
+    <!-- CLASS -->
+    <div class="tab-page" id="tab-class">
+      <div class="card">
+        <div class="card-body">
+          <div style="font-size:12px;color:var(--hi-text-muted);font-weight:700;letter-spacing:0.5px;margin-bottom:10px;">반 선택</div>
+          <div class="filter-chips" id="class-chips-tab">
+            <button class="chip active" onclick="setClassTabFilter('all',this)">전체</button>
+          </div>
         </div>
-        <button class="btn btn-danger btn-sm" onclick="confirmReset('questions')">초기화</button>
       </div>
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-name">랭킹 초기화</div>
-          <div class="setting-desc">모든 학생의 점수 기록과 랭킹을 삭제합니다.</div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">👥 학생 참여 명단</div>
+          <div class="card-hint" id="class-student-count"></div>
         </div>
-        <button class="btn btn-danger btn-sm" onclick="confirmReset('rankings')">초기화</button>
-      </div>
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-name">X 바로잡기 초기화</div>
-          <div class="setting-desc">학생들이 작성한 모든 X바로잡기 노트를 삭제합니다.</div>
+        <div class="card-body">
+          <div id="class-student-list">
+            <div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">참여 데이터를 불러오는 중...</div></div>
+          </div>
         </div>
-        <button class="btn btn-danger btn-sm" onclick="confirmReset('corrections')">초기화</button>
-      </div>
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-name">전체 초기화</div>
-          <div class="setting-desc" style="color:#c62828;">⚠️ 문제, 랭킹, X바로잡기 모두 삭제됩니다.</div>
-        </div>
-        <button class="btn btn-danger btn-sm" onclick="confirmReset('all')">전체 초기화</button>
       </div>
     </div>
 
-    <!-- 데이터 백업 -->
-    <div class="setting-section-title">💾 데이터 백업</div>
-    <div class="setting-group">
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-name">문제 내보내기 (엑셀)</div>
-          <div class="setting-desc">등록된 모든 문제를 .xlsx 파일로 다운로드합니다.</div>
-        </div>
-        <button class="btn btn-aqua btn-sm" onclick="exportQuestions()">📤 다운로드</button>
+    <!-- STATS -->
+    <div class="tab-page" id="tab-stats">
+      <div class="filter-chips" style="margin-bottom:16px;">
+        <button class="chip active" onclick="switchStatsSub('overview',this)">📈 응답 현황</button>
+        <button class="chip" onclick="switchStatsSub('x',this)">✏️ X 바로잡기</button>
       </div>
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-name">랭킹 내보내기 (엑셀)</div>
-          <div class="setting-desc">학생별 점수 기록을 엑셀로 다운로드합니다.</div>
+
+      <div id="stats-overview-view">
+        <div class="card">
+          <div class="card-body">
+            <div style="font-size:12px;color:var(--hi-text-muted);font-weight:700;letter-spacing:0.5px;margin-bottom:10px;">반 선택</div>
+            <div class="filter-chips" id="class-chips">
+              <button class="chip active" onclick="setClassFilter('all',this)">전체</button>
+            </div>
+          </div>
         </div>
-        <button class="btn btn-aqua btn-sm" onclick="exportRankings()">📤 다운로드</button>
+
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-v" id="ans-stat-total">0</div><div class="stat-l">총 응답 수</div></div>
+          <div class="stat-box"><div class="stat-v" id="ans-stat-rate">0%</div><div class="stat-l">평균 정답률</div></div>
+          <div class="stat-box"><div class="stat-v" id="ans-stat-students">0</div><div class="stat-l">참여 학생 수</div></div>
+          <div class="stat-box"><div class="stat-v" id="ans-stat-corr">0</div><div class="stat-l">X바로잡기 수</div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📊 문항별 응답 현황</div>
+            <div style="display:flex;gap:8px;">
+              <select class="filter-select" style="font-size:12px;padding:7px 12px;" onchange="setLecFilter(this.value)">
+                <option value="all">전체 강의</option>
+                <option value="12">12강</option><option value="13">13강</option>
+                <option value="14">14강</option><option value="15">15강</option>
+                <option value="16">16강</option><option value="17">17강</option>
+                <option value="18">18강</option><option value="19">19강</option>
+                <option value="20">20강</option><option value="21">21강</option>
+              </select>
+              <select class="filter-select" style="font-size:12px;padding:7px 12px;" onchange="setSortStats(this.value)">
+                <option value="rate">정답률 낮은순</option>
+                <option value="count">참여 많은순</option>
+                <option value="lec">강의 순</option>
+              </select>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="ans-q-list">
+              <div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">아직 응답 데이터가 없습니다</div></div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-name">X 바로잡기 내보내기</div>
-          <div class="setting-desc">학생들이 작성한 모든 X바로잡기를 엑셀로 다운로드합니다.</div>
+
+      <div id="stats-x-view" style="display:none;">
+        <div class="card">
+          <div class="card-body">
+            <div class="toolbar">
+              <input type="text" class="search-input" placeholder="작성자 또는 내용 검색..." oninput="setCorrSearch(this.value)">
+              <select class="filter-select" onchange="setCorrLec(this.value)">
+                <option value="all">전체 강의</option>
+                <option value="12">12강</option><option value="13">13강</option>
+                <option value="14">14강</option><option value="15">15강</option>
+                <option value="16">16강</option><option value="17">17강</option>
+                <option value="18">18강</option><option value="19">19강</option>
+                <option value="20">20강</option><option value="21">21강</option>
+              </select>
+              <select class="filter-select" onchange="setCorrSort(this.value)">
+                <option value="newest">최신순</option>
+                <option value="oldest">오래된순</option>
+                <option value="lec">강의순</option>
+              </select>
+            </div>
+            <div id="corrections-list">
+              <div class="empty-state"><div class="empty-icon">✏️</div><div class="empty-text">X바로잡기 내역을 불러오는 중...</div></div>
+            </div>
+          </div>
         </div>
-        <button class="btn btn-aqua btn-sm" onclick="exportCorrections()">📤 다운로드</button>
       </div>
     </div>
 
-    <!-- 관리자 설정 -->
-    <div class="setting-section-title">🔐 관리자 설정</div>
-    <div class="setting-group">
-      <div class="setting-row">
-        <div class="setting-info">
-          <div class="setting-name">관리자 비밀번호 변경</div>
-          <div class="setting-desc">현재 비밀번호를 확인한 후 새 비밀번호를 설정합니다.</div>
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="openPwModal()">변경하기</button>
+    <!-- SETTING -->
+    <div class="tab-page" id="tab-setting">
+      <div class="warning-banner">
+        <span class="wb-icon">⚠️</span>
+        <div>아래 작업들은 <strong>되돌릴 수 없습니다</strong>. 신중히 진행해주세요.<br>실행 전 데이터를 내보내기로 백업하는 것을 권장합니다.</div>
+      </div>
+
+      <div class="setting-section-title">🗑️ 데이터 초기화</div>
+      <div class="setting-group">
+        <div class="setting-row"><div class="setting-info"><div class="setting-name">문제 초기화</div><div class="setting-desc">등록된 모든 문제를 삭제합니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('questions')">초기화</button></div>
+        <div class="setting-row"><div class="setting-info"><div class="setting-name">랭킹 초기화</div><div class="setting-desc">모든 학생의 점수 기록과 랭킹을 삭제합니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('rankings')">초기화</button></div>
+        <div class="setting-row"><div class="setting-info"><div class="setting-name">X 바로잡기 초기화</div><div class="setting-desc">학생들이 작성한 모든 X바로잡기 노트를 삭제합니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('corrections')">초기화</button></div>
+        <div class="setting-row"><div class="setting-info"><div class="setting-name">전체 초기화</div><div class="setting-desc" style="color:var(--hi-negative);">⚠️ 문제, 랭킹, X바로잡기 모두 삭제됩니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('all')">전체 초기화</button></div>
+      </div>
+
+      <div class="setting-section-title">💾 데이터 백업</div>
+      <div class="setting-group">
+        <div class="setting-row"><div class="setting-info"><div class="setting-name">문제 내보내기 (엑셀)</div><div class="setting-desc">등록된 모든 문제를 .xlsx 파일로 다운로드합니다.</div></div><button class="btn btn-primary btn-sm" onclick="exportQuestions()">📤 다운로드</button></div>
+        <div class="setting-row"><div class="setting-info"><div class="setting-name">랭킹 내보내기 (엑셀)</div><div class="setting-desc">학생별 점수 기록을 엑셀로 다운로드합니다.</div></div><button class="btn btn-primary btn-sm" onclick="exportRankings()">📤 다운로드</button></div>
+        <div class="setting-row"><div class="setting-info"><div class="setting-name">X 바로잡기 내보내기</div><div class="setting-desc">학생들이 작성한 모든 X바로잡기를 엑셀로 다운로드합니다.</div></div><button class="btn btn-primary btn-sm" onclick="exportCorrections()">📤 다운로드</button></div>
+      </div>
+
+      <div class="setting-section-title">🔐 관리자 설정</div>
+      <div class="setting-group">
+        <div class="setting-row"><div class="setting-info"><div class="setting-name">관리자 비밀번호 변경</div><div class="setting-desc">현재 비밀번호를 확인한 후 새 비밀번호를 설정합니다.</div></div><button class="btn btn-ghost btn-sm" onclick="openPwModal()">변경하기</button></div>
       </div>
     </div>
 
-  </div>
-</div>
+  </div><!-- /.container -->
+</div><!-- /#adminApp -->
 
-<!-- ════════ 모달: 문제 추가/수정 ════════ -->
+<!-- 모달: 문제 추가/수정 -->
 <div class="modal-backdrop" id="modal-question">
   <div class="modal-card">
     <div class="modal-title" id="qm-title">✨ 문제 추가</div>
     <div class="modal-sub">시험 범위 안의 강의를 선택해주세요</div>
-
     <div class="modal-input-row">
       <label>강의</label>
       <select class="modal-select" id="qm-lec">
@@ -1098,12 +555,10 @@ tbody tr:last-child td { border-bottom: none; }
         <option value="20">20강</option><option value="21">21강</option>
       </select>
     </div>
-
     <div class="modal-input-row">
       <label>문제</label>
       <textarea class="modal-textarea" id="qm-question" placeholder="예) 조선은 1392년에 건국되었다."></textarea>
     </div>
-
     <div class="modal-input-row">
       <label>정답</label>
       <div class="ox-radio-group">
@@ -1111,79 +566,47 @@ tbody tr:last-child td { border-bottom: none; }
         <div class="ox-radio x" id="qm-ans-x" onclick="selectAnswer('X')">X</div>
       </div>
     </div>
-
     <div class="modal-input-row">
       <label>해설 (선택)</label>
       <textarea class="modal-textarea" id="qm-exp" placeholder="정답에 대한 짧은 설명을 적어주세요"></textarea>
     </div>
-
     <div class="modal-actions">
       <button class="btn btn-soft btn-md" onclick="closeQModal()">취소</button>
-      <button class="btn btn-aqua btn-md" onclick="saveQuestion()">저장 💾</button>
+      <button class="btn btn-primary btn-md" onclick="saveQuestion()">저장 💾</button>
     </div>
   </div>
 </div>
 
-<!-- ════════ 모달: 비밀번호 변경 ════════ -->
+<!-- 모달: 비밀번호 변경 -->
 <div class="modal-backdrop" id="modal-pw">
   <div class="modal-card" style="max-width:380px;">
     <div class="modal-title">🔑 비밀번호 변경</div>
     <div class="modal-sub">새 비밀번호는 다른 사람과 공유하지 마세요</div>
-
-    <div class="modal-input-row">
-      <label>현재 비밀번호</label>
-      <input type="password" class="modal-input" id="pw-old">
-    </div>
-    <div class="modal-input-row">
-      <label>새 비밀번호</label>
-      <input type="password" class="modal-input" id="pw-new">
-    </div>
-    <div class="modal-input-row">
-      <label>새 비밀번호 확인</label>
-      <input type="password" class="modal-input" id="pw-new2">
-    </div>
-
+    <div class="modal-input-row"><label>현재 비밀번호</label><input type="password" class="modal-input" id="pw-old"></div>
+    <div class="modal-input-row"><label>새 비밀번호</label><input type="password" class="modal-input" id="pw-new"></div>
+    <div class="modal-input-row"><label>새 비밀번호 확인</label><input type="password" class="modal-input" id="pw-new2"></div>
     <div class="modal-actions">
       <button class="btn btn-soft btn-md" onclick="closeModal('modal-pw')">취소</button>
-      <button class="btn btn-aqua btn-md" onclick="changePassword()">변경 🔒</button>
+      <button class="btn btn-primary btn-md" onclick="changePassword()">변경 🔒</button>
     </div>
   </div>
 </div>
 
-<!-- ════════ 모달: 문제 상세 보기 ════════ -->
+<!-- 모달: 문제 상세 보기 -->
 <div class="modal-backdrop" id="modal-question-detail">
   <div class="modal-card" style="max-width:520px;">
     <div class="modal-title">📖 문제 상세</div>
     <div class="modal-sub" id="qd-lec">12강</div>
-
-    <div class="qd-section">
-      <div class="qd-label">문제</div>
-      <div class="qd-content" id="qd-question"></div>
-    </div>
-
-    <div class="qd-section">
-      <div class="qd-label">정답</div>
-      <div class="qd-content" id="qd-answer"></div>
-    </div>
-
-    <div class="qd-section" id="qd-exp-section">
-      <div class="qd-label">해설</div>
-      <div class="qd-content" id="qd-exp"></div>
-    </div>
-
-    <div class="modal-actions">
-      <button class="btn btn-aqua btn-md" onclick="closeModal('modal-question-detail')">확인</button>
-    </div>
+    <div class="qd-section"><div class="qd-label">문제</div><div class="qd-content" id="qd-question"></div></div>
+    <div class="qd-section"><div class="qd-label">정답</div><div class="qd-content" id="qd-answer"></div></div>
+    <div class="qd-section" id="qd-exp-section"><div class="qd-label">해설</div><div class="qd-content" id="qd-exp"></div></div>
+    <div class="modal-actions"><button class="btn btn-primary btn-md" onclick="closeModal('modal-question-detail')">확인</button></div>
   </div>
 </div>
 
-<!-- ════════ 미니 토스트 ════════ -->
 <div id="mini-toast"></div>
 
 <script>
-// ══════════════════════════════════════════════════
-// FIREBASE CONFIG & INIT
-// ══════════════════════════════════════════════════
 const firebaseConfig = {
   apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
   authDomain: "ho0911seong-56638.firebaseapp.com",
@@ -1205,9 +628,6 @@ const COL = {
 const ADMIN_DOC = 'config';
 const DEFAULT_PW = 'ghtjd12!@';
 
-// ══════════════════════════════════════════════════
-// STATE
-// ══════════════════════════════════════════════════
 const state = {
   questions: [],
   corrections: [],
@@ -1225,51 +645,42 @@ const state = {
   editingCorrId: null,
 };
 
-// ══════════════════════════════════════════════════
-// GATE (비밀번호) — Firestore에서 가져옴
-// ══════════════════════════════════════════════════
 async function tryGate() {
   const pw = document.getElementById('gate-pw').value;
   const err = document.getElementById('gate-error');
   err.textContent = '확인 중...';
+  err.classList.add('show');
 
-  // 🔍 디버그 로그
   console.log('=== 디버그 정보 ===');
   console.log('입력한 비밀번호:', JSON.stringify(pw));
-  console.log('입력 길이:', pw.length);
-  console.log('각 글자 코드:', [...pw].map(c => `${c}(${c.charCodeAt(0)})`).join(' '));
 
   try {
     const docRef = fs.collection(COL.admin).doc(ADMIN_DOC);
     const snap = await docRef.get();
     let storedPw;
     if (!snap.exists) {
-      // 최초 실행: 기본 비밀번호로 자동 생성
-      console.log('Firestore에 admin/config 문서 없음 → 새로 생성');
       await docRef.set({ password: DEFAULT_PW, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
       storedPw = DEFAULT_PW;
     } else {
-      console.log('Firestore에 admin/config 문서 있음');
       storedPw = snap.data().password;
     }
-    console.log('저장된 비밀번호:', JSON.stringify(storedPw));
-    console.log('저장된 길이:', (storedPw||'').length);
-    console.log('비교 결과:', pw === storedPw);
 
     if (pw === storedPw) {
       err.textContent = '';
-      document.getElementById('gate').style.display = 'none';
+      err.classList.remove('show');
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('adminApp').style.display = 'block';
       sessionStorage.setItem('ox-admin', '1');
       renderAll();
     } else {
-      err.textContent = '비밀번호가 올바르지 않습니다 (콘솔 확인)';
+      err.textContent = '비밀번호가 올바르지 않습니다';
+      err.classList.add('show');
       document.getElementById('gate-pw').value = '';
     }
   } catch (e) {
     console.error('❌ 에러 발생:', e);
-    console.error('에러 코드:', e.code);
-    console.error('에러 메시지:', e.message);
     err.textContent = '오류: ' + (e.message || '확인 필요 (F12 콘솔)');
+    err.classList.add('show');
   }
 }
 
@@ -1278,18 +689,14 @@ function logout() {
   location.reload();
 }
 
-// 세션 체크
 if (sessionStorage.getItem('ox-admin') === '1') {
-  document.getElementById('gate').style.display = 'none';
-  // 페이지 로딩 후 데이터 fetch
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('adminApp').style.display = 'block';
   setTimeout(() => renderAll(), 100);
 }
 
-// ══════════════════════════════════════════════════
-// TAB
-// ══════════════════════════════════════════════════
 function switchTab(name, el) {
-  document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
   document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
@@ -1306,18 +713,13 @@ function switchStatsSub(name, el) {
   if (name === 'x') loadCorrections();
 }
 
-// ══════════════════════════════════════════════════
-// QUESTIONS — Firestore
-// ══════════════════════════════════════════════════
 async function loadQuestions() {
   try {
     const snap = await fs.collection(COL.questions).orderBy('lec', 'asc').get();
     state.questions = [];
     snap.forEach(doc => {
       const d = doc.data();
-      state.questions.push({
-        id: doc.id, lec: d.lec, q: d.q, a: d.a, exp: d.exp || ''
-      });
+      state.questions.push({ id: doc.id, lec: d.lec, q: d.q, a: d.a, exp: d.exp || '' });
     });
     renderQuestions();
     updateStats();
@@ -1331,17 +733,14 @@ function renderQuestions() {
   const search = (document.getElementById('q-search').value || '').toLowerCase().trim();
   const lecFilter = document.getElementById('q-lec-filter').value;
   const ansFilter = document.getElementById('q-ans-filter').value;
-
   const filtered = state.questions.filter(q => {
     if (lecFilter && String(q.lec) !== lecFilter) return false;
     if (ansFilter && q.a !== ansFilter) return false;
     if (search && !q.q.toLowerCase().includes(search) && !(q.exp || '').toLowerCase().includes(search)) return false;
     return true;
   });
-
   const tbody = document.getElementById('q-tbody');
   const empty = document.getElementById('q-empty');
-
   if (filtered.length === 0) {
     tbody.innerHTML = '';
     empty.style.display = 'block';
@@ -1350,7 +749,6 @@ function renderQuestions() {
     return;
   }
   empty.style.display = 'none';
-
   tbody.innerHTML = filtered.map((q, i) => {
     if (state.editingId === q.id) {
       return `<tr>
@@ -1365,7 +763,7 @@ function renderQuestions() {
         </select></td>
         <td><input class="inline-input" id="edit-e-${q.id}" value="${esc(q.exp||'')}"></td>
         <td><div class="td-actions">
-          <button class="btn btn-aqua btn-xs" onclick="saveEdit('${q.id}')">저장</button>
+          <button class="btn btn-primary btn-xs" onclick="saveEdit('${q.id}')">저장</button>
           <button class="btn btn-soft btn-xs" onclick="cancelEdit()">취소</button>
         </div></td>
       </tr>`;
@@ -1419,10 +817,7 @@ async function saveEdit(id) {
     state.editingId = null;
     miniToast('수정되었습니다 ✨');
     loadQuestions();
-  } catch (e) {
-    console.error(e);
-    miniToast('수정 실패', 'danger');
-  }
+  } catch (e) { console.error(e); miniToast('수정 실패', 'danger'); }
 }
 
 async function deleteQuestion(id) {
@@ -1433,10 +828,7 @@ async function deleteQuestion(id) {
     await fs.collection(COL.questions).doc(id).delete();
     miniToast('삭제되었습니다');
     loadQuestions();
-  } catch (e) {
-    console.error(e);
-    miniToast('삭제 실패', 'danger');
-  }
+  } catch (e) { console.error(e); miniToast('삭제 실패', 'danger'); }
 }
 
 function openAddQuestionModal() {
@@ -1455,10 +847,7 @@ function selectAnswer(ans) {
   document.getElementById('qm-ans-o').classList.toggle('selected', ans === 'O');
   document.getElementById('qm-ans-x').classList.toggle('selected', ans === 'X');
 }
-
-function closeQModal() {
-  document.getElementById('modal-question').classList.remove('show');
-}
+function closeQModal() { document.getElementById('modal-question').classList.remove('show'); }
 
 async function saveQuestion() {
   const lec = parseInt(document.getElementById('qm-lec').value);
@@ -1475,13 +864,9 @@ async function saveQuestion() {
     closeQModal();
     miniToast('문제가 추가되었습니다 ✨');
     loadQuestions();
-  } catch (e) {
-    console.error(e);
-    miniToast('저장 실패', 'danger');
-  }
+  } catch (e) { console.error(e); miniToast('저장 실패', 'danger'); }
 }
 
-// 엑셀 업로드 — Firestore에 저장
 async function handleExcel(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -1493,7 +878,6 @@ async function handleExcel(event) {
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
       const dataRows = rows.slice(1).filter(r => r[0] !== '' && r[1] !== '' && r[2] !== '');
       if (dataRows.length === 0) { miniToast('유효한 데이터가 없습니다', 'danger'); return; }
-
       const parsed = [];
       let invalid = 0;
       dataRows.forEach(r => {
@@ -1504,29 +888,19 @@ async function handleExcel(event) {
         if (!lec || lec < 12 || lec > 21 || !q || (a !== 'O' && a !== 'X')) { invalid++; return; }
         parsed.push({ lec, q, a, exp });
       });
-
       if (parsed.length === 0) { miniToast('유효한 데이터가 없습니다', 'danger'); return; }
-
       if (!confirm(`총 ${parsed.length}개 문제를 추가하시겠습니까?${invalid > 0 ? `\n(형식 오류 ${invalid}행 제외)` : ''}`)) {
         document.getElementById('excel-input').value = ''; return;
       }
-
       miniToast(`업로드 중... (${parsed.length}개)`);
-
-      // Firestore 배치 저장 (500개 단위)
       const ts = firebase.firestore.FieldValue.serverTimestamp();
       const chunks = [];
       for (let i = 0; i < parsed.length; i += 400) chunks.push(parsed.slice(i, i + 400));
-
       for (const chunk of chunks) {
         const batch = fs.batch();
-        chunk.forEach(p => {
-          const docRef = fs.collection(COL.questions).doc();
-          batch.set(docRef, { ...p, createdAt: ts });
-        });
+        chunk.forEach(p => { const docRef = fs.collection(COL.questions).doc(); batch.set(docRef, { ...p, createdAt: ts }); });
         await batch.commit();
       }
-
       miniToast(`✨ ${parsed.length}개 문제 추가 완료!`);
       loadQuestions();
     } catch (err) {
@@ -1540,9 +914,7 @@ async function handleExcel(event) {
 
 function exportQuestions() {
   if (state.questions.length === 0) { miniToast('내보낼 문제가 없습니다', 'danger'); return; }
-  const data = state.questions.map(q => ({
-    강의: q.lec, 문제: q.q, 정답: q.a, 해설: q.exp || ''
-  }));
+  const data = state.questions.map(q => ({ 강의: q.lec, 문제: q.q, 정답: q.a, 해설: q.exp || '' }));
   const ws = XLSX.utils.json_to_sheet(data);
   ws['!cols'] = [{ wch: 8 }, { wch: 60 }, { wch: 8 }, { wch: 50 }];
   const wb = XLSX.utils.book_new();
@@ -1552,7 +924,6 @@ function exportQuestions() {
   miniToast('엑셀 다운로드 완료 📤');
 }
 
-// 드래그앤드롭
 function setupDragDrop() {
   const zone = document.getElementById('upload-zone');
   if (!zone) return;
@@ -1566,17 +937,12 @@ function setupDragDrop() {
 }
 setupDragDrop();
 
-// ══════════════════════════════════════════════════
-// CLASS 탭 — 학생 참여 명단
-// ══════════════════════════════════════════════════
 async function loadClassData() {
   try {
     const [respSnap, rankSnap] = await Promise.all([
       fs.collection(COL.responses).limit(5000).get(),
       fs.collection(COL.rankings).limit(2000).get(),
     ]);
-
-    // 응답 기록 → 학생별 total/correct 집계
     const respByStudent = {};
     respSnap.forEach(doc => {
       const d = doc.data();
@@ -1585,8 +951,6 @@ async function loadClassData() {
       respByStudent[sid].total++;
       if (d.isCorrect) respByStudent[sid].correct++;
     });
-
-    // 랭킹 기록 → 학생별 세션 수 / 총점 집계
     const rankByStudent = {};
     rankSnap.forEach(doc => {
       const d = doc.data();
@@ -1595,27 +959,20 @@ async function loadClassData() {
       rankByStudent[sid].sessions++;
       rankByStudent[sid].totalScore += (d.score || 0);
     });
-
-    // 두 데이터 합산
     const merged = {};
     Object.entries(respByStudent).forEach(([sid, r]) => {
       merged[sid] = {
-        sid,
-        name: r.name,
-        total: r.total,
-        correct: r.correct,
+        sid, name: r.name, total: r.total, correct: r.correct,
         rate: r.total > 0 ? Math.round(r.correct / r.total * 100) : 0,
         sessions: rankByStudent[sid] ? rankByStudent[sid].sessions : 0,
         totalScore: rankByStudent[sid] ? rankByStudent[sid].totalScore : 0,
       };
     });
-
     state.classStudents = Object.values(merged).sort((a, b) => {
       const ca = parseClass(a.sid) || '', cb = parseClass(b.sid) || '';
       if (ca !== cb) return ca.localeCompare(cb);
       return a.sid.localeCompare(b.sid);
     });
-
     renderClassView();
   } catch (e) {
     console.error('Class 데이터 로딩 실패:', e);
@@ -1624,46 +981,29 @@ async function loadClassData() {
 }
 
 function renderClassView() {
-  // 반 칩 동적 생성
   const classes = new Set();
-  state.classStudents.forEach(s => {
-    const cls = parseClass(s.sid);
-    if (cls) classes.add(cls);
-  });
+  state.classStudents.forEach(s => { const cls = parseClass(s.sid); if (cls) classes.add(cls); });
   const sortedClasses = [...classes].sort();
   const chipsEl = document.getElementById('class-chips-tab');
   if (chipsEl) {
     chipsEl.innerHTML =
       `<button class="chip ${state.currentClassTab === 'all' ? 'active' : ''}" onclick="setClassTabFilter('all',this)">전체</button>` +
-      sortedClasses.map(c =>
-        `<button class="chip ${state.currentClassTab === c ? 'active' : ''}" onclick="setClassTabFilter('${c}',this)">${c}</button>`
-      ).join('');
+      sortedClasses.map(c => `<button class="chip ${state.currentClassTab === c ? 'active' : ''}" onclick="setClassTabFilter('${c}',this)">${c}</button>`).join('');
   }
-
-  // 필터
-  const filtered = state.currentClassTab === 'all'
-    ? state.classStudents
-    : state.classStudents.filter(s => parseClass(s.sid) === state.currentClassTab);
-
+  const filtered = state.currentClassTab === 'all' ? state.classStudents : state.classStudents.filter(s => parseClass(s.sid) === state.currentClassTab);
   const countEl = document.getElementById('class-student-count');
   if (countEl) countEl.textContent = `${filtered.length}명`;
-
   const listEl = document.getElementById('class-student-list');
   if (!listEl) return;
-
   if (filtered.length === 0) {
     listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">참여 학생이 없습니다</div></div>';
     return;
   }
-
   listEl.innerHTML = filtered.map(s => {
-    const rateColor = s.rate < 50 ? 'color:#ef5350' : s.rate < 70 ? 'color:#ff9800' : 'color:var(--aqua)';
+    const rateColor = s.rate < 50 ? 'color:#ef5350' : s.rate < 70 ? 'color:#f59e0b' : 'color:var(--hi-accent)';
     return `<div class="student-card">
       <div class="student-info">
-        <div class="student-name">
-          ${esc(s.name)}
-          <span class="student-sid">${esc(s.sid)}</span>
-        </div>
+        <div class="student-name">${esc(s.name)}<span class="student-sid">${esc(s.sid)}</span></div>
         <div class="student-meta">
           <span class="meta-item">참여 횟수 <span class="meta-val">${s.sessions}회</span></span>
           <span class="meta-item">평균 정답률 <span class="meta-val" style="${rateColor}">${s.rate}%</span></span>
@@ -1700,17 +1040,10 @@ async function resetStudentData(sid, name) {
     }
     miniToast(`${name} 학생 데이터 초기화 완료`);
     loadClassData();
-  } catch (e) {
-    console.error(e);
-    miniToast('초기화 실패', 'danger');
-  }
+  } catch (e) { console.error(e); miniToast('초기화 실패', 'danger'); }
 }
 
-// ══════════════════════════════════════════════════
-// ANSWER 탭 — 응답 통계
-// ══════════════════════════════════════════════════
 async function loadAnswerData() {
-  // 응답 데이터 (반별 통계)
   try {
     const [respSnap, corrSnap] = await Promise.all([
       fs.collection(COL.responses).limit(5000).get(),
@@ -1720,9 +1053,7 @@ async function loadAnswerData() {
     respSnap.forEach(doc => state.responses.push(doc.data()));
     state.correctionsCount = corrSnap.size;
     renderAnswerStats();
-  } catch (e) {
-    console.error('응답 로딩 실패:', e);
-  }
+  } catch (e) { console.error('응답 로딩 실패:', e); }
 }
 
 function parseClass(sid) {
@@ -1733,36 +1064,24 @@ function parseClass(sid) {
 }
 
 function renderAnswerStats() {
-  // 반 필터 동적 생성
   const classes = new Set();
-  state.responses.forEach(r => {
-    const cls = parseClass(r.studentId);
-    if (cls) classes.add(cls);
-  });
+  state.responses.forEach(r => { const cls = parseClass(r.studentId); if (cls) classes.add(cls); });
   const sortedClasses = [...classes].sort();
   const chipsEl = document.getElementById('class-chips');
   if (chipsEl) {
     chipsEl.innerHTML = `<button class="chip ${state.currentClass==='all'?'active':''}" onclick="setClassFilter('all',this)">전체</button>` +
       sortedClasses.map(c => `<button class="chip ${state.currentClass===c?'active':''}" onclick="setClassFilter('${c}',this)">${c}</button>`).join('');
   }
-
-  // 필터링
-  const filtered = state.currentClass === 'all'
-    ? state.responses
-    : state.responses.filter(r => parseClass(r.studentId) === state.currentClass);
-
-  // 통계 카드
+  const filtered = state.currentClass === 'all' ? state.responses : state.responses.filter(r => parseClass(r.studentId) === state.currentClass);
   const totalCount = filtered.length;
   const correctCount = filtered.filter(r => r.isCorrect).length;
   const rate = totalCount > 0 ? Math.round(correctCount / totalCount * 100) : 0;
   const uniqueStudents = new Set(filtered.map(r => r.studentId)).size;
-
   document.getElementById('ans-stat-total').textContent = totalCount.toLocaleString();
   document.getElementById('ans-stat-rate').textContent = rate + '%';
   document.getElementById('ans-stat-students').textContent = uniqueStudents;
   document.getElementById('ans-stat-corr').textContent = (state.correctionsCount || 0).toLocaleString();
 
-  // 문항별 통계
   const byQ = {};
   filtered.forEach(r => {
     if (!byQ[r.questionId]) byQ[r.questionId] = { o:0, x:0, total:0, correct:0, lec:r.lec };
@@ -1770,62 +1089,32 @@ function renderAnswerStats() {
     byQ[r.questionId].total++;
     if (r.isCorrect) byQ[r.questionId].correct++;
   });
-
-  // 문항별 카드 생성 (현재 등록된 문제와 매칭)
   let qStats = state.questions.map(q => {
     const s = byQ[q.id] || { o:0, x:0, total:0, correct:0 };
-    return {
-      ...q,
-      total: s.total,
-      correct: s.correct,
-      o: s.o, x: s.x,
-      rate: s.total > 0 ? Math.round(s.correct / s.total * 100) : 0,
-    };
+    return { ...q, total: s.total, correct: s.correct, o: s.o, x: s.x, rate: s.total > 0 ? Math.round(s.correct / s.total * 100) : 0 };
   });
-
-  // 강의 필터
-  if (state.currentLecFilter !== 'all') {
-    qStats = qStats.filter(q => String(q.lec) === state.currentLecFilter);
-  }
-
-  // 정렬
-  if (state.currentSortStats === 'rate') qStats.sort((a,b) => a.rate - b.rate);  // 정답률 낮은 순 (틀린 문제 먼저)
+  if (state.currentLecFilter !== 'all') qStats = qStats.filter(q => String(q.lec) === state.currentLecFilter);
+  if (state.currentSortStats === 'rate') qStats.sort((a,b) => a.rate - b.rate);
   else if (state.currentSortStats === 'count') qStats.sort((a,b) => b.total - a.total);
   else qStats.sort((a,b) => a.lec - b.lec);
 
   const container = document.getElementById('ans-q-list');
   if (!container) return;
-
   if (qStats.length === 0) {
     container.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">아직 응답 데이터가 없습니다</div></div>';
     return;
   }
-
   container.innerHTML = qStats.map(q => {
     const oPct = q.total > 0 ? Math.round(q.o / q.total * 100) : 0;
     const xPct = q.total > 0 ? Math.round(q.x / q.total * 100) : 0;
-    const rateColor = q.rate < 50 ? 'color:#ef5350' : (q.rate < 70 ? 'color:#ff9800' : '');
+    const rateColor = q.rate < 50 ? 'color:#ef5350' : (q.rate < 70 ? 'color:#f59e0b' : '');
     return `<div class="q-stat-card">
       <div class="q-stat-header">
-        <div class="q-stat-title">
-          <span class="td-lec">${q.lec}강</span>
-          ${esc(q.q)}
-        </div>
-        <div class="q-stat-meta">
-          <span>참여 <strong>${q.total}회</strong></span>
-          <span>정답률 <strong style="${rateColor}">${q.rate}%</strong></span>
-        </div>
+        <div class="q-stat-title"><span class="td-lec">${q.lec}강</span>${esc(q.q)}</div>
+        <div class="q-stat-meta"><span>참여 <strong>${q.total}회</strong></span><span>정답률 <strong style="${rateColor}">${q.rate}%</strong></span></div>
       </div>
-      <div class="bar-row">
-        <span class="bar-label o">O</span>
-        <div class="bar-wrap"><div class="bar-fill o" style="width:${oPct}%"></div></div>
-        <span class="bar-pct">${oPct}%</span>
-      </div>
-      <div class="bar-row">
-        <span class="bar-label x">X</span>
-        <div class="bar-wrap"><div class="bar-fill x" style="width:${xPct}%"></div></div>
-        <span class="bar-pct">${xPct}%</span>
-      </div>
+      <div class="bar-row"><span class="bar-label o">O</span><div class="bar-wrap"><div class="bar-fill o" style="width:${oPct}%"></div></div><span class="bar-pct">${oPct}%</span></div>
+      <div class="bar-row"><span class="bar-label x">X</span><div class="bar-wrap"><div class="bar-fill x" style="width:${xPct}%"></div></div><span class="bar-pct">${xPct}%</span></div>
     </div>`;
   }).join('');
 }
@@ -1839,80 +1128,51 @@ function setClassFilter(cls, el) {
 function setLecFilter(lec) { state.currentLecFilter = lec; renderAnswerStats(); }
 function setSortStats(sort) { state.currentSortStats = sort; renderAnswerStats(); }
 
-// ══════════════════════════════════════════════════
-// X 바로잡기 — Firestore
-// ══════════════════════════════════════════════════
 async function loadCorrections() {
   try {
     const snap = await fs.collection(COL.corrections).orderBy('createdAt', 'desc').limit(500).get();
     state.corrections = [];
     snap.forEach(doc => {
       const d = doc.data();
-      state.corrections.push({
-        id: doc.id,
-        questionId: d.questionId,
-        lec: d.lec,
-        question: d.question,
-        studentId: d.studentId,
-        studentName: d.studentName,
-        text: d.text,
-        createdAt: d.createdAt,
-      });
+      state.corrections.push({ id: doc.id, questionId: d.questionId, lec: d.lec, question: d.question, studentId: d.studentId, studentName: d.studentName, text: d.text, createdAt: d.createdAt });
     });
     renderCorrections();
-  } catch (e) {
-    console.error('X바로잡기 로딩 실패:', e);
-    miniToast('X바로잡기 로딩 실패', 'danger');
-  }
+  } catch (e) { console.error('X바로잡기 로딩 실패:', e); miniToast('X바로잡기 로딩 실패', 'danger'); }
 }
 
 function renderCorrections() {
   const container = document.getElementById('corrections-list');
   if (!container) return;
-
   let filtered = state.corrections;
   if (state.currentCorrSearch) {
     const s = state.currentCorrSearch.toLowerCase();
-    filtered = filtered.filter(c =>
-      (c.studentName||'').toLowerCase().includes(s) ||
-      (c.studentId||'').includes(s) ||
-      (c.text||'').toLowerCase().includes(s)
-    );
+    filtered = filtered.filter(c => (c.studentName||'').toLowerCase().includes(s) || (c.studentId||'').includes(s) || (c.text||'').toLowerCase().includes(s));
   }
-  if (state.currentCorrLec !== 'all') {
-    filtered = filtered.filter(c => String(c.lec) === state.currentCorrLec);
-  }
+  if (state.currentCorrLec !== 'all') filtered = filtered.filter(c => String(c.lec) === state.currentCorrLec);
   if (state.currentCorrSort === 'oldest') filtered = [...filtered].reverse();
   else if (state.currentCorrSort === 'lec') filtered = [...filtered].sort((a,b)=>a.lec-b.lec);
-
   if (filtered.length === 0) {
     container.innerHTML = '<div class="empty-state"><div class="empty-icon">✏️</div><div class="empty-text">X바로잡기 내역이 없습니다</div></div>';
     return;
   }
-
   container.innerHTML = filtered.map(c => {
     const date = c.createdAt && c.createdAt.toDate ? c.createdAt.toDate() : null;
     const dateStr = date ? `${date.getFullYear()}.${String(date.getMonth()+1).padStart(2,'0')}.${String(date.getDate()).padStart(2,'0')} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}` : '';
-
     if (state.editingCorrId === c.id) {
       return `<div class="correction-item">
         <div class="ci-q-text">📌 [${c.lec}강] ${esc(c.question)}</div>
         <textarea class="modal-textarea" id="edit-corr-${c.id}" style="margin-bottom:10px;">${esc(c.text)}</textarea>
         <div class="ci-actions" style="justify-content:flex-end;">
           <button class="btn btn-soft btn-xs" onclick="cancelEditCorr()">취소</button>
-          <button class="btn btn-aqua btn-xs" onclick="saveEditCorr('${c.id}')">저장</button>
+          <button class="btn btn-primary btn-xs" onclick="saveEditCorr('${c.id}')">저장</button>
         </div>
       </div>`;
     }
-
     return `<div class="correction-item">
       <div class="ci-q-text">📌 [${c.lec}강] ${esc(c.question)}</div>
       <div class="ci-content">${esc(c.text)}</div>
       <div class="ci-meta">
-        <div class="ci-author">
-          <span class="author-name">${esc(c.studentId)} ${esc(c.studentName)}</span>
-          <span class="author-date">${dateStr}</span>
-        </div>
+        <div class="ci-author"><span class="author-name">${esc(c.studentId)} ${esc(c.studentName)}</span><span class="author-date">${dateStr}</span></div>
         <div class="ci-actions">
           <button class="btn btn-ghost btn-xs" onclick="startEditCorr('${c.id}')">수정</button>
           <button class="btn btn-danger btn-xs" onclick="deleteCorr('${c.id}')">삭제</button>
@@ -1924,7 +1184,6 @@ function renderCorrections() {
 
 function startEditCorr(id) { state.editingCorrId = id; renderCorrections(); }
 function cancelEditCorr() { state.editingCorrId = null; renderCorrections(); }
-
 async function saveEditCorr(id) {
   const newText = document.getElementById(`edit-corr-${id}`).value.trim();
   if (!newText) { miniToast('내용을 입력하세요', 'danger'); return; }
@@ -1933,43 +1192,26 @@ async function saveEditCorr(id) {
     state.editingCorrId = null;
     miniToast('수정되었습니다');
     loadCorrections();
-  } catch (e) {
-    console.error(e);
-    miniToast('수정 실패', 'danger');
-  }
+  } catch (e) { console.error(e); miniToast('수정 실패', 'danger'); }
 }
-
 async function deleteCorr(id) {
   if (!confirm('이 X바로잡기를 삭제하시겠습니까?')) return;
   try {
     await fs.collection(COL.corrections).doc(id).delete();
     miniToast('삭제되었습니다');
     loadCorrections();
-  } catch (e) {
-    console.error(e);
-    miniToast('삭제 실패', 'danger');
-  }
+  } catch (e) { console.error(e); miniToast('삭제 실패', 'danger'); }
 }
-
 function setCorrSearch(v) { state.currentCorrSearch = v; renderCorrections(); }
 function setCorrLec(v) { state.currentCorrLec = v; renderCorrections(); }
 function setCorrSort(v) { state.currentCorrSort = v; renderCorrections(); }
 
-// ══════════════════════════════════════════════════
-// SETTING — 초기화 & 백업 & 비밀번호
-// ══════════════════════════════════════════════════
 async function confirmReset(type) {
-  const labels = {
-    questions: '문제',
-    rankings: '랭킹',
-    corrections: 'X 바로잡기',
-    all: '문제, 랭킹, X바로잡기, 응답 (전체)'
-  };
+  const labels = { questions: '문제', rankings: '랭킹', corrections: 'X 바로잡기', all: '문제, 랭킹, X바로잡기, 응답 (전체)' };
   const msg = type === 'all'
     ? `⚠️ 정말 전체를 초기화하시겠습니까?\n\n• 등록된 문제\n• 학생 랭킹/점수\n• X바로잡기 노트\n• 응답 기록\n\n모두 삭제되며 되돌릴 수 없습니다.`
     : `정말 ${labels[type]} 데이터를 초기화하시겠습니까?\n\n되돌릴 수 없습니다.`;
   if (!confirm(msg)) return;
-
   miniToast('삭제 중...');
   try {
     if (type === 'questions' || type === 'all') await deleteAllInCollection(COL.questions);
@@ -1980,17 +1222,13 @@ async function confirmReset(type) {
     if (type === 'questions' || type === 'all') loadQuestions();
     if (type === 'corrections' || type === 'all') loadCorrections();
     if (type === 'all') loadAnswerData();
-  } catch (e) {
-    console.error(e);
-    miniToast('초기화 실패: ' + e.message, 'danger');
-  }
+  } catch (e) { console.error(e); miniToast('초기화 실패: ' + e.message, 'danger'); }
 }
 
 async function deleteAllInCollection(colName) {
   const snap = await fs.collection(colName).get();
   const docs = [];
   snap.forEach(d => docs.push(d));
-  // 500개씩 배치 삭제
   for (let i = 0; i < docs.length; i += 400) {
     const batch = fs.batch();
     docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
@@ -1998,7 +1236,6 @@ async function deleteAllInCollection(colName) {
   }
 }
 
-// 백업 - 랭킹
 async function exportRankings() {
   try {
     const snap = await fs.collection(COL.rankings).orderBy('createdAt', 'desc').get();
@@ -2007,17 +1244,7 @@ async function exportRankings() {
     snap.forEach(doc => {
       const d = doc.data();
       const date = d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : null;
-      rows.push({
-        학번: d.studentId,
-        이름: d.studentName,
-        문항수: d.count,
-        점수: d.score,
-        정답수: d.correct || 0,
-        오답수: d.wrong || 0,
-        X바로잡기: d.corrections || 0,
-        한줄소감: d.comment || '',
-        일시: date ? date.toLocaleString('ko-KR') : ''
-      });
+      rows.push({ 학번: d.studentId, 이름: d.studentName, 문항수: d.count, 점수: d.score, 정답수: d.correct || 0, 오답수: d.wrong || 0, X바로잡기: d.corrections || 0, 한줄소감: d.comment || '', 일시: date ? date.toLocaleString('ko-KR') : '' });
     });
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
@@ -2025,13 +1252,9 @@ async function exportRankings() {
     const now = new Date(), pad = n => String(n).padStart(2,'0');
     XLSX.writeFile(wb, `ox퀴즈_랭킹_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.xlsx`);
     miniToast('랭킹 다운로드 완료 📤');
-  } catch (e) {
-    console.error(e);
-    miniToast('내보내기 실패', 'danger');
-  }
+  } catch (e) { console.error(e); miniToast('내보내기 실패', 'danger'); }
 }
 
-// 백업 - X바로잡기
 async function exportCorrections() {
   try {
     const snap = await fs.collection(COL.corrections).orderBy('createdAt', 'desc').get();
@@ -2040,14 +1263,7 @@ async function exportCorrections() {
     snap.forEach(doc => {
       const d = doc.data();
       const date = d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : null;
-      rows.push({
-        강의: d.lec,
-        문제: d.question,
-        학번: d.studentId,
-        이름: d.studentName,
-        바로잡기: d.text,
-        일시: date ? date.toLocaleString('ko-KR') : ''
-      });
+      rows.push({ 강의: d.lec, 문제: d.question, 학번: d.studentId, 이름: d.studentName, 바로잡기: d.text, 일시: date ? date.toLocaleString('ko-KR') : '' });
     });
     const ws = XLSX.utils.json_to_sheet(rows);
     ws['!cols'] = [{wch:8},{wch:60},{wch:10},{wch:10},{wch:80},{wch:20}];
@@ -2056,13 +1272,9 @@ async function exportCorrections() {
     const now = new Date(), pad = n => String(n).padStart(2,'0');
     XLSX.writeFile(wb, `ox퀴즈_X바로잡기_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.xlsx`);
     miniToast('X바로잡기 다운로드 완료 📤');
-  } catch (e) {
-    console.error(e);
-    miniToast('내보내기 실패', 'danger');
-  }
+  } catch (e) { console.error(e); miniToast('내보내기 실패', 'danger'); }
 }
 
-// 비밀번호 변경
 function openPwModal() {
   document.getElementById('pw-old').value = '';
   document.getElementById('pw-new').value = '';
@@ -2075,26 +1287,18 @@ async function changePassword() {
   const oldPw = document.getElementById('pw-old').value;
   const newPw = document.getElementById('pw-new').value;
   const newPw2 = document.getElementById('pw-new2').value;
-
   try {
     const snap = await fs.collection(COL.admin).doc(ADMIN_DOC).get();
     const storedPw = snap.exists ? snap.data().password : DEFAULT_PW;
     if (oldPw !== storedPw) { miniToast('현재 비밀번호가 일치하지 않습니다', 'danger'); return; }
     if (!newPw || newPw.length < 4) { miniToast('새 비밀번호는 4자 이상이어야 합니다', 'danger'); return; }
     if (newPw !== newPw2) { miniToast('새 비밀번호가 일치하지 않습니다', 'danger'); return; }
-
     await fs.collection(COL.admin).doc(ADMIN_DOC).update({ password: newPw, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
     closeModal('modal-pw');
     miniToast('비밀번호가 변경되었습니다 🔒');
-  } catch (e) {
-    console.error(e);
-    miniToast('변경 실패', 'danger');
-  }
+  } catch (e) { console.error(e); miniToast('변경 실패', 'danger'); }
 }
 
-// ══════════════════════════════════════════════════
-// UTILITIES
-// ══════════════════════════════════════════════════
 function esc(str) {
   if (typeof str !== 'string') str = String(str || '');
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;');
@@ -2121,11 +1325,8 @@ function renderAll() {
   loadQuestions();
 }
 
-// 모달 외부 클릭 시 닫기
 document.querySelectorAll('.modal-backdrop').forEach(m => {
-  m.addEventListener('click', e => {
-    if (e.target === m) m.classList.remove('show');
-  });
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); });
 });
 </script>
 </body>

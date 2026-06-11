@@ -1,1044 +1,778 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IDY 역사 열공 마일리지 · 관리자 콘솔</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>역사 마일리지 — 관리자 콘솔</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" crossorigin>
+  <link rel="stylesheet" href="../shared/theme.css">
+  <link rel="stylesheet" href="../shared/admin-base.css">
+  <style>
+    /* ── hismile 고유 스타일 ── */
 
-    <link rel="stylesheet" as="style" crossorigin
-          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-    <link rel="stylesheet" href="../shared/theme.css">
+    /* 서브 탭 (pill 스타일) */
+    .sub-tabs {
+      display: flex; gap: 6px;
+      background: var(--hi-bg-mid);
+      border-radius: 9999px;
+      padding: 4px;
+      margin: 0 0 20px;
+      width: fit-content;
+      border-bottom: none;
+    }
+    .sub-tab {
+      background: transparent; border: none;
+      font-family: inherit;
+      padding: 8px 22px;
+      font-size: 12px; font-weight: 700;
+      color: var(--hi-text-muted);
+      border-radius: 9999px;
+      cursor: pointer; letter-spacing: 0.8px;
+      transition: all 0.15s;
+      border-bottom: none;
+    }
+    .sub-tab:hover:not(.active) { color: var(--hi-text); }
+    .sub-tab.active {
+      background: var(--hi-bg-surface);
+      color: var(--hi-accent);
+      box-shadow: 0 2px 8px rgba(0,0,0,.08);
+      border-bottom-color: transparent;
+    }
 
-    <style>
-        /* ════════════════════════════════════════════════════
-           관리자 콘솔 — hi-preset-admin (라이트 + 블루)
-           ════════════════════════════════════════════════════ */
-        .admin-page { max-width: 1100px; }
+    /* 학생 일괄 등록 카드 */
+    .upload-card {
+      background: var(--hi-bg-surface);
+      border: 1px solid var(--hi-border);
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    .upload-card-title { font-size: 16px; font-weight: 800; color: var(--hi-text); margin-bottom: 4px; }
+    .upload-card-sub { font-size: 13px; color: var(--hi-text-muted); margin-bottom: 16px; }
+    .upload-guide {
+      background: var(--hi-bg-mid);
+      border-left: 3px solid var(--hi-accent);
+      border-radius: 0 8px 8px 0;
+      padding: 12px 16px;
+      font-size: 13px; color: var(--hi-text-soft);
+      line-height: 1.7; margin-bottom: 16px;
+    }
+    .upload-guide b { color: var(--hi-text); }
+    .upload-card textarea { font-family: ui-monospace, monospace !important; font-size: 14px !important; min-height: 140px !important; }
 
-        /* ─── 로그인 ─── */
-        .login-wrap { max-width: 420px; margin: 80px auto; }
-        .login-title {
-            text-align: center; font-size: 24px; font-weight: 900;
-            margin-bottom: 4px; letter-spacing: -0.5px;
-        }
-        .login-title span { color: var(--hi-accent); }
-        .login-sub {
-            text-align: center; font-size: 11px; color: var(--hi-text-muted);
-            margin-bottom: 32px; letter-spacing: 1.4px; text-transform: uppercase;
-            font-weight: 700;
-        }
+    /* 등록 학생 카운트 */
+    .students-count-row { display: flex; align-items: baseline; gap: 8px; margin: 24px 0 12px; }
+    .students-count-label { font-size: 12px; font-weight: 800; letter-spacing: 1px; color: var(--hi-text-muted); text-transform: uppercase; }
+    .students-count-num { font-size: 14px; font-weight: 800; color: var(--hi-accent); }
 
-        /* ─── 서브 탭 (SETTINGS 내부) ─── */
-        .sub-tabs {
-            display: flex; gap: 6px;
-            background: var(--hi-bg-mid);
-            border-radius: var(--hi-r-pill);
-            padding: 4px;
-            margin: 0 auto 24px;
-            width: fit-content;
-            box-shadow: var(--hi-shadow-card);
-        }
-        .sub-tab {
-            background: transparent; border: none;
-            font-family: inherit;
-            padding: 8px 22px;
-            font-size: 12px; font-weight: 700;
-            color: var(--hi-text-muted);
-            border-radius: var(--hi-r-pill);
-            cursor: pointer;
-            letter-spacing: 0.8px;
-            transition: all 0.15s;
-        }
-        .sub-tab:hover:not(.active) { color: var(--hi-text); }
-        .sub-tab.active {
-            background: var(--hi-bg-surface);
-            color: var(--hi-accent);
-            box-shadow: var(--hi-shadow-card);
-        }
+    /* 데이터 행 */
+    .data-row {
+      background: var(--hi-bg-surface);
+      border: 1px solid var(--hi-border);
+      border-radius: 8px;
+      padding: 12px 16px; margin-bottom: 6px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .data-row-cell-id { font-size: 13px; font-weight: 700; width: 60px; flex-shrink: 0; color: var(--hi-text); }
+    .data-row-cell-name { flex: 1; min-width: 0; }
+    .data-row-cell-name .name-main { font-size: 14px; font-weight: 700; color: var(--hi-text); }
+    .data-row-cell-name .name-sub { font-size: 11px; color: var(--hi-text-muted); }
+    .data-row-cell-days { font-size: 16px; font-weight: 800; color: var(--hi-accent); flex-shrink: 0; }
+    .data-row-cell-days small { font-size: 11px; color: var(--hi-text-muted); font-weight: 500; margin-left: 2px; }
 
-        /* ─── 학생 일괄 등록 카드 (가독성 강조) ─── */
-        .upload-card {
-            background: var(--hi-bg-surface);
-            border: 1px solid var(--hi-border);
-            border-radius: var(--hi-r-card);
-            padding: 28px;
-            margin-bottom: 24px;
-            box-shadow: var(--hi-shadow-card);
-        }
-        .upload-card-title {
-            font-size: 18px; font-weight: 800;
-            color: var(--hi-text); margin-bottom: 4px;
-            letter-spacing: -0.3px;
-        }
-        .upload-card-sub {
-            font-size: 13px; color: var(--hi-text-muted);
-            margin-bottom: 20px;
-        }
-        .upload-guide {
-            background: var(--hi-bg-mid);
-            border-left: 3px solid var(--hi-accent);
-            border-radius: 0 var(--hi-r-input) var(--hi-r-input) 0;
-            padding: 14px 18px;
-            font-size: 13px;
-            color: var(--hi-text-soft);
-            line-height: 1.7;
-            margin-bottom: 18px;
-        }
-        .upload-guide b { color: var(--hi-text); }
-        .upload-card textarea {
-            font-family: ui-monospace, monospace !important;
-            font-size: 14px !important;
-            min-height: 160px !important;
-        }
+    /* 필터 행 */
+    .filter-row { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap; }
+    .filter-row .hi-select, .filter-row .hi-input { width: auto; min-width: 120px; }
+    .filter-row input[type="text"].hi-input { min-width: 200px; }
 
-        /* ─── 등록 학생 카운트 헤더 ─── */
-        .students-count-row {
-            display: flex; align-items: baseline; gap: 8px;
-            margin: 28px 0 14px;
-        }
-        .students-count-label {
-            font-size: 12px; font-weight: 800;
-            letter-spacing: 1px; color: var(--hi-text-muted);
-            text-transform: uppercase;
-        }
-        .students-count-num {
-            font-size: 14px; font-weight: 800;
-            color: var(--hi-accent);
-            font-feature-settings: 'tnum';
-        }
+    /* 인증 카드 */
+    .cert-detail {
+      display: flex; gap: 14px; align-items: flex-start;
+      background: var(--hi-bg-surface);
+      border: 1px solid var(--hi-border);
+      border-radius: 12px;
+      padding: 14px; margin-bottom: 8px;
+    }
+    .cert-thumb {
+      width: 72px; height: 72px; border-radius: 8px;
+      object-fit: cover; background: var(--hi-bg-mid);
+      cursor: pointer; flex-shrink: 0;
+      border: 1px solid var(--hi-border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; color: var(--hi-text-muted);
+    }
+    .cert-detail .body { flex: 1; min-width: 0; }
+    .cert-detail .body .name { font-weight: 700; font-size: 14px; color: var(--hi-text); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+    .cert-detail .body .name .meta-inline { font-weight: 500; color: var(--hi-text-muted); font-size: 12px; }
+    .cert-detail .body .content { font-size: 13px; color: var(--hi-text-soft); margin: 4px 0; line-height: 1.5; }
+    .cert-detail .body .meta { font-size: 11px; color: var(--hi-text-muted); }
+    .cert-detail .actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 
-        /* ─── 데이터 행 ─── */
-        .data-row {
-            background: var(--hi-bg-surface);
-            border: 1px solid var(--hi-border);
-            border-radius: var(--hi-r-input);
-            padding: 12px 16px; margin-bottom: 6px;
-            display: flex; align-items: center; gap: 12px;
-        }
-        .data-row-cell-id {
-            font-size: 13px; font-weight: 700;
-            font-feature-settings: 'tnum';
-            width: 60px; flex-shrink: 0;
-            color: var(--hi-text);
-        }
-        .data-row-cell-name {
-            flex: 1; min-width: 0;
-        }
-        .data-row-cell-name .name-main {
-            font-size: 14px; font-weight: 700; color: var(--hi-text);
-        }
-        .data-row-cell-name .name-sub {
-            font-size: 11px; color: var(--hi-text-muted);
-        }
-        .data-row-cell-days {
-            font-size: 16px; font-weight: 800; color: var(--hi-accent);
-            font-feature-settings: 'tnum'; flex-shrink: 0;
-        }
-        .data-row-cell-days small {
-            font-size: 11px; color: var(--hi-text-muted);
-            font-weight: 500; margin-left: 2px;
-        }
+    /* 배지 */
+    .badge { display: inline-flex; align-items: center; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 9999px; letter-spacing: 0.3px; }
+    .badge-pass { background: #dcfce7; color: #16a34a; }
+    .badge-fail { background: #fee2e2; color: #dc2626; }
+    .badge-pending { background: #fef3c7; color: #d97706; }
+    .badge-override { background: #fef3c7; color: #d97706; margin-left: 4px; }
 
-        /* ─── 관리자 헤더 서브 텍스트 ─── */
-        .hi-header-title .admin-console {
-            font-size: 13px; font-weight: 600;
-            color: var(--hi-text-muted);
-            margin-left: 8px; letter-spacing: 0.3px;
-            vertical-align: middle;
-        }
+    /* 설정 카드 */
+    .setting-card {
+      background: var(--hi-bg-surface);
+      border: 1px solid var(--hi-border);
+      border-radius: 12px;
+      padding: 22px;
+      margin-bottom: 14px;
+    }
+    .setting-card.danger { border-color: var(--hi-negative); background: rgba(220,38,38,.03); }
+    .setting-card .setting-label { font-size: 15px; font-weight: 800; color: var(--hi-text); margin-bottom: 6px; }
+    .setting-card.danger .setting-label { color: var(--hi-negative); }
+    .setting-card .setting-desc { font-size: 13px; color: var(--hi-text-muted); margin-bottom: 14px; line-height: 1.7; }
 
-        /* ─── 필터 ─── */
-        #tab-certs .filter-row { justify-content: center; }
-        .filter-row {
-            display: flex; gap: 10px; margin-bottom: 16px;
-            align-items: center; flex-wrap: wrap;
-        }
-        .filter-row .hi-select,
-        .filter-row .hi-input {
-            width: auto; min-width: 120px;
-            padding: 9px 14px;
-        }
-        .filter-row .hi-select { padding-right: 38px; }
-        .filter-row input[type="text"].hi-input { min-width: 200px; }
+    /* 버튼 중앙 행 */
+    .btn-row-center { display: flex; gap: 10px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
 
-        /* ─── 인증 카드 ─── */
-        .cert-detail {
-            display: flex; gap: 14px; align-items: flex-start;
-            background: var(--hi-bg-surface);
-            border: 1px solid var(--hi-border);
-            border-radius: var(--hi-r-card);
-            padding: 14px; margin-bottom: 8px;
-        }
-        .cert-thumb {
-            width: 72px; height: 72px;
-            border-radius: var(--hi-r-input);
-            object-fit: cover; background: var(--hi-bg-mid);
-            cursor: pointer; flex-shrink: 0;
-            border: 1px solid var(--hi-border);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 28px; color: var(--hi-text-muted);
-        }
-        .cert-detail .body { flex: 1; min-width: 0; }
-        .cert-detail .body .name {
-            font-weight: 700; font-size: 14px;
-            color: var(--hi-text); display: flex; align-items: center;
-            gap: 8px; flex-wrap: wrap; margin-bottom: 4px;
-        }
-        .cert-detail .body .name .meta-inline {
-            font-weight: 500; color: var(--hi-text-muted); font-size: 12px;
-        }
-        .cert-detail .body .content {
-            font-size: 13px; color: var(--hi-text-soft);
-            margin: 4px 0; line-height: 1.5;
-        }
-        .cert-detail .body .meta {
-            font-size: 11px; color: var(--hi-text-muted);
-            font-feature-settings: 'tnum';
-        }
-        .cert-detail .actions {
-            display: flex; gap: 6px; flex-wrap: wrap;
-            margin-top: 10px;
-            justify-content: center;
-        }
+    /* 데이터 행 액션 */
+    .row-actions { display: flex; gap: 6px; margin-left: auto; flex-shrink: 0; }
 
-        /* ─── 배지 ─── */
-        .badge {
-            display: inline-flex; align-items: center;
-            font-size: 11px; font-weight: 700;
-            padding: 3px 10px; border-radius: var(--hi-r-pill);
-            letter-spacing: 0.3px;
-        }
-        .badge-pass { background: #dcfce7; color: #16a34a; }
-        .badge-fail { background: #fee2e2; color: #dc2626; }
-        .badge-override {
-            background: #fef3c7; color: #d97706;
-            margin-left: 4px;
-        }
+    /* 사진 모달 */
+    .photo-modal {
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,.85);
+      display: none; align-items: center; justify-content: center;
+      cursor: zoom-out; padding: 24px;
+    }
+    .photo-modal.open { display: flex; }
+    .photo-modal img { max-width: 100%; max-height: 100%; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
 
-        /* ─── 설정 카드 ─── */
-        .setting-row {
-            background: var(--hi-bg-surface);
-            border: 1px solid var(--hi-border);
-            border-radius: var(--hi-r-card);
-            padding: 24px;
-            margin-bottom: 14px;
-        }
-        .setting-row.danger {
-            border-color: var(--hi-negative);
-            background: rgba(220, 38, 38, 0.03);
-        }
-        .setting-row .setting-label {
-            font-size: 16px; font-weight: 800;
-            color: var(--hi-text); margin-bottom: 6px;
-            letter-spacing: -0.3px;
-        }
-        .setting-row .setting-desc {
-            font-size: 13px; color: var(--hi-text-muted);
-            margin-bottom: 14px; line-height: 1.7;
-        }
-        .setting-row.danger .setting-label { color: var(--hi-negative); }
-
-        /* ─── 버튼 중앙정렬 행 ─── */
-        .btn-row-center {
-            display: flex; gap: 10px;
-            justify-content: center;
-            margin-top: 14px;
-            flex-wrap: wrap;
-        }
-
-        /* ─── 학생 행 액션 (인라인, 중앙정렬) ─── */
-        .row-actions {
-            display: flex; gap: 6px;
-            margin-left: auto;
-            flex-shrink: 0;
-            justify-content: center;
-        }
-
-        /* ─── 사진 모달 ─── */
-        .photo-modal {
-            position: fixed; inset: 0; z-index: 9999;
-            background: rgba(0, 0, 0, 0.85);
-            display: none; align-items: center; justify-content: center;
-            cursor: zoom-out; padding: 24px;
-        }
-        .photo-modal.open { display: flex; }
-        .photo-modal img {
-            max-width: 100%; max-height: 100%;
-            border-radius: var(--hi-r-card);
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-        }
-
-        /* ─── 모달 액션 중앙정렬 ─── */
-        .hi-modal-actions {
-            justify-content: center !important;
-        }
-
-        @media (max-width: 600px) {
-            .data-row { flex-wrap: wrap; }
-            .row-actions { width: 100%; margin-left: 0; margin-top: 8px; justify-content: center; }
-            .filter-row { gap: 8px; }
-            .filter-row > * { width: 100%; }
-        }
-    </style>
+    @media (max-width: 600px) {
+      .data-row { flex-wrap: wrap; }
+      .row-actions { width: 100%; margin-left: 0; margin-top: 8px; justify-content: center; }
+      .filter-row { gap: 8px; }
+      .filter-row > * { width: 100%; }
+    }
+  </style>
 </head>
-
 <body class="hi-preset-admin">
-<div class="hi-page admin-page">
 
-    <!-- ════════════════════════════════════════
-         로그인
-         ════════════════════════════════════════ -->
-    <div id="screen-login">
-        <div class="login-wrap">
-            <h1 class="login-title">역사 열공 <span>마일리지</span></h1>
-            <p class="login-sub">관리자 콘솔</p>
-
-            <div class="hi-card">
-                <div class="hi-form-group">
-                    <label class="hi-label">관리자 비밀번호</label>
-                    <input class="hi-input" type="password" id="login-pw"
-                           placeholder="비밀번호"
-                           onkeydown="if(event.key==='Enter')window.doAdminLogin()">
-                    <div class="hi-verify-msg" id="login-msg"></div>
-                </div>
-                <button class="hi-btn hi-btn-primary hi-btn-block"
-                        onclick="window.doAdminLogin()">접속</button>
-            </div>
-
-            <p style="text-align:center;margin-top:24px;">
-                <a href="index.html" style="font-size:12px;color:var(--hi-text-muted);text-decoration:none;font-weight:700;letter-spacing:0.5px;">
-                    학생 페이지로
-                </a>
-            </p>
-        </div>
-    </div>
-
-    <!-- ════════════════════════════════════════
-         메인
-         ════════════════════════════════════════ -->
-    <div id="screen-main" class="hi-hidden">
-
-        <header class="hi-header">
-            <h1 class="hi-header-title">역사 열공 마일리지<span class="admin-console">관리자 콘솔</span></h1>
-            <div class="hi-header-controls">
-                <a href="index.html" class="hi-btn hi-btn-outline hi-btn-sm">학생 페이지</a>
-                <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="window.adminLogout()">로그아웃</button>
-            </div>
-        </header>
-
-        <!-- 메인 탭: CERTS / SETTINGS -->
-        <div class="hi-tabs">
-            <button class="hi-tab active" id="tab-btn-certs" onclick="window.switchTab('certs')">CERTS</button>
-            <button class="hi-tab" id="tab-btn-settings" onclick="window.switchTab('settings')">SETTINGS</button>
-        </div>
-
-        <!-- ─── CERTS ─── -->
-        <div id="tab-certs">
-            <div class="filter-row">
-                <select class="hi-select" id="certs-class-filter" onchange="window.renderCerts()">
-                    <option value="all">전체 반</option>
-                </select>
-                <select class="hi-select" id="certs-result-filter" onchange="window.renderCerts()">
-                    <option value="all">전체 결과</option>
-                    <option value="pending">⏳ 보류 (검토 필요)</option>
-                    <option value="pass">통과</option>
-                    <option value="fail">실패</option>
-                </select>
-                <input class="hi-input" type="date" id="certs-date-filter"
-                       onchange="window.renderCerts()">
-                <button class="hi-btn hi-btn-outline hi-btn-sm"
-                        onclick="window.clearCertsFilter()">필터 초기화</button>
-            </div>
-            <div id="certs-list"></div>
-        </div>
-
-        <!-- ─── SETTINGS (내부에 sub-tabs) ─── -->
-        <div id="tab-settings" class="hi-hidden">
-
-            <!-- 서브 탭 -->
-            <div class="sub-tabs">
-                <button class="sub-tab active" id="sub-btn-students"
-                        onclick="window.switchSubTab('students')">학생 관리</button>
-                <button class="sub-tab" id="sub-btn-general"
-                        onclick="window.switchSubTab('general')">일반 설정</button>
-            </div>
-
-            <!-- 학생 관리 sub-tab -->
-            <div id="sub-students">
-
-                <!-- 일괄 등록 카드 (가독성 강조) -->
-                <div class="upload-card">
-                    <div class="upload-card-title">📥 학생 명단 일괄 등록</div>
-                    <div class="upload-card-sub">엑셀에서 학번·이름 두 열을 그대로 복사해 붙여넣으세요</div>
-
-                    <div class="upload-guide">
-                        <b>입력 형식</b> · 한 줄에 <b>학번(5자리) + 이름</b><br>
-                        구분자: 탭 · 공백 · 콤마 모두 인식<br>
-                        같은 학번이면 <b>이름 업데이트</b>, 새 학번이면 <b>신규 추가</b>
-                    </div>
-
-                    <textarea class="hi-textarea" id="bulk-input" rows="7"
-                              placeholder="10101&#9;홍길동&#13;&#10;10102&#9;김철수&#13;&#10;10103&#9;이영희&#13;&#10;10201&#9;박지민"></textarea>
-
-                    <div class="btn-row-center">
-                        <button class="hi-btn hi-btn-primary" onclick="window.bulkUpload()">추가 / 업데이트</button>
-                        <button class="hi-btn hi-btn-outline" onclick="document.getElementById('bulk-input').value=''">지우기</button>
-                    </div>
-                </div>
-
-                <!-- 등록 학생 목록 -->
-                <div class="students-count-row">
-                    <span class="students-count-label">등록 학생</span>
-                    <span class="students-count-num" id="students-total-count">0명</span>
-                </div>
-
-                <div class="filter-row">
-                    <select class="hi-select" id="students-class-filter" onchange="window.renderStudents()">
-                        <option value="all">전체 반</option>
-                    </select>
-                    <input class="hi-input" type="text" id="students-search"
-                           placeholder="이름 또는 학번 검색"
-                           oninput="window.renderStudents()">
-                </div>
-                <div id="students-list"></div>
-            </div>
-
-            <!-- 일반 설정 sub-tab -->
-            <div id="sub-general" class="hi-hidden">
-
-                <div class="setting-row">
-                    <div class="setting-label">🤖 Claude API 키</div>
-                    <div class="setting-desc">
-                        스터디 체크 사진 판정에 사용되는 Anthropic API 키예요.<br>
-                        <a href="https://console.anthropic.com/" target="_blank"
-                           style="color:var(--hi-accent);font-weight:700;">Anthropic Console</a>에서 발급받으세요.
-                    </div>
-                    <input class="hi-input" type="password" id="setting-api-key"
-                           placeholder="sk-ant-api03-...">
-                    <div class="btn-row-center">
-                        <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="window.saveApiKey()">저장</button>
-                        <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="window.toggleApiKeyVisible()">표시 / 숨김</button>
-                    </div>
-                    <div id="api-key-status" style="font-size:12px;color:var(--hi-text-muted);margin-top:12px;font-weight:600;text-align:center;"></div>
-                </div>
-
-                <div class="setting-row">
-                    <div class="setting-label">📅 공휴일 관리</div>
-                    <div class="setting-desc">
-                        토·일요일은 <b>자동으로 주말 규칙(오전 6시 이후 인증 가능)</b>이 적용돼요. 따로 입력 안 해도 됩니다.<br>
-                        평일이지만 학교가 쉬는 날(삼일절, 어린이날 등)만 추가하세요. 한 줄에 하나씩 <code style="background:var(--hi-bg-mid);padding:1px 6px;border-radius:4px;">YYYY-MM-DD</code> 형식.
-                    </div>
-                    <textarea class="hi-textarea" id="setting-holidays" rows="5"
-                              style="font-family:ui-monospace,monospace;min-height:120px;font-size:13px;"
-                              placeholder="2026-03-01&#13;&#10;2026-05-05&#13;&#10;2026-06-06"></textarea>
-                    <div class="btn-row-center">
-                        <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="window.saveHolidays()">저장</button>
-                    </div>
-                </div>
-
-                <div class="setting-row">
-                    <div class="setting-label">🔐 관리자 비밀번호 변경</div>
-                    <div class="setting-desc">새 비밀번호는 4자 이상으로 설정하세요.</div>
-                    <input class="hi-input" type="password" id="setting-new-pw"
-                           placeholder="새 비밀번호" style="margin-bottom: 8px;">
-                    <input class="hi-input" type="password" id="setting-new-pw2"
-                           placeholder="비밀번호 확인">
-                    <div class="btn-row-center">
-                        <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="window.changeAdminPw()">변경</button>
-                    </div>
-                </div>
-
-                <div class="setting-row danger">
-                    <div class="setting-label">⚠️ 위험 영역</div>
-                    <div class="setting-desc">
-                        <b>인증 기록 전체 삭제</b> · 학생 명단과 누적 일수는 유지됩니다.<br>
-                        이 작업은 <b>되돌릴 수 없습니다.</b>
-                    </div>
-                    <div class="btn-row-center">
-                        <button class="hi-btn hi-btn-outline hi-btn-sm hi-btn-danger"
-                                onclick="window.resetAllCerts()">모든 인증 기록 삭제</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <footer class="hi-footer">
-        <p class="hi-footer-tag">관리자 콘솔 <span>✦</span> HOISTORY</p>
-    </footer>
+<!-- 로그인 -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-icon">😊</div>
+    <div class="login-title">역사 마일리지</div>
+    <div class="login-sub">관리자 콘솔</div>
+    <input type="password" class="hi-input" id="login-pw"
+           placeholder="비밀번호"
+           onkeydown="if(event.key==='Enter') window.doAdminLogin()"
+           style="text-align:center;letter-spacing:3px;margin-bottom:12px;">
+    <button class="hi-btn hi-btn-primary hi-btn-block" onclick="window.doAdminLogin()">접속하기</button>
+    <div class="login-err" id="login-err"></div>
+    <div class="login-foot"><a href="index.html">← 학생 페이지로</a></div>
+  </div>
 </div>
 
-<!-- ─── 학생 정보 수정 모달 ─── -->
-<div id="student-edit-modal" class="hi-modal-backdrop" style="display:none;">
-    <div class="hi-modal">
-        <h3 class="hi-modal-title">학생 정보 수정</h3>
-        <p class="hi-modal-desc">학번은 식별자이므로 변경할 수 없어요. 잘못된 학번은 삭제 후 재등록하세요.</p>
-        <div class="hi-form-group">
-            <label class="hi-label">학번</label>
-            <input class="hi-input" id="edit-id" type="text" disabled>
-        </div>
-        <div class="hi-form-group">
-            <label class="hi-label">이름</label>
-            <input class="hi-input" id="edit-name" type="text">
-        </div>
-        <div class="hi-form-group">
-            <label class="hi-label">누적 일수 (직접 수정)</label>
-            <input class="hi-input" id="edit-days" type="number" min="0">
-        </div>
-        <div class="hi-modal-actions">
-            <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="window.closeStudentEdit()">취소</button>
-            <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="window.saveStudentEdit()">저장</button>
-        </div>
+<!-- 어드민 앱 -->
+<div id="adminApp" style="display:none;">
+  <header class="topbar">
+    <div class="topbar-left">
+      <a href="../admin.html" class="topbar-back">← 콘솔</a>
+      <span class="topbar-title">😊 역사 마일리지</span>
+      <span class="topbar-badge">ADMIN</span>
     </div>
+    <div class="topbar-right">
+      <a href="index.html" class="topbar-link">학생 화면</a>
+      <button class="topbar-logout" onclick="window.adminLogout()">로그아웃</button>
+    </div>
+  </header>
+
+  <div class="main-tabs">
+    <button class="main-tab active" id="tab-btn-certs" onclick="window.switchTab('certs')">CERTS</button>
+    <button class="main-tab" id="tab-btn-settings" onclick="window.switchTab('settings')">SETTINGS</button>
+  </div>
+
+  <!-- CERTS -->
+  <div id="tab-certs" class="panel-section active">
+    <div class="admin-container">
+      <div class="filter-row">
+        <select class="hi-select" id="certs-class-filter" onchange="window.renderCerts()">
+          <option value="all">전체 반</option>
+        </select>
+        <select class="hi-select" id="certs-result-filter" onchange="window.renderCerts()">
+          <option value="all">전체 결과</option>
+          <option value="pending">⏳ 보류 (검토 필요)</option>
+          <option value="pass">통과</option>
+          <option value="fail">실패</option>
+        </select>
+        <input class="hi-input" type="date" id="certs-date-filter" onchange="window.renderCerts()">
+        <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="window.clearCertsFilter()">필터 초기화</button>
+      </div>
+      <div id="certs-list"></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS -->
+  <div id="tab-settings" class="panel-section">
+    <div class="admin-container">
+      <div class="sub-tabs">
+        <button class="sub-tab active" id="sub-btn-students" onclick="window.switchSubTab('students')">학생 관리</button>
+        <button class="sub-tab" id="sub-btn-general" onclick="window.switchSubTab('general')">일반 설정</button>
+      </div>
+
+      <!-- 학생 관리 -->
+      <div id="sub-students" class="panel-section active">
+        <div class="upload-card">
+          <div class="upload-card-title">📥 학생 명단 일괄 등록</div>
+          <div class="upload-card-sub">엑셀에서 학번·이름 두 열을 그대로 복사해 붙여넣으세요</div>
+          <div class="upload-guide">
+            <b>입력 형식</b> · 한 줄에 <b>학번(5자리) + 이름</b><br>
+            구분자: 탭 · 공백 · 콤마 모두 인식<br>
+            같은 학번이면 <b>이름 업데이트</b>, 새 학번이면 <b>신규 추가</b>
+          </div>
+          <textarea class="hi-textarea" id="bulk-input" rows="7"
+                    placeholder="10101&#9;홍길동&#13;&#10;10102&#9;김철수&#13;&#10;10103&#9;이영희"></textarea>
+          <div class="btn-row-center">
+            <button class="hi-btn hi-btn-primary" onclick="window.bulkUpload()">추가 / 업데이트</button>
+            <button class="hi-btn hi-btn-outline" onclick="document.getElementById('bulk-input').value=''">지우기</button>
+          </div>
+        </div>
+
+        <div class="students-count-row">
+          <span class="students-count-label">등록 학생</span>
+          <span class="students-count-num" id="students-total-count">0명</span>
+        </div>
+        <div class="filter-row">
+          <select class="hi-select" id="students-class-filter" onchange="window.renderStudents()">
+            <option value="all">전체 반</option>
+          </select>
+          <input class="hi-input" type="text" id="students-search"
+                 placeholder="이름 또는 학번 검색"
+                 oninput="window.renderStudents()">
+        </div>
+        <div id="students-list"></div>
+      </div>
+
+      <!-- 일반 설정 -->
+      <div id="sub-general" class="panel-section">
+        <div class="setting-card">
+          <div class="setting-label">🤖 Claude API 키</div>
+          <div class="setting-desc">
+            스터디 체크 사진 판정에 사용되는 Anthropic API 키예요.<br>
+            <a href="https://console.anthropic.com/" target="_blank" style="color:var(--hi-accent);font-weight:700;">Anthropic Console</a>에서 발급받으세요.
+          </div>
+          <input class="hi-input" type="password" id="setting-api-key" placeholder="sk-ant-api03-...">
+          <div class="btn-row-center">
+            <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="window.saveApiKey()">저장</button>
+            <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="window.toggleApiKeyVisible()">표시 / 숨김</button>
+          </div>
+          <div id="api-key-status" style="font-size:12px;color:var(--hi-text-muted);margin-top:12px;font-weight:600;text-align:center;"></div>
+        </div>
+
+        <div class="setting-card">
+          <div class="setting-label">📅 공휴일 관리</div>
+          <div class="setting-desc">
+            토·일요일은 <b>자동으로 주말 규칙</b>이 적용돼요. 따로 입력 안 해도 됩니다.<br>
+            평일이지만 학교가 쉬는 날만 추가하세요. 한 줄에 하나씩 <code style="background:var(--hi-bg-mid);padding:1px 6px;border-radius:4px;">YYYY-MM-DD</code> 형식.
+          </div>
+          <textarea class="hi-textarea" id="setting-holidays" rows="5"
+                    style="font-family:ui-monospace,monospace;min-height:120px;font-size:13px;"
+                    placeholder="2026-03-01&#13;&#10;2026-05-05&#13;&#10;2026-06-06"></textarea>
+          <div class="btn-row-center">
+            <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="window.saveHolidays()">저장</button>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <div class="setting-label">🔐 관리자 비밀번호 변경</div>
+          <div class="setting-desc">새 비밀번호는 4자 이상으로 설정하세요.</div>
+          <input class="hi-input" type="password" id="setting-new-pw" placeholder="새 비밀번호" style="margin-bottom:8px;">
+          <input class="hi-input" type="password" id="setting-new-pw2" placeholder="비밀번호 확인">
+          <div class="btn-row-center">
+            <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="window.changeAdminPw()">변경</button>
+          </div>
+        </div>
+
+        <div class="setting-card danger">
+          <div class="setting-label">⚠️ 위험 영역</div>
+          <div class="setting-desc">
+            <b>인증 기록 전체 삭제</b> · 학생 명단과 누적 일수는 유지됩니다.<br>
+            이 작업은 <b>되돌릴 수 없습니다.</b>
+          </div>
+          <div class="btn-row-center">
+            <button class="hi-btn hi-btn-outline hi-btn-sm" style="color:var(--hi-negative);border-color:var(--hi-negative);"
+                    onclick="window.resetAllCerts()">모든 인증 기록 삭제</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
-<!-- ─── 사진 확대 모달 ─── -->
+<!-- 학생 정보 수정 모달 -->
+<div id="student-edit-modal" class="confirm-overlay" style="display:none;">
+  <div class="confirm-box" style="max-width:400px;">
+    <h3>학생 정보 수정</h3>
+    <p>학번은 식별자이므로 변경할 수 없어요. 잘못된 학번은 삭제 후 재등록하세요.</p>
+    <div class="field-group">
+      <label class="field-label">학번</label>
+      <input class="hi-input" id="edit-id" type="text" disabled>
+    </div>
+    <div class="field-group">
+      <label class="field-label">이름</label>
+      <input class="hi-input" id="edit-name" type="text">
+    </div>
+    <div class="field-group">
+      <label class="field-label">누적 일수 (직접 수정)</label>
+      <input class="hi-input" id="edit-days" type="number" min="0">
+    </div>
+    <div class="confirm-actions" style="justify-content:center;">
+      <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="window.closeStudentEdit()">취소</button>
+      <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="window.saveStudentEdit()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 사진 확대 모달 -->
 <div id="photo-modal" class="photo-modal" onclick="this.classList.remove('open')">
-    <img id="photo-modal-img" src="" alt="">
+  <img id="photo-modal-img" src="" alt="">
 </div>
 
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import {
-        getDatabase, ref, set, push, get, onValue, update, remove
-    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import {
+    getDatabase, ref, set, push, get, onValue, update, remove
+  } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-    import { showToast, showRichToast } from "../shared/toast.js";
+  import { showToast, showRichToast } from "../shared/toast.js";
 
-    // ─────────────────────────────────────
-    // Firebase (학생 페이지와 같은 프로젝트)
-    // ─────────────────────────────────────
-    const firebaseConfig = {
-        apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
-        authDomain: "ho0911seong-56638.firebaseapp.com",
-        databaseURL: "https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "ho0911seong-56638",
-        storageBucket: "ho0911seong-56638.firebasestorage.app",
-        messagingSenderId: "994509567071",
-        appId: "1:994509567071:web:be8ed4e8e9b0a833f557ea"
-    };
+  const firebaseConfig = {
+    apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+    authDomain: "ho0911seong-56638.firebaseapp.com",
+    databaseURL: "https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "ho0911seong-56638",
+    storageBucket: "ho0911seong-56638.firebasestorage.app",
+    messagingSenderId: "994509567071",
+    appId: "1:994509567071:web:be8ed4e8e9b0a833f557ea"
+  };
 
-    // ⚠️ 기본 관리자 비밀번호 — 첫 접속 후 즉시 SETTINGS → 일반 설정에서 변경하세요
-    const DEFAULT_ADMIN_PW = "hoseong2026";
+  const DEFAULT_ADMIN_PW = "hoseong2026";
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
 
-    // ─────────────────────────────────────
-    // 상태
-    // ─────────────────────────────────────
-    let students = [];
-    let allCerts = [];
-    let mileage = {};
-    let config = {};
-    let editingStudentId = null;
+  let students = [];
+  let allCerts = [];
+  let mileage = {};
+  let config = {};
+  let editingStudentId = null;
 
-    // ─────────────────────────────────────
-    // 데이터 구독
-    // ─────────────────────────────────────
-    onValue(ref(db, 'students'), snap => {
-        const data = snap.val() || {};
-        students = Object.entries(data)
-            .map(([key, s]) => {
-                if (!s) return null;
-                const sid = String(s.studentId || s.id || '');
-                if (!sid) return null;
-                return {
-                    key,
-                    studentId: sid,
-                    num: parseInt(sid, 10),
-                    name: s.name || s.studentName || s.realName || '',
-                    cls: sid.length === 5 ? sid.charAt(2) : ''
-                };
-            })
-            .filter(s => s && !isNaN(s.num) && s.name)
-            .sort((a, b) => a.num - b.num);
-        renderAll();
+  onValue(ref(db, 'students'), snap => {
+    const data = snap.val() || {};
+    students = Object.entries(data)
+      .map(([key, s]) => {
+        if (!s) return null;
+        const sid = String(s.studentId || s.id || '');
+        if (!sid) return null;
+        return {
+          key,
+          studentId: sid,
+          num: parseInt(sid, 10),
+          name: s.name || s.studentName || s.realName || '',
+          cls: sid.length === 5 ? sid.charAt(2) : ''
+        };
+      })
+      .filter(s => s && !isNaN(s.num) && s.name)
+      .sort((a, b) => a.num - b.num);
+    renderAll();
+  });
+
+  onValue(ref(db, 'historyMileage'), snap => {
+    const data = snap.val() || {};
+    allCerts = data.studyCert
+      ? Object.entries(data.studyCert).map(([id, c]) => ({ id, ...c }))
+      : [];
+    mileage = data.mileage || {};
+    config = data.config || {};
+
+    const apiStatusEl = document.getElementById('api-key-status');
+    if (apiStatusEl) {
+      apiStatusEl.textContent = config.claudeApiKey
+        ? `✓ 키 등록됨 (${config.claudeApiKey.slice(0, 12)}...${config.claudeApiKey.slice(-4)})`
+        : '⚠ 아직 키가 등록되지 않았어요. 스터디 체크가 동작하지 않습니다.';
+      apiStatusEl.style.color = config.claudeApiKey ? 'var(--hi-accent)' : 'var(--hi-negative)';
+    }
+
+    const holEl = document.getElementById('setting-holidays');
+    if (holEl && !holEl.dataset.initialized) {
+      holEl.value = (config.holidays || []).join('\n');
+      holEl.dataset.initialized = '1';
+    }
+
+    renderAll();
+  });
+
+  /* ── 로그인 ── */
+  window.doAdminLogin = async () => {
+    const pw = document.getElementById('login-pw').value;
+    const err = document.getElementById('login-err');
+    err.textContent = ''; err.classList.remove('show');
+
+    if (!pw) {
+      err.textContent = '비밀번호를 입력해주세요';
+      err.classList.add('show'); return;
+    }
+
+    try {
+      const snap = await get(ref(db, 'historyMileage/config/adminPw'));
+      const storedPw = snap.val() || DEFAULT_ADMIN_PW;
+      if (pw === storedPw) {
+        sessionStorage.setItem('hi_admin_ok', '1');
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('adminApp').style.display = 'block';
+        document.getElementById('login-pw').value = '';
+        showToast('관리자 로그인 완료');
+      } else {
+        err.textContent = '비밀번호가 일치하지 않습니다';
+        err.classList.add('show');
+      }
+    } catch (e) {
+      console.error(e);
+      err.textContent = '로그인 중 오류가 발생했어요';
+      err.classList.add('show');
+    }
+  };
+
+  window.adminLogout = () => {
+    sessionStorage.removeItem('hi_admin_ok');
+    document.getElementById('adminApp').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+    showToast('로그아웃 되었습니다');
+  };
+
+  window.addEventListener('DOMContentLoaded', () => {
+    if (sessionStorage.getItem('hi_admin_ok') === '1') {
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('adminApp').style.display = 'block';
+    }
+  });
+
+  /* ── 탭 ── */
+  window.switchTab = (tab) => {
+    ['certs', 'settings'].forEach(t => {
+      document.getElementById(`tab-btn-${t}`).classList.toggle('active', t === tab);
+      document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
     });
+    if (tab === 'certs') { populateCertsClassFilter(); window.renderCerts(); }
+    if (tab === 'settings') { populateStudentClassFilter(); window.renderStudents(); }
+  };
 
-    onValue(ref(db, 'historyMileage'), snap => {
-        const data = snap.val() || {};
-        allCerts = data.studyCert
-            ? Object.entries(data.studyCert).map(([id, c]) => ({ id, ...c }))
-            : [];
-        mileage = data.mileage || {};
-        config = data.config || {};
-
-        // API key 상태 표시
-        const apiStatusEl = document.getElementById('api-key-status');
-        if (apiStatusEl) {
-            apiStatusEl.textContent = config.claudeApiKey
-                ? `✓ 키 등록됨 (${config.claudeApiKey.slice(0, 12)}...${config.claudeApiKey.slice(-4)})`
-                : '⚠ 아직 키가 등록되지 않았어요. 스터디 체크가 동작하지 않습니다.';
-            apiStatusEl.style.color = config.claudeApiKey
-                ? 'var(--hi-accent)' : 'var(--hi-negative)';
-        }
-
-        // 공휴일 textarea 채우기 (한 번만)
-        const holEl = document.getElementById('setting-holidays');
-        if (holEl && !holEl.dataset.initialized) {
-            holEl.value = (config.holidays || []).join('\n');
-            holEl.dataset.initialized = '1';
-        }
-
-        renderAll();
+  window.switchSubTab = (sub) => {
+    ['students', 'general'].forEach(s => {
+      document.getElementById(`sub-btn-${s}`).classList.toggle('active', s === sub);
+      document.getElementById(`sub-${s}`).classList.toggle('active', s === sub);
     });
+    if (sub === 'students') { populateStudentClassFilter(); window.renderStudents(); }
+  };
 
-    // ─────────────────────────────────────
-    // 로그인
-    // ─────────────────────────────────────
-    window.doAdminLogin = async () => {
-        const pw = document.getElementById('login-pw').value;
-        const msg = document.getElementById('login-msg');
-        msg.textContent = ''; msg.className = 'hi-verify-msg';
+  /* ── 학생 명단 ── */
+  function populateStudentClassFilter() {
+    const sel = document.getElementById('students-class-filter');
+    if (!sel) return;
+    const classes = [...new Set(students.map(s => s.cls).filter(Boolean))].sort();
+    const cur = sel.value;
+    sel.innerHTML = '<option value="all">전체 반</option>';
+    classes.forEach(c => { sel.innerHTML += `<option value="${c}">${c}반</option>`; });
+    if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+  }
 
-        if (!pw) {
-            msg.textContent = '비밀번호를 입력해주세요';
-            msg.className = 'hi-verify-msg err';
-            return;
-        }
+  window.renderStudents = () => {
+    const filter = document.getElementById('students-class-filter')?.value || 'all';
+    const search = document.getElementById('students-search')?.value.trim().toLowerCase() || '';
+    const list = document.getElementById('students-list');
+    const totalEl = document.getElementById('students-total-count');
+    if (!list) return;
 
-        try {
-            const snap = await get(ref(db, 'historyMileage/config/adminPw'));
-            const storedPw = snap.val() || DEFAULT_ADMIN_PW;
+    let rows = students;
+    if (filter !== 'all') rows = rows.filter(s => s.cls === filter);
+    if (search) rows = rows.filter(s => s.name.toLowerCase().includes(search) || s.studentId.includes(search));
 
-            if (pw === storedPw) {
-                sessionStorage.setItem('hi_admin_ok', '1');
-                document.getElementById('screen-login').classList.add('hi-hidden');
-                document.getElementById('screen-main').classList.remove('hi-hidden');
-                document.getElementById('login-pw').value = '';
-                showToast('관리자 로그인 완료');
-            } else {
-                msg.textContent = '비밀번호가 일치하지 않습니다';
-                msg.className = 'hi-verify-msg err';
-            }
-        } catch (e) {
-            console.error(e);
-            msg.textContent = '로그인 중 오류가 발생했어요';
-            msg.className = 'hi-verify-msg err';
-        }
-    };
+    if (totalEl) totalEl.textContent = `${rows.length}명${filter !== 'all' || search ? ` (전체 ${students.length}명 중)` : ''}`;
 
-    window.adminLogout = () => {
-        sessionStorage.removeItem('hi_admin_ok');
-        document.getElementById('screen-main').classList.add('hi-hidden');
-        document.getElementById('screen-login').classList.remove('hi-hidden');
-        showToast('로그아웃 되었습니다');
-    };
-
-    // 세션 복원
-    window.addEventListener('DOMContentLoaded', () => {
-        if (sessionStorage.getItem('hi_admin_ok') === '1') {
-            document.getElementById('screen-login').classList.add('hi-hidden');
-            document.getElementById('screen-main').classList.remove('hi-hidden');
-        }
-    });
-
-    // ─────────────────────────────────────
-    // 탭 (메인 탭: CERTS / SETTINGS)
-    // ─────────────────────────────────────
-    window.switchTab = (tab) => {
-        ['certs', 'settings'].forEach(t => {
-            document.getElementById(`tab-btn-${t}`).classList.toggle('active', t === tab);
-            document.getElementById(`tab-${t}`).classList.toggle('hi-hidden', t !== tab);
-        });
-        if (tab === 'certs') {
-            populateCertsClassFilter();
-            window.renderCerts();
-        }
-        if (tab === 'settings') {
-            // 진입 시 학생 관리 sub-tab이 활성
-            populateStudentClassFilter();
-            window.renderStudents();
-        }
-    };
-
-    // ─────────────────────────────────────
-    // SETTINGS 내부 sub-tab (STUDENTS / GENERAL)
-    // ─────────────────────────────────────
-    window.switchSubTab = (sub) => {
-        ['students', 'general'].forEach(s => {
-            document.getElementById(`sub-btn-${s}`).classList.toggle('active', s === sub);
-            document.getElementById(`sub-${s}`).classList.toggle('hi-hidden', s !== sub);
-        });
-        if (sub === 'students') {
-            populateStudentClassFilter();
-            window.renderStudents();
-        }
-    };
-
-    // ─────────────────────────────────────
-    // 학생 명단
-    // ─────────────────────────────────────
-    function populateStudentClassFilter() {
-        const sel = document.getElementById('students-class-filter');
-        if (!sel) return;
-        const classes = [...new Set(students.map(s => s.cls).filter(Boolean))].sort();
-        const cur = sel.value;
-        sel.innerHTML = '<option value="all">전체 반</option>';
-        classes.forEach(c => {
-            sel.innerHTML += `<option value="${c}">${c}반</option>`;
-        });
-        if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+    if (rows.length === 0) {
+      list.innerHTML = '<p class="empty-state"><span class="icon">👤</span><br>조건에 맞는 학생이 없어요</p>';
+      return;
     }
 
-    window.renderStudents = () => {
-        const filter = document.getElementById('students-class-filter')?.value || 'all';
-        const search = document.getElementById('students-search')?.value.trim().toLowerCase() || '';
-        const list = document.getElementById('students-list');
-        const totalEl = document.getElementById('students-total-count');
-        if (!list) return;
+    list.innerHTML = rows.map(s => {
+      const days = mileage[s.studentId] || 0;
+      return `
+      <div class="data-row">
+        <div class="data-row-cell-id">${s.studentId}</div>
+        <div class="data-row-cell-name">
+          <div class="name-main">${escapeHtml(s.name)}</div>
+          <div class="name-sub">${s.cls}반</div>
+        </div>
+        <div class="data-row-cell-days">${days}<small>일</small></div>
+        <div class="row-actions">
+          <button class="mini-btn" onclick="window.openStudentEdit('${s.studentId}')">수정</button>
+          <button class="mini-btn danger" onclick="window.deleteStudent('${s.studentId}')">삭제</button>
+        </div>
+      </div>`;
+    }).join('');
+  };
 
-        let rows = students;
-        if (filter !== 'all') rows = rows.filter(s => s.cls === filter);
-        if (search) {
-            rows = rows.filter(s =>
-                s.name.toLowerCase().includes(search) ||
-                s.studentId.includes(search)
-            );
-        }
+  window.bulkUpload = async () => {
+    const text = document.getElementById('bulk-input').value.trim();
+    if (!text) return showToast('입력값이 비어있어요', 'error');
 
-        if (totalEl) totalEl.textContent = `${rows.length}명${filter !== 'all' || search ? ` (전체 ${students.length}명 중)` : ''}`;
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const parsed = [];
+    let invalid = 0;
 
-        if (rows.length === 0) {
-            list.innerHTML = '<p class="hi-empty">조건에 맞는 학생이 없어요</p>';
-            return;
-        }
-
-        list.innerHTML = rows.map(s => {
-            const days = mileage[s.studentId] || 0;
-            return `
-            <div class="data-row">
-                <div class="data-row-cell-id">${s.studentId}</div>
-                <div class="data-row-cell-name">
-                    <div class="name-main">${escapeHtml(s.name)}</div>
-                    <div class="name-sub">${s.cls}반</div>
-                </div>
-                <div class="data-row-cell-days">${days}<small>일</small></div>
-                <div class="row-actions">
-                    <button class="hi-btn hi-btn-outline hi-btn-xs" onclick="window.openStudentEdit('${s.studentId}')">수정</button>
-                    <button class="hi-btn hi-btn-outline hi-btn-xs hi-btn-danger" onclick="window.deleteStudent('${s.studentId}')">삭제</button>
-                </div>
-            </div>`;
-        }).join('');
-    };
-
-    // 일괄 등록
-    window.bulkUpload = async () => {
-        const text = document.getElementById('bulk-input').value.trim();
-        if (!text) return showToast('입력값이 비어있어요', 'error');
-
-        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-        const parsed = [];
-        let invalid = 0;
-
-        for (const line of lines) {
-            const parts = line.split(/[\s\t,]+/).filter(Boolean);
-            if (parts.length < 2) { invalid++; continue; }
-            const id = parts[0].trim();
-            const name = parts.slice(1).join(' ').trim();
-            if (!/^\d{5}$/.test(id) || !name) { invalid++; continue; }
-            parsed.push({ studentId: id, name });
-        }
-
-        if (parsed.length === 0) {
-            return showRichToast({
-                icon: '⚠️', title: '등록할 학생이 없어요',
-                message: '학번은 5자리 숫자, 이름은 필수입니다',
-                kind: 'error'
-            });
-        }
-
-        if (!confirm(`${parsed.length}명을 추가/업데이트하시겠습니까?${invalid > 0 ? `\n(${invalid}줄은 형식이 맞지 않아 무시됩니다)` : ''}`)) return;
-
-        const existingMap = {};
-        students.forEach(s => existingMap[s.studentId] = s.key);
-
-        let added = 0, updated = 0, failed = 0;
-
-        for (const p of parsed) {
-            try {
-                if (existingMap[p.studentId]) {
-                    await update(ref(db, `students/${existingMap[p.studentId]}`), {
-                        studentId: p.studentId,
-                        name: p.name
-                    });
-                    updated++;
-                } else {
-                    await push(ref(db, 'students'), {
-                        studentId: p.studentId,
-                        name: p.name
-                    });
-                    added++;
-                }
-            } catch (e) {
-                console.error(e); failed++;
-            }
-        }
-
-        document.getElementById('bulk-input').value = '';
-        showRichToast({
-            icon: '✅', title: '명단 처리 완료',
-            message: `${added}명 추가 · ${updated}명 업데이트${failed > 0 ? ` · ${failed}건 실패` : ''}`
-        });
-    };
-
-    // 수정
-    window.openStudentEdit = (studentId) => {
-        const s = students.find(x => x.studentId === studentId);
-        if (!s) return;
-        editingStudentId = studentId;
-        document.getElementById('edit-id').value = s.studentId;
-        document.getElementById('edit-name').value = s.name;
-        document.getElementById('edit-days').value = mileage[studentId] || 0;
-        document.getElementById('student-edit-modal').style.display = 'flex';
-    };
-
-    window.closeStudentEdit = () => {
-        document.getElementById('student-edit-modal').style.display = 'none';
-        editingStudentId = null;
-    };
-
-    window.saveStudentEdit = async () => {
-        if (!editingStudentId) return;
-        const s = students.find(x => x.studentId === editingStudentId);
-        if (!s) return;
-
-        const newName = document.getElementById('edit-name').value.trim();
-        const newDays = parseInt(document.getElementById('edit-days').value, 10);
-
-        if (!newName) return showToast('이름을 입력해주세요', 'error');
-        if (isNaN(newDays) || newDays < 0) return showToast('일수는 0 이상의 숫자여야 해요', 'error');
-
-        try {
-            await update(ref(db, `students/${s.key}`), { name: newName });
-            await set(ref(db, `historyMileage/mileage/${editingStudentId}`), newDays);
-            await set(ref(db, `historyMileage/totalEarned/${editingStudentId}`), newDays);
-            window.closeStudentEdit();
-            showToast('저장 완료');
-        } catch (e) {
-            showToast('저장 실패', 'error');
-        }
-    };
-
-    window.deleteStudent = async (studentId) => {
-        if (!confirm(`학번 ${studentId} 학생을 명단에서 삭제하시겠습니까?\n\n· 인증 기록과 누적 일수는 데이터베이스에 그대로 남습니다\n· 다른 HOISTORY 앱에서도 이 학생이 사라집니다`)) return;
-        const s = students.find(x => x.studentId === studentId);
-        if (!s) return;
-        await remove(ref(db, `students/${s.key}`));
-        showToast('삭제 완료');
-    };
-
-    // ─────────────────────────────────────
-    // 인증 내역
-    // ─────────────────────────────────────
-    function populateCertsClassFilter() {
-        const sel = document.getElementById('certs-class-filter');
-        if (!sel) return;
-        const classes = [...new Set(students.map(s => s.cls).filter(Boolean))].sort();
-        const cur = sel.value;
-        sel.innerHTML = '<option value="all">전체 반</option>';
-        classes.forEach(c => {
-            sel.innerHTML += `<option value="${c}">${c}반</option>`;
-        });
-        if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+    for (const line of lines) {
+      const parts = line.split(/[\s\t,]+/).filter(Boolean);
+      if (parts.length < 2) { invalid++; continue; }
+      const id = parts[0].trim();
+      const name = parts.slice(1).join(' ').trim();
+      if (!/^\d{5}$/.test(id) || !name) { invalid++; continue; }
+      parsed.push({ studentId: id, name });
     }
 
-    window.renderCerts = () => {
-        const classF = document.getElementById('certs-class-filter')?.value || 'all';
-        const resultF = document.getElementById('certs-result-filter')?.value || 'all';
-        const dateF = document.getElementById('certs-date-filter')?.value || '';
-        const list = document.getElementById('certs-list');
-        if (!list) return;
-
-        let rows = [...allCerts].sort((a, b) => new Date(b.time) - new Date(a.time));
-        if (classF !== 'all') rows = rows.filter(c => c.cls === classF);
-        if (resultF !== 'all') rows = rows.filter(c => c.result === resultF);
-        if (dateF) rows = rows.filter(c => c.date === dateF);
-
-        if (rows.length === 0) {
-            list.innerHTML = '<p class="hi-empty">조건에 맞는 인증이 없어요</p>';
-            return;
-        }
-
-        const showLimit = 100;
-        const showRows = rows.slice(0, showLimit);
-
-        list.innerHTML = showRows.map(c => {
-            const r = c.result || 'fail';
-            const badgeClass = r === 'pass' ? 'badge-pass' : (r === 'pending' ? 'badge-pending' : 'badge-fail');
-            const badgeLabel = r === 'pass' ? '통과' : (r === 'pending' ? '보류' : '실패');
-            let actionsHtml = '';
-            if (r === 'pending') {
-                actionsHtml = `
-                    <button class="hi-btn hi-btn-primary hi-btn-xs" onclick="window.overrideCert('${c.id}', 'pass')">✓ 승인 (+1일)</button>
-                    <button class="hi-btn hi-btn-outline hi-btn-xs hi-btn-danger" onclick="window.overrideCert('${c.id}', 'fail')">✗ 반려</button>
-                `;
-            } else if (r === 'fail') {
-                actionsHtml = `<button class="hi-btn hi-btn-outline hi-btn-xs" onclick="window.overrideCert('${c.id}', 'pass')">✓ 통과로 변경 (+1일)</button>`;
-            } else { // pass
-                actionsHtml = `<button class="hi-btn hi-btn-outline hi-btn-xs hi-btn-danger" onclick="window.overrideCert('${c.id}', 'fail')">✗ 통과 취소 (-1일)</button>`;
-            }
-            return `
-            <div class="cert-detail">
-                ${c.photoURL
-                    ? `<img class="cert-thumb" src="${c.photoURL}" onclick="window.showPhoto('${c.photoURL}')">`
-                    : `<div class="cert-thumb">📷</div>`}
-                <div class="body">
-                    <div class="name">
-                        ${escapeHtml(c.studentName || '-')}
-                        <span class="meta-inline">${c.studentNum || ''} · ${c.cls || '?'}반</span>
-                        <span class="badge ${badgeClass}">${c.emoji || ''} ${badgeLabel}</span>
-                        ${c.manualOverride ? '<span class="badge badge-override">수동 변경</span>' : ''}
-                    </div>
-                    <div class="content">📚 "${escapeHtml(c.studyContent || '-')}"</div>
-                    ${c.studyFeeling ? `<div class="content" style="color:var(--hi-text-muted);">💭 "${escapeHtml(c.studyFeeling)}"</div>` : ''}
-                    <div class="meta">${c.time || ''} · ${escapeHtml(c.reason || '-')}</div>
-                    <div class="actions">
-                        ${actionsHtml}
-                        <button class="hi-btn hi-btn-outline hi-btn-xs hi-btn-danger" onclick="window.deleteCert('${c.id}')">기록 삭제</button>
-                    </div>
-                </div>
-            </div>`;
-        }).join('');
-
-        if (rows.length > showLimit) {
-            list.innerHTML += `<p class="hi-empty">최근 ${showLimit}건만 표시됩니다 (전체 ${rows.length}건)</p>`;
-        }
-    };
-
-    window.clearCertsFilter = () => {
-        document.getElementById('certs-class-filter').value = 'all';
-        document.getElementById('certs-result-filter').value = 'all';
-        document.getElementById('certs-date-filter').value = '';
-        window.renderCerts();
-    };
-
-    window.showPhoto = (url) => {
-        document.getElementById('photo-modal-img').src = url;
-        document.getElementById('photo-modal').classList.add('open');
-    };
-
-    window.overrideCert = async (certId, newResult) => {
-        const cert = allCerts.find(c => c.id === certId);
-        if (!cert) return;
-        const oldResult = cert.result;
-        if (oldResult === newResult) return;
-
-        // 마일리지 delta: pass만 +1, 그 외(pending, fail)는 0
-        // delta = (new이 pass ? 1 : 0) - (old가 pass ? 1 : 0)
-        const oldHasMileage = oldResult === 'pass' ? 1 : 0;
-        const newHasMileage = newResult === 'pass' ? 1 : 0;
-        const delta = newHasMileage - oldHasMileage;
-
-        const studentNum = cert.studentNum;
-        const resultLabel = newResult === 'pass' ? '통과'
-                          : newResult === 'pending' ? '보류'
-                          : '실패';
-        const deltaText = delta === 0
-            ? '누적 일수 변화 없음'
-            : `누적 일수 ${delta > 0 ? '+' : ''}${delta}일`;
-
-        if (!confirm(`이 인증을 "${resultLabel}"(으)로 변경하시겠습니까?\n\n· ${cert.studentName}(${studentNum})\n· ${deltaText}`)) return;
-
-        try {
-            await update(ref(db, `historyMileage/studyCert/${certId}`), {
-                result: newResult,
-                manualOverride: {
-                    at: new Date().toLocaleString('ko-KR'),
-                    from: oldResult,
-                    to: newResult
-                }
-            });
-            if (delta !== 0) {
-                const curDays = mileage[studentNum] || 0;
-                const newDays = Math.max(0, curDays + delta);
-                await set(ref(db, `historyMileage/mileage/${studentNum}`), newDays);
-                await set(ref(db, `historyMileage/totalEarned/${studentNum}`), newDays);
-            }
-            showToast(`${resultLabel}(으)로 변경 완료`);
-        } catch (e) {
-            showToast('변경 실패', 'error');
-        }
-    };
-
-    window.deleteCert = async (certId) => {
-        if (!confirm('이 인증 기록을 삭제하시겠습니까?\n\n⚠️ 누적 일수는 자동으로 조정되지 않습니다.\n필요하면 학생 수정에서 일수를 따로 조정해주세요.')) return;
-        await remove(ref(db, `historyMileage/studyCert/${certId}`));
-        showToast('삭제 완료');
-    };
-
-    // ─────────────────────────────────────
-    // 설정
-    // ─────────────────────────────────────
-    window.saveApiKey = async () => {
-        const key = document.getElementById('setting-api-key').value.trim();
-        if (!key) return showToast('API 키를 입력해주세요', 'error');
-        if (!key.startsWith('sk-ant-')) {
-            if (!confirm('Anthropic 키 형식(sk-ant-...)이 아닌 것 같아요. 그래도 저장하시겠습니까?')) return;
-        }
-        await set(ref(db, 'historyMileage/config/claudeApiKey'), key);
-        document.getElementById('setting-api-key').value = '';
-        showToast('API 키 저장 완료');
-    };
-
-    window.toggleApiKeyVisible = () => {
-        const el = document.getElementById('setting-api-key');
-        el.type = el.type === 'password' ? 'text' : 'password';
-    };
-
-    window.saveHolidays = async () => {
-        const text = document.getElementById('setting-holidays').value;
-        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-        const valid = lines.filter(l => /^\d{4}-\d{2}-\d{2}$/.test(l));
-        const invalid = lines.length - valid.length;
-
-        await set(ref(db, 'historyMileage/config/holidays'), valid);
-        showToast(`${valid.length}개 공휴일 저장${invalid > 0 ? ` (${invalid}개 무시)` : ''}`);
-    };
-
-    window.changeAdminPw = async () => {
-        const pw1 = document.getElementById('setting-new-pw').value;
-        const pw2 = document.getElementById('setting-new-pw2').value;
-
-        if (!pw1 || pw1.length < 4) return showToast('비밀번호는 4자 이상이어야 해요', 'error');
-        if (pw1 !== pw2) return showToast('비밀번호가 일치하지 않아요', 'error');
-
-        await set(ref(db, 'historyMileage/config/adminPw'), pw1);
-        document.getElementById('setting-new-pw').value = '';
-        document.getElementById('setting-new-pw2').value = '';
-        showToast('비밀번호 변경 완료');
-    };
-
-    window.resetAllCerts = async () => {
-        if (!confirm('⚠️ 모든 인증 기록을 삭제합니다.\n\n· 학생 명단과 누적 일수는 유지됩니다\n· 인증 내역(사진, 신고 내용)만 사라집니다\n\n정말 진행하시겠습니까?')) return;
-        if (!confirm('마지막 확인: 정말로 모든 인증 기록을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) return;
-        await remove(ref(db, 'historyMileage/studyCert'));
-        showToast('모든 인증 기록 삭제 완료');
-    };
-
-    // ─────────────────────────────────────
-    // 전체 렌더
-    // ─────────────────────────────────────
-    function renderAll() {
-        // CERTS 탭이 활성이면 갱신
-        if (!document.getElementById('tab-certs').classList.contains('hi-hidden')) {
-            populateCertsClassFilter();
-            window.renderCerts();
-        }
-        // SETTINGS > STUDENTS sub-tab이 활성이면 갱신
-        if (!document.getElementById('tab-settings').classList.contains('hi-hidden') &&
-            !document.getElementById('sub-students').classList.contains('hi-hidden')) {
-            populateStudentClassFilter();
-            window.renderStudents();
-        }
+    if (parsed.length === 0) {
+      return showRichToast({ icon: '⚠️', title: '등록할 학생이 없어요', message: '학번은 5자리 숫자, 이름은 필수입니다', kind: 'error' });
     }
 
-    function escapeHtml(s) {
-        return String(s || '')
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    if (!confirm(`${parsed.length}명을 추가/업데이트하시겠습니까?${invalid > 0 ? `\n(${invalid}줄은 형식이 맞지 않아 무시됩니다)` : ''}`)) return;
+
+    const existingMap = {};
+    students.forEach(s => existingMap[s.studentId] = s.key);
+
+    let added = 0, updated = 0, failed = 0;
+
+    for (const p of parsed) {
+      try {
+        if (existingMap[p.studentId]) {
+          await update(ref(db, `students/${existingMap[p.studentId]}`), { studentId: p.studentId, name: p.name });
+          updated++;
+        } else {
+          await push(ref(db, 'students'), { studentId: p.studentId, name: p.name });
+          added++;
+        }
+      } catch (e) { console.error(e); failed++; }
     }
+
+    document.getElementById('bulk-input').value = '';
+    showRichToast({ icon: '✅', title: '명단 처리 완료', message: `${added}명 추가 · ${updated}명 업데이트${failed > 0 ? ` · ${failed}건 실패` : ''}` });
+  };
+
+  window.openStudentEdit = (studentId) => {
+    const s = students.find(x => x.studentId === studentId);
+    if (!s) return;
+    editingStudentId = studentId;
+    document.getElementById('edit-id').value = s.studentId;
+    document.getElementById('edit-name').value = s.name;
+    document.getElementById('edit-days').value = mileage[studentId] || 0;
+    document.getElementById('student-edit-modal').style.display = 'flex';
+  };
+
+  window.closeStudentEdit = () => {
+    document.getElementById('student-edit-modal').style.display = 'none';
+    editingStudentId = null;
+  };
+
+  window.saveStudentEdit = async () => {
+    if (!editingStudentId) return;
+    const s = students.find(x => x.studentId === editingStudentId);
+    if (!s) return;
+    const newName = document.getElementById('edit-name').value.trim();
+    const newDays = parseInt(document.getElementById('edit-days').value, 10);
+    if (!newName) return showToast('이름을 입력해주세요', 'error');
+    if (isNaN(newDays) || newDays < 0) return showToast('일수는 0 이상의 숫자여야 해요', 'error');
+    try {
+      await update(ref(db, `students/${s.key}`), { name: newName });
+      await set(ref(db, `historyMileage/mileage/${editingStudentId}`), newDays);
+      await set(ref(db, `historyMileage/totalEarned/${editingStudentId}`), newDays);
+      window.closeStudentEdit();
+      showToast('저장 완료');
+    } catch (e) { showToast('저장 실패', 'error'); }
+  };
+
+  window.deleteStudent = async (studentId) => {
+    if (!confirm(`학번 ${studentId} 학생을 명단에서 삭제하시겠습니까?\n\n· 인증 기록과 누적 일수는 데이터베이스에 그대로 남습니다\n· 다른 HOISTORY 앱에서도 이 학생이 사라집니다`)) return;
+    const s = students.find(x => x.studentId === studentId);
+    if (!s) return;
+    await remove(ref(db, `students/${s.key}`));
+    showToast('삭제 완료');
+  };
+
+  /* ── 인증 내역 ── */
+  function populateCertsClassFilter() {
+    const sel = document.getElementById('certs-class-filter');
+    if (!sel) return;
+    const classes = [...new Set(students.map(s => s.cls).filter(Boolean))].sort();
+    const cur = sel.value;
+    sel.innerHTML = '<option value="all">전체 반</option>';
+    classes.forEach(c => { sel.innerHTML += `<option value="${c}">${c}반</option>`; });
+    if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+  }
+
+  window.renderCerts = () => {
+    const classF = document.getElementById('certs-class-filter')?.value || 'all';
+    const resultF = document.getElementById('certs-result-filter')?.value || 'all';
+    const dateF = document.getElementById('certs-date-filter')?.value || '';
+    const list = document.getElementById('certs-list');
+    if (!list) return;
+
+    let rows = [...allCerts].sort((a, b) => new Date(b.time) - new Date(a.time));
+    if (classF !== 'all') rows = rows.filter(c => c.cls === classF);
+    if (resultF !== 'all') rows = rows.filter(c => c.result === resultF);
+    if (dateF) rows = rows.filter(c => c.date === dateF);
+
+    if (rows.length === 0) {
+      list.innerHTML = '<p class="empty-state"><span class="icon">📋</span><br>조건에 맞는 인증이 없어요</p>';
+      return;
+    }
+
+    const showLimit = 100;
+    list.innerHTML = rows.slice(0, showLimit).map(c => {
+      const r = c.result || 'fail';
+      const badgeClass = r === 'pass' ? 'badge-pass' : (r === 'pending' ? 'badge-pending' : 'badge-fail');
+      const badgeLabel = r === 'pass' ? '통과' : (r === 'pending' ? '보류' : '실패');
+      let actionsHtml = '';
+      if (r === 'pending') {
+        actionsHtml = `
+          <button class="mini-btn primary" onclick="window.overrideCert('${c.id}', 'pass')">✓ 승인 (+1일)</button>
+          <button class="mini-btn danger" onclick="window.overrideCert('${c.id}', 'fail')">✗ 반려</button>`;
+      } else if (r === 'fail') {
+        actionsHtml = `<button class="mini-btn" onclick="window.overrideCert('${c.id}', 'pass')">✓ 통과로 변경 (+1일)</button>`;
+      } else {
+        actionsHtml = `<button class="mini-btn danger" onclick="window.overrideCert('${c.id}', 'fail')">✗ 통과 취소 (-1일)</button>`;
+      }
+      return `
+      <div class="cert-detail">
+        ${c.photoURL ? `<img class="cert-thumb" src="${c.photoURL}" onclick="window.showPhoto('${c.photoURL}')">` : `<div class="cert-thumb">📷</div>`}
+        <div class="body">
+          <div class="name">
+            ${escapeHtml(c.studentName || '-')}
+            <span class="meta-inline">${c.studentNum || ''} · ${c.cls || '?'}반</span>
+            <span class="badge ${badgeClass}">${c.emoji || ''} ${badgeLabel}</span>
+            ${c.manualOverride ? '<span class="badge badge-override">수동 변경</span>' : ''}
+          </div>
+          <div class="content">📚 "${escapeHtml(c.studyContent || '-')}"</div>
+          ${c.studyFeeling ? `<div class="content" style="color:var(--hi-text-muted);">💭 "${escapeHtml(c.studyFeeling)}"</div>` : ''}
+          <div class="meta">${c.time || ''} · ${escapeHtml(c.reason || '-')}</div>
+          <div class="actions">
+            ${actionsHtml}
+            <button class="mini-btn danger" onclick="window.deleteCert('${c.id}')">기록 삭제</button>
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+
+    if (rows.length > showLimit) {
+      list.innerHTML += `<p class="empty-state">최근 ${showLimit}건만 표시됩니다 (전체 ${rows.length}건)</p>`;
+    }
+  };
+
+  window.clearCertsFilter = () => {
+    document.getElementById('certs-class-filter').value = 'all';
+    document.getElementById('certs-result-filter').value = 'all';
+    document.getElementById('certs-date-filter').value = '';
+    window.renderCerts();
+  };
+
+  window.showPhoto = (url) => {
+    document.getElementById('photo-modal-img').src = url;
+    document.getElementById('photo-modal').classList.add('open');
+  };
+
+  window.overrideCert = async (certId, newResult) => {
+    const cert = allCerts.find(c => c.id === certId);
+    if (!cert) return;
+    const oldResult = cert.result;
+    if (oldResult === newResult) return;
+    const delta = (newResult === 'pass' ? 1 : 0) - (oldResult === 'pass' ? 1 : 0);
+    const studentNum = cert.studentNum;
+    const resultLabel = newResult === 'pass' ? '통과' : newResult === 'pending' ? '보류' : '실패';
+    const deltaText = delta === 0 ? '누적 일수 변화 없음' : `누적 일수 ${delta > 0 ? '+' : ''}${delta}일`;
+    if (!confirm(`이 인증을 "${resultLabel}"(으)로 변경하시겠습니까?\n\n· ${cert.studentName}(${studentNum})\n· ${deltaText}`)) return;
+    try {
+      await update(ref(db, `historyMileage/studyCert/${certId}`), {
+        result: newResult,
+        manualOverride: { at: new Date().toLocaleString('ko-KR'), from: oldResult, to: newResult }
+      });
+      if (delta !== 0) {
+        const curDays = mileage[studentNum] || 0;
+        const newDays = Math.max(0, curDays + delta);
+        await set(ref(db, `historyMileage/mileage/${studentNum}`), newDays);
+        await set(ref(db, `historyMileage/totalEarned/${studentNum}`), newDays);
+      }
+      showToast(`${resultLabel}(으)로 변경 완료`);
+    } catch (e) { showToast('변경 실패', 'error'); }
+  };
+
+  window.deleteCert = async (certId) => {
+    if (!confirm('이 인증 기록을 삭제하시겠습니까?\n\n⚠️ 누적 일수는 자동으로 조정되지 않습니다.\n필요하면 학생 수정에서 일수를 따로 조정해주세요.')) return;
+    await remove(ref(db, `historyMileage/studyCert/${certId}`));
+    showToast('삭제 완료');
+  };
+
+  /* ── 설정 ── */
+  window.saveApiKey = async () => {
+    const key = document.getElementById('setting-api-key').value.trim();
+    if (!key) return showToast('API 키를 입력해주세요', 'error');
+    if (!key.startsWith('sk-ant-')) {
+      if (!confirm('Anthropic 키 형식(sk-ant-...)이 아닌 것 같아요. 그래도 저장하시겠습니까?')) return;
+    }
+    await set(ref(db, 'historyMileage/config/claudeApiKey'), key);
+    document.getElementById('setting-api-key').value = '';
+    showToast('API 키 저장 완료');
+  };
+
+  window.toggleApiKeyVisible = () => {
+    const el = document.getElementById('setting-api-key');
+    el.type = el.type === 'password' ? 'text' : 'password';
+  };
+
+  window.saveHolidays = async () => {
+    const text = document.getElementById('setting-holidays').value;
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const valid = lines.filter(l => /^\d{4}-\d{2}-\d{2}$/.test(l));
+    const invalid = lines.length - valid.length;
+    await set(ref(db, 'historyMileage/config/holidays'), valid);
+    showToast(`${valid.length}개 공휴일 저장${invalid > 0 ? ` (${invalid}개 무시)` : ''}`);
+  };
+
+  window.changeAdminPw = async () => {
+    const pw1 = document.getElementById('setting-new-pw').value;
+    const pw2 = document.getElementById('setting-new-pw2').value;
+    if (!pw1 || pw1.length < 4) return showToast('비밀번호는 4자 이상이어야 해요', 'error');
+    if (pw1 !== pw2) return showToast('비밀번호가 일치하지 않아요', 'error');
+    await set(ref(db, 'historyMileage/config/adminPw'), pw1);
+    document.getElementById('setting-new-pw').value = '';
+    document.getElementById('setting-new-pw2').value = '';
+    showToast('비밀번호 변경 완료');
+  };
+
+  window.resetAllCerts = async () => {
+    if (!confirm('⚠️ 모든 인증 기록을 삭제합니다.\n\n· 학생 명단과 누적 일수는 유지됩니다\n· 인증 내역(사진, 신고 내용)만 사라집니다\n\n정말 진행하시겠습니까?')) return;
+    if (!confirm('마지막 확인: 정말로 모든 인증 기록을 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) return;
+    await remove(ref(db, 'historyMileage/studyCert'));
+    showToast('모든 인증 기록 삭제 완료');
+  };
+
+  /* ── 전체 렌더 ── */
+  function renderAll() {
+    if (document.getElementById('tab-certs').classList.contains('active')) {
+      populateCertsClassFilter(); window.renderCerts();
+    }
+    if (document.getElementById('tab-settings').classList.contains('active') &&
+        document.getElementById('sub-students').classList.contains('active')) {
+      populateStudentClassFilter(); window.renderStudents();
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
 </script>
 </body>
 </html>
