@@ -677,6 +677,39 @@ tbody tr:last-child td { border-bottom: none; }
 #mini-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 #mini-toast.danger { background: rgba(239,83,80,0.92); box-shadow: 0 6px 20px rgba(239,83,80,0.3); }
 
+/* ════════ Class - 학생 카드 ════════ */
+.student-card {
+  background: rgba(255,255,255,0.7);
+  border: 1px solid rgba(0,151,167,0.1);
+  border-radius: var(--r-md);
+  padding: 14px 18px;
+  margin-bottom: 10px;
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 12px;
+  flex-wrap: wrap;
+  transition: background .15s;
+}
+.student-card:hover { background: rgba(255,255,255,0.9); }
+.student-info { flex: 1; min-width: 0; }
+.student-name {
+  font-size: 15px; font-weight: 800;
+  color: var(--aqua-deep); margin-bottom: 6px;
+  display: flex; align-items: center; gap: 8px;
+}
+.student-sid {
+  font-size: 11px; font-weight: 600;
+  color: var(--text-dim);
+}
+.student-meta {
+  display: flex; gap: 18px; flex-wrap: wrap;
+}
+.student-meta .meta-item {
+  font-size: 12px; color: var(--text-sub);
+}
+.student-meta .meta-val {
+  font-weight: 800; color: var(--aqua-deep); margin-left: 3px;
+}
+
 /* ════════ 모바일 ════════ */
 @media (max-width: 720px) {
   .container { padding: 16px; }
@@ -746,7 +779,8 @@ tbody tr:last-child td { border-bottom: none; }
 <!-- ════════ 탭 ════════ -->
 <div class="tabs">
   <button class="tab-btn active" onclick="switchTab('question',this)">📚 Question</button>
-  <button class="tab-btn" onclick="switchTab('answer',this)">📊 Answer</button>
+  <button class="tab-btn" onclick="switchTab('class',this)">🏫 Class</button>
+  <button class="tab-btn" onclick="switchTab('stats',this)">📊 Stats</button>
   <button class="tab-btn" onclick="switchTab('setting',this)">🔧 Setting</button>
 </div>
 
@@ -842,28 +876,50 @@ tbody tr:last-child td { border-bottom: none; }
     </div>
   </div>
 
-  <!-- ════════ ANSWER 탭 ════════ -->
-  <div class="tab-page" id="tab-answer">
+  <!-- ════════ CLASS 탭 ════════ -->
+  <div class="tab-page" id="tab-class">
+
+    <!-- 반 필터 -->
+    <div class="card">
+      <div class="card-body">
+        <div style="font-size:12px;color:var(--text-sub);font-weight:700;letter-spacing:0.5px;margin-bottom:10px;">반 선택</div>
+        <div class="filter-chips" id="class-chips-tab">
+          <button class="chip active" onclick="setClassTabFilter('all',this)">전체</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 학생 명단 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">👥 학생 참여 명단</div>
+        <div class="card-hint" id="class-student-count"></div>
+      </div>
+      <div class="card-body">
+        <div id="class-student-list">
+          <div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">참여 데이터를 불러오는 중...</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════ STATS 탭 ════════ -->
+  <div class="tab-page" id="tab-stats">
 
     <!-- 서브 탭 -->
     <div class="filter-chips" style="margin-bottom:16px;">
-      <button class="chip active" onclick="switchAnsSub('class',this)">📈 반별 현황</button>
-      <button class="chip" onclick="switchAnsSub('x',this)">✏️ X 바로잡기</button>
+      <button class="chip active" onclick="switchStatsSub('overview',this)">📈 응답 현황</button>
+      <button class="chip" onclick="switchStatsSub('x',this)">✏️ X 바로잡기</button>
     </div>
 
-    <!-- 반별 현황 -->
-    <div id="ans-class-view">
+    <!-- 응답 현황 -->
+    <div id="stats-overview-view">
       <!-- 반 필터 -->
       <div class="card">
         <div class="card-body">
           <div style="font-size:12px;color:var(--text-sub);font-weight:700;letter-spacing:0.5px;margin-bottom:10px;">반 선택</div>
           <div class="filter-chips" id="class-chips">
-            <button class="chip active">전체</button>
-            <button class="chip">3학년 1반</button>
-            <button class="chip">3학년 2반</button>
-            <button class="chip">3학년 3반</button>
-            <button class="chip">3학년 4반</button>
-            <button class="chip">3학년 5반</button>
+            <button class="chip active" onclick="setClassFilter('all',this)">전체</button>
           </div>
         </div>
       </div>
@@ -917,7 +973,7 @@ tbody tr:last-child td { border-bottom: none; }
     </div>
 
     <!-- X 바로잡기 -->
-    <div id="ans-x-view" style="display:none;">
+    <div id="stats-x-view" style="display:none;">
       <div class="card">
         <div class="card-body">
           <div class="toolbar">
@@ -936,7 +992,6 @@ tbody tr:last-child td { border-bottom: none; }
               <option value="lec">강의순</option>
             </select>
           </div>
-
           <div id="corrections-list">
             <div class="empty-state"><div class="empty-icon">✏️</div><div class="empty-text">X바로잡기 내역을 불러오는 중...</div></div>
           </div>
@@ -1157,9 +1212,11 @@ const state = {
   questions: [],
   corrections: [],
   responses: [],
+  classStudents: [],
   editingId: null,
   selectedAns: null,
   currentClass: 'all',
+  currentClassTab: 'all',
   currentLecFilter: 'all',
   currentSortStats: 'rate',
   currentCorrSearch: '',
@@ -1237,14 +1294,15 @@ function switchTab(name, el) {
   document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
-  if (name === 'answer') loadAnswerData();
+  if (name === 'class') loadClassData();
+  if (name === 'stats') loadAnswerData();
 }
 
-function switchAnsSub(name, el) {
+function switchStatsSub(name, el) {
   el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('ans-class-view').style.display = name === 'class' ? 'block' : 'none';
-  document.getElementById('ans-x-view').style.display = name === 'x' ? 'block' : 'none';
+  document.getElementById('stats-overview-view').style.display = name === 'overview' ? 'block' : 'none';
+  document.getElementById('stats-x-view').style.display = name === 'x' ? 'block' : 'none';
   if (name === 'x') loadCorrections();
 }
 
@@ -1507,6 +1565,146 @@ function setupDragDrop() {
   });
 }
 setupDragDrop();
+
+// ══════════════════════════════════════════════════
+// CLASS 탭 — 학생 참여 명단
+// ══════════════════════════════════════════════════
+async function loadClassData() {
+  try {
+    const [respSnap, rankSnap] = await Promise.all([
+      fs.collection(COL.responses).limit(5000).get(),
+      fs.collection(COL.rankings).limit(2000).get(),
+    ]);
+
+    // 응답 기록 → 학생별 total/correct 집계
+    const respByStudent = {};
+    respSnap.forEach(doc => {
+      const d = doc.data();
+      const sid = d.studentId;
+      if (!respByStudent[sid]) respByStudent[sid] = { name: d.studentName || '', total: 0, correct: 0 };
+      respByStudent[sid].total++;
+      if (d.isCorrect) respByStudent[sid].correct++;
+    });
+
+    // 랭킹 기록 → 학생별 세션 수 / 총점 집계
+    const rankByStudent = {};
+    rankSnap.forEach(doc => {
+      const d = doc.data();
+      const sid = d.studentId;
+      if (!rankByStudent[sid]) rankByStudent[sid] = { name: d.studentName || '', sessions: 0, totalScore: 0 };
+      rankByStudent[sid].sessions++;
+      rankByStudent[sid].totalScore += (d.score || 0);
+    });
+
+    // 두 데이터 합산
+    const merged = {};
+    Object.entries(respByStudent).forEach(([sid, r]) => {
+      merged[sid] = {
+        sid,
+        name: r.name,
+        total: r.total,
+        correct: r.correct,
+        rate: r.total > 0 ? Math.round(r.correct / r.total * 100) : 0,
+        sessions: rankByStudent[sid] ? rankByStudent[sid].sessions : 0,
+        totalScore: rankByStudent[sid] ? rankByStudent[sid].totalScore : 0,
+      };
+    });
+
+    state.classStudents = Object.values(merged).sort((a, b) => {
+      const ca = parseClass(a.sid) || '', cb = parseClass(b.sid) || '';
+      if (ca !== cb) return ca.localeCompare(cb);
+      return a.sid.localeCompare(b.sid);
+    });
+
+    renderClassView();
+  } catch (e) {
+    console.error('Class 데이터 로딩 실패:', e);
+    miniToast('데이터 불러오기 실패', 'danger');
+  }
+}
+
+function renderClassView() {
+  // 반 칩 동적 생성
+  const classes = new Set();
+  state.classStudents.forEach(s => {
+    const cls = parseClass(s.sid);
+    if (cls) classes.add(cls);
+  });
+  const sortedClasses = [...classes].sort();
+  const chipsEl = document.getElementById('class-chips-tab');
+  if (chipsEl) {
+    chipsEl.innerHTML =
+      `<button class="chip ${state.currentClassTab === 'all' ? 'active' : ''}" onclick="setClassTabFilter('all',this)">전체</button>` +
+      sortedClasses.map(c =>
+        `<button class="chip ${state.currentClassTab === c ? 'active' : ''}" onclick="setClassTabFilter('${c}',this)">${c}</button>`
+      ).join('');
+  }
+
+  // 필터
+  const filtered = state.currentClassTab === 'all'
+    ? state.classStudents
+    : state.classStudents.filter(s => parseClass(s.sid) === state.currentClassTab);
+
+  const countEl = document.getElementById('class-student-count');
+  if (countEl) countEl.textContent = `${filtered.length}명`;
+
+  const listEl = document.getElementById('class-student-list');
+  if (!listEl) return;
+
+  if (filtered.length === 0) {
+    listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">참여 학생이 없습니다</div></div>';
+    return;
+  }
+
+  listEl.innerHTML = filtered.map(s => {
+    const rateColor = s.rate < 50 ? 'color:#ef5350' : s.rate < 70 ? 'color:#ff9800' : 'color:var(--aqua)';
+    return `<div class="student-card">
+      <div class="student-info">
+        <div class="student-name">
+          ${esc(s.name)}
+          <span class="student-sid">${esc(s.sid)}</span>
+        </div>
+        <div class="student-meta">
+          <span class="meta-item">참여 횟수 <span class="meta-val">${s.sessions}회</span></span>
+          <span class="meta-item">평균 정답률 <span class="meta-val" style="${rateColor}">${s.rate}%</span></span>
+          <span class="meta-item">점수 총합 <span class="meta-val">${s.totalScore.toLocaleString()}점</span></span>
+        </div>
+      </div>
+      <button class="btn btn-danger btn-xs" onclick="resetStudentData('${esc(s.sid)}','${esc(s.name)}')">초기화</button>
+    </div>`;
+  }).join('');
+}
+
+function setClassTabFilter(cls, el) {
+  state.currentClassTab = cls;
+  el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderClassView();
+}
+
+async function resetStudentData(sid, name) {
+  if (!confirm(`${name}(${sid}) 학생의 참여 데이터를 초기화하시겠습니까?\n\n• 응답 기록 전체\n• 랭킹/점수 기록 전체\n\n되돌릴 수 없습니다.`)) return;
+  miniToast('초기화 중...');
+  try {
+    const [respSnap, rankSnap] = await Promise.all([
+      fs.collection(COL.responses).where('studentId', '==', sid).get(),
+      fs.collection(COL.rankings).where('studentId', '==', sid).get(),
+    ]);
+    const allDocs = [];
+    respSnap.forEach(d => allDocs.push(d.ref));
+    rankSnap.forEach(d => allDocs.push(d.ref));
+    for (let i = 0; i < allDocs.length; i += 400) {
+      const batch = fs.batch();
+      allDocs.slice(i, i + 400).forEach(ref => batch.delete(ref));
+      await batch.commit();
+    }
+    miniToast(`${name} 학생 데이터 초기화 완료`);
+    loadClassData();
+  } catch (e) {
+    console.error(e);
+    miniToast('초기화 실패', 'danger');
+  }
+}
 
 // ══════════════════════════════════════════════════
 // ANSWER 탭 — 응답 통계
