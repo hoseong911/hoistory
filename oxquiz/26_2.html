@@ -763,47 +763,6 @@ body {
 }
 #mini-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-/* ── 개발자 네비게이터 ── */
-#dev-nav {
-  position: fixed; bottom: 18px; right: 18px;
-  z-index: 9999;
-  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
-}
-#dev-toggle {
-  width: 46px; height: 46px;
-  background: linear-gradient(135deg, #7c3aed, #5b21b6);
-  border: none; border-radius: 50%;
-  color: #fff; font-size: 18px;
-  cursor: pointer;
-  box-shadow: 0 4px 16px rgba(124,58,237,0.4);
-  transition: transform .2s;
-  display: flex; align-items: center; justify-content: center;
-}
-#dev-toggle:hover { transform: scale(1.08) rotate(15deg); }
-#dev-menu {
-  display: none; flex-direction: column; gap: 5px;
-  background: rgba(26,16,37,0.95); backdrop-filter: blur(10px);
-  border: 1px solid rgba(124,58,237,0.4);
-  border-radius: 14px; padding: 12px;
-  box-shadow: 0 10px 32px rgba(0,0,0,0.4);
-  min-width: 180px;
-}
-#dev-menu.open { display: flex; }
-#dev-menu .dev-label {
-  font-size: 9px; font-weight: 800; color: #b794ff;
-  letter-spacing: 1px; text-transform: uppercase;
-  padding: 2px 4px 6px; border-bottom: 1px solid rgba(124,58,237,0.25);
-  margin-bottom: 4px;
-}
-#dev-menu button {
-  background: rgba(124,58,237,0.15);
-  border: 1px solid rgba(124,58,237,0.25);
-  color: #d4b8ff; border-radius: 8px;
-  padding: 7px 11px; font-size: 12px; font-weight: 700;
-  cursor: pointer; text-align: left;
-  font-family: inherit; transition: .15s;
-}
-#dev-menu button:hover { background: rgba(124,58,237,0.4); color: #fff; }
 
 /* ── 모바일 ── */
 @media (max-width: 480px) {
@@ -1059,19 +1018,6 @@ body {
 <!-- 미니 토스트 -->
 <div id="mini-toast"></div>
 
-<!-- 개발자 네비게이터 -->
-<div id="dev-nav">
-  <div id="dev-menu">
-    <div class="dev-label">🛠 DEV NAV</div>
-    <button onclick="devGo('page-login')">① 로그인</button>
-    <button onclick="devGo('page-lecture')">② 강의 선택</button>
-    <button onclick="devGo('page-count')">③ 문항 수</button>
-    <button onclick="devGo('page-quiz')">④ 퀴즈</button>
-    <button onclick="devGo('page-result')">⑤ 결과</button>
-    <button onclick="devGo('page-ranking')">⑥ 랭킹</button>
-  </div>
-  <button id="dev-toggle" onclick="toggleDev()" title="개발자 메뉴">🛠</button>
-</div>
 
 <script>
 // ══════════════════════════════════════════════════
@@ -1128,32 +1074,6 @@ function goPage(id) {
   if (id === 'page-lecture') renderLectures();
 }
 
-function toggleDev() { document.getElementById('dev-menu').classList.toggle('open'); }
-function devGo(id) {
-  if (id === 'page-quiz') {
-    if (state.allQuestions.length === 0) {
-      miniToast('먼저 Firestore에 문제를 등록해주세요');
-      return;
-    }
-    state.questions = [...state.allQuestions].sort(() => Math.random() - 0.5).slice(0, 10);
-    state.currentQ = 0; state.score = 0; state.correct = 0; state.wrong = 0; state.corrections = 0;
-    state.selectedCount = 10;
-    state.student = state.student || {sid:'30101', name:'테스트'};
-    showQuestion();
-  }
-  if (id === 'page-count') { renderCountOptions(); }
-  if (id === 'page-result') {
-    state.score = 8450; state.correct = 28; state.wrong = 2; state.corrections = 3;
-    state.selectedCount = 30;
-    state.student = state.student || {sid:'30101', name:'테스트'};
-    updateResultScreen();
-  }
-  if (id === 'page-login' && !state.student) {
-    document.getElementById('menu-section').style.display = 'none';
-  }
-  goPage(id);
-  document.getElementById('dev-menu').classList.remove('open');
-}
 
 function goAdmin() { window.location.href = 'admin.html'; }
 
