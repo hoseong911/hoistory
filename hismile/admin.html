@@ -144,6 +144,55 @@
     .photo-modal.open { display: flex; }
     .photo-modal img { max-width: 100%; max-height: 100%; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
 
+    /* 정렬 토글 */
+    .sort-toggle {
+      display: inline-flex; background: var(--hi-bg-mid);
+      border-radius: 9999px; padding: 3px;
+    }
+    .sort-toggle button {
+      background: transparent; border: none; font-family: inherit; cursor: pointer;
+      color: var(--hi-text-muted); padding: 7px 14px; border-radius: 9999px;
+      font-size: 11px; font-weight: 800; letter-spacing: 0.6px; transition: all 0.15s;
+    }
+    .sort-toggle button.active { background: var(--hi-text); color: var(--hi-bg-base); }
+
+    /* 클래스 학생 카드 hover */
+    .data-row.clickable:hover { background: var(--hi-bg-card); }
+
+    /* 인증 항목 (클래스 모달) */
+    .cert-entry { border-bottom: 1px solid var(--hi-border); }
+    .cert-entry:last-child { border-bottom: none; }
+    .cert-entry-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 4px; cursor: pointer; border-radius: 6px;
+      transition: background 0.1s;
+    }
+    .cert-entry-header:hover { background: var(--hi-bg-mid); }
+    .cert-day-badge {
+      background: var(--hi-accent); color: var(--hi-on-accent);
+      border-radius: 9999px; padding: 3px 10px;
+      font-size: 11px; font-weight: 800; flex-shrink: 0;
+    }
+    .cert-entry-date { flex: 1; font-size: 13px; font-feature-settings: 'tnum'; color: var(--hi-text); }
+    .cert-entry-arrow { font-size: 10px; color: var(--hi-text-muted); flex-shrink: 0; }
+    .cert-entry-detail { padding: 4px 4px 14px; }
+    .cert-entry-field { margin-bottom: 10px; }
+    .cert-field-label {
+      font-size: 10px; font-weight: 800; letter-spacing: 1px;
+      color: var(--hi-text-muted); text-transform: uppercase; display: block; margin-bottom: 4px;
+    }
+    .cert-field-value { font-size: 13px; color: var(--hi-text-soft); line-height: 1.6; margin: 0; }
+    .cert-entry-meta { font-size: 11px; color: var(--hi-text-muted); margin-top: 6px; }
+
+    /* CERTS 사진 */
+    .cert-thumb-wrap {
+      width: 80px; height: 80px; border-radius: 8px; flex-shrink: 0;
+      background: var(--hi-bg-mid); border: 1px solid var(--hi-border);
+      overflow: hidden; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; font-size: 28px; color: var(--hi-text-muted);
+    }
+    .cert-thumb-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
     @media (max-width: 600px) {
       .data-row { flex-wrap: wrap; }
       .row-actions { width: 100%; margin-left: 0; margin-top: 8px; justify-content: center; }
@@ -185,12 +234,39 @@
   </header>
 
   <div class="main-tabs">
-    <button class="main-tab active" id="tab-btn-certs" onclick="window.switchTab('certs')">CERTS</button>
+    <button class="main-tab active" id="tab-btn-class" onclick="window.switchTab('class')">CLASS</button>
+    <button class="main-tab" id="tab-btn-certs" onclick="window.switchTab('certs')">CERTS</button>
     <button class="main-tab" id="tab-btn-settings" onclick="window.switchTab('settings')">SETTINGS</button>
   </div>
 
+  <!-- CLASS -->
+  <div id="tab-class" class="panel-section active">
+    <div class="admin-container">
+      <div class="sub-tabs" style="flex-wrap:wrap;">
+        <button class="sub-tab active" id="class-sub-btn-all" onclick="window.switchClassSub('all')">전체</button>
+        <button class="sub-tab" id="class-sub-btn-1" onclick="window.switchClassSub('1')">1반</button>
+        <button class="sub-tab" id="class-sub-btn-2" onclick="window.switchClassSub('2')">2반</button>
+        <button class="sub-tab" id="class-sub-btn-3" onclick="window.switchClassSub('3')">3반</button>
+        <button class="sub-tab" id="class-sub-btn-4" onclick="window.switchClassSub('4')">4반</button>
+        <button class="sub-tab" id="class-sub-btn-5" onclick="window.switchClassSub('5')">5반</button>
+        <button class="sub-tab" id="class-sub-btn-6" onclick="window.switchClassSub('6')">6반</button>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <div class="students-count-row" style="margin:0;">
+          <span class="students-count-label">학생</span>
+          <span class="students-count-num" id="class-student-count">0명</span>
+        </div>
+        <div class="sort-toggle" id="class-sort-toggle">
+          <button class="active" data-sort="num" onclick="window.setClassSort('num')">학번</button>
+          <button data-sort="days" onclick="window.setClassSort('days')">마일리지</button>
+        </div>
+      </div>
+      <div id="class-student-list"></div>
+    </div>
+  </div>
+
   <!-- CERTS -->
-  <div id="tab-certs" class="panel-section active">
+  <div id="tab-certs" class="panel-section">
     <div class="admin-container">
       <div class="filter-row">
         <select class="hi-select" id="certs-class-filter" onchange="window.renderCerts()">
@@ -330,6 +406,18 @@
   </div>
 </div>
 
+<!-- 클래스 학생 인증 기록 모달 -->
+<div id="class-student-modal" class="confirm-overlay" style="display:none;">
+  <div class="confirm-box" style="max-width:500px; max-height:82vh; display:flex; flex-direction:column;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+      <h3 id="class-modal-name" style="margin:0; font-size:18px;"></h3>
+      <button class="mini-btn" onclick="window.closeClassModal()">닫기</button>
+    </div>
+    <p id="class-modal-sub" style="font-size:13px; color:var(--hi-text-muted); margin-bottom:14px;"></p>
+    <div id="class-modal-certs" style="overflow-y:auto; flex:1;"></div>
+  </div>
+</div>
+
 <!-- 사진 확대 모달 -->
 <div id="photo-modal" class="photo-modal" onclick="this.classList.remove('open')">
   <img id="photo-modal-img" src="" alt="">
@@ -363,6 +451,8 @@
   let mileage = {};
   let config = {};
   let editingStudentId = null;
+  let currentClassSub = 'all';
+  let classSortMode = 'num';
 
   onValue(ref(db, 'students'), snap => {
     const data = snap.val() || {};
@@ -456,12 +546,135 @@
 
   /* ── 탭 ── */
   window.switchTab = (tab) => {
-    ['certs', 'settings'].forEach(t => {
+    ['class', 'certs', 'settings'].forEach(t => {
       document.getElementById(`tab-btn-${t}`).classList.toggle('active', t === tab);
       document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
     });
+    if (tab === 'class') window.renderClassView();
     if (tab === 'certs') { populateCertsClassFilter(); window.renderCerts(); }
     if (tab === 'settings') { populateStudentClassFilter(); window.renderStudents(); }
+  };
+
+  /* ── 클래스 탭 ── */
+  window.switchClassSub = (sub) => {
+    currentClassSub = sub;
+    ['all','1','2','3','4','5','6'].forEach(s => {
+      const btn = document.getElementById(`class-sub-btn-${s}`);
+      if (btn) btn.classList.toggle('active', s === sub);
+    });
+    window.renderClassView();
+  };
+
+  window.setClassSort = (sort) => {
+    classSortMode = sort;
+    document.querySelectorAll('#class-sort-toggle button').forEach(b => {
+      b.classList.toggle('active', b.dataset.sort === sort);
+    });
+    window.renderClassView();
+  };
+
+  window.renderClassView = () => {
+    const list = document.getElementById('class-student-list');
+    const countEl = document.getElementById('class-student-count');
+    if (!list) return;
+
+    let rows = [...students];
+    if (currentClassSub !== 'all') rows = rows.filter(s => s.cls === currentClassSub);
+
+    if (classSortMode === 'days') {
+      rows.sort((a, b) => (mileage[b.studentId] || 0) - (mileage[a.studentId] || 0) || a.num - b.num);
+    } else {
+      rows.sort((a, b) => a.num - b.num);
+    }
+
+    if (countEl) countEl.textContent = `${rows.length}명`;
+
+    if (rows.length === 0) {
+      list.innerHTML = '<p class="empty-state"><span class="icon">👤</span><br>학생이 없어요</p>';
+      return;
+    }
+
+    list.innerHTML = rows.map((s, idx) => {
+      const days = mileage[s.studentId] || 0;
+      const certCount = allCerts.filter(c => String(c.studentNum) === s.studentId && c.result === 'pass').length;
+      const rankBadge = classSortMode === 'days'
+        ? `<span style="font-size:11px;color:var(--hi-text-muted);font-weight:700;min-width:28px;text-align:center;">${idx + 1}위</span>`
+        : '';
+      return `
+      <div class="data-row clickable" onclick="window.openClassModal('${s.studentId}')" style="cursor:pointer;">
+        ${rankBadge}
+        <div class="data-row-cell-id">${s.studentId}</div>
+        <div class="data-row-cell-name">
+          <div class="name-main">${escapeHtml(s.name)}</div>
+          <div class="name-sub">${s.cls}반 · 인증 ${certCount}회</div>
+        </div>
+        <div class="data-row-cell-days">${days}<small>일</small></div>
+      </div>`;
+    }).join('');
+  };
+
+  window.openClassModal = (studentId) => {
+    const s = students.find(x => x.studentId === studentId);
+    if (!s) return;
+
+    const certs = allCerts
+      .filter(c => String(c.studentNum) === studentId && c.result === 'pass')
+      .sort((a, b) => new Date(b.time) - new Date(a.time));
+
+    const days = mileage[studentId] || 0;
+    document.getElementById('class-modal-name').textContent = s.name;
+    document.getElementById('class-modal-sub').textContent =
+      `${s.studentId} · ${s.cls}반 · 누적 ${days}일 · 인증 ${certs.length}회`;
+
+    const certsEl = document.getElementById('class-modal-certs');
+    if (certs.length === 0) {
+      certsEl.innerHTML = '<p style="text-align:center;color:var(--hi-text-muted);padding:24px 0;">아직 인증 기록이 없어요</p>';
+    } else {
+      certsEl.innerHTML = certs.map((c, i) => {
+        const d = new Date(c.date);
+        const dow = ['일','월','화','수','목','금','토'][d.getDay()];
+        const safeId = c.id.replace(/[^a-zA-Z0-9_]/g, '_');
+        return `
+        <div class="cert-entry">
+          <div class="cert-entry-header" onclick="window.toggleCertDetail('${safeId}')">
+            <span class="cert-day-badge">${certs.length - i}일째</span>
+            <span class="cert-entry-date">${c.date} (${dow})</span>
+            <span class="cert-entry-arrow" id="cert-arrow-${safeId}">▼</span>
+          </div>
+          <div class="cert-entry-detail" id="cert-detail-${safeId}" style="display:none;">
+            ${c.photoURL ? `
+            <div style="margin-bottom:12px;border-radius:8px;overflow:hidden;cursor:pointer;max-height:260px;display:flex;align-items:center;justify-content:center;background:var(--hi-bg-mid);"
+                 onclick="window.showPhoto('${c.photoURL}')">
+              <img src="${c.photoURL}" style="width:100%;display:block;"
+                   onerror="this.parentElement.innerHTML='<span style=font-size:32px>📷</span><p style=font-size:11px;color:var(--hi-text-muted);margin:4px 0 0>사진을 불러올 수 없어요</p>'">
+            </div>` : ''}
+            <div class="cert-entry-field">
+              <span class="cert-field-label">공부 내용</span>
+              <p class="cert-field-value">${escapeHtml(c.studyContent || '-')}</p>
+            </div>
+            ${c.studyFeeling ? `<div class="cert-entry-field">
+              <span class="cert-field-label">느낀 점</span>
+              <p class="cert-field-value">${escapeHtml(c.studyFeeling)}</p>
+            </div>` : ''}
+            <div class="cert-entry-meta">${c.time || ''}</div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+    document.getElementById('class-student-modal').style.display = 'flex';
+  };
+
+  window.toggleCertDetail = (safeId) => {
+    const detail = document.getElementById(`cert-detail-${safeId}`);
+    const arrow = document.getElementById(`cert-arrow-${safeId}`);
+    if (!detail) return;
+    const isOpen = detail.style.display !== 'none';
+    detail.style.display = isOpen ? 'none' : 'block';
+    if (arrow) arrow.textContent = isOpen ? '▼' : '▲';
+  };
+
+  window.closeClassModal = () => {
+    document.getElementById('class-student-modal').style.display = 'none';
   };
 
   window.switchSubTab = (sub) => {
@@ -648,7 +861,9 @@
       }
       return `
       <div class="cert-detail">
-        ${c.photoURL ? `<img class="cert-thumb" src="${c.photoURL}" onclick="window.showPhoto('${c.photoURL}')">` : `<div class="cert-thumb">📷</div>`}
+        <div class="cert-thumb-wrap" onclick="${c.photoURL ? `window.showPhoto('${c.photoURL}')` : ''}">
+          ${c.photoURL ? `<img src="${c.photoURL}" alt="인증사진" onerror="this.parentElement.innerHTML='📷'">` : '📷'}
+        </div>
         <div class="body">
           <div class="name">
             ${escapeHtml(c.studentName || '-')}
@@ -761,6 +976,9 @@
 
   /* ── 전체 렌더 ── */
   function renderAll() {
+    if (document.getElementById('tab-class').classList.contains('active')) {
+      window.renderClassView();
+    }
     if (document.getElementById('tab-certs').classList.contains('active')) {
       populateCertsClassFilter(); window.renderCerts();
     }
