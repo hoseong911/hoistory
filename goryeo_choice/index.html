@@ -115,18 +115,19 @@ body::before {
 .login-title { font-size:clamp(24px,7vw,32px); font-weight:900; color:var(--paper); line-height:1.2; margin-bottom:4px; }
 .login-title-hangeul { font-size:clamp(13px,4vw,16px); font-weight:700; color:var(--ink5); letter-spacing:3px; margin-bottom:28px; font-family:'Noto Sans KR'; }
 .login-label { font-size:11px; letter-spacing:2px; color:var(--ink4); margin-bottom:10px; display:block; font-family:'Noto Sans KR'; }
-.login-input { width:100%; padding:14px 20px; background:rgba(245,240,228,0.08); border:1px solid rgba(245,240,228,0.2); border-radius:6px; color:var(--paper); font-family:'Noto Sans KR'; font-size:16px; outline:none; text-align:left; letter-spacing:2px; margin-bottom:12px; transition:border-color 0.2s; -webkit-appearance:none; }
+.login-input { width:100%; padding:14px 16px; background:rgba(245,240,228,0.08); border:1px solid rgba(245,240,228,0.2); border-radius:6px; color:var(--paper); font-family:'Noto Sans KR'; font-size:15px; outline:none; text-align:left; letter-spacing:2px; margin-bottom:0; transition:border-color 0.2s; -webkit-appearance:none; }
 .login-input:focus { border-color:var(--ink5); }
 .login-input::placeholder { color:rgba(245,240,228,0.3); letter-spacing:1px; font-size:14px; }
 
 /* ★ 학번 입력 시 이름 표시 */
 .login-name-display {
-  min-height: 24px;
-  font-size: 14px;
+  min-height: 18px;
+  font-size: 12px;
   font-family: 'Noto Sans KR', sans-serif;
   font-weight: 500;
-  letter-spacing: 2px;
-  margin-bottom: 14px;
+  letter-spacing: 1px;
+  margin-top: 5px;
+  margin-bottom: 8px;
   transition: color 0.2s;
   color: transparent;
 }
@@ -467,11 +468,11 @@ body::before {
     <input type="text" id="login-id" class="login-input" maxlength="5" inputmode="numeric" placeholder="학번 (5자리)"
       oninput="checkLoginInputs()"
       onkeydown="if(event.key==='Enter') document.getElementById('login-name-input').focus()">
+    <div id="login-id-msg" class="login-name-display"></div>
     <input type="text" id="login-name-input" class="login-input" maxlength="10" placeholder="이름 (실명)"
       oninput="checkLoginInputs()"
       onkeydown="if(event.key==='Enter') doLogin()">
-    <!-- ★ 학번 + 이름 일치 여부 표시 -->
-    <div id="login-name-display" class="login-name-display">&nbsp;</div>
+    <div id="login-name-display" class="login-name-display"></div>
     <button class="login-btn" onclick="doLogin()">입장하기</button>
     <div class="login-err" id="login-err"></div>
     <div style="display:flex;justify-content:center;gap:28px;margin-top:20px;">
@@ -1042,40 +1043,40 @@ function clearState() {
 window.checkLoginInputs = async function() {
   const sid = document.getElementById('login-id').value.trim();
   const nameInput = document.getElementById('login-name-input').value.trim();
-  const display = document.getElementById('login-name-display');
+  const idMsg = document.getElementById('login-id-msg');
+  const nameMsg = document.getElementById('login-name-display');
 
   // 숫자만 허용
   if (sid && !/^\d+$/.test(sid)) {
-    display.textContent = '학번은 숫자만 입력 가능합니다';
-    display.className = 'login-name-display notfound';
+    idMsg.textContent = '학번은 숫자만 입력 가능합니다';
+    idMsg.className = 'login-name-display notfound';
+    nameMsg.innerHTML = '';
+    nameMsg.className = 'login-name-display';
     return;
   }
 
-  // 둘 다 비어있으면 표시 안 함
-  if (sid.length === 0 && nameInput.length === 0) {
-    display.innerHTML = '&nbsp;';
-    display.className = 'login-name-display';
+  // 학번 비어있으면 초기화
+  if (sid.length === 0) {
+    idMsg.innerHTML = '';
+    idMsg.className = 'login-name-display';
+    nameMsg.innerHTML = '';
+    nameMsg.className = 'login-name-display';
     return;
   }
 
   // 학번이 5자리 미만이면 진행 표시
   if (sid.length < 5) {
-    display.textContent = `학번 ${sid.length}/5자리`;
-    display.className = 'login-name-display progress';
-    return;
-  }
-
-  // 이름이 비어있으면 안내
-  if (nameInput.length === 0) {
-    display.textContent = '이름을 입력해주세요';
-    display.className = 'login-name-display progress';
+    idMsg.textContent = `학번 ${sid.length}/5자리`;
+    idMsg.className = 'login-name-display progress';
+    nameMsg.innerHTML = '';
+    nameMsg.className = 'login-name-display';
     return;
   }
 
   // 명단이 아직 로드되지 않았으면 로드
   if (!studentsLoaded) {
-    display.textContent = '확인 중…';
-    display.className = 'login-name-display progress';
+    idMsg.textContent = '확인 중…';
+    idMsg.className = 'login-name-display progress';
     try {
       await loadStudents();
       studentsLoaded = true;
@@ -1085,22 +1086,34 @@ window.checkLoginInputs = async function() {
   const result = verifyStudentId(sid);
   if (!result.ok) {
     if (result.reason === 'not_in_roster') {
-      display.textContent = '✗ 등록되지 않은 학번';
+      idMsg.textContent = '✗ 등록되지 않은 학번';
     } else {
-      display.textContent = '✗ 확인할 수 없음';
+      idMsg.textContent = '✗ 확인할 수 없음';
     }
-    display.className = 'login-name-display notfound';
+    idMsg.className = 'login-name-display notfound';
+    nameMsg.innerHTML = '';
+    nameMsg.className = 'login-name-display';
     return;
   }
 
-  // 학번은 OK — 이름 일치 확인
+  // 학번 OK
+  idMsg.innerHTML = '';
+  idMsg.className = 'login-name-display';
+
+  // 이름 확인
+  if (nameInput.length === 0) {
+    nameMsg.innerHTML = '';
+    nameMsg.className = 'login-name-display';
+    return;
+  }
+
   const expected = (result.name || '').trim();
   if (expected && nameInput === expected) {
-    display.textContent = '✓ 확인되었습니다';
-    display.className = 'login-name-display found';
+    nameMsg.textContent = '✓ 학번과 이름이 일치합니다';
+    nameMsg.className = 'login-name-display found';
   } else {
-    display.textContent = '✗ 학번과 이름이 일치하지 않습니다';
-    display.className = 'login-name-display notfound';
+    nameMsg.textContent = '✗ 이름을 다시 확인해주세요';
+    nameMsg.className = 'login-name-display notfound';
   }
 };
 
@@ -1154,7 +1167,9 @@ window.goBack = function(target) {
     document.getElementById('title-student-info').textContent = '';
     document.getElementById('login-err').textContent = '';
     document.getElementById('login-name-input').value = '';
-    document.getElementById('login-name-display').innerHTML = '&nbsp;';
+    document.getElementById('login-id-msg').innerHTML = '';
+    document.getElementById('login-id-msg').className = 'login-name-display';
+    document.getElementById('login-name-display').innerHTML = '';
     document.getElementById('login-name-display').className = 'login-name-display';
     currentScreen = 'login-screen'; clearState();
     showScreen('login-screen');
@@ -1550,7 +1565,9 @@ window.restartGame = function() {
   document.getElementById('login-id').value = '';
   document.getElementById('login-name-input').value = '';
   document.getElementById('login-err').textContent = '';
-  document.getElementById('login-name-display').innerHTML = '&nbsp;';
+  document.getElementById('login-id-msg').innerHTML = '';
+  document.getElementById('login-id-msg').className = 'login-name-display';
+  document.getElementById('login-name-display').innerHTML = '';
   document.getElementById('login-name-display').className = 'login-name-display';
   document.getElementById('char-name').value = '';
   document.getElementById('reflection-text').value = '';
