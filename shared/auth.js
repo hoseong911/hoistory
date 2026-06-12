@@ -235,12 +235,8 @@ export function mountLoginVerification(opts) {
           verifiedName = check.name;
           status.registeredName = check.name;
           setMsg(idMsgEl, '명단 확인 완료', 'ok');
-          nameInput.value = check.name;
           nameInput.disabled = false;
-          setText(nameStatusEl, '✅');
-          setMsg(nameMsgEl, `${check.name} 학생으로 확인되었습니다`, 'ok');
           status.idValid = true;
-          status.nameValid = true;
         }
       } else {
         setText(idStatusEl, '❌');
@@ -266,11 +262,11 @@ export function mountLoginVerification(opts) {
     if (verifiedName) {
       if (val === verifiedName) {
         setText(nameStatusEl, '✅');
-        setMsg(nameMsgEl, '이름 일치', 'ok');
+        setMsg(nameMsgEl, '학번과 이름이 일치합니다', 'ok');
         status.nameValid = true;
       } else {
         setText(nameStatusEl, '❌');
-        setMsg(nameMsgEl, '이름이 일치하지 않습니다', 'err');
+        setMsg(nameMsgEl, '이름을 다시 확인해주세요', 'err');
         status.nameValid = false;
       }
     } else {
