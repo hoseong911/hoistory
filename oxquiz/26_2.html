@@ -910,7 +910,7 @@ body {
     </div>
 
     <div class="ranking-warning" id="rank-warning">
-      🏆 <strong>랭킹은 "전 범위(12~21강)" 선택 시에만 등재</strong>됩니다.<br>
+      🏆 <strong>랭킹은 전 범위(12~21강) + 30/50/100/200문항 선택 시에만 등재</strong>됩니다.<br>
       현재 선택은 랭킹에 등록되지 않아요.
     </div>
 
@@ -968,6 +968,13 @@ body {
       <input type="text" class="oneliner-input" id="oneliner-input" maxlength="40" placeholder="예: 다음엔 더 잘 볼게요!">
     </div>
 
+    <div id="quiz-check-section" style="margin-bottom:14px;">
+      <button class="btn btn-pill btn-aqua btn-lg btn-full" id="quiz-check-btn" onclick="saveSession()">퀴즈 체크! ✅</button>
+      <p id="quiz-check-notice" style="text-align:center;font-size:12px;color:var(--x-color);margin-top:8px;font-weight:700;line-height:1.5;">
+        ⚠️ 퀴즈 체크! 버튼을 누르지 않으면 기록이 합산되지 않습니다.
+      </p>
+    </div>
+
     <div class="result-actions">
       <button class="btn btn-pill btn-ghost btn-md" onclick="goPage('page-ranking')">🏆 랭킹 보기</button>
       <button class="btn btn-pill btn-aqua btn-md" onclick="restartQuiz()">다시 풀기 🔄</button>
@@ -980,6 +987,7 @@ body {
     <div class="ranking-header">
       <h2>🏆 명예의 전당</h2>
       <div class="sub">전 범위 도전자들의 점수 랭킹</div>
+      <div style="font-size:12px;color:var(--x-color);font-weight:700;margin-top:6px;">⚠️ 전범위 문제를 풀이한 경우에만 랭킹에 기록됩니다</div>
     </div>
 
     <div class="ranking-filter">
@@ -1056,6 +1064,7 @@ const COL = {
   rankings: 'ox2606_rankings',
   corrections: 'ox2606_corrections',
   responses: 'ox2606_responses',
+  sessions: 'ox2606_sessions',
   admin: 'ox2606_admin',
 };
 
@@ -1070,8 +1079,10 @@ const state = {
   questions: [],                  // 현재 퀴즈에서 풀고 있는 문제들
   currentAnswer: null,
   timer: null, timeLeft: 20,
-  allQuestions: [],               // Firestore에서 받아온 전체 문제 캐시
-  lectureCounts: {},              // 강의별 문항 수
+  allQuestions: [],
+  lectureCounts: {},
+  quizCompleted: false,
+  sessionSaved: false,
 };
 
 const LECTURES = [12,13,14,15,16,17,18,19,20,21];
@@ -1295,20 +1306,30 @@ function selectCount(n, el) {
 // ══════════════════════════════════════════════════
 function startQuiz() {
   if (!state.selectedCount) return;
-  const pool = state.allQuestions.filter(q => state.selectedLectures.has(q.lec));
-  if (pool.length === 0) {
-    miniToast('선택한 강의에 문제가 없어요');
-    return;
+
+  const saved = checkSavedProgress();
+  if (saved) {
+    if (confirm(`이전에 풀던 기록이 있습니다. (${saved.currentQ}/${saved.selectedCount}문항 완료)\n이어서 풀까요?`)) {
+      restoreProgress(saved);
+      return;
+    } else {
+      clearProgressFromLocal();
+    }
   }
+
+  const pool = state.allQuestions.filter(q => state.selectedLectures.has(q.lec));
+  if (pool.length === 0) { miniToast('선택한 강의에 문제가 없어요'); return; }
   const shuffled = [...pool].sort(() => Math.random() - 0.5);
   state.questions = shuffled.slice(0, Math.min(state.selectedCount, shuffled.length));
-
   state.currentQ = 0;
   state.score = 0;
   state.correct = 0;
   state.wrong = 0;
   state.corrections = 0;
+  state.quizCompleted = false;
+  state.sessionSaved = false;
 
+  history.pushState({ quiz: true }, '');
   goPage('page-quiz');
   showQuestion();
 }
@@ -1486,8 +1507,12 @@ function closeNotesAndNext() {
 
 function nextQuestion() {
   state.currentQ++;
-  if (state.currentQ >= state.questions.length) endQuiz();
-  else showQuestion();
+  if (state.currentQ >= state.questions.length) {
+    endQuiz();
+  } else {
+    saveProgressToLocal();
+    showQuestion();
+  }
 }
 
 // ══════════════════════════════════════════════════
@@ -1495,13 +1520,19 @@ function nextQuestion() {
 // ══════════════════════════════════════════════════
 async function endQuiz() {
   clearInterval(state.timer);
+  clearProgressFromLocal();
+  saveResultToLocal();
+  state.quizCompleted = true;
+  state.sessionSaved = false;
+
   updateResultScreen();
+  history.pushState({ quiz: true }, '');
   goPage('page-result');
 
-  // 랭킹 등재 조건: 전 범위 + 30문항 이상
+  // 랭킹 등재 조건: 전 범위 + 30/50/100/200 문항 (자동 저장)
   const isFullRange = state.selectedLectures.size === LECTURES.length;
-  if (isFullRange && state.selectedCount >= 30 && state.student) {
-    // 자동 저장 (한줄 소감은 입력 후 별도 업데이트)
+  const rankCounts = [30, 50, 100, 200];
+  if (isFullRange && rankCounts.includes(state.selectedCount) && state.student) {
     try {
       const docRef = await fs.collection(COL.rankings).add({
         studentId: state.student.sid,
@@ -1521,6 +1552,37 @@ async function endQuiz() {
   }
 }
 
+async function saveSession() {
+  if (!state.student || state.sessionSaved) return;
+  const btn = document.getElementById('quiz-check-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '저장 중...'; }
+  try {
+    const isFullRange = state.selectedLectures.size === LECTURES.length;
+    await fs.collection(COL.sessions).add({
+      studentId: state.student.sid,
+      studentName: state.student.name,
+      lectures: [...state.selectedLectures].sort((a, b) => a - b),
+      isFullRange,
+      questionCount: state.questions.length,
+      correct: state.correct,
+      wrong: state.wrong,
+      score: state.score,
+      corrections: state.corrections,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    state.sessionSaved = true;
+    clearResultFromLocal();
+    if (btn) { btn.textContent = '✅ 기록 완료!'; }
+    const notice = document.getElementById('quiz-check-notice');
+    if (notice) notice.style.display = 'none';
+    miniToast('기록이 저장되었습니다! ✨');
+  } catch (e) {
+    console.error('세션 저장 실패:', e);
+    if (btn) { btn.disabled = false; btn.textContent = '퀴즈 체크! ✅'; }
+    miniToast('저장에 실패했어요. 다시 시도해주세요.');
+  }
+}
+
 function updateResultScreen() {
   document.getElementById('final-score').textContent = state.score.toLocaleString();
   document.getElementById('r-correct').textContent = state.correct;
@@ -1532,6 +1594,12 @@ function updateResultScreen() {
   const isFullRange = state.selectedLectures.size === LECTURES.length;
   const showOneliner = state.selectedCount >= 30 && isFullRange;
   document.getElementById('oneliner-section').style.display = showOneliner ? 'block' : 'none';
+
+  // 퀴즈 체크 버튼 초기화
+  const btn = document.getElementById('quiz-check-btn');
+  const notice = document.getElementById('quiz-check-notice');
+  if (btn) { btn.disabled = false; btn.textContent = '퀴즈 체크! ✅'; }
+  if (notice) notice.style.display = 'block';
 }
 
 // 한줄 소감 입력하면 자동으로 랭킹 doc 업데이트
@@ -1549,6 +1617,9 @@ document.addEventListener('input', e => {
 function restartQuiz() {
   state.selectedCount = 0;
   state.lastRankingDocId = null;
+  state.quizCompleted = false;
+  state.sessionSaved = false;
+  clearResultFromLocal();
   goPage('page-lecture');
 }
 
@@ -1647,6 +1718,103 @@ function miniToast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2400);
 }
+
+// ══════════════════════════════════════════════════
+// LOCALSTORAGE: 진행 상황 자동저장
+// ══════════════════════════════════════════════════
+function lsProgressKey() { return state.student ? `ox_progress_${state.student.sid}` : null; }
+function lsResultKey()   { return state.student ? `ox_result_${state.student.sid}` : null; }
+
+function saveProgressToLocal() {
+  const key = lsProgressKey();
+  if (!key) return;
+  localStorage.setItem(key, JSON.stringify({
+    selectedLectures: [...state.selectedLectures],
+    selectedCount: state.selectedCount,
+    questionIds: state.questions.map(q => q.id),
+    currentQ: state.currentQ,
+    score: state.score,
+    correct: state.correct,
+    wrong: state.wrong,
+    corrections: state.corrections,
+    savedAt: Date.now()
+  }));
+}
+
+function saveResultToLocal() {
+  const key = lsResultKey();
+  if (!key) return;
+  localStorage.setItem(key, JSON.stringify({
+    selectedLectures: [...state.selectedLectures],
+    selectedCount: state.selectedCount,
+    questionCount: state.questions.length,
+    score: state.score,
+    correct: state.correct,
+    wrong: state.wrong,
+    corrections: state.corrections,
+    savedAt: Date.now()
+  }));
+}
+
+function clearProgressFromLocal() {
+  const key = lsProgressKey();
+  if (key) localStorage.removeItem(key);
+}
+
+function clearResultFromLocal() {
+  const key = lsResultKey();
+  if (key) localStorage.removeItem(key);
+}
+
+function checkSavedProgress() {
+  const key = lsProgressKey();
+  if (!key) return null;
+  try {
+    const saved = JSON.parse(localStorage.getItem(key));
+    if (!saved) return null;
+    if (Date.now() - saved.savedAt > 24 * 60 * 60 * 1000) { localStorage.removeItem(key); return null; }
+    return saved.currentQ > 0 ? saved : null;
+  } catch { return null; }
+}
+
+function restoreProgress(saved) {
+  if (state.allQuestions.length === 0) { miniToast('문제 로딩 중... 잠시 후 다시 시도해주세요'); return; }
+  state.selectedLectures.clear();
+  (saved.selectedLectures || []).forEach(l => state.selectedLectures.add(l));
+  state.selectedCount = saved.selectedCount;
+  state.questions = (saved.questionIds || []).map(id => state.allQuestions.find(q => q.id === id)).filter(Boolean);
+  state.currentQ = saved.currentQ;
+  state.score = saved.score || 0;
+  state.correct = saved.correct || 0;
+  state.wrong = saved.wrong || 0;
+  state.corrections = saved.corrections || 0;
+  state.quizCompleted = false;
+  state.sessionSaved = false;
+  history.pushState({ quiz: true }, '');
+  goPage('page-quiz');
+  showQuestion();
+}
+
+// 뒤로가기 인터셉트
+window.addEventListener('popstate', function() {
+  const activePage = document.querySelector('.page.active')?.id;
+  if (activePage === 'page-quiz') {
+    if (confirm('지금 나가면 기록이 저장되지 않습니다.\n그래도 나가시겠습니까?')) {
+      clearInterval(state.timer);
+      clearProgressFromLocal();
+      goPage('page-login');
+    } else {
+      history.pushState({ quiz: true }, '');
+    }
+  } else if (activePage === 'page-result' && !state.sessionSaved) {
+    if (confirm('퀴즈 체크!를 누르지 않으면 기록이 저장되지 않습니다.\n그래도 나가시겠습니까?')) {
+      clearResultFromLocal();
+      goPage('page-login');
+    } else {
+      history.pushState({ quiz: true }, '');
+    }
+  }
+});
 
 // 키보드 단축키
 document.addEventListener('keydown', e => {

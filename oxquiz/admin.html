@@ -520,7 +520,8 @@ tbody tr:last-child td { border-bottom: none; }
         <div class="setting-row"><div class="setting-info"><div class="setting-name">문제 초기화</div><div class="setting-desc">등록된 모든 문제를 삭제합니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('questions')">초기화</button></div>
         <div class="setting-row"><div class="setting-info"><div class="setting-name">랭킹 초기화</div><div class="setting-desc">모든 학생의 점수 기록과 랭킹을 삭제합니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('rankings')">초기화</button></div>
         <div class="setting-row"><div class="setting-info"><div class="setting-name">X 바로잡기 초기화</div><div class="setting-desc">학생들이 작성한 모든 X바로잡기 노트를 삭제합니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('corrections')">초기화</button></div>
-        <div class="setting-row"><div class="setting-info"><div class="setting-name">전체 초기화</div><div class="setting-desc" style="color:var(--hi-negative);">⚠️ 문제, 랭킹, X바로잡기 모두 삭제됩니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('all')">전체 초기화</button></div>
+        <div class="setting-row"><div class="setting-info"><div class="setting-name">참여 기록 초기화</div><div class="setting-desc">학생들의 퀴즈 체크! 세션 기록을 삭제합니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('sessions')">초기화</button></div>
+        <div class="setting-row"><div class="setting-info"><div class="setting-name">전체 초기화</div><div class="setting-desc" style="color:var(--hi-negative);">⚠️ 문제, 랭킹, X바로잡기, 참여기록 모두 삭제됩니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('all')">전체 초기화</button></div>
       </div>
 
       <div class="setting-section-title">데이터 백업</div>
@@ -604,6 +605,20 @@ tbody tr:last-child td { border-bottom: none; }
   </div>
 </div>
 
+<!-- 모달: 학생 풀이 기록 상세 -->
+<div class="modal-backdrop" id="modal-student-detail">
+  <div class="modal-card" style="max-width:540px;max-height:85vh;overflow-y:auto;">
+    <div class="modal-title" id="sdm-title">📊 학생 기록</div>
+    <div class="modal-sub" id="sdm-sub"></div>
+    <div class="stat-grid" id="sdm-stats" style="margin-bottom:16px;"></div>
+    <div style="font-size:12px;font-weight:800;color:var(--hi-text-muted);letter-spacing:0.5px;margin-bottom:8px;">회차별 기록</div>
+    <div id="sdm-sessions"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary btn-md" onclick="closeModal('modal-student-detail')">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div id="mini-toast"></div>
 
 <script>
@@ -623,6 +638,7 @@ const COL = {
   rankings: 'ox2606_rankings',
   corrections: 'ox2606_corrections',
   responses: 'ox2606_responses',
+  sessions: 'ox2606_sessions',
   admin: 'ox2606_admin',
 };
 const ADMIN_DOC = 'config';
@@ -939,36 +955,31 @@ setupDragDrop();
 
 async function loadClassData() {
   try {
-    const [respSnap, rankSnap] = await Promise.all([
-      fs.collection(COL.responses).limit(5000).get(),
-      fs.collection(COL.rankings).limit(2000).get(),
-    ]);
-    const respByStudent = {};
-    respSnap.forEach(doc => {
+    const sessSnap = await fs.collection(COL.sessions).orderBy('createdAt', 'desc').limit(5000).get();
+    const byStudent = {};
+    sessSnap.forEach(doc => {
       const d = doc.data();
       const sid = d.studentId;
-      if (!respByStudent[sid]) respByStudent[sid] = { name: d.studentName || '', total: 0, correct: 0 };
-      respByStudent[sid].total++;
-      if (d.isCorrect) respByStudent[sid].correct++;
+      if (!sid) return;
+      if (!byStudent[sid]) byStudent[sid] = { sid, name: d.studentName || '', sessions: [], lastAccess: null };
+      byStudent[sid].sessions.push({
+        id: doc.id,
+        lectures: d.lectures || [],
+        isFullRange: d.isFullRange || false,
+        questionCount: d.questionCount || 0,
+        correct: d.correct || 0,
+        wrong: d.wrong || 0,
+        score: d.score || 0,
+        corrections: d.corrections || 0,
+        createdAt: d.createdAt || null,
+      });
+      if (d.createdAt) {
+        if (!byStudent[sid].lastAccess || d.createdAt.seconds > byStudent[sid].lastAccess.seconds) {
+          byStudent[sid].lastAccess = d.createdAt;
+        }
+      }
     });
-    const rankByStudent = {};
-    rankSnap.forEach(doc => {
-      const d = doc.data();
-      const sid = d.studentId;
-      if (!rankByStudent[sid]) rankByStudent[sid] = { name: d.studentName || '', sessions: 0, totalScore: 0 };
-      rankByStudent[sid].sessions++;
-      rankByStudent[sid].totalScore += (d.score || 0);
-    });
-    const merged = {};
-    Object.entries(respByStudent).forEach(([sid, r]) => {
-      merged[sid] = {
-        sid, name: r.name, total: r.total, correct: r.correct,
-        rate: r.total > 0 ? Math.round(r.correct / r.total * 100) : 0,
-        sessions: rankByStudent[sid] ? rankByStudent[sid].sessions : 0,
-        totalScore: rankByStudent[sid] ? rankByStudent[sid].totalScore : 0,
-      };
-    });
-    state.classStudents = Object.values(merged).sort((a, b) => {
+    state.classStudents = Object.values(byStudent).sort((a, b) => {
       const ca = parseClass(a.sid) || '', cb = parseClass(b.sid) || '';
       if (ca !== cb) return ca.localeCompare(cb);
       return a.sid.localeCompare(b.sid);
@@ -978,6 +989,15 @@ async function loadClassData() {
     console.error('Class 데이터 로딩 실패:', e);
     miniToast('데이터 불러오기 실패', 'danger');
   }
+}
+
+function formatSessionDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  const h = String(date.getHours()).padStart(2, '0');
+  const min = String(date.getMinutes()).padStart(2, '0');
+  return `${y}.${m}.${d} ${h}:${min}`;
 }
 
 function renderClassView() {
@@ -1000,19 +1020,72 @@ function renderClassView() {
     return;
   }
   listEl.innerHTML = filtered.map(s => {
-    const rateColor = s.rate < 50 ? 'color:#ef5350' : s.rate < 70 ? 'color:#f59e0b' : 'color:var(--hi-accent)';
+    const sessionCount = s.sessions.length;
+    const lastAccess = s.lastAccess?.toDate ? formatSessionDate(s.lastAccess.toDate()) : '없음';
     return `<div class="student-card">
-      <div class="student-info">
+      <div class="student-info" style="cursor:pointer;flex:1;" onclick="openStudentModal('${esc(s.sid)}')">
         <div class="student-name">${esc(s.name)}<span class="student-sid">${esc(s.sid)}</span></div>
         <div class="student-meta">
-          <span class="meta-item">참여 횟수 <span class="meta-val">${s.sessions}회</span></span>
-          <span class="meta-item">평균 정답률 <span class="meta-val" style="${rateColor}">${s.rate}%</span></span>
-          <span class="meta-item">점수 총합 <span class="meta-val">${s.totalScore.toLocaleString()}점</span></span>
+          <span class="meta-item">참여 횟수 <span class="meta-val">${sessionCount}회</span></span>
+          <span class="meta-item">최근 접속 <span class="meta-val">${lastAccess}</span></span>
         </div>
       </div>
-      <button class="btn btn-danger btn-xs" onclick="resetStudentData('${esc(s.sid)}','${esc(s.name)}')">초기화</button>
+      <button class="btn btn-danger btn-xs" onclick="event.stopPropagation();resetStudentData('${esc(s.sid)}','${esc(s.name)}')">초기화</button>
     </div>`;
   }).join('');
+}
+
+function openStudentModal(sid) {
+  const s = state.classStudents.find(x => x.sid === sid);
+  if (!s) return;
+
+  document.getElementById('sdm-title').textContent = `📊 ${s.name} (${s.sid})`;
+  document.getElementById('sdm-sub').textContent = `전체 참여 ${s.sessions.length}회`;
+
+  const totalSessions = s.sessions.length;
+  const totalScore = s.sessions.reduce((sum, sess) => sum + (sess.score || 0), 0);
+  const totalCorrections = s.sessions.reduce((sum, sess) => sum + (sess.corrections || 0), 0);
+  const avgRate = totalSessions > 0
+    ? Math.round(s.sessions.reduce((sum, sess) => {
+        const t = (sess.correct || 0) + (sess.wrong || 0);
+        return sum + (t > 0 ? sess.correct / t * 100 : 0);
+      }, 0) / totalSessions)
+    : 0;
+
+  document.getElementById('sdm-stats').innerHTML = `
+    <div class="stat-box"><div class="stat-v">${totalSessions}</div><div class="stat-l">전체 횟수</div></div>
+    <div class="stat-box"><div class="stat-v">${avgRate}%</div><div class="stat-l">평균 정답률</div></div>
+    <div class="stat-box"><div class="stat-v">${totalScore.toLocaleString()}</div><div class="stat-l">총점</div></div>
+    <div class="stat-box"><div class="stat-v">${totalCorrections}</div><div class="stat-l">X바로잡기</div></div>
+  `;
+
+  const sorted = [...s.sessions].sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+  const sdmEl = document.getElementById('sdm-sessions');
+  if (sorted.length === 0) {
+    sdmEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📝</div><div class="empty-text">풀이 기록이 없습니다</div></div>';
+  } else {
+    sdmEl.innerHTML = sorted.map((sess, i) => {
+      const t = (sess.correct || 0) + (sess.wrong || 0);
+      const rate = t > 0 ? Math.round(sess.correct / t * 100) : 0;
+      const rateColor = rate < 50 ? 'color:#ef5350' : rate < 70 ? 'color:#f59e0b' : 'color:var(--hi-accent)';
+      const lecText = sess.isFullRange ? '전 범위' : (sess.lectures || []).map(l => `${l}강`).join(', ');
+      const dateStr = sess.createdAt?.toDate ? formatSessionDate(sess.createdAt.toDate()) : '-';
+      return `<div class="q-stat-card" style="margin-bottom:8px;">
+        <div class="q-stat-header">
+          <div class="q-stat-title">
+            <span class="td-lec" style="font-size:11px;">${sorted.length - i}회차</span>
+            ${esc(lecText)} · ${sess.questionCount || 0}문항
+          </div>
+          <div class="q-stat-meta">
+            <span>정답률 <strong style="${rateColor}">${rate}%</strong></span>
+            <span>점수 <strong>${(sess.score || 0).toLocaleString()}점</strong></span>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--hi-text-muted);margin-top:4px;">${dateStr}</div>
+      </div>`;
+    }).join('');
+  }
+  document.getElementById('modal-student-detail').classList.add('show');
 }
 
 function setClassTabFilter(cls, el) {
@@ -1023,16 +1096,18 @@ function setClassTabFilter(cls, el) {
 }
 
 async function resetStudentData(sid, name) {
-  if (!confirm(`${name}(${sid}) 학생의 참여 데이터를 초기화하시겠습니까?\n\n• 응답 기록 전체\n• 랭킹/점수 기록 전체\n\n되돌릴 수 없습니다.`)) return;
+  if (!confirm(`${name}(${sid}) 학생의 참여 데이터를 초기화하시겠습니까?\n\n• 응답 기록 전체\n• 랭킹/점수 기록 전체\n• 퀴즈 체크! 세션 기록 전체\n\n되돌릴 수 없습니다.`)) return;
   miniToast('초기화 중...');
   try {
-    const [respSnap, rankSnap] = await Promise.all([
+    const [respSnap, rankSnap, sessSnap] = await Promise.all([
       fs.collection(COL.responses).where('studentId', '==', sid).get(),
       fs.collection(COL.rankings).where('studentId', '==', sid).get(),
+      fs.collection(COL.sessions).where('studentId', '==', sid).get(),
     ]);
     const allDocs = [];
     respSnap.forEach(d => allDocs.push(d.ref));
     rankSnap.forEach(d => allDocs.push(d.ref));
+    sessSnap.forEach(d => allDocs.push(d.ref));
     for (let i = 0; i < allDocs.length; i += 400) {
       const batch = fs.batch();
       allDocs.slice(i, i + 400).forEach(ref => batch.delete(ref));
@@ -1207,9 +1282,9 @@ function setCorrLec(v) { state.currentCorrLec = v; renderCorrections(); }
 function setCorrSort(v) { state.currentCorrSort = v; renderCorrections(); }
 
 async function confirmReset(type) {
-  const labels = { questions: '문제', rankings: '랭킹', corrections: 'X 바로잡기', all: '문제, 랭킹, X바로잡기, 응답 (전체)' };
+  const labels = { questions: '문제', rankings: '랭킹', corrections: 'X 바로잡기', sessions: '참여 기록', all: '전체' };
   const msg = type === 'all'
-    ? `⚠️ 정말 전체를 초기화하시겠습니까?\n\n• 등록된 문제\n• 학생 랭킹/점수\n• X바로잡기 노트\n• 응답 기록\n\n모두 삭제되며 되돌릴 수 없습니다.`
+    ? `⚠️ 정말 전체를 초기화하시겠습니까?\n\n• 등록된 문제\n• 학생 랭킹/점수\n• X바로잡기 노트\n• 응답 기록\n• 퀴즈 체크! 세션 기록\n\n모두 삭제되며 되돌릴 수 없습니다.`
     : `정말 ${labels[type]} 데이터를 초기화하시겠습니까?\n\n되돌릴 수 없습니다.`;
   if (!confirm(msg)) return;
   miniToast('삭제 중...');
@@ -1217,6 +1292,7 @@ async function confirmReset(type) {
     if (type === 'questions' || type === 'all') await deleteAllInCollection(COL.questions);
     if (type === 'rankings' || type === 'all') await deleteAllInCollection(COL.rankings);
     if (type === 'corrections' || type === 'all') await deleteAllInCollection(COL.corrections);
+    if (type === 'sessions' || type === 'all') await deleteAllInCollection(COL.sessions);
     if (type === 'all') await deleteAllInCollection(COL.responses);
     miniToast(`✨ ${labels[type]} 초기화 완료`);
     if (type === 'questions' || type === 'all') loadQuestions();
