@@ -637,9 +637,9 @@
                 renderArchiveList();
             }, err => console.warn('lectures 오류:', err));
 
-        /* ② 제출 */
+        /* ② 내 제출만 로드 — 전체 컬렉션 대신 현재 학생 답변만 필터 */
         submissionUnsub = db.collection("submissions")
-            .orderBy("createdAt", "desc")
+            .where("id", "==", currentUser.id)
             .onSnapshot(snap => {
                 subGot = true;
                 if (lecGot && subGot && watchdogTimer) { clearTimeout(watchdogTimer); watchdogTimer = null; }
@@ -895,20 +895,27 @@
         document.getElementById('padlet-title').textContent = lec.title;
         document.getElementById('padlet-question').textContent = `Q. ${lec.question}`;
         const grid = document.getElementById('padlet-grid');
-        grid.innerHTML = '';
-
-        let subs = allSubmissions.filter(s => s.lectureDocId === lec.docId);
-        subs.sort((a,b) => (b.isPicked - a.isPicked) || (b.textLength - a.textLength));
-
-        if (!subs.length) { grid.innerHTML = '<p class="empty-msg">아직 공개된 답변이 없습니다.</p>'; return; }
-        subs.forEach(sub => {
-            const div = document.createElement('div');
-            div.className = `padlet-card ${sub.isPicked ? 'picked-card' : ''}`;
-            div.innerHTML = `${sub.isPicked ? '<div class="pick-badge">⭐ PICK</div>' : ''}<div>${sub.text}</div>`;
-            grid.appendChild(div);
-        });
-
+        grid.innerHTML = '<div class="loading-msg"><div class="spinner"></div><span>불러오는 중…</span></div>';
         hide('area-archive-list'); show('area-padlet');
+
+        db.collection("submissions")
+            .where("lectureDocId", "==", lec.docId)
+            .get()
+            .then(snap => {
+                let subs = snap.docs.map(d => ({ subId: d.id, ...d.data() }));
+                subs.sort((a,b) => (b.isPicked - a.isPicked) || (b.textLength - a.textLength));
+                grid.innerHTML = '';
+                if (!subs.length) { grid.innerHTML = '<p class="empty-msg">아직 공개된 답변이 없습니다.</p>'; return; }
+                subs.forEach(sub => {
+                    const div = document.createElement('div');
+                    div.className = `padlet-card ${sub.isPicked ? 'picked-card' : ''}`;
+                    div.innerHTML = `${sub.isPicked ? '<div class="pick-badge">⭐ PICK</div>' : ''}<div>${sub.text}</div>`;
+                    grid.appendChild(div);
+                });
+            })
+            .catch(() => {
+                grid.innerHTML = '<p class="empty-msg" style="color:var(--text-error);">불러오기 실패. 다시 시도해주세요.</p>';
+            });
     }
 
     function closePadlet() { hide('area-padlet'); show('area-archive-list'); }
