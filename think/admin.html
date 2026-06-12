@@ -456,8 +456,10 @@
     let gradeOverrides  = {};
     let aiReviewCache   = {};
 
-    let lectureUnsub     = null;
-    let submissionUnsub  = null;
+    let lectureUnsub            = null;
+    let submissionUnsub         = null;
+    let currentSubmissionUnsub  = null;
+    let loadedSubmissionLecId   = null;
 
     const selectState = {
         'answer-lecture-select': '',
@@ -602,16 +604,16 @@
     let watchdogTimer = null;
 
     function startListeners() {
-        if (lectureUnsub)    { lectureUnsub();    lectureUnsub    = null; }
-        if (submissionUnsub) { submissionUnsub(); submissionUnsub = null; }
-        if (watchdogTimer)   { clearTimeout(watchdogTimer); watchdogTimer = null; }
+        if (lectureUnsub)           { lectureUnsub();           lectureUnsub           = null; }
+        if (currentSubmissionUnsub) { currentSubmissionUnsub(); currentSubmissionUnsub = null; loadedSubmissionLecId = null; }
+        if (watchdogTimer)          { clearTimeout(watchdogTimer); watchdogTimer       = null; }
 
-        let lecGot = false, subGot = false;
+        let lecGot = false;
 
         const startWatchdog = () => {
             if (watchdogTimer) clearTimeout(watchdogTimer);
             watchdogTimer = setTimeout(() => {
-                if (!lecGot || !subGot) {
+                if (!lecGot) {
                     retryCount++;
                     console.warn(`[Firestore] 응답 지연 — 재연결 시도 ${retryCount}회`);
                     if (retryCount <= 3) {
@@ -639,7 +641,7 @@
             .onSnapshot(snap => {
                 lecGot = true;
                 retryCount = 0;
-                if (lecGot && subGot && watchdogTimer) { clearTimeout(watchdogTimer); watchdogTimer = null; }
+                if (lecGot && watchdogTimer) { clearTimeout(watchdogTimer); watchdogTimer = null; }
                 activeLectures = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
                 lecturesReady  = true;
                 populateAllSelects();
@@ -649,18 +651,6 @@
                 renderAnswerClass();
                 renderPickTab();
             }, err => console.warn('lectures 오류:', err));
-
-        submissionUnsub = db.collection("submissions").orderBy("createdAt","desc")
-            .onSnapshot(snap => {
-                subGot = true;
-                if (lecGot && subGot && watchdogTimer) { clearTimeout(watchdogTimer); watchdogTimer = null; }
-                allSubmissions   = snap.docs.map(d => ({ subId: d.id, ...d.data() }));
-                submissionsReady = true;
-                renderLectureAdmin();
-                renderAnswerLecture();
-                renderAnswerClass();
-                renderPickTab();
-            }, err => console.warn('submissions 오류:', err));
 
         try {
             const cached = localStorage.getItem('sc_students_cache');
@@ -720,10 +710,31 @@
     }
 
     function stopListeners() {
-        if (lectureUnsub)    { lectureUnsub();    lectureUnsub    = null; }
-        if (submissionUnsub) { submissionUnsub(); submissionUnsub = null; }
+        if (lectureUnsub)           { lectureUnsub();           lectureUnsub           = null; }
+        if (currentSubmissionUnsub) { currentSubmissionUnsub(); currentSubmissionUnsub = null; }
+        loadedSubmissionLecId = null;
         lecturesReady = submissionsReady = studentsReady = false;
         activeLectures = allSubmissions = allStudents = [];
+    }
+
+    function ensureSubmissions(lecId, cb) {
+        if (lecId === loadedSubmissionLecId) {
+            if (submissionsReady) cb();
+            return;
+        }
+        if (currentSubmissionUnsub) { currentSubmissionUnsub(); currentSubmissionUnsub = null; }
+        loadedSubmissionLecId = lecId;
+        submissionsReady = false;
+        allSubmissions   = [];
+
+        currentSubmissionUnsub = db.collection("submissions")
+            .where("lectureDocId", "==", lecId)
+            .onSnapshot(snap => {
+                allSubmissions   = snap.docs.map(d => ({ subId: d.id, ...d.data() }));
+                submissionsReady = true;
+                renderLectureAdmin();
+                cb();
+            }, err => console.warn('submissions 오류:', err));
     }
 
     function applyTabState(state) {
@@ -754,7 +765,13 @@
 
     function switchTab(tab)  { switchTabSilent(tab);  saveUIState(); }
     function switchQTab(tab) { switchQTabSilent(tab); if (tab==='list') renderLectureAdmin(); saveUIState(); }
-    function switchATab(tab) { switchATabSilent(tab); saveUIState(); }
+    function switchATab(tab) {
+        switchATabSilent(tab);
+        if (tab === 'lecture') renderAnswerLecture();
+        else if (tab === 'class') renderAnswerClass();
+        else if (tab === 'pick') renderPickTab();
+        saveUIState();
+    }
 
     function classNumFromId(sid) {
         if (!sid || sid.length < 3) return null;
@@ -785,7 +802,8 @@
         if (!activeLectures.length) { el.innerHTML = '<p class="empty-msg">강의가 없습니다.</p>'; return; }
 
         activeLectures.forEach(lec => {
-            const subCount = allSubmissions.filter(s => s.lectureDocId === lec.docId).length;
+            const subCount = (submissionsReady && loadedSubmissionLecId === lec.docId)
+                ? allSubmissions.length : null;
             const isOpen   = lec.isOpen === true;
             const div      = document.createElement('div');
             div.className  = 'lecture-card';
@@ -807,7 +825,7 @@
                         <div class="detail-label">설명</div>
                         <div class="detail-val">${escHtml(lec.reference || '없음')}</div>
                         <div class="detail-label">제출</div>
-                        <div class="detail-val">${subCount}건</div>
+                        <div class="detail-val">${subCount !== null ? subCount + '건' : '—'}</div>
                     </div>
                 </div>
                 <div id="edit-${lec.docId}" class="inline-edit hidden">
@@ -837,10 +855,10 @@
         db.collection("lectures").doc(docId).update({ title, question, reference }).then(() => toggleEdit(docId, false));
     }
     function deleteLecture(docId, title) {
-        openModal("강의 삭제", `<b>${title}</b>을(를) 삭제하시겠습니까?<br><span style="color:var(--hi-negative)">모든 답변도 함께 삭제됩니다.</span>`, () => {
-            const subs  = allSubmissions.filter(s => s.lectureDocId === docId);
+        openModal("강의 삭제", `<b>${title}</b>을(를) 삭제하시겠습니까?<br><span style="color:var(--hi-negative)">모든 답변도 함께 삭제됩니다.</span>`, async () => {
+            const snap  = await db.collection("submissions").where("lectureDocId", "==", docId).get();
             const batch = db.batch();
-            subs.forEach(s => batch.delete(db.collection("submissions").doc(s.subId)));
+            snap.docs.forEach(doc => batch.delete(doc.ref));
             batch.delete(db.collection("lectures").doc(docId));
             batch.commit().then(closeModal);
         });
@@ -909,8 +927,10 @@
         titleEl.textContent = lec.title; titleEl.classList.remove('hidden');
         sortEl.classList.remove('hidden');
 
-        if (!submissionsReady) {
-            listEl.innerHTML = `<div class="loading-msg"><div class="spinner"></div><span>불러오는 중…</span></div>`; return;
+        if (!submissionsReady || loadedSubmissionLecId !== lecId) {
+            listEl.innerHTML = `<div class="loading-msg"><div class="spinner"></div><span>불러오는 중…</span></div>`;
+            ensureSubmissions(lecId, renderAnswerLecture);
+            return;
         }
         let subs = allSubmissions.filter(s => s.lectureDocId === lecId);
         statsEl.classList.remove('hidden');
@@ -936,8 +956,10 @@
 
         titleEl.textContent = lec.title; titleEl.classList.remove('hidden');
 
-        if (!submissionsReady) {
-            listEl.innerHTML = `<div class="loading-msg"><div class="spinner"></div><span>불러오는 중…</span></div>`; return;
+        if (!submissionsReady || loadedSubmissionLecId !== lecId) {
+            listEl.innerHTML = `<div class="loading-msg"><div class="spinner"></div><span>불러오는 중…</span></div>`;
+            ensureSubmissions(lecId, renderAnswerClass);
+            return;
         }
         const clsNum        = parseInt(cls, 10);
         const classStudents = studentsReady ? allStudents.filter(s => classNumFromId(s.studentId) === clsNum) : [];
@@ -991,8 +1013,10 @@
 
         titleEl.textContent = lec.title; titleEl.classList.remove('hidden');
 
-        if (!submissionsReady) {
-            listEl.innerHTML = `<div class="loading-msg"><div class="spinner"></div><span>불러오는 중…</span></div>`; return;
+        if (!submissionsReady || loadedSubmissionLecId !== lecId) {
+            listEl.innerHTML = `<div class="loading-msg"><div class="spinner"></div><span>불러오는 중…</span></div>`;
+            ensureSubmissions(lecId, renderPickTab);
+            return;
         }
         const picked = allSubmissions.filter(s => s.lectureDocId === lecId && s.isPicked);
         statsEl.classList.remove('hidden');
@@ -1340,12 +1364,13 @@ ${JSON.stringify(classSubs.map(s => ({ subId: s.subId, id: s.id, name: s.name, t
     }
 
     /* ══ SETTING ══ */
-    function exportCSV() {
+    async function exportCSV() {
         const lecId = document.getElementById('setting-export-select').value;
         if (!lecId) { alert("강의를 선택하세요."); return; }
-        const lec = activeLectures.find(l => l.docId === lecId);
+        const lec  = activeLectures.find(l => l.docId === lecId);
+        const snap = await db.collection("submissions").where("lectureDocId", "==", lecId).get();
         let csv = "﻿학번,이름,비밀번호,답변,글자수,작성시간(초),이탈횟수,PICK\n";
-        allSubmissions.filter(s => s.lectureDocId === lecId).forEach(d => {
+        snap.docs.map(d => d.data()).forEach(d => {
             const text = (d.text || '').replace(/"/g, '""').replace(/\n/g, ' ');
             csv += `${d.id},${d.name},${d.verify},"${text}",${d.textLength},${d.duration},${d.cheatCount},${d.isPicked ? 'O' : 'X'}\n`;
         });
@@ -1359,10 +1384,10 @@ ${JSON.stringify(classSubs.map(s => ({ subId: s.subId, id: s.id, name: s.name, t
         const lecId = document.getElementById('setting-reset-select').value;
         if (!lecId) { alert("강의를 선택하세요."); return; }
         const lec = activeLectures.find(l => l.docId === lecId);
-        openModal("강의 초기화", `<b>${lec?.title}</b>의 모든 답변을 삭제합니다.<br><span style="color:var(--hi-negative)">되돌릴 수 없습니다.</span>`, () => {
-            const subs  = allSubmissions.filter(s => s.lectureDocId === lecId);
+        openModal("강의 초기화", `<b>${lec?.title}</b>의 모든 답변을 삭제합니다.<br><span style="color:var(--hi-negative)">되돌릴 수 없습니다.</span>`, async () => {
+            const snap  = await db.collection("submissions").where("lectureDocId", "==", lecId).get();
             const batch = db.batch();
-            subs.forEach(s => batch.delete(db.collection("submissions").doc(s.subId)));
+            snap.docs.forEach(doc => batch.delete(doc.ref));
             batch.commit().then(closeModal);
         });
     }
