@@ -521,7 +521,8 @@ tbody tr:last-child td { border-bottom: none; }
         <div class="setting-row"><div class="setting-info"><div class="setting-name">랭킹 초기화</div><div class="setting-desc">모든 학생의 점수 기록과 랭킹을 삭제합니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('rankings')">초기화</button></div>
         <div class="setting-row"><div class="setting-info"><div class="setting-name">X 바로잡기 초기화</div><div class="setting-desc">학생들이 작성한 모든 X바로잡기 노트를 삭제합니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('corrections')">초기화</button></div>
         <div class="setting-row"><div class="setting-info"><div class="setting-name">참여 기록 초기화</div><div class="setting-desc">학생들의 퀴즈 체크! 세션 기록을 삭제합니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('sessions')">초기화</button></div>
-        <div class="setting-row"><div class="setting-info"><div class="setting-name">전체 초기화</div><div class="setting-desc" style="color:var(--hi-negative);">⚠️ 문제, 랭킹, X바로잡기, 참여기록 모두 삭제됩니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('all')">전체 초기화</button></div>
+        <div class="setting-row"><div class="setting-info"><div class="setting-name">응답 데이터 초기화</div><div class="setting-desc">스탯 메뉴에 표시되는 문항별 O/X 응답 기록을 삭제합니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('responses')">초기화</button></div>
+        <div class="setting-row"><div class="setting-info"><div class="setting-name">전체 초기화</div><div class="setting-desc" style="color:var(--hi-negative);">⚠️ 문제, 랭킹, X바로잡기, 참여기록, 응답 데이터 모두 삭제됩니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('all')">전체 초기화</button></div>
       </div>
 
       <div class="setting-section-title">데이터 백업</div>
@@ -1282,7 +1283,7 @@ function setCorrLec(v) { state.currentCorrLec = v; renderCorrections(); }
 function setCorrSort(v) { state.currentCorrSort = v; renderCorrections(); }
 
 async function confirmReset(type) {
-  const labels = { questions: '문제', rankings: '랭킹', corrections: 'X 바로잡기', sessions: '참여 기록', all: '전체' };
+  const labels = { questions: '문제', rankings: '랭킹', corrections: 'X 바로잡기', sessions: '참여 기록', responses: '응답 데이터', all: '전체' };
   const msg = type === 'all'
     ? `⚠️ 정말 전체를 초기화하시겠습니까?\n\n• 등록된 문제\n• 학생 랭킹/점수\n• X바로잡기 노트\n• 응답 기록\n• 퀴즈 체크! 세션 기록\n\n모두 삭제되며 되돌릴 수 없습니다.`
     : `정말 ${labels[type]} 데이터를 초기화하시겠습니까?\n\n되돌릴 수 없습니다.`;
@@ -1293,11 +1294,11 @@ async function confirmReset(type) {
     if (type === 'rankings' || type === 'all') await deleteAllInCollection(COL.rankings);
     if (type === 'corrections' || type === 'all') await deleteAllInCollection(COL.corrections);
     if (type === 'sessions' || type === 'all') await deleteAllInCollection(COL.sessions);
-    if (type === 'all') await deleteAllInCollection(COL.responses);
+    if (type === 'responses' || type === 'all') await deleteAllInCollection(COL.responses);
     miniToast(`✨ ${labels[type]} 초기화 완료`);
     if (type === 'questions' || type === 'all') loadQuestions();
     if (type === 'corrections' || type === 'all') loadCorrections();
-    if (type === 'corrections' || type === 'all') loadAnswerData();
+    if (type === 'corrections' || type === 'responses' || type === 'all') loadAnswerData();
     if (type === 'sessions' || type === 'all') loadClassData();
   } catch (e) { console.error(e); miniToast('초기화 실패: ' + e.message, 'danger'); }
 }
