@@ -65,11 +65,17 @@
 --o-color: #0097a7;
 --x-color: #ef5350;
 
-/* 통계 그리드 */
+/* 통계 그리드 (학생 모달용) */
 .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
 .stat-box { background: var(--hi-bg-surface); border: 1px solid var(--hi-border); border-radius: 12px; padding: 16px 14px; text-align: center; }
 .stat-box .stat-v { font-size: 26px; font-weight: 900; color: var(--hi-accent); line-height: 1; }
 .stat-box .stat-l { font-size: 11px; color: var(--hi-text-muted); margin-top: 4px; font-weight: 600; letter-spacing: 0.3px; }
+
+/* 컴팩트 문제 통계 */
+.q-cstats { display: flex; align-items: center; gap: 6px; }
+.cstat { font-size: 12px; color: var(--hi-text-muted); }
+.cstat strong { color: var(--hi-text); font-weight: 800; }
+.cstat-dot { color: var(--hi-border); font-size: 11px; }
 
 /* 업로드 존 */
 .upload-zone {
@@ -183,21 +189,12 @@ tbody tr:last-child td { border-bottom: none; }
 .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.5; }
 .empty-text { font-size: 14px; }
 
-/* 문항별 카드 (Stats) */
+/* 세션 카드 (학생 모달용) */
 .q-stat-card { background: var(--hi-bg-surface); border: 1px solid var(--hi-border); border-radius: 12px; padding: 16px 18px; margin-bottom: 10px; }
 .q-stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 10px; flex-wrap: wrap; }
 .q-stat-title { font-size: 14px; font-weight: 700; color: var(--hi-text); flex: 1; min-width: 200px; display: flex; align-items: center; gap: 8px; }
 .q-stat-meta { font-size: 11px; color: var(--hi-text-muted); display: flex; gap: 12px; }
 .q-stat-meta strong { color: var(--hi-text); font-weight: 800; }
-.bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
-.bar-label { width: 22px; font-weight: 900; font-size: 13px; }
-.bar-label.o { color: #0097a7; }
-.bar-label.x { color: #ef5350; }
-.bar-wrap { flex: 1; height: 8px; background: var(--hi-bg-mid); border-radius: 9999px; overflow: hidden; }
-.bar-fill { height: 100%; border-radius: 9999px; transition: width .5s ease; }
-.bar-fill.o { background: linear-gradient(90deg, #4fc3f7, #0097a7); }
-.bar-fill.x { background: linear-gradient(90deg, #ff8a80, #ef5350); }
-.bar-pct { width: 44px; font-size: 12px; font-weight: 700; color: var(--hi-text-muted); text-align: right; }
 
 /* X 바로잡기 */
 .correction-item { background: var(--hi-bg-surface); border: 1px solid var(--hi-border); border-radius: 12px; padding: 16px 18px; margin-bottom: 10px; }
@@ -327,7 +324,6 @@ tbody tr:last-child td { border-bottom: none; }
   <div class="main-tabs">
     <button class="main-tab active" onclick="switchTab('question',this)">QUESTION</button>
     <button class="main-tab" onclick="switchTab('class',this)">CLASS</button>
-    <button class="main-tab" onclick="switchTab('stats',this)">STATS</button>
     <button class="main-tab" onclick="switchTab('setting',this)">SETTING</button>
   </div>
 
@@ -335,153 +331,89 @@ tbody tr:last-child td { border-bottom: none; }
 
     <!-- QUESTION -->
     <div class="tab-page active" id="tab-question">
-      <div class="stat-grid">
-        <div class="stat-box"><div class="stat-v" id="q-total">0</div><div class="stat-l">전체 문항</div></div>
-        <div class="stat-box"><div class="stat-v" id="q-lec-count">0</div><div class="stat-l">강의 수</div></div>
-        <div class="stat-box"><div class="stat-v" id="q-o-count">0</div><div class="stat-l">O 정답</div></div>
-        <div class="stat-box"><div class="stat-v" id="q-x-count">0</div><div class="stat-l">X 정답</div></div>
+      <div class="filter-chips" style="justify-content:center;margin-bottom:16px;">
+        <button class="chip active" onclick="switchQuestionSub('list',this)">📚 문제 목록</button>
+        <button class="chip" onclick="switchQuestionSub('x',this)">✏️ X 바로잡기</button>
       </div>
 
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">엑셀 업로드</div>
-          <button class="btn btn-primary btn-sm" onclick="exportQuestions()">내보내기</button>
-        </div>
-        <div class="card-body">
-          <div class="format-info">
-            📋 <strong>엑셀 형식 안내</strong><br>
-            A열: <code>강의</code>  ·  B열: <code>문제</code>  ·  C열: <code>정답(O/X)</code>  ·  D열: <code>해설</code>(선택)<br>
-            1행은 헤더로 자동 건너뜁니다.  ·  강의는 <strong>12~21</strong> 사이 숫자만 입력해주세요.
-          </div>
-          <div class="upload-zone" id="upload-zone">
-            <input type="file" accept=".xlsx,.xls" id="excel-input" onchange="handleExcel(event)">
-            <div class="uz-icon"></div>
-            <div class="uz-title">클릭하거나 파일을 드래그하세요</div>
-            <div class="uz-desc">.xlsx / .xls  ·  업로드 시 기존 문제는 유지되고 추가됩니다</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">등록된 문제</div>
-          <button class="btn btn-primary btn-sm" onclick="openAddQuestionModal()">+ 문제 추가</button>
-        </div>
-        <div class="card-body">
-          <div class="toolbar">
-            <input type="text" class="search-input" id="q-search" placeholder="문제 내용 검색..." oninput="renderQuestions()">
-            <select class="filter-select" id="q-lec-filter" onchange="renderQuestions()">
-              <option value="">전체 강의</option>
-              <option value="12">12강</option><option value="13">13강</option>
-              <option value="14">14강</option><option value="15">15강</option>
-              <option value="16">16강</option><option value="17">17강</option>
-              <option value="18">18강</option><option value="19">19강</option>
-              <option value="20">20강</option><option value="21">21강</option>
-            </select>
-            <select class="filter-select" id="q-ans-filter" onchange="renderQuestions()">
-              <option value="">전체 정답</option>
-              <option value="O">O만</option>
-              <option value="X">X만</option>
-            </select>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width:40px;">#</th>
-                  <th style="width:60px;">강의</th>
-                  <th>문제</th>
-                  <th style="width:70px;text-align:center;">정답</th>
-                  <th>해설</th>
-                  <th style="width:120px;">관리</th>
-                </tr>
-              </thead>
-              <tbody id="q-tbody"></tbody>
-            </table>
-            <div class="empty-state" id="q-empty" style="display:none;">
-              <div class="empty-icon">📚</div>
-              <div class="empty-text">등록된 문제가 없습니다</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- CLASS -->
-    <div class="tab-page" id="tab-class">
-      <div class="card">
-        <div class="card-body">
-          <div style="font-size:12px;color:var(--hi-text-muted);font-weight:700;letter-spacing:0.5px;margin-bottom:10px;">반 선택</div>
-          <div class="filter-chips" id="class-chips-tab">
-            <button class="chip active" onclick="setClassTabFilter('all',this)">전체</button>
-          </div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">학생 참여 명단</div>
-          <div class="card-hint" id="class-student-count"></div>
-        </div>
-        <div class="card-body">
-          <div id="class-student-list">
-            <div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">참여 데이터를 불러오는 중...</div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- STATS -->
-    <div class="tab-page" id="tab-stats">
-      <div class="filter-chips" style="margin-bottom:16px;">
-        <button class="chip active" onclick="switchStatsSub('overview',this)">📈 응답 현황</button>
-        <button class="chip" onclick="switchStatsSub('x',this)">✏️ X 바로잡기</button>
-      </div>
-
-      <div id="stats-overview-view">
+      <div id="q-sub-list">
         <div class="card">
+          <div class="card-header">
+            <div class="card-title">엑셀 업로드</div>
+            <button class="btn btn-primary btn-sm" onclick="exportQuestions()">내보내기</button>
+          </div>
           <div class="card-body">
-            <div style="font-size:12px;color:var(--hi-text-muted);font-weight:700;letter-spacing:0.5px;margin-bottom:10px;">반 선택</div>
-            <div class="filter-chips" id="class-chips">
-              <button class="chip active" onclick="setClassFilter('all',this)">전체</button>
+            <div class="format-info">
+              📋 <strong>엑셀 형식 안내</strong><br>
+              A열: <code>강의</code>  ·  B열: <code>문제</code>  ·  C열: <code>정답(O/X)</code>  ·  D열: <code>해설</code>(선택)<br>
+              1행은 헤더로 자동 건너뜁니다.  ·  강의는 <strong>12~21</strong> 사이 숫자만 입력해주세요.
+            </div>
+            <div class="upload-zone" id="upload-zone">
+              <input type="file" accept=".xlsx,.xls" id="excel-input" onchange="handleExcel(event)">
+              <div class="uz-icon"></div>
+              <div class="uz-title">클릭하거나 파일을 드래그하세요</div>
+              <div class="uz-desc">.xlsx / .xls  ·  업로드 시 기존 문제는 유지되고 추가됩니다</div>
             </div>
           </div>
-        </div>
-
-        <div class="stat-grid">
-          <div class="stat-box"><div class="stat-v" id="ans-stat-total">0</div><div class="stat-l">총 응답 수</div></div>
-          <div class="stat-box"><div class="stat-v" id="ans-stat-rate">0%</div><div class="stat-l">평균 정답률</div></div>
-          <div class="stat-box"><div class="stat-v" id="ans-stat-students">0</div><div class="stat-l">참여 학생 수</div></div>
-          <div class="stat-box"><div class="stat-v" id="ans-stat-corr">0</div><div class="stat-l">X바로잡기 수</div></div>
         </div>
 
         <div class="card">
           <div class="card-header">
-            <div class="card-title">문항별 응답 현황</div>
-            <div style="display:flex;gap:8px;">
-              <select class="filter-select" style="font-size:12px;padding:7px 12px;" onchange="setLecFilter(this.value)">
-                <option value="all">전체 강의</option>
+            <div class="card-title">등록된 문제</div>
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+              <div class="q-cstats" id="q-cstats">
+                <span class="cstat">전체 <strong id="q-total">0</strong></span>
+                <span class="cstat-dot">·</span>
+                <span class="cstat">강의 <strong id="q-lec-count">0</strong></span>
+                <span class="cstat-dot">·</span>
+                <span class="cstat">O <strong id="q-o-count" style="color:#0097a7;">0</strong></span>
+                <span class="cstat-dot">·</span>
+                <span class="cstat">X <strong id="q-x-count" style="color:#ef5350;">0</strong></span>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="openAddQuestionModal()">+ 문제 추가</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="toolbar">
+              <input type="text" class="search-input" id="q-search" placeholder="문제 내용 검색..." oninput="renderQuestions()">
+              <select class="filter-select" id="q-lec-filter" onchange="renderQuestions()">
+                <option value="">전체 강의</option>
                 <option value="12">12강</option><option value="13">13강</option>
                 <option value="14">14강</option><option value="15">15강</option>
                 <option value="16">16강</option><option value="17">17강</option>
                 <option value="18">18강</option><option value="19">19강</option>
                 <option value="20">20강</option><option value="21">21강</option>
               </select>
-              <select class="filter-select" style="font-size:12px;padding:7px 12px;" onchange="setSortStats(this.value)">
-                <option value="rate">정답률 낮은순</option>
-                <option value="count">참여 많은순</option>
-                <option value="lec">강의 순</option>
+              <select class="filter-select" id="q-ans-filter" onchange="renderQuestions()">
+                <option value="">전체 정답</option>
+                <option value="O">O만</option>
+                <option value="X">X만</option>
               </select>
             </div>
-          </div>
-          <div class="card-body">
-            <div id="ans-q-list">
-              <div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">아직 응답 데이터가 없습니다</div></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:40px;">#</th>
+                    <th style="width:60px;">강의</th>
+                    <th>문제</th>
+                    <th style="width:70px;text-align:center;">정답</th>
+                    <th>해설</th>
+                    <th style="width:120px;">관리</th>
+                  </tr>
+                </thead>
+                <tbody id="q-tbody"></tbody>
+              </table>
+              <div class="empty-state" id="q-empty" style="display:none;">
+                <div class="empty-icon">📚</div>
+                <div class="empty-text">등록된 문제가 없습니다</div>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div id="stats-x-view" style="display:none;">
+      <div id="q-sub-x" style="display:none;">
         <div class="card">
           <div class="card-body">
             <div class="toolbar">
@@ -508,6 +440,70 @@ tbody tr:last-child td { border-bottom: none; }
       </div>
     </div>
 
+    <!-- CLASS -->
+    <div class="tab-page" id="tab-class">
+      <div class="filter-chips" style="justify-content:center;margin-bottom:16px;">
+        <button class="chip active" onclick="switchClassSub('list',this)">👥 명단</button>
+        <button class="chip" onclick="switchClassSub('ranking',this)">🏆 랭킹</button>
+      </div>
+
+      <div id="class-sub-list">
+        <div class="card">
+          <div class="card-body">
+            <div style="font-size:12px;color:var(--hi-text-muted);font-weight:700;letter-spacing:0.5px;margin-bottom:10px;">반 선택</div>
+            <div class="filter-chips" style="justify-content:center;" id="class-chips-tab">
+              <button class="chip active" onclick="setClassTabFilter('all',this)">전체</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">학생 참여 명단</div>
+            <div class="card-hint" id="class-student-count"></div>
+          </div>
+          <div class="card-body">
+            <div id="class-student-list">
+              <div class="empty-state"><div class="empty-icon">👥</div><div class="empty-text">참여 데이터를 불러오는 중...</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="class-sub-ranking" style="display:none;">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🏆 랭킹</div>
+            <button class="btn btn-primary btn-sm" onclick="exportRankings()">엑셀 내보내기</button>
+          </div>
+          <div class="card-body">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th style="width:36px;">#</th>
+                    <th>학번</th>
+                    <th>이름</th>
+                    <th style="text-align:center;">문항수</th>
+                    <th style="text-align:center;">점수</th>
+                    <th style="text-align:center;">정답</th>
+                    <th style="text-align:center;">오답</th>
+                    <th style="text-align:center;">X바로잡기</th>
+                    <th>일시</th>
+                  </tr>
+                </thead>
+                <tbody id="ranking-tbody"></tbody>
+              </table>
+              <div class="empty-state" id="ranking-empty" style="display:none;">
+                <div class="empty-icon">🏆</div>
+                <div class="empty-text">랭킹 데이터가 없습니다</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
     <!-- SETTING -->
     <div class="tab-page" id="tab-setting">
       <div class="warning-banner">
@@ -521,8 +517,7 @@ tbody tr:last-child td { border-bottom: none; }
         <div class="setting-row"><div class="setting-info"><div class="setting-name">랭킹 초기화</div><div class="setting-desc">모든 학생의 점수 기록과 랭킹을 삭제합니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('rankings')">초기화</button></div>
         <div class="setting-row"><div class="setting-info"><div class="setting-name">X 바로잡기 초기화</div><div class="setting-desc">학생들이 작성한 모든 X바로잡기 노트를 삭제합니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('corrections')">초기화</button></div>
         <div class="setting-row"><div class="setting-info"><div class="setting-name">참여 기록 초기화</div><div class="setting-desc">학생들의 퀴즈 체크! 세션 기록을 삭제합니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('sessions')">초기화</button></div>
-        <div class="setting-row"><div class="setting-info"><div class="setting-name">응답 데이터 초기화</div><div class="setting-desc">스탯 메뉴에 표시되는 문항별 O/X 응답 기록을 삭제합니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('responses')">초기화</button></div>
-        <div class="setting-row"><div class="setting-info"><div class="setting-name">전체 초기화</div><div class="setting-desc" style="color:var(--hi-negative);">⚠️ 문제, 랭킹, X바로잡기, 참여기록, 응답 데이터 모두 삭제됩니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('all')">전체 초기화</button></div>
+        <div class="setting-row"><div class="setting-info"><div class="setting-name">전체 초기화</div><div class="setting-desc" style="color:var(--hi-negative);">⚠️ 문제, 랭킹, X바로잡기, 참여기록 모두 삭제됩니다.</div></div><button class="btn btn-danger btn-sm" onclick="confirmReset('all')">전체 초기화</button></div>
       </div>
 
       <div class="setting-section-title">데이터 백업</div>
@@ -638,7 +633,6 @@ const COL = {
   questions: 'ox2606_questions',
   rankings: 'ox2606_rankings',
   corrections: 'ox2606_corrections',
-  responses: 'ox2606_responses',
   sessions: 'ox2606_sessions',
   admin: 'ox2606_admin',
 };
@@ -648,14 +642,11 @@ const DEFAULT_PW = 'ghtjd12!@';
 const state = {
   questions: [],
   corrections: [],
-  responses: [],
+  rankings: [],
   classStudents: [],
   editingId: null,
   selectedAns: null,
-  currentClass: 'all',
   currentClassTab: 'all',
-  currentLecFilter: 'all',
-  currentSortStats: 'rate',
   currentCorrSearch: '',
   currentCorrLec: 'all',
   currentCorrSort: 'newest',
@@ -719,15 +710,22 @@ function switchTab(name, el) {
   document.getElementById('tab-' + name).classList.add('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
   if (name === 'class') loadClassData();
-  if (name === 'stats') loadAnswerData();
 }
 
-function switchStatsSub(name, el) {
+function switchQuestionSub(name, el) {
   el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('stats-overview-view').style.display = name === 'overview' ? 'block' : 'none';
-  document.getElementById('stats-x-view').style.display = name === 'x' ? 'block' : 'none';
+  document.getElementById('q-sub-list').style.display = name === 'list' ? 'block' : 'none';
+  document.getElementById('q-sub-x').style.display = name === 'x' ? 'block' : 'none';
   if (name === 'x') loadCorrections();
+}
+
+function switchClassSub(name, el) {
+  el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('class-sub-list').style.display = name === 'list' ? 'block' : 'none';
+  document.getElementById('class-sub-ranking').style.display = name === 'ranking' ? 'block' : 'none';
+  if (name === 'ranking') loadRankings();
 }
 
 async function loadQuestions() {
@@ -1100,13 +1098,11 @@ async function resetStudentData(sid, name) {
   if (!confirm(`${name}(${sid}) 학생의 참여 데이터를 초기화하시겠습니까?\n\n• 응답 기록 전체\n• 랭킹/점수 기록 전체\n• 퀴즈 체크! 세션 기록 전체\n\n되돌릴 수 없습니다.`)) return;
   miniToast('초기화 중...');
   try {
-    const [respSnap, rankSnap, sessSnap] = await Promise.all([
-      fs.collection(COL.responses).where('studentId', '==', sid).get(),
+    const [rankSnap, sessSnap] = await Promise.all([
       fs.collection(COL.rankings).where('studentId', '==', sid).get(),
       fs.collection(COL.sessions).where('studentId', '==', sid).get(),
     ]);
     const allDocs = [];
-    respSnap.forEach(d => allDocs.push(d.ref));
     rankSnap.forEach(d => allDocs.push(d.ref));
     sessSnap.forEach(d => allDocs.push(d.ref));
     for (let i = 0; i < allDocs.length; i += 400) {
@@ -1119,18 +1115,6 @@ async function resetStudentData(sid, name) {
   } catch (e) { console.error(e); miniToast('초기화 실패', 'danger'); }
 }
 
-async function loadAnswerData() {
-  try {
-    const [respSnap, corrSnap] = await Promise.all([
-      fs.collection(COL.responses).limit(5000).get(),
-      fs.collection(COL.corrections).limit(2000).get(),
-    ]);
-    state.responses = [];
-    respSnap.forEach(doc => state.responses.push(doc.data()));
-    state.correctionsCount = corrSnap.size;
-    renderAnswerStats();
-  } catch (e) { console.error('응답 로딩 실패:', e); }
-}
 
 function parseClass(sid) {
   if (!sid || sid.length < 3) return null;
@@ -1139,70 +1123,49 @@ function parseClass(sid) {
   return isNaN(c) ? null : `${g}학년 ${c}반`;
 }
 
-function renderAnswerStats() {
-  const classes = new Set();
-  state.responses.forEach(r => { const cls = parseClass(r.studentId); if (cls) classes.add(cls); });
-  const sortedClasses = [...classes].sort();
-  const chipsEl = document.getElementById('class-chips');
-  if (chipsEl) {
-    chipsEl.innerHTML = `<button class="chip ${state.currentClass==='all'?'active':''}" onclick="setClassFilter('all',this)">전체</button>` +
-      sortedClasses.map(c => `<button class="chip ${state.currentClass===c?'active':''}" onclick="setClassFilter('${c}',this)">${c}</button>`).join('');
-  }
-  const filtered = state.currentClass === 'all' ? state.responses : state.responses.filter(r => parseClass(r.studentId) === state.currentClass);
-  const totalCount = filtered.length;
-  const correctCount = filtered.filter(r => r.isCorrect).length;
-  const rate = totalCount > 0 ? Math.round(correctCount / totalCount * 100) : 0;
-  const uniqueStudents = new Set(filtered.map(r => r.studentId)).size;
-  document.getElementById('ans-stat-total').textContent = totalCount.toLocaleString();
-  document.getElementById('ans-stat-rate').textContent = rate + '%';
-  document.getElementById('ans-stat-students').textContent = uniqueStudents;
-  document.getElementById('ans-stat-corr').textContent = (state.correctionsCount || 0).toLocaleString();
 
-  const byQ = {};
-  filtered.forEach(r => {
-    if (!byQ[r.questionId]) byQ[r.questionId] = { o:0, x:0, total:0, correct:0, lec:r.lec };
-    byQ[r.questionId][r.answer === 'O' ? 'o' : 'x']++;
-    byQ[r.questionId].total++;
-    if (r.isCorrect) byQ[r.questionId].correct++;
-  });
-  let qStats = state.questions.map(q => {
-    const s = byQ[q.id] || { o:0, x:0, total:0, correct:0 };
-    return { ...q, total: s.total, correct: s.correct, o: s.o, x: s.x, rate: s.total > 0 ? Math.round(s.correct / s.total * 100) : 0 };
-  });
-  if (state.currentLecFilter !== 'all') qStats = qStats.filter(q => String(q.lec) === state.currentLecFilter);
-  if (state.currentSortStats === 'rate') qStats.sort((a,b) => a.rate - b.rate);
-  else if (state.currentSortStats === 'count') qStats.sort((a,b) => b.total - a.total);
-  else qStats.sort((a,b) => a.lec - b.lec);
+async function loadRankings() {
+  try {
+    const snap = await fs.collection(COL.rankings).orderBy('score', 'desc').get();
+    state.rankings = [];
+    snap.forEach(doc => {
+      const d = doc.data();
+      state.rankings.push({ studentId: d.studentId, studentName: d.studentName, count: d.count, score: d.score, correct: d.correct || 0, wrong: d.wrong || 0, corrections: d.corrections || 0, createdAt: d.createdAt });
+    });
+    renderRankings();
+  } catch (e) { console.error(e); miniToast('랭킹 불러오기 실패', 'danger'); }
+}
 
-  const container = document.getElementById('ans-q-list');
-  if (!container) return;
-  if (qStats.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">아직 응답 데이터가 없습니다</div></div>';
+function renderRankings() {
+  const tbody = document.getElementById('ranking-tbody');
+  const empty = document.getElementById('ranking-empty');
+  if (!tbody) return;
+  if (state.rankings.length === 0) {
+    tbody.innerHTML = '';
+    if (empty) empty.style.display = 'block';
     return;
   }
-  container.innerHTML = qStats.map(q => {
-    const oPct = q.total > 0 ? Math.round(q.o / q.total * 100) : 0;
-    const xPct = q.total > 0 ? Math.round(q.x / q.total * 100) : 0;
-    const rateColor = q.rate < 50 ? 'color:#ef5350' : (q.rate < 70 ? 'color:#f59e0b' : '');
-    return `<div class="q-stat-card">
-      <div class="q-stat-header">
-        <div class="q-stat-title"><span class="td-lec">${q.lec}강</span>${esc(q.q)}</div>
-        <div class="q-stat-meta"><span>참여 <strong>${q.total}회</strong></span><span>정답률 <strong style="${rateColor}">${q.rate}%</strong></span></div>
-      </div>
-      <div class="bar-row"><span class="bar-label o">O</span><div class="bar-wrap"><div class="bar-fill o" style="width:${oPct}%"></div></div><span class="bar-pct">${oPct}%</span></div>
-      <div class="bar-row"><span class="bar-label x">X</span><div class="bar-wrap"><div class="bar-fill x" style="width:${xPct}%"></div></div><span class="bar-pct">${xPct}%</span></div>
-    </div>`;
+  if (empty) empty.style.display = 'none';
+  tbody.innerHTML = state.rankings.map((r, i) => {
+    const date = r.createdAt?.toDate ? r.createdAt.toDate() : null;
+    const dateStr = date ? `${date.getFullYear()}.${String(date.getMonth()+1).padStart(2,'0')}.${String(date.getDate()).padStart(2,'0')}` : '-';
+    const total = (r.correct || 0) + (r.wrong || 0);
+    const rate = total > 0 ? Math.round(r.correct / total * 100) : 0;
+    const rateColor = rate < 50 ? 'color:#ef5350' : rate < 70 ? 'color:#f59e0b' : 'color:var(--hi-accent)';
+    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+    return `<tr>
+      <td class="td-num">${medal || i+1}</td>
+      <td style="font-size:12px;color:var(--hi-text-muted);">${esc(r.studentId)}</td>
+      <td style="font-weight:800;">${esc(r.studentName)}</td>
+      <td style="text-align:center;">${r.count}</td>
+      <td style="text-align:center;font-weight:900;color:var(--hi-accent);">${(r.score||0).toLocaleString()}</td>
+      <td style="text-align:center;font-weight:700;${rateColor}">${rate}%</td>
+      <td style="text-align:center;color:#0097a7;">${r.correct}</td>
+      <td style="text-align:center;color:#ef5350;">${r.wrong}</td>
+      <td style="font-size:11px;color:var(--hi-text-muted);">${dateStr}</td>
+    </tr>`;
   }).join('');
 }
-
-function setClassFilter(cls, el) {
-  state.currentClass = cls;
-  el.parentElement.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  renderAnswerStats();
-}
-function setLecFilter(lec) { state.currentLecFilter = lec; renderAnswerStats(); }
-function setSortStats(sort) { state.currentSortStats = sort; renderAnswerStats(); }
 
 async function loadCorrections() {
   try {
@@ -1283,9 +1246,9 @@ function setCorrLec(v) { state.currentCorrLec = v; renderCorrections(); }
 function setCorrSort(v) { state.currentCorrSort = v; renderCorrections(); }
 
 async function confirmReset(type) {
-  const labels = { questions: '문제', rankings: '랭킹', corrections: 'X 바로잡기', sessions: '참여 기록', responses: '응답 데이터', all: '전체' };
+  const labels = { questions: '문제', rankings: '랭킹', corrections: 'X 바로잡기', sessions: '참여 기록', all: '전체' };
   const msg = type === 'all'
-    ? `⚠️ 정말 전체를 초기화하시겠습니까?\n\n• 등록된 문제\n• 학생 랭킹/점수\n• X바로잡기 노트\n• 응답 기록\n• 퀴즈 체크! 세션 기록\n\n모두 삭제되며 되돌릴 수 없습니다.`
+    ? `⚠️ 정말 전체를 초기화하시겠습니까?\n\n• 등록된 문제\n• 학생 랭킹/점수\n• X바로잡기 노트\n• 퀴즈 체크! 세션 기록\n\n모두 삭제되며 되돌릴 수 없습니다.`
     : `정말 ${labels[type]} 데이터를 초기화하시겠습니까?\n\n되돌릴 수 없습니다.`;
   if (!confirm(msg)) return;
   miniToast('삭제 중...');
@@ -1294,11 +1257,10 @@ async function confirmReset(type) {
     if (type === 'rankings' || type === 'all') await deleteAllInCollection(COL.rankings);
     if (type === 'corrections' || type === 'all') await deleteAllInCollection(COL.corrections);
     if (type === 'sessions' || type === 'all') await deleteAllInCollection(COL.sessions);
-    if (type === 'responses' || type === 'all') await deleteAllInCollection(COL.responses);
     miniToast(`✨ ${labels[type]} 초기화 완료`);
     if (type === 'questions' || type === 'all') loadQuestions();
     if (type === 'corrections' || type === 'all') loadCorrections();
-    if (type === 'corrections' || type === 'responses' || type === 'all') loadAnswerData();
+    if (type === 'rankings' || type === 'all') { state.rankings = []; renderRankings(); }
     if (type === 'sessions' || type === 'all') loadClassData();
   } catch (e) { console.error(e); miniToast('초기화 실패: ' + e.message, 'danger'); }
 }
