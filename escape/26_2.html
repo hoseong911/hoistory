@@ -107,6 +107,25 @@ body{
 .stage2-area{display:none;margin-top:2rem;padding-top:1.5rem;border-top:2px dashed var(--point-border);animation:fadeIn .6s ease;}
 .stage2-area.show{display:block;}
 
+/* ── dragOffer ── */
+.drag-container{display:flex;flex-direction:column;gap:1rem;}
+.drag-pool-area{background:rgba(255,255,255,.3);border:2px dashed var(--ink);padding:1rem;min-height:80px;}
+.drag-pool-label{font-size:.82rem;color:#777;margin-bottom:.6rem;letter-spacing:.1em;}
+.drag-pool-grid,.drag-zone-items{display:flex;flex-wrap:wrap;gap:.5rem;min-height:48px;}
+.drag-drop-zone{border:2px solid var(--point-border);background:var(--point-bg);padding:1rem;min-height:100px;transition:background .2s,border .2s;}
+.drag-drop-zone.drag-over{background:rgba(201,164,76,.22);border-width:3px;}
+.drag-zone-label{font-family:'Nanum Myeongjo',serif;font-weight:800;text-align:center;letter-spacing:.25em;color:var(--point-color);margin-bottom:.8rem;font-size:.9rem;}
+.drag-item{padding:.65rem 1rem;background:var(--paper);border:2px solid var(--ink);cursor:pointer;user-select:none;transition:all .2s;font-weight:700;box-shadow:3px 3px 0 var(--ink);font-size:.9rem;}
+.drag-item:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--ink);}
+.drag-item.in-zone{background:var(--point-color);color:var(--paper);border-color:var(--point-border);box-shadow:3px 3px 0 rgba(0,0,0,.2);}
+.drag-item.dragging{opacity:.3;}
+/* ── eliminate ── */
+.elim-list{display:flex;flex-direction:column;gap:.6rem;}
+.elim-hint{font-size:.82rem;color:var(--point-color);margin-bottom:.8rem;font-style:italic;text-align:center;}
+.elim-item{padding:1rem 1.2rem;background:rgba(255,255,255,.5);border:2px solid var(--ink);cursor:pointer;user-select:none;transition:all .2s;line-height:1.7;box-shadow:3px 3px 0 rgba(26,20,16,.1);}
+.elim-item:hover{background:var(--point-bg);transform:translate(-1px,-1px);box-shadow:4px 4px 0 rgba(26,20,16,.15);}
+.elim-item.eliminated{text-decoration:line-through;opacity:.38;background:rgba(168,50,45,.05);border-color:#ccc;box-shadow:none;transform:none;}
+
 /* ── 입력 공통 ── */
 .blank-row{display:flex;align-items:center;gap:.8rem;margin-bottom:.8rem;flex-wrap:wrap;}
 .blank-label{font-weight:700;color:var(--point-border);min-width:28px;}
@@ -720,6 +739,39 @@ function buildStageBlock(type, data, stageNum) {
         <div class="match-column"><h4>${data.leftLabel||'인물·세력'}</h4><div id="${pfx}leftCol"></div></div>
         <div class="match-column"><h4>${data.rightLabel||'내용·업적'}</h4><div id="${pfx}rightCol"></div></div>
       </div><div id="${pfx}matchResult"></div>`;
+    case 'dragOffer': {
+      const pool = [
+        ...data.correctItems.map((t,i)=>({t,id:`c${i}`})),
+        ...data.wrongItems.map((t,i)=>({t,id:`w${i}`}))
+      ].sort(()=>Math.random()-.5);
+      return `<div class="drag-container" id="${pfx}dragContainer">
+        <div class="drag-pool-area">
+          <div class="drag-pool-label">📜 항목 목록 — 클릭(또는 드래그)하여 봉헌 영역으로 이동</div>
+          <div class="drag-pool-grid" id="${pfx}pool">
+            ${pool.map(o=>`<div class="drag-item" data-id="${o.id}" draggable="true"
+              onclick="dragItemClick(this,'${pfx}')"
+              ondragstart="dragStart(event,'${pfx}')"
+              ondragend="dragEnd(event)"
+            >${o.t}</div>`).join('')}
+          </div>
+        </div>
+        <div class="drag-drop-zone" id="${pfx}zone"
+          ondragover="event.preventDefault();this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="dragDrop(event,'${pfx}')"
+        >
+          <div class="drag-zone-label">${data.dropZoneLabel||'봉 헌 영 역'}</div>
+          <div class="drag-zone-items" id="${pfx}zoneItems"></div>
+        </div>
+      </div>`;
+    }
+    case 'eliminate': {
+      const shuffled = data.items.map((it,i)=>({...it,oi:i})).sort(()=>Math.random()-.5);
+      return `<div class="elim-hint">💡 옳지 않은 설명을 눌러 제거하시오. 다시 누르면 취소됩니다.</div>
+        <div class="elim-list" id="${pfx}elimList">
+          ${shuffled.map(it=>`<div class="elim-item" data-idx="${it.oi}" onclick="this.classList.toggle('eliminated')">${it.text}</div>`).join('')}
+        </div>`;
+    }
     default: return '';
   }
 }
@@ -833,6 +885,43 @@ window.resetPairMatchById = function(e, pfx, stateKey) {
   window._epState[stateKey] = { selectedLeft: null, pairs: {} };
   document.querySelectorAll(`#${pfx}leftCol .match-item, #${pfx}rightCol .match-item`).forEach(el=>el.classList.remove('matched','selected'));
   document.getElementById(pfx+'matchResult').innerHTML = '';
+};
+
+/* ── dragOffer helpers ── */
+let _dragActiveId = null, _dragActivePfx = null, _dragJustMoved = false;
+window.dragStart = function(e, pfx) {
+  _dragActiveId  = e.currentTarget.dataset.id;
+  _dragActivePfx = pfx;
+  _dragJustMoved = false;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+};
+window.dragEnd = function(e) {
+  e.currentTarget.classList.remove('dragging');
+  setTimeout(() => { _dragJustMoved = false; }, 60);
+};
+window.dragDrop = function(e, pfx) {
+  e.preventDefault();
+  document.getElementById(pfx+'zone').classList.remove('drag-over');
+  if (!_dragActiveId || _dragActivePfx !== pfx) return;
+  const el = document.querySelector(`.drag-item[data-id="${_dragActiveId}"]`);
+  if (!el || el.classList.contains('in-zone')) return;
+  el.classList.remove('dragging');
+  el.classList.add('in-zone');
+  document.getElementById(pfx+'zoneItems').appendChild(el);
+  _dragActiveId = null; _dragActivePfx = null; _dragJustMoved = true;
+};
+window.dragItemClick = function(el, pfx) {
+  if (_dragJustMoved) { _dragJustMoved = false; return; }
+  const pool = document.getElementById(pfx+'pool');
+  const zone = document.getElementById(pfx+'zoneItems');
+  if (el.classList.contains('in-zone')) {
+    el.classList.remove('in-zone');
+    pool.appendChild(el);
+  } else {
+    el.classList.add('in-zone');
+    zone.appendChild(el);
+  }
 };
 
 /* ── simulate ── */
@@ -958,6 +1047,21 @@ function checkStageBlock(type, data, stageNum) {
       const s = window._epState[key+'PairMatch'];
       if (!s || Object.keys(s.pairs).length !== data.leftItems.length) return false;
       return Object.keys(s.pairs).every(li => s.pairs[li] === data.correctPairs[parseInt(li)]);
+    }
+    case 'dragOffer': {
+      const zoneEl = document.getElementById(pfx+'zoneItems');
+      if (!zoneEl) return false;
+      const zoneIds = new Set([...zoneEl.querySelectorAll('.drag-item')].map(el=>el.dataset.id));
+      return data.correctItems.every((_,i) => zoneIds.has(`c${i}`))
+          && data.wrongItems.every((_,i) => !zoneIds.has(`w${i}`));
+    }
+    case 'eliminate': {
+      const list = document.getElementById(pfx+'elimList');
+      if (!list) return false;
+      return [...list.querySelectorAll('.elim-item')].every(el => {
+        const shouldElim = !data.items[parseInt(el.dataset.idx)].correct;
+        return shouldElim === el.classList.contains('eliminated');
+      });
     }
     default: return false;
   }
