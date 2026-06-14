@@ -653,6 +653,40 @@ const SEED_EPISODES = [
     }
   },
   {
+    order: 8, title: "고려는 흔들리고, 무신은 칼을 들다", subtitle: "이자겸의 난 ~ 무신 정권",
+    story: "문벌 귀족 사회의 균열이 깊어지더니, 마침내 피바람이 불었소이다. 이자겸의 전횡, 묘청의 반란을 지켜보던 나는 이제 무신들이 권력을 장악하는 새로운 격변을 목도하게 되었소이다.",
+    speaker: "고려 무신 정권의 기록관",
+    dialog: "그대가 이 모든 역사를 목격하였다 하니, 사건의 순서를 바로잡고 무신 정권의 기구에 대해서도 증언하여 주시오.",
+    question: "고려 중기 격변의 사건을 순서대로 배열하고, 무신 정권의 기구를 설명에 맞게 짝지으시오.",
+    hint: "이자겸의 난(1126) → 척준경 진압 → 서경천도운동 → 묘청의 난(1135) → 김부식 진압. 교정도감은 최충헌, 정방·삼별초는 최우가 설치하였소이다.",
+    treasureName: "무신 정권 시대의 기록", treasureDesc: "고려 무신 정권의 탄생과 주요 기구가 기록된 역사 문서.",
+    type: "twoStage", stage1Type: "tapOrder",
+    stage1: {
+      question: "다음 사건을 일어난 순서대로 눌러 번호를 붙이시오.",
+      items: [
+        "이자겸의 난 — 외척 이자겸이 왕권을 위협하며 반란을 일으키다",
+        "척준경이 이자겸을 제거하고 난을 진압하다",
+        "묘청이 서경 천도 운동을 일으켜 서경 세력과 개경 세력이 대립하다",
+        "묘청이 서경에서 대위국을 선포하며 반란을 일으키다",
+        "김부식이 관군을 이끌고 묘청의 난을 진압하다"
+      ]
+    },
+    stage2Type: "pairMatch",
+    stage2: {
+      question: "무신 정권의 각 기구를 설명에 맞게 짝지으시오.",
+      leftLabel: "설 명",
+      rightLabel: "기 구",
+      leftItems: [
+        "무신정변 직후 무신들이 모여 국정을 의논한 최고 합의 기관",
+        "최충헌이 설치한 최고 집정 기구로 무신 정권 내내 유지되었다",
+        "최우가 설치한 인사 행정 기구로 문무 관리의 임명권을 장악하였다",
+        "최우가 창설한 특수 군사 조직으로 후에 대몽 항쟁의 주역이 되었다"
+      ],
+      rightItems: ["중방", "교정도감", "정방", "삼별초"],
+      correctPairs: [0, 1, 2, 3]
+    }
+  },
+  {
     order: 6, title: "고려를 어찌 다스리오리까", subtitle: "고려의 중앙·지방·군사 제도",
     story: "태조의 호족 정책이 자리를 잡아가자, 고려는 이제 체계적인 통치 제도를 갖춰야 했소이다. 고려의 군주가 다시 이 불멸의 존재를 불러 지혜를 구하였소이다.",
     speaker: "고려 국왕",
@@ -912,6 +946,20 @@ window.tapOrderClick = function(si) {
     else { el.classList.remove('tapped'); num.textContent = ''; }
   });
 };
+window.stageTapOrderClick = function(pfx, stateKey, si) {
+  const s = window._epState[stateKey];
+  if (!s) return;
+  const pos = s.sequence.indexOf(si);
+  if (pos !== -1) { s.sequence.splice(pos, 1); }
+  else { if (s.sequence.length >= s.shuffled.length) return; s.sequence.push(si); }
+  s.shuffled.forEach((_, i) => {
+    const el = document.querySelector(`#${pfx}tapOrderList .tap-order-item[data-si="${i}"]`);
+    const num = document.getElementById(`${pfx}tapNum_${i}`);
+    const p = s.sequence.indexOf(i);
+    if (p !== -1) { el.classList.add('tapped'); num.textContent = p + 1; }
+    else { el.classList.remove('tapped'); num.textContent = ''; }
+  });
+};
 function checkTapOrder(ep) {
   const s = window._epState.tapOrder;
   if (s.sequence.length < ep.items.length) { showToast('모든 항목에 순서를 매기시오!'); return false; }
@@ -1067,6 +1115,19 @@ function buildStageBlock(type, data, stageNum) {
       return `<input type="text" class="single-input" id="${pfx}singleInput" placeholder="답을 입력하시오" maxlength="20">`;
     case 'order':
       return `<ul class="order-list" id="${pfx}orderList"></ul>`;
+    case 'tapOrder': {
+      const _stk = key+'TapOrder';
+      const _sh = data.items.map((item,i)=>({item,i})).sort(()=>Math.random()-.5);
+      window._epState[_stk] = { shuffled:_sh, sequence:[] };
+      return `<p style="text-align:center;color:var(--point-color);font-size:.85rem;margin-bottom:1rem;">💡 순서대로 눌러 번호를 붙이시오. 다시 누르면 취소됩니다.</p>
+        <div class="tap-order-list" id="${pfx}tapOrderList">
+          ${_sh.map((obj,si)=>`
+            <div class="tap-order-item" data-si="${si}" onclick="stageTapOrderClick('${pfx}','${key}TapOrder',${si})">
+              <div class="tap-order-num" id="${pfx}tapNum_${si}"></div>
+              <div class="tap-order-text">${obj.item}</div>
+            </div>`).join('')}
+        </div>`;
+    }
     case 'classify':
       return `<p style="text-align:center;color:var(--point-color);font-size:.9rem;margin-bottom:.8rem;">카드를 클릭한 뒤 해당 영역을 누르시오</p>
               <div class="card-pool" id="${pfx}classifyPool"></div>
@@ -1436,6 +1497,11 @@ function checkStageBlock(type, data, stageNum) {
     case 'order': {
       const s = window._epState[key+'Order'];
       return s && s.every((obj, i) => obj.i === data.correctOrder[i]);
+    }
+    case 'tapOrder': {
+      const s = window._epState[key+'TapOrder'];
+      if (!s || s.sequence.length < data.items.length) { showToast('모든 항목에 순서를 매기시오!'); return false; }
+      return s.sequence.every((si, pos) => s.shuffled[si].i === pos);
     }
     case 'classify': {
       const s = window._epState[key+'Classify'];
