@@ -441,8 +441,6 @@
     appId: "1:994509567071:web:be8ed4e8e9b0a833f557ea"
   };
 
-  const DEFAULT_ADMIN_PW = "hoseong2026";
-
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
 
@@ -512,8 +510,19 @@
 
     try {
       const snap = await get(ref(db, 'historyMileage/config/adminPw'));
-      const storedPw = snap.val() || DEFAULT_ADMIN_PW;
-      if (pw === storedPw) {
+      const storedPw = snap.val();
+      if (!storedPw) {
+        if (pw.length < 4) {
+          err.textContent = '초기 비밀번호는 4자 이상이어야 해요';
+          err.classList.add('show'); return;
+        }
+        await set(ref(db, 'historyMileage/config/adminPw'), pw);
+        sessionStorage.setItem('hi_admin_ok', '1');
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('adminApp').style.display = 'block';
+        document.getElementById('login-pw').value = '';
+        showToast('초기 비밀번호가 설정되었습니다');
+      } else if (pw === storedPw) {
         sessionStorage.setItem('hi_admin_ok', '1');
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('adminApp').style.display = 'block';
@@ -849,6 +858,9 @@
       const r = c.result || 'fail';
       const badgeClass = r === 'pass' ? 'badge-pass' : (r === 'pending' ? 'badge-pending' : 'badge-fail');
       const badgeLabel = r === 'pass' ? '통과' : (r === 'pending' ? '보류' : '실패');
+      const photoBtn = c.photoURL
+        ? `<button class="mini-btn" onclick="window.showPhoto('${c.photoURL}')">사진 보기</button>`
+        : '';
       let actionsHtml = '';
       if (r === 'pending') {
         actionsHtml = `
@@ -882,6 +894,7 @@
           <div class="actions">
             ${photoBtn}
             ${actionsHtml}
+            ${photoBtn}
             <button class="mini-btn danger" onclick="window.deleteCert('${c.id}')">기록 삭제</button>
           </div>
         </div>
