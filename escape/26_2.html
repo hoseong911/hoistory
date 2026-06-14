@@ -1,0 +1,1062 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>천년의 기억 II — 고려의 부름</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Nanum+Myeongjo:wght@400;700;800&family=Song+Myung&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #1a1410;
+  --paper: #f4ead5;
+  --paper-dark: #e8d9b8;
+  --shadow: rgba(26,20,16,0.25);
+  --point-color: #a8322d;
+  --point-border: #c9a44c;
+  --point-bg: rgba(201,164,76,0.08);
+}
+body.theme-silla   { --point-color:#b8860b; --point-border:#daa520; --point-bg:rgba(218,165,32,0.08); }
+body.theme-balhae  { --point-color:#6a1b9a; --point-border:#8e24aa; --point-bg:rgba(106,27,154,0.08); }
+body.theme-goryeo  { --point-color:#3b7a57; --point-border:#4a8f6b; --point-bg:rgba(59,122,87,0.08); }
+
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  font-family:'Gowun Batang','Nanum Myeongjo',serif;
+  background:var(--paper); color:var(--ink);
+  min-height:100vh;
+  background-image:
+    radial-gradient(circle at 20% 30%, var(--point-bg) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(26,20,16,0.03) 0%, transparent 50%),
+    repeating-linear-gradient(45deg,transparent 0px,transparent 2px,rgba(26,20,16,0.02) 2px,rgba(26,20,16,0.02) 4px);
+  line-height:1.7;
+  transition:background-color .8s ease, color .8s ease;
+}
+
+/* ── 로딩 ── */
+.loading-screen{position:fixed;inset:0;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:1.5rem;}
+.loading-screen.hidden{display:none;}
+.loading-spinner{width:60px;height:60px;border:4px solid var(--paper-dark);border-top-color:var(--point-color);border-radius:50%;animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-text{font-family:'Nanum Myeongjo',serif;font-weight:700;letter-spacing:.3em;}
+
+/* ── 에러 ── */
+.error-screen{display:none;min-height:100vh;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:2rem;}
+.error-screen.active{display:flex;}
+
+/* ── 로그인 ── */
+.login-screen{display:none;min-height:100vh;flex-direction:column;justify-content:center;align-items:center;padding:2rem;}
+.login-screen.active{display:flex;animation:fadeIn .8s ease;}
+.login-seal{width:100px;height:100px;background:var(--point-color);color:var(--paper);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Nanum Myeongjo',serif;font-weight:800;font-size:1.5rem;margin:0 auto 1.5rem;box-shadow:0 6px 25px var(--shadow);animation:pulse 3s ease-in-out infinite;line-height:1.1;text-align:center;}
+@keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.05);}}
+.login-title{font-family:'Nanum Myeongjo',serif;font-weight:800;font-size:clamp(1.8rem,5vw,3rem);letter-spacing:.3em;text-align:center;margin-bottom:.4rem;}
+.login-sub{color:var(--point-border);letter-spacing:.5em;text-align:center;margin-bottom:2rem;font-size:.9rem;}
+.login-card{background:rgba(255,255,255,.5);border:2px solid var(--ink);box-shadow:6px 6px 0 var(--shadow);padding:2rem;width:100%;max-width:420px;}
+.login-card p{text-align:center;color:#555;font-style:italic;margin-bottom:1.5rem;line-height:1.8;}
+.form-row{margin-bottom:1rem;}
+.form-row label{display:block;font-weight:700;font-size:.9rem;margin-bottom:.4rem;color:var(--point-color);letter-spacing:.1em;}
+.form-input{width:100%;padding:.8rem 1rem;border:2px solid var(--ink);background:var(--paper);font-family:'Gowun Batang',serif;font-size:1rem;color:var(--ink);transition:all .3s;}
+.form-input:focus{outline:none;border-color:var(--point-color);background:#fff;}
+.form-input:disabled{opacity:.5;cursor:not-allowed;}
+.verify-msg{font-size:.82rem;margin-top:.3rem;min-height:1.2em;}
+.verify-msg.ok{color:#3b7a57;}
+.verify-msg.err{color:#a8322d;}
+.btn{padding:.9rem 2.5rem;font-family:'Nanum Myeongjo',serif;font-weight:700;font-size:1rem;border:2px solid var(--ink);cursor:pointer;letter-spacing:.2em;transition:all .3s;background:var(--paper);color:var(--ink);box-shadow:3px 3px 0 var(--ink);}
+.btn:hover:not(:disabled){transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--ink);}
+.btn:active:not(:disabled){transform:translate(1px,1px);box-shadow:1px 1px 0 var(--ink);}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important;box-shadow:3px 3px 0 var(--ink)!important;}
+.btn-dark{background:var(--ink);color:var(--paper);border-color:var(--point-border);margin-top:1rem;width:100%;}
+.btn-dark:hover:not(:disabled){background:var(--point-color);border-color:var(--point-color);}
+
+/* ── 인트로 ── */
+.intro-screen{min-height:100vh;display:none;flex-direction:column;justify-content:center;align-items:center;padding:2rem;text-align:center;}
+.intro-screen.active{display:flex;}
+.intro-title{font-family:'Nanum Myeongjo',serif;font-weight:800;font-size:clamp(2rem,5vw,4rem);letter-spacing:.3em;margin-bottom:.5rem;animation:fadeInDown 1.5s ease;text-shadow:2px 2px 4px var(--shadow);}
+.intro-subtitle{color:var(--point-border);letter-spacing:.5em;margin-bottom:2rem;animation:fadeIn 2s ease .5s both;font-size:.95rem;}
+.intro-story{max-width:680px;font-size:1.05rem;line-height:2;margin:1.5rem auto;animation:fadeIn 2s ease 1s both;}
+.intro-story p{margin-bottom:.8rem;}
+.intro-greeting{font-weight:700;color:var(--point-color);margin-bottom:1rem;font-size:1.1rem;}
+.btn-start{background:var(--ink);color:var(--paper);border-color:var(--point-border);animation:fadeInUp 2s ease 1.5s both;margin-top:2rem;}
+.btn-start:hover{background:var(--point-color);border-color:var(--point-color);box-shadow:0 6px 20px var(--shadow);transform:translateY(-2px);}
+
+/* ── 게임 화면 ── */
+.game-screen{display:none;min-height:100vh;padding:1.5rem;max-width:900px;margin:0 auto;}
+.game-screen.active{display:block;animation:fadeIn .8s ease;}
+.progress-bar{background:var(--paper-dark);border:1px solid var(--point-border);padding:1rem 1.5rem;margin-bottom:1.5rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem;}
+.progress-text{font-weight:700;letter-spacing:.1em;}
+.treasures{display:flex;gap:.4rem;flex-wrap:wrap;}
+.treasure-dot{width:22px;height:22px;border-radius:50%;background:transparent;border:2px solid var(--point-border);transition:all .5s;display:flex;align-items:center;justify-content:center;font-size:.65rem;color:var(--paper);}
+.treasure-dot.acquired{background:var(--point-color);border-color:var(--point-color);box-shadow:0 0 10px var(--shadow);}
+.treasure-dot.acquired::after{content:'✦';color:var(--paper);}
+
+.episode-card{background:var(--paper);border:2px solid var(--ink);box-shadow:8px 8px 0 var(--shadow),inset 0 0 0 4px var(--paper),inset 0 0 0 5px var(--point-border);padding:2.5rem;position:relative;transition:box-shadow .8s ease;}
+.episode-story{font-style:italic;color:#333;background:var(--point-bg);border-left:4px solid var(--point-color);padding:1.2rem 1.5rem;margin-bottom:2rem;font-size:1.05rem;line-height:2;transition:all .8s ease;}
+.episode-title{font-family:'Nanum Myeongjo',serif;font-weight:800;font-size:1.8rem;text-align:center;margin-bottom:.4rem;letter-spacing:.15em;}
+.episode-number{text-align:center;color:var(--point-color);font-family:'Song Myung',serif;letter-spacing:.5em;margin-bottom:1.5rem;font-size:.9rem;transition:color .8s ease;}
+.title-divider{width:80px;height:2px;background:var(--point-border);margin:0 auto 1.5rem;position:relative;}
+.title-divider::before,.title-divider::after{content:'';position:absolute;top:50%;width:6px;height:6px;background:var(--point-color);border-radius:50%;transform:translateY(-50%);transition:background .8s ease;}
+.title-divider::before{left:-10px;}.title-divider::after{right:-10px;}
+.quiz-content{background:rgba(255,255,255,.4);border:1px dashed var(--point-border);padding:1.5rem;margin-bottom:1.5rem;font-size:1.05rem;line-height:2;}
+.speaker{font-weight:700;color:var(--point-color);margin-bottom:.4rem;font-size:.95rem;}
+.quiz-question{font-size:1.05rem;margin-top:.8rem;font-weight:700;}
+.action-area{margin-bottom:1.5rem;}
+
+/* ── 단계 표시 (twoStage) ── */
+.stage-label{display:inline-block;background:var(--point-color);color:var(--paper);padding:.3rem 1rem;font-size:.85rem;font-weight:700;letter-spacing:.1em;margin-bottom:1rem;}
+.stage2-area{display:none;margin-top:2rem;padding-top:1.5rem;border-top:2px dashed var(--point-border);animation:fadeIn .6s ease;}
+.stage2-area.show{display:block;}
+
+/* ── 입력 공통 ── */
+.blank-row{display:flex;align-items:center;gap:.8rem;margin-bottom:.8rem;flex-wrap:wrap;}
+.blank-label{font-weight:700;color:var(--point-border);min-width:28px;}
+.blank-input,.single-input{flex:1;padding:.75rem 1rem;border:2px solid var(--ink);background:var(--paper);font-family:'Gowun Batang',serif;font-size:1rem;color:var(--ink);transition:all .3s;box-shadow:inset 2px 2px 5px rgba(0,0,0,.05);}
+.single-input{width:100%;text-align:center;letter-spacing:.2em;}
+.blank-input:focus,.single-input:focus{outline:none;border-color:var(--point-color);background:#fff;}
+
+/* ── 카드 공통 ── */
+.card-pool{display:flex;flex-wrap:wrap;gap:.6rem;padding:1.2rem;background:rgba(255,255,255,.3);border:2px dashed var(--ink);min-height:80px;margin-bottom:1rem;}
+.quiz-card,.match-item,.order-item{padding:.75rem 1.1rem;background:var(--paper);border:2px solid var(--ink);cursor:pointer;user-select:none;transition:all .2s;font-weight:700;box-shadow:3px 3px 0 var(--ink);display:flex;align-items:center;font-size:.95rem;}
+.quiz-card:hover,.match-item:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--ink);background:var(--point-bg);}
+.quiz-card:active,.match-item:active{transform:translate(1px,1px);box-shadow:1px 1px 0 var(--ink);}
+.quiz-card.selected,.match-item.selected{background:var(--point-color);color:var(--paper);border-color:var(--point-color);}
+.quiz-card.placed{opacity:.35;cursor:not-allowed;pointer-events:none;box-shadow:none;transform:none;}
+.match-item.matched{background:var(--paper-dark);color:var(--ink);border-style:dashed;cursor:default;box-shadow:none;transform:none;opacity:.7;}
+
+/* ── 분류 ── */
+.classify-zones{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:1rem;}
+.classify-zone{border:2px solid var(--ink);background:rgba(255,255,255,.4);padding:1rem;min-height:110px;transition:background .3s;cursor:pointer;}
+.classify-zone:hover{background:var(--point-bg);}
+.classify-zone h4{text-align:center;color:var(--point-color);margin-bottom:.7rem;letter-spacing:.1em;border-bottom:1px dashed var(--point-border);padding-bottom:.4rem;font-size:.9rem;}
+.classify-items{display:flex;flex-wrap:wrap;gap:.4rem;min-height:50px;}
+.classify-chip{padding:.35rem .7rem;background:var(--paper);border:1.5px solid var(--ink);font-size:.82rem;font-weight:700;cursor:pointer;}
+.classify-chip:hover{background:var(--point-bg);}
+
+/* ── 순서 ── */
+.order-list{list-style:none;counter-reset:order-counter;display:flex;flex-direction:column;gap:.6rem;}
+.order-item{gap:1rem;margin-bottom:0;counter-increment:order-counter;}
+.order-item::before{content:counter(order-counter);background:var(--ink);color:var(--paper);width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:.85rem;}
+.order-arrows{margin-left:auto;display:flex;gap:.3rem;}
+.arrow-btn{width:30px;height:30px;border:1px solid var(--ink);background:var(--paper);cursor:pointer;font-weight:700;transition:all .2s;display:flex;align-items:center;justify-content:center;font-size:.85rem;}
+.arrow-btn:hover:not(:disabled){background:var(--point-color);color:#fff;}
+.arrow-btn:disabled{opacity:.2;cursor:not-allowed;}
+
+/* ── 매칭 (pairMatch) ── */
+.match-container{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1rem;}
+.match-column h4{text-align:center;margin-bottom:.8rem;color:var(--point-color);letter-spacing:.15em;border-bottom:2px solid var(--point-border);padding-bottom:.4rem;font-size:.9rem;}
+.match-pairs-result{margin-top:.8rem;padding:.8rem;background:rgba(255,255,255,.4);border:1px solid var(--point-border);}
+.pair-row{padding:.4rem .6rem;background:#fff;margin-bottom:.3rem;font-size:.9rem;border-left:3px solid var(--point-color);}
+
+/* ── 시뮬레이션 ── */
+.sim-situation{background:rgba(255,255,255,.4);border:1px dashed var(--point-border);padding:1.2rem;margin-bottom:1rem;font-style:italic;line-height:1.9;}
+.sim-choices{display:flex;flex-direction:column;gap:.7rem;}
+.sim-choice{background:var(--paper);border:2px solid var(--ink);padding:1rem 1.2rem;cursor:pointer;font-weight:700;transition:all .2s;box-shadow:3px 3px 0 var(--ink);text-align:left;font-family:'Gowun Batang',serif;font-size:.95rem;line-height:1.7;}
+.sim-choice:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 var(--ink);background:var(--point-bg);}
+.sim-choice.correct{background:#d4edda;border-color:#3b7a57;color:#1a4a1a;box-shadow:none;pointer-events:none;}
+.sim-choice.wrong{background:#f8d7da;border-color:#a8322d;color:#6b1a1a;box-shadow:none;pointer-events:none;}
+.sim-progress{text-align:center;color:var(--point-color);font-size:.9rem;font-weight:700;margin-bottom:.8rem;letter-spacing:.1em;}
+.sim-feedback{padding:.8rem 1rem;margin-top:.8rem;background:var(--point-bg);border-left:4px solid var(--point-color);font-size:.95rem;line-height:1.8;display:none;}
+.sim-feedback.show{display:block;}
+
+/* ── 버튼 로우 ── */
+.button-row{display:flex;gap:1rem;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-top:2rem;border-top:1px dashed var(--point-border);padding-top:1.5rem;}
+.btn-check{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+.btn-check:hover:not(:disabled){background:var(--point-color);border-color:var(--point-color);}
+.btn-hint{background:transparent;color:var(--ink);border-color:var(--ink);}
+.btn-hint:hover{background:var(--ink);color:var(--paper);}
+.btn-next{background:var(--point-color);color:var(--paper);border-color:var(--point-color);margin-left:auto;display:none;}
+.btn-next.show{display:inline-block;animation:slideInRight .5s ease;}
+.hint-box{background:var(--point-bg);border:1px dashed var(--point-border);padding:1rem 1.5rem;margin-top:1.5rem;display:none;animation:slideDown .4s ease;border-left:4px solid var(--point-color);line-height:1.9;}
+.hint-box.show{display:block;}
+
+/* ── 모달 · 토스트 ── */
+.toast{position:fixed;top:30px;left:50%;transform:translateX(-50%) translateY(-100px);background:var(--ink);color:var(--paper);padding:1.1rem 2rem;border:2px solid var(--point-border);box-shadow:0 6px 25px var(--shadow);font-family:'Nanum Myeongjo',serif;font-weight:700;font-size:1rem;z-index:1000;transition:transform .5s cubic-bezier(.34,1.56,.64,1);max-width:88%;text-align:center;letter-spacing:.1em;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.success{background:var(--point-color);border-color:var(--paper);}
+.treasure-modal{position:fixed;inset:0;background:rgba(26,20,16,.85);display:none;align-items:center;justify-content:center;z-index:999;backdrop-filter:blur(4px);}
+.treasure-modal.show{display:flex;animation:fadeIn .4s ease;}
+.treasure-modal-content{background:var(--paper);padding:2.5rem 3rem;text-align:center;border:4px solid var(--point-color);box-shadow:0 0 30px var(--point-color);max-width:480px;width:90%;animation:scaleIn .6s cubic-bezier(.34,1.56,.64,1);}
+.treasure-icon{font-size:3.5rem;color:var(--point-color);margin-bottom:.8rem;display:block;animation:rotateIcon 2s ease-in-out infinite;}
+@keyframes rotateIcon{0%,100%{transform:rotate(-5deg);}50%{transform:rotate(5deg);}}
+.treasure-name{font-family:'Nanum Myeongjo',serif;font-weight:800;font-size:1.8rem;color:var(--ink);margin-bottom:.4rem;letter-spacing:.2em;border-bottom:2px solid var(--point-border);padding-bottom:.4rem;}
+.treasure-desc{color:#555;font-style:italic;margin-top:.8rem;margin-bottom:1.8rem;line-height:1.8;}
+
+/* ── 엔딩 ── */
+.ending-screen{display:none;min-height:100vh;padding:3rem 2rem;text-align:center;max-width:800px;margin:0 auto;}
+.ending-screen.active{display:block;animation:fadeIn 1s ease;}
+.ending-title{font-family:'Nanum Myeongjo',serif;font-weight:800;font-size:clamp(2rem,6vw,3.5rem);margin-bottom:.8rem;letter-spacing:.2em;}
+.ending-sub{color:var(--point-border);letter-spacing:.5em;margin-bottom:2.5rem;}
+.ending-treasures{display:flex;justify-content:center;gap:.8rem;margin:2rem 0;flex-wrap:wrap;}
+.ending-treasure{width:60px;height:60px;background:var(--point-color);border:3px solid var(--point-border);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:var(--paper);box-shadow:0 4px 15px var(--shadow);}
+.ending-message{font-size:1.1rem;line-height:2.2;background:rgba(255,255,255,.5);padding:2rem;border:2px dashed var(--point-border);margin-bottom:2rem;}
+.reflection-area{background:rgba(255,255,255,.5);border:2px solid var(--ink);padding:2rem;margin-bottom:2rem;text-align:left;}
+.reflection-area h3{font-family:'Nanum Myeongjo',serif;color:var(--point-color);margin-bottom:.8rem;letter-spacing:.15em;border-bottom:1px solid var(--point-border);padding-bottom:.5rem;}
+.reflection-textarea{width:100%;min-height:160px;padding:1.1rem;border:2px solid var(--ink);background:var(--paper);font-family:'Gowun Batang',serif;font-size:1rem;line-height:1.8;color:var(--ink);resize:vertical;}
+.reflection-textarea:focus{outline:none;border-color:var(--point-color);background:#fff;}
+
+/* ── 애니메이션 ── */
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+@keyframes fadeInDown{from{opacity:0;transform:translateY(-30px);}to{opacity:1;transform:translateY(0);}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(30px);}to{opacity:1;transform:translateY(0);}}
+@keyframes scaleIn{from{transform:scale(.5);opacity:0;}to{transform:scale(1);opacity:1;}}
+@keyframes slideInRight{from{transform:translateX(30px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+@keyframes slideDown{from{opacity:0;max-height:0;}to{opacity:1;max-height:300px;}}
+
+@media(max-width:600px){
+  .episode-card{padding:1.5rem;}
+  .episode-title{font-size:1.4rem;}
+  .match-container{grid-template-columns:1fr;gap:.8rem;}
+  .button-row{flex-direction:column;}
+  .button-row .btn{width:100%;}
+  .btn-next{margin-left:0;}
+  .treasure-modal-content{padding:1.8rem 1.5rem;}
+}
+</style>
+</head>
+<body>
+
+<!-- 로딩 -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">두루마리를 펼치는 중...</div>
+</div>
+
+<!-- 에러 -->
+<div class="error-screen" id="errorScreen">
+  <h2 style="color:var(--point-color);margin-bottom:1rem;">⚠ 두루마리를 찾을 수 없도다</h2>
+  <p id="errorMessage" style="margin-bottom:1.5rem;">데이터를 불러오는 중 오류가 발생하였소.</p>
+  <button class="btn btn-dark" onclick="location.reload()">다시 시도</button>
+</div>
+
+<!-- 로그인 -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-seal">천년<br>기억</div>
+  <h1 class="login-title">千年의 記憶 Ⅱ</h1>
+  <p class="login-sub">천 년 의 기 억</p>
+  <div class="login-card">
+    <p>"역사를 아는 자만이 이 문을 열 수 있도다.<br>그대는 누구인가?"</p>
+    <div class="form-row">
+      <label>학번</label>
+      <input type="text" class="form-input" id="inputId" placeholder="학번 5자리" maxlength="5" inputmode="numeric">
+      <div class="verify-msg" id="idMsg"></div>
+    </div>
+    <div class="form-row">
+      <label>이름</label>
+      <input type="text" class="form-input" id="inputName" placeholder="이름" disabled>
+      <div class="verify-msg" id="nameMsg"></div>
+    </div>
+    <button class="btn btn-dark" id="loginBtn" onclick="doLogin()" disabled>시간의 문을 열어라</button>
+  </div>
+</div>
+
+<!-- 인트로 -->
+<div class="intro-screen" id="introScreen">
+  <h1 class="intro-title" id="introTitle">千年의 記憶 Ⅱ</h1>
+  <p class="intro-subtitle" id="introSubtitle">고 려 의 부 름</p>
+  <div class="login-seal">천년<br>기억</div>
+  <div class="intro-story" id="introStory"></div>
+  <p class="intro-greeting" id="introGreeting"></p>
+  <button class="btn btn-start" onclick="startGame()">여정을 시작하다</button>
+</div>
+
+<!-- 게임 -->
+<div class="game-screen" id="gameScreen">
+  <div class="progress-bar">
+    <span class="progress-text">보물 <span id="progressNum">0</span> / 10</span>
+    <div class="treasures" id="treasuresDisplay"></div>
+  </div>
+  <div class="episode-card" id="episodeCard"></div>
+</div>
+
+<!-- 엔딩 -->
+<div class="ending-screen" id="endingScreen">
+  <h1 class="ending-title" id="endingTitle">天 命 完 遂</h1>
+  <p class="ending-sub" id="endingSub">천 명 완 수</p>
+  <div class="ending-treasures" id="endingTreasures"></div>
+  <div class="ending-message" id="endingMessage"></div>
+  <div class="reflection-area">
+    <h3>✦ 역사 여정 소감 ✦</h3>
+    <p style="color:var(--point-color);margin-bottom:1rem;" id="reflectionPrompt">이 여정을 마치며 느낀 점을 적어주시오.</p>
+    <textarea class="reflection-textarea" id="reflectionInput" placeholder="이곳에 소감을 적어주세요..."></textarea>
+  </div>
+  <button class="btn btn-check" style="margin-top:0;" onclick="finishGame()">기록을 봉인하다</button>
+</div>
+
+<!-- 토스트 -->
+<div class="toast" id="toast"></div>
+
+<!-- 보물 모달 -->
+<div class="treasure-modal" id="treasureModal">
+  <div class="treasure-modal-content">
+    <span class="treasure-icon">✦</span>
+    <div class="treasure-name" id="treasureName"></div>
+    <div class="treasure-desc" id="treasureDesc"></div>
+    <button class="btn btn-dark" style="margin-top:0;" onclick="closeTreasureModal()">계속하다 →</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, doc, getDoc, getDocs, collection, query, orderBy, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain: "ho0911seong-56638.firebaseapp.com",
+  databaseURL: "https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ho0911seong-56638",
+  storageBucket: "ho0911seong-56638.firebasestorage.app",
+  messagingSenderId: "994509567071",
+  appId: "1:994509567071:web:de99e71c125ec2a3f557ea"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+const rtdb = getDatabase(app);
+
+/* ══ 상태 ══ */
+let episodes = [], settings = {};
+let currentEp = 0, acquiredTreasures = [];
+let studentId = '', studentName = '';
+let studentMap = {}, mapLoaded = false;
+
+/* ═══════════════════════════════════════
+   AUTH
+═══════════════════════════════════════ */
+async function loadStudentMap() {
+  try {
+    const cached = localStorage.getItem('hi_students_cache');
+    if (cached) {
+      const { map, ts } = JSON.parse(cached);
+      if (map && Date.now() - ts < 86400000) { studentMap = map; mapLoaded = true; return; }
+    }
+    const snap = await get(ref(rtdb, 'students'));
+    const data = snap.val() || {};
+    Object.values(data).forEach(s => {
+      if (!s) return;
+      const sid   = String(s.studentId || s.id || '').trim();
+      const sname = (s.name || s.studentName || '').trim();
+      if (sid && sname) studentMap[sid] = sname;
+    });
+    mapLoaded = true;
+    localStorage.setItem('hi_students_cache', JSON.stringify({ map: studentMap, ts: Date.now() }));
+  } catch (e) { mapLoaded = true; }
+}
+
+function verifyId(id) {
+  if (!/^\d{5}$/.test(id)) return { ok: false, msg: '학번은 숫자 5자리입니다.' };
+  if (!mapLoaded) return { ok: false, msg: '명단 확인 중...' };
+  if (Object.keys(studentMap).length === 0) return { ok: true, name: null };
+  const name = studentMap[id];
+  if (!name) return { ok: false, msg: '명단에 없는 학번입니다. 선생님께 문의하세요.' };
+  return { ok: true, name };
+}
+
+let _idTimer = null, _verifiedName = null;
+document.getElementById('inputId').addEventListener('input', e => {
+  const val = e.target.value.replace(/\D/g, '').slice(0, 5);
+  e.target.value = val;
+  const nameInput = document.getElementById('inputName');
+  const idMsg = document.getElementById('idMsg');
+  const nameMsg = document.getElementById('nameMsg');
+  _verifiedName = null;
+  nameInput.disabled = true; nameInput.value = '';
+  idMsg.textContent = ''; idMsg.className = 'verify-msg';
+  nameMsg.textContent = ''; nameMsg.className = 'verify-msg';
+  document.getElementById('loginBtn').disabled = true;
+  if (val.length < 5) { if (val.length > 0) { idMsg.textContent = `학번은 5자리입니다 (현재 ${val.length}자리)`; idMsg.className = 'verify-msg err'; } return; }
+  clearTimeout(_idTimer);
+  _idTimer = setTimeout(async () => {
+    if (!mapLoaded) await loadStudentMap();
+    const r = verifyId(val);
+    if (r.ok) {
+      _verifiedName = r.name;
+      idMsg.textContent = r.name ? '명단 확인 완료' : '학번 형식 확인 완료';
+      idMsg.className = 'verify-msg ok';
+      nameInput.disabled = false;
+    } else {
+      idMsg.textContent = r.msg;
+      idMsg.className = 'verify-msg err';
+    }
+  }, 400);
+});
+
+document.getElementById('inputName').addEventListener('input', e => {
+  const val = e.target.value.trim();
+  const nameMsg = document.getElementById('nameMsg');
+  const btn = document.getElementById('loginBtn');
+  if (!val) { nameMsg.textContent = ''; nameMsg.className = 'verify-msg'; btn.disabled = true; return; }
+  if (_verifiedName) {
+    if (val === _verifiedName) { nameMsg.textContent = '이름 일치 확인'; nameMsg.className = 'verify-msg ok'; btn.disabled = false; }
+    else { nameMsg.textContent = '이름을 다시 확인해주세요.'; nameMsg.className = 'verify-msg err'; btn.disabled = true; }
+  } else {
+    nameMsg.textContent = ''; nameMsg.className = 'verify-msg ok'; btn.disabled = false;
+  }
+});
+
+window.doLogin = function() {
+  studentId   = document.getElementById('inputId').value.trim();
+  studentName = document.getElementById('inputName').value.trim();
+  if (!studentId || !studentName) return;
+  document.getElementById('loginScreen').classList.remove('active');
+  document.getElementById('introScreen').classList.add('active');
+  document.getElementById('introGreeting').textContent = `${studentName} 학생, 그대의 여정이 시작되도다.`;
+};
+
+/* ═══════════════════════════════════════
+   데이터 로드
+═══════════════════════════════════════ */
+async function loadData() {
+  try {
+    const q = query(collection(db, 'escape26_2'), orderBy('order'));
+    const snap = await getDocs(q);
+    episodes = [];
+    snap.forEach(d => episodes.push({ id: d.id, ...d.data() }));
+    if (episodes.length === 0) throw new Error('에피소드 데이터가 없소이다. 관리자에게 문의하시오.');
+
+    const sDoc = await getDoc(doc(db, 'escape26_2_settings', 'main'));
+    settings = sDoc.exists() ? sDoc.data() : defaultSettings();
+
+    await loadStudentMap();
+
+    document.getElementById('loadingScreen').classList.add('hidden');
+    document.getElementById('introTitle').textContent  = settings.gameTitle  || '千年의 記憶 Ⅱ';
+    document.getElementById('introSubtitle').textContent = settings.gameSubtitle || '고 려 의 부 름';
+    const storyEl = document.getElementById('introStory');
+    storyEl.innerHTML = '';
+    (settings.introStory || []).forEach(p => { const el = document.createElement('p'); el.innerHTML = p; storyEl.appendChild(el); });
+    document.getElementById('loginScreen').classList.add('active');
+  } catch (e) {
+    console.error(e);
+    document.getElementById('loadingScreen').classList.add('hidden');
+    document.getElementById('errorScreen').classList.add('active');
+    document.getElementById('errorMessage').textContent = e.message;
+  }
+}
+
+function defaultSettings() {
+  return {
+    gameTitle: '千年의 記憶 Ⅱ',
+    gameSubtitle: '고 려 의 부 름',
+    introStory: ['역사 수업 중 깜빡 잠이 들었다.', '눈을 뜨니 신라 말기, 혼란의 시대 한복판이었다.', '10개의 보물을 찾아야만 현재로 돌아올 수 있다.'],
+    endingTitle: '天 命 完 遂',
+    endingSubtitle: '천 명 완 수',
+    endingMessage: ['그대는 신라의 혼란부터 고려의 멸망까지, 천 년의 역사를 온몸으로 헤쳐왔도다.', '이제 현재로 돌아갈 시간이다.'],
+    reflectionPrompt: '이 여정을 마치며 느낀 점을 적어주시오.'
+  };
+}
+
+/* ═══════════════════════════════════════
+   게임 시작
+═══════════════════════════════════════ */
+window.startGame = function() {
+  document.getElementById('introScreen').classList.remove('active');
+  document.getElementById('gameScreen').classList.add('active');
+  initTreasures();
+  renderEpisode();
+};
+
+function initTreasures() {
+  const c = document.getElementById('treasuresDisplay');
+  c.innerHTML = '';
+  for (let i = 0; i < 10; i++) {
+    const d = document.createElement('div');
+    d.className = 'treasure-dot';
+    d.id = `td-${i}`;
+    c.appendChild(d);
+  }
+}
+
+function updateProgress() {
+  document.getElementById('progressNum').textContent = acquiredTreasures.length;
+  acquiredTreasures.forEach(i => {
+    const el = document.getElementById(`td-${i}`);
+    if (el) el.classList.add('acquired');
+  });
+}
+
+function detectTheme(ep) {
+  const txt = [ep.title, ep.story, ep.subtitle, ep.dialog, ep.speaker].join(' ');
+  if (txt.includes('신라') || txt.includes('발해') || txt.includes('불국사') || txt.includes('석굴암')) {
+    if (txt.includes('발해')) return 'theme-balhae';
+    return 'theme-silla';
+  }
+  if (txt.includes('고려')) return 'theme-goryeo';
+  return '';
+}
+
+/* ═══════════════════════════════════════
+   에피소드 렌더링
+═══════════════════════════════════════ */
+function renderEpisode() {
+  const ep = episodes[currentEp];
+  document.body.className = detectTheme(ep);
+  window._epState = {};
+
+  const actionHTML = buildAction(ep);
+  const card = document.getElementById('episodeCard');
+  card.innerHTML = `
+    <div class="episode-story">${ep.story}</div>
+    <h2 class="episode-title">${ep.title}</h2>
+    <div class="episode-number">${ep.subtitle}</div>
+    <div class="title-divider"></div>
+    <div class="quiz-content">
+      <div class="speaker">▣ ${ep.speaker} 가라사대</div>
+      <div>"${ep.dialog}"</div>
+      <div class="quiz-question">${ep.question}</div>
+    </div>
+    <div class="action-area" id="actionArea">${actionHTML}</div>
+    <div class="hint-box" id="hintBox"><strong>💡 힌트:</strong> ${ep.hint || '없음'}</div>
+    <div class="button-row">
+      <button class="btn btn-hint" onclick="toggleHint()">💡 힌트 보기</button>
+      <button class="btn btn-check" id="btnCheck" onclick="checkAnswer()">답을 확인하다</button>
+      <button class="btn btn-next" id="btnNext" onclick="nextEpisode()">다음으로 →</button>
+    </div>
+  `;
+
+  initAction(ep);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ── 액션 빌드 ── */
+function buildAction(ep) {
+  switch (ep.type) {
+    case 'fillBlanks':  return buildFillBlanks(ep);
+    case 'singleInput': return buildSingleInput();
+    case 'order':       return buildOrder(ep);
+    case 'classify':    return buildClassify(ep);
+    case 'pairMatch':   return buildPairMatch(ep);
+    case 'twoStage':    return buildTwoStage(ep);
+    case 'simulate':    return buildSimulate(ep);
+    default: return '<p>지원하지 않는 유형입니다.</p>';
+  }
+}
+
+function initAction(ep) {
+  switch (ep.type) {
+    case 'order':    initOrder(ep); break;
+    case 'classify': initClassify(ep); break;
+    case 'pairMatch':initPairMatch(ep); break;
+    case 'twoStage': initTwoStage(ep); break;
+    case 'simulate': initSimulate(ep); break;
+  }
+}
+
+/* ── fillBlanks ── */
+function buildFillBlanks(ep) {
+  const labels = ['①','②','③','④','⑤','⑥'];
+  return ep.answers.map((_, i) => `
+    <div class="blank-row">
+      <span class="blank-label">${labels[i]}</span>
+      <input type="text" class="blank-input" id="blank-${i}" placeholder="답을 입력하시오">
+    </div>`).join('');
+}
+
+/* ── singleInput ── */
+function buildSingleInput() {
+  return `<input type="text" class="single-input" id="singleInput" placeholder="답을 입력하시오" maxlength="20">`;
+}
+
+/* ── order ── */
+function buildOrder(ep) {
+  window._epState.order = ep.items.map((item, i) => ({ item, i })).sort(() => Math.random() - .5);
+  return `<ul class="order-list" id="orderList"></ul>`;
+}
+function initOrder(ep) { renderOrderList(); }
+function renderOrderList() {
+  const state = window._epState.order;
+  document.getElementById('orderList').innerHTML = state.map((obj, i) => `
+    <li class="order-item" data-idx="${obj.i}">
+      <span style="flex:1;line-height:1.6;">${obj.item}</span>
+      <div class="order-arrows">
+        <button class="arrow-btn" onclick="moveOrder(${i},-1)" ${i===0?'disabled':''}>▲</button>
+        <button class="arrow-btn" onclick="moveOrder(${i},1)" ${i===state.length-1?'disabled':''}>▼</button>
+      </div>
+    </li>`).join('');
+}
+window.moveOrder = function(cur, dir) {
+  const s = window._epState.order, nxt = cur + dir;
+  if (nxt < 0 || nxt >= s.length) return;
+  [s[cur], s[nxt]] = [s[nxt], s[cur]];
+  renderOrderList();
+};
+
+/* ── classify ── */
+function buildClassify(ep) {
+  return `
+    <p style="text-align:center;color:var(--point-color);font-size:.9rem;margin-bottom:.8rem;">카드를 클릭한 뒤 해당 영역을 누르시오</p>
+    <div class="card-pool" id="classifyPool"></div>
+    <div class="classify-zones" id="classifyZones"></div>`;
+}
+function initClassify(ep) {
+  window._epState.classify = { selected: null, placed: {} };
+  const pool  = document.getElementById('classifyPool');
+  const zones = document.getElementById('classifyZones');
+  ep.items.forEach((item, i) => {
+    const c = document.createElement('div');
+    c.className = 'quiz-card'; c.textContent = item; c.dataset.idx = i;
+    c.onclick = () => selectClassify(i, c);
+    pool.appendChild(c);
+  });
+  ep.zones.forEach((zone, zi) => {
+    const z = document.createElement('div');
+    z.className = 'classify-zone'; z.dataset.zone = zi;
+    z.innerHTML = `<h4>${zone.name}</h4><div class="classify-items" id="czone-${zi}"></div>`;
+    z.onclick = () => placeClassify(zi, ep);
+    zones.appendChild(z);
+  });
+}
+function selectClassify(idx, card) {
+  if (card.classList.contains('placed')) return;
+  document.querySelectorAll('#classifyPool .quiz-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  window._epState.classify.selected = idx;
+}
+function placeClassify(zi, ep) {
+  const s = window._epState.classify;
+  if (s.selected === null) { showToast('먼저 카드를 선택하시오!'); return; }
+  const idx = s.selected;
+  s.placed[idx] = zi;
+  const card = document.querySelector(`#classifyPool .quiz-card[data-idx="${idx}"]`);
+  card.classList.add('placed'); card.classList.remove('selected');
+  const zoneEl = document.getElementById(`czone-${zi}`);
+  const chip = document.createElement('div');
+  chip.className = 'classify-chip'; chip.textContent = ep.items[idx]; chip.dataset.itemIdx = idx;
+  chip.onclick = e => { e.stopPropagation(); chip.remove(); delete s.placed[idx]; card.classList.remove('placed'); };
+  zoneEl.appendChild(chip);
+  s.selected = null;
+}
+
+/* ── pairMatch ── */
+function buildPairMatch(ep) {
+  return `
+    <div class="match-container">
+      <div class="match-column"><h4>${ep.leftLabel || '인물·세력'}</h4><div id="leftCol"></div></div>
+      <div class="match-column"><h4>${ep.rightLabel || '내용·업적'}</h4><div id="rightCol"></div></div>
+    </div>
+    <div id="matchResult"></div>`;
+}
+function initPairMatch(ep) {
+  window._epState.pairMatch = { selectedLeft: null, pairs: {} };
+  const lc = document.getElementById('leftCol');
+  const rc = document.getElementById('rightCol');
+  ep.leftItems.forEach((item, i) => {
+    const el = document.createElement('div'); el.className = 'match-item'; el.textContent = item; el.dataset.idx = i;
+    el.onclick = () => selectLeft(i, el);
+    lc.appendChild(el);
+  });
+  [...ep.rightItems.map((item,i)=>({item,i}))].sort(()=>Math.random()-.5).forEach(({item,i}) => {
+    const el = document.createElement('div'); el.className = 'match-item'; el.textContent = item; el.dataset.idx = i;
+    el.onclick = () => selectRight(i, el, ep);
+    rc.appendChild(el);
+  });
+}
+function selectLeft(idx, el) {
+  if (el.classList.contains('matched')) return;
+  document.querySelectorAll('#leftCol .match-item').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  window._epState.pairMatch.selectedLeft = idx;
+}
+function selectRight(idx, el, ep) {
+  const s = window._epState.pairMatch;
+  if (el.classList.contains('matched')) return;
+  if (s.selectedLeft === null) { showToast('먼저 왼쪽을 선택하시오!'); return; }
+  const leftEl = document.querySelector(`#leftCol .match-item[data-idx="${s.selectedLeft}"]`);
+  leftEl.classList.remove('selected'); leftEl.classList.add('matched');
+  el.classList.add('matched');
+  s.pairs[s.selectedLeft] = idx;
+  s.selectedLeft = null;
+  const res = document.getElementById('matchResult');
+  const leftEp = ep;
+  res.innerHTML = `<div class="match-pairs-result">${Object.keys(s.pairs).map(li=>`<div class="pair-row"><strong>${leftEp.leftItems[li]}</strong> ↔ ${leftEp.rightItems[s.pairs[li]]}</div>`).join('')}
+  ${Object.keys(s.pairs).length>0?`<button class="btn btn-hint" style="margin-top:.6rem;padding:.5rem 1rem;font-size:.82rem;" onclick="resetPairMatch(event)">초기화</button>`:''}
+  </div>`;
+}
+window.resetPairMatch = function(e) {
+  e.stopPropagation();
+  window._epState.pairMatch = { selectedLeft: null, pairs: {} };
+  document.querySelectorAll('.match-item').forEach(el => el.classList.remove('matched','selected'));
+  document.getElementById('matchResult').innerHTML = '';
+};
+
+/* ── twoStage ── */
+function buildTwoStage(ep) {
+  const s1 = buildStageBlock(ep.stage1Type, ep.stage1, 1);
+  const s2 = buildStageBlock(ep.stage2Type, ep.stage2, 2);
+  return `
+    <div id="stage1Block">
+      <div class="stage-label">1단계</div>
+      <p style="font-weight:700;margin-bottom:1rem;">${ep.stage1.question}</p>
+      <div id="stage1Action">${s1}</div>
+    </div>
+    <div class="stage2-area" id="stage2Block">
+      <div class="stage-label">2단계</div>
+      <p style="font-weight:700;margin-bottom:1rem;">${ep.stage2.question}</p>
+      <div id="stage2Action">${s2}</div>
+    </div>`;
+}
+function buildStageBlock(type, data, stageNum) {
+  const pfx = `s${stageNum}_`;
+  switch (type) {
+    case 'fillBlanks': {
+      const labels = ['①','②','③','④','⑤','⑥'];
+      return data.answers.map((_, i) => `
+        <div class="blank-row">
+          <span class="blank-label">${labels[i]}</span>
+          <input type="text" class="blank-input" id="${pfx}blank-${i}" placeholder="답을 입력하시오">
+        </div>`).join('');
+    }
+    case 'singleInput':
+      return `<input type="text" class="single-input" id="${pfx}singleInput" placeholder="답을 입력하시오" maxlength="20">`;
+    case 'order':
+      return `<ul class="order-list" id="${pfx}orderList"></ul>`;
+    case 'classify':
+      return `<p style="text-align:center;color:var(--point-color);font-size:.9rem;margin-bottom:.8rem;">카드를 클릭한 뒤 해당 영역을 누르시오</p>
+              <div class="card-pool" id="${pfx}classifyPool"></div>
+              <div class="classify-zones" id="${pfx}classifyZones"></div>`;
+    case 'pairMatch':
+      return `<div class="match-container">
+        <div class="match-column"><h4>${data.leftLabel||'인물·세력'}</h4><div id="${pfx}leftCol"></div></div>
+        <div class="match-column"><h4>${data.rightLabel||'내용·업적'}</h4><div id="${pfx}rightCol"></div></div>
+      </div><div id="${pfx}matchResult"></div>`;
+    default: return '';
+  }
+}
+function initTwoStage(ep) {
+  window._epState.twoStage = { stage1Done: false };
+  initStageBlock(ep.stage1Type, ep.stage1, 1);
+}
+function initStageBlock(type, data, stageNum) {
+  const pfx = `s${stageNum}_`;
+  const key = `stage${stageNum}`;
+  if (type === 'order') {
+    window._epState[key+'Order'] = data.items.map((item,i)=>({item,i})).sort(()=>Math.random()-.5);
+    renderOrderListById(`${pfx}orderList`, key+'Order');
+  } else if (type === 'classify') {
+    window._epState[key+'Classify'] = { selected: null, placed: {} };
+    initClassifyById(pfx, data, key+'Classify');
+  } else if (type === 'pairMatch') {
+    window._epState[key+'PairMatch'] = { selectedLeft: null, pairs: {} };
+    initPairMatchById(pfx, data, key+'PairMatch');
+  }
+}
+function renderOrderListById(listId, stateKey) {
+  const state = window._epState[stateKey];
+  const el = document.getElementById(listId);
+  if (!el) return;
+  el.innerHTML = state.map((obj, i) => `
+    <li class="order-item" data-idx="${obj.i}">
+      <span style="flex:1;line-height:1.6;">${obj.item}</span>
+      <div class="order-arrows">
+        <button class="arrow-btn" onclick="moveOrderById('${listId}','${stateKey}',${i},-1)" ${i===0?'disabled':''}>▲</button>
+        <button class="arrow-btn" onclick="moveOrderById('${listId}','${stateKey}',${i},1)" ${i===state.length-1?'disabled':''}>▼</button>
+      </div>
+    </li>`).join('');
+}
+window.moveOrderById = function(listId, stateKey, cur, dir) {
+  const s = window._epState[stateKey], nxt = cur + dir;
+  if (nxt < 0 || nxt >= s.length) return;
+  [s[cur], s[nxt]] = [s[nxt], s[cur]];
+  renderOrderListById(listId, stateKey);
+};
+function initClassifyById(pfx, data, stateKey) {
+  const pool  = document.getElementById(pfx+'classifyPool');
+  const zones = document.getElementById(pfx+'classifyZones');
+  if (!pool || !zones) return;
+  data.items.forEach((item, i) => {
+    const c = document.createElement('div'); c.className = 'quiz-card'; c.textContent = item; c.dataset.idx = i;
+    c.onclick = () => {
+      if (c.classList.contains('placed')) return;
+      pool.querySelectorAll('.quiz-card').forEach(x=>x.classList.remove('selected'));
+      c.classList.add('selected');
+      window._epState[stateKey].selected = i;
+    };
+    pool.appendChild(c);
+  });
+  data.zones.forEach((zone, zi) => {
+    const z = document.createElement('div'); z.className = 'classify-zone'; z.dataset.zone = zi;
+    z.innerHTML = `<h4>${zone.name}</h4><div class="classify-items" id="${pfx}czone-${zi}"></div>`;
+    z.onclick = () => {
+      const s = window._epState[stateKey];
+      if (s.selected === null) { showToast('먼저 카드를 선택하시오!'); return; }
+      const idx = s.selected;
+      s.placed[idx] = zi;
+      const card = pool.querySelector(`.quiz-card[data-idx="${idx}"]`);
+      card.classList.add('placed'); card.classList.remove('selected');
+      const zoneEl = document.getElementById(`${pfx}czone-${zi}`);
+      const chip = document.createElement('div'); chip.className = 'classify-chip'; chip.textContent = data.items[idx];
+      chip.onclick = e => { e.stopPropagation(); chip.remove(); delete s.placed[idx]; card.classList.remove('placed'); };
+      zoneEl.appendChild(chip);
+      s.selected = null;
+    };
+    zones.appendChild(z);
+  });
+}
+function initPairMatchById(pfx, data, stateKey) {
+  const lc = document.getElementById(pfx+'leftCol');
+  const rc = document.getElementById(pfx+'rightCol');
+  if (!lc || !rc) return;
+  data.leftItems.forEach((item, i) => {
+    const el = document.createElement('div'); el.className = 'match-item'; el.textContent = item; el.dataset.idx = i;
+    el.onclick = () => {
+      if (el.classList.contains('matched')) return;
+      lc.querySelectorAll('.match-item').forEach(e=>e.classList.remove('selected'));
+      el.classList.add('selected');
+      window._epState[stateKey].selectedLeft = i;
+    };
+    lc.appendChild(el);
+  });
+  [...data.rightItems.map((item,i)=>({item,i}))].sort(()=>Math.random()-.5).forEach(({item,i}) => {
+    const el = document.createElement('div'); el.className = 'match-item'; el.textContent = item; el.dataset.idx = i;
+    el.onclick = () => {
+      const s = window._epState[stateKey];
+      if (el.classList.contains('matched')) return;
+      if (s.selectedLeft === null) { showToast('먼저 왼쪽을 선택하시오!'); return; }
+      const leftEl = lc.querySelector(`.match-item[data-idx="${s.selectedLeft}"]`);
+      leftEl.classList.remove('selected'); leftEl.classList.add('matched');
+      el.classList.add('matched');
+      s.pairs[s.selectedLeft] = i;
+      s.selectedLeft = null;
+      const res = document.getElementById(pfx+'matchResult');
+      res.innerHTML = `<div class="match-pairs-result">${Object.keys(s.pairs).map(li=>`<div class="pair-row"><strong>${data.leftItems[li]}</strong> ↔ ${data.rightItems[s.pairs[li]]}</div>`).join('')}
+      ${Object.keys(s.pairs).length>0?`<button class="btn btn-hint" style="margin-top:.6rem;padding:.5rem 1rem;font-size:.82rem;" onclick="resetPairMatchById(event,'${pfx}','${stateKey}')">초기화</button>`:''}
+      </div>`;
+    };
+    rc.appendChild(el);
+  });
+}
+window.resetPairMatchById = function(e, pfx, stateKey) {
+  e.stopPropagation();
+  const ep = episodes[currentEp];
+  const data = stateKey.startsWith('stage1') ? ep.stage1 : ep.stage2;
+  window._epState[stateKey] = { selectedLeft: null, pairs: {} };
+  document.querySelectorAll(`#${pfx}leftCol .match-item, #${pfx}rightCol .match-item`).forEach(el=>el.classList.remove('matched','selected'));
+  document.getElementById(pfx+'matchResult').innerHTML = '';
+};
+
+/* ── simulate ── */
+function buildSimulate(ep) {
+  return `<div id="simArea"></div>`;
+}
+function initSimulate(ep) {
+  window._epState.sim = { idx: 0, allCorrect: true };
+  renderSimStep(ep, 0);
+}
+function renderSimStep(ep, idx) {
+  const steps = ep.steps;
+  if (idx >= steps.length) {
+    document.getElementById('simArea').innerHTML = `<div class="sim-situation" style="text-align:center;font-style:normal;font-weight:700;color:var(--point-color);">✦ 모든 선택을 마쳤도다! 답을 확인하시오.</div>`;
+    return;
+  }
+  const step = steps[idx];
+  const simArea = document.getElementById('simArea');
+  simArea.innerHTML = `
+    <div class="sim-progress">${idx+1} / ${steps.length} 선택</div>
+    <div class="sim-situation">${step.situation}</div>
+    <div class="sim-choices">${step.choices.map((c,ci)=>`
+      <button class="sim-choice" data-ci="${ci}" onclick="chooseSimStep(${idx},${ci})">${c.text}</button>`).join('')}
+    </div>
+    <div class="sim-feedback" id="simFeedback"></div>`;
+}
+window.chooseSimStep = function(stepIdx, choiceIdx) {
+  const ep    = episodes[currentEp];
+  const step  = ep.steps[stepIdx];
+  const isOk  = step.choices[choiceIdx].correct;
+  const btns  = document.querySelectorAll('.sim-choice');
+  btns.forEach(b => { b.classList.add(parseInt(b.dataset.ci) === choiceIdx ? (isOk?'correct':'wrong') : ''); b.disabled = true; });
+  const fb = document.getElementById('simFeedback');
+  fb.textContent = step.choices[choiceIdx].feedback || (isOk ? '옳은 선택이다!' : '아니로다! 역사는 다른 길을 택하였소.');
+  fb.classList.add('show');
+  if (!isOk) window._epState.sim.allCorrect = false;
+  setTimeout(() => {
+    window._epState.sim.idx = stepIdx + 1;
+    renderSimStep(ep, stepIdx + 1);
+  }, 1800);
+};
+
+/* ═══════════════════════════════════════
+   정답 확인
+═══════════════════════════════════════ */
+window.checkAnswer = function() {
+  const ep = episodes[currentEp];
+  const s  = window._epState;
+
+  if (ep.type === 'twoStage') {
+    if (!s.twoStage.stage1Done) {
+      const ok = checkStageBlock(ep.stage1Type, ep.stage1, 1);
+      if (!ok) { showToast(wrongMsg()); return; }
+      s.twoStage.stage1Done = true;
+      showToast('1단계 통과! 2단계로 나아가라 ✦', 'success');
+      document.getElementById('stage2Block').classList.add('show');
+      initStageBlock(ep.stage2Type, ep.stage2, 2);
+      return;
+    }
+    const ok2 = checkStageBlock(ep.stage2Type, ep.stage2, 2);
+    if (!ok2) { showToast(wrongMsg()); return; }
+    onCorrect(ep);
+    return;
+  }
+
+  let ok = false;
+  switch (ep.type) {
+    case 'fillBlanks':  ok = checkFillBlanks(ep); break;
+    case 'singleInput': ok = checkSingleInput(ep); break;
+    case 'order':       ok = checkOrder(ep); break;
+    case 'classify':    ok = checkClassify(ep); break;
+    case 'pairMatch':   ok = checkPairMatch(ep); break;
+    case 'simulate':    ok = checkSimulate(ep); break;
+  }
+  if (ok) onCorrect(ep); else showToast(wrongMsg());
+};
+
+function checkFillBlanks(ep) {
+  return ep.answers.every((ans, i) => {
+    const v = document.getElementById(`blank-${i}`)?.value.trim() || '';
+    return normalize(v) === normalize(ans);
+  });
+}
+function checkSingleInput(ep) {
+  const v = document.getElementById('singleInput')?.value.trim() || '';
+  return normalize(v) === normalize(ep.answer);
+}
+function checkOrder(ep) {
+  return window._epState.order.every((obj, i) => obj.i === ep.correctOrder[i]);
+}
+function checkClassify(ep) {
+  const s = window._epState.classify;
+  if (Object.keys(s.placed).length !== ep.items.length) return false;
+  return Object.keys(s.placed).every(idx => ep.zones[s.placed[idx]].correct.includes(parseInt(idx)));
+}
+function checkPairMatch(ep) {
+  const s = window._epState.pairMatch;
+  if (Object.keys(s.pairs).length !== ep.leftItems.length) return false;
+  return Object.keys(s.pairs).every(li => s.pairs[li] === ep.correctPairs[parseInt(li)]);
+}
+function checkSimulate(ep) {
+  return window._epState.sim.idx >= ep.steps.length && window._epState.sim.allCorrect;
+}
+
+function checkStageBlock(type, data, stageNum) {
+  const pfx = `s${stageNum}_`;
+  const key  = `stage${stageNum}`;
+  switch (type) {
+    case 'fillBlanks':
+      return data.answers.every((ans, i) => normalize(document.getElementById(`${pfx}blank-${i}`)?.value.trim()||'') === normalize(ans));
+    case 'singleInput':
+      return normalize(document.getElementById(`${pfx}singleInput`)?.value.trim()||'') === normalize(data.answer);
+    case 'order': {
+      const s = window._epState[key+'Order'];
+      return s && s.every((obj, i) => obj.i === data.correctOrder[i]);
+    }
+    case 'classify': {
+      const s = window._epState[key+'Classify'];
+      if (!s || Object.keys(s.placed).length !== data.items.length) return false;
+      return Object.keys(s.placed).every(idx => data.zones[s.placed[idx]].correct.includes(parseInt(idx)));
+    }
+    case 'pairMatch': {
+      const s = window._epState[key+'PairMatch'];
+      if (!s || Object.keys(s.pairs).length !== data.leftItems.length) return false;
+      return Object.keys(s.pairs).every(li => s.pairs[li] === data.correctPairs[parseInt(li)]);
+    }
+    default: return false;
+  }
+}
+
+function normalize(s) { return String(s).replace(/\s+/g,'').replace(/[·.,!?]/g,''); }
+function wrongMsg() {
+  const msgs = ['아니로다! 다시 한 번 생각해 보거라.','흠... 그것이 아닌 듯하니, 다시 보거라.','그대의 답은 옳지 않도다. 차근차근 살펴보거라.','허허, 그것이 아니라네. 다시 도전해 보시게.','아직은 부족하도다. 힌트를 보거나 다시 생각해 보거라.'];
+  return msgs[Math.floor(Math.random()*msgs.length)];
+}
+
+/* ═══════════════════════════════════════
+   정답 처리
+═══════════════════════════════════════ */
+function onCorrect(ep) {
+  acquiredTreasures.push(currentEp);
+  updateProgress();
+  document.getElementById('treasureName').textContent = ep.treasureName || '보물';
+  document.getElementById('treasureDesc').textContent = ep.treasureDesc || '';
+  document.getElementById('treasureModal').classList.add('show');
+}
+window.closeTreasureModal = function() {
+  document.getElementById('treasureModal').classList.remove('show');
+  document.getElementById('btnNext').classList.add('show');
+  showToast('그렇도다! 보물을 얻었느니라 ✦', 'success');
+};
+window.nextEpisode = function() {
+  currentEp++;
+  if (currentEp >= episodes.length) showEnding();
+  else renderEpisode();
+};
+
+/* ═══════════════════════════════════════
+   힌트 / 토스트
+═══════════════════════════════════════ */
+window.toggleHint = function() { document.getElementById('hintBox').classList.toggle('show'); };
+let _toastTimer;
+function showToast(msg, type='error') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type}`; t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+/* ═══════════════════════════════════════
+   엔딩
+═══════════════════════════════════════ */
+function showEnding() {
+  document.getElementById('gameScreen').classList.remove('active');
+  document.getElementById('endingTitle').textContent = settings.endingTitle || '天 命 完 遂';
+  document.getElementById('endingSub').textContent   = settings.endingSubtitle || '천 명 완 수';
+  document.getElementById('reflectionPrompt').textContent = settings.reflectionPrompt || '이 여정을 마치며 느낀 점을 적어주시오.';
+  const msgEl = document.getElementById('endingMessage');
+  msgEl.innerHTML = '';
+  (settings.endingMessage || ['그대는 천 년의 역사를 완주하였도다.']).forEach(p => {
+    const el = document.createElement('p'); el.style.marginBottom='.6rem'; el.innerHTML = p; msgEl.appendChild(el);
+  });
+  const tc = document.getElementById('endingTreasures');
+  tc.innerHTML = '';
+  for (let i=0;i<10;i++) { const t=document.createElement('div'); t.className='ending-treasure'; t.textContent='✦'; t.style.animationDelay=(i*.12)+'s'; tc.appendChild(t); }
+  document.getElementById('endingScreen').classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+window.finishGame = async function() {
+  const reflection = document.getElementById('reflectionInput').value.trim();
+  if (!reflection) { showToast('소감을 한 줄이라도 적어주시오!'); return; }
+  try {
+    await addDoc(collection(db, 'escape26_2_reflections'), {
+      studentId, studentName, reflection,
+      score: acquiredTreasures.length,
+      createdAt: serverTimestamp()
+    });
+    showToast('기록이 봉인되었느니라. 그대의 여정이 후세에 전해지리라.', 'success');
+    setTimeout(() => {
+      document.getElementById('endingScreen').innerHTML = `
+        <div style="padding:4rem 2rem;text-align:center;">
+          <h1 class="ending-title">完</h1>
+          <p style="color:var(--point-border);letter-spacing:1em;margin:1rem 0 2rem;">완</p>
+          <div style="background:rgba(255,255,255,.4);padding:2rem;border:2px solid var(--point-border);text-align:left;max-width:600px;margin:0 auto;">
+            <h3 style="color:var(--point-color);margin-bottom:1rem;">✦ ${studentName} 학생의 기록 ✦</h3>
+            <p style="font-style:italic;line-height:1.9;">${reflection.replace(/\n/g,'<br>')}</p>
+            <p style="margin-top:1rem;font-weight:700;color:var(--point-color);">획득 보물: ${acquiredTreasures.length} / 10</p>
+          </div>
+          <button class="btn btn-dark" style="margin-top:2rem;" onclick="location.reload()">다시 시작하다</button>
+        </div>`;
+    }, 1500);
+  } catch (e) {
+    showToast('저장에 실패하였소. 다시 시도하시오.');
+  }
+};
+
+loadData();
+</script>
+
+<div style="display:flex;justify-content:center;gap:28px;margin-top:48px;padding-bottom:8px;">
+  <a href="admin.html" style="display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;color:#9ca3af;font-size:10px;"><span style="font-size:20px;">🔑</span>관리자</a>
+  <a href="../index.html" style="display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;color:#9ca3af;font-size:10px;"><span style="font-size:20px;">🏠</span>허브</a>
+  <a href="https://open.kakao.com/o/smm3ixqi" target="_blank" rel="noopener" style="display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;color:#9ca3af;font-size:10px;"><span style="font-size:20px;">💬</span>연락</a>
+</div>
+<footer style="text-align:center;padding:8px 0 20px;font-size:11px;color:#9ca3af;">역사는 즐겁다 <span>✦</span> Dive into HISTORY</footer>
+</body>
+</html>

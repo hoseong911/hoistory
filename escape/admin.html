@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>천년의 기억 Ⅱ — 관리자</title>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Nanum+Myeongjo:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1a1410;--paper:#f4ead5;--paper-dark:#e8d9b8;--point:#a8322d;--border:#c9a44c;--bg:rgba(201,164,76,0.08);}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Gowun Batang','Nanum Myeongjo',serif;background:var(--paper);color:var(--ink);min-height:100vh;padding:2rem 1.5rem;}
+h1{font-family:'Nanum Myeongjo',serif;font-weight:800;font-size:1.8rem;letter-spacing:.2em;margin-bottom:.3rem;color:var(--point);}
+.subtitle{color:var(--border);letter-spacing:.4em;font-size:.85rem;margin-bottom:2rem;}
+.admin-login{max-width:360px;margin:4rem auto;background:rgba(255,255,255,.5);border:2px solid var(--ink);padding:2rem;}
+.admin-login h2{font-family:'Nanum Myeongjo',serif;font-weight:800;margin-bottom:1.5rem;color:var(--point);letter-spacing:.1em;}
+input,textarea,select{width:100%;padding:.75rem 1rem;border:2px solid var(--ink);background:var(--paper);font-family:'Gowun Batang',serif;font-size:.95rem;color:var(--ink);transition:all .3s;margin-bottom:1rem;}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--point);background:#fff;}
+.btn{padding:.8rem 1.6rem;font-family:'Nanum Myeongjo',serif;font-weight:700;border:2px solid var(--ink);cursor:pointer;letter-spacing:.1em;transition:all .2s;background:var(--ink);color:var(--paper);font-size:.9rem;}
+.btn:hover{background:var(--point);border-color:var(--point);}
+.btn-sm{padding:.5rem 1rem;font-size:.82rem;}
+.btn-danger{background:#a8322d;border-color:#a8322d;}
+.btn-danger:hover{background:#7a1f1a;border-color:#7a1f1a;}
+.btn-success{background:#3b7a57;border-color:#3b7a57;}
+.btn-success:hover{background:#2a5a3f;border-color:#2a5a3f;}
+.tab-bar{display:flex;gap:0;border-bottom:2px solid var(--ink);margin-bottom:2rem;flex-wrap:wrap;}
+.tab{padding:.7rem 1.4rem;cursor:pointer;border:2px solid transparent;border-bottom:none;font-weight:700;letter-spacing:.1em;font-size:.9rem;color:#777;transition:all .2s;}
+.tab.active{color:var(--point);border-color:var(--ink);background:var(--paper);margin-bottom:-2px;}
+.tab:hover{color:var(--point);}
+.panel{display:none;}.panel.active{display:block;}
+.ep-list{display:flex;flex-direction:column;gap:.8rem;margin-bottom:1.5rem;}
+.ep-item{background:rgba(255,255,255,.5);border:2px solid var(--ink);padding:1.2rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;cursor:pointer;transition:all .2s;}
+.ep-item:hover{background:var(--bg);}
+.ep-item-info{flex:1;}
+.ep-item-info strong{display:block;font-size:1rem;margin-bottom:.2rem;}
+.ep-item-info span{font-size:.82rem;color:#666;}
+.ep-actions{display:flex;gap:.5rem;flex-shrink:0;}
+.editor{background:rgba(255,255,255,.5);border:2px solid var(--ink);padding:2rem;margin-bottom:2rem;}
+.editor h3{font-family:'Nanum Myeongjo',serif;color:var(--point);margin-bottom:1.5rem;padding-bottom:.6rem;border-bottom:2px solid var(--border);letter-spacing:.1em;}
+.field-row{margin-bottom:1.2rem;}
+.field-row label{display:block;font-weight:700;font-size:.85rem;color:var(--point);margin-bottom:.4rem;letter-spacing:.05em;}
+.field-row textarea{resize:vertical;min-height:80px;}
+.field-row input.narrow{width:auto;min-width:60px;}
+.section-box{border:1.5px dashed var(--border);padding:1.2rem;margin-bottom:1rem;background:rgba(255,255,255,.3);}
+.section-box h4{color:var(--border);font-size:.88rem;margin-bottom.8rem;letter-spacing:.1em;font-weight:700;}
+.stage-tabs{display:flex;gap:.5rem;margin-bottom:1rem;}
+.stage-tab{padding:.4rem 1rem;border:1.5px solid var(--ink);cursor:pointer;font-size:.85rem;font-weight:700;background:transparent;}
+.stage-tab.active{background:var(--ink);color:var(--paper);}
+.type-sel-row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:1rem;}
+.type-chip{padding:.4rem .9rem;border:1.5px solid var(--ink);cursor:pointer;font-size:.82rem;font-weight:700;background:transparent;transition:all .2s;}
+.type-chip:hover{background:var(--bg);}
+.type-chip.active{background:var(--ink);color:var(--paper);}
+.arr-editor{border:1px dashed var(--border);padding:1rem;margin-bottom:.8rem;}
+.arr-row{display:flex;gap:.5rem;align-items:center;margin-bottom:.5rem;}
+.arr-row input{margin-bottom:0;flex:1;}
+.arr-row .btn-sm{flex-shrink:0;padding:.4rem .7rem;}
+.add-row-btn{background:transparent;color:var(--ink);border-color:var(--border);margin-top:.3rem;}
+.add-row-btn:hover{background:var(--bg);color:var(--ink);}
+/* 소감 */
+.reflection-list{display:flex;flex-direction:column;gap:1rem;}
+.reflection-card{background:rgba(255,255,255,.5);border:2px solid var(--ink);padding:1.2rem;}
+.reflection-card .rc-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;flex-wrap:wrap;gap:.5rem;}
+.reflection-card .rc-name{font-weight:700;color:var(--point);font-size:.95rem;}
+.reflection-card .rc-score{font-size:.82rem;color:var(--border);font-weight:700;}
+.reflection-card .rc-time{font-size:.78rem;color:#999;}
+.reflection-card .rc-body{font-style:italic;line-height:1.8;color:#333;border-left:3px solid var(--border);padding-left:.8rem;}
+.toast{position:fixed;top:24px;right:24px;background:var(--ink);color:var(--paper);padding:.9rem 1.5rem;border:2px solid var(--border);z-index:999;font-weight:700;font-size:.9rem;display:none;max-width:300px;line-height:1.5;}
+.toast.show{display:block;}
+.toast.success{background:#3b7a57;border-color:#fff;}
+.summary-box{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem;margin-bottom:2rem;}
+.summary-card{background:rgba(255,255,255,.5);border:2px solid var(--ink);padding:1.2rem;text-align:center;}
+.summary-card .num{font-family:'Nanum Myeongjo',serif;font-weight:800;font-size:2.2rem;color:var(--point);}
+.summary-card .label{font-size:.82rem;color:#777;margin-top:.3rem;}
+@media(max-width:600px){.ep-item{flex-direction:column;align-items:flex-start;}.editor{padding:1.2rem;}.tab{padding:.6rem 1rem;font-size:.82rem;}}
+</style>
+</head>
+<body>
+<h1>千年의 記憶 Ⅱ 관리자</h1>
+<p class="subtitle">관 리 자 패 널</p>
+
+<!-- 로그인 -->
+<div id="adminLogin" class="admin-login">
+  <h2>🔑 관리자 로그인</h2>
+  <input type="password" id="pwInput" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doAdminLogin()">
+  <button class="btn" onclick="doAdminLogin()">입장하다</button>
+</div>
+
+<!-- 메인 패널 -->
+<div id="adminPanel" style="display:none;">
+  <div class="tab-bar">
+    <div class="tab active" onclick="switchTab('episodes')">에피소드</div>
+    <div class="tab" onclick="switchTab('settings')">게임 설정</div>
+    <div class="tab" onclick="switchTab('reflections')">소감 목록</div>
+  </div>
+
+  <!-- 에피소드 탭 -->
+  <div class="panel active" id="tab-episodes">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;flex-wrap:wrap;gap:1rem;">
+      <strong style="font-size:1rem;">에피소드 목록 (<span id="epCount">0</span>개)</strong>
+      <button class="btn btn-sm btn-success" onclick="openEpEditor(null)">+ 새 에피소드</button>
+    </div>
+    <div class="ep-list" id="epList"></div>
+    <div id="epEditor" style="display:none;"></div>
+  </div>
+
+  <!-- 설정 탭 -->
+  <div class="panel" id="tab-settings">
+    <div class="editor">
+      <h3>게임 텍스트 설정</h3>
+      <div class="field-row"><label>게임 제목</label><input type="text" id="sGameTitle" placeholder="千年의 記憶 Ⅱ"></div>
+      <div class="field-row"><label>게임 부제</label><input type="text" id="sGameSub" placeholder="고 려 의 부 름"></div>
+      <div class="field-row"><label>인트로 스토리 (줄바꿈으로 문단 구분)</label><textarea id="sIntroStory" rows="6" placeholder="문단1&#10;문단2&#10;문단3"></textarea></div>
+      <div class="field-row"><label>엔딩 제목</label><input type="text" id="sEndingTitle" placeholder="天 命 完 遂"></div>
+      <div class="field-row"><label>엔딩 부제</label><input type="text" id="sEndingSub" placeholder="천 명 완 수"></div>
+      <div class="field-row"><label>엔딩 메시지 (줄바꿈으로 문단 구분)</label><textarea id="sEndingMsg" rows="5" placeholder="문단1&#10;문단2"></textarea></div>
+      <div class="field-row"><label>소감 작성 안내 문구</label><input type="text" id="sReflectionPrompt" placeholder="이 여정을 마치며 느낀 점을 적어주시오."></div>
+      <div class="field-row"><label>관리자 비밀번호 변경 (비어있으면 변경 안 함)</label><input type="password" id="sNewPw" placeholder="새 비밀번호"></div>
+      <button class="btn" onclick="saveSettings()">설정 저장</button>
+    </div>
+  </div>
+
+  <!-- 소감 탭 -->
+  <div class="panel" id="tab-reflections">
+    <div class="summary-box" id="reflectionSummary"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;flex-wrap:wrap;gap:.5rem;">
+      <strong>소감 목록 (<span id="refCount">0</span>건)</strong>
+      <div style="display:flex;gap:.5rem;">
+        <button class="btn btn-sm" onclick="loadReflections()">새로고침</button>
+        <button class="btn btn-sm" onclick="exportCSV()">CSV 내보내기</button>
+      </div>
+    </div>
+    <div class="reflection-list" id="reflectionList"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, collection, query, orderBy, serverTimestamp, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain: "ho0911seong-56638.firebaseapp.com",
+  databaseURL: "https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ho0911seong-56638",
+  storageBucket: "ho0911seong-56638.firebasestorage.app",
+  messagingSenderId: "994509567071",
+  appId: "1:994509567071:web:de99e71c125ec2a3f557ea"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+let episodes = [], settings = {}, reflections = [];
+const DEFAULT_PW = 'history2026';
+
+/* ─── 로그인 ─── */
+let adminPw = DEFAULT_PW;
+window.doAdminLogin = async function() {
+  const pw = document.getElementById('pwInput').value;
+  const sDoc = await getDoc(doc(db, 'escape26_2_settings', 'main')).catch(()=>null);
+  if (sDoc && sDoc.exists() && sDoc.data().adminPw) adminPw = sDoc.data().adminPw;
+  if (pw !== adminPw) { showToast('비밀번호가 틀렸소이다.'); return; }
+  document.getElementById('adminLogin').style.display = 'none';
+  document.getElementById('adminPanel').style.display  = 'block';
+  await Promise.all([loadEpisodes(), loadSettings(), loadReflections()]);
+};
+
+/* ─── 탭 ─── */
+window.switchTab = function(name) {
+  document.querySelectorAll('.tab').forEach((t,i)=>{
+    const tabs=['episodes','settings','reflections'];
+    t.classList.toggle('active', tabs[i]===name);
+  });
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+};
+
+/* ─── 에피소드 로드 ─── */
+async function loadEpisodes() {
+  const q = query(collection(db,'escape26_2'), orderBy('order'));
+  const snap = await getDocs(q);
+  episodes = [];
+  snap.forEach(d => episodes.push({ id: d.id, ...d.data() }));
+  renderEpList();
+}
+
+function renderEpList() {
+  document.getElementById('epCount').textContent = episodes.length;
+  const list = document.getElementById('epList');
+  list.innerHTML = '';
+  episodes.forEach((ep, i) => {
+    const item = document.createElement('div'); item.className = 'ep-item';
+    item.innerHTML = `
+      <div class="ep-item-info">
+        <strong>${ep.order}. ${ep.title}</strong>
+        <span>${ep.subtitle} | 유형: ${ep.type}</span>
+      </div>
+      <div class="ep-actions">
+        <button class="btn btn-sm" onclick="openEpEditor('${ep.id}')">수정</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteEp('${ep.id}','${ep.title}')">삭제</button>
+      </div>`;
+    list.appendChild(item);
+  });
+}
+
+/* ─── 에피소드 에디터 ─── */
+window.openEpEditor = function(id) {
+  const ep = id ? episodes.find(e=>e.id===id) : null;
+  const edEl = document.getElementById('epEditor');
+  edEl.style.display = 'block';
+  edEl.innerHTML = buildEpEditorHTML(ep);
+  if (ep) fillEpEditorValues(ep);
+  edEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+function buildEpEditorHTML(ep) {
+  const typeList = ['fillBlanks','singleInput','order','classify','pairMatch','twoStage','simulate'];
+  return `
+    <div class="editor">
+      <h3>${ep ? '에피소드 수정' : '새 에피소드'}</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;">
+        <div class="field-row"><label>순서 번호</label><input type="number" id="ef_order" min="1" max="20" value="${ep?.order||''}"></div>
+        <div class="field-row"><label>제목</label><input type="text" id="ef_title" value="${esc(ep?.title)}"></div>
+        <div class="field-row"><label>부제 (연도·사건)</label><input type="text" id="ef_subtitle" value="${esc(ep?.subtitle)}"></div>
+      </div>
+      <div class="field-row"><label>도입 스토리 (이야기 배경)</label><textarea id="ef_story" rows="3">${esc(ep?.story)}</textarea></div>
+      <div class="field-row"><label>화자 (speaker)</label><input type="text" id="ef_speaker" value="${esc(ep?.speaker)}"></div>
+      <div class="field-row"><label>대사 (dialog)</label><textarea id="ef_dialog" rows="2">${esc(ep?.dialog)}</textarea></div>
+      <div class="field-row"><label>문제 지시문 (question)</label><textarea id="ef_question" rows="2">${esc(ep?.question)}</textarea></div>
+      <div class="field-row"><label>힌트</label><textarea id="ef_hint" rows="2">${esc(ep?.hint)}</textarea></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="field-row"><label>보물 이름</label><input type="text" id="ef_treasureName" value="${esc(ep?.treasureName)}"></div>
+        <div class="field-row"><label>보물 설명</label><input type="text" id="ef_treasureDesc" value="${esc(ep?.treasureDesc)}"></div>
+      </div>
+      <div class="field-row">
+        <label>문제 유형</label>
+        <div class="type-sel-row" id="typeSel">
+          ${typeList.map(t=>`<div class="type-chip ${ep?.type===t?'active':''}" onclick="selectType('${t}')">${typeLabel(t)}</div>`).join('')}
+        </div>
+        <input type="hidden" id="ef_type" value="${ep?.type||''}">
+      </div>
+      <div id="typeSpecificArea">${buildTypeSpecific(ep?.type||'', ep)}</div>
+      <div style="display:flex;gap:.8rem;margin-top:1rem;flex-wrap:wrap;">
+        <button class="btn btn-success" onclick="saveEp('${ep?.id||''}')">저장</button>
+        <button class="btn" onclick="document.getElementById('epEditor').style.display='none'">취소</button>
+      </div>
+    </div>`;
+}
+
+function typeLabel(t){ return {fillBlanks:'빈칸채우기',singleInput:'단답형',order:'순서배열',classify:'분류하기',pairMatch:'짝짓기',twoStage:'2단계복합',simulate:'시뮬레이션'}[t]||t; }
+function esc(v){ return v==null?'':String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+window.selectType = function(type) {
+  document.querySelectorAll('.type-chip').forEach(c=>c.classList.toggle('active', c.textContent===typeLabel(type)||c.getAttribute('onclick')?.includes(type)));
+  document.querySelectorAll('.type-chip').forEach(c=>{ c.classList.toggle('active', c.getAttribute('onclick')===`selectType('${type}')`); });
+  document.getElementById('ef_type').value = type;
+  document.getElementById('typeSpecificArea').innerHTML = buildTypeSpecific(type, null);
+};
+
+function buildTypeSpecific(type, ep) {
+  switch(type) {
+    case 'fillBlanks': return buildFB(ep);
+    case 'singleInput': return buildSI(ep);
+    case 'order': return buildOrd(ep);
+    case 'classify': return buildCls(ep);
+    case 'pairMatch': return buildPM(ep);
+    case 'twoStage': return buildTS(ep);
+    case 'simulate': return buildSim(ep);
+    default: return '<p style="color:#999;font-style:italic;margin-top:.5rem;">유형을 선택하시오</p>';
+  }
+}
+
+/* fillBlanks */
+function buildFB(ep) {
+  const ans = ep?.answers || ['','','',''];
+  return `<div class="section-box"><h4>빈칸 정답 (①②③...)</h4>
+  <div id="fbRows">${ans.map((a,i)=>`<div class="arr-row"><span style="font-weight:700;color:var(--border);min-width:24px;">${'①②③④⑤⑥'[i]}</span><input type="text" value="${esc(a)}" data-fb="${i}"></div>`).join('')}</div>
+  <button class="btn btn-sm add-row-btn" onclick="addFBRow()">+ 빈칸 추가</button></div>`;
+}
+window.addFBRow = function() {
+  const rows = document.getElementById('fbRows');
+  const i = rows.children.length;
+  const div = document.createElement('div'); div.className='arr-row';
+  div.innerHTML=`<span style="font-weight:700;color:var(--border);min-width:24px;">${'①②③④⑤⑥'[i]||String(i+1)}</span><input type="text" data-fb="${i}">`;
+  rows.appendChild(div);
+};
+
+/* singleInput */
+function buildSI(ep) {
+  return `<div class="section-box"><h4>정답</h4><input type="text" id="si_ans" value="${esc(ep?.answer)}"></div>`;
+}
+
+/* order */
+function buildOrd(ep) {
+  const items = ep?.items || ['','','',''];
+  const cor   = ep?.correctOrder || items.map((_,i)=>i);
+  return `<div class="section-box"><h4>사건·항목 목록</h4>
+  <div id="ordRows">${items.map((it,i)=>`<div class="arr-row"><input type="text" value="${esc(it)}" data-ord-item="${i}"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button></div>`).join('')}</div>
+  <button class="btn btn-sm add-row-btn" onclick="addOrdRow()">+ 항목 추가</button>
+  </div>
+  <div class="section-box"><h4>정답 순서 (0부터 시작하는 인덱스, 쉼표 구분)</h4>
+  <input type="text" id="ord_cor" value="${cor.join(',')}" placeholder="0,1,2,3">
+  <small style="color:#888;font-size:.8rem;">예: items = ['나','가','다','라'] 이고 정답 순서가 가→나→다→라 이면 1,0,2,3</small></div>`;
+}
+window.addOrdRow = function(){
+  const rows=document.getElementById('ordRows');
+  const i=rows.children.length;
+  const div=document.createElement('div');div.className='arr-row';
+  div.innerHTML=`<input type="text" data-ord-item="${i}"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button>`;
+  rows.appendChild(div);
+};
+
+/* classify */
+function buildCls(ep) {
+  const items = ep?.items||['','','',''];
+  const zones = ep?.zones||[{name:'',correct:[]},{name:'',correct:[]}];
+  return `<div class="section-box"><h4>분류 항목</h4>
+  <div id="clsItems">${items.map((it,i)=>`<div class="arr-row"><span style="font-weight:700;color:var(--border);min-width:22px;">${i}</span><input type="text" value="${esc(it)}" data-cls-item="${i}"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button></div>`).join('')}</div>
+  <button class="btn btn-sm add-row-btn" onclick="addClsItem()">+ 항목 추가</button></div>
+  <div class="section-box"><h4>분류 영역 (이름 + 속하는 항목 인덱스, 쉼표 구분)</h4>
+  <div id="clsZones">${zones.map((z,zi)=>`<div class="arr-row" style="flex-wrap:wrap;gap:.4rem;"><input type="text" value="${esc(z.name)}" data-zone-name="${zi}" style="flex:1;min-width:100px;"><input type="text" value="${(z.correct||[]).join(',')}" data-zone-cor="${zi}" style="flex:1;min-width:80px;" placeholder="항목 번호 예:0,2"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button></div>`).join('')}</div>
+  <button class="btn btn-sm add-row-btn" onclick="addClsZone()">+ 영역 추가</button></div>`;
+}
+window.addClsItem=function(){
+  const rows=document.getElementById('clsItems');const i=rows.children.length;
+  const d=document.createElement('div');d.className='arr-row';
+  d.innerHTML=`<span style="font-weight:700;color:var(--border);min-width:22px;">${i}</span><input type="text" data-cls-item="${i}"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button>`;
+  rows.appendChild(d);
+};
+window.addClsZone=function(){
+  const rows=document.getElementById('clsZones');const zi=rows.children.length;
+  const d=document.createElement('div');d.className='arr-row';d.style='flex-wrap:wrap;gap:.4rem;';
+  d.innerHTML=`<input type="text" data-zone-name="${zi}" style="flex:1;min-width:100px;"><input type="text" data-zone-cor="${zi}" style="flex:1;min-width:80px;" placeholder="항목 번호 예:0,2"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button>`;
+  rows.appendChild(d);
+};
+
+/* pairMatch */
+function buildPM(ep){
+  const li=ep?.leftItems||['','',''];
+  const ri=ep?.rightItems||['','',''];
+  const cor=ep?.correctPairs||li.map((_,i)=>i);
+  return `<div class="section-box"><h4>왼쪽 항목</h4>
+  <div id="pmLeft">${li.map((it,i)=>`<div class="arr-row"><span style="color:var(--border);min-width:22px;font-weight:700;">${i}</span><input type="text" value="${esc(it)}" data-pm-l="${i}"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button></div>`).join('')}</div>
+  <button class="btn btn-sm add-row-btn" onclick="addPMRow('pmLeft','pm-l')">+ 추가</button>
+  <input type="text" id="pm_leftLabel" value="${esc(ep?.leftLabel||'인물·세력')}" placeholder="왼쪽 열 제목" style="margin-top:.5rem;"></div>
+  <div class="section-box"><h4>오른쪽 항목</h4>
+  <div id="pmRight">${ri.map((it,i)=>`<div class="arr-row"><span style="color:var(--border);min-width:22px;font-weight:700;">${i}</span><input type="text" value="${esc(it)}" data-pm-r="${i}"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button></div>`).join('')}</div>
+  <button class="btn btn-sm add-row-btn" onclick="addPMRow('pmRight','pm-r')">+ 추가</button>
+  <input type="text" id="pm_rightLabel" value="${esc(ep?.rightLabel||'내용·업적')}" placeholder="오른쪽 열 제목" style="margin-top:.5rem;"></div>
+  <div class="section-box"><h4>정답 짝 (왼쪽인덱스:오른쪽인덱스, 줄바꿈 구분)</h4>
+  <textarea id="pm_cor" rows="4" placeholder="0:0&#10;1:2&#10;2:1">${cor.map((r,l)=>`${l}:${r}`).join('\n')}</textarea></div>`;
+}
+window.addPMRow=function(containerId, attr){
+  const rows=document.getElementById(containerId);const i=rows.children.length;
+  const d=document.createElement('div');d.className='arr-row';
+  d.innerHTML=`<span style="color:var(--border);min-width:22px;font-weight:700;">${i}</span><input type="text" data-${attr}="${i}"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button>`;
+  rows.appendChild(d);
+};
+
+/* twoStage */
+const stageTypes = ['fillBlanks','singleInput','order','classify','pairMatch'];
+function buildTS(ep){
+  return `<div class="section-box">
+    <h4>1단계</h4>
+    <div class="field-row"><label>1단계 지시문</label><input type="text" id="ts1_q" value="${esc(ep?.stage1?.question)}"></div>
+    <label style="font-weight:700;font-size:.85rem;color:var(--point);">1단계 유형</label>
+    <div class="type-sel-row" style="margin-bottom:1rem;">
+      ${stageTypes.map(t=>`<div class="type-chip ${ep?.stage1Type===t?'active':''}" onclick="selectStageType(1,'${t}')">${typeLabel(t)}</div>`).join('')}
+    </div>
+    <input type="hidden" id="ts1_type" value="${ep?.stage1Type||''}">
+    <div id="ts1_area">${buildTypeSpecificStage(ep?.stage1Type||'', ep?.stage1, 1)}</div>
+  </div>
+  <div class="section-box">
+    <h4>2단계</h4>
+    <div class="field-row"><label>2단계 지시문</label><input type="text" id="ts2_q" value="${esc(ep?.stage2?.question)}"></div>
+    <label style="font-weight:700;font-size:.85rem;color:var(--point);">2단계 유형</label>
+    <div class="type-sel-row" style="margin-bottom:1rem;">
+      ${stageTypes.map(t=>`<div class="type-chip ${ep?.stage2Type===t?'active':''}" onclick="selectStageType(2,'${t}')">${typeLabel(t)}</div>`).join('')}
+    </div>
+    <input type="hidden" id="ts2_type" value="${ep?.stage2Type||''}">
+    <div id="ts2_area">${buildTypeSpecificStage(ep?.stage2Type||'', ep?.stage2, 2)}</div>
+  </div>`;
+}
+window.selectStageType=function(stageNum, type){
+  document.querySelectorAll(`#ts${stageNum}_area`).forEach(()=>{});
+  const chips = document.getElementById(`ts${stageNum}_type`).parentElement.querySelectorAll('.type-chip');
+  chips.forEach(c=>c.classList.toggle('active',c.getAttribute('onclick')===`selectStageType(${stageNum},'${type}')`));
+  document.getElementById(`ts${stageNum}_type`).value = type;
+  document.getElementById(`ts${stageNum}_area`).innerHTML = buildTypeSpecificStage(type, null, stageNum);
+};
+function buildTypeSpecificStage(type, data, stageNum){
+  const pfx = `st${stageNum}_`;
+  switch(type){
+    case 'fillBlanks': {
+      const ans=data?.answers||['','',''];
+      return `<div><div id="${pfx}fbRows">${ans.map((a,i)=>`<div class="arr-row"><span style="font-weight:700;color:var(--border);min-width:24px;">${'①②③④⑤⑥'[i]}</span><input type="text" value="${esc(a)}" data-stfb="${i}"></div>`).join('')}</div>
+      <button class="btn btn-sm add-row-btn" onclick="addStFBRow('${pfx}')">+ 추가</button></div>`; }
+    case 'singleInput': return `<input type="text" id="${pfx}si" value="${esc(data?.answer)}" placeholder="정답">`;
+    case 'order': {
+      const items=data?.items||['','',''];
+      const cor=data?.correctOrder||items.map((_,i)=>i);
+      return `<div id="${pfx}ordRows">${items.map((it,i)=>`<div class="arr-row"><input type="text" value="${esc(it)}" data-stord="${i}"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button></div>`).join('')}</div>
+      <button class="btn btn-sm add-row-btn" onclick="addStOrdRow('${pfx}')">+ 추가</button>
+      <input type="text" id="${pfx}ordCor" value="${cor.join(',')}" placeholder="정답 인덱스 순서 예:1,0,2" style="margin-top:.5rem;">`; }
+    case 'classify': {
+      const items=data?.items||['','',''];
+      const zones=data?.zones||[{name:'',correct:[]},{name:'',correct:[]}];
+      return `<div id="${pfx}clsItems">${items.map((it,i)=>`<div class="arr-row"><span style="color:var(--border);min-width:22px;font-weight:700;">${i}</span><input type="text" value="${esc(it)}" data-stcls="${i}"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button></div>`).join('')}</div>
+      <button class="btn btn-sm add-row-btn" onclick="addStClsItem('${pfx}')">+ 항목 추가</button>
+      <div id="${pfx}clsZones" style="margin-top:.6rem;">${zones.map((z,zi)=>`<div class="arr-row" style="flex-wrap:wrap;"><input type="text" value="${esc(z.name)}" data-stzone-name="${zi}" style="flex:1;min-width:80px;"><input type="text" value="${(z.correct||[]).join(',')}" data-stzone-cor="${zi}" style="flex:1;min-width:60px;" placeholder="번호"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button></div>`).join('')}</div>
+      <button class="btn btn-sm add-row-btn" onclick="addStClsZone('${pfx}')">+ 영역 추가</button>`; }
+    case 'pairMatch': {
+      const li=data?.leftItems||['',''];
+      const ri=data?.rightItems||['',''];
+      const cor=data?.correctPairs||li.map((_,i)=>i);
+      return `<div id="${pfx}pmLeft">${li.map((it,i)=>`<div class="arr-row"><span style="color:var(--border);min-width:22px;">${i}</span><input type="text" value="${esc(it)}" data-stpm-l="${i}"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button></div>`).join('')}</div>
+      <button class="btn btn-sm add-row-btn" onclick="addStPMRow('${pfx}','pmLeft','stpm-l')">+ 왼쪽 추가</button>
+      <div id="${pfx}pmRight" style="margin-top:.5rem;">${ri.map((it,i)=>`<div class="arr-row"><span style="color:var(--border);min-width:22px;">${i}</span><input type="text" value="${esc(it)}" data-stpm-r="${i}"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button></div>`).join('')}</div>
+      <button class="btn btn-sm add-row-btn" onclick="addStPMRow('${pfx}','pmRight','stpm-r')">+ 오른쪽 추가</button>
+      <textarea id="${pfx}pmCor" rows="3" style="margin-top:.5rem;" placeholder="0:0&#10;1:1">${cor.map((r,l)=>`${l}:${r}`).join('\n')}</textarea>`; }
+    default: return '';
+  }
+}
+window.addStFBRow=function(pfx){const rows=document.getElementById(pfx+'fbRows');const i=rows.children.length;const d=document.createElement('div');d.className='arr-row';d.innerHTML=`<span style="font-weight:700;color:var(--border);min-width:24px;">${'①②③④⑤⑥'[i]||i+1}</span><input type="text" data-stfb="${i}">`;rows.appendChild(d);};
+window.addStOrdRow=function(pfx){const rows=document.getElementById(pfx+'ordRows');const i=rows.children.length;const d=document.createElement('div');d.className='arr-row';d.innerHTML=`<input type="text" data-stord="${i}"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button>`;rows.appendChild(d);};
+window.addStClsItem=function(pfx){const rows=document.getElementById(pfx+'clsItems');const i=rows.children.length;const d=document.createElement('div');d.className='arr-row';d.innerHTML=`<span style="color:var(--border);min-width:22px;font-weight:700;">${i}</span><input type="text" data-stcls="${i}"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button>`;rows.appendChild(d);};
+window.addStClsZone=function(pfx){const rows=document.getElementById(pfx+'clsZones');const zi=rows.children.length;const d=document.createElement('div');d.className='arr-row';d.style='flex-wrap:wrap;';d.innerHTML=`<input type="text" data-stzone-name="${zi}" style="flex:1;min-width:80px;"><input type="text" data-stzone-cor="${zi}" style="flex:1;min-width:60px;" placeholder="번호"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button>`;rows.appendChild(d);};
+window.addStPMRow=function(pfx,containerId,attr){const rows=document.getElementById(pfx+containerId);const i=rows.children.length;const d=document.createElement('div');d.className='arr-row';d.innerHTML=`<span style="color:var(--border);min-width:22px;">${i}</span><input type="text" data-${attr}="${i}"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">-</button>`;rows.appendChild(d);};
+
+/* simulate */
+function buildSim(ep){
+  const steps=ep?.steps||[{situation:'',choices:[{text:'',correct:true,feedback:''},{text:'',correct:false,feedback:''}]}];
+  return `<div id="simSteps">${steps.map((st,si)=>buildSimStep(st,si)).join('')}</div>
+  <button class="btn btn-sm add-row-btn" onclick="addSimStep()">+ 선택 단계 추가</button>`;
+}
+function buildSimStep(st,si){
+  return `<div class="section-box" id="simStep-${si}" style="margin-bottom:1rem;">
+  <h4 style="margin-bottom:.8rem;">선택 ${si+1}</h4>
+  <div class="field-row"><label>상황 설명</label><textarea data-sim-sit="${si}" rows="2">${esc(st.situation)}</textarea></div>
+  <div id="simChoices-${si}">${(st.choices||[]).map((c,ci)=>buildSimChoice(si,ci,c)).join('')}</div>
+  <button class="btn btn-sm add-row-btn" onclick="addSimChoice(${si})">+ 선택지 추가</button>
+  <button class="btn btn-sm btn-danger" style="margin-top:.5rem;" onclick="removeSimStep(${si})">이 단계 삭제</button></div>`;
+}
+function buildSimChoice(si,ci,c){
+  return `<div class="arr-row" style="flex-wrap:wrap;gap:.4rem;margin-bottom:.5rem;" id="simC-${si}-${ci}">
+  <input type="text" value="${esc(c.text)}" data-sim-ct="${si}-${ci}" placeholder="선택지 텍스트" style="flex:2;min-width:150px;">
+  <select data-sim-cc="${si}-${ci}" style="flex:0.5;min-width:80px;margin-bottom:0;">
+    <option value="true" ${c.correct?'selected':''}>정답</option>
+    <option value="false" ${!c.correct?'selected':''}>오답</option>
+  </select>
+  <input type="text" value="${esc(c.feedback)}" data-sim-cf="${si}-${ci}" placeholder="피드백" style="flex:2;min-width:150px;">
+  <button class="btn btn-sm btn-danger" onclick="document.getElementById('simC-${si}-${ci}').remove()">-</button></div>`;
+}
+window.addSimStep=function(){
+  const steps=document.getElementById('simSteps');const si=steps.children.length;
+  const d=document.createElement('div');d.innerHTML=buildSimStep({situation:'',choices:[{text:'',correct:true,feedback:''},{text:'',correct:false,feedback:''}]},si);
+  steps.appendChild(d.firstElementChild);
+};
+window.addSimChoice=function(si){
+  const cont=document.getElementById(`simChoices-${si}`);const ci=cont.children.length;
+  const d=document.createElement('div');d.innerHTML=buildSimChoice(si,ci,{text:'',correct:false,feedback:''});
+  cont.appendChild(d.firstElementChild);
+};
+window.removeSimStep=function(si){const el=document.getElementById(`simStep-${si}`);if(el)el.remove();};
+
+/* ─── 에피소드 저장 ─── */
+window.saveEp = async function(id) {
+  const data = collectEpData();
+  if (!data) return;
+  try {
+    if (id) {
+      await setDoc(doc(db,'escape26_2',id), data, { merge: true });
+    } else {
+      await addDoc(collection(db,'escape26_2'), data);
+    }
+    showToast('저장되었소이다!', 'success');
+    document.getElementById('epEditor').style.display = 'none';
+    await loadEpisodes();
+  } catch(e) { showToast('저장 실패: '+e.message); }
+};
+
+function collectEpData() {
+  const type = document.getElementById('ef_type').value;
+  if (!type) { showToast('유형을 선택하시오.'); return null; }
+  const base = {
+    order:    parseInt(document.getElementById('ef_order').value)||1,
+    title:    document.getElementById('ef_title').value.trim(),
+    subtitle: document.getElementById('ef_subtitle').value.trim(),
+    story:    document.getElementById('ef_story').value.trim(),
+    speaker:  document.getElementById('ef_speaker').value.trim(),
+    dialog:   document.getElementById('ef_dialog').value.trim(),
+    question: document.getElementById('ef_question').value.trim(),
+    hint:     document.getElementById('ef_hint').value.trim(),
+    treasureName: document.getElementById('ef_treasureName').value.trim(),
+    treasureDesc: document.getElementById('ef_treasureDesc').value.trim(),
+    type
+  };
+  const typeData = collectTypeData(type);
+  if (!typeData) return null;
+  return { ...base, ...typeData };
+}
+
+function collectTypeData(type) {
+  switch(type) {
+    case 'fillBlanks': {
+      const ans = [...document.querySelectorAll('[data-fb]')].map(i=>i.value.trim());
+      return { answers: ans };
+    }
+    case 'singleInput': return { answer: document.getElementById('si_ans')?.value.trim()||'' };
+    case 'order': {
+      const items = [...document.querySelectorAll('[data-ord-item]')].map(i=>i.value.trim());
+      const cor = (document.getElementById('ord_cor')?.value||'').split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n));
+      return { items, correctOrder: cor };
+    }
+    case 'classify': {
+      const items = [...document.querySelectorAll('[data-cls-item]')].map(i=>i.value.trim());
+      const zoneNames = [...document.querySelectorAll('[data-zone-name]')].map(i=>i.value.trim());
+      const zoneCors  = [...document.querySelectorAll('[data-zone-cor]')].map(i=>i.value.split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n)));
+      const zones = zoneNames.map((name,zi)=>({ name, correct: zoneCors[zi]||[] }));
+      return { items, zones };
+    }
+    case 'pairMatch': {
+      const leftItems  = [...document.querySelectorAll('[data-pm-l]')].map(i=>i.value.trim());
+      const rightItems = [...document.querySelectorAll('[data-pm-r]')].map(i=>i.value.trim());
+      const leftLabel  = document.getElementById('pm_leftLabel')?.value.trim()||'인물·세력';
+      const rightLabel = document.getElementById('pm_rightLabel')?.value.trim()||'내용·업적';
+      const pairs = {};
+      (document.getElementById('pm_cor')?.value||'').split('\n').forEach(line=>{
+        const [l,r]=line.split(':').map(s=>parseInt(s.trim()));
+        if(!isNaN(l)&&!isNaN(r)) pairs[l]=r;
+      });
+      const correctPairs = leftItems.map((_,l)=>pairs[l]??l);
+      return { leftItems, rightItems, leftLabel, rightLabel, correctPairs };
+    }
+    case 'twoStage': {
+      const t1 = document.getElementById('ts1_type')?.value||'';
+      const t2 = document.getElementById('ts2_type')?.value||'';
+      if (!t1||!t2) { showToast('각 단계 유형을 선택하시오.'); return null; }
+      const q1 = document.getElementById('ts1_q')?.value.trim()||'';
+      const q2 = document.getElementById('ts2_q')?.value.trim()||'';
+      return {
+        stage1Type: t1, stage2Type: t2,
+        stage1: { question: q1, ...collectStageData('st1_',t1) },
+        stage2: { question: q2, ...collectStageData('st2_',t2) }
+      };
+    }
+    case 'simulate': {
+      const stepEls = document.getElementById('simSteps')?.children||[];
+      const steps = [...stepEls].map((el,si) => {
+        const situation = el.querySelector(`[data-sim-sit="${si}"]`)?.value.trim()||'';
+        const choiceEls = el.querySelectorAll(`[data-sim-ct^="${si}-"]`);
+        const choices = [...choiceEls].map((cel,ci) => ({
+          text: cel.value.trim(),
+          correct: el.querySelector(`[data-sim-cc="${si}-${ci}"]`)?.value==='true',
+          feedback: el.querySelector(`[data-sim-cf="${si}-${ci}"]`)?.value.trim()||''
+        }));
+        return { situation, choices };
+      });
+      return { steps };
+    }
+    default: return {};
+  }
+}
+
+function collectStageData(pfx, type) {
+  switch(type) {
+    case 'fillBlanks':
+      return { answers: [...document.querySelectorAll(`[data-stfb]`)].filter(el=>el.closest(`#${pfx}fbRows`)||el.id?.startsWith(pfx)).map(i=>i.value.trim()) };
+    case 'singleInput':
+      return { answer: document.getElementById(`${pfx}si`)?.value.trim()||'' };
+    case 'order': {
+      const items=[...document.querySelectorAll(`[data-stord]`)].map(i=>i.value.trim());
+      const cor=(document.getElementById(`${pfx}ordCor`)?.value||'').split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n));
+      return {items,correctOrder:cor};
+    }
+    case 'classify': {
+      const items=[...document.querySelectorAll(`[data-stcls]`)].map(i=>i.value.trim());
+      const znames=[...document.querySelectorAll(`[data-stzone-name]`)].map(i=>i.value.trim());
+      const zcors=[...document.querySelectorAll(`[data-stzone-cor]`)].map(i=>i.value.split(',').map(s=>parseInt(s.trim())).filter(n=>!isNaN(n)));
+      return {items,zones:znames.map((name,zi)=>({name,correct:zcors[zi]||[]}))};
+    }
+    case 'pairMatch': {
+      const li=[...document.querySelectorAll(`[data-stpm-l]`)].map(i=>i.value.trim());
+      const ri=[...document.querySelectorAll(`[data-stpm-r]`)].map(i=>i.value.trim());
+      const pairs={};
+      (document.getElementById(`${pfx}pmCor`)?.value||'').split('\n').forEach(line=>{const[l,r]=line.split(':').map(s=>parseInt(s.trim()));if(!isNaN(l)&&!isNaN(r))pairs[l]=r;});
+      return {leftItems:li,rightItems:ri,correctPairs:li.map((_,l)=>pairs[l]??l)};
+    }
+    default: return {};
+  }
+}
+
+function fillEpEditorValues(ep) {
+  // type-specific 필드는 buildTypeSpecific에서 value를 직접 넣으므로 별도 처리 불필요
+  // twoStage 내부 stage 데이터 채우기는 buildTS에서 처리됨
+}
+
+/* ─── 에피소드 삭제 ─── */
+window.deleteEp = async function(id, title) {
+  if (!confirm(`"${title}" 에피소드를 삭제하시겠소?`)) return;
+  await deleteDoc(doc(db,'escape26_2',id));
+  showToast('삭제되었소이다.', 'success');
+  await loadEpisodes();
+};
+
+/* ─── 설정 로드/저장 ─── */
+async function loadSettings() {
+  const sDoc = await getDoc(doc(db,'escape26_2_settings','main'));
+  settings = sDoc.exists() ? sDoc.data() : {};
+  document.getElementById('sGameTitle').value    = settings.gameTitle||'千年의 記憶 Ⅱ';
+  document.getElementById('sGameSub').value      = settings.gameSubtitle||'고 려 의 부 름';
+  document.getElementById('sIntroStory').value   = (settings.introStory||[]).join('\n');
+  document.getElementById('sEndingTitle').value  = settings.endingTitle||'天 命 完 遂';
+  document.getElementById('sEndingSub').value    = settings.endingSubtitle||'천 명 완 수';
+  document.getElementById('sEndingMsg').value    = (settings.endingMessage||[]).join('\n');
+  document.getElementById('sReflectionPrompt').value = settings.reflectionPrompt||'이 여정을 마치며 느낀 점을 적어주시오.';
+}
+
+window.saveSettings = async function() {
+  const newPw = document.getElementById('sNewPw').value;
+  const data = {
+    gameTitle:        document.getElementById('sGameTitle').value.trim(),
+    gameSubtitle:     document.getElementById('sGameSub').value.trim(),
+    introStory:       document.getElementById('sIntroStory').value.split('\n').map(s=>s.trim()).filter(Boolean),
+    endingTitle:      document.getElementById('sEndingTitle').value.trim(),
+    endingSubtitle:   document.getElementById('sEndingSub').value.trim(),
+    endingMessage:    document.getElementById('sEndingMsg').value.split('\n').map(s=>s.trim()).filter(Boolean),
+    reflectionPrompt: document.getElementById('sReflectionPrompt').value.trim()
+  };
+  if (newPw) data.adminPw = newPw;
+  await setDoc(doc(db,'escape26_2_settings','main'), data, { merge: true });
+  showToast('설정이 저장되었소이다!', 'success');
+};
+
+/* ─── 소감 ─── */
+window.loadReflections = async function() {
+  const q = query(collection(db,'escape26_2_reflections'), orderBy('createdAt','desc'));
+  const snap = await getDocs(q);
+  reflections = [];
+  snap.forEach(d => reflections.push({ id: d.id, ...d.data() }));
+  document.getElementById('refCount').textContent = reflections.length;
+  const scores = reflections.map(r=>r.score||0);
+  const avg = scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : 0;
+  const max = scores.length ? Math.max(...scores) : 0;
+  document.getElementById('reflectionSummary').innerHTML = `
+    <div class="summary-card"><div class="num">${reflections.length}</div><div class="label">총 제출</div></div>
+    <div class="summary-card"><div class="num">${avg}</div><div class="label">평균 점수</div></div>
+    <div class="summary-card"><div class="num">${max}/10</div><div class="label">최고 점수</div></div>`;
+  const list = document.getElementById('reflectionList');
+  list.innerHTML = '';
+  if (reflections.length === 0) { list.innerHTML = '<p style="text-align:center;color:#999;padding:2rem;">아직 제출된 소감이 없소이다.</p>'; return; }
+  reflections.forEach(r => {
+    const ts = r.createdAt?.toDate?.()?.toLocaleString('ko-KR')||'';
+    const card = document.createElement('div'); card.className='reflection-card';
+    card.innerHTML = `
+      <div class="rc-header">
+        <span class="rc-name">${r.studentId} ${r.studentName}</span>
+        <span class="rc-score">보물 ${r.score||0}/10</span>
+        <span class="rc-time">${ts}</span>
+      </div>
+      <div class="rc-body">${(r.reflection||'').replace(/\n/g,'<br>').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+    list.appendChild(card);
+  });
+};
+
+window.exportCSV = function() {
+  if (!reflections.length) { showToast('내보낼 데이터가 없소이다.'); return; }
+  const rows = [['학번','이름','점수','소감','제출 시간']];
+  reflections.forEach(r=>{
+    const ts = r.createdAt?.toDate?.()?.toLocaleString('ko-KR')||'';
+    rows.push([r.studentId||'', r.studentName||'', r.score||0, (r.reflection||'').replace(/\n/g,' '), ts]);
+  });
+  const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿'+csv], {type:'text/csv;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='escape26_2_reflections.csv'; a.click();
+  URL.revokeObjectURL(url);
+};
+
+/* ─── 토스트 ─── */
+let _tt;
+function showToast(msg, type='error') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=`toast ${type} show`;
+  clearTimeout(_tt); _tt=setTimeout(()=>t.classList.remove('show'),2800);
+}
+</script>
+</body>
+</html>
