@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>천년의 기억 Ⅱ — 관리자</title>
+<title>천년의 기억 — 관리자</title>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Nanum+Myeongjo:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
 :root{--ink:#1a1410;--paper:#f4ead5;--paper-dark:#e8d9b8;--point:#a8322d;--border:#c9a44c;--bg:rgba(201,164,76,0.08);}
@@ -74,7 +74,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--point);b
 </style>
 </head>
 <body>
-<h1>千年의 記憶 Ⅱ 관리자</h1>
+<h1>千年의 記憶 관리자</h1>
 <p class="subtitle">관 리 자 패 널</p>
 
 <!-- 로그인 -->
@@ -96,7 +96,10 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--point);b
   <div class="panel active" id="tab-episodes">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.2rem;flex-wrap:wrap;gap:1rem;">
       <strong style="font-size:1rem;">에피소드 목록 (<span id="epCount">0</span>개)</strong>
-      <button class="btn btn-sm btn-success" onclick="openEpEditor(null)">+ 새 에피소드</button>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+        <button class="btn btn-sm" onclick="insertSeedData()" style="background:#7a5c2e;border-color:#7a5c2e;">📜 초기 데이터 삽입</button>
+        <button class="btn btn-sm btn-success" onclick="openEpEditor(null)">+ 새 에피소드</button>
+      </div>
     </div>
     <div class="ep-list" id="epList"></div>
     <div id="epEditor" style="display:none;"></div>
@@ -106,7 +109,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--point);b
   <div class="panel" id="tab-settings">
     <div class="editor">
       <h3>게임 텍스트 설정</h3>
-      <div class="field-row"><label>게임 제목</label><input type="text" id="sGameTitle" placeholder="千年의 記憶 Ⅱ"></div>
+      <div class="field-row"><label>게임 제목</label><input type="text" id="sGameTitle" placeholder="千年의 記憶"></div>
       <div class="field-row"><label>게임 부제</label><input type="text" id="sGameSub" placeholder="고 려 의 부 름"></div>
       <div class="field-row"><label>인트로 스토리 (줄바꿈으로 문단 구분)</label><textarea id="sIntroStory" rows="6" placeholder="문단1&#10;문단2&#10;문단3"></textarea></div>
       <div class="field-row"><label>엔딩 제목</label><input type="text" id="sEndingTitle" placeholder="天 命 完 遂"></div>
@@ -151,7 +154,7 @@ const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
 
 let episodes = [], settings = {}, reflections = [];
-const DEFAULT_PW = 'history2026';
+const DEFAULT_PW = 'ghtjd12!@';
 
 /* ─── 로그인 ─── */
 let adminPw = DEFAULT_PW;
@@ -607,7 +610,7 @@ window.deleteEp = async function(id, title) {
 async function loadSettings() {
   const sDoc = await getDoc(doc(db,'escape26_2_settings','main'));
   settings = sDoc.exists() ? sDoc.data() : {};
-  document.getElementById('sGameTitle').value    = settings.gameTitle||'千年의 記憶 Ⅱ';
+  document.getElementById('sGameTitle').value    = settings.gameTitle||'千年의 記憶';
   document.getElementById('sGameSub').value      = settings.gameSubtitle||'고 려 의 부 름';
   document.getElementById('sIntroStory').value   = (settings.introStory||[]).join('\n');
   document.getElementById('sEndingTitle').value  = settings.endingTitle||'天 命 完 遂';
@@ -684,6 +687,226 @@ function showToast(msg, type='error') {
   t.textContent=msg; t.className=`toast ${type} show`;
   clearTimeout(_tt); _tt=setTimeout(()=>t.classList.remove('show'),2800);
 }
+
+/* ─── 씨드 데이터 ─── */
+const SEED_EPISODES = [
+  {
+    order:1, title:"신문왕의 개혁", subtitle:"통일 신라 689년",
+    story:"신라가 삼국을 통일한 지 얼마 되지 않아 왕위 계승 분쟁이 끊이지 않았다. 신문왕은 즉위 직후 장인 김흠돌의 반란을 진압하고 강력한 왕권 강화 정책을 추진하였다.",
+    speaker:"신문왕", dialog:"짐의 정책으로 이 나라를 새롭게 하리라. 진골 귀족의 힘을 꺾고 왕의 권위를 바로 세울 것이다.",
+    question:"신문왕의 정책들을 해당 분야에 올바르게 분류하시오.",
+    hint:"녹읍은 귀족이 백성에게 직접 세금을 거둘 수 있는 땅입니다. 폐지하면 귀족의 경제 기반이 약해지지요.",
+    treasureName:"신문왕의 옥새", treasureDesc:"통일 신라 왕권 강화의 상징. 진골 귀족을 누르고 왕의 권위를 세운 자의 도장.",
+    type:"classify",
+    items:["녹읍 폐지","관료전 지급","9서당 10정 설치","9주 5소경 정비","국학 설립","진골 귀족 숙청"],
+    zones:[{name:"왕권 강화",correct:[0,1,5]},{name:"군사 제도",correct:[2]},{name:"지방·교육 정비",correct:[3,4]}]
+  },
+  {
+    order:2, title:"혼란의 신라 말기", subtitle:"통일 신라 말기 9세기",
+    story:"왕위 쟁탈전이 끊이지 않고 지방에서는 호족들이 성을 쌓으며 세력을 키웠다. 중앙에서 출세가 막힌 지식인들도 새로운 길을 모색하였다.",
+    speaker:"최치원", dialog:"이 나라는 이제 흔들리고 있소. 골품제의 벽 앞에 나의 재능은 빛을 잃었구나.",
+    question:"다음을 호족과 6두품의 특징으로 올바르게 분류하시오.",
+    hint:"호족은 지방의 실력자, 6두품은 중앙에서 출세가 막힌 학자·관리 계층입니다.",
+    treasureName:"최치원의 붓", treasureDesc:"골품제의 벽에 막혀도 글로 시대를 비판한 지식인의 상징.",
+    type:"twoStage",
+    stage1Type:"fillBlanks",
+    stage1:{
+      question:"다음 빈칸에 알맞은 말을 채우시오.\n\n\"신라 말기 지방에서 독자적 세력을 키운 자들을 ①__(이)라 하고, 새로운 불교 종파인 ②__은(는) 개인의 수행과 자각을 강조하여 호족과 지식인의 지지를 받았다.\"",
+      answers:["호족","선종"]
+    },
+    stage2Type:"classify",
+    stage2:{
+      question:"다음 특징을 호족과 6두품으로 분류하시오.",
+      items:["독자적 군사력 보유, 성주·장군 칭호 사용","당나라 유학 후 귀국","지방에서 반독립적 세력 형성","골품제 비판, 사회 개혁 주장","왕건과 연합하여 고려 건국 지지","유교 이념으로 새로운 질서 추구"],
+      zones:[{name:"호족",correct:[0,2,4]},{name:"6두품",correct:[1,3,5]}]
+    }
+  },
+  {
+    order:3, title:"발해, 해동성국", subtitle:"발해 698~926년",
+    story:"고구려 유민 대조영이 세운 발해는 점차 강성해져 마침내 '해동성국'이라 불리게 되었다. 그 발전의 발자취를 따라가 보자.",
+    speaker:"발해 사신", dialog:"우리 발해는 고구려의 정통을 이어 동방의 강국이 되었소. 그 역사를 알고 있는가?",
+    question:"발해의 발전 과정을 순서대로 배열하고, 빈칸을 채우시오.",
+    hint:"대조영→무왕→문왕→선왕 순서로 발전하였습니다.",
+    treasureName:"발해의 인장", treasureDesc:"해동성국 발해의 기상을 담은 도장.",
+    type:"twoStage",
+    stage1Type:"order",
+    stage1:{
+      question:"발해의 발전 과정을 시간 순서대로 배열하시오.",
+      items:["대조영이 동모산에서 발해 건국(698)","무왕이 당의 산둥 지방 공격(732)","문왕이 상경 용천부로 수도 이전(756)","선왕 때 최대 영토 확장, 해동성국"],
+      correctOrder:[0,1,2,3]
+    },
+    stage2Type:"fillBlanks",
+    stage2:{
+      question:"다음 빈칸에 알맞은 말을 채우시오.\n\n\"발해는 ①__의 유민과 말갈인이 세운 나라로, ②__의 제도를 받아들여 3성 6부를 정비하였다. 전성기에 주변국으로부터 '③__'(이)라 불렸으며, 이 전성기를 이끈 왕은 ④__이다.\"",
+      answers:["고구려","당","해동성국","선왕"]
+    }
+  },
+  {
+    order:4, title:"불국토의 꿈", subtitle:"통일 신라 8세기",
+    story:"신라는 온 땅을 부처의 나라로 만들고자 하였다. 경주 일대에는 그 꿈이 담긴 찬란한 문화유산이 남아있다.",
+    speaker:"김대성", dialog:"이 땅에 부처의 나라를 세우리라. 두 개의 절로 현세와 전세의 부모에게 보답하리라.",
+    question:"문화유산과 그 특징을 올바르게 연결하시오.",
+    hint:"무구정광대다라니경은 석가탑 안에서 발견되었습니다.",
+    treasureName:"금동 여래 입상", treasureDesc:"통일 신라 불교 문화의 정수. 빛나는 황금빛 부처.",
+    type:"pairMatch",
+    leftItems:["불국사","석굴암","성덕 대왕 신종","무구정광대다라니경"],
+    rightItems:["화강암으로 축조한 인공 석굴","청운교·백운교·다보탑·석가탑 보유","에밀레종이라고도 불림","현존 최고(最古)의 목판 인쇄물"],
+    leftLabel:"문화유산", rightLabel:"특징·설명",
+    correctPairs:[1,0,2,3]
+  },
+  {
+    order:5, title:"고려의 기틀을 세우다", subtitle:"고려 건국 초기 10세기",
+    story:"왕건이 고려를 세운 뒤, 여러 왕들이 각자의 방식으로 고려의 기틀을 다져나갔다.",
+    speaker:"고려 사관", dialog:"태조, 광종, 성종 세 왕의 업적을 기록하노라. 그대는 이를 올바로 분류할 수 있겠는가?",
+    question:"다음 정책을 해당 왕의 업적으로 올바르게 분류하시오.",
+    hint:"과거제와 노비안검법은 왕권을 강화하고 귀족 세력을 약화시키려 한 광종의 정책입니다.",
+    treasureName:"고려 태조의 훈요", treasureDesc:"왕건이 후손에게 남긴 10가지 교훈. 고려 정신의 근간.",
+    type:"classify",
+    items:["호족과의 혼인 정책","노비안검법 실시","최승로의 시무 28조 수용","흑창 설치","과거제 도입","광덕·준풍 연호 사용","중앙 관제(2성 6부) 정비","공신·호족 세력 숙청"],
+    zones:[{name:"태조(왕건)",correct:[0,3]},{name:"광종",correct:[1,4,5,7]},{name:"성종",correct:[2,6]}]
+  },
+  {
+    order:6, title:"고려의 통치 제도", subtitle:"고려 중기 11세기",
+    story:"고려는 중앙과 지방에 걸쳐 촘촘한 통치 체계를 갖추었다. 당의 제도를 받아들이면서도 고려만의 독자적 기구를 만들었다.",
+    speaker:"고려 재상", dialog:"이 나라의 통치 체계는 중앙 행정, 우리만의 독자 기구, 그리고 지방 행정으로 나뉘어 있소.",
+    question:"다음 기구·제도를 해당 분야에 올바르게 분류하시오.",
+    hint:"도병마사·식목도감은 중서문하성과 중추원의 고관들이 모여 국가 중요 사안을 결정한 고려 독자 기구입니다.",
+    treasureName:"고려 청자 상감 문서함", treasureDesc:"고려의 세련된 통치 문화를 담은 비색 청자 상자.",
+    type:"classify",
+    items:["중서문하성","도병마사","5도","어사대","양계","식목도감","상서성","향·부곡·소"],
+    zones:[{name:"중앙 행정 기구",correct:[0,3,6]},{name:"고려 독자 기구",correct:[1,5]},{name:"지방 행정 구역",correct:[2,4,7]}]
+  },
+  {
+    order:7, title:"북방의 위협", subtitle:"고려 전기 10~12세기",
+    story:"북방의 강자 거란과 여진이 고려를 끊임없이 위협하였다. 그러나 고려의 장수들은 지혜와 용기로 맞섰다.",
+    speaker:"서희", dialog:"그대들이 침략할 명분이 없소. 오히려 강동 6주는 우리 땅이니 내어놓으시오!",
+    question:"북방 민족의 침략에 대한 고려의 대응을 순서대로 배열하고, 빈칸을 채우시오.",
+    hint:"서희의 외교 담판 → 강조의 정변 → 귀주 대첩 → 별무반 순서입니다.",
+    treasureName:"서희의 외교 문서", treasureDesc:"말 한마디로 강동 6주를 되찾은 고려 외교의 결정판.",
+    type:"twoStage",
+    stage1Type:"order",
+    stage1:{
+      question:"다음 사건을 시간 순서대로 배열하시오.",
+      items:["거란 1차 침입 — 서희의 외교 담판, 강동 6주 획득","거란 2차 침입 — 강조의 정변을 빌미로 침입","거란 3차 침입 — 귀주 대첩(강감찬)","윤관이 별무반을 이끌고 여진 정벌, 동북 9성 축조"],
+      correctOrder:[0,1,2,3]
+    },
+    stage2Type:"fillBlanks",
+    stage2:{
+      question:"다음 빈칸에 알맞은 인물 이름을 채우시오.\n\n\"거란 1차 침입 때 ①__은(는) 외교 담판으로 강동 6주를 획득하였다. 3차 침입 때 ②__은(는) 귀주에서 거란군을 대파하였다. 이후 ③__은(는) 별무반을 이끌고 동북 9성을 쌓았다.\"",
+      answers:["서희","강감찬","윤관"]
+    }
+  },
+  {
+    order:8, title:"흔들리는 고려", subtitle:"고려 중기 12세기",
+    story:"문벌 귀족의 횡포와 무신에 대한 차별이 쌓이고 쌓여 마침내 고려 사회 전체를 뒤흔들었다.",
+    speaker:"이의방", dialog:"우리 무신들이 이 나라를 지키건만 문신들은 우리를 짐승 취급하였소. 이제 세상이 바뀔 것이오.",
+    question:"빈칸을 채우고, 인물과 사건을 올바르게 연결하시오.",
+    hint:"교정도감은 최충헌이 설치한 최씨 무신 정권의 핵심 권력 기구입니다.",
+    treasureName:"최충헌의 교정도감 인장", treasureDesc:"60여 년 최씨 무신 정권의 상징. 권력의 정점.",
+    type:"twoStage",
+    stage1Type:"fillBlanks",
+    stage1:{
+      question:"다음 빈칸에 알맞은 말을 채우시오.\n\n\"①__은(는) 왕실과 혼인을 거듭하며 권력을 독점하다 반란을 일으켰다. ②__은(는) 서경 천도와 금국 정벌을 주장하다 반란을 일으켰다. 1170년 무신 정변 이후 ③__이(가) 교정도감을 설치하여 최씨 정권을 세웠다.\"",
+      answers:["이자겸","묘청","최충헌"]
+    },
+    stage2Type:"pairMatch",
+    stage2:{
+      question:"인물과 해당 사건·업적을 올바르게 연결하시오.",
+      leftItems:["이자겸","묘청","최충헌","만적"],
+      rightItems:["교정도감 설치, 봉사 10조 제시","서경 천도·금국 정벌 주장","개경에서 노비 신분 해방 운동 주도","왕실과 혼인 거듭, 인종 폐위 시도"],
+      leftLabel:"인물", rightLabel:"사건·업적",
+      correctPairs:[3,1,0,2]
+    }
+  },
+  {
+    order:9, title:"몽골의 바람", subtitle:"고려 후기 13~14세기",
+    story:"몽골의 거센 침략 앞에 고려는 강화도로 피하였고, 삼별초는 끝까지 싸웠다. 원의 간섭기를 지나 공민왕은 개혁의 칼을 들었다.",
+    speaker:"공민왕", dialog:"원의 굴레를 끊어내고 고려를 다시 세우리라. 쌍성총관부를 되찾아라!",
+    question:"사건을 시간 순서대로 배열하고, 공민왕의 정책을 분류하시오.",
+    hint:"공민왕의 정책은 '반원 자주'와 '내정 개혁' 두 방향으로 진행되었습니다.",
+    treasureName:"공민왕의 개혁 교서", treasureDesc:"원의 간섭을 끊고 고려를 되살리려 한 공민왕의 의지.",
+    type:"twoStage",
+    stage1Type:"order",
+    stage1:{
+      question:"다음 사건을 시간 순서대로 배열하시오.",
+      items:["몽골 1차 침입 — 귀주성 전투(박서)","강화도 천도 — 무신 정권의 항전 결정","삼별초의 대몽 항쟁 — 진도·제주도","원의 내정 간섭 — 정동행성·다루가치 설치","공민왕의 반원 개혁 — 쌍성총관부 탈환"],
+      correctOrder:[0,1,2,3,4]
+    },
+    stage2Type:"classify",
+    stage2:{
+      question:"공민왕의 정책을 해당 성격에 따라 분류하시오.",
+      items:["기철 등 친원 세력 숙청","전민변정도감 설치","쌍성총관부 탈환","정동행성 이문소 폐지","신진 사대부 등용","몽골식 복장·풍습 금지"],
+      zones:[{name:"반원 자주 정책",correct:[0,2,3,5]},{name:"왕권 강화·내정 개혁",correct:[1,4]}]
+    }
+  },
+  {
+    order:10, title:"새벽을 여는 자들", subtitle:"고려 말기 14세기",
+    story:"권문세족의 횡포와 사회 모순 속에서 신진 사대부들이 새로운 나라를 꿈꾸었다. 그대는 이 시대의 사대부가 되어 역사의 선택을 해야 한다.",
+    speaker:"정도전", dialog:"썩어빠진 구질서를 무너뜨리고 새 세상을 열어야 하오! 그대는 어떤 길을 택하겠소?",
+    question:"신진 사대부의 입장에서 올바른 선택을 하시오.",
+    hint:"신진 사대부는 성리학을 바탕으로 과전법, 불교 배척, 역성혁명을 추진하였습니다.",
+    treasureName:"정도전의 조선경국전", treasureDesc:"새 나라 조선의 설계도. 신진 사대부의 이상을 담은 법전.",
+    type:"simulate",
+    steps:[
+      {
+        situation:"권문세족이 불법으로 백성의 토지를 빼앗고 있소. 그대는 어떻게 하겠소?",
+        choices:[
+          {text:"과전법을 실시하여 토지를 재분배하고 권문세족의 경제 기반을 무너뜨린다",correct:true,feedback:"옳소! 신진 사대부는 과전법(1391)으로 권문세족의 경제 기반을 약화시키고 자신들의 기반을 다졌소."},
+          {text:"권문세족과 타협하여 현상 유지를 선택한다",correct:false,feedback:"아니오! 그것은 구질서에 순응하는 것이오. 신진 사대부는 토지 개혁으로 새 질서를 만들고자 하였소."}
+        ]
+      },
+      {
+        situation:"불교 사원이 막대한 토지와 노비를 독점하며 사회적 폐단이 심각하오. 어떤 이념으로 나라를 이끌겠소?",
+        choices:[
+          {text:"성리학을 통치 이념으로 삼아 불교의 폐단을 강하게 비판한다",correct:true,feedback:"그렇소! 신진 사대부는 성리학으로 무장하여 불교를 비판하고 유교적 질서를 세우고자 하였소."},
+          {text:"불교를 그대로 지원하며 사원 세력과 협력한다",correct:false,feedback:"아니오! 신진 사대부는 불교의 폐단을 강하게 비판하였소. 권문세족과 사원 세력은 한 편이었소."}
+        ]
+      },
+      {
+        situation:"이성계가 위화도에서 회군하였소. 신진 사대부는 두 파로 나뉘었소. 온건 개혁파(정몽주·이색)의 입장은 무엇이오?",
+        choices:[
+          {text:"고려 왕조를 유지하면서 점진적으로 개혁한다",correct:true,feedback:"옳소! 온건 개혁파는 역성혁명을 반대하고 고려 체제 안에서 개혁을 추구하였소. 혁명파(정도전 등)와 대립하였소."},
+          {text:"이성계와 함께 역성혁명으로 새 왕조를 세운다",correct:false,feedback:"아니오! 그것은 정도전·조준 등 혁명파의 입장이오. 온건 개혁파와 혁명파를 혼동하지 마시오."}
+        ]
+      }
+    ]
+  }
+];
+
+const SEED_SETTINGS = {
+  gameTitle:"千年의 記憶",
+  gameSubtitle:"고 려 의 부 름",
+  introStory:[
+    "역사 수업 중 깜빡 잠이 들었다.",
+    "눈을 뜨니 신라 말기, 혼란의 시대 한복판이었다.",
+    "10개의 보물을 찾아야만 현재로 돌아올 수 있다.",
+    "그대의 역사 지식만이 시간의 문을 열 수 있으리라."
+  ],
+  endingTitle:"天 命 完 遂",
+  endingSubtitle:"천 명 완 수",
+  endingMessage:[
+    "그대는 신라의 혼란부터 고려의 멸망까지, 천 년의 역사를 온몸으로 헤쳐왔도다.",
+    "10개의 보물이 모두 그대의 손 안에 있으니, 이제 현재로 돌아갈 시간이다.",
+    "역사를 아는 자만이 미래를 열 수 있도다."
+  ],
+  reflectionPrompt:"천 년의 여정을 마치며 느낀 점을 자유롭게 적어주시오.",
+  adminPw:"ghtjd12!@"
+};
+
+window.insertSeedData = async function() {
+  if (episodes.length > 0) {
+    if (!confirm(`이미 에피소드가 ${episodes.length}개 있소이다.\n초기화하고 씨드 데이터로 덮어쓰겠소?\n(기존 데이터는 삭제되지 않고 추가됩니다)`)) return;
+  }
+  try {
+    showToast('씨드 데이터를 삽입하는 중...');
+    for (const ep of SEED_EPISODES) {
+      await addDoc(collection(db,'escape26_2'), ep);
+    }
+    await setDoc(doc(db,'escape26_2_settings','main'), SEED_SETTINGS, { merge: true });
+    showToast('초기 데이터 삽입 완료! (에피소드 10개 + 설정)', 'success');
+    await Promise.all([loadEpisodes(), loadSettings()]);
+  } catch(e) { showToast('삽입 실패: '+e.message); }
+};
 </script>
 </body>
 </html>
