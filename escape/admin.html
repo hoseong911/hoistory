@@ -343,6 +343,26 @@ function renderTypeFields(ep) {
         <button class="btn btn-sm" style="margin-top:.6rem;" onclick="addElimEditRow()">+ 항목 추가</button>
       </div>
     </div>`;
+  } else if (ep.stage2Type === 'selectKeywords') {
+    const items = ep.stage2?.items || [];
+    html += `<div class="stage-section" style="margin-top:1rem;">
+      <h4>⭐ 2단계 — 키워드 선택 (selectKeywords)</h4>
+      <div class="field">
+        <label>문맥 설명 (선택 사항)</label>
+        <textarea id="ef_s2_kwContext" rows="3">${escHtml(ep.stage2?.context||'')}</textarea>
+      </div>
+      <div class="field">
+        <label>키워드 목록 <span style="color:#999;font-size:.79rem;">(✅ = 선택해야 할 것 / ❌ = 선택하지 말 것)</span></label>
+        <div id="ef_s2_kwItems">
+          ${items.map(it=>`<div class="elim-edit-row">
+            <button class="elim-toggle ${it.correct?'ok':'ng'}" onclick="toggleElimStatus(this)">${it.correct?'✅':'❌'}</button>
+            <input type="text" value="${escHtml(it.text)}">
+            <button class="btn btn-sm btn-danger" style="padding:.35rem .55rem;font-size:.75rem;" onclick="this.closest('.elim-edit-row').remove()">삭제</button>
+          </div>`).join('')}
+        </div>
+        <button class="btn btn-sm" style="margin-top:.6rem;" onclick="addKwEditRow()">+ 키워드 추가</button>
+      </div>
+    </div>`;
   } else if (ep.stage2Type === 'fillBlanks') {
     html += `<div class="stage-section" style="margin-top:1rem;">
       <h4>⭐ 2단계 — 빈칸 채우기 (fillBlanks)</h4>
@@ -370,6 +390,15 @@ window.addElimEditRow = function() {
   const d = document.createElement('div'); d.className = 'elim-edit-row';
   d.innerHTML = `<button class="elim-toggle ok" onclick="toggleElimStatus(this)">✅</button>
     <input type="text" placeholder="설명문 입력...">
+    <button class="btn btn-sm btn-danger" style="padding:.35rem .55rem;font-size:.75rem;" onclick="this.closest('.elim-edit-row').remove()">삭제</button>`;
+  c.appendChild(d);
+};
+
+window.addKwEditRow = function() {
+  const c = document.getElementById('ef_s2_kwItems');
+  const d = document.createElement('div'); d.className = 'elim-edit-row';
+  d.innerHTML = `<button class="elim-toggle ok" onclick="toggleElimStatus(this)">✅</button>
+    <input type="text" placeholder="키워드 설명 입력...">
     <button class="btn btn-sm btn-danger" style="padding:.35rem .55rem;font-size:.75rem;" onclick="this.closest('.elim-edit-row').remove()">삭제</button>`;
   c.appendChild(d);
 };
@@ -405,6 +434,15 @@ window.saveEpContent = async function() {
           text:    r.querySelector('input[type=text]').value.trim(),
           correct: r.querySelector('.elim-toggle').classList.contains('ok')
         })).filter(it=>it.text) };
+      } else if (ep.stage2Type === 'selectKeywords') {
+        const rows = [...document.querySelectorAll('#ef_s2_kwItems .elim-edit-row')];
+        update.stage2 = { ...ep.stage2,
+          context: document.getElementById('ef_s2_kwContext')?.value.trim() || '',
+          items: rows.map(r=>({
+            text:    r.querySelector('input[type=text]').value.trim(),
+            correct: r.querySelector('.elim-toggle').classList.contains('ok')
+          })).filter(it=>it.text)
+        };
       } else if (ep.stage2Type === 'fillBlanks') {
         update.stage2 = { ...ep.stage2, answers: document.getElementById('ef_s2_answers').value.split('\n').map(s=>s.trim()).filter(Boolean) };
       }
@@ -494,16 +532,54 @@ const SEED_EPISODES = [
       ]}
   },
   {
-    order:2,title:"혼란의 신라 말기",subtitle:"통일 신라 말기 9세기",
-    story:"왕위를 두고 피를 부른 지 벌써 백 년. 150년 사이에 왕이 스무 명도 넘게 바뀌었다. 지방 호족들은 성을 쌓고 '장군'을 자처했으며, 어렵게 당나라에서 공부하고 돌아온 6두품 지식인들은 골품제의 벽 앞에 좌절했다. 최치원은 글로써 개혁을 외쳤지만 세상은 꿈쩍도 않았다.",
-    speaker:"최치원",dialog:"나는 12세에 당으로 건너가 18세에 급제하였소. 그러나 돌아온 이 나라에는 내 자리가 없더이다. 골품제의 벽이 내 앞길을 막으니, 나는 이 썩은 나라를 떠나 숲 속으로 들어가리라.",
-    question:"이 시대의 핵심 세력을 두 단계로 정리해 보시오.",
-    hint:"호족은 지방의 군사·경제적 실력자, 6두품은 중앙에서 출세가 막힌 지식인 계층입니다.",
-    treasureName:"최치원의 붓",treasureDesc:"골품제의 벽에 막혀도 글로 시대를 비판한 지식인의 상징.",
-    type:"twoStage",stage1Type:"fillBlanks",
-    stage1:{question:"다음 빈칸에 알맞은 말을 채우시오.\n\n\"신라 말기 지방에서 독자적 세력을 키운 자들을 ①__(이)라 하고, 새로운 불교 종파인 ②__은(는) 개인의 수행과 자각을 강조하여 이들의 지지를 받았다.\"",answers:["호족","선종"]},
-    stage2Type:"classify",
-    stage2:{question:"다음 특징들을 호족과 6두품으로 올바르게 분류하시오.",items:["독자적 군사력 보유, 성주·장군 칭호 사용","당나라 유학 후 귀국하여 지식 습득","지방에서 반독립적 세력 형성","골품제를 비판하고 사회 개혁 주장","왕건과 연합하여 고려 건국 지지","유교 이념으로 새로운 질서 추구"],zones:[{name:"호족",correct:[0,2,4]},{name:"6두품",correct:[1,3,5]}]}
+    order:2,title:"혼란의 서라벌 — 신라의 균열",subtitle:"통일 신라 말기 8~9세기",
+    story:"왕좌를 둘러싼 피의 역사가 끝없이 이어졌다. 혜공왕이 피살되자 신라 하대의 왕위 쟁탈이 불붙었고, 지방 도독은 독립을 선언하였다. 굶주린 농민들은 봉기를 일으켰다. 신라는 서서히 무너지고 있었다. 그대는 이 혼란의 시대 한가운데에 서 있다.",
+    speaker:"신라 하대의 유민",dialog:"왕도 바뀌고 세금도 늘었소. 지방 도독은 나라를 세우겠다 하고, 농민들은 들고 일어났소. 이 혼란이 어찌 끝날지 그대는 알고 있소?",
+    question:"다음 역사적 장면을 보고, 어떤 사건인지 맞혀 보시오. 맞으면 다음 장면으로 이어집니다.",
+    hint:"혜공왕 피살(780) → 김헌창의 난(822) → 원종과 애노의 난(889) 순서로 기억하시오.",
+    treasureName:"신라 말기의 역사 두루마리",treasureDesc:"왕위 쟁탈과 농민 봉기로 혼란했던 신라 하대. 그 균열의 흔적이 두루마리에 담겼다.",
+    type:"twoStage",stage1Type:"simulate",
+    stage1:{
+      question:"다음 역사적 장면을 보고, 어떤 사건인지 선택하시오.",
+      steps:[
+        {
+          situation:"통일 신라 780년, 밤의 서라벌 궁성. 귀족 김지정이 군사를 이끌고 궁궐로 쳐들어왔다. 왕은 달아나다 붙잡혀 목숨을 잃었다. 왕위에 오른 자는 귀족 김양상이었다. 이로써 무열왕 직계 혈통이 끊기고 신라 왕실에 새로운 시대가 열렸다. 이 사건은 무엇인가?",
+          choices:[
+            {text:"혜공왕의 피살 — 신라 하대의 시작을 알린 귀족 반란",correct:true,feedback:"옳소! 혜공왕의 피살(780)은 신라 중대에서 하대로 넘어가는 분기점이오. 이후 150년간 왕위 쟁탈이 끊이지 않았소."},
+            {text:"김헌창의 난 — 지방 도독이 독립을 선언한 반란",correct:false,feedback:"아니로다! 김헌창의 난은 822년에 일어났소. 이 사건은 780년, 귀족들이 왕을 시해한 혜공왕의 피살이오."}
+          ]
+        },
+        {
+          situation:"신라 헌덕왕 14년(822년), 웅천주 도독 김헌창이 격문을 돌렸다. '나의 아버지 김주원이 왕이 되어야 했으나 되지 못하였다!' 그는 나라 이름을 '장안', 연호를 '경운'이라 하며 독립을 선언하였다. 충청도와 전라도 일대가 들썩였다. 이 사건은 무엇인가?",
+          choices:[
+            {text:"원종과 애노의 난 — 진성 여왕 때 일어난 농민 봉기",correct:false,feedback:"아니로다! 원종과 애노의 난은 889년에 일어난 농민 봉기요. 이 장면은 822년, 도독이 독립을 선언한 김헌창의 난이오."},
+            {text:"김헌창의 난 — 진골 귀족 내분이 지방 반란으로 확대된 사건",correct:true,feedback:"그렇소! 김헌창의 난(822)은 왕위 계승 불만이 지방 반란으로 번진 사건이오. 3개월 만에 진압되었소."}
+          ]
+        },
+        {
+          situation:"신라 진성 여왕 3년(889년), 극심한 가뭄과 강압적인 세금 징수로 백성들이 굶주리고 있었다. 사벌주(현 경북 상주)에서 원종과 애노가 무리를 이끌고 봉기하였다. 관청을 불태우고 고을을 점령하였다. 이 사건은 무엇인가?",
+          choices:[
+            {text:"원종과 애노의 난 — 신라 말기 농민 봉기의 대표적 사례",correct:true,feedback:"옳소! 원종과 애노의 난(889)은 신라 말기 대표적인 농민 봉기요. 이후 봉기가 전국으로 확산되며 신라 붕괴가 가속화되었소."},
+            {text:"혜공왕의 피살 — 귀족들이 왕을 시해한 사건",correct:false,feedback:"아니로다! 혜공왕의 피살은 780년에 일어난 귀족 반란이오. 이 장면은 889년, 굶주린 백성들이 일어선 원종과 애노의 난이오."}
+          ]
+        }
+      ]
+    },
+    stage2Type:"selectKeywords",
+    stage2:{
+      question:"이 혼란 속에서 등장한 호족과 6두품에 대한 설명 중 올바른 것을 모두 선택하시오.",
+      context:"신라의 왕위 쟁탈과 농민 봉기 속에서, 지방에서는 독자적 군사력을 갖춘 호족이, 중앙에서는 개혁을 꿈꾸는 6두품 지식인이 새로운 역사의 주인공으로 떠올랐다.",
+      items:[
+        {text:"호족은 지방에서 독자적 군사력과 경제력을 갖춘 세력이다.",correct:true},
+        {text:"호족은 스스로 성주 또는 장군이라 칭하며 반독립적 세력을 형성하였다.",correct:true},
+        {text:"6두품은 당나라 유학을 통해 선진 문물을 익히고 돌아온 지식인 계층이다.",correct:true},
+        {text:"6두품은 골품제의 한계를 비판하고 사회 개혁을 주장하였다.",correct:true},
+        {text:"호족은 선종 불교와 연결되어 새로운 사상적 기반을 마련하였다.",correct:true},
+        {text:"호족은 중앙 정부의 통제 아래 지방 행정을 충실히 담당하였다.",correct:false},
+        {text:"6두품은 신라 골품제에서 가장 높은 신분으로 왕위 계승권을 가졌다.",correct:false},
+        {text:"호족과 6두품은 신라 부흥 운동을 펼쳐 왕권 강화에 기여하였다.",correct:false}
+      ]
+    }
   },
   {
     order:3,title:"발해, 해동성국",subtitle:"발해 698~926년",

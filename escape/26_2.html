@@ -125,6 +125,16 @@ body{
 .elim-item{padding:1rem 1.2rem;background:rgba(255,255,255,.5);border:2px solid var(--ink);cursor:pointer;user-select:none;transition:all .2s;line-height:1.7;box-shadow:3px 3px 0 rgba(26,20,16,.1);}
 .elim-item:hover{background:var(--point-bg);transform:translate(-1px,-1px);box-shadow:4px 4px 0 rgba(26,20,16,.15);}
 .elim-item.eliminated{text-decoration:line-through;opacity:.38;background:rgba(168,50,45,.05);border-color:#ccc;box-shadow:none;transform:none;}
+/* ── selectKeywords ── */
+.kw-context{font-style:italic;background:var(--point-bg);border-left:4px solid var(--point-color);padding:1rem 1.2rem;margin-bottom:1rem;line-height:1.8;font-size:1rem;}
+.kw-hint{font-size:.82rem;color:var(--point-color);margin-bottom:.8rem;font-style:italic;text-align:center;}
+.kw-grid{display:flex;flex-wrap:wrap;gap:.6rem;}
+.kw-item{padding:.7rem 1.1rem;background:rgba(255,255,255,.5);border:2px solid var(--ink);cursor:pointer;user-select:none;transition:all .2s;line-height:1.5;font-size:.92rem;box-shadow:2px 2px 0 rgba(26,20,16,.1);}
+.kw-item:hover{background:var(--point-bg);transform:translate(-1px,-1px);box-shadow:3px 3px 0 rgba(26,20,16,.15);}
+.kw-item.selected{background:var(--point-color);color:var(--paper);border-color:var(--point-border);box-shadow:3px 3px 0 rgba(0,0,0,.2);}
+/* ── simulate (stage용) ── */
+.sim-retry{margin-top:.7rem;padding:.5rem 1.1rem;font-family:'Nanum Myeongjo',serif;font-weight:700;font-size:.85rem;border:2px solid var(--ink);cursor:pointer;background:var(--paper);color:var(--ink);box-shadow:2px 2px 0 var(--ink);letter-spacing:.05em;}
+.sim-retry:hover{background:var(--point-color);color:var(--paper);border-color:var(--point-color);}
 
 /* ── 입력 공통 ── */
 .blank-row{display:flex;align-items:center;gap:.8rem;margin-bottom:.8rem;flex-wrap:wrap;}
@@ -772,6 +782,16 @@ function buildStageBlock(type, data, stageNum) {
           ${shuffled.map(it=>`<div class="elim-item" data-idx="${it.oi}" onclick="this.classList.toggle('eliminated')">${it.text}</div>`).join('')}
         </div>`;
     }
+    case 'simulate':
+      return `<div id="${pfx}simArea"></div>`;
+    case 'selectKeywords': {
+      const shuffled = data.items.map((it,i)=>({...it,oi:i})).sort(()=>Math.random()-.5);
+      return `${data.context?`<div class="kw-context">${data.context}</div>`:''}
+        <div class="kw-hint">💡 올바른 설명을 모두 선택하시오. 다시 누르면 취소됩니다.</div>
+        <div class="kw-grid" id="${pfx}kwGrid">
+          ${shuffled.map(it=>`<div class="kw-item" data-idx="${it.oi}" onclick="this.classList.toggle('selected')">${it.text}</div>`).join('')}
+        </div>`;
+    }
     default: return '';
   }
 }
@@ -791,6 +811,10 @@ function initStageBlock(type, data, stageNum) {
   } else if (type === 'pairMatch') {
     window._epState[key+'PairMatch'] = { selectedLeft: null, pairs: {} };
     initPairMatchById(pfx, data, key+'PairMatch');
+  } else if (type === 'simulate') {
+    const simKey = key + 'Sim';
+    window._epState[simKey] = { idx: 0 };
+    renderSimStepById(pfx, simKey, data, 0);
   }
 }
 function renderOrderListById(listId, stateKey) {
@@ -921,6 +945,51 @@ window.dragItemClick = function(el, pfx) {
   } else {
     el.classList.add('in-zone');
     zone.appendChild(el);
+  }
+};
+
+/* ── simulate (stage 버전) ── */
+window.renderSimStepById = function(pfx, simKey, data, idx) {
+  if (!data) {
+    const ep = episodes[currentEp];
+    data = simKey.startsWith('stage1') ? ep.stage1 : ep.stage2;
+  }
+  const steps = data.steps;
+  const simArea = document.getElementById(pfx + 'simArea');
+  if (!simArea) return;
+  if (idx >= steps.length) {
+    simArea.innerHTML = `<div class="sim-situation" style="text-align:center;font-style:normal;font-weight:700;color:var(--point-color);">✦ 모든 장면을 확인하였도다!<br><span style="font-size:.9rem;font-weight:400;">제출 버튼을 눌러 2단계로 넘어가시오.</span></div>`;
+    return;
+  }
+  const step = steps[idx];
+  simArea.innerHTML = `
+    <div class="sim-progress">${idx+1} / ${steps.length} 장면</div>
+    <div class="sim-situation">${step.situation}</div>
+    <div class="sim-choices">${step.choices.map((c,ci)=>
+      `<button class="sim-choice" data-ci="${ci}" onclick="chooseSimStepById('${pfx}','${simKey}',${idx},${ci})">${c.text}</button>`).join('')}
+    </div>
+    <div class="sim-feedback" id="${pfx}simFeedback${idx}"></div>`;
+};
+window.chooseSimStepById = function(pfx, simKey, stepIdx, choiceIdx) {
+  const ep   = episodes[currentEp];
+  const data = simKey.startsWith('stage1') ? ep.stage1 : ep.stage2;
+  const step = data.steps[stepIdx];
+  const isOk = step.choices[choiceIdx].correct;
+  const btns = document.querySelectorAll(`#${pfx}simArea .sim-choice`);
+  btns.forEach(b => { b.classList.add(parseInt(b.dataset.ci)===choiceIdx ? (isOk?'correct':'wrong') : ''); b.disabled = true; });
+  const fb = document.getElementById(`${pfx}simFeedback${stepIdx}`);
+  if (!fb) return;
+  if (isOk) {
+    fb.textContent = step.choices[choiceIdx].feedback || '옳은 선택이다!';
+    fb.classList.add('show');
+    setTimeout(() => {
+      window._epState[simKey].idx = stepIdx + 1;
+      renderSimStepById(pfx, simKey, data, stepIdx + 1);
+    }, 1800);
+  } else {
+    fb.innerHTML = (step.choices[choiceIdx].feedback || '아니로다! 다시 생각해 보거라.') +
+      `<br><button class="sim-retry" onclick="renderSimStepById('${pfx}','${simKey}',null,${stepIdx})">↻ 다시 선택</button>`;
+    fb.classList.add('show');
   }
 };
 
@@ -1061,6 +1130,19 @@ function checkStageBlock(type, data, stageNum) {
       return [...list.querySelectorAll('.elim-item')].every(el => {
         const shouldElim = !data.items[parseInt(el.dataset.idx)].correct;
         return shouldElim === el.classList.contains('eliminated');
+      });
+    }
+    case 'simulate': {
+      const s = window._epState[key+'Sim'];
+      if (!s || s.idx < data.steps.length) { showToast('아직 모든 장면을 확인하지 않았소이다!'); return false; }
+      return true;
+    }
+    case 'selectKeywords': {
+      const grid = document.getElementById(pfx+'kwGrid');
+      if (!grid) return false;
+      return [...grid.querySelectorAll('.kw-item')].every(el => {
+        const shouldSel = data.items[parseInt(el.dataset.idx)].correct;
+        return shouldSel === el.classList.contains('selected');
       });
     }
     default: return false;
