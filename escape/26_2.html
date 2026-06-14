@@ -143,6 +143,15 @@ body{
 .single-input{width:100%;text-align:center;letter-spacing:.2em;}
 .blank-input:focus,.single-input:focus{outline:none;border-color:var(--point-color);background:#fff;}
 
+/* ── tapOrder ── */
+.tap-order-list{display:flex;flex-direction:column;gap:.6rem;}
+.tap-order-item{display:flex;align-items:flex-start;gap:1rem;padding:1rem 1.2rem;background:rgba(255,255,255,.5);border:2px solid var(--ink);cursor:pointer;user-select:none;transition:all .2s;line-height:1.7;box-shadow:3px 3px 0 rgba(26,20,16,.1);}
+.tap-order-item:hover{background:var(--point-bg);transform:translate(-1px,-1px);box-shadow:4px 4px 0 rgba(26,20,16,.15);}
+.tap-order-item.tapped{background:var(--point-color);color:var(--paper);border-color:var(--point-border);box-shadow:3px 3px 0 rgba(0,0,0,.2);}
+.tap-order-num{min-width:2rem;height:2rem;border:2px solid currentColor;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1rem;flex-shrink:0;opacity:.35;transition:opacity .2s;}
+.tap-order-item.tapped .tap-order-num{opacity:1;}
+.tap-order-text{flex:1;}
+
 /* ── 카드 공통 ── */
 .card-pool{display:flex;flex-wrap:wrap;gap:.6rem;padding:1.2rem;background:rgba(255,255,255,.3);border:2px dashed var(--ink);min-height:80px;margin-bottom:1rem;}
 .quiz-card,.match-item,.order-item{padding:.75rem 1.1rem;background:var(--paper);border:2px solid var(--ink);cursor:pointer;user-select:none;transition:all .2s;font-weight:700;box-shadow:3px 3px 0 var(--ink);display:flex;align-items:center;font-size:.95rem;}
@@ -525,13 +534,12 @@ const SEED_EPISODES = [
     question: "발해 건국부터 멸망까지의 역사적 사건을 올바른 순서로 배열하시오.",
     hint: "698년 대조영 건국 → 무왕(인안 연호, 당 등주 공격) → 문왕(상경 천도, 당과 친선) → 선왕(해동성국, 최대 영토) → 926년 거란에 멸망. 각 왕의 업적을 시대순으로 기억하시오.",
     treasureName: "발해 입국 허가증", treasureDesc: "발해의 역사를 꿰뚫은 자에게만 허락된 상경 용천부 입성의 증표.",
-    type: "order",
+    type: "tapOrder",
     items: [
       "대조영이 고구려 유민과 말갈족을 이끌고 동모산에서 발해(진국)를 건국하다 (698년)",
       "무왕이 인안(仁安) 연호를 사용하고, 장문휴를 보내 당나라 등주를 공격하다 (732년)",
       "문왕이 수도를 상경 용천부로 옮기고 당나라와 친선 외교를 펼치며 발해의 전성기 기반을 닦다",
-      "선왕 때 연해주까지 영토를 최대로 확장하여 당나라로부터 '해동성국'이라 불리다 (9세기 전반)",
-      "거란의 침입으로 발해가 멸망하다 (926년)"
+      "선왕 때 연해주까지 영토를 최대로 확장하여 당나라로부터 '해동성국'이라 불리다 (9세기 전반)"
     ]
   },
   {
@@ -697,6 +705,7 @@ function buildAction(ep) {
     case 'fillBlanks':  return buildFillBlanks(ep);
     case 'singleInput': return buildSingleInput();
     case 'order':       return buildOrder(ep);
+    case 'tapOrder':    return buildTapOrder(ep);
     case 'classify':    return buildClassify(ep);
     case 'pairMatch':   return buildPairMatch(ep);
     case 'twoStage':    return buildTwoStage(ep);
@@ -708,6 +717,7 @@ function buildAction(ep) {
 function initAction(ep) {
   switch (ep.type) {
     case 'order':    initOrder(ep); break;
+    case 'tapOrder': initTapOrder(ep); break;
     case 'classify': initClassify(ep); break;
     case 'pairMatch':initPairMatch(ep); break;
     case 'twoStage': initTwoStage(ep); break;
@@ -753,6 +763,44 @@ window.moveOrder = function(cur, dir) {
   [s[cur], s[nxt]] = [s[nxt], s[cur]];
   renderOrderList();
 };
+
+/* ── tapOrder ── */
+function buildTapOrder(ep) {
+  const shuffled = ep.items.map((item, i) => ({ item, i })).sort(() => Math.random() - .5);
+  window._epState.tapOrder = { shuffled, sequence: [] };
+  return `
+    <p style="text-align:center;color:var(--point-color);font-size:.85rem;margin-bottom:1rem;">💡 순서대로 눌러 번호를 붙이시오. 다시 누르면 취소됩니다.</p>
+    <div class="tap-order-list" id="tapOrderList">
+      ${shuffled.map((obj, si) => `
+        <div class="tap-order-item" data-si="${si}" onclick="tapOrderClick(${si})">
+          <div class="tap-order-num" id="tapNum_${si}"></div>
+          <div class="tap-order-text">${obj.item}</div>
+        </div>`).join('')}
+    </div>`;
+}
+function initTapOrder(ep) {}
+window.tapOrderClick = function(si) {
+  const s = window._epState.tapOrder;
+  const pos = s.sequence.indexOf(si);
+  if (pos !== -1) {
+    s.sequence.splice(pos, 1);
+  } else {
+    if (s.sequence.length >= s.shuffled.length) return;
+    s.sequence.push(si);
+  }
+  s.shuffled.forEach((_, i) => {
+    const el = document.querySelector(`.tap-order-item[data-si="${i}"]`);
+    const num = document.getElementById(`tapNum_${i}`);
+    const p = s.sequence.indexOf(i);
+    if (p !== -1) { el.classList.add('tapped'); num.textContent = p + 1; }
+    else { el.classList.remove('tapped'); num.textContent = ''; }
+  });
+};
+function checkTapOrder(ep) {
+  const s = window._epState.tapOrder;
+  if (s.sequence.length < ep.items.length) { showToast('모든 항목에 순서를 매기시오!'); return false; }
+  return s.sequence.every((si, pos) => s.shuffled[si].i === pos);
+}
 
 /* ── classify ── */
 function buildClassify(ep) {
@@ -1205,6 +1253,7 @@ window.checkAnswer = function() {
     case 'fillBlanks':  ok = checkFillBlanks(ep); break;
     case 'singleInput': ok = checkSingleInput(ep); break;
     case 'order':       ok = checkOrder(ep); break;
+    case 'tapOrder':    ok = checkTapOrder(ep); break;
     case 'classify':    ok = checkClassify(ep); break;
     case 'pairMatch':   ok = checkPairMatch(ep); break;
     case 'simulate':    ok = checkSimulate(ep); break;
