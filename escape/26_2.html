@@ -402,6 +402,7 @@ const db  = getFirestore(app);
 const rtdb = getDatabase(app);
 
 /* ══ 상태 ══ */
+const USE_LOCAL_DATA = true; // true = JS 하드코딩 사용 / false = Firestore 사용
 const DATA_VERSION = 'v3';
 let episodes = [], settings = {};
 let currentEp = 0, acquiredTreasures = [];
@@ -849,24 +850,28 @@ async function seedEpisodes() {
 ═══════════════════════════════════════ */
 async function loadData() {
   try {
-    const sDoc = await getDoc(doc(db, 'escape26_2_settings', 'main'));
-    if (!sDoc.exists()) {
+    if (USE_LOCAL_DATA) {
+      episodes = [...SEED_EPISODES].sort((a, b) => a.order - b.order);
       settings = defaultSettings();
-      await seedEpisodes();
-      await setDoc(doc(db, 'escape26_2_settings', 'main'), { ...settings, dataVersion: DATA_VERSION });
     } else {
-      settings = sDoc.data();
-      if ((settings.dataVersion || '') !== DATA_VERSION) {
+      const sDoc = await getDoc(doc(db, 'escape26_2_settings', 'main'));
+      if (!sDoc.exists()) {
+        settings = defaultSettings();
         await seedEpisodes();
-        await setDoc(doc(db, 'escape26_2_settings', 'main'), { dataVersion: DATA_VERSION }, { merge: true });
+        await setDoc(doc(db, 'escape26_2_settings', 'main'), { ...settings, dataVersion: DATA_VERSION });
+      } else {
+        settings = sDoc.data();
+        if ((settings.dataVersion || '') !== DATA_VERSION) {
+          await seedEpisodes();
+          await setDoc(doc(db, 'escape26_2_settings', 'main'), { dataVersion: DATA_VERSION }, { merge: true });
+        }
       }
+      const q = query(collection(db, 'escape26_2'), orderBy('order'));
+      const snap = await getDocs(q);
+      episodes = [];
+      snap.forEach(d => episodes.push({ id: d.id, ...d.data() }));
+      if (episodes.length === 0) throw new Error('에피소드 데이터가 없소이다. 관리자에게 문의하시오.');
     }
-
-    const q = query(collection(db, 'escape26_2'), orderBy('order'));
-    const snap = await getDocs(q);
-    episodes = [];
-    snap.forEach(d => episodes.push({ id: d.id, ...d.data() }));
-    if (episodes.length === 0) throw new Error('에피소드 데이터가 없소이다. 관리자에게 문의하시오.');
 
     await loadStudentMap();
 
