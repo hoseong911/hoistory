@@ -7,6 +7,13 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Dive into HISTORY - 역사는 즐겁다</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#121212">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="HOISTORY">
+<link rel="apple-touch-icon" href="main.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
@@ -231,13 +238,72 @@ body{overflow-x:hidden}
 
   <div class="admin-row">
     <a class="admin-btn" href="admin.html">⚙ ADMIN</a>
-    <span class="version-tag">v1.1.0</span>
+    <button class="admin-btn" id="install-btn" style="display:none" onclick="handleInstall()">홈 화면에 추가</button>
+    <span class="version-tag">v1.2.0</span>
+  </div>
+
+  <!-- iOS 안내 모달 -->
+  <div id="ios-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:1000;align-items:center;justify-content:center;padding:24px;">
+    <div style="background:#1f1f1f;border-radius:16px;padding:28px 24px;max-width:300px;width:100%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+      <div style="font-size:32px;margin-bottom:12px;">📲</div>
+      <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:18px;letter-spacing:-.3px;">홈 화면에 추가하기</div>
+      <div style="font-size:13px;color:#b3b3b3;line-height:2.1;text-align:left;">
+        <div>① Safari 하단 <strong style="color:#fff">공유 버튼 ⬆</strong> 을 누르세요</div>
+        <div>② <strong style="color:#fff">'홈 화면에 추가'</strong> 를 선택하세요</div>
+        <div>③ 오른쪽 위 <strong style="color:#fff">'추가'</strong> 를 탭하면 완료!</div>
+      </div>
+      <button onclick="document.getElementById('ios-modal').style.display='none'" style="margin-top:22px;width:100%;padding:13px;background:#1ed760;color:#000;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:-.2px;">확인</button>
+    </div>
   </div>
 
   <div class="footer">
     <p class="footer-tag">역사는 즐겁다 <span>✦</span> Dive into HISTORY</p>
   </div>
 </div>
+
+<!-- ===== PWA Install ===== -->
+<script>
+(function() {
+  const btn = document.getElementById('install-btn');
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isSafari = /safari/i.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/i.test(navigator.userAgent);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  let deferredPrompt = null;
+
+  if (isStandalone) return;
+
+  if (isIos && isSafari) {
+    btn.style.display = 'inline-block';
+  }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    btn.style.display = 'inline-block';
+  });
+
+  window.addEventListener('appinstalled', () => {
+    btn.style.display = 'none';
+    deferredPrompt = null;
+  });
+
+  window.handleInstall = function() {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(r => {
+        deferredPrompt = null;
+        if (r.outcome === 'accepted') btn.style.display = 'none';
+      });
+    } else if (isIos) {
+      document.getElementById('ios-modal').style.display = 'flex';
+    }
+  };
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js');
+  }
+})();
+</script>
 
 <!-- ===== Firebase ===== -->
 <script type="module">
