@@ -285,6 +285,9 @@ body{
 .nav-ep-story{font-style:italic;background:var(--point-bg);border-left:3px solid var(--point-color);padding:.8rem 1rem;margin-bottom:.8rem;font-size:.9rem;line-height:1.9;}
 .nav-ep-dialog{font-size:.9rem;line-height:1.8;margin-bottom:.6rem;}
 .nav-ep-hint{font-size:.85rem;color:#555;border-top:1px dashed var(--point-border);padding-top:.6rem;margin-top:.4rem;line-height:1.8;}
+.nav-jump-btn{margin-top:1rem;padding:.55rem 1.2rem;font-family:'Nanum Myeongjo',serif;font-weight:700;font-size:.85rem;border:2px solid var(--ink);background:var(--ink);color:var(--paper);cursor:pointer;letter-spacing:.1em;transition:all .2s;}
+.nav-jump-btn:hover{background:var(--point-color);border-color:var(--point-color);}
+.nav-jump-btn.current{background:var(--point-border);border-color:var(--point-border);cursor:default;}
 @media(max-width:600px){.nav-modal{padding:1rem .5rem;}.nav-ep-btn{padding:.8rem 1rem;}}
 </style>
 </head>
@@ -497,11 +500,11 @@ window.doLogin = function() {
 ═══════════════════════════════════════ */
 const SEED_EPISODES = [
   {
-    order: 1, title: "신문왕의 업적을 찬양하라", subtitle: "통일 신라 689년",
-    story: "신라 통일의 환호성이 채 가시기도 전, 왕권을 위협하던 귀족들의 반란이 진압되었소이다. 이제 새로운 질서를 세울 시간이오.",
-    speaker: "신문왕",
-    dialog: "그대가 짐의 신하라면, 짐이 이룬 업적을 알아야 할 것이오. 올바른 업적만 골라 봉헌하시오.",
-    question: "신문왕의 올바른 업적을 드래그하여 봉헌하고, 제도에 대한 설명도 검증하시오.",
+    order: 1, title: "신문왕의 업적을 찬양하라", subtitle: "통일 신라 692년",
+    story: "신문왕이 세상을 떠난 692년, 금성의 조정은 무거운 침묵에 잠겼소이다. 그러나 왕의 업적은 이 땅에 고스란히 남아 있었소이다. 새 왕 효소왕이 그대를 불러 세웠소이다.",
+    speaker: "효소왕",
+    dialog: "그대, 우리 아버지 신문왕의 업적을 아시오? 짐이 왕위에 오른 지금, 선왕의 치적을 제대로 아는 자가 필요하오. 올바른 업적만 골라 봉헌하고, 제도에 대한 설명도 검증해 보이시오.",
+    question: "신문왕의 올바른 업적을 봉헌하고, 제도에 대한 설명도 검증하시오.",
     hint: "녹읍은 귀족이 백성에게 직접 세금을 거둘 수 있는 땅입니다. 신문왕은 이를 폐지하고 관료전을 지급하여 왕권을 강화하였습니다. 9서당은 통합을 위해 고구려·백제 유민도 포함하였습니다.",
     treasureName: "신문왕의 옥새", treasureDesc: "통일 신라 왕권 강화의 상징. 녹읍 폐지, 9주 5소경, 국학 설립의 역사가 담겨 있다.",
     type: "twoStage", stage1Type: "dragOffer",
@@ -894,7 +897,13 @@ function defaultSettings() {
   return {
     gameTitle: '천년의 기억',
     gameSubtitle: '잃어버린 기억을 찾아서',
-    introStory: ['역사 수업 중 깜빡 잠이 들었다.', '눈을 뜨니 신라 말기, 혼란의 시대 한복판이었다.', '10개의 보물을 찾아야만 현재로 돌아올 수 있다.'],
+    introStory: [
+      '때는 신문왕 7년, 신라의 도읍 금성이라.',
+      '귀족의 무리가 반란을 일으켰으나 새 왕의 칼날 앞에 무릎을 꿇었으니...',
+      '그날 동해 바닷가에서 신비한 빛에 휘감긴 청년 무영(無影)은, 늙지도 죽지도 않는 운명을 받게 되었도다.',
+      '그의 사명은 단 하나, 시대마다 흩어진 보물을 찾아 잊혀진 천 년의 기억을 후세에 전하는 것이라.',
+      '신라의 영광부터 고려의 황혼까지, 그대도 무영이 되어 이 여정에 함께하겠는가?'
+    ],
     endingTitle: '무 영 의 끝 자 락',
     endingSubtitle: '1 3 9 2 년  여 름',
     endingMessage: [
@@ -1537,12 +1546,10 @@ window.chooseSimStepById = function(pfx, simKey, stepIdx, choiceIdx) {
   const fb = document.getElementById(`${pfx}simFeedback${stepIdx}`);
   if (!fb) return;
   if (isOk) {
+    window._epState[simKey].idx = stepIdx + 1;
     fb.textContent = step.choices[choiceIdx].feedback || '옳은 선택이다!';
     fb.classList.add('show');
-    setTimeout(() => {
-      window._epState[simKey].idx = stepIdx + 1;
-      renderSimStepById(pfx, simKey, data, stepIdx + 1);
-    }, 1800);
+    setTimeout(() => { renderSimStepById(pfx, simKey, data, stepIdx + 1); }, 1800);
   } else {
     fb.textContent = step.choices[choiceIdx].feedback || '아니로다! 다시 생각해 보거라.';
     fb.classList.add('show');
@@ -1789,6 +1796,11 @@ window.openNav = function() {
         <div class="nav-ep-story">${ep.story}</div>
         <div class="nav-ep-dialog"><strong>${ep.speaker} 가라사대</strong><br>"${ep.dialog}"</div>
         ${ep.hint ? `<div class="nav-ep-hint"><strong>힌트:</strong> ${ep.hint}</div>` : ''}
+        <div style="text-align:right;margin-top:.8rem;">
+          ${cur
+            ? `<button class="nav-jump-btn current" disabled>현재 에피소드</button>`
+            : `<button class="nav-jump-btn" onclick="jumpToEp(${idx})">이 에피소드로 이동</button>`}
+        </div>
       </div>`;
     list.appendChild(row);
   });
@@ -1796,6 +1808,12 @@ window.openNav = function() {
 };
 window.closeNav = function() {
   document.getElementById('navModal').classList.remove('show');
+};
+window.jumpToEp = function(idx) {
+  currentEp = idx;
+  closeNav();
+  renderEpisode();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 window.closeNavOutside = function(e) {
   if (e.target === document.getElementById('navModal')) closeNav();
