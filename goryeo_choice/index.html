@@ -181,14 +181,6 @@ body::before {
 .cc-name { font-size:14px; font-weight:700; color:var(--ink); margin-bottom:3px; }
 .cc-sub { font-size:11px; color:var(--gold); letter-spacing:1px; margin-bottom:5px; font-family:'Noto Sans KR'; }
 .cc-desc { font-size:12px; color:var(--ink3); line-height:1.65; word-break:keep-all; }
-.setup-name-row { display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; }
-.name-input-wrap { flex:1; min-width: 0; }
-.name-input { width:100%; padding:12px 14px; background:rgba(255,255,255,0.6); border:1.5px solid var(--border2); border-radius:6px; color:var(--ink); font-family:'Noto Serif KR',serif; font-size:15px; outline:none; transition:border-color 0.2s; -webkit-appearance:none; }
-.name-input:focus { border-color:var(--ink); }
-.name-input::placeholder { color:var(--ink5); font-size:13px; }
-.name-input.error { border-color: var(--red); background: rgba(139,26,26,0.05); }
-.name-hint { font-size: 11px; color: var(--ink4); margin-top: 6px; font-family: 'Noto Sans KR'; line-height: 1.5; }
-.name-hint.error { color: var(--red); }
 .btn-action { padding:12px 20px; background:var(--ink); color:var(--paper); border:none; border-radius:6px; font-family:'Noto Serif KR',serif; font-size:13px; font-weight:700; letter-spacing:2px; cursor:pointer; transition:all 0.2s; opacity:0.4; white-space:nowrap; }
 .btn-action:not(:disabled) { opacity:1; }
 .btn-action:not(:disabled):hover { background:var(--ink2); }
@@ -528,14 +520,6 @@ body::before {
         </div>
       </div>
     </div>
-    <div class="setup-section">
-      <div class="setup-section-label">▪ 호(號) — 나를 부를 이름 (한글/한자 2~3자)</div>
-      <div class="name-input-wrap">
-        <input type="text" id="char-name" class="name-input" maxlength="3"
-          placeholder="예: 포은, 삼봉, 양촌" oninput="checkSetupReady()">
-        <div class="name-hint" id="name-hint">한글 또는 한자 2~3글자. 자음만/특수문자 사용 불가.</div>
-      </div>
-    </div>
     <div class="setup-footer">
       <button class="btn-action btn-action-full" id="setup-next-btn" onclick="startGame()" disabled>운명 시작</button>
     </div>
@@ -647,7 +631,7 @@ initAuth(db);  // ★ 학생 명단 백그라운드 로드
 
 const STORAGE_KEY = 'goryeo_state_v2';
 
-let studentId = null, studentName = '', charName = '';
+let studentId = null, studentName = '';
 let origin = null, align = null;
 let fame = 5, loyalty = 5, study = 5, survive = 10;
 let choiceLog = [], currentScene = 0, endingKey = null, lastAct = 0;
@@ -655,6 +639,12 @@ let currentScreen = 'login-screen';
 let pendingAction = null;
 let studentsLoaded = false;
 let __navByPopState = false;  // ★ 브라우저 popstate 진행 중 플래그
+let reflectionDirty = false;  // ★ 소감 작성 중 이탈 방지 플래그
+
+function isReflectionActive() {
+  return currentScreen === 'reflection-screen' &&
+    document.getElementById('reflection-done').style.display !== 'block';
+}
 
 const ACT_INTROS = {
   1: { label:'제1막', name:'입신(立身)의 길', sub:'성리학자로 첫 발을 내딛다' },
@@ -943,7 +933,7 @@ function determineEnding(baseEnding, stats) {
 function saveState() {
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
-      studentId, studentName, charName, origin, align,
+      studentId, studentName, origin, align,
       fame, loyalty, study, survive,
       choiceLog, currentScene, endingKey, lastAct, currentScreen,
       reflectionText: document.getElementById('reflection-text')?.value || ''
@@ -956,7 +946,7 @@ function loadState() {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (!raw) return false;
     const s = JSON.parse(raw);
-    studentId = s.studentId; studentName = s.studentName; charName = s.charName;
+    studentId = s.studentId; studentName = s.studentName;
     origin = s.origin; align = s.align;
     fame = s.fame; loyalty = s.loyalty; study = s.study; survive = s.survive;
     choiceLog = s.choiceLog || []; currentScene = s.currentScene || 0;
@@ -991,7 +981,6 @@ function restoreSetupUI() {
   document.querySelectorAll('.choice-card').forEach(c => c.classList.remove('selected'));
   if (origin) document.querySelector(`[data-group="origin"][data-val="${origin}"]`)?.classList.add('selected');
   if (align)  document.querySelector(`[data-group="align"][data-val="${align}"]`)?.classList.add('selected');
-  if (charName) document.getElementById('char-name').value = charName;
   checkSetupReady();
 }
 
@@ -1135,10 +1124,6 @@ window.goBack = function(target) {
     showScreen('login-screen');
   } else if (target === 'title') {
     origin = null; align = null;
-    document.getElementById('char-name').value = '';
-    document.getElementById('name-hint').textContent = '한글 또는 한자 2~3글자. 자음만/특수문자 사용 불가.';
-    document.getElementById('name-hint').className = 'name-hint';
-    document.getElementById('char-name').classList.remove('error');
     document.querySelectorAll('.choice-card').forEach(c => c.classList.remove('selected'));
     document.getElementById('setup-next-btn').disabled = true;
     document.getElementById('setup-progress').style.width = '0%';
@@ -1156,48 +1141,15 @@ window.selectSetup = function(el) {
   checkSetupReady(); saveState();
 };
 
-function validateCharName(name) {
-  if (!name) return { ok:false, msg:'호를 입력해주세요.' };
-  if (name.length < 2) return { ok:false, msg:'호는 2글자 이상이어야 합니다.' };
-  if (name.length > 3) return { ok:false, msg:'호는 3글자까지만 가능합니다.' };
-  if (!/^[\uAC00-\uD7A3\u4E00-\u9FFF\u3400-\u4DBF]+$/.test(name)) {
-    return { ok:false, msg:'한글(가-힣) 또는 한자만 입력 가능합니다.' };
-  }
-  return { ok:true, msg:'' };
-}
 
 window.checkSetupReady = function() {
-  const nameInput = document.getElementById('char-name');
-  const hintEl = document.getElementById('name-hint');
-  const name = nameInput.value.trim();
-  let nameOk = false;
-  if (name.length === 0) {
-    hintEl.textContent = '한글 또는 한자 2~3글자. 자음만/특수문자 사용 불가.';
-    hintEl.className = 'name-hint'; nameInput.classList.remove('error');
-  } else {
-    const v = validateCharName(name);
-    if (v.ok) {
-      hintEl.textContent = '✓ 사용 가능한 호입니다.';
-      hintEl.className = 'name-hint';
-      hintEl.style.color = '#2e7d32';
-      nameInput.classList.remove('error'); nameOk = true;
-    } else {
-      hintEl.textContent = '✗ ' + v.msg;
-      hintEl.className = 'name-hint error';
-      hintEl.style.color = ''; nameInput.classList.add('error');
-    }
-  }
-  const ready = origin && align && nameOk;
+  const ready = origin && align;
   document.getElementById('setup-next-btn').disabled = !ready;
-  const count = (origin?1:0)+(align?1:0)+(nameOk?1:0);
-  document.getElementById('setup-progress').style.width = `${(count/3)*100}%`;
-  if (nameOk) { charName = name; saveState(); }
+  const count = (origin?1:0)+(align?1:0);
+  document.getElementById('setup-progress').style.width = `${(count/2)*100}%`;
 };
 
 window.startGame = function() {
-  charName = document.getElementById('char-name').value.trim();
-  const v = validateCharName(charName);
-  if (!v.ok) { showToast(v.msg, 'error'); return; }
   // 스탯 초기화 (재시작 시 누적 방지)
   fame = 5; loyalty = 5; study = 5; survive = 10;
   if (origin === 'rural') survive += 1; else fame += 1;
@@ -1326,9 +1278,9 @@ function buildNarrative() {
   const teacher = get('스승');
   let t1 = '';
   if (teacher) {
-    if (teacher.log.includes('이색')) t1 = `이색 선생의 문하에서 성리학을 깊이 익힌 <strong>${charName}</strong>은 온건한 변화를 꿈꾸며 관직에 올랐다.`;
-    else if (teacher.log.includes('정도전')) t1 = `정도전과 어깨를 나란히 하며 새 세상을 그린 <strong>${charName}</strong>은 처음부터 혁명의 불씨를 품고 있었다.`;
-    else t1 = `어느 세력에도 치우치지 않고 독자적으로 학문을 닦은 <strong>${charName}</strong>은 자유로운 선비였다.`;
+    if (teacher.log.includes('이색')) t1 = `이색 선생의 문하에서 성리학을 깊이 익힌 <strong>${studentName}</strong>은 온건한 변화를 꿈꾸며 관직에 올랐다.`;
+    else if (teacher.log.includes('정도전')) t1 = `정도전과 어깨를 나란히 하며 새 세상을 그린 <strong>${studentName}</strong>은 처음부터 혁명의 불씨를 품고 있었다.`;
+    else t1 = `어느 세력에도 치우치지 않고 독자적으로 학문을 닦은 <strong>${studentName}</strong>은 자유로운 선비였다.`;
   }
   const wihwa = get('위화도');
   let t2 = '';
@@ -1361,11 +1313,11 @@ function buildNarrative() {
   let t6 = '';
   // ★ 세부 결말이라도 기본 경로(open/retreat/martyr)에 따라 나레이션 분기
   const basePath = endingKey.split('_')[0];
-  if (basePath==='open') t6 = `선죽교에 핏빛이 물든 그 봄, <strong>${charName}</strong>은 이성계의 손을 잡았다. 그리고 조선의 설계자 중 한 명으로 역사에 이름을 새겼다.`;
-  else if (basePath==='retreat') t6 = `선죽교의 비보를 들은 <strong>${charName}</strong>은 말없이 짐을 꾸렸다. 두문동 깊은 산속으로 들어가 두 번 다시 세상에 나오지 않았다. 그러나 그의 이름은 지워지지 않았다.`;
-  else t6 = `선죽교의 핏빛이 채 마르기도 전에 <strong>${charName}</strong>도 따라갔다. 살아남는 것보다 절의를 지키는 것을 택한 그의 이름은 훗날 오백 년 사림의 정신이 되었다.`;
+  if (basePath==='open') t6 = `선죽교에 핏빛이 물든 그 봄, <strong>${studentName}</strong>은 이성계의 손을 잡았다. 그리고 조선의 설계자 중 한 명으로 역사에 이름을 새겼다.`;
+  else if (basePath==='retreat') t6 = `선죽교의 비보를 들은 <strong>${studentName}</strong>은 말없이 짐을 꾸렸다. 두문동 깊은 산속으로 들어가 두 번 다시 세상에 나오지 않았다. 그러나 그의 이름은 지워지지 않았다.`;
+  else t6 = `선죽교의 핏빛이 채 마르기도 전에 <strong>${studentName}</strong>도 따라갔다. 살아남는 것보다 절의를 지키는 것을 택한 그의 이름은 훗날 오백 년 사림의 정신이 되었다.`;
 
-  return [`<p>${oLabel}으로 태어나 ${aLabel}의 길을 걷고자 했던 선비, <strong>${charName}</strong>의 이야기다.</p>`,
+  return [`<p>${oLabel}으로 태어나 ${aLabel}의 길을 걷고자 했던 선비, <strong>${studentName}</strong>의 이야기다.</p>`,
     t1?`<p>${t1}</p>`:'', t2?`<p>${t2}</p>`:'', t3?`<p>${t3}</p>`:'',
     t4?`<p>${t4}</p>`:'', t5?`<p>${t5}</p>`:'', `<p>${t6}</p>`
   ].filter(Boolean).join('\n');
@@ -1379,13 +1331,13 @@ function buildCreditsContent() {
 
   document.getElementById('credits-wrapper').innerHTML = `
     <div class="credits-label">亂世의 士大夫</div>
-    <div class="credits-title-big">${charName}의 이야기</div>
+    <div class="credits-title-big">${studentName}의 이야기</div>
     <div class="credits-line"></div>
     <div class="credits-section">
       <div class="credits-section-title">▪ 나의 인물</div>
       <div style="font-size:13px;color:rgba(245,240,228,0.6);text-align:center;line-height:2;font-family:'Noto Sans KR';">
         ${escapeHtml(studentName)} (${escapeHtml(studentId)})<br>
-        호(號): ${charName} · ${oLabel} · ${aLabel}
+        ${oLabel} · ${aLabel}
       </div>
     </div>
     <div class="credits-section">
@@ -1453,19 +1405,14 @@ window.skipCredits = function() {
 /* ★ 크레딧 → 인물 설정 (다시 하기) */
 window.goSetupFromCredits = function() {
   // 학생 정보는 유지, 게임 진행 상태만 초기화
-  origin = null; align = null; charName = '';
+  origin = null; align = null;
   fame = 5; loyalty = 5; study = 5; survive = 10;
   choiceLog = []; currentScene = 0; endingKey = null; lastAct = 0;
 
   // UI 초기화
-  document.getElementById('char-name').value = '';
   document.querySelectorAll('.choice-card').forEach(c => c.classList.remove('selected'));
   document.getElementById('setup-next-btn').disabled = true;
   document.getElementById('setup-progress').style.width = '0%';
-  document.getElementById('name-hint').textContent = '한글 또는 한자 2~3글자. 자음만/특수문자 사용 불가.';
-  document.getElementById('name-hint').className = 'name-hint';
-  document.getElementById('name-hint').style.color = '';
-  document.getElementById('char-name').classList.remove('error');
   document.getElementById('story-progress').style.width = '0%';
 
   // 크레딧 애니메이션 리셋
@@ -1495,9 +1442,20 @@ window.goReflection = function() {
       max: 600, excludeSpaces: true,
       format: (n, m) => n >= 50 ? `${n}자 ✓ (공백 제외)` : `${n} / 50자 이상 (공백 제외)`
     });
-    ta.addEventListener('input', saveState);
+    ta.addEventListener('input', () => {
+      reflectionDirty = ta.value.trim().length > 0;
+      saveState();
+    });
+    // ★ 복사/붙여넣기 금지
+    ['copy','cut','paste'].forEach(evt => {
+      ta.addEventListener(evt, (e) => {
+        e.preventDefault();
+        showToast('복사/붙여넣기는 사용할 수 없습니다. 직접 작성해주세요.', 'error');
+      });
+    });
     ta._counterMounted = true;
   }
+  reflectionDirty = ta.value.trim().length > 0;
 };
 
 window.submitReflection = function() {
@@ -1511,15 +1469,17 @@ window.submitReflection = function() {
     showToast('과도한 띄어쓰기가 감지되었습니다.', 'error'); return;
   }
   saveResult(text);
+  reflectionDirty = false;
   document.getElementById('reflection-form-area').style.display = 'none';
   document.getElementById('reflection-done').style.display = 'block';
   showToast('소감이 제출되었습니다.');
 };
 
 window.restartGame = function() {
-  studentId=null; studentName=''; charName=''; origin=null; align=null;
+  studentId=null; studentName=''; origin=null; align=null;
   fame=5; loyalty=5; study=5; survive=10;
   choiceLog=[]; currentScene=0; endingKey=null; lastAct=0;
+  reflectionDirty = false;
   currentScreen = 'login-screen'; clearState();
   document.getElementById('login-id').value = '';
   document.getElementById('login-name-input').value = '';
@@ -1528,7 +1488,6 @@ window.restartGame = function() {
   document.getElementById('login-id-msg').className = 'login-name-display';
   document.getElementById('login-name-display').innerHTML = '';
   document.getElementById('login-name-display').className = 'login-name-display';
-  document.getElementById('char-name').value = '';
   document.getElementById('reflection-text').value = '';
   document.getElementById('reflection-form-area').style.display = 'block';
   document.getElementById('reflection-done').style.display = 'none';
@@ -1537,9 +1496,6 @@ window.restartGame = function() {
   document.getElementById('setup-progress').style.width = '0%';
   document.getElementById('story-progress').style.width = '0%';
   document.getElementById('title-student-info').textContent = '';
-  document.getElementById('name-hint').textContent = '한글 또는 한자 2~3글자. 자음만/특수문자 사용 불가.';
-  document.getElementById('name-hint').className = 'name-hint';
-  document.getElementById('name-hint').style.color = '';
   showScreen('login-screen');
 };
 
@@ -1547,7 +1503,7 @@ async function saveResult(reflectionText) {
   try {
     const now = new Date(), pad = n => String(n).padStart(2,'0');
     await set(push(ref(db,'goryeo_results')), {
-      studentId, studentName, charName,
+      studentId, studentName,
       origin: origin==='rural'?'향리 출신':'중소귀족 출신',
       align: align==='reform'?'온건개혁파':'급진혁명파',
       ending: endingKey, endingTitle: ENDINGS[endingKey].title,
@@ -1600,6 +1556,12 @@ window.addEventListener('popstate', (e) => {
     try { history.pushState({ appScreen: currentScreen }, ''); } catch(err) {}
     return;
   }
+  // ★ 소감 작성 중 이탈 방지
+  if (isReflectionActive() && reflectionDirty && target !== 'reflection-screen') {
+    try { history.pushState({ appScreen: 'reflection-screen' }, ''); } catch(err) {}
+    showToast('소감 작성 중입니다. 작성을 마치고 제출해주세요.', 'error');
+    return;
+  }
   __navByPopState = true;
   // 로그인 화면으로 돌아가는 경우 사용자 정보 정리
   if (target === 'login-screen' && currentScreen !== 'login-screen') {
@@ -1611,6 +1573,27 @@ window.addEventListener('popstate', (e) => {
   showScreen(target);
   __navByPopState = false;
 });
+
+// ★ 소감 작성 중 하단 링크(관리자/허브/연락)로 이탈 방지
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('a[href]');
+  if (!a) return;
+  if (isReflectionActive() && reflectionDirty) {
+    e.preventDefault();
+    showToast('소감 작성 중입니다. 작성을 마치고 제출해주세요.', 'error');
+  }
+}, true);
+
+// ★ 소감 작성 중 탭 닫기/새로고침 경고
+window.addEventListener('beforeunload', (e) => {
+  if (isReflectionActive() && reflectionDirty) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+// ★ 우클릭 메뉴 차단
+document.addEventListener('contextmenu', (e) => e.preventDefault());
 </script>
 <div style="display:flex;justify-content:center;gap:28px;margin-top:48px;padding-bottom:8px;">
   <a href="admin.html" style="display:flex;flex-direction:column;align-items:center;gap:3px;text-decoration:none;color:#9ca3af;font-size:10px;"><span style="font-size:20px;">🔑</span>관리자</a>
