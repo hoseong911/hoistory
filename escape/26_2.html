@@ -361,6 +361,11 @@ body{
 .nav-jump-btn:hover{background:var(--point-color);border-color:var(--point-color);}
 .nav-jump-btn.current{background:var(--point-border);border-color:var(--point-border);cursor:default;}
 @media(max-width:600px){.nav-modal{padding:1rem .5rem;}.nav-ep-btn{padding:.8rem 1rem;}}
+/* 공통1 — 문제 영역 중앙 정렬 (발문·대화 부분 제외) */
+.blank-row{justify-content:center;}
+.kw-grid{justify-content:center;}
+.sim-choices{max-width:600px;margin:0 auto;}
+.elim-list{max-width:660px;margin:0 auto;}
 </style>
 </head>
 <body>
@@ -1522,13 +1527,7 @@ function initStageBlock(type, data, stageNum) {
       const n = i + 1;
       const el = document.getElementById(`${pfx}dbBlank${n}`);
       if (!el) return;
-      el.addEventListener('input', () => {
-        if (normalize(el.value.trim()) === normalize(String(ans))) {
-          el.classList.add('db-correct');
-        } else {
-          el.classList.remove('db-correct');
-        }
-      });
+      el.addEventListener('input', () => {});
     });
   }
 }
@@ -2029,23 +2028,6 @@ function renderDbSeqSection(pfx, data, dbsKey, idx) {
     <button class="dbseq-next" onclick="submitDbSeq('${pfx}','${dbsKey}',${idx})">${idx < sections.length - 1 ? '다음 장면' : '완료'}</button>
     <div class="dbseq-fb" id="${pfx}dbsFb${idx}"></div>`;
   area.appendChild(wrap);
-  /* 정답 입력 시 즉시 자동 표시 */
-  wrap.querySelectorAll('.dialog-blank').forEach(input => {
-    const n = parseInt(input.dataset.n);
-    const ans = sec.answers[n - 1];
-    input.addEventListener('input', () => {
-      if (normalize(input.value.trim()) === normalize(String(ans))) {
-        input.classList.add('db-correct');
-        const allDone = sec.answers.every((a, i) => {
-          const el = document.getElementById(`${pfx}dbs${idx}_${i + 1}`);
-          return el && normalize(el.value.trim()) === normalize(String(a));
-        });
-        if (allDone) setTimeout(() => submitDbSeq(pfx, dbsKey, idx), 400);
-      } else {
-        input.classList.remove('db-correct');
-      }
-    });
-  });
   setTimeout(() => { wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
 }
 window.submitDbSeq = function(pfx, dbsKey, idx) {
