@@ -85,6 +85,13 @@
   .ep-sub-panel { display: none; }
   .ep-sub-panel.active { display: block; }
 
+  /* ── 미제출자 ── */
+  .stat-chip-btn { cursor: pointer; }
+  .stat-chip-btn:hover { background: var(--hi-bg-hover, #f0f0f0); }
+  .not-submitted-list { display: flex; flex-wrap: wrap; gap: .4rem; padding: .6rem .2rem .4rem; }
+  .not-submitted-list.empty { color: var(--hi-text-muted); font-size: .85rem; padding: .5rem .2rem; }
+  .ns-tag { background: var(--hi-bg-mid); border: 1px solid var(--hi-border); border-radius: 6px; padding: .25rem .55rem; font-size: .8rem; color: var(--hi-text); }
+
   /* ── CLASS 카드 ── */
   .class-card { background: var(--hi-bg-surface); border: 1px solid var(--hi-border); border-radius: 10px; padding: 1rem 1.1rem; }
   .class-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .4rem; flex-wrap: wrap; gap: .4rem; }
@@ -269,6 +276,7 @@
     </div>
     <div class="admin-container">
       <div class="stat-grid" id="classStats" style="grid-template-columns:repeat(2,1fr);"></div>
+      <div id="classNotSubmitted" style="display:none;"></div>
       <div class="sort-bar">
         <div class="sort-box">
           <button class="sort-btn active" id="classSortNewest" onclick="setClassSort('newest',this)">최신순</button>
@@ -284,10 +292,6 @@
   <!-- ── SETTING ── -->
   <div class="panel-section" id="panel-setting">
     <div class="admin-container">
-      <div class="stat-grid" style="grid-template-columns:repeat(1,1fr); margin-bottom:20px;">
-        <div class="stat-chip"><span class="stat-num accent" id="settClasses">-</span><div class="stat-lbl">참여 반</div></div>
-      </div>
-
       <div class="panel">
         <h3>소감 내보내기</h3>
         <p>학생 완료 현황과 소감을 CSV 파일로 다운로드합니다.</p>
@@ -336,6 +340,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -346,10 +351,31 @@ const firebaseConfig = {
   messagingSenderId: "994509567071",
   appId: "1:994509567071:web:de99e71c125ec2a3f557ea"
 };
-const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+const app  = initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const rtdb = getDatabase(app);
 
-let settings = {}, reflections = [], epList = [], editingEpId = null; // epList는 SEED 삽입 후 레거시 참조용
+let settings = {}, reflections = [], epList = [], editingEpId = null;
+let studentMap = {}; // { studentId: studentName }
+let _rosterPromise = null;
+
+function loadRoster() {
+  if (!_rosterPromise) {
+    _rosterPromise = (async () => {
+      try {
+        const snap = await get(ref(rtdb, 'students'));
+        const data = snap.val() || {};
+        Object.values(data).forEach(s => {
+          if (!s) return;
+          const sid = String(s.id || s.studentId || '').trim();
+          const sname = String(s.name || s.studentName || '').trim();
+          if (sid) studentMap[sid] = sname;
+        });
+      } catch(e) {}
+    })();
+  }
+  return _rosterPromise;
+}
 const DEFAULT_PW = 'ghtjd12!@';
 let adminPw = DEFAULT_PW;
 
@@ -389,8 +415,8 @@ window.switchTab = function(name, btn) {
   if (btn) btn.classList.add('active');
   document.querySelectorAll('.panel-section').forEach(p => p.classList.remove('active'));
   document.getElementById(`panel-${name}`).classList.add('active');
-  if (name === 'class' && !classLoaded) { classLoaded = true; loadAllReflections().then(() => renderClassList()); }
-  if (name === 'setting' && !settingLoaded) { settingLoaded = true; loadAllReflections().then(() => renderSettingStats()); }
+  if (name === 'class' && !classLoaded) { classLoaded = true; Promise.all([loadAllReflections(), loadRoster()]).then(() => renderClassList()); }
+  if (name === 'setting' && !settingLoaded) { settingLoaded = true; }
 };
 
 /* ─── 에피소드 서브탭 ─── */
@@ -439,6 +465,10 @@ window.switchClassTab = function(num, btn) {
   if (btn) btn.classList.add('active');
   currentClass = num;
   renderClassList();
+};
+window.toggleNotSubmitted = function() {
+  const el = document.getElementById('classNotSubmitted');
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
 };
 window.setClassSort = function(sort, btn) {
   document.querySelectorAll('#panel-class .sort-btn').forEach(b => b.classList.remove('active'));
@@ -911,21 +941,33 @@ function renderClassList() {
     : reflections.filter(r => getClassNum(r.studentId) === currentClass);
 
   const statsEl = document.getElementById('classStats');
-  if (currentClass === 0) {
-    const classes = new Set(reflections.map(r => getClassNum(r.studentId)).filter(Boolean));
-    statsEl.innerHTML = `
-      <div class="stat-chip"><span class="stat-num">${reflections.length}</span><div class="stat-lbl">총 제출</div></div>
-      <div class="stat-chip"><span class="stat-num accent">${classes.size ? classes.size+'개' : '-'}</span><div class="stat-lbl">참여 반</div></div>`;
+  const notSubmittedEl = document.getElementById('classNotSubmitted');
+
+  // 반에 해당하는 전체 학생 목록 (roster 기준)
+  const rosterEntries = Object.entries(studentMap).filter(([sid]) =>
+    currentClass === 0 ? true : getClassNum(sid) === currentClass
+  );
+  const totalCount = rosterEntries.length;
+
+  // 제출한 학번 집합
+  const submittedIds = new Set(filtered.map(r => String(r.studentId)));
+
+  // 미제출자 목록
+  const notSubmitted = rosterEntries
+    .filter(([sid]) => !submittedIds.has(String(sid)))
+    .sort(([a],[b]) => String(a).localeCompare(String(b)));
+
+  const label = currentClass === 0 ? '전체 인원' : `${currentClass}반 인원`;
+  statsEl.innerHTML = `
+    <div class="stat-chip"><span class="stat-num">${filtered.length}${totalCount ? ' / '+totalCount : ''}</span><div class="stat-lbl">제출 / ${label}</div></div>
+    <div class="stat-chip stat-chip-btn" onclick="toggleNotSubmitted()" title="미제출자 명단 보기"><span class="stat-num">${notSubmitted.length}</span><div class="stat-lbl">미제출자</div></div>`;
+
+  if (notSubmitted.length) {
+    notSubmittedEl.innerHTML = `<div class="not-submitted-list">${notSubmitted.map(([sid,name])=>`<span class="ns-tag">${sid} ${name}</span>`).join('')}</div>`;
   } else {
-    const latest = filtered.reduce((acc, r) => {
-      const t = r.createdAt?.toMillis?.() || 0;
-      return t > acc ? t : acc;
-    }, 0);
-    const latestStr = latest ? new Date(latest).toLocaleString('ko-KR', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '-';
-    statsEl.innerHTML = `
-      <div class="stat-chip"><span class="stat-num">${filtered.length}</span><div class="stat-lbl">${currentClass}반 제출</div></div>
-      <div class="stat-chip"><span class="stat-num" style="font-size:.95rem;">${latestStr}</span><div class="stat-lbl">최근 제출</div></div>`;
+    notSubmittedEl.innerHTML = '<div class="not-submitted-list empty">미제출자 없음</div>';
   }
+  notSubmittedEl.style.display = 'none';
 
   const sorted = [...filtered].sort((a,b) => {
     if (classSort === 'newest') return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
@@ -945,12 +987,6 @@ function renderClassList() {
       <div class="class-card-body">${body}</div>
     </div>`;
   }).join('')}</div>`;
-}
-
-/* ─── SETTING 통계 ─── */
-function renderSettingStats() {
-  const classes = new Set(reflections.map(r => getClassNum(r.studentId)).filter(Boolean));
-  document.getElementById('settClasses').textContent = classes.size ? `${classes.size}개` : '-';
 }
 
 window.exportCSV = function() {
@@ -981,7 +1017,6 @@ window.resetAllReflections = async function() {
     reflections = [];
     _reflPromise = null; // 캐시 무효화
     showToast('초기화 완료', 'success');
-    renderSettingStats();
   } catch(e) { showToast('초기화 실패: '+e.message); }
 };
 
