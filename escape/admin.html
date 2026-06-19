@@ -268,10 +268,7 @@
       <button class="sub-tab" onclick="switchClassTab(6,this)">6반</button>
     </div>
     <div class="admin-container">
-      <div class="stat-grid" style="grid-template-columns:repeat(2,1fr);">
-        <div class="stat-chip"><span class="stat-num" id="stTotal">-</span><div class="stat-lbl">제출</div></div>
-        <div class="stat-chip"><span class="stat-num green" id="stClassLabel">-</span><div class="stat-lbl">반</div></div>
-      </div>
+      <div class="stat-grid" id="classStats" style="grid-template-columns:repeat(2,1fr);"></div>
       <div class="sort-bar">
         <div class="sort-box">
           <button class="sort-btn active" id="classSortNewest" onclick="setClassSort('newest',this)">최신순</button>
@@ -913,8 +910,22 @@ function renderClassList() {
     ? reflections
     : reflections.filter(r => getClassNum(r.studentId) === currentClass);
 
-  document.getElementById('stTotal').textContent = filtered.length;
-  document.getElementById('stClassLabel').textContent = currentClass === 0 ? '전체' : `${currentClass}반`;
+  const statsEl = document.getElementById('classStats');
+  if (currentClass === 0) {
+    const classes = new Set(reflections.map(r => getClassNum(r.studentId)).filter(Boolean));
+    statsEl.innerHTML = `
+      <div class="stat-chip"><span class="stat-num">${reflections.length}</span><div class="stat-lbl">총 제출</div></div>
+      <div class="stat-chip"><span class="stat-num accent">${classes.size ? classes.size+'개' : '-'}</span><div class="stat-lbl">참여 반</div></div>`;
+  } else {
+    const latest = filtered.reduce((acc, r) => {
+      const t = r.createdAt?.toMillis?.() || 0;
+      return t > acc ? t : acc;
+    }, 0);
+    const latestStr = latest ? new Date(latest).toLocaleString('ko-KR', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) : '-';
+    statsEl.innerHTML = `
+      <div class="stat-chip"><span class="stat-num">${filtered.length}</span><div class="stat-lbl">${currentClass}반 제출</div></div>
+      <div class="stat-chip"><span class="stat-num" style="font-size:.95rem;">${latestStr}</span><div class="stat-lbl">최근 제출</div></div>`;
+  }
 
   const sorted = [...filtered].sort((a,b) => {
     if (classSort === 'newest') return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
