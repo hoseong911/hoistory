@@ -73,7 +73,6 @@
   .ref-card{background:var(--hi-bg-surface);border:1px solid var(--hi-border);border-radius:10px;padding:1.1rem;}
   .ref-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem;flex-wrap:wrap;gap:.4rem;}
   .ref-name{font-weight:700;color:var(--hi-accent);font-size:.9rem;}
-  .ref-score{font-size:.78rem;color:var(--hi-text-muted);font-weight:700;}
   .ref-time{font-size:.74rem;color:var(--hi-text-muted);}
   .ref-body{font-style:italic;line-height:1.8;color:var(--hi-text-soft);border-left:3px solid var(--hi-border);padding-left:.8rem;margin-top:.4rem;}
 
@@ -90,7 +89,6 @@
   .class-card { background: var(--hi-bg-surface); border: 1px solid var(--hi-border); border-radius: 10px; padding: 1rem 1.1rem; }
   .class-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .4rem; flex-wrap: wrap; gap: .4rem; }
   .class-card-id { font-weight: 700; color: var(--hi-accent); font-size: .88rem; }
-  .class-card-score { font-size: .78rem; color: var(--hi-text-muted); font-weight: 700; }
   .class-card-time { font-size: .74rem; color: var(--hi-text-muted); }
   .class-card-body { font-size: .85rem; line-height: 1.7; color: var(--hi-text-soft); border-left: 3px solid var(--hi-border); padding-left: .8rem; margin-top: .5rem; }
   .class-list { display: flex; flex-direction: column; gap: .8rem; }
@@ -261,7 +259,8 @@
   <!-- ── CLASS ── -->
   <div class="panel-section" id="panel-class">
     <div class="sub-tabs">
-      <button class="sub-tab active" onclick="switchClassTab(1,this)">1반</button>
+      <button class="sub-tab active" onclick="switchClassTab(0,this)">전체</button>
+      <button class="sub-tab" onclick="switchClassTab(1,this)">1반</button>
       <button class="sub-tab" onclick="switchClassTab(2,this)">2반</button>
       <button class="sub-tab" onclick="switchClassTab(3,this)">3반</button>
       <button class="sub-tab" onclick="switchClassTab(4,this)">4반</button>
@@ -269,16 +268,13 @@
       <button class="sub-tab" onclick="switchClassTab(6,this)">6반</button>
     </div>
     <div class="admin-container">
-      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);">
+      <div class="stat-grid" style="grid-template-columns:repeat(2,1fr);">
         <div class="stat-chip"><span class="stat-num" id="stTotal">-</span><div class="stat-lbl">제출</div></div>
-        <div class="stat-chip"><span class="stat-num accent" id="stAvgScore">-</span><div class="stat-lbl">평균 점수</div></div>
-        <div class="stat-chip"><span class="stat-num green" id="stMaxScore">-</span><div class="stat-lbl">최고 점수</div></div>
-        <div class="stat-chip"><span class="stat-num" id="stMinScore">-</span><div class="stat-lbl">최저 점수</div></div>
+        <div class="stat-chip"><span class="stat-num green" id="stClassLabel">-</span><div class="stat-lbl">반</div></div>
       </div>
       <div class="sort-bar">
         <div class="sort-box">
           <button class="sort-btn active" id="classSortNewest" onclick="setClassSort('newest',this)">최신순</button>
-          <button class="sort-btn" id="classSortScore" onclick="setClassSort('score',this)">점수순</button>
           <button class="sort-btn" id="classSortId" onclick="setClassSort('id',this)">학번순</button>
         </div>
       </div>
@@ -291,10 +287,9 @@
   <!-- ── SETTING ── -->
   <div class="panel-section" id="panel-setting">
     <div class="admin-container">
-      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr); margin-bottom:20px;">
+      <div class="stat-grid" style="grid-template-columns:repeat(2,1fr); margin-bottom:20px;">
         <div class="stat-chip"><span class="stat-num" id="settTotal">-</span><div class="stat-lbl">총 제출</div></div>
-        <div class="stat-chip"><span class="stat-num accent" id="settAvg">-</span><div class="stat-lbl">평균 점수</div></div>
-        <div class="stat-chip"><span class="stat-num green" id="settMax">-</span><div class="stat-lbl">최고 점수</div></div>
+        <div class="stat-chip"><span class="stat-num accent" id="settClasses">-</span><div class="stat-lbl">참여 반</div></div>
       </div>
 
       <div class="panel">
@@ -442,7 +437,7 @@ function fillEpForm(ep) {
 }
 
 /* ─── CLASS 서브탭 ─── */
-let currentClass = 1, classSort = 'newest';
+let currentClass = 0, classSort = 'newest';
 window.switchClassTab = function(num, btn) {
   document.querySelectorAll('#panel-class .sub-tab').forEach(t => t.classList.remove('active'));
   if (btn) btn.classList.add('active');
@@ -909,28 +904,26 @@ function getClassNum(sid) {
 }
 
 function renderClassList() {
-  const filtered = reflections.filter(r => getClassNum(r.studentId) === currentClass);
-  const scores = filtered.map(r => r.score || 0);
+  const filtered = currentClass === 0
+    ? reflections
+    : reflections.filter(r => getClassNum(r.studentId) === currentClass);
+
   document.getElementById('stTotal').textContent = filtered.length;
-  document.getElementById('stAvgScore').textContent = scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : '-';
-  document.getElementById('stMaxScore').textContent = scores.length ? Math.max(...scores)+'/10' : '-';
-  document.getElementById('stMinScore').textContent = scores.length ? Math.min(...scores)+'/10' : '-';
+  document.getElementById('stClassLabel').textContent = currentClass === 0 ? '전체' : `${currentClass}반`;
 
   const sorted = [...filtered].sort((a,b) => {
     if (classSort === 'newest') return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
-    if (classSort === 'score') return (b.score||0) - (a.score||0);
     return String(a.studentId||'').localeCompare(String(b.studentId||''));
   });
 
   const el = document.getElementById('classList');
-  if (!sorted.length) { el.innerHTML = '<div class="empty">이 반의 제출 내역이 없습니다.</div>'; return; }
+  if (!sorted.length) { el.innerHTML = '<div class="empty">제출 내역이 없습니다.</div>'; return; }
   el.innerHTML = `<div class="class-list">${sorted.map(r => {
     const ts = r.createdAt?.toDate?.()?.toLocaleString('ko-KR') || '';
     const body = String(r.reflection||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
     return `<div class="class-card">
       <div class="class-card-header">
         <span class="class-card-id">${r.studentId} ${r.studentName||''}</span>
-        <span class="class-card-score">보물 ${r.score||0}/10</span>
         <span class="class-card-time">${ts}</span>
       </div>
       <div class="class-card-body">${body}</div>
@@ -940,10 +933,9 @@ function renderClassList() {
 
 /* ─── SETTING 통계 ─── */
 function renderSettingStats() {
-  const scores = reflections.map(r => r.score || 0);
+  const classes = new Set(reflections.map(r => getClassNum(r.studentId)).filter(Boolean));
   document.getElementById('settTotal').textContent = reflections.length;
-  document.getElementById('settAvg').textContent = scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : '-';
-  document.getElementById('settMax').textContent = scores.length ? Math.max(...scores)+'/10' : '-';
+  document.getElementById('settClasses').textContent = classes.size ? `${classes.size}개` : '-';
 }
 
 window.exportCSV = function() {
@@ -951,10 +943,10 @@ window.exportCSV = function() {
   const cls = document.getElementById('exportClass').value;
   const data = cls === 'all' ? reflections : reflections.filter(r => getClassNum(r.studentId) === parseInt(cls));
   if (!data.length) { showToast('해당 반 데이터가 없습니다.'); return; }
-  const rows = [['학번','이름','점수','소감','제출 시간']];
+  const rows = [['학번','이름','소감','제출 시간']];
   data.forEach(r => {
     const ts = r.createdAt?.toDate?.()?.toLocaleString('ko-KR') || '';
-    rows.push([r.studentId||'', r.studentName||'', r.score||0, (r.reflection||'').replace(/\n/g,' '), ts]);
+    rows.push([r.studentId||'', r.studentName||'', (r.reflection||'').replace(/\n/g,' '), ts]);
   });
   const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const blob = new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
