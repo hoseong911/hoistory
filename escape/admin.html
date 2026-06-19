@@ -141,6 +141,14 @@ input[type=text]:focus,input[type=password]:focus,textarea:focus{outline:none;bo
               <button class="btn btn-sm btn-danger" onclick="closeEpEdit()">✕ 닫기</button>
             </div>
           </div>
+          <div style="display:grid;grid-template-columns:2fr 1fr;gap:.8rem;">
+            <div class="field"><label>에피소드 제목</label><input type="text" id="ef_title"></div>
+            <div class="field"><label>부제 (시대)</label><input type="text" id="ef_subtitle"></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 2fr;gap:.8rem;">
+            <div class="field"><label>보물 이름</label><input type="text" id="ef_treasureName"></div>
+            <div class="field"><label>보물 설명</label><input type="text" id="ef_treasureDesc"></div>
+          </div>
           <div class="field">
             <label>스토리</label>
             <div class="fmt-bar">
@@ -171,14 +179,6 @@ input[type=text]:focus,input[type=password]:focus,textarea:focus{outline:none;bo
               <button class="fmt-btn" onclick="fmtWrap('ef_question','<em>','</em>')">I</button>
             </div>
             <textarea id="ef_question" rows="2"></textarea>
-          </div>
-          <div class="field">
-            <label>힌트</label>
-            <div class="fmt-bar">
-              <button class="fmt-btn" onclick="fmtWrap('ef_hint','<strong>','</strong>')">B</button>
-              <button class="fmt-btn" onclick="fmtWrap('ef_hint','<em>','</em>')">I</button>
-            </div>
-            <textarea id="ef_hint" rows="2"></textarea>
           </div>
           <div id="epTypeFields"></div>
           <div style="margin-top:1.2rem;padding-top:1rem;border-top:2px solid var(--ink);">
@@ -309,12 +309,15 @@ window.openEpEditor = function(id) {
   renderEpList();
   document.getElementById('epEditEmpty').style.display = 'none';
   document.getElementById('epEditForm').style.display  = 'block';
-  document.getElementById('epEditTitle').textContent   = `에피소드 ${ep.order}: ${ep.title||''}`;
-  document.getElementById('ef_story').value    = ep.story    || '';
-  document.getElementById('ef_speaker').value  = ep.speaker  || '';
-  document.getElementById('ef_dialog').value   = ep.dialog   || '';
-  document.getElementById('ef_question').value = ep.question || '';
-  document.getElementById('ef_hint').value     = ep.hint     || '';
+  document.getElementById('epEditTitle').textContent      = `에피소드 ${ep.order}: ${ep.title||''}`;
+  document.getElementById('ef_title').value         = ep.title        || '';
+  document.getElementById('ef_subtitle').value      = ep.subtitle     || '';
+  document.getElementById('ef_treasureName').value  = ep.treasureName || '';
+  document.getElementById('ef_treasureDesc').value  = ep.treasureDesc || '';
+  document.getElementById('ef_story').value         = ep.story        || '';
+  document.getElementById('ef_speaker').value       = ep.speaker      || '';
+  document.getElementById('ef_dialog').value        = ep.dialog       || '';
+  document.getElementById('ef_question').value      = ep.question     || '';
   document.getElementById('epTypeFields').innerHTML = renderTypeFields(ep);
 };
 
@@ -666,31 +669,29 @@ window.saveEpContent = async function() {
   const ep = epList.find(e => e.id === editingEpId);
   if (!ep) return;
   try {
-    const update = {
-      story:    document.getElementById('ef_story').value.trim(),
-      speaker:  document.getElementById('ef_speaker').value.trim(),
-      dialog:   document.getElementById('ef_dialog').value.trim(),
-      question: document.getElementById('ef_question').value.trim(),
-      hint:     document.getElementById('ef_hint').value.trim()
+    const commonFields = {
+      title:        document.getElementById('ef_title').value.trim(),
+      subtitle:     document.getElementById('ef_subtitle').value.trim(),
+      treasureName: document.getElementById('ef_treasureName').value.trim(),
+      treasureDesc: document.getElementById('ef_treasureDesc').value.trim(),
+      story:        document.getElementById('ef_story').value.trim(),
+      speaker:      document.getElementById('ef_speaker').value.trim(),
+      dialog:       document.getElementById('ef_dialog').value.trim(),
+      question:     document.getElementById('ef_question').value.trim()
     };
+    const update = { ...commonFields };
     if (ep.type === 'twoStage' || ep.type === 'threeStage') {
       update.stage1 = readStageData(ep.stage1Type, ep.stage1, sfx(1));
       update.stage2 = readStageData(ep.stage2Type, ep.stage2, sfx(2));
       if (ep.type === 'threeStage') update.stage3 = readStageData(ep.stage3Type, ep.stage3, sfx(3));
     } else if (['simulate','tapOrder','dragOrder','pairMatch','chatQuiz','fillBlanks'].includes(ep.type)) {
       const d = readStageData(ep.type, ep, '');
-      Object.assign(update, d);
-      delete update.story; delete update.speaker; delete update.dialog; delete update.question; delete update.hint;
-      Object.assign(update, {
-        story: document.getElementById('ef_story').value.trim(),
-        speaker: document.getElementById('ef_speaker').value.trim(),
-        dialog: document.getElementById('ef_dialog').value.trim(),
-        question: document.getElementById('ef_question').value.trim(),
-        hint: document.getElementById('ef_hint').value.trim()
-      });
+      Object.assign(update, d, commonFields);
     }
     await setDoc(doc(db,'escape26_2', editingEpId), update, { merge: true });
     Object.assign(ep, update);
+    document.getElementById('epEditTitle').textContent = `에피소드 ${ep.order}: ${ep.title||''}`;
+    renderEpList();
     showToast('저장되었습니다!', 'success');
   } catch(e) { showToast('저장 실패: '+e.message); }
 };
