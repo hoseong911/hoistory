@@ -81,7 +81,43 @@
   .toast{position:fixed;top:72px;right:20px;background:var(--hi-text);color:#fff;padding:.8rem 1.2rem;border-radius:10px;z-index:9999;font-weight:700;font-size:.85rem;display:none;max-width:300px;line-height:1.5;box-shadow:0 4px 16px rgba(0,0,0,.2);}
   .toast.show{display:block;}.toast.success{background:var(--hi-positive);}
 
-  @media(max-width:720px){.ep-layout{grid-template-columns:1fr;}.ep-list-panel{max-height:220px;overflow-y:auto;}}
+  /* ── EPISODE 넓은 컨테이너 ── */
+  .ep-container { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
+  .ep-sub-panel { display: none; }
+  .ep-sub-panel.active { display: block; }
+
+  /* ── CLASS 카드 ── */
+  .class-card { background: var(--hi-bg-surface); border: 1px solid var(--hi-border); border-radius: 10px; padding: 1rem 1.1rem; }
+  .class-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: .4rem; flex-wrap: wrap; gap: .4rem; }
+  .class-card-id { font-weight: 700; color: var(--hi-accent); font-size: .88rem; }
+  .class-card-score { font-size: .78rem; color: var(--hi-text-muted); font-weight: 700; }
+  .class-card-time { font-size: .74rem; color: var(--hi-text-muted); }
+  .class-card-body { font-size: .85rem; line-height: 1.7; color: var(--hi-text-soft); border-left: 3px solid var(--hi-border); padding-left: .8rem; margin-top: .5rem; }
+  .class-list { display: flex; flex-direction: column; gap: .8rem; }
+  .loading-state { display: flex; align-items: center; gap: 10px; padding: 32px; color: var(--hi-text-muted); font-size: 13px; }
+  .spinner { width: 18px; height: 18px; border: 2px solid var(--hi-border); border-top-color: var(--hi-accent); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── SETTING 패널 hi-btn 스타일 ── */
+  .hi-btn { display: inline-flex; align-items: center; justify-content: center; padding: 10px 18px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; border: 1px solid transparent; transition: .15s; }
+  .hi-btn-primary { background: var(--hi-accent); color: #fff; }
+  .hi-btn-primary:hover { opacity: .88; }
+  .hi-btn-outline { background: none; border-color: var(--hi-border); color: var(--hi-text-soft); }
+  .hi-btn-outline:hover { border-color: var(--hi-text); color: var(--hi-text); }
+  .hi-btn-danger { color: var(--hi-negative); }
+  .hi-btn-sm { padding: 7px 14px; font-size: 12px; }
+  .hi-btn-block { width: 100%; }
+  .form-group { margin-bottom: 14px; }
+  .form-label { display: block; font-size: 11px; font-weight: 800; color: var(--hi-text-muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .pw-msg { font-size: 12px; font-weight: 700; margin-top: 10px; min-height: 18px; }
+  .pw-msg.ok { color: var(--hi-positive); }
+  .pw-msg.err { color: var(--hi-negative); }
+
+  /* ── filter-select ── */
+  .filter-select { padding: 8px 12px; border: 1px solid var(--hi-border); border-radius: 8px; font-size: 13px; font-family: inherit; background: var(--hi-bg-surface); color: var(--hi-text); cursor: pointer; outline: none; }
+  .filter-select:focus { border-color: var(--hi-accent); }
+
+  @media(max-width:720px){.ep-layout{grid-template-columns:1fr;}}
   @media(max-width:480px){.section{padding:1rem;}.btn{padding:.55rem .8rem;}}
 </style>
 <script>if(window.self!==window.top)document.documentElement.classList.add('in-iframe');</script>
@@ -117,119 +153,189 @@
   </header>
 
   <div class="main-tabs">
-    <button class="main-tab active" onclick="switchTab('settings',this)">게임 설정</button>
-    <button class="main-tab" onclick="switchTab('episodes',this)">에피소드 편집</button>
-    <button class="main-tab" onclick="switchTab('reflections',this)">소감 목록</button>
+    <button class="main-tab active" onclick="switchTab('episode',this)">EPISODE</button>
+    <button class="main-tab" onclick="switchTab('class',this)">CLASS</button>
+    <button class="main-tab" onclick="switchTab('setting',this)">SETTING</button>
   </div>
 
-  <!-- ── 게임 설정 ── -->
-  <div class="panel-section active" id="panel-settings">
-    <div class="admin-container">
-    <div class="info">
-      <strong>시드 데이터 강제 삽입</strong> — 에피소드 10개와 게임 설정을 Firestore에 삽입합니다.<br>
-      기존 데이터를 <strong>덮어씁니다</strong> (ep_1 ~ ep_10 문서 ID로 setDoc 방식).
+  <!-- ── EPISODE ── -->
+  <div class="panel-section active" id="panel-episode">
+    <div class="sub-tabs" id="epSubTabs">
+      <button class="sub-tab active" onclick="switchEpTab('prologue',this)">프롤로그</button>
+      <button class="sub-tab" onclick="switchEpTab('ep_1',this)">1</button>
+      <button class="sub-tab" onclick="switchEpTab('ep_2',this)">2</button>
+      <button class="sub-tab" onclick="switchEpTab('ep_3',this)">3</button>
+      <button class="sub-tab" onclick="switchEpTab('ep_4',this)">4</button>
+      <button class="sub-tab" onclick="switchEpTab('ep_5',this)">5</button>
+      <button class="sub-tab" onclick="switchEpTab('ep_6',this)">6</button>
+      <button class="sub-tab" onclick="switchEpTab('ep_7',this)">7</button>
+      <button class="sub-tab" onclick="switchEpTab('ep_8',this)">8</button>
+      <button class="sub-tab" onclick="switchEpTab('ep_9',this)">9</button>
+      <button class="sub-tab" onclick="switchEpTab('ep_10',this)">10</button>
+      <button class="sub-tab" onclick="switchEpTab('ending',this)">엔딩</button>
     </div>
-    <div style="margin-bottom:2rem;">
-      <button class="btn btn-seed" onclick="insertSeedData()">시드 데이터 강제 삽입 (10개, 덮어쓰기)</button>
-    </div>
-    <div class="section">
-      <h3>게임 텍스트 설정</h3>
-      <div class="field"><label>게임 제목</label><input type="text" id="sGameTitle"></div>
-      <div class="field"><label>게임 부제</label><input type="text" id="sGameSub"></div>
-      <div class="field"><label>인트로 스토리 (줄바꿈으로 문단 구분)</label><textarea id="sIntroStory" rows="6"></textarea></div>
-      <div class="field"><label>엔딩 제목</label><input type="text" id="sEndingTitle"></div>
-      <div class="field"><label>엔딩 부제</label><input type="text" id="sEndingSub"></div>
-      <div class="field"><label>엔딩 메시지 (줄바꿈으로 문단 구분)</label><textarea id="sEndingMsg" rows="5"></textarea></div>
-      <div class="field"><label>소감 작성 안내 문구</label><input type="text" id="sReflectionPrompt"></div>
-      <div class="field"><label>관리자 비밀번호 변경 (비어있으면 변경 안 함)</label><input type="password" id="sNewPw" placeholder="새 비밀번호"></div>
-      <button class="btn" onclick="saveSettings()">설정 저장</button>
-    </div>
-    </div><!-- /.admin-container -->
-  </div>
+    <div class="ep-container">
 
-  <!-- ── 에피소드 편집 ── -->
-  <div class="panel-section" id="panel-episodes">
-    <div class="admin-container">
-    <div class="info">에피소드를 선택하여 스토리, 대사, 문제 지문 등 내용을 편집합니다.</div>
-    <div class="ep-layout">
-      <div class="ep-list-panel">
-        <div class="ep-list-header">
-          <strong>에피소드 목록</strong>
-          <button class="btn btn-sm" onclick="loadEpList()">↻</button>
+      <!-- 프롤로그 -->
+      <div id="eptab-prologue" class="ep-sub-panel active">
+        <div class="section">
+          <h3>프롤로그</h3>
+          <div class="field"><label>게임 제목</label><input type="text" id="sGameTitle"></div>
+          <div class="field"><label>게임 부제</label><input type="text" id="sGameSub"></div>
+          <div class="field"><label>인트로 스토리 (줄바꿈으로 문단 구분)</label><textarea id="sIntroStory" rows="8"></textarea></div>
+          <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="savePrologue()">저장</button>
         </div>
-        <div id="epListItems"><div class="empty">불러오는 중...</div></div>
       </div>
-      <div class="ep-edit-panel">
-        <div class="empty" id="epEditEmpty">에피소드를 선택해 주세요.</div>
-        <div id="epEditForm" style="display:none;">
-          <div class="ep-edit-header">
-            <h3 id="epEditTitle"></h3>
-            <div style="display:flex;gap:.4rem;">
+
+      <!-- 에피소드 1-10 공용 편집 영역 -->
+      <div id="eptab-episode" class="ep-sub-panel">
+        <div id="epLoadingState" class="loading-state"><div class="spinner"></div><span>불러오는 중…</span></div>
+        <div id="epEditArea" style="display:none;">
+          <div class="ep-edit-panel">
+            <div class="ep-edit-header">
+              <h3 id="epEditTitle"></h3>
               <button class="btn btn-sm btn-success" onclick="saveEpContent()">저장</button>
-              <button class="btn btn-sm btn-danger" onclick="closeEpEdit()">닫기</button>
             </div>
-          </div>
-          <div style="display:grid;grid-template-columns:2fr 1fr;gap:.8rem;">
-            <div class="field"><label>에피소드 제목</label><input type="text" id="ef_title"></div>
-            <div class="field"><label>부제 (시대)</label><input type="text" id="ef_subtitle"></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 2fr;gap:.8rem;">
-            <div class="field"><label>보물 이름</label><input type="text" id="ef_treasureName"></div>
-            <div class="field"><label>보물 설명</label><input type="text" id="ef_treasureDesc"></div>
-          </div>
-          <div class="field">
-            <label>스토리</label>
-            <div class="fmt-bar">
-              <button class="fmt-btn" onclick="fmtWrap('ef_story','<strong>','</strong>')">B</button>
-              <button class="fmt-btn" onclick="fmtWrap('ef_story','<em>','</em>')">I</button>
-              <button class="fmt-btn" onclick="fmtWrap('ef_story','<span style=\'font-size:1.2em\'>','</span>')">크게</button>
-              <button class="fmt-btn" onclick="fmtWrap('ef_story','<span style=\'font-size:0.85em\'>','</span>')">작게</button>
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:.8rem;">
+              <div class="field"><label>에피소드 제목</label><input type="text" id="ef_title"></div>
+              <div class="field"><label>부제 (시대)</label><input type="text" id="ef_subtitle"></div>
             </div>
-            <textarea id="ef_story" rows="5"></textarea>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 2fr;gap:.8rem;">
-            <div class="field"><label>말하는 사람</label><input type="text" id="ef_speaker"></div>
+            <div style="display:grid;grid-template-columns:1fr 2fr;gap:.8rem;">
+              <div class="field"><label>보물 이름</label><input type="text" id="ef_treasureName"></div>
+              <div class="field"><label>보물 설명</label><input type="text" id="ef_treasureDesc"></div>
+            </div>
             <div class="field">
-              <label>말하는 내용 (대사)</label>
+              <label>스토리</label>
               <div class="fmt-bar">
-                <button class="fmt-btn" onclick="fmtWrap('ef_dialog','<strong>','</strong>')">B</button>
-                <button class="fmt-btn" onclick="fmtWrap('ef_dialog','<em>','</em>')">I</button>
-                <button class="fmt-btn" onclick="fmtWrap('ef_dialog','<span style=\'font-size:1.2em\'>','</span>')">크게</button>
-                <button class="fmt-btn" onclick="fmtWrap('ef_dialog','<span style=\'font-size:0.85em\'>','</span>')">작게</button>
+                <button class="fmt-btn" onclick="fmtWrap('ef_story','<strong>','</strong>')">B</button>
+                <button class="fmt-btn" onclick="fmtWrap('ef_story','<em>','</em>')">I</button>
+                <button class="fmt-btn" onclick="fmtWrap('ef_story','<span style=\'font-size:1.2em\'>','</span>')">크게</button>
+                <button class="fmt-btn" onclick="fmtWrap('ef_story','<span style=\'font-size:0.85em\'>','</span>')">작게</button>
               </div>
-              <textarea id="ef_dialog" rows="3"></textarea>
+              <textarea id="ef_story" rows="5"></textarea>
             </div>
-          </div>
-          <div class="field">
-            <label>문제 지문</label>
-            <div class="fmt-bar">
-              <button class="fmt-btn" onclick="fmtWrap('ef_question','<strong>','</strong>')">B</button>
-              <button class="fmt-btn" onclick="fmtWrap('ef_question','<em>','</em>')">I</button>
+            <div style="display:grid;grid-template-columns:1fr 2fr;gap:.8rem;">
+              <div class="field"><label>말하는 사람</label><input type="text" id="ef_speaker"></div>
+              <div class="field">
+                <label>말하는 내용 (대사)</label>
+                <div class="fmt-bar">
+                  <button class="fmt-btn" onclick="fmtWrap('ef_dialog','<strong>','</strong>')">B</button>
+                  <button class="fmt-btn" onclick="fmtWrap('ef_dialog','<em>','</em>')">I</button>
+                  <button class="fmt-btn" onclick="fmtWrap('ef_dialog','<span style=\'font-size:1.2em\'>','</span>')">크게</button>
+                  <button class="fmt-btn" onclick="fmtWrap('ef_dialog','<span style=\'font-size:0.85em\'>','</span>')">작게</button>
+                </div>
+                <textarea id="ef_dialog" rows="3"></textarea>
+              </div>
             </div>
-            <textarea id="ef_question" rows="2"></textarea>
-          </div>
-          <div id="epTypeFields"></div>
-          <div style="margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--hi-border);">
-            <button class="btn" onclick="saveEpContent()">저장하기</button>
+            <div class="field">
+              <label>문제 지문</label>
+              <div class="fmt-bar">
+                <button class="fmt-btn" onclick="fmtWrap('ef_question','<strong>','</strong>')">B</button>
+                <button class="fmt-btn" onclick="fmtWrap('ef_question','<em>','</em>')">I</button>
+              </div>
+              <textarea id="ef_question" rows="2"></textarea>
+            </div>
+            <div id="epTypeFields"></div>
+            <div style="margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--hi-border);">
+              <button class="btn btn-success" onclick="saveEpContent()">저장하기</button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-    </div><!-- /.admin-container -->
+
+      <!-- 엔딩 -->
+      <div id="eptab-ending" class="ep-sub-panel">
+        <div class="section">
+          <h3>엔딩</h3>
+          <div class="field"><label>엔딩 제목</label><input type="text" id="sEndingTitle"></div>
+          <div class="field"><label>엔딩 부제</label><input type="text" id="sEndingSub"></div>
+          <div class="field"><label>엔딩 메시지 (줄바꿈으로 문단 구분)</label><textarea id="sEndingMsg" rows="7"></textarea></div>
+          <div class="field"><label>소감 작성 안내 문구</label><input type="text" id="sReflectionPrompt"></div>
+          <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="saveEnding()">저장</button>
+        </div>
+      </div>
+
+    </div><!-- /.ep-container -->
   </div>
 
-  <!-- ── 소감 목록 ── -->
-  <div class="panel-section" id="panel-reflections">
+  <!-- ── CLASS ── -->
+  <div class="panel-section" id="panel-class">
+    <div class="sub-tabs">
+      <button class="sub-tab active" onclick="switchClassTab(1,this)">1반</button>
+      <button class="sub-tab" onclick="switchClassTab(2,this)">2반</button>
+      <button class="sub-tab" onclick="switchClassTab(3,this)">3반</button>
+      <button class="sub-tab" onclick="switchClassTab(4,this)">4반</button>
+      <button class="sub-tab" onclick="switchClassTab(5,this)">5반</button>
+      <button class="sub-tab" onclick="switchClassTab(6,this)">6반</button>
+    </div>
     <div class="admin-container">
-    <div class="summary-box" id="reflectionSummary"></div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.1rem;flex-wrap:wrap;gap:.5rem;">
-      <strong>소감 목록 (<span id="refCount">0</span>건)</strong>
-      <div style="display:flex;gap:.5rem;">
-        <button class="btn btn-sm" onclick="loadReflections()">새로고침</button>
-        <button class="btn btn-sm" onclick="exportCSV()">CSV 내보내기</button>
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);">
+        <div class="stat-chip"><span class="stat-num" id="stTotal">-</span><div class="stat-lbl">제출</div></div>
+        <div class="stat-chip"><span class="stat-num accent" id="stAvgScore">-</span><div class="stat-lbl">평균 점수</div></div>
+        <div class="stat-chip"><span class="stat-num green" id="stMaxScore">-</span><div class="stat-lbl">최고 점수</div></div>
+        <div class="stat-chip"><span class="stat-num" id="stMinScore">-</span><div class="stat-lbl">최저 점수</div></div>
+      </div>
+      <div class="sort-bar">
+        <div class="sort-box">
+          <button class="sort-btn active" id="classSortNewest" onclick="setClassSort('newest',this)">최신순</button>
+          <button class="sort-btn" id="classSortScore" onclick="setClassSort('score',this)">점수순</button>
+          <button class="sort-btn" id="classSortId" onclick="setClassSort('id',this)">학번순</button>
+        </div>
+      </div>
+      <div id="classList">
+        <div class="loading-state"><div class="spinner"></div><span>불러오는 중…</span></div>
       </div>
     </div>
-    <div class="reflection-list" id="reflectionList"></div>
+  </div>
+
+  <!-- ── SETTING ── -->
+  <div class="panel-section" id="panel-setting">
+    <div class="admin-container">
+      <div class="stat-grid" style="grid-template-columns:repeat(3,1fr); margin-bottom:20px;">
+        <div class="stat-chip"><span class="stat-num" id="settTotal">-</span><div class="stat-lbl">총 제출</div></div>
+        <div class="stat-chip"><span class="stat-num accent" id="settAvg">-</span><div class="stat-lbl">평균 점수</div></div>
+        <div class="stat-chip"><span class="stat-num green" id="settMax">-</span><div class="stat-lbl">최고 점수</div></div>
+      </div>
+
+      <div class="panel">
+        <h3>소감 내보내기</h3>
+        <p>학생 완료 현황과 소감을 CSV 파일로 다운로드합니다.</p>
+        <div class="setting-row">
+          <select class="filter-select" id="exportClass">
+            <option value="all">전체 반</option>
+            <option value="1">1반</option>
+            <option value="2">2반</option>
+            <option value="3">3반</option>
+            <option value="4">4반</option>
+            <option value="5">5반</option>
+            <option value="6">6반</option>
+          </select>
+          <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="exportCSV()">다운로드</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>시드 데이터 삽입</h3>
+        <p>에피소드 10개와 게임 설정을 Firestore에 강제 삽입합니다. 기존 데이터를 덮어씁니다.</p>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="insertSeedData()">시드 데이터 강제 삽입</button>
+      </div>
+
+      <div class="panel">
+        <h3>관리자 비밀번호 변경</h3>
+        <p>다음 로그인 시 즉시 적용됩니다.</p>
+        <div class="form-group">
+          <label class="form-label">새 비밀번호</label>
+          <input type="password" class="hi-input" id="sNewPw" placeholder="새 비밀번호 (6자 이상)">
+        </div>
+        <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="savePassword()">저장</button>
+        <div class="pw-msg" id="pwMsg"></div>
+      </div>
+
+      <div class="panel panel-danger">
+        <h3>위험 구역</h3>
+        <p>아래 기능은 되돌릴 수 없습니다. 신중하게 사용하세요.</p>
+        <button class="hi-btn hi-btn-outline hi-btn-sm hi-btn-danger" onclick="resetAllReflections()">전체 소감 초기화</button>
+      </div>
     </div>
   </div>
 </div>
@@ -238,7 +344,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, doc, getDoc, getDocs, setDoc, addDoc, collection, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getFirestore, doc, getDoc, getDocs, setDoc, deleteDoc, collection, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -252,7 +358,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
 
-let settings = {}, reflections = [], epList = [], editingEpId = null;
+let settings = {}, reflections = [], epList = [], editingEpId = null; // epList는 SEED 삽입 후 레거시 참조용
 const DEFAULT_PW = 'ghtjd12!@';
 let adminPw = DEFAULT_PW;
 
@@ -282,81 +388,46 @@ window.doAdminLogin = async function() {
   }
   sessionStorage.setItem('admin_auth', '1');
   showAdmin();
-  await Promise.all([loadSettings(), loadReflections()]);
+  await loadSettings();
 };
 
-/* ─── 탭 ─── */
-let epListLoaded = false;
+/* ─── 메인 탭 ─── */
+let classLoaded = false, settingLoaded = false;
 window.switchTab = function(name, btn) {
   document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
   if (btn) btn.classList.add('active');
   document.querySelectorAll('.panel-section').forEach(p => p.classList.remove('active'));
   document.getElementById(`panel-${name}`).classList.add('active');
-  if (name === 'episodes' && !epListLoaded) { epListLoaded = true; loadEpList(); }
+  if (name === 'class' && !classLoaded) { classLoaded = true; loadAllReflections().then(() => renderClassList()); }
+  if (name === 'setting' && !settingLoaded) { settingLoaded = true; loadAllReflections().then(() => renderSettingStats()); }
 };
 
-/* ─── 설정 ─── */
-async function loadSettings() {
-  const sDoc = await getDoc(doc(db,'escape26_2_settings','main'));
-  settings = sDoc.exists() ? sDoc.data() : {};
-  document.getElementById('sGameTitle').value        = settings.gameTitle        || '千年의 記憶';
-  document.getElementById('sGameSub').value          = settings.gameSubtitle     || '고 려 의 부 름';
-  document.getElementById('sIntroStory').value       = (settings.introStory      || []).join('\n');
-  document.getElementById('sEndingTitle').value      = settings.endingTitle      || '天 命 完 遂';
-  document.getElementById('sEndingSub').value        = settings.endingSubtitle   || '천 명 완 수';
-  document.getElementById('sEndingMsg').value        = (settings.endingMessage   || []).join('\n');
-  document.getElementById('sReflectionPrompt').value = settings.reflectionPrompt || '이 여정을 마치며 느낀 점을 적어주시오.';
-}
-
-window.saveSettings = async function() {
-  const newPw = document.getElementById('sNewPw').value;
-  const data = {
-    gameTitle:        document.getElementById('sGameTitle').value.trim(),
-    gameSubtitle:     document.getElementById('sGameSub').value.trim(),
-    introStory:       document.getElementById('sIntroStory').value.split('\n').map(s=>s.trim()).filter(Boolean),
-    endingTitle:      document.getElementById('sEndingTitle').value.trim(),
-    endingSubtitle:   document.getElementById('sEndingSub').value.trim(),
-    endingMessage:    document.getElementById('sEndingMsg').value.split('\n').map(s=>s.trim()).filter(Boolean),
-    reflectionPrompt: document.getElementById('sReflectionPrompt').value.trim()
-  };
-  if (newPw) { data.adminPw = newPw; adminPw = newPw; }
-  await setDoc(doc(db,'escape26_2_settings','main'), data, { merge: true });
-  showToast('설정이 저장되었습니다!', 'success');
-};
-
-/* ─── 에피소드 편집 ─── */
-window.loadEpList = async function() {
-  document.getElementById('epListItems').innerHTML = '<div class="empty">불러오는 중...</div>';
-  try {
-    const q = query(collection(db,'escape26_2'), orderBy('order','asc'));
-    const snap = await getDocs(q);
-    epList = [];
-    snap.forEach(d => epList.push({ id: d.id, ...d.data() }));
-    renderEpList();
-  } catch(e) { showToast('에피소드 로드 실패: '+e.message); }
-};
-
-function renderEpList() {
-  const el = document.getElementById('epListItems');
-  if (!epList.length) {
-    el.innerHTML = '<div class="empty">에피소드가 없습니다.<br>씨드 데이터를 삽입해 주세요.</div>';
-    return;
+/* ─── 에피소드 서브탭 ─── */
+let epCache = {};
+window.switchEpTab = async function(name, btn) {
+  document.querySelectorAll('#epSubTabs .sub-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.querySelectorAll('.ep-sub-panel').forEach(p => p.classList.remove('active'));
+  if (name === 'prologue' || name === 'ending') {
+    document.getElementById(`eptab-${name}`).classList.add('active');
+  } else {
+    document.getElementById('eptab-episode').classList.add('active');
+    document.getElementById('epLoadingState').style.display = 'flex';
+    document.getElementById('epEditArea').style.display = 'none';
+    let ep = epCache[name];
+    if (!ep) {
+      try {
+        const d = await getDoc(doc(db,'escape26_2',name));
+        if (d.exists()) ep = epCache[name] = { id: d.id, ...d.data() };
+      } catch(e) { showToast('에피소드 로드 실패: '+e.message); return; }
+    }
+    if (ep) fillEpForm(ep);
   }
-  el.innerHTML = epList.map(ep => `
-    <div class="ep-list-item ${ep.id === editingEpId ? 'active' : ''}" onclick="openEpEditor('${ep.id}')">
-      <span class="ep-num">${ep.order}</span>
-      <span class="ep-list-title">${ep.title || '(제목 없음)'}</span>
-    </div>`).join('');
-}
+};
 
-window.openEpEditor = function(id) {
-  const ep = epList.find(e => e.id === id);
-  if (!ep) return;
-  editingEpId = id;
-  renderEpList();
-  document.getElementById('epEditEmpty').style.display = 'none';
-  document.getElementById('epEditForm').style.display  = 'block';
-  document.getElementById('epEditTitle').textContent      = `에피소드 ${ep.order}: ${ep.title||''}`;
+function fillEpForm(ep) {
+  editingEpId = ep.id;
+  document.getElementById('epEditTitle').textContent = `에피소드 ${ep.order}: ${ep.title||''}`;
   document.getElementById('ef_title').value         = ep.title        || '';
   document.getElementById('ef_subtitle').value      = ep.subtitle     || '';
   document.getElementById('ef_treasureName').value  = ep.treasureName || '';
@@ -366,6 +437,78 @@ window.openEpEditor = function(id) {
   document.getElementById('ef_dialog').value        = ep.dialog       || '';
   document.getElementById('ef_question').value      = ep.question     || '';
   document.getElementById('epTypeFields').innerHTML = renderTypeFields(ep);
+  document.getElementById('epLoadingState').style.display = 'none';
+  document.getElementById('epEditArea').style.display = 'block';
+}
+
+/* ─── CLASS 서브탭 ─── */
+let currentClass = 1, classSort = 'newest';
+window.switchClassTab = function(num, btn) {
+  document.querySelectorAll('#panel-class .sub-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  currentClass = num;
+  renderClassList();
+};
+window.setClassSort = function(sort, btn) {
+  document.querySelectorAll('#panel-class .sort-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  classSort = sort;
+  renderClassList();
+};
+
+/* ─── 설정 (Firestore) ─── */
+async function loadSettings() {
+  const sDoc = await getDoc(doc(db,'escape26_2_settings','main'));
+  settings = sDoc.exists() ? sDoc.data() : {};
+  document.getElementById('sGameTitle').value        = settings.gameTitle        || '천년의 기억';
+  document.getElementById('sGameSub').value          = settings.gameSubtitle     || '잃어버린 기억을 찾아서';
+  document.getElementById('sIntroStory').value       = (settings.introStory      || []).join('\n');
+  document.getElementById('sEndingTitle').value      = settings.endingTitle      || '';
+  document.getElementById('sEndingSub').value        = settings.endingSubtitle   || '';
+  document.getElementById('sEndingMsg').value        = (settings.endingMessage   || []).join('\n');
+  document.getElementById('sReflectionPrompt').value = settings.reflectionPrompt || '';
+}
+
+window.savePrologue = async function() {
+  try {
+    await setDoc(doc(db,'escape26_2_settings','main'), {
+      gameTitle:   document.getElementById('sGameTitle').value.trim(),
+      gameSubtitle:document.getElementById('sGameSub').value.trim(),
+      introStory:  document.getElementById('sIntroStory').value.split('\n').map(s=>s.trim()).filter(Boolean)
+    }, { merge: true });
+    showToast('프롤로그 저장됨!', 'success');
+  } catch(e) { showToast('저장 실패: '+e.message); }
+};
+
+window.saveEnding = async function() {
+  try {
+    await setDoc(doc(db,'escape26_2_settings','main'), {
+      endingTitle:      document.getElementById('sEndingTitle').value.trim(),
+      endingSubtitle:   document.getElementById('sEndingSub').value.trim(),
+      endingMessage:    document.getElementById('sEndingMsg').value.split('\n').map(s=>s.trim()).filter(Boolean),
+      reflectionPrompt: document.getElementById('sReflectionPrompt').value.trim()
+    }, { merge: true });
+    showToast('엔딩 저장됨!', 'success');
+  } catch(e) { showToast('저장 실패: '+e.message); }
+};
+
+window.savePassword = async function() {
+  const pw = document.getElementById('sNewPw').value.trim();
+  const msg = document.getElementById('pwMsg');
+  if (pw.length < 6) { msg.textContent = '6자 이상 입력하세요'; msg.className='pw-msg err'; return; }
+  try {
+    await setDoc(doc(db,'escape26_2_settings','main'), { adminPw: pw }, { merge: true });
+    adminPw = pw;
+    document.getElementById('sNewPw').value = '';
+    msg.textContent = '비밀번호가 변경되었습니다'; msg.className='pw-msg ok';
+    setTimeout(() => msg.textContent='', 2500);
+  } catch(e) { msg.textContent='저장 실패'; msg.className='pw-msg err'; }
+};
+
+window.openEpEditor = function(id) {
+  const ep = epCache[id] || epList.find(e => e.id === id);
+  if (!ep) return;
+  fillEpForm(ep);
 };
 
 function escHtml(s) {
@@ -713,7 +856,7 @@ function readStageData(type, data, p) {
 
 window.saveEpContent = async function() {
   if (!editingEpId) return;
-  const ep = epList.find(e => e.id === editingEpId);
+  const ep = epCache[editingEpId];
   if (!ep) return;
   try {
     const commonFields = {
@@ -738,53 +881,78 @@ window.saveEpContent = async function() {
     await setDoc(doc(db,'escape26_2', editingEpId), update, { merge: true });
     Object.assign(ep, update);
     document.getElementById('epEditTitle').textContent = `에피소드 ${ep.order}: ${ep.title||''}`;
-    renderEpList();
     showToast('저장되었습니다!', 'success');
   } catch(e) { showToast('저장 실패: '+e.message); }
 };
 
-window.closeEpEdit = function() {
-  editingEpId = null;
-  document.getElementById('epEditEmpty').style.display = 'block';
-  document.getElementById('epEditForm').style.display  = 'none';
-  renderEpList();
-};
+/* ─── 소감 데이터 로드 (공용, 중복 호출 방지) ─── */
+let _reflPromise = null;
+function loadAllReflections() {
+  if (!_reflPromise) {
+    _reflPromise = (async () => {
+      try {
+        const q = query(collection(db,'escape26_2_reflections'), orderBy('createdAt','desc'));
+        const snap = await getDocs(q);
+        reflections = [];
+        snap.forEach(d => reflections.push({ id: d.id, ...d.data() }));
+      } catch(e) { showToast('소감 로드 실패: '+e.message); }
+    })();
+  }
+  return _reflPromise;
+}
 
-/* ─── 소감 ─── */
-window.loadReflections = async function() {
-  try {
-    const q = query(collection(db,'escape26_2_reflections'), orderBy('createdAt','desc'));
-    const snap = await getDocs(q);
-    reflections = [];
-    snap.forEach(d => reflections.push({ id: d.id, ...d.data() }));
-    document.getElementById('refCount').textContent = reflections.length;
-    const scores = reflections.map(r=>r.score||0);
-    const avg = scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : 0;
-    document.getElementById('reflectionSummary').innerHTML = `
-      <div class="summary-card"><div class="num">${reflections.length}</div><div class="lbl">총 제출</div></div>
-      <div class="summary-card"><div class="num">${avg}</div><div class="lbl">평균 점수</div></div>
-      <div class="summary-card"><div class="num">${scores.length?Math.max(...scores):0}/10</div><div class="lbl">최고 점수</div></div>`;
-    const list = document.getElementById('reflectionList');
-    if (!reflections.length) { list.innerHTML = '<div class="empty">아직 제출된 소감이 없습니다.</div>'; return; }
-    list.innerHTML = '';
-    reflections.forEach(r => {
-      const ts = r.createdAt?.toDate?.()?.toLocaleString('ko-KR') || '';
-      const card = document.createElement('div'); card.className = 'ref-card';
-      card.innerHTML = `<div class="ref-header">
-        <span class="ref-name">${r.studentId} ${r.studentName}</span>
-        <span class="ref-score">보물 ${r.score||0}/10</span>
-        <span class="ref-time">${ts}</span>
+/* ─── CLASS 렌더링 ─── */
+function getClassNum(sid) {
+  const s = String(sid || '');
+  if (s.length < 3) return 0;
+  return parseInt(s.substring(1, 3), 10) || 0;
+}
+
+function renderClassList() {
+  const filtered = reflections.filter(r => getClassNum(r.studentId) === currentClass);
+  const scores = filtered.map(r => r.score || 0);
+  document.getElementById('stTotal').textContent = filtered.length;
+  document.getElementById('stAvgScore').textContent = scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : '-';
+  document.getElementById('stMaxScore').textContent = scores.length ? Math.max(...scores)+'/10' : '-';
+  document.getElementById('stMinScore').textContent = scores.length ? Math.min(...scores)+'/10' : '-';
+
+  const sorted = [...filtered].sort((a,b) => {
+    if (classSort === 'newest') return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
+    if (classSort === 'score') return (b.score||0) - (a.score||0);
+    return String(a.studentId||'').localeCompare(String(b.studentId||''));
+  });
+
+  const el = document.getElementById('classList');
+  if (!sorted.length) { el.innerHTML = '<div class="empty">이 반의 제출 내역이 없습니다.</div>'; return; }
+  el.innerHTML = `<div class="class-list">${sorted.map(r => {
+    const ts = r.createdAt?.toDate?.()?.toLocaleString('ko-KR') || '';
+    const body = String(r.reflection||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    return `<div class="class-card">
+      <div class="class-card-header">
+        <span class="class-card-id">${r.studentId} ${r.studentName||''}</span>
+        <span class="class-card-score">보물 ${r.score||0}/10</span>
+        <span class="class-card-time">${ts}</span>
       </div>
-      <div class="ref-body">${String(r.reflection||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')}</div>`;
-      list.appendChild(card);
-    });
-  } catch(e) { showToast('소감 로드 실패: '+e.message); }
-};
+      <div class="class-card-body">${body}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+/* ─── SETTING 통계 ─── */
+function renderSettingStats() {
+  const scores = reflections.map(r => r.score || 0);
+  document.getElementById('settTotal').textContent = reflections.length;
+  document.getElementById('settAvg').textContent = scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1) : '-';
+  document.getElementById('settMax').textContent = scores.length ? Math.max(...scores)+'/10' : '-';
+}
 
 window.exportCSV = function() {
   if (!reflections.length) { showToast('내보낼 데이터가 없습니다.'); return; }
+  const cls = document.getElementById('exportClass').value;
+  const data = cls === 'all' ? reflections : reflections.filter(r => getClassNum(r.studentId) === parseInt(cls));
+  if (!data.length) { showToast('해당 반 데이터가 없습니다.'); return; }
   const rows = [['학번','이름','점수','소감','제출 시간']];
-  reflections.forEach(r => {
+  data.forEach(r => {
     const ts = r.createdAt?.toDate?.()?.toLocaleString('ko-KR') || '';
     rows.push([r.studentId||'', r.studentName||'', r.score||0, (r.reflection||'').replace(/\n/g,' '), ts]);
   });
@@ -793,6 +961,21 @@ window.exportCSV = function() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download='escape26_2_reflections.csv'; a.click();
   URL.revokeObjectURL(url);
+};
+
+window.resetAllReflections = async function() {
+  if (!confirm('전체 소감 데이터를 초기화합니다.\n이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?')) return;
+  try {
+    showToast('초기화 중...');
+    const snap = await getDocs(collection(db,'escape26_2_reflections'));
+    const dels = [];
+    snap.forEach(d => dels.push(deleteDoc(doc(db,'escape26_2_reflections',d.id))));
+    await Promise.all(dels);
+    reflections = [];
+    _reflPromise = null; // 캐시 무효화
+    showToast('초기화 완료', 'success');
+    renderSettingStats();
+  } catch(e) { showToast('초기화 실패: '+e.message); }
 };
 
 /* ─── 씨드 데이터 (26_2.html SEED_EPISODES와 동기화) ─── */
@@ -1234,7 +1417,7 @@ function showToast(msg, type='error') {
 /* ─── 세션 복원 ─── */
 if (sessionStorage.getItem('admin_auth') === '1') {
   showAdmin();
-  Promise.all([loadSettings(), loadReflections()]);
+  loadSettings();
 }
 </script>
 </body>
