@@ -178,6 +178,7 @@
       <button class="sub-tab" onclick="switchEpTab('ep_9',this)">9</button>
       <button class="sub-tab" onclick="switchEpTab('ep_10',this)">10</button>
       <button class="sub-tab" onclick="switchEpTab('ending',this)">엔딩</button>
+      <button class="sub-tab" onclick="switchEpTab('nav',this)">네비게이션</button>
     </div>
     <div class="ep-container">
 
@@ -257,6 +258,15 @@
           <div class="field"><label>엔딩 메시지 (줄바꿈으로 문단 구분)</label><textarea id="sEndingMsg" rows="7"></textarea></div>
           <div class="field"><label>소감 작성 안내 문구</label><input type="text" id="sReflectionPrompt"></div>
           <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="saveEnding()">저장</button>
+        </div>
+      </div>
+
+      <!-- 네비게이션 -->
+      <div id="eptab-nav" class="ep-sub-panel">
+        <div class="section">
+          <h3>네비게이션 모드</h3>
+          <div class="info">에피소드를 선택하면 학생 화면에서 해당 에피소드를 바로 미리볼 수 있습니다. 로그인 없이 진입하며 상단에 이동 바가 표시됩니다.</div>
+          <div id="navEpGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.7rem;margin-top:.5rem;"></div>
         </div>
       </div>
 
@@ -433,6 +443,9 @@ window.switchEpTab = async function(name, btn) {
   document.querySelectorAll('.ep-sub-panel').forEach(p => p.classList.remove('active'));
   if (name === 'prologue' || name === 'ending') {
     document.getElementById(`eptab-${name}`).classList.add('active');
+  } else if (name === 'nav') {
+    document.getElementById('eptab-nav').classList.add('active');
+    buildNavGrid();
   } else {
     document.getElementById('eptab-episode').classList.add('active');
     document.getElementById('epLoadingState').style.display = 'flex';
@@ -462,6 +475,27 @@ function fillEpForm(ep) {
   document.getElementById('epTypeFields').innerHTML = renderTypeFields(ep);
   document.getElementById('epLoadingState').style.display = 'none';
   document.getElementById('epEditArea').style.display = 'block';
+}
+
+/* ─── 네비게이션 그리드 ─── */
+async function buildNavGrid() {
+  const grid = document.getElementById('navEpGrid');
+  if (!grid) return;
+  if (grid.children.length > 0) return;
+  try {
+    const snap = await getDocs(query(collection(db, 'escape26_2'), orderBy('order')));
+    const eps = [];
+    snap.forEach(d => eps.push({ id: d.id, ...d.data() }));
+    grid.innerHTML = '';
+    eps.forEach((ep, idx) => {
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-sm';
+      btn.style.cssText = 'display:flex;flex-direction:column;gap:.2rem;align-items:flex-start;padding:.65rem .9rem;background:var(--hi-bg-base);color:var(--hi-text);border:1px solid var(--hi-border);border-radius:8px;cursor:pointer;text-align:left;';
+      btn.innerHTML = `<span style="font-weight:800;color:var(--hi-accent);font-size:.82rem;">에피소드 ${ep.order}</span><span style="font-size:.78rem;color:var(--hi-text-soft);line-height:1.4;">${ep.title||''}</span>`;
+      btn.onclick = () => window.open(`26_2.html?ep=${idx}`, '_blank');
+      grid.appendChild(btn);
+    });
+  } catch(e) { showToast('에피소드 목록 로드 실패: ' + e.message); }
 }
 
 /* ─── CLASS 서브탭 ─── */
