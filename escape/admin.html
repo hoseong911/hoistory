@@ -316,6 +316,12 @@
       </div>
 
       <div class="panel">
+        <h3>현재 에피소드 코드 추출</h3>
+        <p>Firestore에 저장된 현재 에피소드 데이터를 SEED_EPISODES 코드 형태로 추출합니다. 결과를 복사해서 코드에 붙여넣으세요.</p>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportSeedCode()">현재 데이터를 코드로 추출</button>
+      </div>
+
+      <div class="panel">
         <h3>관리자 비밀번호 변경</h3>
         <p>다음 로그인 시 즉시 적용됩니다.</p>
         <div class="form-group">
@@ -1479,6 +1485,30 @@ const SEED_SETTINGS = {
   ],
   reflectionPrompt: '무영의 천 년 여정을 함께 걸은 그대는 어떠한 마음이 드시오이까? 이 역사에서 느낀 것을 자유롭게 적어주시오.',
   adminPw: 'ghtjd12!@'
+};
+
+window.exportSeedCode = async function() {
+  try {
+    showToast('Firestore에서 데이터 읽는 중...');
+    const snap = await getDocs(collection(db, 'escape26_2'));
+    const episodes = [];
+    snap.forEach(d => episodes.push(d.data()));
+    episodes.sort((a, b) => a.order - b.order);
+    const code = 'const SEED_EPISODES = ' + JSON.stringify(episodes, null, 2) + ';';
+    const ta = document.createElement('textarea');
+    ta.value = code;
+    ta.style.cssText = 'position:fixed;top:10px;left:10px;width:90vw;height:80vh;z-index:9999;font-size:12px;font-family:monospace;padding:12px;background:#1e1e1e;color:#d4d4d4;border:2px solid #555;border-radius:8px;resize:none;';
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '닫기';
+    closeBtn.style.cssText = 'position:fixed;top:12px;right:12px;z-index:10000;padding:6px 14px;background:#c0392b;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;';
+    closeBtn.onclick = () => { ta.remove(); closeBtn.remove(); copyBtn.remove(); };
+    const copyBtn = document.createElement('button');
+    copyBtn.textContent = '클립보드 복사';
+    copyBtn.style.cssText = 'position:fixed;top:12px;right:80px;z-index:10000;padding:6px 14px;background:#2980b9;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;';
+    copyBtn.onclick = () => { navigator.clipboard.writeText(code); showToast('복사 완료!', 'success'); };
+    document.body.append(ta, closeBtn, copyBtn);
+    showToast('추출 완료! 에피소드 ' + episodes.length + '개', 'success');
+  } catch(e) { showToast('추출 실패: ' + e.message); }
 };
 
 window.insertSeedData = async function() {
