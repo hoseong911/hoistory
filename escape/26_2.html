@@ -127,8 +127,8 @@ body{
 /* ── selectKeywords ── */
 .kw-context{font-style:italic;background:var(--point-bg);border-left:4px solid var(--point-color);padding:1rem 1.2rem;margin-bottom:1rem;line-height:1.8;font-size:1rem;}
 .kw-hint{font-size:.82rem;color:var(--point-color);margin-bottom:.8rem;font-style:italic;text-align:center;}
-.kw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(9rem,1fr));gap:.6rem;}
-.kw-item{padding:.7rem 1.1rem;background:rgba(255,255,255,.5);border:2px solid var(--ink);cursor:pointer;user-select:none;transition:all .2s;line-height:1.5;font-size:.92rem;box-shadow:2px 2px 0 rgba(26,20,16,.1);display:flex;align-items:center;justify-content:center;text-align:center;min-height:56px;border-radius:6px;}
+.kw-grid{display:flex;flex-direction:column;gap:.6rem;}
+.kw-item{padding:.7rem 1.1rem;background:rgba(255,255,255,.5);border:2px solid var(--ink);cursor:pointer;user-select:none;transition:all .2s;line-height:1.5;font-size:.92rem;box-shadow:2px 2px 0 rgba(26,20,16,.1);display:flex;align-items:center;justify-content:center;text-align:center;min-height:56px;border-radius:6px;width:100%;}
 .kw-item:hover{background:var(--point-bg);transform:translate(-1px,-1px);box-shadow:3px 3px 0 rgba(26,20,16,.15);}
 .kw-item.selected{background:var(--point-color);color:var(--paper);border-color:var(--point-border);box-shadow:3px 3px 0 rgba(0,0,0,.2);}
 /* ── simulate (stage용) ── */
@@ -203,8 +203,14 @@ body{
 .sim-feedback{padding:.8rem 1rem;margin-top:.8rem;background:var(--point-bg);border-left:4px solid var(--point-color);font-size:.95rem;line-height:1.8;display:none;}
 .sim-feedback.show{display:block;}
 
-/* ── chatQuiz (대화 버블형) ── */
+/* ── chatQuiz (대화 누적형, 기존 디자인) ── */
 .chatq-area{display:flex;flex-direction:column;gap:.8rem;}
+.chatq-log{display:flex;flex-direction:column;gap:.9rem;margin-bottom:.4rem;}
+.chatq-entry-npc{display:flex;flex-direction:column;gap:.2rem;}
+.chatq-npc-label{font-size:.75rem;font-weight:700;color:var(--point-color);letter-spacing:.05em;}
+.chatq-bubble-npc{background:var(--point-bg);border-left:4px solid var(--point-color);padding:.85rem 1.1rem;font-style:italic;line-height:1.9;font-size:.93rem;}
+.chatq-entry-student{display:flex;justify-content:flex-end;}
+.chatq-bubble-student{background:var(--paper);border:2px solid var(--ink);padding:.7rem 1.1rem;font-weight:700;font-size:.92rem;box-shadow:2px 2px 0 var(--ink);max-width:75%;border-radius:6px;}
 .chatq-input-row{display:flex;gap:.6rem;align-items:center;}
 .chatq-input{flex:1;padding:.75rem 1rem;border:2px solid var(--ink);background:var(--paper);font-family:'Gowun Batang',serif;font-size:1rem;color:var(--ink);transition:all .3s;box-shadow:inset 2px 2px 5px rgba(0,0,0,.05);}
 .chatq-input:focus{outline:none;border-color:var(--point-color);background:#fff;}
@@ -228,9 +234,7 @@ body{
 .dialog-blank{border:none;border-bottom:2px solid var(--ink);background:transparent;width:5rem;padding:.1rem .3rem;font-family:'Gowun Batang',serif;font-size:.9rem;color:var(--ink);text-align:center;transition:border-color .2s,background .2s;}
 .dialog-blank:focus{outline:none;border-color:var(--point-color);}
 .dialog-blank.db-correct{border-color:#3b7a57;background:rgba(59,122,87,.08);color:#3b7a57;font-weight:700;}
-/* ── kw full-width ── */
-.kw-grid-block{display:flex;flex-direction:column;}
-.kw-grid-block .kw-item{width:100%;text-align:center;justify-content:center;}
+/* kw-grid-block은 kw-grid와 동일 (이미 column 방향) */
 
 /* ── 멀티셀렉트 (multiSelect) ── */
 .ms-scene{animation:fadeIn .4s ease;}
@@ -1518,8 +1522,14 @@ function buildSingleInput() {
 }
 
 /* ── order ── */
+function shuffleAvoidCorrect(items) {
+  let arr;
+  do { arr = items.map((item, i) => ({ item, i })).sort(() => Math.random() - .5); }
+  while (arr.length > 1 && arr.every((obj, pos) => obj.i === pos));
+  return arr;
+}
 function buildOrder(ep) {
-  window._epState.order = ep.items.map((item, i) => ({ item, i })).sort(() => Math.random() - .5);
+  window._epState.order = shuffleAvoidCorrect(ep.items);
   return `<ul class="order-list" id="orderList"></ul>`;
 }
 function initOrder(ep) { renderOrderList(); }
@@ -1543,7 +1553,7 @@ window.moveOrder = function(cur, dir) {
 
 /* ── tapOrder ── */
 function buildTapOrder(ep) {
-  const shuffled = ep.items.map((item, i) => ({ item, i })).sort(() => Math.random() - .5);
+  const shuffled = shuffleAvoidCorrect(ep.items);
   window._epState.tapOrder = { shuffled, sequence: [] };
   return `
     <p style="text-align:center;color:var(--point-color);font-size:.85rem;margin-bottom:1rem;">순서대로 눌러 번호를 붙이세요. 다시 누르면 취소됩니다.</p>
@@ -2127,7 +2137,7 @@ window.chooseSimStep = function(stepIdx, choiceIdx) {
 
 /* ── dragOrder (드래그 순서 배치) ── */
 function buildDragOrder(ep) {
-  const shuffled = ep.items.map((item, i) => ({ item, i })).sort(() => Math.random() - .5);
+  const shuffled = shuffleAvoidCorrect(ep.items);
   window._epState.dragOrder = shuffled;
   return `
     <p class="drag-order-hint">✦ 항목을 드래그하여 올바른 순서로 배열하세요.</p>
@@ -2176,10 +2186,14 @@ function checkDragOrder(ep) {
   return s && s.every((obj, i) => obj.i === i);
 }
 
-/* ── chatQuiz (대화 버블형) ── */
+/* ── chatQuiz (대화 누적형) ── */
+function irachk(str) {
+  const code = str.charCodeAt(str.length - 1) - 0xAC00;
+  return (code >= 0 && code <= 11171 && code % 28 !== 0) ? '이라' : '라';
+}
 function buildChatQuiz(ep) {
   return `<div class="chatq-area" id="chatqArea">
-    <div class="dialog-chat-log" id="chatqLog"></div>
+    <div class="chatq-log" id="chatqLog"></div>
     <div id="chatqInputArea"></div>
   </div>`;
 }
@@ -2194,17 +2208,13 @@ function renderChatqQ(ep, idx) {
   const log = document.getElementById('chatqLog');
   const inputArea = document.getElementById('chatqInputArea');
   if (!log || !inputArea) return;
-  const npcName = (ep.speaker || '무영').slice(0, 2);
+  const npcName = ep.speaker || '무영';
   const qnum = `${idx + 1} / ${qs.length}`;
-  const leftBubble = document.createElement('div');
-  leftBubble.className = 'dialog-chat-left';
-  leftBubble.innerHTML = `
-    <div class="dialog-chat-avatar">${npcName}</div>
-    <div class="dialog-chat-body">
-      <div class="dialog-chat-name">${qnum}</div>
-      <div class="dialog-chat-bubble-l">${q.q}</div>
-    </div>`;
-  log.appendChild(leftBubble);
+  const entry = document.createElement('div');
+  entry.className = 'chatq-entry-npc';
+  entry.innerHTML = `<div class="chatq-npc-label">${npcName} (${qnum})</div>
+    <div class="chatq-bubble-npc">${q.q}</div>`;
+  log.appendChild(entry);
   inputArea.innerHTML = `
     <div class="chatq-input-row" id="chatqRow${idx}">
       <input class="chatq-input" id="chatqIn${idx}" type="text" placeholder="답을 입력하세요" maxlength="20" autocomplete="off">
@@ -2217,7 +2227,7 @@ function renderChatqQ(ep, idx) {
       input.focus();
       input.addEventListener('keypress', e => { if (e.key === 'Enter') submitChatq(idx); });
     }
-    leftBubble.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    entry.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, 100);
 }
 window.submitChatq = function(idx) {
@@ -2232,25 +2242,18 @@ window.submitChatq = function(idx) {
   if (isOk) {
     const log = document.getElementById('chatqLog');
     const inputArea = document.getElementById('chatqInputArea');
-    const stuName = (studentName || '학생').slice(0, 2);
-    const studentBubble = document.createElement('div');
-    studentBubble.className = 'dialog-chat-right';
-    studentBubble.innerHTML = `
-      <div class="dialog-chat-bubble-r">${val}</div>
-      <div class="dialog-chat-right-avatar">${stuName}</div>`;
-    if (log) log.appendChild(studentBubble);
-    if (q.responses && q.responses.length) {
-      const resp = q.responses[Math.floor(Math.random() * q.responses.length)];
-      const npcName = (ep.speaker || '무영').slice(0, 2);
-      const respBubble = document.createElement('div');
-      respBubble.className = 'dialog-chat-left';
-      respBubble.innerHTML = `
-        <div class="dialog-chat-avatar">${npcName}</div>
-        <div class="dialog-chat-body">
-          <div class="dialog-chat-bubble-l">${resp}</div>
-        </div>`;
-      if (log) log.appendChild(respBubble);
-    }
+    const stuEntry = document.createElement('div');
+    stuEntry.className = 'chatq-entry-student';
+    stuEntry.innerHTML = `<div class="chatq-bubble-student">${val}</div>`;
+    if (log) log.appendChild(stuEntry);
+    const suffix = irachk(String(q.a));
+    const resp = `${q.a}${suffix} 하오.`;
+    const npcName = ep.speaker || '무영';
+    const npcEntry = document.createElement('div');
+    npcEntry.className = 'chatq-entry-npc';
+    npcEntry.innerHTML = `<div class="chatq-npc-label">${npcName}</div>
+      <div class="chatq-bubble-npc">${resp}</div>`;
+    if (log) log.appendChild(npcEntry);
     if (inputArea) inputArea.innerHTML = '';
     window._epState.chatQuiz.done++;
     if (window._epState.chatQuiz.done >= window._epState.chatQuiz.total) {
