@@ -75,7 +75,7 @@ body{
 .intro-story{max-width:680px;font-size:1.05rem;line-height:2;margin:1.5rem auto;animation:fadeIn 2s ease 1s both;max-height:42vh;overflow-y:auto;padding-right:.4rem;text-align:left;}
 .intro-story p{margin-bottom:.8rem;}
 .intro-greeting{font-weight:700;color:var(--point-color);margin-bottom:1rem;font-size:1.1rem;}
-.btn-start{background:var(--ink);color:var(--paper);border-color:var(--point-border);animation:fadeInUp 2s ease 1.5s both;margin-top:2rem;}
+.btn-start{background:var(--ink);color:var(--paper);border-color:var(--point-border);margin-top:2rem;opacity:0;pointer-events:none;transition:opacity .9s ease;}
 .btn-start:hover{background:var(--point-color);border-color:var(--point-color);box-shadow:0 6px 20px var(--shadow);transform:translateY(-2px);}
 
 /* ── 게임 화면 ── */
@@ -418,7 +418,7 @@ body{
   <h1 class="intro-title" id="introTitle">천년의 기억</h1>
   <p class="intro-subtitle" id="introSubtitle">잃어버린 기억을 찾아서</p>
   <div class="intro-story" id="introStory"></div>
-  <button class="btn btn-start" onclick="startGame()">여정을 시작하다</button>
+  <button class="btn btn-start" onclick="startGame()">무영의 발자취를 따라가다</button>
 </div>
 
 <!-- 게임 -->
@@ -579,7 +579,7 @@ window.doLogin = function() {
   if (!studentId || !studentName) return;
   saveSession(false);
   document.getElementById('loginScreen').classList.remove('active');
-  document.getElementById('introScreen').classList.add('active');
+  showIntroScreen();
 };
 
 /* ═══════════════════════════════════════
@@ -1486,7 +1486,7 @@ async function loadData() {
         document.getElementById('gameScreen').classList.add('active');
         renderEpisode();
       } else {
-        document.getElementById('introScreen').classList.add('active');
+        showIntroScreen();
       }
       return;
     }
@@ -1533,11 +1533,51 @@ function defaultSettings() {
    게임 시작
 ═══════════════════════════════════════ */
 window.startGame = function() {
+  if (window._introRaf) cancelAnimationFrame(window._introRaf);
   saveSession(true);
   document.getElementById('introScreen').classList.remove('active');
   document.getElementById('gameScreen').classList.add('active');
   renderEpisode();
 };
+
+function showIntroScreen() {
+  if (window._introRaf) cancelAnimationFrame(window._introRaf);
+  document.getElementById('introScreen').classList.add('active');
+  const storyEl = document.getElementById('introStory');
+  const btn = document.querySelector('.btn-start');
+  if (btn) { btn.style.opacity = '0'; btn.style.pointerEvents = 'none'; }
+  if (!storyEl) { revealStartBtn(); return; }
+  storyEl.scrollTop = 0;
+  /* 인트로 애니메이션이 끝난 뒤 스크롤 시작 */
+  setTimeout(() => {
+    if (storyEl.scrollHeight <= storyEl.clientHeight + 4) { revealStartBtn(); return; }
+    let raf;
+    function tick() {
+      storyEl.scrollTop += 0.7;
+      if (storyEl.scrollTop + storyEl.clientHeight >= storyEl.scrollHeight - 4) {
+        cancelAnimationFrame(raf);
+        revealStartBtn();
+      } else {
+        raf = requestAnimationFrame(tick);
+      }
+    }
+    window._introRaf = raf = requestAnimationFrame(tick);
+    /* 사용자가 직접 끝까지 스크롤해도 버튼 표시 */
+    storyEl.addEventListener('scroll', function onScroll() {
+      if (storyEl.scrollTop + storyEl.clientHeight >= storyEl.scrollHeight - 8) {
+        cancelAnimationFrame(raf);
+        storyEl.removeEventListener('scroll', onScroll);
+        revealStartBtn();
+      }
+    });
+  }, 1400);
+}
+function revealStartBtn() {
+  const btn = document.querySelector('.btn-start');
+  if (!btn) return;
+  btn.style.opacity = '1';
+  btn.style.pointerEvents = '';
+}
 
 function updateProgress() { /* 상태창 제거됨 — no-op */ }
 
