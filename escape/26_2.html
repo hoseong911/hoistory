@@ -50,14 +50,14 @@ body{
 .login-screen.active{display:flex;animation:fadeIn .8s ease;}
 .login-title{font-family:'Nanum Myeongjo',serif;font-weight:800;font-size:clamp(1.8rem,5vw,3rem);letter-spacing:.3em;text-align:center;margin-bottom:.4rem;}
 .login-sub{color:var(--point-border);text-align:center;margin-bottom:2rem;font-size:.9rem;}
-.login-card{background:rgba(255,255,255,.5);border:2px solid var(--ink);box-shadow:6px 6px 0 var(--shadow);padding:2rem;width:100%;max-width:420px;}
-.login-card p{text-align:center;color:#555;font-style:italic;margin-bottom:1.5rem;line-height:1.8;}
-.form-row{margin-bottom:1rem;}
-.form-row label{display:block;font-weight:700;font-size:.9rem;margin-bottom:.4rem;color:var(--point-color);}
-.form-input{width:100%;padding:.8rem 1rem;border:2px solid var(--ink);background:var(--paper);font-family:'Gowun Batang',serif;font-size:1rem;color:var(--ink);transition:all .3s;}
-.form-input:focus{outline:none;border-color:var(--point-color);background:#fff;}
-.form-input:disabled{opacity:.5;cursor:not-allowed;}
-.verify-msg{font-size:.82rem;margin-top:.3rem;min-height:1.2em;}
+.login-card{background:rgba(255,255,255,.5);border:2px solid var(--ink);box-shadow:6px 6px 0 var(--shadow);padding:2rem;width:100%;max-width:420px;border-radius:4px;}
+.login-dialogue{text-align:center;color:#555;font-style:italic;margin-bottom:1.8rem;line-height:1.9;font-size:1rem;background:var(--point-bg);border-left:3px solid var(--point-color);padding:.8rem 1.2rem;border-radius:2px;}
+.form-row{margin-bottom:1.1rem;}
+.form-row label{display:block;font-weight:700;font-size:.82rem;margin-bottom:.4rem;color:var(--point-color);letter-spacing:.05em;}
+.form-input{width:100%;padding:.75rem 1rem;border:0;border-bottom:2px solid var(--ink);background:rgba(255,255,255,.7);font-family:'Gowun Batang',serif;font-size:1rem;color:var(--ink);transition:all .25s;border-radius:4px 4px 0 0;}
+.form-input:focus{outline:none;border-bottom-color:var(--point-color);background:#fff;}
+.form-input:disabled{opacity:.45;cursor:not-allowed;}
+.verify-msg{font-size:.8rem;margin-top:.3rem;min-height:1.2em;}
 .verify-msg.ok{color:#3b7a57;}
 .verify-msg.err{color:#a8322d;}
 .btn{padding:.9rem 2.5rem;font-family:'Nanum Myeongjo',serif;font-weight:700;font-size:1rem;border:2px solid var(--ink);cursor:pointer;transition:all .3s;background:var(--paper);color:var(--ink);box-shadow:3px 3px 0 var(--ink);border-radius:6px;}
@@ -391,7 +391,7 @@ body{
   <h1 class="login-title">천년의 기억</h1>
   <p class="login-sub">잃어버린 기억을 찾아서</p>
   <div class="login-card">
-    <p>"역사를 아는 자만이 이 문을 열 수 있도다.<br>그대는 누구인가?"</p>
+    <p class="login-dialogue" id="loginDialogue">역사를 아는 자만이 이 문을 열 수 있도다.<br>그대는 누구인가?</p>
     <div class="form-row">
       <label>학번</label>
       <input type="text" class="form-input" id="inputId" placeholder="학번 5자리" maxlength="5" inputmode="numeric">
@@ -1420,6 +1420,7 @@ async function loadData() {
     const storyEl = document.getElementById('introStory');
     storyEl.innerHTML = '';
     (settings.introStory || []).forEach(p => { const el = document.createElement('p'); el.innerHTML = p; storyEl.appendChild(el); });
+    document.getElementById('loginDialogue').innerHTML = settings.loginText || '역사를 아는 자만이 이 문을 열 수 있도다.<br>그대는 누구인가?';
     document.getElementById('loginScreen').classList.add('active');
   } catch (e) {
     console.error(e);
@@ -1453,7 +1454,8 @@ function defaultSettings() {
       '★이 조선이라는 나라에서 나는 또 얼마를 살아가야 하오이까. 다시 수백 년이오이까.',
       '그림자 없는 자 무영은 한숨을 한 번 내쉬고, 다시 역사의 길 위에 발을 올렸소이다.'
     ],
-    reflectionPrompt: '무영의 천 년 여정을 함께 걸은 그대는 어떠한 마음이 드시오이까? 이 역사에서 느낀 것을 자유롭게 적어주시오.'
+    reflectionPrompt: '무영의 천 년 여정을 함께 걸은 그대는 어떠한 마음이 드시오이까? 이 역사에서 느낀 것을 자유롭게 적어주시오.',
+    loginText: '역사를 아는 자만이 이 문을 열 수 있도다.<br>그대는 누구인가?'
   };
 }
 
@@ -1470,11 +1472,9 @@ function updateProgress() { /* 상태창 제거됨 — no-op */ }
 
 function detectTheme(ep) {
   const txt = [ep.title, ep.story, ep.subtitle, ep.dialog, ep.speaker].join(' ');
-  if (txt.includes('신라') || txt.includes('발해') || txt.includes('불국사') || txt.includes('석굴암')) {
-    if (txt.includes('발해')) return 'theme-balhae';
-    return 'theme-silla';
-  }
   if (txt.includes('고려')) return 'theme-goryeo';
+  if (txt.includes('발해')) return 'theme-balhae';
+  if (txt.includes('신라') || txt.includes('불국사') || txt.includes('석굴암')) return 'theme-silla';
   return '';
 }
 
@@ -2487,17 +2487,6 @@ function renderDbSeqSection(pfx, data, dbsKey, idx) {
     <div class="dbseq-fb" id="${pfx}dbsFb${idx}"></div>`;
   area.appendChild(wrap);
   setTimeout(() => { wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 100);
-  /* 정답 입력 시 자동 제출 (#13) */
-  setTimeout(() => {
-    sec.answers.forEach((ans, i) => {
-      const el = document.getElementById(`${pfx}dbs${idx}_${i+1}`);
-      if (!el) return;
-      el.addEventListener('input', () => {
-        const allOk = sec.answers.every((a, j) => normalize(document.getElementById(`${pfx}dbs${idx}_${j+1}`)?.value.trim()||'') === normalize(String(a)));
-        if (allOk) { el.blur(); window.submitDbSeq(pfx, dbsKey, idx); }
-      });
-    });
-  }, 80);
 }
 window.submitDbSeq = function(pfx, dbsKey, idx) {
   const ep = episodes[currentEp];
@@ -2705,7 +2694,8 @@ function autoAdvanceStage(stageNum) {
   const ep = episodes[currentEp];
   if (ep.type === 'twoStage' && stageNum === 1) {
     const s = window._epState;
-    if (!s.twoStage || s.twoStage.stage1Done) return false;
+    if (!s.twoStage) return false;
+    if (s.twoStage.stage1Done) return true;  /* 이미 진행됨 — checkAnswer가 먼저 처리한 경우 onCorrect 호출 방지 */
     if (!checkStageBlock(ep.stage1Type, ep.stage1, 1)) return false;
     s.twoStage.stage1Done = true;
     showToast('1단계 통과! ✦', 'success');
@@ -2716,7 +2706,8 @@ function autoAdvanceStage(stageNum) {
   if (ep.type === 'threeStage') {
     const ts = window._epState.threeStage;
     if (!ts) return false;
-    if (stageNum === 1 && !ts.stage1Done) {
+    if (stageNum === 1) {
+      if (ts.stage1Done) return true;  /* 이미 진행됨 */
       if (!checkStageBlock(ep.stage1Type, ep.stage1, 1)) return false;
       ts.stage1Done = true;
       showToast('1단계 통과! ✦', 'success');
@@ -2724,7 +2715,8 @@ function autoAdvanceStage(stageNum) {
       if (b) { b.classList.add('show'); initStageBlock(ep.stage2Type, ep.stage2, 2); setTimeout(() => b.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100); }
       return true;
     }
-    if (stageNum === 2 && !ts.stage2Done) {
+    if (stageNum === 2) {
+      if (ts.stage2Done) return true;  /* 이미 진행됨 */
       if (!checkStageBlock(ep.stage2Type, ep.stage2, 2)) return false;
       ts.stage2Done = true;
       showToast('2단계 통과! ✦', 'success');
