@@ -481,14 +481,14 @@ const rtdb = getDatabase(app);
 const USE_LOCAL_DATA = false; // true = JS 하드코딩 사용 / false = Firestore 사용
 const DATA_VERSION = 'v5';
 let episodes = [], settings = {};
-let currentEp = 0, acquiredTreasures = [];
+let currentEp = 0;
 let studentId = '', studentName = '';
 let studentMap = {}, mapLoaded = false;
 
 /* ══ 세션 (새로고침 복원) ══ */
 const _SK = 'escape26_2_session';
 function saveSession(started) {
-  sessionStorage.setItem(_SK, JSON.stringify({ id: studentId, name: studentName, ep: currentEp, t: acquiredTreasures, started: started ?? true }));
+  sessionStorage.setItem(_SK, JSON.stringify({ id: studentId, name: studentName, ep: currentEp, started: started ?? true }));
 }
 function loadSession() {
   try { return JSON.parse(sessionStorage.getItem(_SK)); } catch { return null; }
@@ -1439,7 +1439,6 @@ async function loadData() {
       studentId = sess.id;
       studentName = sess.name;
       currentEp = Math.max(0, Math.min(sess.ep || 0, episodes.length - 1));
-      acquiredTreasures = Array.isArray(sess.t) ? sess.t : [];
       if (sess.started) {
         document.getElementById('gameScreen').classList.add('active');
         renderEpisode();
@@ -2803,7 +2802,6 @@ function wrongMsg() {
    정답 처리
 ═══════════════════════════════════════ */
 function onCorrect(ep) {
-  acquiredTreasures.push(currentEp);
   saveSession(true);
   updateProgress();
   document.getElementById('treasureName').textContent = ep.treasureName || '보물';
@@ -2939,7 +2937,6 @@ window.finishGame = async function() {
           <div style="background:rgba(255,255,255,.4);padding:2rem;border:2px solid var(--point-border);text-align:left;max-width:600px;margin:0 auto;">
             <h3 style="color:var(--point-color);margin-bottom:1rem;">✦ ${studentName} 학생의 기록 ✦</h3>
             <p style="font-style:italic;line-height:1.9;">${escapeHtml(reflection).replace(/\n/g,'<br>')}</p>
-            <p style="margin-top:1rem;font-weight:700;color:var(--point-color);">획득 보물: ${acquiredTreasures.length} / 10</p>
           </div>
         </div>`;
     }, 1500);
