@@ -485,6 +485,16 @@ let currentEp = 0, acquiredTreasures = [];
 let studentId = '', studentName = '';
 let studentMap = {}, mapLoaded = false;
 
+/* ══ 세션 (새로고침 복원) ══ */
+const _SK = 'escape26_2_session';
+function saveSession(started) {
+  sessionStorage.setItem(_SK, JSON.stringify({ id: studentId, name: studentName, ep: currentEp, t: acquiredTreasures, started: started ?? true }));
+}
+function loadSession() {
+  try { return JSON.parse(sessionStorage.getItem(_SK)); } catch { return null; }
+}
+function clearSession() { sessionStorage.removeItem(_SK); }
+
 /* ═══════════════════════════════════════
    AUTH
 ═══════════════════════════════════════ */
@@ -563,6 +573,7 @@ window.doLogin = function() {
   studentId   = document.getElementById('inputId').value.trim();
   studentName = document.getElementById('inputName').value.trim();
   if (!studentId || !studentName) return;
+  saveSession(false);
   document.getElementById('loginScreen').classList.remove('active');
   document.getElementById('introScreen').classList.add('active');
 };
@@ -1421,6 +1432,23 @@ async function loadData() {
     storyEl.innerHTML = '';
     (settings.introStory || []).forEach(p => { const el = document.createElement('p'); el.innerHTML = p; storyEl.appendChild(el); });
     document.getElementById('loginDialogue').innerHTML = settings.loginText || '역사를 아는 자만이 이 문을 열 수 있도다.<br>그대는 누구인가?';
+
+    /* 세션 복원 — 새로고침 시 로그인·진행 상황 유지 */
+    const sess = loadSession();
+    if (sess && sess.id && sess.name) {
+      studentId = sess.id;
+      studentName = sess.name;
+      currentEp = Math.max(0, Math.min(sess.ep || 0, episodes.length - 1));
+      acquiredTreasures = Array.isArray(sess.t) ? sess.t : [];
+      if (sess.started) {
+        document.getElementById('gameScreen').classList.add('active');
+        renderEpisode();
+      } else {
+        document.getElementById('introScreen').classList.add('active');
+      }
+      return;
+    }
+
     document.getElementById('loginScreen').classList.add('active');
   } catch (e) {
     console.error(e);
@@ -1463,6 +1491,7 @@ function defaultSettings() {
    게임 시작
 ═══════════════════════════════════════ */
 window.startGame = function() {
+  saveSession(true);
   document.getElementById('introScreen').classList.remove('active');
   document.getElementById('gameScreen').classList.add('active');
   renderEpisode();
@@ -2775,6 +2804,7 @@ function wrongMsg() {
 ═══════════════════════════════════════ */
 function onCorrect(ep) {
   acquiredTreasures.push(currentEp);
+  saveSession(true);
   updateProgress();
   document.getElementById('treasureName').textContent = ep.treasureName || '보물';
   document.getElementById('treasureDesc').textContent = ep.treasureDesc || '';
@@ -2787,6 +2817,7 @@ window.closeTreasureModal = function() {
 };
 window.nextEpisode = function() {
   currentEp++;
+  saveSession(true);
   if (currentEp >= episodes.length) showEnding();
   else renderEpisode();
 };
