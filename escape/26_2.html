@@ -1422,32 +1422,40 @@ async function loadData() {
       } catch {}
 
       if (!fromCache) {
+        const _TIMEOUT_SIG = '__net_timeout__';
         const fetchTimeout = new Promise((_, rej) =>
-          setTimeout(() => rej(new Error('네트워크 연결이 느립니다. Wi-Fi를 사용하거나 잠시 후 다시 시도해 주세요.')), 12000)
+          setTimeout(() => rej(new Error(_TIMEOUT_SIG)), 15000)
         );
-        await Promise.race([
-          (async () => {
-            const sDoc = await getDoc(doc(db, 'escape26_2_settings', 'main'));
-            if (!sDoc.exists()) {
-              settings = defaultSettings();
-              await seedEpisodes();
-              await setDoc(doc(db, 'escape26_2_settings', 'main'), { ...settings, dataVersion: DATA_VERSION });
-            } else {
-              settings = sDoc.data();
-              if ((settings.dataVersion || '') !== DATA_VERSION) {
+        try {
+          await Promise.race([
+            (async () => {
+              const sDoc = await getDoc(doc(db, 'escape26_2_settings', 'main'));
+              if (!sDoc.exists()) {
+                settings = defaultSettings();
                 await seedEpisodes();
-                await setDoc(doc(db, 'escape26_2_settings', 'main'), { dataVersion: DATA_VERSION }, { merge: true });
+                await setDoc(doc(db, 'escape26_2_settings', 'main'), { ...settings, dataVersion: DATA_VERSION });
+              } else {
+                settings = sDoc.data();
+                if ((settings.dataVersion || '') !== DATA_VERSION) {
+                  await seedEpisodes();
+                  await setDoc(doc(db, 'escape26_2_settings', 'main'), { dataVersion: DATA_VERSION }, { merge: true });
+                }
               }
-            }
-            const q = query(collection(db, 'escape26_2'), orderBy('order'));
-            const snap = await getDocs(q);
-            episodes = [];
-            snap.forEach(d => episodes.push({ id: d.id, ...d.data() }));
-            if (episodes.length === 0) throw new Error('에피소드 데이터가 없습니다. 관리자에게 문의하세요.');
-            try { localStorage.setItem(CACHE_KEY, JSON.stringify({ eps: episodes, sett: settings, ts: Date.now(), ver: DATA_VERSION })); } catch {}
-          })(),
-          fetchTimeout
-        ]);
+              const q = query(collection(db, 'escape26_2'), orderBy('order'));
+              const snap = await getDocs(q);
+              episodes = [];
+              snap.forEach(d => episodes.push({ id: d.id, ...d.data() }));
+              if (episodes.length === 0) throw new Error('에피소드 데이터가 없습니다. 관리자에게 문의하세요.');
+              try { localStorage.setItem(CACHE_KEY, JSON.stringify({ eps: episodes, sett: settings, ts: Date.now(), ver: DATA_VERSION })); } catch {}
+            })(),
+            fetchTimeout
+          ]);
+        } catch (e) {
+          if (e.message !== _TIMEOUT_SIG) throw e;
+          /* 네트워크 느림 → HTML 내장 데이터로 폴백 */
+          episodes = [...SEED_EPISODES].sort((a, b) => a.order - b.order);
+          settings = defaultSettings();
+        }
       } else {
         /* 캐시 사용 후 백그라운드에서 갱신 */
         (async () => {
