@@ -3092,10 +3092,11 @@ window.finishGame = async function() {
   }
   try {
     window.removeEventListener('beforeunload', _beforeUnloadHandler);
-    await addDoc(collection(db, 'escape26_2_reflections'), {
-      studentId, studentName, reflection,
-      createdAt: serverTimestamp()
-    });
+    const reflRef = doc(db, 'escape26_2_reflections', studentId);
+    const existing = await getDoc(reflRef);
+    if (!existing.exists()) {
+      await setDoc(reflRef, { studentId, studentName, reflection, createdAt: serverTimestamp() });
+    }
     clearSession();
     showToast('기록이 봉인되었느니라. 그대의 여정이 후세에 전해지리라.', 'success');
     setTimeout(() => {
