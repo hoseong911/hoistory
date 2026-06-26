@@ -483,13 +483,14 @@ const USE_LOCAL_DATA = false; // true = JS 하드코딩 사용 / false = Firesto
 const DATA_VERSION = 'v6';
 let episodes = [], settings = {};
 let currentEp = 0;
+let maxEp = 0;
 let studentId = '', studentName = '';
 let studentMap = {}, mapLoaded = false;
 
 /* ══ 세션 (새로고침 복원) ══ */
 const _SK = 'escape26_2_session';
 function saveSession(started) {
-  localStorage.setItem(_SK, JSON.stringify({ id: studentId, name: studentName, ep: currentEp, started: started ?? true }));
+  localStorage.setItem(_SK, JSON.stringify({ id: studentId, name: studentName, ep: currentEp, started: started ?? true, maxEp }));
 }
 function loadSession() {
   try { return JSON.parse(localStorage.getItem(_SK)); } catch { return null; }
@@ -1501,8 +1502,15 @@ async function loadData() {
     /* 세션 복원 — 새로고침 시 로그인·진행 상황 유지 */
     const sess = loadSession();
     if (sess && sess.id && sess.name) {
+      /* 모든 에피소드 완료 후 소감 제출까지 마친 경우 → 처음부터 */
+      if ((sess.ep ?? 0) >= episodes.length) {
+        clearSession();
+        document.getElementById('loginScreen').classList.add('active');
+        return;
+      }
       studentId = sess.id;
       studentName = sess.name;
+      maxEp = Math.min(sess.maxEp ?? sess.ep ?? 0, episodes.length - 1);
       currentEp = Math.max(0, Math.min(sess.ep || 0, episodes.length - 1));
       if (sess.started) {
         document.getElementById('gameScreen').classList.add('active');
@@ -1638,7 +1646,9 @@ function renderEpisode() {
     </div>
     <div class="action-area" id="actionArea">${actionHTML}</div>
     <div class="button-row">
+      ${currentEp > 0 ? `<button class="btn btn-hint" onclick="prevEpisode()">이전 이야기</button>` : ''}
       ${ep.type !== 'chatQuiz' ? `<button class="btn btn-check" id="btnCheck" onclick="checkAnswer()"${btnHidden?' style="display:none"':''}>다음으로</button>` : ''}
+      ${currentEp < maxEp ? `<button class="btn btn-next" style="display:inline-block;" onclick="window.nextEpisode()">다음 이야기</button>` : ''}
     </div>
   `;
 
@@ -2929,9 +2939,16 @@ window.closeTreasureModal = function() {
 };
 window.nextEpisode = function() {
   currentEp++;
+  maxEp = Math.max(maxEp, currentEp);
   saveSession(true);
   if (currentEp >= episodes.length) showEnding();
   else renderEpisode();
+};
+window.prevEpisode = function() {
+  if (currentEp <= 0) return;
+  currentEp--;
+  saveSession(true);
+  renderEpisode();
 };
 
 /* ═══════════════════════════════════════
@@ -3042,6 +3059,7 @@ window.finishGame = async function() {
       studentId, studentName, reflection,
       createdAt: serverTimestamp()
     });
+    clearSession();
     showToast('기록이 봉인되었느니라. 그대의 여정이 후세에 전해지리라.', 'success');
     setTimeout(() => {
       document.getElementById('endingScreen').innerHTML = `
