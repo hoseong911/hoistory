@@ -1043,10 +1043,13 @@ function renderClassList() {
   el.innerHTML = `<div class="class-list">${sorted.map(r => {
     const ts = r.createdAt?.toDate?.()?.toLocaleString('ko-KR') || '';
     const body = String(r.reflection||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-    return `<div class="class-card">
+    return `<div class="class-card" id="refl-card-${r.id}">
       <div class="class-card-header">
         <span class="class-card-id">${r.studentId} ${r.studentName||''}</span>
-        <span class="class-card-time">${ts}</span>
+        <div style="display:flex;align-items:center;gap:.6rem;">
+          <span class="class-card-time">${ts}</span>
+          <button class="btn btn-sm btn-danger" onclick="deleteReflection('${r.id}','${r.studentId} ${r.studentName||''}')">삭제</button>
+        </div>
       </div>
       <div class="class-card-body">${body}</div>
     </div>`;
@@ -1068,6 +1071,17 @@ window.exportCSV = function() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download='escape26_2_reflections.csv'; a.click();
   URL.revokeObjectURL(url);
+};
+
+window.deleteReflection = async function(id, label) {
+  if (!confirm(`${label}의 소감을 삭제합니다. 계속하시겠습니까?`)) return;
+  try {
+    await deleteDoc(doc(db, 'escape26_2_reflections', id));
+    reflections = reflections.filter(r => r.id !== id);
+    document.getElementById(`refl-card-${id}`)?.remove();
+    renderClassList();
+    showToast('삭제되었습니다.', 'success');
+  } catch(e) { showToast('삭제 실패: '+e.message); }
 };
 
 window.resetAllReflections = async function() {
