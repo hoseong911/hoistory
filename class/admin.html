@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>수업 자료 슬라이드 - 관리자 모드</title>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    :root {
+      --font:    'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+      --bg:      #f2f2f5;
+      --white:   #ffffff;
+      --navy:    #1c3461;
+      --red:     #b83030;
+      --text:    #1e1e2e;
+      --sub:     #8a8a9a;
+      --border:  #e0e0ea;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+    /* ── 로그인 ── */
+    #login {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .login-box {
+      background: var(--white);
+      border-radius: 16px;
+      padding: 48px 40px;
+      width: 340px;
+      text-align: center;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+    }
+    .login-title { font-size: 1.45rem; font-weight: 800; color: var(--navy); }
+    .login-sub { font-size: 0.88rem; color: var(--sub); margin: 6px 0 32px; }
+    .login-input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 1rem;
+      outline: none;
+      margin-bottom: 10px;
+      transition: border-color 0.15s;
+    }
+    .login-input:focus { border-color: var(--navy); }
+    .login-btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--navy);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .login-btn:hover { background: #274a8a; }
+    .login-err { font-size: 0.82rem; color: var(--red); margin-top: 10px; display: none; }
+
+    /* ── 어드민 ── */
+    #admin { display: none; }
+
+    .adm-header {
+      background: var(--navy);
+      padding: 18px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .adm-title { font-size: 1.05rem; font-weight: 800; color: #fff; }
+    .adm-sub { font-size: 0.8rem; color: rgba(255,255,255,0.45); margin-top: 2px; }
+    .adm-back {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.5);
+      text-decoration: none;
+      padding: 6px 16px;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 20px;
+    }
+    .adm-back:hover { background: rgba(255,255,255,0.09); }
+
+    .adm-body { max-width: 780px; margin: 36px auto; padding: 0 24px 60px; }
+
+    .card {
+      background: var(--white);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin-bottom: 18px;
+      overflow: hidden;
+    }
+    .card-head {
+      padding: 14px 22px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--navy);
+      letter-spacing: 0.03em;
+    }
+    .card-body { padding: 22px; }
+
+    /* 미리보기 */
+    .pv-wrap {
+      border-radius: 10px;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .pv-slide {
+      border-radius: 8px;
+      padding: 18px 22px;
+      width: 100%;
+      max-width: 460px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+      transition: background 0.2s;
+    }
+    .pv-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .pv-badge {
+      color: #fff;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 20px;
+      transition: background 0.2s;
+    }
+    .pv-title { font-size: 1rem; font-weight: 800; transition: color 0.2s; }
+    .pv-row { display: flex; border-radius: 6px; overflow: hidden; border: 1px solid #ccc; }
+    .pv-label {
+      color: rgba(255,255,255,0.9);
+      width: 66px;
+      padding: 10px 6px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      transition: background 0.2s;
+    }
+    .pv-content {
+      flex: 1;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      transition: background 0.2s, color 0.2s;
+    }
+    .pv-blank { font-weight: 700; transition: color 0.2s; }
+
+    /* 폰트 크기 슬라이더 */
+    .font-row { display: flex; align-items: center; gap: 14px; }
+    .font-row label { font-size: 0.82rem; color: var(--sub); white-space: nowrap; }
+    .slider {
+      flex: 1;
+      height: 4px;
+      accent-color: var(--navy);
+      cursor: pointer;
+    }
+    .font-val { font-size: 1rem; font-weight: 700; color: var(--navy); min-width: 44px; text-align: right; }
+    .font-hint { font-size: 0.78rem; color: var(--sub); margin-top: 8px; }
+
+    /* 색상 그리드 */
+    .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px 24px; }
+    .color-row { display: flex; align-items: center; justify-content: space-between; }
+    .color-info .color-name { font-size: 0.9rem; font-weight: 600; }
+    .color-info .color-desc { font-size: 0.76rem; color: var(--sub); margin-top: 2px; }
+    .color-pick {
+      width: 42px;
+      height: 34px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 2px;
+      cursor: pointer;
+      background: none;
+      flex-shrink: 0;
+    }
+
+    /* 하단 버튼 */
+    .btn-row { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+    .toast { font-size: 0.85rem; color: #2a6e40; font-weight: 600; margin-right: auto; display: none; }
+    .btn {
+      padding: 10px 22px;
+      border-radius: 8px;
+      font-family: var(--font);
+      font-size: 0.88rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+    }
+    .btn-save { background: var(--navy); color: #fff; }
+    .btn-save:hover { background: #274a8a; }
+    .btn-reset { background: transparent; color: var(--sub); border: 1px solid var(--border); }
+    .btn-reset:hover { background: #eaeaf0; }
+  </style>
+</head>
+<body>
+
+<!-- 로그인 -->
+<div id="login">
+  <div class="login-box">
+    <h1 class="login-title">수업 자료 슬라이드</h1>
+    <p class="login-sub">관리자 모드</p>
+    <input type="password" class="login-input" id="pw" placeholder="비밀번호">
+    <button class="login-btn" onclick="doLogin()">확인</button>
+    <p class="login-err" id="pw-err">비밀번호가 틀렸습니다.</p>
+  </div>
+</div>
+
+<!-- 어드민 -->
+<div id="admin">
+  <div class="adm-header">
+    <div>
+      <p class="adm-title">수업 자료 슬라이드</p>
+      <p class="adm-sub">관리자 모드</p>
+    </div>
+    <a href="index.html" class="adm-back">목록으로</a>
+  </div>
+
+  <div class="adm-body">
+
+    <!-- 미리보기 -->
+    <div class="card">
+      <div class="card-head">미리보기</div>
+      <div class="card-body">
+        <div class="pv-wrap" id="pv-wrap">
+          <div class="pv-slide" id="pv-slide">
+            <div class="pv-head">
+              <span class="pv-badge" id="pv-badge">개념 Check</span>
+              <span class="pv-title" id="pv-title">고려 사회의 모습</span>
+            </div>
+            <div class="pv-row">
+              <div class="pv-label" id="pv-label">사회 정책</div>
+              <div class="pv-content" id="pv-content">
+                핵심 용어 <span class="pv-blank" id="pv-blank">의창</span>의 예시 문장입니다.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 글꼴 크기 -->
+    <div class="card">
+      <div class="card-head">글꼴 크기</div>
+      <div class="card-body">
+        <div class="font-row">
+          <label>작게</label>
+          <input type="range" class="slider" id="fs" min="14" max="22" step="1" value="16" oninput="onFontChange(this.value)">
+          <label>크게</label>
+          <span class="font-val" id="fs-val">16px</span>
+        </div>
+        <p class="font-hint">기본값 16px · 프로젝터 환경에서는 18~20px 권장</p>
+      </div>
+    </div>
+
+    <!-- 색상 -->
+    <div class="card">
+      <div class="card-head">색상 설정</div>
+      <div class="card-body">
+        <div class="color-grid">
+          <div class="color-row">
+            <div class="color-info">
+              <p class="color-name">네이비 색</p>
+              <p class="color-desc">제목, 헤더, 라벨 배경</p>
+            </div>
+            <input type="color" class="color-pick" id="c-navy" value="#1c3461" oninput="onColorChange()">
+          </div>
+          <div class="color-row">
+            <div class="color-info">
+              <p class="color-name">강조 색</p>
+              <p class="color-desc">핵심 용어 (빨간 계열)</p>
+            </div>
+            <input type="color" class="color-pick" id="c-red" value="#b83030" oninput="onColorChange()">
+          </div>
+          <div class="color-row">
+            <div class="color-info">
+              <p class="color-name">페이지 배경</p>
+              <p class="color-desc">슬라이드 바깥 영역</p>
+            </div>
+            <input type="color" class="color-pick" id="c-bg" value="#e8e0d0" oninput="onColorChange()">
+          </div>
+          <div class="color-row">
+            <div class="color-info">
+              <p class="color-name">슬라이드 배경</p>
+              <p class="color-desc">슬라이드 안쪽 배경</p>
+            </div>
+            <input type="color" class="color-pick" id="c-slidebg" value="#f7f2e8" oninput="onColorChange()">
+          </div>
+          <div class="color-row">
+            <div class="color-info">
+              <p class="color-name">개념 행 배경</p>
+              <p class="color-desc">내용 영역 배경</p>
+            </div>
+            <input type="color" class="color-pick" id="c-rowbg" value="#f2ede0" oninput="onColorChange()">
+          </div>
+          <div class="color-row">
+            <div class="color-info">
+              <p class="color-name">본문 색</p>
+              <p class="color-desc">일반 텍스트</p>
+            </div>
+            <input type="color" class="color-pick" id="c-text" value="#2c2823" oninput="onColorChange()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 저장 버튼 -->
+    <div class="btn-row">
+      <span class="toast" id="toast">저장되었습니다.</span>
+      <button class="btn btn-reset" onclick="resetSettings()">기본값으로 초기화</button>
+      <button class="btn btn-save"  onclick="saveSettings()">저장</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ── 비밀번호 — 변경 시 이 값을 수정하세요 ── */
+const ADMIN_PW = 'hoseong';
+
+const KEY = 'hoistory_class_settings';
+
+const DEFAULTS = {
+  baseFontSize: 16,
+  navy:    '#1c3461',
+  red:     '#b83030',
+  bg:      '#e8e0d0',
+  slideBg: '#f7f2e8',
+  rowBg:   '#f2ede0',
+  text:    '#2c2823'
+};
+
+/* ── 로그인 ── */
+document.getElementById('pw').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+function doLogin() {
+  if (document.getElementById('pw').value === ADMIN_PW) {
+    sessionStorage.setItem('admin_auth', 'true');
+    showAdmin();
+  } else {
+    document.getElementById('pw-err').style.display = 'block';
+  }
+}
+
+function showAdmin() {
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('admin').style.display = 'block';
+  loadSettings();
+}
+
+if (sessionStorage.getItem('admin_auth') === 'true') showAdmin();
+
+/* ── 설정 불러오기 ── */
+function loadSettings() {
+  const s = Object.assign({}, DEFAULTS, JSON.parse(localStorage.getItem(KEY) || '{}'));
+  document.getElementById('fs').value          = s.baseFontSize;
+  document.getElementById('fs-val').textContent = s.baseFontSize + 'px';
+  document.getElementById('c-navy').value   = s.navy;
+  document.getElementById('c-red').value    = s.red;
+  document.getElementById('c-bg').value     = s.bg;
+  document.getElementById('c-slidebg').value = s.slideBg;
+  document.getElementById('c-rowbg').value  = s.rowBg;
+  document.getElementById('c-text').value   = s.text;
+  applyPreview(s);
+}
+
+/* ── 미리보기 ── */
+function applyPreview(s) {
+  document.getElementById('pv-wrap').style.background    = s.bg;
+  document.getElementById('pv-slide').style.background   = s.slideBg;
+  document.getElementById('pv-badge').style.background   = s.navy;
+  document.getElementById('pv-title').style.color        = s.navy;
+  document.getElementById('pv-label').style.background   = s.navy;
+  document.getElementById('pv-content').style.background = s.rowBg;
+  document.getElementById('pv-content').style.color      = s.text;
+  document.getElementById('pv-blank').style.color        = s.red;
+  document.getElementById('pv-slide').style.fontSize     = (s.baseFontSize * 0.72) + 'px';
+}
+
+function getFormValues() {
+  return {
+    baseFontSize: parseInt(document.getElementById('fs').value),
+    navy:    document.getElementById('c-navy').value,
+    red:     document.getElementById('c-red').value,
+    bg:      document.getElementById('c-bg').value,
+    slideBg: document.getElementById('c-slidebg').value,
+    rowBg:   document.getElementById('c-rowbg').value,
+    text:    document.getElementById('c-text').value,
+  };
+}
+
+function onFontChange(val) {
+  document.getElementById('fs-val').textContent = val + 'px';
+  applyPreview(getFormValues());
+}
+
+function onColorChange() { applyPreview(getFormValues()); }
+
+/* ── 저장 ── */
+function saveSettings() {
+  localStorage.setItem(KEY, JSON.stringify(getFormValues()));
+  const toast = document.getElementById('toast');
+  toast.style.display = 'block';
+  setTimeout(() => { toast.style.display = 'none'; }, 2500);
+}
+
+/* ── 초기화 ── */
+function resetSettings() {
+  localStorage.removeItem(KEY);
+  loadSettings();
+}
+</script>
+</body>
+</html>

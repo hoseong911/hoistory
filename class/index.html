@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>수업 자료 슬라이드</title>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+    :root {
+      --font:     'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+      --bg:       #e8e0d0;
+      --card-bg:  #f7f2e8;
+      --navy:     #1c3461;
+      --red:      #b83030;
+      --text:     #2c2823;
+      --text-sub: #7a6f5e;
+      --border:   #cfc6b0;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    header {
+      background: var(--navy);
+      padding: 24px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-brand {
+      font-size: 0.78rem;
+      letter-spacing: 0.15em;
+      color: rgba(255,255,255,0.4);
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+    .header-title { font-size: 1.5rem; font-weight: 800; color: #fff; }
+    .header-admin {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.55);
+      text-decoration: none;
+      padding: 7px 18px;
+      border: 1px solid rgba(255,255,255,0.22);
+      border-radius: 20px;
+      transition: all 0.15s;
+    }
+    .header-admin:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.88); }
+
+    .year-section { padding: 32px 40px 0; }
+    .year-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--text-sub);
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .lesson-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 12px;
+      padding-bottom: 40px;
+    }
+    .lesson-card {
+      display: flex;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      text-decoration: none;
+      color: var(--text);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .lesson-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(28,52,97,0.1);
+    }
+    .card-num {
+      background: var(--navy);
+      color: rgba(255,255,255,0.82);
+      width: 72px;
+      min-width: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.7rem;
+      font-weight: 900;
+      letter-spacing: -0.02em;
+    }
+    .card-body { padding: 16px 20px; }
+    .card-unit { font-size: 0.78rem; color: var(--text-sub); margin-bottom: 5px; }
+    .card-title { font-size: 1.05rem; font-weight: 700; color: var(--navy); line-height: 1.35; }
+
+    .empty { padding: 80px 40px; text-align: center; color: var(--text-sub); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <p class="header-brand">Hoseong History</p>
+    <h1 class="header-title">수업 자료 슬라이드</h1>
+  </div>
+  <a href="admin.html" class="header-admin">설정</a>
+</header>
+
+<div id="content"></div>
+
+<script>
+/* ════════════════════════════════════════════════════════
+   강의 목록 — 새 강의 추가 시 이 배열에 항목을 넣으세요
+
+   { file: '파일명(확장자 제외)', year: '연도', num: '강 번호', title: '제목', unit: '단원' }
+   ════════════════════════════════════════════════════════ */
+const LESSONS = [
+  {
+    file:  '26_23',
+    year:  '2026',
+    num:   '23',
+    title: '고려의 사회, 고려의 문화',
+    unit:  'Ⅲ-4. 고려의 생활과 문화'
+  },
+  /* 예시 — 새 강의 추가 시 아래 형식으로 붙여넣으세요
+  {
+    file:  '26_24',
+    year:  '2026',
+    num:   '24',
+    title: '강의 제목',
+    unit:  '단원명'
+  },
+  */
+];
+
+const content = document.getElementById('content');
+
+if (!LESSONS.length) {
+  content.innerHTML = '<p class="empty">등록된 강의가 없습니다.</p>';
+} else {
+  const byYear = LESSONS.reduce((acc, l) => {
+    (acc[l.year] ??= []).push(l);
+    return acc;
+  }, {});
+
+  Object.keys(byYear).sort().reverse().forEach(year => {
+    const section = document.createElement('div');
+    section.className = 'year-section';
+    section.innerHTML = `<p class="year-label">${year}학년도</p>`;
+
+    const grid = document.createElement('div');
+    grid.className = 'lesson-grid';
+
+    byYear[year].forEach(l => {
+      const a = document.createElement('a');
+      a.href = `${l.file}.html`;
+      a.className = 'lesson-card';
+      a.innerHTML = `
+        <div class="card-num">${l.num}</div>
+        <div class="card-body">
+          <p class="card-unit">${l.unit}</p>
+          <h2 class="card-title">${l.title}</h2>
+        </div>
+      `;
+      grid.appendChild(a);
+    });
+
+    section.appendChild(grid);
+    content.appendChild(section);
+  });
+}
+</script>
+</body>
+</html>
