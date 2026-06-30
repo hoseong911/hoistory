@@ -1733,9 +1733,6 @@ async function renderRanking(n) {
   try {
     const snap = await fs.collection(COL.rankings)
       .where('count', '==', n)
-      .orderBy('score', 'desc')
-      .orderBy('corrections', 'desc')  // 동점일 때 X바로잡기 많은 사람 우선
-      .limit(50)
       .get();
 
     const data = [];
@@ -1750,6 +1747,8 @@ async function renderRanking(n) {
         m: d.comment || '',
       });
     });
+    data.sort((a, b) => b.s - a.s || b.c - a.c);
+    data.splice(50);
 
     if (data.length === 0) {
       podium.innerHTML = '';
