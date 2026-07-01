@@ -6,6 +6,21 @@
   <title>23강 · 고려의 사회, 고려의 문화</title>
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <style>
+    @font-face {
+      font-family: 'Paperlogy';
+      src: url('https://cdn.jsdelivr.net/gh/Project-Noonnu/2408_4@1.0/Paperlogy-4Regular.woff2') format('woff2');
+      font-weight: 400; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Paperlogy';
+      src: url('https://cdn.jsdelivr.net/gh/Project-Noonnu/2408_4@1.0/Paperlogy-7Bold.woff2') format('woff2');
+      font-weight: 700; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Paperlogy';
+      src: url('https://cdn.jsdelivr.net/gh/Project-Noonnu/2408_4@1.0/Paperlogy-8ExtraBold.woff2') format('woff2');
+      font-weight: 800; font-style: normal;
+    }
     /* ════════════════════════════════
        디자인 변수 — 색상은 여기서 조정
        ════════════════════════════════ */
@@ -50,7 +65,10 @@
 
     /* ════ 모드 선택 화면 ════ */
     #mode-select {
-      height: 100vh;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      z-index: 500;
       background: var(--navy);
       display: flex;
       flex-direction: column;
@@ -205,6 +223,7 @@
     .check-badge {
       background: var(--navy);
       color: #fff;
+      font-family: 'Paperlogy', 'Pretendard', sans-serif;
       font-size: 0.78rem;
       font-weight: 700;
       padding: 5px 14px;
@@ -230,13 +249,15 @@
     .row-label {
       background: var(--navy);
       color: rgba(255,255,255,0.9);
-      width: 110px;
-      min-width: 110px;
-      padding: 16px 10px;
+      width: 7em;
+      min-width: 90px;
+      max-width: 180px;
+      padding: 1em 0.7em;
       display: flex;
       align-items: center;
       justify-content: center;
       text-align: center;
+      font-family: 'Paperlogy', 'Pretendard', sans-serif;
       font-size: var(--fs-label);
       font-weight: 700;
       line-height: 1.45;
@@ -245,7 +266,7 @@
     .row-content {
       flex: 1;
       background: var(--row-bg);
-      padding: 16px 22px;
+      padding: 14px 22px;
       display: flex;
       flex-direction: column;
       gap: 7px;
@@ -253,14 +274,25 @@
     }
     .row-content p {
       font-size: var(--fs-body);
+      font-weight: 400;
       line-height: 1.7;
       color: var(--text);
+      display: flex;
+      align-items: baseline;
+    }
+    .item-lead {
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .item-text {
+      flex: 1;
+      min-width: 0;
     }
 
     /* ════ 빈칸 ════ */
     .blank {
       display: inline-block;
-      font-weight: 700;
+      font-weight: 800;
       border-radius: 4px;
       padding: 1px 5px;
       transition: background 0.18s, color 0.18s;
@@ -589,6 +621,17 @@ function parseText(str) {
   return str.replace(/\{([^}]+)\}/g, '<span class="blank">$1</span>');
 }
 
+/* 콜론 내어쓰기: " : " 기준으로 앞부분(번호+라벨)과 뒷부분(설명) 분리 */
+function parseItemText(str) {
+  const colonIdx = str.indexOf(' : ');
+  if (colonIdx > -1) {
+    const lead = str.slice(0, colonIdx + 3); // "① 구분 : " 포함
+    const rest = str.slice(colonIdx + 3);
+    return `<span class="item-lead">${parseText(lead)}</span><span class="item-text">${parseText(rest)}</span>`;
+  }
+  return `<span class="item-text">${parseText(str)}</span>`;
+}
+
 function buildCover() {
   const el = document.createElement('div');
   el.className = 'slide slide-cover';
@@ -624,7 +667,7 @@ function buildConcept(slide) {
         <div class="concept-row">
           <div class="row-label">${row.label}</div>
           <div class="row-content">
-            ${row.items.map(item => `<p>${parseText(item)}</p>`).join('')}
+            ${row.items.map(item => `<p>${parseItemText(item)}</p>`).join('')}
           </div>
         </div>
       `).join('')}
