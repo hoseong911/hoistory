@@ -309,6 +309,66 @@
     .comma-item { display: block; }
     .comma-item.cont { padding-left: 1em; }
 
+    /* ════ 행 내 이미지 (방법 A) ════ */
+    .row-content.has-img {
+      flex-direction: row;
+      align-items: stretch;
+      gap: 16px;
+    }
+    .row-content.has-img .row-items {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      justify-content: center;
+    }
+    .row-img-wrap {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .row-img {
+      max-height: 150px;
+      max-width: 200px;
+      object-fit: contain;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fff;
+    }
+    .row-img-caption {
+      font-size: 0.72rem;
+      color: var(--text-sub);
+      text-align: center;
+    }
+
+    /* ════ 이미지 슬라이드 (방법 B) ════ */
+    .image-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      min-height: 0;
+    }
+    .main-img {
+      max-width: 100%;
+      max-height: calc(100vh - 240px);
+      object-fit: contain;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #fff;
+    }
+    .main-img-caption {
+      font-size: 1.05rem;
+      color: var(--text-sub);
+      text-align: center;
+      font-weight: 500;
+    }
+
     /* 괄호 보조 설명 — 80% 크기 */
     .paren-note { font-size: 0.8em; }
 
@@ -457,6 +517,12 @@ const LESSON = {
    type: 'cover'    표지 (LESSON 정보 자동 사용)
    type: 'concept'  개념 Check 슬라이드
    type: 'think'    생각 Check 슬라이드
+   type: 'image'    이미지 슬라이드 (방법 B)
+     { type: 'image', title: '제목', src: 'img/파일명.jpg', caption: '캡션' }
+
+   [행 내 이미지 — 방법 A]
+   rows 항목에 img, imgCaption 추가:
+     { label: '라벨', items: [...], img: 'img/파일명.jpg', imgCaption: '캡션' }
    ════════════════════════════════════════════════════════ */
 const SLIDES = [
 
@@ -698,6 +764,29 @@ function buildCover() {
   return el;
 }
 
+/* 행 하나 렌더링 — 이미지 있으면 has-img 레이아웃 */
+function buildRowHtml(row) {
+  const items = row.items.map(item => `<p>${parseItemText(item)}</p>`).join('');
+  if (row.img) {
+    return `
+      <div class="concept-row">
+        <div class="row-label">${row.label}</div>
+        <div class="row-content has-img">
+          <div class="row-items">${items}</div>
+          <div class="row-img-wrap">
+            <img src="${row.img}" alt="${row.imgCaption || ''}" class="row-img">
+            ${row.imgCaption ? `<span class="row-img-caption">${row.imgCaption}</span>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }
+  return `
+    <div class="concept-row">
+      <div class="row-label">${row.label}</div>
+      <div class="row-content">${items}</div>
+    </div>`;
+}
+
 function buildConcept(slide) {
   const el = document.createElement('div');
   el.className = 'slide';
@@ -707,14 +796,24 @@ function buildConcept(slide) {
       <h2 class="slide-title">${slide.title}</h2>
     </div>
     <div class="concept-rows">
-      ${slide.rows.map(row => `
-        <div class="concept-row">
-          <div class="row-label">${row.label}</div>
-          <div class="row-content">
-            ${row.items.map(item => `<p>${parseItemText(item)}</p>`).join('')}
-          </div>
-        </div>
-      `).join('')}
+      ${slide.rows.map(buildRowHtml).join('')}
+    </div>
+  `;
+  return el;
+}
+
+/* 이미지 슬라이드 (방법 B) */
+function buildImage(slide) {
+  const el = document.createElement('div');
+  el.className = 'slide';
+  el.innerHTML = `
+    <div class="slide-header">
+      <span class="check-badge">자료</span>
+      <h2 class="slide-title">${slide.title || ''}</h2>
+    </div>
+    <div class="image-body">
+      <img src="${slide.src}" alt="${slide.title || ''}" class="main-img">
+      ${slide.caption ? `<p class="main-img-caption">${slide.caption}</p>` : ''}
     </div>
   `;
   return el;
@@ -742,6 +841,7 @@ function renderAll() {
   SLIDES.forEach(s => {
     if      (s.type === 'cover')   container.appendChild(buildCover());
     else if (s.type === 'concept') container.appendChild(buildConcept(s));
+    else if (s.type === 'image')   container.appendChild(buildImage(s));
     else if (s.type === 'think')   container.appendChild(buildThink(s));
   });
 }
