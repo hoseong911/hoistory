@@ -297,7 +297,6 @@
       font-family: 'Paperlogy', 'Pretendard', sans-serif;
       font-weight: 600;
       color: var(--navy);
-      margin-right: 0.35em;
     }
     .item-lead .blank {
       font-weight: 900;
@@ -306,6 +305,9 @@
       flex: 1;
       min-width: 0;
     }
+    /* 데이터에 \n을 넣으면 그 위치에서 줄바꿈 + 내어쓰기 */
+    .line-cont::before { content: '\A'; white-space: pre; }
+    .line-cont { padding-left: 1em; }
 
     /* ════ 행 내 이미지 (방법 A) ════ */
     .row-content.has-img {
@@ -718,15 +720,22 @@ function parseText(str) {
   return s;
 }
 
-/* " : " 기준으로 소제목(item-lead)과 본문(item-text) 분리 */
+/* \n 위치에서 줄바꿈 + 내어쓰기 */
+function renderWithBreaks(text) {
+  return text.split('\n').map((line, i) =>
+    i === 0 ? parseText(line) : `<span class="line-cont">${parseText(line)}</span>`
+  ).join('');
+}
+
+/* " : " 기준으로 소제목(item-lead)과 본문(item-text) 분리. 콜론은 제거 */
 function parseItemText(str) {
   const colonIdx = str.indexOf(' : ');
   if (colonIdx > -1) {
-    const leadRaw = str.slice(0, colonIdx + 2); /* 콜론까지만 (trailing space 제거) */
+    const leadRaw = str.slice(0, colonIdx);        /* 콜론 제거 */
     const rest    = str.slice(colonIdx + 3);
-    return `<span class="item-lead">${parseText(leadRaw)}</span><span class="item-text">${parseText(rest)}</span>`;
+    return `<span class="item-lead">${parseText(leadRaw)}&nbsp;&nbsp;&nbsp;</span><span class="item-text">${renderWithBreaks(rest)}</span>`;
   }
-  return `<span class="item-text">${parseText(str)}</span>`;
+  return `<span class="item-text">${renderWithBreaks(str)}</span>`;
 }
 
 function buildCover() {
