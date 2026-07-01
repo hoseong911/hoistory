@@ -295,15 +295,19 @@
       white-space: nowrap;
       flex-shrink: 0;
       font-family: 'Paperlogy', 'Pretendard', sans-serif;
-      font-weight: 600; /* SemiBold — 일반 소제목 */
+      font-weight: 600; /* SemiBold — 번호·콜론 포함 항상 600 */
     }
-    .item-lead.emph {
-      font-weight: 900; /* Black — 빈칸 포함 소제목 */
+    .item-lead .blank {
+      font-weight: 900; /* 소제목 안의 빈칸 단어만 Black */
     }
     .item-text {
       flex: 1;
       min-width: 0;
     }
+
+    /* 쉼표 줄바꿈 내어쓰기 */
+    .comma-item { display: block; }
+    .comma-item.cont { padding-left: 1em; }
 
     /* 괄호 보조 설명 — 80% 크기 */
     .paren-note { font-size: 0.8em; }
@@ -650,16 +654,24 @@ function parseText(str) {
   return s;
 }
 
-/* 콜론 내어쓰기: " : " 기준으로 소제목과 설명 분리
-   소제목에 빈칸{} 포함 시 Black(900), 일반 시 SemiBold(600) */
+/* 콜론 내어쓰기 + 쉼표 줄바꿈 내어쓰기
+   - " : " 기준으로 소제목(item-lead)과 본문(item-text) 분리
+   - 번호·콜론은 항상 600, 소제목 안의 빈칸만 CSS로 900 적용
+   - 본문은 ", " 기준으로 분리해 두 번째 줄부터 1em 들여쓰기 */
 function parseItemText(str) {
   const colonIdx = str.indexOf(' : ');
   if (colonIdx > -1) {
-    const leadRaw = str.slice(0, colonIdx + 3); // "① 구분 : " 포함
-    const rest = str.slice(colonIdx + 3);
-    const hasBlank = leadRaw.includes('{');
-    const cls = hasBlank ? 'item-lead emph' : 'item-lead';
-    return `<span class="${cls}">${parseText(leadRaw)}</span><span class="item-text">${parseText(rest)}</span>`;
+    const leadRaw = str.slice(0, colonIdx + 3);
+    const rest    = str.slice(colonIdx + 3);
+
+    /* 쉼표 기준 분리 */
+    const parts = rest.split(', ');
+    const restHtml = parts.map((p, i) => {
+      const txt = parseText(i < parts.length - 1 ? p + ',' : p);
+      return `<span class="comma-item${i > 0 ? ' cont' : ''}">${txt}</span>`;
+    }).join('');
+
+    return `<span class="item-lead">${parseText(leadRaw)}</span><span class="item-text">${restHtml}</span>`;
   }
   return `<span class="item-text">${parseText(str)}</span>`;
 }
