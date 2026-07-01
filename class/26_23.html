@@ -27,6 +27,13 @@
 
       --blank-bg:   #2d2921;   /* 빈칸 숨김 색 */
       --border:     #cfc6b0;   /* 테두리 */
+
+      --fs-slide-title: 1.8rem;
+      --fs-body:        1.1rem;
+      --fs-label:       1rem;
+      --fs-cover-title: 3.4rem;
+      --fs-question:    1.85rem;
+      --fs-obj:         1.05rem;
     }
 
     /* ════ 리셋 ════ */
@@ -144,7 +151,7 @@
       color: rgba(255,255,255,0.45);
     }
     .cover-title {
-      font-size: 3.4rem;
+      font-size: var(--fs-cover-title);
       font-weight: 800;
       line-height: 1.2;
       margin-top: 4px;
@@ -171,7 +178,7 @@
     }
     .cover-objectives { display: flex; flex-direction: column; gap: 10px; }
     .cover-obj {
-      font-size: 1.05rem;
+      font-size: var(--fs-obj);
       color: rgba(255,255,255,0.7);
       line-height: 1.55;
       padding-left: 24px;
@@ -204,7 +211,7 @@
     }
     .check-badge.think { background: #2a6e40; }
     .slide-title {
-      font-size: 1.8rem;
+      font-size: var(--fs-slide-title);
       font-weight: 800;
       color: var(--navy);
     }
@@ -227,7 +234,7 @@
       align-items: center;
       justify-content: center;
       text-align: center;
-      font-size: 1rem;
+      font-size: var(--fs-label);
       font-weight: 700;
       line-height: 1.45;
       word-break: keep-all;
@@ -242,7 +249,7 @@
       justify-content: center;
     }
     .row-content p {
-      font-size: 1.1rem;
+      font-size: var(--fs-body);
       line-height: 1.7;
       color: var(--text);
     }
@@ -278,7 +285,7 @@
     /* ════ 생각 Check ════ */
     .slide-think { background: #f5f0e4; }
     .think-question {
-      font-size: 1.85rem;
+      font-size: var(--fs-question);
       font-weight: 700;
       color: var(--navy);
       line-height: 1.5;
@@ -548,6 +555,7 @@ const SLIDES = [
 const SETTING_KEY = 'hoistory_class_settings';
 const SETTING_DEFAULTS = {
   baseFontSize: 16,
+  fonts: { title: 1.8, body: 1.1, label: 1.0, cover: 3.4, think: 1.85, obj: 1.05 },
   navy:    '#1c3461',
   red:     '#b83030',
   bg:      '#e8e0d0',
@@ -557,14 +565,23 @@ const SETTING_DEFAULTS = {
 };
 
 function applySettings() {
-  const s = Object.assign({}, SETTING_DEFAULTS, JSON.parse(localStorage.getItem(SETTING_KEY) || '{}'));
-  document.documentElement.style.fontSize = s.baseFontSize + 'px';
-  document.documentElement.style.setProperty('--navy',     s.navy);
-  document.documentElement.style.setProperty('--red',      s.red);
-  document.documentElement.style.setProperty('--bg',       s.bg);
-  document.documentElement.style.setProperty('--slide-bg', s.slideBg);
-  document.documentElement.style.setProperty('--row-bg',   s.rowBg);
-  document.documentElement.style.setProperty('--text',     s.text);
+  const raw  = JSON.parse(localStorage.getItem(SETTING_KEY) || '{}');
+  const s    = Object.assign({}, SETTING_DEFAULTS, raw);
+  const f    = Object.assign({}, SETTING_DEFAULTS.fonts, raw.fonts || {});
+  const root = document.documentElement;
+  root.style.fontSize = s.baseFontSize + 'px';
+  root.style.setProperty('--navy',            s.navy);
+  root.style.setProperty('--red',             s.red);
+  root.style.setProperty('--bg',              s.bg);
+  root.style.setProperty('--slide-bg',        s.slideBg);
+  root.style.setProperty('--row-bg',          s.rowBg);
+  root.style.setProperty('--text',            s.text);
+  root.style.setProperty('--fs-slide-title',  f.title  + 'rem');
+  root.style.setProperty('--fs-body',         f.body   + 'rem');
+  root.style.setProperty('--fs-label',        f.label  + 'rem');
+  root.style.setProperty('--fs-cover-title',  f.cover  + 'rem');
+  root.style.setProperty('--fs-question',     f.think  + 'rem');
+  root.style.setProperty('--fs-obj',          f.obj    + 'rem');
 }
 applySettings();
 
@@ -737,6 +754,23 @@ document.addEventListener('keydown', e => {
 });
 
 slidesEl.addEventListener('scroll', updateCounter);
+
+/* ── localStorage 데이터 시딩: 저장된 내용이 없을 때만 기본값 기록 ── */
+(function seedData() {
+  const DATA_KEY = 'class_data_26_23';
+  if (localStorage.getItem(DATA_KEY)) return;
+  const seed = {
+    lesson: LESSON,
+    slides: SLIDES.map(s => JSON.parse(JSON.stringify(s)))
+  };
+  localStorage.setItem(DATA_KEY, JSON.stringify(seed));
+})();
+
+/* ── URL ?mode= 파라미터로 모드 선택 화면 건너뛰기 ── */
+(function checkUrlMode() {
+  const p = new URLSearchParams(location.search).get('mode');
+  if (p === 'complete' || p === 'blank') startSlides(p);
+})();
 </script>
 </body>
 </html>
