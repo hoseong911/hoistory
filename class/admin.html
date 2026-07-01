@@ -444,11 +444,9 @@ function renderEditor() {
     el.innerHTML = `
       <p class="editor-section-title">수업 정보 (표지에 자동 반영)</p>
       ${fInput('강 번호', l.num, `updateLesson('num',this.value)`)}
-      ${fInput('수업 제목', l.title, `updateLesson('title',this.value)`)}
+      ${fTextarea('수업 제목', l.title, `updateLesson('title',this.value)`, 2, 'Enter로 줄바꿈')}
       ${fInput('학습 단원', l.unit, `updateLesson('unit',this.value)`)}
-      ${fInput('교과서 페이지', l.page, `updateLesson('page',this.value)`)}
-      ${fTextarea('학습 목표 1', l.objectives[0]||'', `updateObj(0,this.value)`)}
-      ${fTextarea('학습 목표 2', l.objectives[1]||'', `updateObj(1,this.value)`)}`;
+      ${fInput('교과서 페이지', l.page, `updateLesson('page',this.value)`)}`;
   } else if (s.type === 'concept') {
     el.innerHTML = `
       <p class="editor-section-title">슬라이드 ${si+1} — 개념 Check</p>
@@ -458,10 +456,10 @@ function renderEditor() {
           <div class="row-block-header">행 ${ri+1} ${s.rows.length>1?`<button class="btn-danger" onclick="deleteRow(${ri})">행 삭제</button>`:''}</div>
           ${fInput('라벨', row.label, `updateRow(${ri},'label',this.value)`)}
           <div class="field-group">
-            <div class="field-label">내용 <span class="field-hint">{단어}는 빈칸 처리됩니다</span></div>
+            <div class="field-label">내용 <span class="field-hint">{단어}는 빈칸 / Enter로 줄바꿈 삽입</span></div>
             ${row.items.map((item,ii)=>`
               <div class="item-row">
-                <textarea class="field-input" rows="2" oninput="updateItem(${ri},${ii},this.value)">${esc(item)}</textarea>
+                <textarea class="field-input" rows="3" oninput="updateItem(${ri},${ii},this.value)">${esc(item)}</textarea>
                 ${row.items.length>1?`<button class="btn-sm" onclick="deleteItem(${ri},${ii})">-</button>`:''}
               </div>`).join('')}
             <button class="btn-sm add-row-btn" onclick="addItem(${ri})">+ 항목 추가</button>
@@ -479,8 +477,9 @@ function renderEditor() {
 function fInput(label, val, handler) {
   return `<div class="field-group"><div class="field-label">${label}</div><input class="field-input" type="text" value="${esc(val)}" oninput="${handler}"></div>`;
 }
-function fTextarea(label, val, handler, rows=2) {
-  return `<div class="field-group"><div class="field-label">${label}</div><textarea class="field-input" rows="${rows}" oninput="${handler}">${esc(val)}</textarea></div>`;
+function fTextarea(label, val, handler, rows=2, hint='') {
+  const h = hint ? ` <span class="field-hint">${hint}</span>` : '';
+  return `<div class="field-group"><div class="field-label">${label}${h}</div><textarea class="field-input" rows="${rows}" oninput="${handler}">${esc(val)}</textarea></div>`;
 }
 function esc(str) {
   return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -522,17 +521,12 @@ function pvParse(str) { return str.replace(/\{([^}]+)\}/g,'<span class="blank">$
 
 function pvCover() {
   const l = cd.lesson;
-  return `<div class="slide slide-cover">
-    <span style="font-size:13px;letter-spacing:.18em;color:rgba(255,255,255,.38);text-transform:uppercase">Hoseong History · 역사 수업</span>
-    <div style="display:flex;align-items:baseline;gap:10px;margin-top:10px">
-      <span style="font-size:88px;font-weight:900;color:rgba(255,255,255,.14);letter-spacing:-.04em;line-height:1">${l.num}</span>
-      <span style="font-size:18px;color:rgba(255,255,255,.45)">강</span>
-    </div>
-    <h1 class="cover-title">${l.title}</h1>
-    <p style="font-size:16px;color:rgba(255,255,255,.45);margin-top:4px">${l.unit} · ${l.page}</p>
-    <div style="width:48px;height:3px;background:rgba(255,255,255,.25);border-radius:2px;margin:24px 0"></div>
-    <p style="font-size:12px;letter-spacing:.14em;color:rgba(255,255,255,.38);text-transform:uppercase;margin-bottom:14px">학습 목표</p>
-    ${l.objectives.map((o,i)=>`<p class="cover-obj" data-n="${i+1}">${o}</p>`).join('')}
+  return `<div class="slide slide-cover" style="position:relative;overflow:hidden;align-items:flex-start;justify-content:center;gap:0;padding:52px 80px">
+    <span style="font-size:24px;color:rgba(255,255,255,.18);letter-spacing:.04em;margin-bottom:16px">HOSEONG HISTORY</span>
+    <span style="font-size:11px;font-weight:600;color:#b83030;margin-bottom:8px">생각하고 활동하고 질문하는 역사 수업</span>
+    <h1 class="cover-title">${l.title.replace(/\n/g,'<br>')}</h1>
+    <p style="font-size:14px;color:rgba(255,255,255,.35);margin-top:16px">${l.unit} · ${l.page}</p>
+    <div style="position:absolute;right:-.06em;bottom:-.18em;font-size:240px;font-weight:900;color:rgba(255,255,255,.06);line-height:1;pointer-events:none">${l.num}</div>
   </div>`;
 }
 function pvConcept(s) {
@@ -544,7 +538,7 @@ function pvConcept(s) {
     <div class="concept-rows">
       ${s.rows.map(r=>`<div class="concept-row">
         <div class="row-label">${r.label}</div>
-        <div class="row-content">${r.items.map(it=>`<p>${pvParse(it)}</p>`).join('')}</div>
+        <div class="row-content">${r.items.map(it=>`<p>${pvParse(it).replace(/\n/g,'<br>')}</p>`).join('')}</div>
       </div>`).join('')}
     </div>
   </div>`;
