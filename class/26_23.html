@@ -13,6 +13,11 @@
     }
     @font-face {
       font-family: 'Paperlogy';
+      src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2');
+      font-weight: 600; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Paperlogy';
       src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2');
       font-weight: 700; font-style: normal;
     }
@@ -20,6 +25,11 @@
       font-family: 'Paperlogy';
       src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-8ExtraBold.woff2') format('woff2');
       font-weight: 800; font-style: normal;
+    }
+    @font-face {
+      font-family: 'Paperlogy';
+      src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2');
+      font-weight: 900; font-style: normal;
     }
     /* ════════════════════════════════
        디자인 변수 — 색상은 여기서 조정
@@ -284,6 +294,11 @@
     .item-lead {
       white-space: nowrap;
       flex-shrink: 0;
+      font-family: 'Paperlogy', 'Pretendard', sans-serif;
+      font-weight: 600; /* SemiBold — 일반 소제목 */
+    }
+    .item-lead.emph {
+      font-weight: 900; /* Black — 빈칸 포함 소제목 */
     }
     .item-text {
       flex: 1;
@@ -455,6 +470,13 @@ const SLIDES = [
           '② {의창} : 백성에게 곡식 빌려주었다가 추수한 다음 갚도록 함',
           '③ {동서 대비원} : 국립 의료 기관, 의료 사업 뿐만 아니라 구제 기관 역할'
         ]
+      },
+      {
+        label: '가족 제도',
+        items: [
+          '① 구성 : {소가족} 중심, {일부일처제}, 이혼과 재혼 가능 (재혼한 여성과 자녀는 차별 없음)',
+          '② 특징 : {처가살이}하는 경우 많음, 외가 친척도 동일하게 혜택, {조혼} 풍속 유행 (고려 후기), 자녀 {균분} 상속 원칙'
+        ]
       }
     ]
   },
@@ -463,13 +485,6 @@ const SLIDES = [
     type: 'concept',
     title: '고려 사회의 모습',
     rows: [
-      {
-        label: '가족 제도',
-        items: [
-          '① 구성 : {소가족} 중심, {일부일처제}, 이혼과 재혼 가능 (재혼한 여성과 자녀는 차별 없음)',
-          '② 특징 : {처가살이}하는 경우 많음, 외가 친척도 동일하게 혜택, {조혼} 풍속 유행 (고려 후기), 자녀 {균분} 상속 원칙'
-        ]
-      },
       {
         label: '여성 지위',
         items: [
@@ -635,13 +650,16 @@ function parseText(str) {
   return s;
 }
 
-/* 콜론 내어쓰기: " : " 기준으로 앞부분(번호+라벨)과 뒷부분(설명) 분리 */
+/* 콜론 내어쓰기: " : " 기준으로 소제목과 설명 분리
+   소제목에 빈칸{} 포함 시 Black(900), 일반 시 SemiBold(600) */
 function parseItemText(str) {
   const colonIdx = str.indexOf(' : ');
   if (colonIdx > -1) {
-    const lead = str.slice(0, colonIdx + 3); // "① 구분 : " 포함
+    const leadRaw = str.slice(0, colonIdx + 3); // "① 구분 : " 포함
     const rest = str.slice(colonIdx + 3);
-    return `<span class="item-lead">${parseText(lead)}</span><span class="item-text">${parseText(rest)}</span>`;
+    const hasBlank = leadRaw.includes('{');
+    const cls = hasBlank ? 'item-lead emph' : 'item-lead';
+    return `<span class="${cls}">${parseText(leadRaw)}</span><span class="item-text">${parseText(rest)}</span>`;
   }
   return `<span class="item-text">${parseText(str)}</span>`;
 }
