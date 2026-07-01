@@ -459,7 +459,10 @@ tbody tr:last-child td { border-bottom: none; }
         <div class="card">
           <div class="card-header">
             <div class="card-title">학생 참여 명단</div>
-            <div class="card-hint" id="class-student-count"></div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="card-hint" id="class-student-count"></div>
+              <button class="btn btn-primary btn-sm" onclick="exportClassStats()">엑셀 내보내기</button>
+            </div>
           </div>
           <div class="card-body">
             <div id="class-student-list">
@@ -523,6 +526,7 @@ tbody tr:last-child td { border-bottom: none; }
       <div class="setting-section-title">데이터 백업</div>
       <div class="setting-group">
         <div class="setting-row"><div class="setting-info"><div class="setting-name">문제 내보내기 (엑셀)</div><div class="setting-desc">등록된 모든 문제를 .xlsx 파일로 다운로드합니다.</div></div><button class="btn btn-primary btn-sm" onclick="exportQuestions()">다운로드</button></div>
+        <div class="setting-row"><div class="setting-info"><div class="setting-name">참여 통계 내보내기 (엑셀)</div><div class="setting-desc">학번·이름·횟수·총점·평균정답률·쿠폰수가 계산된 파일로 다운로드합니다.</div></div><button class="btn btn-primary btn-sm" onclick="exportClassStats()">다운로드</button></div>
         <div class="setting-row"><div class="setting-info"><div class="setting-name">랭킹 내보내기 (엑셀)</div><div class="setting-desc">학생별 점수 기록을 엑셀로 다운로드합니다.</div></div><button class="btn btn-primary btn-sm" onclick="exportRankings()">다운로드</button></div>
         <div class="setting-row"><div class="setting-info"><div class="setting-name">X 바로잡기 내보내기</div><div class="setting-desc">학생들이 작성한 모든 X바로잡기를 엑셀로 다운로드합니다.</div></div><button class="btn btn-primary btn-sm" onclick="exportCorrections()">다운로드</button></div>
       </div>
@@ -1274,6 +1278,49 @@ async function deleteAllInCollection(colName) {
     docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
     await batch.commit();
   }
+}
+
+async function exportClassStats() {
+  if (!state.classStudents || state.classStudents.length === 0) {
+    await loadClassData();
+  }
+  if (!state.classStudents || state.classStudents.length === 0) {
+    miniToast('참여 데이터가 없습니다', 'danger'); return;
+  }
+  const rows = state.classStudents.map(s => {
+    const count = s.sessions.length;
+    const totalScore = s.sessions.reduce((sum, sess) => sum + (sess.score || 0), 0);
+    const avgRateRaw = count > 0
+      ? s.sessions.reduce((sum, sess) => {
+          const t = (sess.correct || 0) + (sess.wrong || 0);
+          return sum + (t > 0 ? (sess.correct / t) * 100 : 0);
+        }, 0) / count
+      : 0;
+    const avgRate = Math.round(avgRateRaw * 10) / 10;
+    const avgScore = count > 0 ? totalScore / count : 0;
+    const scoreCoupon    = Math.floor(avgScore / 10000);
+    const participBonus  = count < 10 ? 0 : Math.floor((count - 10) / 10) + 1;
+    const rateBounus     = avgRateRaw >= 90 ? 5 : 0;
+    const totalCoupon    = scoreCoupon + participBonus + rateBounus;
+    return {
+      학번: s.sid,
+      이름: s.name,
+      참여횟수: count,
+      총점: totalScore,
+      '평균정답률(%)': avgRate,
+      평균점수쿠폰: scoreCoupon,
+      참여보너스쿠폰: participBonus,
+      '정답률보너스쿠폰(90%↑)': rateBounus,
+      총쿠폰: totalCoupon,
+    };
+  });
+  const ws = XLSX.utils.json_to_sheet(rows);
+  ws['!cols'] = [{wch:10},{wch:10},{wch:10},{wch:12},{wch:14},{wch:14},{wch:14},{wch:18},{wch:10}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '참여통계');
+  const now = new Date(), pad = n => String(n).padStart(2,'0');
+  XLSX.writeFile(wb, `ox퀴즈_참여통계_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.xlsx`);
+  miniToast('엑셀 다운로드 완료');
 }
 
 async function exportRankings() {
