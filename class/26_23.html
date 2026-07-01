@@ -8,17 +8,17 @@
   <style>
     @font-face {
       font-family: 'Paperlogy';
-      src: url('https://cdn.jsdelivr.net/gh/Project-Noonnu/2408_4@1.0/Paperlogy-4Regular.woff2') format('woff2');
+      src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-4Regular.woff2') format('woff2');
       font-weight: 400; font-style: normal;
     }
     @font-face {
       font-family: 'Paperlogy';
-      src: url('https://cdn.jsdelivr.net/gh/Project-Noonnu/2408_4@1.0/Paperlogy-7Bold.woff2') format('woff2');
+      src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2');
       font-weight: 700; font-style: normal;
     }
     @font-face {
       font-family: 'Paperlogy';
-      src: url('https://cdn.jsdelivr.net/gh/Project-Noonnu/2408_4@1.0/Paperlogy-8ExtraBold.woff2') format('woff2');
+      src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-8ExtraBold.woff2') format('woff2');
       font-weight: 800; font-style: normal;
     }
     /* ════════════════════════════════
@@ -132,7 +132,7 @@
       display: flex;
       flex-direction: column;
       justify-content: flex-start;
-      padding: 52px 80px;
+      padding: 80px 80px 52px;
       background: var(--slide-bg);
       transform: translateY(100%);
       transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
@@ -144,6 +144,7 @@
       background: var(--navy);
       color: #fff;
       gap: 10px;
+      padding: 52px 80px;
       justify-content: center;
     }
     .cover-brand {
@@ -288,6 +289,9 @@
       flex: 1;
       min-width: 0;
     }
+
+    /* 괄호 보조 설명 — 80% 크기 */
+    .paren-note { font-size: 0.8em; }
 
     /* ════ 빈칸 ════ */
     .blank {
@@ -618,7 +622,17 @@ applySettings();
    ════════════════════════════════════════════════════════ */
 
 function parseText(str) {
-  return str.replace(/\{([^}]+)\}/g, '<span class="blank">$1</span>');
+  // 빈칸을 임시 플레이스홀더로 보호
+  const blanks = [];
+  let s = str.replace(/\{([^}]+)\}/g, (_, inner) => {
+    blanks.push(inner);
+    return `\x00${blanks.length - 1}\x00`;
+  });
+  // 괄호 안에 빈칸(\x00)이 없는 경우에만 80% 크기 적용
+  s = s.replace(/\(([^()\x00]*)\)/g, '<span class="paren-note">($1)</span>');
+  // 플레이스홀더를 빈칸 span으로 복원
+  s = s.replace(/\x00(\d+)\x00/g, (_, i) => `<span class="blank">${blanks[+i]}</span>`);
+  return s;
 }
 
 /* 콜론 내어쓰기: " : " 기준으로 앞부분(번호+라벨)과 뒷부분(설명) 분리 */
