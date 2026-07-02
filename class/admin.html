@@ -82,12 +82,10 @@
     .btn-sm { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-size: .78rem; padding: 4px 10px; border-radius: 6px; cursor: pointer; font-family: var(--font); font-weight: 600; }
     .btn-sm:hover { background: #e4e4ea; }
 
-    /* ── 미리보기 갤러리 (디자인 탭) ── */
-    .pv-gallery { display: flex; flex-wrap: wrap; gap: 12px; max-height: 320px; overflow-y: auto; padding: 10px; background: var(--bg); border-radius: 8px; }
-    .pv-thumb { width: 190px; flex-shrink: 0; }
-    .pv-thumb-outer { width: 100%; aspect-ratio: 16/9; overflow: hidden; border-radius: 6px; position: relative; box-shadow: 0 2px 8px rgba(0,0,0,.12); background: #fff; }
-    .pv-thumb-inner { width: 960px; height: 540px; position: absolute; top: 0; left: 0; transform-origin: top left; }
-    .pv-thumb-label { font-size: .7rem; color: var(--sub); margin-top: 5px; text-align: center; }
+    /* ── 미리보기 (디자인 탭, 예시 슬라이드 1개) ── */
+    .pv-solo { display: flex; justify-content: center; }
+    .pv-solo-outer { width: 100%; max-width: 640px; aspect-ratio: 16/9; overflow: hidden; border-radius: 8px; position: relative; box-shadow: 0 4px 20px rgba(0,0,0,.12); background: #fff; }
+    .pv-solo-inner { width: 960px; height: 540px; position: absolute; top: 0; left: 0; transform-origin: top left; }
 
     /* ── 강의 내용 탭 ── */
     .field-group { margin-bottom: 14px; }
@@ -99,6 +97,10 @@
     .item-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; }
     .item-row textarea { flex: 1; }
     .add-row-btn { margin-top: 6px; }
+
+    .field-inline { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .field-inline-label { font-size: .82rem; font-weight: 700; color: var(--sub); width: 100px; flex-shrink: 0; }
+    .field-inline .field-input { flex: 1; }
 
     /* 강의 선택 바 */
     .lesson-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
@@ -170,18 +172,22 @@
   </div>
 
   <div class="tab-bar">
-    <button class="tab active" onclick="switchTab('design')">디자인 설정</button>
-    <button class="tab"        onclick="switchTab('content')">강의 내용</button>
+    <button class="tab active" onclick="switchTab('content')">CONTENTS</button>
+    <button class="tab"        onclick="switchTab('design')">DESIGN</button>
   </div>
 
-  <!-- ── 디자인 탭 (전체 슬라이드 미리보기 + 설정) ── -->
-  <div id="tab-design" class="tab-panel active">
+  <!-- ── 디자인 탭 (예시 슬라이드 미리보기 + 설정) ── -->
+  <div id="tab-design" class="tab-panel">
     <div class="page-wrap">
 
       <div class="s-card">
-        <div class="s-head">전체 슬라이드 미리보기</div>
+        <div class="s-head">미리보기</div>
         <div class="s-body">
-          <div class="pv-gallery" id="design-pv-gallery"></div>
+          <div class="pv-solo" id="design-pv-solo">
+            <div class="pv-solo-outer" id="design-pv-outer">
+              <div class="pv-solo-inner pv-scope" id="design-pv-inner"></div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -223,7 +229,7 @@
   </div>
 
   <!-- ── 강의 내용 탭 ── -->
-  <div id="tab-content" class="tab-panel">
+  <div id="tab-content" class="tab-panel active">
     <div class="page-wrap">
 
       <div class="lesson-bar">
@@ -361,10 +367,10 @@ if (sessionStorage.getItem('admin_auth') === 'true') showAdmin();
 
 /* ════ 탭 전환 ════ */
 function switchTab(name) {
-  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['design','content'][i] === name));
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['content','design'][i] === name));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
-  if (name === 'design') requestAnimationFrame(rescaleThumbs);
+  if (name === 'design') requestAnimationFrame(rescalePreview);
 }
 
 function switchSubTab(name) {
@@ -374,25 +380,24 @@ function switchSubTab(name) {
 }
 
 /* ════ 미리보기 스케일 ════ */
-function rescaleThumbs() {
-  document.querySelectorAll('.pv-thumb-outer').forEach(outer => {
-    const inner = outer.querySelector('.pv-thumb-inner');
-    if (!inner) return;
-    const scale = outer.clientWidth / 960;
-    inner.style.transform = `scale(${scale})`;
-    outer.style.height = (540 * scale) + 'px';
-  });
+function rescalePreview() {
+  const outer = document.getElementById('design-pv-outer');
+  const inner = document.getElementById('design-pv-inner');
+  if (!outer || !inner) return;
+  const scale = outer.clientWidth / 960;
+  inner.style.transform = `scale(${scale})`;
+  outer.style.height = (540 * scale) + 'px';
 }
-window.addEventListener('resize', rescaleThumbs);
+window.addEventListener('resize', rescalePreview);
 
 /* ════ 디자인 탭 ════ */
 function initDesign() {
   const saved = JSON.parse(localStorage.getItem(SK) || '{}');
   cs = deepMerge(SD, saved);
   loadDesignInputs();
-  renderGallery();
+  renderPreview();
   applyDesignPreview();
-  requestAnimationFrame(rescaleThumbs);
+  requestAnimationFrame(rescalePreview);
 }
 
 function loadDesignInputs() {
@@ -439,9 +444,8 @@ function onFsChange() {
 }
 function onColorChange() { readDesignInputs(); applyDesignPreview(); }
 
-/* CSS 변수는 상속되므로 갤러리 컨테이너 한 곳에만 설정하면 모든 썸네일에 반영된다 */
 function applyDesignPreview() {
-  setPvVars(document.getElementById('design-pv-gallery'), cs);
+  setPvVars(document.getElementById('design-pv-solo'), cs);
 }
 
 function setPvVars(el, cfg) {
@@ -552,7 +556,7 @@ function loadLessonData(num) {
   renderCoverForm();
   renderContentLines();
   renderThinkForm();
-  renderGallery();
+  renderPreview();
 }
 
 /* ── 표지 폼 (수업 정보 + 학습 목표) ── */
@@ -560,25 +564,18 @@ function renderCoverForm() {
   const l = cd.lesson;
   const el = document.getElementById('cover-form');
   el.innerHTML = `
-    ${fInput('강 번호', l.num, `updateLesson('num',this.value)`)}
-    ${fTextarea('수업 제목', l.title, `updateLesson('title',this.value)`, 2, 'Enter로 줄바꿈')}
-    ${fInput('학습 단원', l.unit, `updateLesson('unit',this.value)`)}
-    ${fInput('교과서 페이지', l.page, `updateLesson('page',this.value)`)}
+    ${fInputInline('강 번호', l.num, `updateLesson('num',this.value)`)}
+    ${fInputInline('수업 제목', l.title, `updateLesson('title',this.value)`)}
+    ${fInputInline('학습 단원', l.unit, `updateLesson('unit',this.value)`)}
+    ${fInputInline('교과서 페이지', l.page, `updateLesson('page',this.value)`)}
     <div class="field-group">
-      <div class="field-label">학습 목표</div>
-      ${l.objectives.map((o,i)=>`
-        <div class="item-row">
-          <textarea class="field-input" rows="2" oninput="updateObj(${i},this.value)">${esc(o)}</textarea>
-          ${l.objectives.length>1?`<button class="btn-sm" onclick="deleteObj(${i})">-</button>`:''}
-        </div>`).join('')}
-      <button class="btn-sm add-row-btn" onclick="addObj()">+ 목표 추가</button>
+      <div class="field-label">학습 목표 <span class="field-hint">한 줄 = 목표 하나</span></div>
+      <textarea class="field-input" rows="4" oninput="updateObjectives(this.value)">${esc(l.objectives.join('\n'))}</textarea>
     </div>`;
 }
 
-function updateLesson(f,v){ cd.lesson[f]=v; renderGallery(); }
-function updateObj(i,v)   { cd.lesson.objectives[i]=v; renderGallery(); }
-function addObj()    { cd.lesson.objectives.push('새 학습 목표'); renderCoverForm(); renderGallery(); }
-function deleteObj(i){ cd.lesson.objectives.splice(i,1); renderCoverForm(); renderGallery(); }
+function updateLesson(f,v){ cd.lesson[f]=v; renderPreview(); }
+function updateObjectives(v){ cd.lesson.objectives = v.split('\n').filter(s=>s.trim()!==''); renderPreview(); }
 
 /* ── 개념 Check 콘텐츠 (구분선 + 행, 드래그로 순서 변경) ── */
 function renderContentLines() {
@@ -608,11 +605,11 @@ function renderContentLines() {
   wireDragEvents();
 }
 
-function updateLine(i,f,v)    { cd.contentLines[i][f]=v; renderGallery(); }
-function updateLineItems(i,v) { cd.contentLines[i].items = v.split('\n').filter(s=>s.trim()!==''); renderGallery(); }
-function deleteLine(i)        { cd.contentLines.splice(i,1); renderContentLines(); renderGallery(); }
-function addDivider()         { cd.contentLines.push({ type:'divider', title:'새 슬라이드' }); renderContentLines(); renderGallery(); }
-function addContentRow()      { cd.contentLines.push({ type:'row', label:'새 라벨', items:['내용을 입력하세요'] }); renderContentLines(); renderGallery(); }
+function updateLine(i,f,v)    { cd.contentLines[i][f]=v; renderPreview(); }
+function updateLineItems(i,v) { cd.contentLines[i].items = v.split('\n').filter(s=>s.trim()!==''); renderPreview(); }
+function deleteLine(i)        { cd.contentLines.splice(i,1); renderContentLines(); renderPreview(); }
+function addDivider()         { cd.contentLines.push({ type:'divider', title:'새 슬라이드' }); renderContentLines(); renderPreview(); }
+function addContentRow()      { cd.contentLines.push({ type:'row', label:'새 라벨', items:['내용을 입력하세요'] }); renderContentLines(); renderPreview(); }
 
 let dragSrcIdx = null;
 function wireDragEvents() {
@@ -629,7 +626,7 @@ function wireDragEvents() {
       cd.contentLines.splice(insertAt, 0, moved);
       dragSrcIdx = null;
       renderContentLines();
-      renderGallery();
+      renderPreview();
     });
   });
 }
@@ -642,10 +639,10 @@ function renderThinkForm() {
     ${fTextarea('오늘의 질문', t.question, `updateThink('question',this.value)`, 3)}
     ${fTextarea('안내 문구', t.guide, `updateThink('guide',this.value)`, 3)}`;
 }
-function updateThink(f,v){ cd.think[f]=v; renderGallery(); }
+function updateThink(f,v){ cd.think[f]=v; renderPreview(); }
 
-function fInput(label, val, handler) {
-  return `<div class="field-group"><div class="field-label">${label}</div><input class="field-input" type="text" value="${esc(val)}" oninput="${handler}"></div>`;
+function fInputInline(label, val, handler) {
+  return `<div class="field-inline"><label class="field-inline-label">${label}</label><input class="field-input" type="text" value="${esc(val)}" oninput="${handler}"></div>`;
 }
 function fTextarea(label, val, handler, rows=2, hint='') {
   const h = hint ? ` <span class="field-hint">${hint}</span>` : '';
@@ -694,27 +691,15 @@ function resetContent() {
   loadLessonData(currentLessonNum);
 }
 
-/* ════ 전체 슬라이드 미리보기 갤러리 ════ */
-function renderGallery() {
-  const gallery = document.getElementById('design-pv-gallery');
-  if (!gallery || !cd.contentLines) return;
+/* ════ 예시 슬라이드 미리보기 (개념 Check 슬라이드 1개, 없으면 표지) ════ */
+function renderPreview() {
+  const inner = document.getElementById('design-pv-inner');
+  if (!inner || !cd.contentLines) return;
   const slides = buildSlidesFromData(cd);
-  gallery.innerHTML = slides.map((s,i) => `
-    <div class="pv-thumb">
-      <div class="pv-thumb-outer">
-        <div class="pv-thumb-inner pv-scope">${pvRender(s)}</div>
-      </div>
-      <p class="pv-thumb-label">${i+1}. ${thumbLabel(s)}</p>
-    </div>
-  `).join('');
+  const sample = slides.find(s => s.type === 'concept') || slides[0];
+  inner.innerHTML = pvRender(sample);
   applyDesignPreview();
-  requestAnimationFrame(rescaleThumbs);
-}
-function thumbLabel(s) {
-  if (s.type === 'cover') return '표지';
-  if (s.type === 'objectives') return '학습 목표';
-  if (s.type === 'think') return '생각 Check';
-  return s.title || '개념 Check';
+  requestAnimationFrame(rescalePreview);
 }
 
 function pvRender(s) {
