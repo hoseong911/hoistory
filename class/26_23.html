@@ -74,59 +74,6 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ════ 모드 선택 화면 ════ */
-    #mode-select {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      z-index: 500;
-      background: var(--navy);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 56px;
-    }
-    .ms-top { text-align: center; }
-    .ms-num {
-      font-size: 7rem;
-      font-weight: 900;
-      color: rgba(255,255,255,0.1);
-      line-height: 1;
-      letter-spacing: -0.04em;
-    }
-    .ms-title {
-      font-size: 2.2rem;
-      font-weight: 800;
-      color: #fff;
-      margin-top: 4px;
-    }
-    .ms-unit {
-      font-size: 1rem;
-      color: rgba(255,255,255,0.5);
-      margin-top: 10px;
-    }
-    .ms-btns { display: flex; gap: 16px; }
-    .ms-btn {
-      padding: 18px 52px;
-      font-family: var(--font);
-      font-size: 1.15rem;
-      font-weight: 700;
-      border-radius: 10px;
-      cursor: pointer;
-      border: none;
-      transition: transform 0.15s, background 0.15s;
-    }
-    .ms-btn:hover { transform: translateY(-2px); }
-    .ms-btn.complete { background: #fff; color: var(--navy); }
-    .ms-btn.complete:hover { background: #f0ecd8; }
-    .ms-btn.blank {
-      background: rgba(255,255,255,0.1);
-      color: rgba(255,255,255,0.88);
-      border: 2px solid rgba(255,255,255,0.28);
-    }
-    .ms-btn.blank:hover { background: rgba(255,255,255,0.18); }
-
     /* ════ 슬라이드 컨테이너 ════ */
     #slides {
       position: fixed;
@@ -227,6 +174,30 @@
     }
 
     /* ════ 개념 행 ════ */
+    /* ════ 학습 목표 ════ */
+    .obj-list { display: flex; flex-direction: column; gap: 22px; margin-top: 16px; }
+    .obj-item { display: flex; align-items: flex-start; gap: 18px; }
+    .obj-num {
+      background: var(--navy);
+      color: #fff;
+      width: 34px;
+      min-width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Paperlogy', 'Pretendard', sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+    .obj-text {
+      font-size: var(--fs-obj);
+      line-height: 1.7;
+      color: var(--text);
+      padding-top: 5px;
+    }
+
     .concept-rows { display: flex; flex-direction: column; gap: 14px; }
     .concept-row {
       display: flex;
@@ -447,24 +418,11 @@
 </head>
 <body>
 
-<!-- ── 모드 선택 화면 ── -->
-<div id="mode-select">
-  <div class="ms-top">
-    <div class="ms-num" id="ms-num"></div>
-    <h1 class="ms-title" id="ms-title"></h1>
-    <p class="ms-unit" id="ms-unit"></p>
-  </div>
-  <div class="ms-btns">
-    <button class="ms-btn complete" onclick="startSlides('complete')">완성형</button>
-    <button class="ms-btn blank"    onclick="startSlides('blank')">빈칸형</button>
-  </div>
-</div>
-
 <!-- ── 슬라이드 (JS가 생성) ── -->
 <div id="slides" hidden></div>
 
 <!-- ── 오버레이 UI ── -->
-<button id="back-btn"      hidden onclick="goBack()">모드 선택</button>
+<button id="back-btn"      hidden onclick="goBack()">목록으로</button>
 <div    id="mode-badge"    hidden></div>
 <div    id="slide-counter" hidden></div>
 
@@ -490,10 +448,11 @@ const LESSON = {
               완성형: 빨간 글씨로 강조
               빈칸형: 검은 블록으로 숨김 → 클릭하면 공개
 
-   type: 'cover'    표지 (LESSON 정보 자동 사용)
-   type: 'concept'  개념 Check 슬라이드
-   type: 'think'    생각 Check 슬라이드
-   type: 'image'    이미지 슬라이드 (방법 B)
+   type: 'cover'       표지 (LESSON 정보 자동 사용)
+   type: 'objectives'  학습목표 (LESSON.objectives 자동 사용)
+   type: 'concept'     개념 Check 슬라이드
+   type: 'think'       생각 Check 슬라이드
+   type: 'image'       이미지 슬라이드 (방법 B)
      { type: 'image', title: '제목', src: 'img/파일명.jpg', caption: '캡션' }
 
    [행 내 이미지 — 방법 A]
@@ -503,6 +462,7 @@ const LESSON = {
 const SLIDES = [
 
   { type: 'cover' },
+  { type: 'objectives' },
 
   /* ── 고려 사회의 모습 ── */
   {
@@ -737,6 +697,26 @@ function buildCover() {
   return el;
 }
 
+function buildObjectives() {
+  const el = document.createElement('div');
+  el.className = 'slide';
+  el.innerHTML = `
+    <div class="slide-header">
+      <span class="check-badge">학습 목표</span>
+      <h2 class="slide-title">${LESSON.num}강 · ${LESSON.title}</h2>
+    </div>
+    <div class="obj-list">
+      ${LESSON.objectives.map((o, i) => `
+        <div class="obj-item">
+          <span class="obj-num">${i + 1}</span>
+          <p class="obj-text">${parseText(o)}</p>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  return el;
+}
+
 /* 행 하나 렌더링 — 이미지 있으면 has-img 레이아웃 */
 function buildRowHtml(row) {
   const items = row.items.map(item => `<p>${parseItemText(item)}</p>`).join('');
@@ -812,22 +792,19 @@ function buildThink(slide) {
 function renderAll() {
   const container = document.getElementById('slides');
   SLIDES.forEach(s => {
-    if      (s.type === 'cover')   container.appendChild(buildCover());
-    else if (s.type === 'concept') container.appendChild(buildConcept(s));
-    else if (s.type === 'image')   container.appendChild(buildImage(s));
-    else if (s.type === 'think')   container.appendChild(buildThink(s));
+    if      (s.type === 'cover')      container.appendChild(buildCover());
+    else if (s.type === 'objectives') container.appendChild(buildObjectives());
+    else if (s.type === 'concept')    container.appendChild(buildConcept(s));
+    else if (s.type === 'image')      container.appendChild(buildImage(s));
+    else if (s.type === 'think')      container.appendChild(buildThink(s));
   });
 }
 
 /* ── 초기화 ── */
-document.getElementById('ms-num').textContent   = LESSON.num;
-document.getElementById('ms-title').textContent = LESSON.title;
-document.getElementById('ms-unit').textContent  = `${LESSON.unit} · ${LESSON.page}`;
 renderAll();
 
 /* ── 슬라이드 제어 ── */
 const slidesEl  = document.getElementById('slides');
-const modeSelEl = document.getElementById('mode-select');
 const backBtn   = document.getElementById('back-btn');
 const modeBadge = document.getElementById('mode-badge');
 const counterEl = document.getElementById('slide-counter');
@@ -842,7 +819,6 @@ function updateCounter() {
 
 function startSlides(mode) {
   document.body.dataset.mode  = mode;
-  modeSelEl.style.display     = 'none';
   slidesEl.hidden              = false;
   backBtn.hidden               = false;
   modeBadge.hidden             = false;
@@ -867,15 +843,7 @@ function startSlides(mode) {
 }
 
 function goBack() {
-  document.body.removeAttribute('data-mode');
-  slidesEl.hidden          = true;
-  backBtn.hidden           = true;
-  modeBadge.hidden         = true;
-  counterEl.hidden         = true;
-  modeSelEl.style.display  = 'flex';
-  slidesEl.querySelectorAll('.blank.revealed').forEach(el => el.classList.remove('revealed'));
-  currentSlideIdx = 0;
-  transitioning   = false;
+  location.href = 'index.html';
 }
 
 /* ── 밀어내기 전환 (PPT Push 방식) ── */
@@ -938,10 +906,10 @@ slidesEl.addEventListener('touchend', e => {
   localStorage.setItem(DATA_KEY, JSON.stringify(seed));
 })();
 
-/* ── URL ?mode= 파라미터로 모드 선택 화면 건너뛰기 ── */
-(function checkUrlMode() {
+/* ── URL ?mode= 파라미터로 시작 (허브에서 항상 전달, 없으면 완성형 기본) ── */
+(function initMode() {
   const p = new URLSearchParams(location.search).get('mode');
-  if (p === 'complete' || p === 'blank') startSlides(p);
+  startSlides(p === 'blank' ? 'blank' : 'complete');
 })();
 </script>
 </body>
