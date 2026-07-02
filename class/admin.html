@@ -435,19 +435,31 @@ function resetDesign() {
 }
 
 /* ════ 강의 내용 탭 ════ */
-const DK_DEFAULT_SNAPSHOT = 'class_data_26_23_admin_default';
+
+/* localStorage에 저장된 데이터가 지금 코드가 기대하는 구조(lesson/contentRows/think)와
+   맞는지 검사한다. 예전 버전(예: slides 배열 방식)으로 저장된 캐시가 남아있으면
+   구조가 안 맞아 렌더링이 통째로 깨지므로, 그런 경우 무조건 최신 기본값(DD)으로 대체한다. */
+function isValidContentData(d) {
+  return !!d
+    && d.lesson && typeof d.lesson === 'object' && Array.isArray(d.lesson.objectives)
+    && Array.isArray(d.contentRows)
+    && d.think && typeof d.think === 'object';
+}
 
 function initContent() {
-  /* 파일 안의 기본 데이터(DD)가 바뀌면 예전에 저장된 localStorage 캐시는 버리고
-     최신 기본값을 사용한다 (그래야 새로 추가/수정한 내용이 안 보이는 문제가 없다) */
-  const currentDefault = JSON.stringify(DD);
-  if (localStorage.getItem(DK_DEFAULT_SNAPSHOT) !== currentDefault) {
-    localStorage.removeItem(DK);
-    localStorage.setItem(DK_DEFAULT_SNAPSHOT, currentDefault);
+  const saved = localStorage.getItem(DK);
+  let parsed = null;
+  if (saved) {
+    try { parsed = JSON.parse(saved); } catch (e) { parsed = null; }
   }
 
-  const saved = localStorage.getItem(DK);
-  cd = saved ? JSON.parse(saved) : deepCopy(DD);
+  if (isValidContentData(parsed)) {
+    cd = parsed;
+  } else {
+    cd = deepCopy(DD);
+    localStorage.removeItem(DK);
+  }
+
   renderCoverForm();
   renderContentRows();
   renderThinkForm();
