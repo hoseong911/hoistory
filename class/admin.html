@@ -5,7 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>수업 자료 슬라이드 - 관리자 모드</title>
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang&display=swap" rel="stylesheet">
   <style>
+    @font-face {
+      font-family: 'Paperlogy';
+      src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2');
+      font-weight: 900; font-style: normal;
+    }
     :root {
       --font: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
       --bg: #f2f2f5; --white: #fff;
@@ -125,10 +131,16 @@
     .pv-scope .row-content { flex: 1; background: var(--pv-row-bg, #f2ede0); padding: 16px 22px; display: flex; flex-direction: column; gap: 7px; justify-content: center; }
     .pv-scope .row-content p { font-size: var(--pv-fs-body, 18px); line-height: 1.7; color: var(--pv-text, #2c2823); }
     .pv-scope .blank { font-weight: 700; color: var(--pv-red, #b83030); }
-    .pv-scope .cover-title { font-size: var(--pv-fs-cover, 54px); font-weight: 800; line-height: 1.2; }
+    .pv-scope .cover-title { font-family: 'Paperlogy', var(--font); font-size: var(--pv-fs-cover, 54px); font-weight: 900; line-height: 1.15; }
+    .pv-scope .cover-tagline-pv { font-family: 'Gowun Batang', serif; font-size: 27px; color: rgba(255,255,255,.4); margin-bottom: 6px; }
+    .pv-scope .cover-meta-pv { font-family: 'Gowun Batang', serif; font-size: 24px; color: rgba(255,255,255,.4); margin-top: 10px; }
     .pv-scope .cover-obj { font-size: 17px; color: rgba(255,255,255,.7); line-height: 1.55; padding-left: 24px; position: relative; }
     .pv-scope .cover-obj::before { content: attr(data-n) '.'; position: absolute; left: 0; color: rgba(255,255,255,.35); font-weight: 700; }
     .pv-scope .think-question { font-size: var(--pv-fs-think, 30px); font-weight: 700; color: var(--pv-navy, #1c3461); line-height: 1.5; margin: 18px 0 24px; }
+    .pv-scope .pv-obj-list { display: flex; flex-direction: column; gap: 20px; margin-top: 14px; }
+    .pv-scope .pv-obj-item { display: flex; align-items: flex-start; gap: 16px; }
+    .pv-scope .pv-obj-num { background: var(--pv-navy, #1c3461); color: #fff; width: 30px; min-width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+    .pv-scope .pv-obj-text { font-size: var(--pv-fs-body, 18px); line-height: 1.7; color: var(--pv-text, #2c2823); padding-top: 4px; }
     .pv-scope .think-guide { font-size: 18px; color: #7a6f5e; line-height: 1.85; }
   </style>
 </head>
@@ -267,6 +279,7 @@ const DD = {
   },
   slides: [
     { type: 'cover' },
+    { type: 'objectives' },
     { type: 'concept', title: '고려 사회의 모습', rows: [{ label: '사회 정책', items: ['① 제도 마련 : {농민}의 보호를 위해 마련, 농사철에 농민 {노동력} 동원 금지, 자연재해 피해 시 세금 감면', '② {의창} : 백성에게 곡식 빌려주었다가 추수한 다음 갚도록 함', '③ {동서 대비원} : 국립 의료 기관, 의료 사업 뿐만 아니라 구제 기관 역할'] }] },
     { type: 'concept', title: '고려 사회의 모습', rows: [{ label: '가족 제도', items: ['① 구성 : {소가족} 중심, {일부일처제}, 이혼과 재혼 가능 (재혼한 여성과 자녀는 차별 없음)', '② 특징 : {처가살이}하는 경우 많음, 외가 친척도 동일하게 혜택, {조혼} 풍속 유행 (고려 후기), 자녀 {균분} 상속 원칙'] }] },
     { type: 'concept', title: '고려 사회의 모습', rows: [{ label: '여성 지위', items: ['① 특징 : 사회 활동에는 {제한}이 있지만, {일상생활}에서는 남성과 거의 대등한 위치', '② 호적 : 남녀 구분 없이 {태어난} 순서대로 기록, 여성이 {호주}가 되기도 함'] }] },
@@ -411,7 +424,17 @@ function resetDesign() {
 }
 
 /* ════ 강의 내용 탭 ════ */
+const DK_DEFAULT_SNAPSHOT = 'class_data_26_23_admin_default';
+
 function initContent() {
+  /* 파일 안의 기본 데이터(DD)가 바뀌면 예전에 저장된 localStorage 캐시는 버리고
+     최신 기본값을 사용한다 (그래야 새로 추가한 슬라이드가 안 보이는 문제가 없다) */
+  const currentDefault = JSON.stringify(DD);
+  if (localStorage.getItem(DK_DEFAULT_SNAPSHOT) !== currentDefault) {
+    localStorage.removeItem(DK);
+    localStorage.setItem(DK_DEFAULT_SNAPSHOT, currentDefault);
+  }
+
   const saved = localStorage.getItem(DK);
   cd = saved ? JSON.parse(saved) : deepCopy(DD);
   renderSlideList();
@@ -421,7 +444,7 @@ function initContent() {
 
 function renderSlideList() {
   document.getElementById('slide-list').innerHTML = cd.slides.map((s,i) => {
-    const lbl = s.type==='cover' ? '표지' : s.type==='think' ? '생각 Check' : s.title||'개념 Check';
+    const lbl = s.type==='cover' ? '표지' : s.type==='objectives' ? '학습 목표' : s.type==='think' ? '생각 Check' : s.title||'개념 Check';
     return `<div class="slide-item${i===si?' active':''}" onclick="selectSlide(${i})">
       <div class="slide-item-num">${i+1}</div>
       <div class="slide-item-label">${lbl}</div>
@@ -471,6 +494,19 @@ function renderEditor() {
       <p class="editor-section-title">슬라이드 ${si+1} — 생각 Check</p>
       ${fTextarea('오늘의 질문', s.question, `updateField('question',this.value)`, 3)}
       ${fTextarea('안내 문구', s.guide, `updateField('guide',this.value)`, 3)}`;
+  } else if (s.type === 'objectives') {
+    const l = cd.lesson;
+    el.innerHTML = `
+      <p class="editor-section-title">슬라이드 ${si+1} — 학습 목표</p>
+      <div class="field-group">
+        <div class="field-label">학습 목표</div>
+        ${l.objectives.map((o,i)=>`
+          <div class="item-row">
+            <textarea class="field-input" rows="2" oninput="updateObj(${i},this.value)">${esc(o)}</textarea>
+            ${l.objectives.length>1?`<button class="btn-sm" onclick="deleteObj(${i})">-</button>`:''}
+          </div>`).join('')}
+        <button class="btn-sm add-row-btn" onclick="addObj()">+ 목표 추가</button>
+      </div>`;
   }
 }
 
@@ -487,6 +523,8 @@ function esc(str) {
 
 function updateLesson(f,v){ cd.lesson[f]=v; renderContentPreview(); }
 function updateObj(i,v)   { cd.lesson.objectives[i]=v; renderContentPreview(); }
+function addObj()    { cd.lesson.objectives.push('새 학습 목표'); renderEditor(); renderContentPreview(); }
+function deleteObj(i){ cd.lesson.objectives.splice(i,1); renderEditor(); renderContentPreview(); }
 function updateField(f,v) { cd.slides[si][f]=v; renderSlideList(); renderContentPreview(); }
 function updateRow(ri,f,v){ cd.slides[si].rows[ri][f]=v; renderContentPreview(); }
 function updateItem(ri,ii,v){ cd.slides[si].rows[ri].items[ii]=v; renderContentPreview(); }
@@ -512,21 +550,37 @@ function renderContentPreview() {
 }
 
 function pvRender(s) {
-  if (s.type==='cover')   return pvCover();
-  if (s.type==='concept') return pvConcept(s);
-  if (s.type==='think')   return pvThink(s);
+  if (s.type==='cover')      return pvCover();
+  if (s.type==='objectives') return pvObjectives();
+  if (s.type==='concept')    return pvConcept(s);
+  if (s.type==='think')      return pvThink(s);
   return '';
 }
 function pvParse(str) { return str.replace(/\{([^}]+)\}/g,'<span class="blank">$1</span>'); }
 
 function pvCover() {
   const l = cd.lesson;
-  return `<div class="slide slide-cover" style="position:relative;overflow:hidden;align-items:flex-start;justify-content:center;gap:0;padding:52px 80px">
-    <span style="font-size:24px;color:rgba(255,255,255,.18);letter-spacing:.04em;margin-bottom:16px">HOSEONG HISTORY</span>
-    <span style="font-size:11px;font-weight:600;color:#b83030;margin-bottom:8px">생각하고 활동하고 질문하는 역사 수업</span>
+  return `<div class="slide slide-cover" style="position:relative;overflow:hidden;align-items:flex-start;gap:0;padding:0 80px">
+    <span class="cover-tagline-pv">생각하고 활동하고 질문하는 역사 수업</span>
     <h1 class="cover-title">${l.title.replace(/\n/g,'<br>')}</h1>
-    <p style="font-size:14px;color:rgba(255,255,255,.35);margin-top:16px">${l.unit} · ${l.page}</p>
-    <div style="position:absolute;right:-.06em;bottom:-.18em;font-size:240px;font-weight:900;color:rgba(255,255,255,.06);line-height:1;pointer-events:none">${l.num}</div>
+    <p class="cover-meta-pv">${l.unit} · ${l.page}</p>
+    <div style="position:absolute;right:-.08em;bottom:-.2em;font-size:594px;font-weight:900;color:rgba(255,255,255,.10);line-height:1;letter-spacing:-.05em;pointer-events:none">${l.num}</div>
+  </div>`;
+}
+function pvObjectives() {
+  const l = cd.lesson;
+  return `<div class="slide">
+    <div class="slide-header">
+      <span class="check-badge">학습 목표</span>
+      <h2 class="slide-title">${l.num}강 · ${l.title}</h2>
+    </div>
+    <div class="pv-obj-list">
+      ${l.objectives.map((o,i)=>`
+        <div class="pv-obj-item">
+          <span class="pv-obj-num">${i+1}</span>
+          <p class="pv-obj-text">${pvParse(o)}</p>
+        </div>`).join('')}
+    </div>
   </div>`;
 }
 function pvConcept(s) {
