@@ -113,12 +113,17 @@
 
     /* 개념 Check 콘텐츠 리스트 (구분선 + 행, 드래그 정렬) */
     .cl-divider, .cl-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: var(--white); }
-    .cl-divider { background: #eef1f8; border-color: #c3d0ea; align-items: center; }
+    .cl-divider { background: #eef1f8; border-color: #c3d0ea; flex-direction: column; align-items: stretch; gap: 8px; }
     .cl-divider.dragging, .cl-row.dragging { opacity: .35; }
+    .cl-divider-top { display: flex; align-items: center; gap: 10px; }
     .cl-handle { cursor: grab; color: var(--sub); font-size: 1.1rem; user-select: none; flex-shrink: 0; line-height: 1; padding-top: 6px; }
     .cl-divider .cl-handle { padding-top: 0; }
     .cl-divider-label { font-size: .74rem; font-weight: 700; color: var(--navy); flex-shrink: 0; white-space: nowrap; }
     .cl-divider-title { flex: 1; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-family: var(--font); font-size: .85rem; font-weight: 700; }
+    .cl-img-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; margin-left: 26px; background: rgba(28,52,97,0.06); border-radius: 6px; flex-wrap: wrap; }
+    .cl-img-label { font-size: .74rem; font-weight: 700; color: var(--navy); white-space: nowrap; }
+    .cl-img-input { width: 64px; padding: 4px 6px; border: 1px solid var(--border); border-radius: 5px; font-family: var(--font); font-size: .82rem; text-align: center; }
+    .cl-img-select { padding: 4px 8px; border: 1px solid var(--border); border-radius: 5px; font-family: var(--font); font-size: .82rem; background: var(--white); }
     .cl-label { width: 130px; flex-shrink: 0; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-family: var(--font); font-size: .85rem; }
     .cl-items { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-family: var(--font); font-size: .85rem; resize: vertical; min-height: 50px; line-height: 1.5; }
 
@@ -580,12 +585,29 @@ function renderContentLines() {
   }
   container.innerHTML = cd.contentLines.map((line, i) => {
     if (line.type === 'divider') {
+      const hasImg = line.img != null;
       return `
         <div class="cl-divider" draggable="true" data-idx="${i}">
-          <span class="cl-handle">⋮⋮</span>
-          <span class="cl-divider-label">새 슬라이드</span>
-          <input type="text" class="cl-divider-title" placeholder="슬라이드 제목" value="${esc(line.title)}" oninput="updateLine(${i},'title',this.value)">
-          <button class="btn-danger" onclick="deleteLine(${i})">삭제</button>
+          <div class="cl-divider-top">
+            <span class="cl-handle">⋮⋮</span>
+            <span class="cl-divider-label">새 슬라이드</span>
+            <input type="text" class="cl-divider-title" placeholder="슬라이드 제목" value="${esc(line.title)}" oninput="updateLine(${i},'title',this.value)">
+            <button class="btn-sm" onclick="toggleDividerImg(${i})">${hasImg ? '이미지 제거' : '+ 이미지 삽입'}</button>
+            <button class="btn-danger" onclick="deleteLine(${i})">삭제</button>
+          </div>
+          ${hasImg ? `
+          <div class="cl-img-row">
+            <span class="cl-img-label">이미지 번호</span>
+            <input type="number" class="cl-img-input" min="1" max="99" value="${line.img}" oninput="updateLine(${i},'img',+this.value)">
+            <span class="cl-img-label">배치</span>
+            <select class="cl-img-select" onchange="updateLine(${i},'imgLayout',this.value)">
+              <option value="right" ${(line.imgLayout||'right')==='right'?'selected':''}>우측</option>
+              <option value="bottom" ${line.imgLayout==='bottom'?'selected':''}>하단</option>
+            </select>
+            <span class="cl-img-label">비율</span>
+            <input type="number" class="cl-img-input" min="20" max="70" value="${line.imgSize!=null?line.imgSize:50}" oninput="updateLine(${i},'imgSize',+this.value)">
+            <span class="cl-img-label">%</span>
+          </div>` : ''}
         </div>`;
     }
     return `
@@ -603,6 +625,15 @@ function updateLine(i,f,v)    { cd.contentLines[i][f]=v; renderPreview(); }
 function updateLineItems(i,v) { cd.contentLines[i].items = v.split('\n').filter(s=>s.trim()!==''); renderPreview(); }
 function deleteLine(i)        { cd.contentLines.splice(i,1); renderContentLines(); renderPreview(); }
 function addDivider()         { cd.contentLines.push({ type:'divider', title:'새 슬라이드' }); renderContentLines(); renderPreview(); }
+function toggleDividerImg(i) {
+  const line = cd.contentLines[i];
+  if (line.img != null) {
+    delete line.img; delete line.imgLayout; delete line.imgSize;
+  } else {
+    line.img = 1; line.imgLayout = 'right'; line.imgSize = 50;
+  }
+  renderContentLines(); renderPreview();
+}
 function addContentRow()      { cd.contentLines.push({ type:'row', label:'새 라벨', items:['내용을 입력하세요'] }); renderContentLines(); renderPreview(); }
 
 let dragSrcIdx = null;
@@ -653,6 +684,11 @@ function buildSlidesFromData(d) {
   d.contentLines.forEach(line => {
     if (line.type === 'divider') {
       current = { type: 'concept', title: line.title, rows: [] };
+      if (line.img != null) {
+        current.img = line.img;
+        current.layout = line.imgLayout || 'right';
+        current.imgSize = line.imgSize != null ? line.imgSize : 50;
+      }
       slides.push(current);
     } else {
       if (!current) { current = { type: 'concept', title: '', rows: [] }; slides.push(current); }

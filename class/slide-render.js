@@ -71,7 +71,7 @@
       </div>`;
   }
 
-  function conceptHTML(slide) {
+  function conceptHTML(slide, lesson) {
     const header = `
       <div class="slide-header">
         <span class="check-badge">개념 Check</span>
@@ -81,9 +81,14 @@
       <div class="concept-rows">
         ${slide.rows.map(rowHTML).join('')}
       </div>`;
-    const imgPanel = slide.img ? `
-      <div class="clayout-img">
-        <img src="${slide.img}" alt="${slide.imgCaption || ''}">
+
+    const imgSrc = slide.img != null
+      ? `img/${lesson.num}_${String(slide.img).padStart(2, '0')}.jpg`
+      : null;
+    const imgSize = slide.imgSize != null ? slide.imgSize : 50;
+    const imgPanel = imgSrc ? `
+      <div class="clayout-img" style="flex: 0 0 ${imgSize}%">
+        <img src="${imgSrc}" alt="${slide.imgCaption || ''}">
         ${slide.imgCaption ? `<p class="clayout-caption">${slide.imgCaption}</p>` : ''}
       </div>` : '';
 
@@ -142,7 +147,7 @@
     } else if (slide.type === 'objectives') {
       inner = objectivesHTML(lesson);
     } else if (slide.type === 'concept') {
-      inner = conceptHTML(slide);
+      inner = conceptHTML(slide, lesson);
     } else if (slide.type === 'image') {
       inner = imageHTML(slide);
     } else if (slide.type === 'think') {
