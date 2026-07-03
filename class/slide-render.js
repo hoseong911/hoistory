@@ -62,22 +62,8 @@
     `;
   }
 
-  /* 행 하나 렌더링 — 이미지 있으면 has-img 레이아웃 */
   function rowHTML(row) {
     const items = row.items.map(item => `<p>${parseItemText(item)}</p>`).join('');
-    if (row.img) {
-      return `
-        <div class="concept-row">
-          <div class="row-label">${row.label}</div>
-          <div class="row-content has-img">
-            <div class="row-items">${items}</div>
-            <div class="row-img-wrap">
-              <img src="${row.img}" alt="${row.imgCaption || ''}" class="row-img">
-              ${row.imgCaption ? `<span class="row-img-caption">${row.imgCaption}</span>` : ''}
-            </div>
-          </div>
-        </div>`;
-    }
     return `
       <div class="concept-row">
         <div class="row-label">${row.label}</div>
@@ -86,15 +72,36 @@
   }
 
   function conceptHTML(slide) {
-    return `
+    const header = `
       <div class="slide-header">
         <span class="check-badge">개념 Check</span>
         <h2 class="slide-title">${slide.title}</h2>
-      </div>
+      </div>`;
+    const rows = `
       <div class="concept-rows">
         ${slide.rows.map(rowHTML).join('')}
-      </div>
-    `;
+      </div>`;
+    const imgPanel = slide.img ? `
+      <div class="clayout-img">
+        <img src="${slide.img}" alt="${slide.imgCaption || ''}">
+        ${slide.imgCaption ? `<p class="clayout-caption">${slide.imgCaption}</p>` : ''}
+      </div>` : '';
+
+    if (slide.layout === 'right') {
+      return `
+        <div class="clayout-right">
+          <div class="clayout-main">${header}${rows}</div>
+          ${imgPanel}
+        </div>`;
+    }
+    if (slide.layout === 'bottom') {
+      return `
+        <div class="clayout-bottom">
+          <div class="clayout-main">${header}${rows}</div>
+          ${imgPanel}
+        </div>`;
+    }
+    return `${header}${rows}`;
   }
 
   /* 이미지 슬라이드 (방법 B) */
