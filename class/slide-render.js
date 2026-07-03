@@ -109,15 +109,17 @@
     return `${header}${rows}`;
   }
 
-  /* 이미지 슬라이드 (방법 B) */
-  function imageHTML(slide) {
+  function imageHTML(slide, lesson) {
+    const src = slide.img != null
+      ? `img/${lesson.num}_${String(slide.img).padStart(2, '0')}.jpg`
+      : (slide.src || '');
     return `
       <div class="slide-header">
         <span class="check-badge">자료</span>
         <h2 class="slide-title">${slide.title || ''}</h2>
       </div>
       <div class="image-body">
-        <img src="${slide.src}" alt="${slide.title || ''}" class="main-img">
+        <img src="${src}" alt="${slide.title || ''}" class="main-img">
         ${slide.caption ? `<p class="main-img-caption">${slide.caption}</p>` : ''}
       </div>
     `;
@@ -149,7 +151,7 @@
     } else if (slide.type === 'concept') {
       inner = conceptHTML(slide, lesson);
     } else if (slide.type === 'image') {
-      inner = imageHTML(slide);
+      inner = imageHTML(slide, lesson);
     } else if (slide.type === 'think') {
       extraClass = ' slide-think';
       inner = thinkHTML(slide, lesson);
