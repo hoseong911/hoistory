@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HOISTORY 학습 공간</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/webfontworld/BMPaperlogji@main/BMPaperlogji.css" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --cream:#F7F5F0;
+  --cream-dark:#EDEAD9;
+  --white:#FFFFFF;
+  --border:#DDD8CF;
+  --text:#1A1814;
+  --text-sub:#7A7268;
+  --shadow:0 4px 20px rgba(0,0,0,0.07);
+  --shadow-hover:0 8px 28px rgba(0,0,0,0.12);
+  --c1:#2563EB; --c1-l:#EFF6FF; --c1-m:#BFDBFE;
+  --c2:#16A34A; --c2-l:#F0FDF4; --c2-m:#BBF7D0;
+  --c3:#D97706; --c3-l:#FFFBEB; --c3-m:#FDE68A;
+  --c4:#7C3AED; --c4-l:#F5F3FF; --c4-m:#DDD6FE;
+}
+html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--cream);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* ── 로그인 ── */
+#loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-wrap{background:var(--white);border-radius:24px;padding:52px 44px;width:100%;max-width:400px;box-shadow:0 12px 48px rgba(0,0,0,0.1);text-align:center}
+.login-brand{font-family:'Paperlogji','Gowun Batang',serif;font-size:36px;color:var(--c1);letter-spacing:2px;margin-bottom:6px}
+.login-intro{font-family:'Gowun Batang',serif;font-size:14px;color:var(--text-sub);margin-bottom:40px;line-height:1.6}
+.login-field{position:relative;margin-bottom:8px}
+.login-input{
+  width:100%;padding:14px 44px 14px 18px;
+  border:1.5px solid var(--border);border-radius:12px;
+  font-family:inherit;font-size:15px;color:var(--text);
+  background:var(--cream);outline:none;
+  transition:border-color .2s,background .2s;
+}
+.login-input:focus{border-color:var(--c1);background:var(--white)}
+.login-input:disabled{opacity:.4;cursor:not-allowed}
+.input-status{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none}
+.field-msg{font-size:12px;min-height:18px;padding:2px 4px;color:var(--text-sub);text-align:left;margin-bottom:4px}
+.field-msg.ok{color:#16A34A}
+.field-msg.err{color:#DC2626}
+.enter-btn{
+  width:100%;margin-top:24px;padding:15px;
+  background:var(--c1);color:#fff;border:none;border-radius:12px;
+  font-family:inherit;font-size:15px;font-weight:700;
+  cursor:pointer;transition:background .2s,opacity .2s;letter-spacing:.2px;
+}
+.enter-btn:hover:not(:disabled){background:#1D4ED8}
+.enter-btn:disabled{opacity:.35;cursor:not-allowed}
+.login-admin-link{margin-top:20px;font-size:11px;color:var(--text-sub)}
+.login-admin-link a{color:var(--text-sub);text-decoration:underline}
+
+/* ── 메인 허브 ── */
+#mainHub{display:none;flex-direction:column;min-height:100vh}
+.hub-header{
+  background:var(--white);border-bottom:1px solid var(--border);
+  padding:14px 32px;display:flex;align-items:center;
+  justify-content:space-between;position:sticky;top:0;z-index:20;
+}
+.hub-logo-area{}
+.hub-logo{font-family:'Paperlogji','Gowun Batang',serif;font-size:22px;color:var(--c1);letter-spacing:1.5px}
+.hub-logo-sub{font-family:'Gowun Batang',serif;font-size:11px;color:var(--text-sub);margin-top:1px;letter-spacing:.5px}
+.header-right{display:flex;align-items:center;gap:10px}
+.student-chip{
+  background:var(--cream);border:1px solid var(--border);border-radius:999px;
+  padding:7px 16px;font-size:13px;font-weight:600;color:var(--text)
+}
+.logout-btn{
+  background:none;border:1px solid var(--border);border-radius:999px;
+  padding:7px 14px;font-family:inherit;font-size:12px;color:var(--text-sub);
+  cursor:pointer;transition:background .15s;
+}
+.logout-btn:hover{background:var(--cream-dark)}
+
+/* ── 본문 ── */
+.hub-body{flex:1;padding:36px 32px 80px;max-width:1560px;margin:0 auto;width:100%}
+.hub-welcome{
+  font-family:'Gowun Batang',serif;font-size:14px;color:var(--text-sub);
+  text-align:center;margin-bottom:32px;letter-spacing:.2px;
+}
+
+/* ── PC 4섹션 그리드 ── */
+.hub-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;align-items:start}
+
+/* ── 섹션 카드 ── */
+.sec-card{background:var(--white);border-radius:18px;overflow:hidden;box-shadow:var(--shadow)}
+.sec-head{padding:22px 22px 18px}
+.sec-badge{
+  display:inline-block;font-size:10px;font-weight:700;letter-spacing:.8px;
+  text-transform:uppercase;padding:3px 10px;border-radius:999px;margin-bottom:12px;
+}
+.sec-name{font-family:'Gowun Batang',serif;font-size:22px;font-weight:700;line-height:1.3}
+.sec-sub{font-size:11px;color:var(--text-sub);margin-top:4px;letter-spacing:.3px}
+.sec-divider{border:none;border-top:1px solid var(--border);margin:0}
+.sec-body{padding:18px;min-height:110px}
+
+/* ── 아이콘 그리드 ── */
+.icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:10px}
+.icon-item{display:flex;flex-direction:column;align-items:center;gap:7px;text-decoration:none;cursor:pointer}
+.icon-box{
+  width:68px;height:68px;border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Pretendard',sans-serif;font-weight:800;
+  transition:transform .15s,box-shadow .15s;
+  flex-shrink:0;
+}
+.icon-box.size-sm{font-size:18px}
+.icon-box.size-md{font-size:22px}
+.icon-box.size-lg{font-size:16px}
+.icon-box.size-xl{font-size:13px}
+.icon-item:hover:not(.locked) .icon-box{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
+.icon-item.locked{opacity:.4;pointer-events:none}
+.icon-label{font-size:11px;font-weight:600;color:var(--text);text-align:center;line-height:1.3;word-break:keep-all}
+.icon-sublabel{font-size:10px;color:var(--text-sub);text-align:center;line-height:1.2;margin-top:-4px;word-break:keep-all}
+.icon-empty{font-size:12px;color:var(--text-sub);opacity:.5;padding:24px 8px;text-align:center;grid-column:1/-1}
+
+/* ── 섹션별 색상 ── */
+.s-concept .sec-badge{background:var(--c1-m);color:var(--c1)}
+.s-concept .sec-name{color:var(--c1)}
+.s-concept .icon-box{background:var(--c1-l);color:var(--c1)}
+.s-concept .icon-item:hover:not(.locked) .icon-box{background:var(--c1-m)}
+
+.s-mission .sec-badge{background:var(--c2-m);color:var(--c2)}
+.s-mission .sec-name{color:var(--c2)}
+.s-mission .icon-box{background:var(--c2-l);color:var(--c2)}
+.s-mission .icon-item:hover:not(.locked) .icon-box{background:var(--c2-m)}
+
+.s-think .sec-badge{background:var(--c3-m);color:var(--c3)}
+.s-think .sec-name{color:var(--c3)}
+.s-think .icon-box{background:var(--c3-l);color:var(--c3)}
+.s-think .icon-item:hover:not(.locked) .icon-box{background:var(--c3-m)}
+
+.s-grade .sec-badge{background:var(--c4-m);color:var(--c4)}
+.s-grade .sec-name{color:var(--c4)}
+.s-grade .icon-box{background:var(--c4-l);color:var(--c4)}
+.s-grade .icon-item:hover:not(.locked) .icon-box{background:var(--c4-m)}
+
+/* ── 모바일 아코디언 ── */
+.mobile-hub{display:none;flex-direction:column;gap:10px}
+.mob-section{background:var(--white);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.mob-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:18px 20px;cursor:pointer;border:none;
+  background:none;width:100%;text-align:left;font-family:inherit;
+  transition:background .15s;
+}
+.mob-header:hover,.mob-header.open{background:var(--cream)}
+.mob-titles{display:flex;flex-direction:column;gap:2px}
+.mob-name{font-family:'Gowun Batang',serif;font-size:18px;font-weight:700}
+.mob-sub{font-size:11px;color:var(--text-sub);letter-spacing:.3px}
+.mob-right{display:flex;align-items:center;gap:8px}
+.mob-count{font-size:11px;font-weight:700;padding:3px 11px;border-radius:999px}
+.mob-toggle{width:20px;height:20px;display:flex;align-items:center;justify-content:center}
+.mob-toggle::after{
+  content:'';display:block;width:8px;height:8px;
+  border-right:2px solid var(--text-sub);border-bottom:2px solid var(--text-sub);
+  transform:rotate(45deg) translateY(-2px);transition:transform .3s;
+}
+.mob-header.open .mob-toggle::after{transform:rotate(-135deg) translateY(-2px)}
+.mob-content{max-height:0;overflow:hidden;transition:max-height .4s ease}
+.mob-content.open{max-height:1400px}
+.mob-icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:12px;padding:10px 16px 22px}
+
+.ms-concept .mob-name{color:var(--c1)}
+.ms-concept .mob-count{background:var(--c1-m);color:var(--c1)}
+.ms-concept .icon-box{background:var(--c1-l);color:var(--c1)}
+.ms-concept .icon-item:hover:not(.locked) .icon-box{background:var(--c1-m)}
+
+.ms-mission .mob-name{color:var(--c2)}
+.ms-mission .mob-count{background:var(--c2-m);color:var(--c2)}
+.ms-mission .icon-box{background:var(--c2-l);color:var(--c2)}
+.ms-mission .icon-item:hover:not(.locked) .icon-box{background:var(--c2-m)}
+
+.ms-think .mob-name{color:var(--c3)}
+.ms-think .mob-count{background:var(--c3-m);color:var(--c3)}
+.ms-think .icon-box{background:var(--c3-l);color:var(--c3)}
+.ms-think .icon-item:hover:not(.locked) .icon-box{background:var(--c3-m)}
+
+.ms-grade .mob-name{color:var(--c4)}
+.ms-grade .mob-count{background:var(--c4-m);color:var(--c4)}
+.ms-grade .icon-box{background:var(--c4-l);color:var(--c4)}
+.ms-grade .icon-item:hover:not(.locked) .icon-box{background:var(--c4-m)}
+
+/* ── 로딩 ── */
+.loading-dots{display:flex;align-items:center;justify-content:center;gap:5px;padding:28px}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--border);animation:dotpulse 1.2s ease-in-out infinite}
+.dot:nth-child(2){animation-delay:.2s}
+.dot:nth-child(3){animation-delay:.4s}
+@keyframes dotpulse{0%,80%,100%{transform:scale(.55);opacity:.35}40%{transform:scale(1);opacity:1}}
+
+/* ── 반응형 ── */
+@media(max-width:960px){
+  .hub-grid{display:none}
+  .mobile-hub{display:flex}
+  .hub-body{padding:20px 14px 60px}
+  .hub-header{padding:12px 16px}
+  .hub-welcome{margin-bottom:20px}
+}
+@media(max-width:480px){
+  .login-wrap{padding:44px 28px}
+  .hub-logo{font-size:18px}
+}
+</style>
+</head>
+<body>
+
+<!-- ────────────── 로그인 ────────────── -->
+<div id="loginScreen">
+  <div class="login-wrap">
+    <div class="login-brand">HOISTORY</div>
+    <div class="login-intro">학습 공간에 오신 걸 환영합니다<br>학번과 이름을 입력해 주세요</div>
+
+    <div class="login-field">
+      <input class="login-input" id="idInput" type="text" inputmode="numeric"
+             placeholder="학번 5자리" maxlength="5" autocomplete="off">
+      <span class="input-status" id="idStatus"></span>
+    </div>
+    <div class="field-msg" id="idMsg"></div>
+
+    <div class="login-field">
+      <input class="login-input" id="nameInput" type="text"
+             placeholder="이름" disabled autocomplete="name">
+      <span class="input-status" id="nameStatus"></span>
+    </div>
+    <div class="field-msg" id="nameMsg"></div>
+
+    <button class="enter-btn" id="enterBtn" disabled>입장하기</button>
+    <div class="login-admin-link"><a href="admin.html">관리자</a></div>
+  </div>
+</div>
+
+<!-- ────────────── 메인 허브 ────────────── -->
+<div id="mainHub">
+  <header class="hub-header">
+    <div class="hub-logo-area">
+      <div class="hub-logo">HOISTORY</div>
+      <div class="hub-logo-sub">학습 공간</div>
+    </div>
+    <div class="header-right">
+      <span class="student-chip" id="studentChip"></span>
+      <button class="logout-btn" id="logoutBtn">나가기</button>
+    </div>
+  </header>
+
+  <div class="hub-body">
+    <div class="hub-welcome" id="welcomeMsg"></div>
+
+    <!-- PC: 4섹션 그리드 -->
+    <div class="hub-grid" id="hubGrid"></div>
+
+    <!-- 모바일: 아코디언 -->
+    <div class="mobile-hub" id="mobileHub"></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getDatabase } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { initAuth, mountLoginVerification } from "../shared/auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain: "ho0911seong-56638.firebaseapp.com",
+  databaseURL: "https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ho0911seong-56638",
+  storageBucket: "ho0911seong-56638.firebasestorage.app",
+  messagingSenderId: "994509567071",
+  appId: "1:994509567071:web:8b33bb03a3d8f3a9f557ea"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const rtdb = getDatabase(app);
+
+initAuth(rtdb);
+
+const SECTIONS = [
+  { key:'concept', name:'개념 체크', sub:'Concept Check', cls:'s-concept', mob:'ms-concept' },
+  { key:'mission', name:'미션 체크', sub:'Mission Check', cls:'s-mission', mob:'ms-mission' },
+  { key:'think',   name:'생각 체크', sub:'Think Check',   cls:'s-think',   mob:'ms-think'   },
+  { key:'grade',   name:'성적 체크', sub:'Grade Check',   cls:'s-grade',   mob:'ms-grade'   },
+];
+
+// ── 세션 복원 ──
+const savedId   = sessionStorage.getItem('lms_sid');
+const savedName = sessionStorage.getItem('lms_sname');
+if (savedId && savedName) enterHub(savedId, savedName);
+
+// ── 로그인 ──
+const enterBtn = document.getElementById('enterBtn');
+let _pendingId = '', _pendingName = '';
+
+mountLoginVerification({
+  idInput:     document.getElementById('idInput'),
+  nameInput:   document.getElementById('nameInput'),
+  idStatusEl:  document.getElementById('idStatus'),
+  nameStatusEl:document.getElementById('nameStatus'),
+  idMsgEl:     document.getElementById('idMsg'),
+  nameMsgEl:   document.getElementById('nameMsg'),
+  onChange: (s) => {
+    enterBtn.disabled = !s.allValid;
+    if (s.allValid) {
+      _pendingId   = document.getElementById('idInput').value.trim();
+      _pendingName = s.registeredName || document.getElementById('nameInput').value.trim();
+    }
+  }
+});
+
+enterBtn.addEventListener('click', () => {
+  if (!_pendingId || !_pendingName) return;
+  sessionStorage.setItem('lms_sid',   _pendingId);
+  sessionStorage.setItem('lms_sname', _pendingName);
+  enterHub(_pendingId, _pendingName);
+});
+['idInput','nameInput'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !enterBtn.disabled) enterBtn.click();
+  });
+});
+
+// ── 허브 진입 ──
+function enterHub(id, name) {
+  document.getElementById('loginScreen').style.display = 'none';
+  const hub = document.getElementById('mainHub');
+  hub.style.cssText = 'display:flex;flex-direction:column';
+  document.getElementById('studentChip').textContent = `${id} · ${name}`;
+  document.getElementById('welcomeMsg').textContent  = `${name} 학생, 오늘도 즐거운 역사 학습!`;
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    sessionStorage.removeItem('lms_sid');
+    sessionStorage.removeItem('lms_sname');
+    location.reload();
+  });
+  startListening();
+}
+
+// ── Firestore 구독 ──
+let _allItems = [];
+
+function startListening() {
+  showLoading();
+  const q = query(collection(db, 'lms_items'), orderBy('order', 'asc'));
+  onSnapshot(q, snap => {
+    _allItems = [];
+    snap.forEach(d => _allItems.push({ docId: d.id, ...d.data() }));
+    renderAll(_allItems);
+  });
+}
+
+// ── 로딩 상태 ──
+function showLoading() {
+  const loading = `<div class="loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>`;
+  document.getElementById('hubGrid').innerHTML = SECTIONS.map(s => `
+    <div class="sec-card ${s.cls}">
+      <div class="sec-head">
+        <div class="sec-badge">${s.sub}</div>
+        <div class="sec-name">${s.name}</div>
+      </div>
+      <hr class="sec-divider">
+      <div class="sec-body">${loading}</div>
+    </div>`).join('');
+  document.getElementById('mobileHub').innerHTML = loading;
+}
+
+// ── 메인 렌더 ──
+let _openSections = new Set(['concept']);
+
+function renderAll(items) {
+  const grouped = Object.fromEntries(SECTIONS.map(s => [s.key, []]));
+  items.forEach(item => {
+    if (grouped[item.section] !== undefined) grouped[item.section].push(item);
+  });
+  renderPC(grouped);
+  renderMobile(grouped);
+}
+
+function renderPC(grouped) {
+  const grid = document.getElementById('hubGrid');
+  grid.innerHTML = '';
+  SECTIONS.forEach(s => {
+    const card = document.createElement('div');
+    card.className = `sec-card ${s.cls}`;
+    card.innerHTML = `
+      <div class="sec-head">
+        <div class="sec-badge">${s.sub}</div>
+        <div class="sec-name">${s.name}</div>
+      </div>
+      <hr class="sec-divider">
+      <div class="sec-body">
+        <div class="icon-grid" id="pc-${s.key}"></div>
+      </div>`;
+    fillIconGrid(card.querySelector(`#pc-${s.key}`), grouped[s.key]);
+    grid.appendChild(card);
+  });
+}
+
+function renderMobile(grouped) {
+  const hub = document.getElementById('mobileHub');
+  hub.innerHTML = '';
+  SECTIONS.forEach(s => {
+    const isOpen = _openSections.has(s.key);
+    const items  = grouped[s.key];
+    const sec = document.createElement('div');
+    sec.className = `mob-section ${s.mob}`;
+    sec.innerHTML = `
+      <button class="mob-header${isOpen ? ' open' : ''}" data-key="${s.key}">
+        <div class="mob-titles">
+          <div class="mob-name">${s.name}</div>
+          <div class="mob-sub">${s.sub}</div>
+        </div>
+        <div class="mob-right">
+          <span class="mob-count">${items.length}</span>
+          <span class="mob-toggle"></span>
+        </div>
+      </button>
+      <div class="mob-content${isOpen ? ' open' : ''}">
+        <div class="mob-icon-grid" id="mob-${s.key}"></div>
+      </div>`;
+    sec.querySelector('.mob-header').addEventListener('click', () => {
+      if (_openSections.has(s.key)) _openSections.delete(s.key);
+      else _openSections.add(s.key);
+      const grouped2 = Object.fromEntries(SECTIONS.map(ss => [ss.key, []]));
+      _allItems.forEach(item => { if (grouped2[item.section] !== undefined) grouped2[item.section].push(item); });
+      renderMobile(grouped2);
+    });
+    fillIconGrid(sec.querySelector(`#mob-${s.key}`), items);
+    hub.appendChild(sec);
+  });
+}
+
+function fillIconGrid(container, items) {
+  if (!items.length) {
+    container.innerHTML = '<div class="icon-empty">아직 비어있어요</div>';
+    return;
+  }
+  items.forEach(item => container.appendChild(makeIconItem(item)));
+}
+
+function makeIconItem(item) {
+  const a = document.createElement('a');
+  a.className = 'icon-item' + (item.locked ? ' locked' : '');
+  if (!item.locked && item.url) { a.href = item.url; a.target = '_blank'; a.rel = 'noopener'; }
+
+  const iconStr = String(item.icon || '?').trim();
+  const sizeClass = iconStr.length <= 2 ? 'size-md' : iconStr.length <= 3 ? 'size-sm' : iconStr.length <= 5 ? 'size-lg' : 'size-xl';
+
+  a.innerHTML = `
+    <div class="icon-box ${sizeClass}">${esc(iconStr)}</div>
+    ${item.label    ? `<div class="icon-label">${esc(item.label)}</div>`    : ''}
+    ${item.sublabel ? `<div class="icon-sublabel">${esc(item.sublabel)}</div>` : ''}`;
+
+  if (item.locked) a.addEventListener('click', e => e.preventDefault());
+  return a;
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HOISTORY 학습 공간 - 관리자 모드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --cream:#F7F5F0; --white:#fff; --border:#DDD8CF;
+  --text:#1A1814; --sub:#7A7268;
+  --c1:#2563EB; --c1-l:#EFF6FF; --c1-m:#BFDBFE;
+  --c2:#16A34A; --c2-l:#F0FDF4; --c2-m:#BBF7D0;
+  --c3:#D97706; --c3-l:#FFFBEB; --c3-m:#FDE68A;
+  --c4:#7C3AED; --c4-l:#F5F3FF; --c4-m:#DDD6FE;
+}
+html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* ── 로그인 ── */
+#loginView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-box{background:var(--white);border-radius:20px;padding:48px 40px;width:100%;max-width:360px;box-shadow:0 8px 40px rgba(0,0,0,0.09);text-align:center}
+.login-title{font-size:22px;font-weight:800;color:var(--text);margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--sub);margin-bottom:32px}
+.login-input{width:100%;padding:13px 16px;border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:15px;outline:none;margin-bottom:10px;background:var(--cream);transition:border-color .2s}
+.login-input:focus{border-color:var(--c1);background:var(--white)}
+.login-btn{width:100%;padding:13px;background:var(--c1);color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:background .2s}
+.login-btn:hover{background:#1D4ED8}
+.login-err{font-size:12px;color:#DC2626;margin-top:8px;display:none}
+
+/* ── 어드민 ── */
+#adminView{display:none;flex-direction:column;min-height:100vh}
+.adm-header{background:var(--white);border-bottom:1px solid var(--border);padding:14px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:30}
+.adm-title{font-size:16px;font-weight:800;color:var(--text)}
+.adm-sub{font-size:11px;color:var(--sub);margin-top:2px}
+.adm-logout{font-size:12px;color:var(--sub);background:none;border:1px solid var(--border);border-radius:999px;padding:6px 14px;cursor:pointer;font-family:inherit;transition:background .15s}
+.adm-logout:hover{background:var(--cream)}
+
+/* ── 탭 ── */
+.tab-bar{display:flex;justify-content:center;gap:2px;background:var(--white);border-bottom:1px solid var(--border);padding:0 32px;position:sticky;top:57px;z-index:20}
+.tab-btn{
+  padding:13px 28px;font-family:inherit;font-size:13px;font-weight:700;
+  color:var(--sub);background:none;border:none;border-bottom:3px solid transparent;
+  cursor:pointer;transition:all .15s;white-space:nowrap;
+}
+.tab-btn.active{color:var(--text);border-bottom-color:var(--text)}
+.tab-btn.t-concept.active{color:var(--c1);border-bottom-color:var(--c1)}
+.tab-btn.t-mission.active{color:var(--c2);border-bottom-color:var(--c2)}
+.tab-btn.t-think.active{color:var(--c3);border-bottom-color:var(--c3)}
+.tab-btn.t-grade.active{color:var(--c4);border-bottom-color:var(--c4)}
+
+/* ── 패널 ── */
+.tab-panel{display:none;padding:28px 32px 80px;max-width:1200px;margin:0 auto;width:100%}
+.tab-panel.active{display:block}
+.panel-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.panel-title{font-family:'Gowun Batang',serif;font-size:20px;font-weight:700}
+.add-btn{
+  background:var(--c1);color:#fff;border:none;border-radius:10px;
+  padding:10px 20px;font-family:inherit;font-size:13px;font-weight:700;
+  cursor:pointer;transition:background .2s;
+}
+.add-btn:hover{background:#1D4ED8}
+.add-btn.g{background:var(--c2)}.add-btn.g:hover{background:#15803D}
+.add-btn.a{background:var(--c3)}.add-btn.a:hover{background:#B45309}
+.add-btn.p{background:var(--c4)}.add-btn.p:hover{background:#6D28D9}
+
+/* ── 아이템 리스트 ── */
+.item-list{display:flex;flex-direction:column;gap:10px}
+.item-row{
+  background:var(--white);border-radius:12px;padding:16px 18px;
+  display:flex;align-items:center;gap:16px;
+  border:1px solid var(--border);
+}
+.item-icon-preview{
+  width:52px;height:52px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Pretendard',sans-serif;font-weight:800;font-size:18px;
+  flex-shrink:0;
+}
+.item-info{flex:1;min-width:0}
+.item-label{font-size:14px;font-weight:700;color:var(--text)}
+.item-sublabel{font-size:12px;color:var(--sub);margin-top:2px}
+.item-url{font-size:11px;color:var(--sub);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:400px}
+.item-meta{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.locked-badge{font-size:10px;font-weight:700;padding:2px 8px;background:#FEF2F2;color:#DC2626;border-radius:999px}
+.open-badge{font-size:10px;font-weight:700;padding:2px 8px;background:#F0FDF4;color:#16A34A;border-radius:999px}
+.order-num{font-size:12px;font-weight:700;color:var(--sub);min-width:24px;text-align:center}
+.edit-btn,.del-btn{
+  border:none;border-radius:8px;padding:7px 14px;
+  font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:background .15s;
+}
+.edit-btn{background:var(--cream);color:var(--text)}.edit-btn:hover{background:var(--border)}
+.del-btn{background:#FEF2F2;color:#DC2626}.del-btn:hover{background:#FEE2E2}
+
+.empty-panel{text-align:center;padding:60px 20px;color:var(--sub);font-size:13px}
+
+/* ── 모달 ── */
+.modal-backdrop{
+  position:fixed;inset:0;background:rgba(0,0,0,0.35);
+  z-index:100;display:none;align-items:center;justify-content:center;padding:20px;
+}
+.modal-backdrop.open{display:flex}
+.modal{
+  background:var(--white);border-radius:20px;
+  padding:36px 32px;width:100%;max-width:480px;
+  box-shadow:0 16px 48px rgba(0,0,0,0.15);
+  max-height:90vh;overflow-y:auto;
+}
+.modal-title{font-size:18px;font-weight:800;color:var(--text);margin-bottom:24px}
+.form-group{margin-bottom:16px}
+.form-label{font-size:12px;font-weight:700;color:var(--sub);margin-bottom:6px;display:block;letter-spacing:.3px}
+.form-input,.form-textarea{
+  width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:10px;
+  font-family:inherit;font-size:14px;color:var(--text);background:var(--cream);
+  outline:none;transition:border-color .2s;
+}
+.form-input:focus,.form-textarea:focus{border-color:var(--c1);background:var(--white)}
+.form-textarea{height:80px;resize:vertical}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.form-hint{font-size:11px;color:var(--sub);margin-top:5px}
+.icon-preview-wrap{display:flex;align-items:center;gap:12px;margin-top:10px}
+.icon-preview-box{
+  width:52px;height:52px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Pretendard',sans-serif;font-weight:800;font-size:20px;
+  background:var(--c1-l);color:var(--c1);flex-shrink:0;
+}
+.locked-toggle{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.toggle-switch{width:40px;height:22px;background:var(--border);border-radius:999px;position:relative;transition:background .2s;flex-shrink:0}
+.toggle-switch.on{background:var(--c1)}
+.toggle-switch::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s}
+.toggle-switch.on::after{transform:translateX(18px)}
+.toggle-label{font-size:13px;font-weight:600;color:var(--text)}
+.modal-actions{display:flex;gap:10px;margin-top:28px}
+.btn-save{flex:1;padding:13px;background:var(--c1);color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:background .2s}
+.btn-save:hover{background:#1D4ED8}
+.btn-cancel{padding:13px 20px;background:var(--cream);color:var(--text);border:none;border-radius:10px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s}
+.btn-cancel:hover{background:var(--border)}
+
+/* 탭별 save 색상 */
+.modal.for-mission .btn-save{background:var(--c2)}.modal.for-mission .btn-save:hover{background:#15803D}
+.modal.for-mission .toggle-switch.on{background:var(--c2)}
+.modal.for-think .btn-save{background:var(--c3)}.modal.for-think .btn-save:hover{background:#B45309}
+.modal.for-think .toggle-switch.on{background:var(--c3)}
+.modal.for-grade .btn-save{background:var(--c4)}.modal.for-grade .btn-save:hover{background:#6D28D9}
+.modal.for-grade .toggle-switch.on{background:var(--c4)}
+
+/* 섹션별 아이템 미리보기 색상 */
+.preview-concept{background:var(--c1-l);color:var(--c1)}
+.preview-mission{background:var(--c2-l);color:var(--c2)}
+.preview-think{background:var(--c3-l);color:var(--c3)}
+.preview-grade{background:var(--c4-l);color:var(--c4)}
+
+@media(max-width:640px){
+  .tab-btn{padding:12px 14px;font-size:12px}
+  .tab-panel{padding:20px 14px 60px}
+  .adm-header{padding:12px 16px}
+  .form-row{grid-template-columns:1fr}
+  .modal{padding:28px 20px}
+}
+</style>
+</head>
+<body>
+
+<!-- ────── 로그인 ────── -->
+<div id="loginView">
+  <div class="login-box">
+    <div class="login-title">HOISTORY 학습 공간</div>
+    <div class="login-sub">관리자 모드</div>
+    <input class="login-input" id="pwInput" type="password" placeholder="비밀번호" autocomplete="current-password">
+    <button class="login-btn" id="loginBtn">로그인</button>
+    <div class="login-err" id="loginErr">비밀번호가 올바르지 않습니다</div>
+  </div>
+</div>
+
+<!-- ────── 어드민 ────── -->
+<div id="adminView">
+  <header class="adm-header">
+    <div>
+      <div class="adm-title">HOISTORY 학습 공간</div>
+      <div class="adm-sub">관리자 모드</div>
+    </div>
+    <button class="adm-logout" id="logoutBtn">나가기</button>
+  </header>
+
+  <div class="tab-bar">
+    <button class="tab-btn t-concept active" data-tab="concept">개념 체크</button>
+    <button class="tab-btn t-mission" data-tab="mission">미션 체크</button>
+    <button class="tab-btn t-think"   data-tab="think">생각 체크</button>
+    <button class="tab-btn t-grade"   data-tab="grade">성적 체크</button>
+  </div>
+
+  <div class="tab-panel active" id="panel-concept">
+    <div class="panel-top">
+      <div class="panel-title">개념 체크</div>
+      <button class="add-btn" onclick="openModal('concept')">항목 추가</button>
+    </div>
+    <div class="item-list" id="list-concept"></div>
+  </div>
+  <div class="tab-panel" id="panel-mission">
+    <div class="panel-top">
+      <div class="panel-title">미션 체크</div>
+      <button class="add-btn g" onclick="openModal('mission')">항목 추가</button>
+    </div>
+    <div class="item-list" id="list-mission"></div>
+  </div>
+  <div class="tab-panel" id="panel-think">
+    <div class="panel-top">
+      <div class="panel-title">생각 체크</div>
+      <button class="add-btn a" onclick="openModal('think')">항목 추가</button>
+    </div>
+    <div class="item-list" id="list-think"></div>
+  </div>
+  <div class="tab-panel" id="panel-grade">
+    <div class="panel-top">
+      <div class="panel-title">성적 체크</div>
+      <button class="add-btn p" onclick="openModal('grade')">항목 추가</button>
+    </div>
+    <div class="item-list" id="list-grade"></div>
+  </div>
+</div>
+
+<!-- ────── 추가/수정 모달 ────── -->
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" id="modalBox">
+    <div class="modal-title" id="modalTitle">항목 추가</div>
+
+    <div class="form-group">
+      <label class="form-label">아이콘 텍스트 (숫자 또는 이모지)</label>
+      <input class="form-input" id="fIcon" type="text" placeholder="예: 23  /  🎯  /  강1" maxlength="6">
+      <div class="form-hint">강의 번호는 숫자로 입력 (예: 23), 웹앱은 이모지 가능</div>
+      <div class="icon-preview-wrap">
+        <div class="icon-preview-box" id="iconPreview">?</div>
+        <span style="font-size:12px;color:var(--sub)">미리보기</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">제목</label>
+      <input class="form-input" id="fLabel" type="text" placeholder="예: 23강  /  블라인드 려" maxlength="30">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">부제목 (선택)</label>
+      <input class="form-input" id="fSublabel" type="text" placeholder="예: 조선 전기" maxlength="30">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">URL</label>
+      <input class="form-input" id="fUrl" type="url" placeholder="https://...">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">순서 (낮을수록 먼저)</label>
+        <input class="form-input" id="fOrder" type="number" min="0" step="1" value="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">잠금 여부</label>
+        <div class="locked-toggle" id="lockedToggle" onclick="toggleLocked()">
+          <div class="toggle-switch" id="toggleSw"></div>
+          <span class="toggle-label" id="toggleLabel">공개</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">취소</button>
+      <button class="btn-save" id="saveBtn" onclick="saveItem()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getFirestore, collection, query, orderBy, onSnapshot,
+  addDoc, updateDoc, deleteDoc, doc
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain: "ho0911seong-56638.firebaseapp.com",
+  databaseURL: "https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ho0911seong-56638",
+  storageBucket: "ho0911seong-56638.firebasestorage.app",
+  messagingSenderId: "994509567071",
+  appId: "1:994509567071:web:8b33bb03a3d8f3a9f557ea"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+const ADMIN_PW  = '0911';   // 비밀번호 변경 시 이 줄만 수정
+const SESS_KEY  = 'lms_admin_auth';
+
+const SECTION_MAP = {
+  concept: { colorVar:'--c1', previewClass:'preview-concept' },
+  mission: { colorVar:'--c2', previewClass:'preview-mission' },
+  think:   { colorVar:'--c3', previewClass:'preview-think'   },
+  grade:   { colorVar:'--c4', previewClass:'preview-grade'   },
+};
+
+// ── 로그인 체크 ──
+if (sessionStorage.getItem(SESS_KEY) === '1') showAdmin();
+
+document.getElementById('loginBtn').addEventListener('click', tryLogin);
+document.getElementById('pwInput').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+function tryLogin() {
+  const pw = document.getElementById('pwInput').value;
+  if (pw === ADMIN_PW) {
+    sessionStorage.setItem(SESS_KEY, '1');
+    showAdmin();
+  } else {
+    document.getElementById('loginErr').style.display = 'block';
+    document.getElementById('pwInput').value = '';
+    document.getElementById('pwInput').focus();
+  }
+}
+
+function showAdmin() {
+  document.getElementById('loginView').style.display  = 'none';
+  document.getElementById('adminView').style.cssText  = 'display:flex;flex-direction:column';
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    sessionStorage.removeItem(SESS_KEY); location.reload();
+  });
+  initTabs();
+  startListening();
+}
+
+// ── 탭 ──
+function initTabs() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
+    });
+  });
+}
+
+// ── Firestore ──
+let _items = [];
+function startListening() {
+  const q = query(collection(db, 'lms_items'), orderBy('order', 'asc'));
+  onSnapshot(q, snap => {
+    _items = [];
+    snap.forEach(d => _items.push({ docId: d.id, ...d.data() }));
+    renderLists();
+  });
+}
+
+function renderLists() {
+  const grouped = { concept:[], mission:[], think:[], grade:[] };
+  _items.forEach(item => { if (grouped[item.section]) grouped[item.section].push(item); });
+  Object.keys(grouped).forEach(sec => renderList(sec, grouped[sec]));
+}
+
+function renderList(sec, items) {
+  const container = document.getElementById(`list-${sec}`);
+  if (!items.length) {
+    container.innerHTML = '<div class="empty-panel">아직 항목이 없습니다. 항목을 추가해 보세요.</div>';
+    return;
+  }
+  container.innerHTML = '';
+  items.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    const iconStr = String(item.icon || '?').trim();
+    const iconSize = iconStr.length <= 2 ? '20px' : iconStr.length <= 3 ? '17px' : '13px';
+    row.innerHTML = `
+      <div class="item-icon-preview ${SECTION_MAP[sec]?.previewClass || ''}" style="font-size:${iconSize}">${esc(iconStr)}</div>
+      <div class="item-info">
+        <div class="item-label">${esc(item.label || '')}</div>
+        ${item.sublabel ? `<div class="item-sublabel">${esc(item.sublabel)}</div>` : ''}
+        <div class="item-url">${esc(item.url || '')}</div>
+      </div>
+      <div class="item-meta">
+        <span class="order-num">${item.order ?? 0}</span>
+        <span class="${item.locked ? 'locked-badge' : 'open-badge'}">${item.locked ? '잠금' : '공개'}</span>
+        <button class="edit-btn" data-id="${item.docId}">수정</button>
+        <button class="del-btn" data-id="${item.docId}">삭제</button>
+      </div>`;
+    row.querySelector('.edit-btn').addEventListener('click', () => openModal(sec, item));
+    row.querySelector('.del-btn').addEventListener('click', () => deleteItem(item.docId));
+    container.appendChild(row);
+  });
+}
+
+// ── 삭제 ──
+async function deleteItem(docId) {
+  if (!confirm('이 항목을 삭제할까요?')) return;
+  await deleteDoc(doc(db, 'lms_items', docId));
+}
+
+// ── 모달 ──
+let _currentSection = 'concept';
+let _editDocId       = null;
+let _locked          = false;
+
+window.openModal = function(sec, item = null) {
+  _currentSection = sec;
+  _editDocId      = item ? item.docId : null;
+  _locked         = item ? !!item.locked : false;
+
+  document.getElementById('modalTitle').textContent = item ? '항목 수정' : '항목 추가';
+  document.getElementById('fIcon').value     = item?.icon     || '';
+  document.getElementById('fLabel').value    = item?.label    || '';
+  document.getElementById('fSublabel').value = item?.sublabel || '';
+  document.getElementById('fUrl').value      = item?.url      || '';
+  document.getElementById('fOrder').value    = item?.order    ?? _items.filter(i => i.section === sec).length;
+
+  const modal = document.getElementById('modalBox');
+  modal.className = `modal for-${sec}`;
+  updatePreview();
+  updateToggleUI();
+  document.getElementById('modalBackdrop').classList.add('open');
+  setTimeout(() => document.getElementById('fIcon').focus(), 100);
+};
+
+window.closeModal = function() {
+  document.getElementById('modalBackdrop').classList.remove('open');
+};
+
+window.toggleLocked = function() {
+  _locked = !_locked;
+  updateToggleUI();
+};
+
+function updateToggleUI() {
+  document.getElementById('toggleSw').className    = `toggle-switch${_locked ? ' on' : ''}`;
+  document.getElementById('toggleLabel').textContent = _locked ? '잠금' : '공개';
+}
+
+window.saveItem = async function() {
+  const icon     = document.getElementById('fIcon').value.trim();
+  const label    = document.getElementById('fLabel').value.trim();
+  const sublabel = document.getElementById('fSublabel').value.trim();
+  const url      = document.getElementById('fUrl').value.trim();
+  const order    = parseInt(document.getElementById('fOrder').value, 10) || 0;
+
+  if (!icon || !label) { alert('아이콘과 제목은 필수입니다.'); return; }
+
+  const data = { section:_currentSection, icon, label, sublabel, url, order, locked:_locked };
+
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true; btn.textContent = '저장 중...';
+  try {
+    if (_editDocId) await updateDoc(doc(db, 'lms_items', _editDocId), data);
+    else            await addDoc(collection(db, 'lms_items'), data);
+    closeModal();
+  } catch (e) {
+    alert('저장 실패: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '저장';
+  }
+};
+
+// 아이콘 미리보기 실시간 업데이트
+document.getElementById('fIcon').addEventListener('input', updatePreview);
+function updatePreview() {
+  const val = document.getElementById('fIcon').value.trim();
+  const preview = document.getElementById('iconPreview');
+  preview.textContent = val || '?';
+  const previewClass = SECTION_MAP[_currentSection]?.previewClass || 'preview-concept';
+  preview.className  = `icon-preview-box ${previewClass}`;
+  preview.style.fontSize = val.length <= 2 ? '22px' : val.length <= 3 ? '18px' : '14px';
+}
+
+// 모달 배경 클릭 시 닫기
+document.getElementById('modalBackdrop').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+</script>
+</body>
+</html>
