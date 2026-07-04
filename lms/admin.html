@@ -196,23 +196,32 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
   <div class="tab-panel active" id="panel-concept">
     <div class="panel-top">
       <div class="panel-title">개념 체크</div>
-      <button class="add-btn" onclick="openModal('concept')">항목 추가</button>
+      <a href="../class/admin.html" target="_blank" class="add-btn" style="text-decoration:none">강의 관리 →</a>
     </div>
+    <p style="font-size:13px;color:var(--sub);margin-bottom:16px">강의 목록은 수업 자료 슬라이드 어드민에서 관리됩니다. 아래는 현재 등록된 강의 목록입니다.</p>
     <div class="item-list" id="list-concept"></div>
   </div>
   <div class="tab-panel" id="panel-mission">
     <div class="panel-top">
       <div class="panel-title">미션 체크</div>
-      <button class="add-btn g" onclick="openModal('mission')">항목 추가</button>
     </div>
-    <div class="item-list" id="list-mission"></div>
+    <p style="font-size:13px;color:var(--sub);margin-bottom:20px">호이스토리 허브의 카드 카테고리를 선택하면 해당 카테고리의 카드들이 학생 허브에 표시됩니다.</p>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+      <label style="font-size:13px;font-weight:700;color:var(--sub)">카테고리 선택</label>
+      <select id="missionCategorySelect" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;background:var(--white);outline:none"></select>
+      <button id="saveMissionCategoryBtn" class="add-btn g">저장</button>
+    </div>
+    <div id="missionPreviewList" class="item-list"></div>
   </div>
   <div class="tab-panel" id="panel-think">
     <div class="panel-top">
       <div class="panel-title">생각 체크</div>
-      <button class="add-btn a" onclick="openModal('think')">항목 추가</button>
     </div>
-    <div class="item-list" id="list-think"></div>
+    <div style="background:var(--white);border-radius:14px;padding:32px 24px;border:1px solid var(--border);text-align:center">
+      <div style="font-size:32px;margin-bottom:14px">💬</div>
+      <p style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:10px">생각 체크는 LMS에 인라인으로 통합됩니다</p>
+      <p style="font-size:13px;color:var(--sub);line-height:1.75">학생들이 LMS의 생각 체크 섹션에서 강의를 선택하면<br>바로 글쓰기 화면이 열려 제출까지 가능합니다.<br><br>강의 개설 및 응답 관리는 <strong>생각 체크 앱</strong>에서 해 주세요.</p>
+    </div>
   </div>
   <div class="tab-panel" id="panel-grade">
     <div class="panel-top">
@@ -277,8 +286,8 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
-  getFirestore, collection, query, orderBy, onSnapshot,
-  addDoc, updateDoc, deleteDoc, doc
+  getFirestore, collection, query, orderBy, where, onSnapshot,
+  addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -329,6 +338,8 @@ function showAdmin() {
   });
   initTabs();
   startListening();
+  initConceptTab();
+  initMissionTab();
 }
 
 // ── 탭 ──
@@ -343,21 +354,94 @@ function initTabs() {
   });
 }
 
-// ── Firestore ──
+// ── Firestore: 성적 체크만 lms_items에서 관리 ──
 let _items = [];
 function startListening() {
   const q = query(collection(db, 'lms_items'), orderBy('order', 'asc'));
   onSnapshot(q, snap => {
-    _items = [];
-    snap.forEach(d => _items.push({ docId: d.id, ...d.data() }));
-    renderLists();
+    _items = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+    renderList('grade', _items.filter(i => i.section === 'grade'));
   });
 }
 
-function renderLists() {
-  const grouped = { concept:[], mission:[], think:[], grade:[] };
-  _items.forEach(item => { if (grouped[item.section]) grouped[item.section].push(item); });
-  Object.keys(grouped).forEach(sec => renderList(sec, grouped[sec]));
+// ── 개념 체크 탭 (class_lessons 읽기 전용) ──
+async function initConceptTab() {
+  const container = document.getElementById('list-concept');
+  try {
+    const snap = await getDocs(query(collection(db, 'class_lessons'), orderBy('order','asc')));
+    if (!snap.docs.length) { container.innerHTML = '<div class="empty-panel">등록된 강의가 없습니다. 수업 자료 어드민에서 강의를 추가해 주세요.</div>'; return; }
+    container.innerHTML = '';
+    snap.docs.forEach(d => {
+      const l = d.data();
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.innerHTML = `
+        <div class="item-icon-preview preview-concept" style="font-size:18px">${esc(String(l.num||'?'))}</div>
+        <div class="item-info">
+          <div class="item-label">${esc(l.title||'')}</div>
+          ${l.unit ? `<div class="item-sublabel">${esc(l.unit)}</div>` : ''}
+          <div class="item-url">${esc(l.file||'')} · ${esc(String(l.year||''))}학년도</div>
+        </div>
+        <div class="item-meta"><span class="open-badge">${esc(String(l.year||''))}</span></div>`;
+      container.appendChild(row);
+    });
+  } catch(e) { container.innerHTML = `<div class="empty-panel">불러오기 실패: ${esc(e.message)}</div>`; }
+}
+
+// ── 미션 체크 탭 (카테고리 선택) ──
+async function initMissionTab() {
+  let currentCat = '';
+  try {
+    const cfg = await getDoc(doc(db, 'settings', 'lms_config'));
+    if (cfg.exists()) currentCat = cfg.data().mission_category || '';
+  } catch(_) {}
+
+  const categories = [];
+  try {
+    const snap = await getDocs(collection(db, 'cards'));
+    const set  = new Set();
+    snap.docs.forEach(d => { const c = d.data().category; if (c) set.add(c); });
+    categories.push(...set);
+  } catch(_) {}
+
+  const sel = document.getElementById('missionCategorySelect');
+  sel.innerHTML = `<option value="">선택 없음</option>` +
+    categories.map(c => `<option value="${esc(c)}" ${c===currentCat?'selected':''}>${esc(c)}</option>`).join('');
+
+  document.getElementById('saveMissionCategoryBtn').addEventListener('click', async () => {
+    const cat = sel.value;
+    try {
+      await setDoc(doc(db, 'settings', 'lms_config'), { mission_category: cat }, { merge: true });
+      alert(cat ? `"${cat}" 카테고리로 저장되었습니다.` : '미션 체크 카테고리가 해제되었습니다.');
+      renderMissionPreview(cat);
+    } catch(e) { alert('저장 실패: ' + e.message); }
+  });
+
+  renderMissionPreview(currentCat);
+}
+
+async function renderMissionPreview(cat) {
+  const container = document.getElementById('missionPreviewList');
+  if (!cat) { container.innerHTML = ''; return; }
+  try {
+    const snap  = await getDocs(query(collection(db, 'cards'), where('category','==',cat)));
+    const items = snap.docs.map(d => d.data()).sort((a,b) => (a.order??999)-(b.order??999));
+    container.innerHTML = items.length
+      ? `<p style="font-size:12px;color:var(--sub);margin-bottom:10px">현재 카테고리 "${esc(cat)}" 카드 (${items.length}개):</p>`
+      : '<div class="empty-panel">이 카테고리에 카드가 없습니다.</div>';
+    items.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      const iconStr = String(item.icon||'?');
+      row.innerHTML = `
+        <div class="item-icon-preview preview-mission" style="font-size:${iconStr.length<=2?'20px':'13px'}">${esc(iconStr)}</div>
+        <div class="item-info">
+          <div class="item-label">${esc(item.label||'')}</div>
+          ${item.sublabel ? `<div class="item-sublabel">${esc(item.sublabel)}</div>` : ''}
+        </div>`;
+      container.appendChild(row);
+    });
+  } catch(_) {}
 }
 
 function renderList(sec, items) {

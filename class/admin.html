@@ -220,6 +220,7 @@
         <span class="lesson-bar-label">강의 선택</span>
         <select id="lesson-select" onchange="onLessonChange(this.value)"></select>
         <button class="btn-sm" onclick="addLesson()">+ 새 강의</button>
+        <button class="btn-danger" onclick="deleteLesson()">강의 삭제</button>
       </div>
 
       <div class="sub-tab-bar">
@@ -275,11 +276,22 @@
 
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="slide-render.js"></script>
 <script>
+firebase.initializeApp({
+  apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain:"ho0911seong-56638.firebaseapp.com",
+  projectId:"ho0911seong-56638",
+  storageBucket:"ho0911seong-56638.firebasestorage.app",
+  messagingSenderId:"994509567071",
+  appId:"1:994509567071:web:8b33bb03a3d8f3a9f557ea"
+});
+const db = firebase.firestore();
+
 const ADMIN_PW = 'hoseong';
 const SK = 'hoistory_class_settings';
-const LESSONS_REGISTRY_KEY = 'hoistory_admin_lessons';
 const FONT_KEYS = ['title','body','label','obj','cover','coverTagline','coverMeta','think','thinkGuide'];
 /* slide-style.css(공용)가 실제로 쓰는 CSS 변수 이름과 매핑 — 26_23.html의 applySettings()와 동일해야 함 */
 const FONT_VAR_MAP = {
@@ -477,20 +489,18 @@ function resetDesign() {
   applyDesignPreview();
 }
 
-/* ════ 강의 목록 (드롭다운) ════ */
-function defaultLessonList() {
-  return Object.keys(LESSON_DEFAULTS).map(num => ({ num, title: LESSON_DEFAULTS[num].lesson.title }));
+/* ════ 강의 목록 (Firestore) ════ */
+let lessonsCache = [];
+
+async function getLessonsFromFirestore() {
+  const snap = await db.collection('class_lessons').orderBy('order','asc').get();
+  lessonsCache = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+  return lessonsCache;
 }
-function getLessonsList() {
-  const saved = JSON.parse(localStorage.getItem(LESSONS_REGISTRY_KEY) || 'null');
-  return (Array.isArray(saved) && saved.length) ? saved : defaultLessonList();
-}
-function saveLessonsList(list) { localStorage.setItem(LESSONS_REGISTRY_KEY, JSON.stringify(list)); }
 
 function populateLessonSelect() {
-  const lessons = getLessonsList();
   const sel = document.getElementById('lesson-select');
-  sel.innerHTML = lessons.map(l => `<option value="${esc(l.num)}" ${l.num===currentLessonNum?'selected':''}>${esc(l.num)}강 · ${esc(l.title)}</option>`).join('');
+  sel.innerHTML = lessonsCache.map(l => `<option value="${esc(l.num)}" ${l.num===currentLessonNum?'selected':''}>${esc(l.num)}강 · ${esc(l.title)}</option>`).join('');
 }
 
 function onLessonChange(num) {
@@ -498,17 +508,33 @@ function onLessonChange(num) {
   loadLessonData(num);
 }
 
-function addLesson() {
+async function addLesson() {
   const num = (prompt('강 번호를 입력하세요 (예: 24)') || '').trim();
   if (!num) return;
-  const lessons = getLessonsList();
-  if (lessons.find(l => l.num === num)) { alert('이미 있는 강 번호입니다.'); return; }
+  if (lessonsCache.find(l => l.num === num)) { alert('이미 있는 강 번호입니다.'); return; }
   const title = (prompt('수업 제목을 입력하세요') || '새 강의').trim();
-  lessons.push({ num, title });
-  saveLessonsList(lessons);
+  const unit = (prompt('학습 단원을 입력하세요 (예: Ⅲ-4. 고려의 생활과 문화)') || '').trim();
+  const year = (prompt('연도를 입력하세요 (예: 2026)') || '2026').trim();
+  const file = (prompt(`파일명을 입력하세요 (예: 26_${num})`) || `26_${num}`).trim();
+  const order = lessonsCache.length + 1;
+  await db.collection('class_lessons').add({ num, title, unit, file, year, order });
+  await getLessonsFromFirestore();
   currentLessonNum = num;
   populateLessonSelect();
   loadLessonData(num);
+}
+
+async function deleteLesson() {
+  if (!confirm(`${currentLessonNum}강을 삭제하시겠습니까? (슬라이드 내용은 삭제되지 않습니다)`)) return;
+  const lesson = lessonsCache.find(l => l.num === currentLessonNum);
+  if (!lesson) return;
+  await db.collection('class_lessons').doc(lesson.docId).delete();
+  await getLessonsFromFirestore();
+  if (lessonsCache.length) {
+    currentLessonNum = lessonsCache[0].num;
+    populateLessonSelect();
+    loadLessonData(currentLessonNum);
+  }
 }
 
 /* ════ 강의 내용 탭 ════ */
@@ -532,9 +558,16 @@ function isValidContentData(d) {
     && d.think && typeof d.think === 'object';
 }
 
-function initContent() {
-  const lessons = getLessonsList();
-  if (!lessons.find(l => l.num === currentLessonNum)) currentLessonNum = lessons[0].num;
+async function initContent() {
+  await getLessonsFromFirestore();
+  if (!lessonsCache.length) {
+    await db.collection('class_lessons').add({
+      num: '23', title: '고려의 사회, 고려의 문화',
+      unit: 'Ⅲ-4. 고려의 생활과 문화', file: '26_23', year: '2026', order: 1
+    });
+    await getLessonsFromFirestore();
+  }
+  if (!lessonsCache.find(l => l.num === currentLessonNum)) currentLessonNum = lessonsCache[0].num;
   populateLessonSelect();
   loadLessonData(currentLessonNum);
 }
@@ -727,10 +760,12 @@ function saveContent() {
   };
   localStorage.setItem(lessonDataKey(currentLessonNum), JSON.stringify(payload));
 
-  /* 강 번호·제목이 바뀌었을 수 있으니 강의 목록도 함께 갱신 */
-  const lessons = getLessonsList().map(l => l.num === currentLessonNum ? { num: currentLessonNum, title: cd.lesson.title } : l);
-  saveLessonsList(lessons);
-  populateLessonSelect();
+  /* 강 번호·제목이 바뀌었을 수 있으니 Firestore 강의 목록도 함께 갱신 */
+  const lesson = lessonsCache.find(l => l.num === currentLessonNum);
+  if (lesson) {
+    db.collection('class_lessons').doc(lesson.docId).update({ num: cd.lesson.num, title: cd.lesson.title })
+      .then(async () => { await getLessonsFromFirestore(); populateLessonSelect(); });
+  }
 
   showToast('toast-content');
 }

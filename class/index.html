@@ -123,51 +123,37 @@
   <a href="admin.html" class="header-admin">설정</a>
 </header>
 
-<div id="content"></div>
+<div id="content"><div class="empty" style="padding:80px 40px;text-align:center;color:var(--text-sub)">불러오는 중…</div></div>
 
-<script>
-/* ════════════════════════════════════════════════════════
-   강의 목록 — 새 강의 추가 시 이 배열에 항목을 넣으세요
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-   { file: '파일명(확장자 제외)', year: '연도', num: '강 번호', title: '제목', unit: '단원' }
-   ════════════════════════════════════════════════════════ */
-const LESSONS = [
-  {
-    file:  '26_23',
-    year:  '2026',
-    num:   '23',
-    title: '고려의 사회, 고려의 문화',
-    unit:  'Ⅲ-4. 고려의 생활과 문화'
-  },
-  /* 예시 — 새 강의 추가 시 아래 형식으로 붙여넣으세요
-  {
-    file:  '26_24',
-    year:  '2026',
-    num:   '24',
-    title: '강의 제목',
-    unit:  '단원명'
-  },
-  */
-];
-
+const app = initializeApp({
+  apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain:"ho0911seong-56638.firebaseapp.com",
+  projectId:"ho0911seong-56638",
+  storageBucket:"ho0911seong-56638.firebasestorage.app",
+  messagingSenderId:"994509567071",
+  appId:"1:994509567071:web:8b33bb03a3d8f3a9f557ea"
+});
+const db = getFirestore(app);
 const content = document.getElementById('content');
 
-if (!LESSONS.length) {
-  content.innerHTML = '<p class="empty">등록된 강의가 없습니다.</p>';
-} else {
-  const byYear = LESSONS.reduce((acc, l) => {
-    (acc[l.year] ??= []).push(l);
-    return acc;
-  }, {});
-
+onSnapshot(query(collection(db, 'class_lessons'), orderBy('order','asc')), snap => {
+  const lessons = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+  if (!lessons.length) {
+    content.innerHTML = '<p class="empty">등록된 강의가 없습니다.</p>';
+    return;
+  }
+  const byYear = lessons.reduce((acc, l) => { (acc[l.year] ??= []).push(l); return acc; }, {});
+  content.innerHTML = '';
   Object.keys(byYear).sort().reverse().forEach(year => {
     const section = document.createElement('div');
     section.className = 'year-section';
     section.innerHTML = `<p class="year-label">${year}학년도</p>`;
-
     const grid = document.createElement('div');
     grid.className = 'lesson-grid';
-
     byYear[year].forEach(l => {
       const div = document.createElement('div');
       div.className = 'lesson-card';
@@ -180,15 +166,13 @@ if (!LESSONS.length) {
             <a class="card-btn" href="${l.file}.html?mode=complete">완성형</a>
             <a class="card-btn blank" href="${l.file}.html?mode=blank">빈칸형</a>
           </div>
-        </div>
-      `;
+        </div>`;
       grid.appendChild(div);
     });
-
     section.appendChild(grid);
     content.appendChild(section);
   });
-}
+});
 </script>
 </body>
 </html>
