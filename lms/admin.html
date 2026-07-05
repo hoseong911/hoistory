@@ -161,6 +161,27 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
   .form-row{grid-template-columns:1fr}
   .modal{padding:28px 20px}
 }
+
+/* ── 성적 체크 어드민 ── */
+.grade-config-card{background:var(--white);border-radius:14px;padding:18px 20px;border:1px solid var(--border);margin-bottom:20px;display:flex;flex-direction:column;gap:12px}
+.grade-config-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.grade-config-lbl{font-size:12px;font-weight:700;color:var(--sub);white-space:nowrap;min-width:90px}
+.grade-config-sel,.grade-config-inp{flex:1;min-width:160px;padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:13px;background:var(--white);outline:none;transition:border-color .2s}
+.grade-config-sel:focus,.grade-config-inp:focus{border-color:var(--c4)}
+.grade-table-wrap{overflow-x:auto}
+.grade-table{width:100%;border-collapse:collapse;font-size:12px}
+.grade-table th,.grade-table td{padding:8px 10px;border:1px solid var(--border);text-align:center;white-space:nowrap}
+.grade-table th{background:var(--cream);font-weight:700;color:var(--sub)}
+.grade-table th.gh-concept{background:var(--c1-l);color:var(--c1)}
+.grade-table th.gh-mission{background:var(--c2-l);color:var(--c2)}
+.grade-table th.gh-think  {background:var(--c3-l);color:var(--c3)}
+.grade-table td.tc-id{font-size:11px;color:var(--sub)}
+.grade-table td.tc-name{text-align:left;font-weight:600}
+.grade-table tbody tr:hover{background:var(--cream)}
+.grade-cb{width:17px;height:17px;cursor:pointer;accent-color:var(--c4)}
+.grade-cb.concept{accent-color:var(--c1)}
+.grade-cb.mission{accent-color:var(--c2)}
+.grade-cb.think  {accent-color:var(--c3)}
 </style>
 </head>
 <body>
@@ -226,9 +247,28 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
   <div class="tab-panel" id="panel-grade">
     <div class="panel-top">
       <div class="panel-title">성적 체크</div>
-      <button class="add-btn p" onclick="openModal('grade')">항목 추가</button>
+      <button class="add-btn p" id="gradeLoadBtn">불러오기</button>
     </div>
-    <div class="item-list" id="list-grade"></div>
+
+    <div class="grade-config-card">
+      <div class="grade-config-row">
+        <span class="grade-config-lbl">강의 선택</span>
+        <select id="gradeLessonSel" class="grade-config-sel"><option value="">-- 강의 선택 --</option></select>
+      </div>
+      <div class="grade-config-row">
+        <span class="grade-config-lbl">생각체크 연결</span>
+        <select id="gradeThinkSel" class="grade-config-sel"><option value="">-- 연결 없음 (수동) --</option></select>
+      </div>
+      <div class="grade-config-row">
+        <span class="grade-config-lbl">미션체크 소스</span>
+        <input id="gradeMissionColl" class="grade-config-inp" type="text" placeholder="Firestore 컬렉션명 (비우면 수동)">
+      </div>
+    </div>
+
+    <div id="gradeTableWrap"><div class="empty-panel">강의를 선택하고 불러오기를 눌러주세요.</div></div>
+    <div id="gradeSaveWrap" style="display:none;margin-top:20px">
+      <button class="add-btn p" id="gradeSaveBtn" style="width:100%;padding:14px;font-size:14px">전체 저장</button>
+    </div>
   </div>
 </div>
 
@@ -287,8 +327,9 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getFirestore, collection, query, orderBy, where, onSnapshot,
-  addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc
+  addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -300,8 +341,9 @@ const firebaseConfig = {
   appId: "1:994509567071:web:8b33bb03a3d8f3a9f557ea"
 };
 
-const app = initializeApp(firebaseConfig);
-const db  = getFirestore(app);
+const app  = initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const rtdb = getDatabase(app);
 
 const ADMIN_PW  = 'ghtjd12!@';   // 비밀번호 변경 시 이 줄만 수정
 const SESS_KEY  = 'lms_admin_auth';
@@ -340,6 +382,7 @@ function showAdmin() {
   startListening();
   initConceptTab();
   initMissionTab();
+  initGradeTab();
 }
 
 // ── 탭 ──
@@ -354,13 +397,12 @@ function initTabs() {
   });
 }
 
-// ── Firestore: 성적 체크만 lms_items에서 관리 ──
+// ── Firestore: lms_items (개념·미션·생각 섹션용) ──
 let _items = [];
 function startListening() {
   const q = query(collection(db, 'lms_items'), orderBy('order', 'asc'));
   onSnapshot(q, snap => {
     _items = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
-    renderList('grade', _items.filter(i => i.section === 'grade'));
   });
 }
 
@@ -562,6 +604,241 @@ document.getElementById('modalBackdrop').addEventListener('click', function(e) {
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ── 성적 체크 ──
+let _gradeStudents  = [];
+let _gradeLessons   = [];
+let _gradeLectures  = [];
+let _gradeRecords   = {};
+let _gradeLessonKey = '';
+
+async function initGradeTab() {
+  // class_lessons 로드
+  try {
+    const snap = await getDocs(query(collection(db, 'class_lessons'), orderBy('order','asc')));
+    _gradeLessons = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+    const sel = document.getElementById('gradeLessonSel');
+    _gradeLessons.forEach(l => {
+      const o = document.createElement('option');
+      o.value = l.docId;
+      o.textContent = `${l.order ?? '?'}강 — ${l.title}`;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', onGradeLessonChange);
+  } catch(e) {}
+
+  // lectures 로드 (생각체크 연결용)
+  try {
+    const snap = await getDocs(collection(db, 'lectures'));
+    _gradeLectures = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+    const sel = document.getElementById('gradeThinkSel');
+    _gradeLectures
+      .sort((a,b) => String(a.title).localeCompare(String(b.title)))
+      .forEach(l => {
+        const o = document.createElement('option');
+        o.value = l.docId;
+        o.textContent = l.title || l.docId;
+        sel.appendChild(o);
+      });
+  } catch(e) {}
+
+  // 학생 명단 (RTDB)
+  try {
+    const snap = await get(ref(rtdb, 'students'));
+    const data = snap.val();
+    if (data) {
+      const map = {};
+      Object.values(data).forEach(s => {
+        if (!s) return;
+        const sid   = String(s.studentId || s.id || '').trim();
+        const sname = (s.name || s.studentName || '').trim();
+        if (sid && sname) map[sid] = sname;
+      });
+      _gradeStudents = Object.entries(map)
+        .map(([id, name]) => ({ id, name }))
+        .sort((a, b) => a.id.localeCompare(b.id));
+    }
+  } catch(e) {}
+
+  document.getElementById('gradeLoadBtn').addEventListener('click', loadGradeData);
+  document.getElementById('gradeSaveBtn').addEventListener('click', saveGradeRecords);
+}
+
+async function onGradeLessonChange() {
+  const docId = document.getElementById('gradeLessonSel').value;
+  if (!docId) return;
+  const lesson = _gradeLessons.find(l => l.docId === docId);
+  const key = String(lesson?.order ?? docId);
+  try {
+    const cfg = await getDoc(doc(db, 'grade_lecture_config', key));
+    if (cfg.exists()) {
+      const d = cfg.data();
+      document.getElementById('gradeThinkSel').value    = d.thinkLectureDocId || '';
+      document.getElementById('gradeMissionColl').value = d.missionCollection || '';
+    } else {
+      document.getElementById('gradeThinkSel').value    = '';
+      document.getElementById('gradeMissionColl').value = '';
+    }
+  } catch(e) {}
+}
+
+async function loadGradeData() {
+  const lessonDocId = document.getElementById('gradeLessonSel').value;
+  if (!lessonDocId) { alert('강의를 먼저 선택해 주세요.'); return; }
+
+  const lesson = _gradeLessons.find(l => l.docId === lessonDocId);
+  _gradeLessonKey = String(lesson?.order ?? lessonDocId);
+
+  const thinkDocId  = document.getElementById('gradeThinkSel').value;
+  const missionColl = document.getElementById('gradeMissionColl').value.trim();
+
+  // 설정 저장
+  try {
+    await setDoc(doc(db, 'grade_lecture_config', _gradeLessonKey), {
+      thinkLectureDocId: thinkDocId,
+      missionCollection: missionColl,
+    });
+  } catch(e) {}
+
+  const btn = document.getElementById('gradeLoadBtn');
+  btn.disabled = true; btn.textContent = '불러오는 중…';
+
+  try {
+    // 기본값 초기화
+    _gradeRecords = {};
+    _gradeStudents.forEach(s => {
+      _gradeRecords[s.id] = {
+        concept: { achieved: false, onTime: false },
+        mission: { achieved: false, onTime: false },
+        think:   { achieved: false, onTime: false },
+      };
+    });
+
+    // 기존 저장 기록 로드
+    const existing = await getDocs(query(
+      collection(db, 'grade_records'),
+      where('lessonKey', '==', _gradeLessonKey)
+    ));
+    existing.docs.forEach(d => {
+      const r = d.data();
+      if (_gradeRecords[r.studentId]) {
+        _gradeRecords[r.studentId] = {
+          concept: r.concept || { achieved: false, onTime: false },
+          mission: r.mission || { achieved: false, onTime: false },
+          think:   r.think   || { achieved: false, onTime: false },
+        };
+      }
+    });
+
+    // 생각체크 자동감지
+    if (thinkDocId) {
+      const tSnap = await getDocs(query(
+        collection(db, 'submissions'),
+        where('lectureDocId', '==', thinkDocId)
+      ));
+      tSnap.docs.forEach(d => {
+        const sub = d.data();
+        if (_gradeRecords[sub.id]) _gradeRecords[sub.id].think.achieved = true;
+      });
+    }
+
+    // 미션체크 자동감지
+    if (missionColl) {
+      try {
+        const mSnap = await getDocs(collection(db, missionColl));
+        const done  = new Set(mSnap.docs.map(d => d.data().studentId || d.id));
+        _gradeStudents.forEach(s => {
+          if (done.has(s.id)) _gradeRecords[s.id].mission.achieved = true;
+        });
+      } catch(e) {}
+    }
+
+    renderGradeTable();
+    document.getElementById('gradeSaveWrap').style.display = 'block';
+  } catch(e) {
+    alert('불러오기 실패: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '불러오기';
+  }
+}
+
+function renderGradeTable() {
+  const wrap = document.getElementById('gradeTableWrap');
+  if (!_gradeStudents.length) {
+    wrap.innerHTML = '<div class="empty-panel">학생 명단이 없습니다.</div>';
+    return;
+  }
+
+  const chk = (sid, type, field, checked) =>
+    `<input type="checkbox" class="grade-cb ${type}" data-sid="${esc(sid)}" data-t="${type}" data-f="${field}" ${checked?'checked':''}>`;
+
+  let html = `<div class="grade-table-wrap"><table class="grade-table">
+    <thead>
+      <tr>
+        <th rowspan="2">학번</th><th rowspan="2">이름</th>
+        <th colspan="2" class="gh-concept">개념체크</th>
+        <th colspan="2" class="gh-mission">미션체크</th>
+        <th colspan="2" class="gh-think">생각체크</th>
+      </tr>
+      <tr>
+        <th class="gh-concept">달성</th><th class="gh-concept">제시간</th>
+        <th class="gh-mission">달성</th><th class="gh-mission">제시간</th>
+        <th class="gh-think">달성</th><th class="gh-think">제시간</th>
+      </tr>
+    </thead><tbody>`;
+
+  _gradeStudents.forEach(s => {
+    const r = _gradeRecords[s.id];
+    html += `<tr>
+      <td class="tc-id">${esc(s.id)}</td>
+      <td class="tc-name">${esc(s.name)}</td>
+      <td>${chk(s.id,'concept','achieved',r.concept.achieved)}</td>
+      <td>${chk(s.id,'concept','onTime',  r.concept.onTime)}</td>
+      <td>${chk(s.id,'mission','achieved',r.mission.achieved)}</td>
+      <td>${chk(s.id,'mission','onTime',  r.mission.onTime)}</td>
+      <td>${chk(s.id,'think',  'achieved',r.think.achieved)}</td>
+      <td>${chk(s.id,'think',  'onTime',  r.think.onTime)}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div>';
+  wrap.innerHTML = html;
+
+  wrap.querySelectorAll('.grade-cb').forEach(cb => {
+    cb.addEventListener('change', e => {
+      const { sid, t, f } = e.target.dataset;
+      if (_gradeRecords[sid]) _gradeRecords[sid][t][f] = e.target.checked;
+    });
+  });
+}
+
+async function saveGradeRecords() {
+  if (!_gradeLessonKey || !_gradeStudents.length) return;
+  const lesson = _gradeLessons.find(l => String(l.order ?? l.docId) === _gradeLessonKey);
+  const lessonTitle = lesson?.title || '';
+
+  const btn = document.getElementById('gradeSaveBtn');
+  btn.disabled = true; btn.textContent = '저장 중…';
+  try {
+    await Promise.all(_gradeStudents.map(s =>
+      setDoc(doc(db, 'grade_records', `${_gradeLessonKey}_${s.id}`), {
+        lessonKey:   _gradeLessonKey,
+        lessonTitle,
+        studentId:   s.id,
+        studentName: s.name,
+        concept:     _gradeRecords[s.id].concept,
+        mission:     _gradeRecords[s.id].mission,
+        think:       _gradeRecords[s.id].think,
+        updatedAt:   serverTimestamp(),
+      })
+    ));
+    alert(`${_gradeStudents.length}명 저장 완료!`);
+  } catch(e) {
+    alert('저장 실패: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '전체 저장';
+  }
 }
 </script>
 </body>
