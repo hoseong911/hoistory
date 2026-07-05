@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HOISTORY 학습 공간</title>
+<title>DIVE INTO HISTORY : LMS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet">
@@ -155,6 +155,24 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .grade-sum-total{margin-top:6px;padding:10px 12px;background:var(--c4-l);border-radius:10px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--c4)}
 .grade-sum-total strong{font-size:20px;font-weight:800}
 .grade-no-data{font-size:12px;color:var(--text-sub);text-align:center;padding:24px 8px;opacity:.6}
+.grade-pending{font-size:12px;color:var(--text-sub);text-align:center;padding:20px 8px;opacity:.7;line-height:1.6}
+.btn-grade-detail{width:100%;margin-top:10px;padding:8px;background:var(--c4-l);color:var(--c4);border:1px solid var(--c4-m);border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:background .15s}
+.btn-grade-detail:hover{background:var(--c4-m)}
+
+/* ── 성적 상세 모달 ── */
+#gradeDetailModal{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:none;align-items:flex-start;justify-content:center;z-index:200;padding:40px 16px;overflow-y:auto}
+.gd-box{background:var(--white);border-radius:20px;width:100%;max-width:520px;padding:28px;margin:auto}
+.gd-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.gd-title{font-family:'Gowun Batang',serif;font-size:18px;font-weight:700;color:var(--text)}
+.gd-close{background:none;border:1px solid var(--border);border-radius:8px;padding:4px 12px;font-size:15px;color:var(--text-sub);cursor:pointer;transition:background .15s}
+.gd-close:hover{background:var(--cream)}
+.gd-table{width:100%;border-collapse:collapse;font-size:13px}
+.gd-table th,.gd-table td{padding:8px 10px;border:1px solid var(--border);text-align:center}
+.gd-table th{background:var(--cream);font-weight:700;color:var(--sub);font-size:11px;letter-spacing:.3px}
+.gd-table td:first-child{text-align:left;font-weight:600}
+.gd-ok{color:var(--c2);font-weight:700;font-size:15px}
+.gd-no{color:var(--border);font-size:15px}
+.gd-na{color:var(--border);font-size:11px}
 </style>
 </head>
 <body>
@@ -243,6 +261,17 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
     <div class="hub-welcome" id="welcomeMsg"></div>
     <div class="hub-grid" id="hubGrid"></div>
     <div class="mobile-hub" id="mobileHub"></div>
+  </div>
+</div>
+
+<!-- ── 성적 상세 모달 ── -->
+<div id="gradeDetailModal">
+  <div class="gd-box">
+    <div class="gd-head">
+      <div class="gd-title">세부 채점 내역</div>
+      <button class="gd-close" id="gradeDetailClose">✕</button>
+    </div>
+    <div id="gradeDetailContent"></div>
   </div>
 </div>
 
@@ -470,8 +499,20 @@ async function loadStudentGrade() {
     const { selectedLectures = [], bands = [] } = settingsSnap.data();
     if (!selectedLectures.length || !bands.length) { sectionData.grade = { _summary: false }; renderAll(); return; }
 
-    // 강의별 미실시 플래그 + 성적 기록 동시 로드
-    const enabledMap = {}, records = {};
+    // 학생 반 번호
+    const classNum = Math.floor((parseInt(currentStudentId) - 30000) / 100);
+
+    // 강의별 반영 여부 확인
+    const publishChecks = await Promise.all(selectedLectures.map(async key => {
+      try {
+        const snap = await getDoc(doc(db, 'grade_publish_status', `${key}_${classNum}`));
+        return { key, published: snap.exists() && snap.data().published === true };
+      } catch { return { key, published: false }; }
+    }));
+    const publishedSet = new Set(publishChecks.filter(p => p.published).map(p => p.key));
+
+    // 강의별 설정 + 성적 기록 로드
+    const enabledMap = {}, titleMap = {}, records = {};
     await Promise.all(selectedLectures.map(async key => {
       try {
         const [cfgSnap, recSnap] = await Promise.all([
@@ -484,19 +525,30 @@ async function loadStudentGrade() {
           mission: d.missionEnabled !== false,
           think:   d.thinkEnabled   !== false,
         };
+        titleMap[key] = d.lessonTitle || `${key}강`;
         if (recSnap.exists()) records[key] = recSnap.data();
-      } catch(e) {
+      } catch {
         enabledMap[key] = { concept:true, mission:true, think:true };
+        titleMap[key] = `${key}강`;
       }
     }));
 
     let cA=0, cN=0, mA=0, mN=0, tA=0, tN=0;
+    const lectureDetails = [];
+
     selectedLectures.forEach(key => {
+      if (!publishedSet.has(key)) return; // 미반영 강의 제외
       const r  = records[key];
       const en = enabledMap[key];
       if (en.concept) { cN++; if (r?.concept?.achieved) cA++; }
       if (en.mission) { mN++; if (r?.mission?.achieved) mA++; }
       if (en.think)   { tN++; if (r?.think?.achieved)   tA++; }
+      lectureDetails.push({
+        key, title: titleMap[key],
+        concept: { achieved: en.concept && !!(r?.concept?.achieved), enabled: en.concept },
+        mission: { achieved: en.mission && !!(r?.mission?.achieved), enabled: en.mission },
+        think:   { achieved: en.think   && !!(r?.think?.achieved),   enabled: en.think   },
+      });
     });
 
     function calcScore(achieved, total, type) {
@@ -510,12 +562,16 @@ async function loadStudentGrade() {
     const mission = calcScore(mA, mN, 'mission');
     const think   = calcScore(tA, tN, 'think');
     const maxScore = (bands[0]?.concept || 0) + (bands[0]?.mission || 0) + (bands[0]?.think || 0);
+    const totalPublished = publishedSet.size;
 
     sectionData.grade = {
       _summary: true,
       concept, mission, think,
       total: concept.score + mission.score + think.score,
-      max:   maxScore,
+      max: maxScore,
+      lectureDetails,
+      totalPublished,
+      totalSelected: selectedLectures.length,
     };
   } catch(e) {
     sectionData.grade = { _summary: false };
@@ -525,13 +581,17 @@ async function loadStudentGrade() {
 
 function renderGradeSummaryHTML(g) {
   if (!g._summary) return `<div class="grade-no-data">성적 정보가 없습니다</div>`;
+  if (g.totalPublished === 0) {
+    return `<div class="grade-pending">아직 반영된 성적이 없습니다.<br>선생님이 반영 후 확인 가능합니다.</div>`;
+  }
   const row = (label, cls, d) =>
     `<div class="grade-sum-row">
       <span class="grade-sum-label ${cls}">${label}</span>
-      <span class="grade-sum-frac">${d.achieved} / ${d.total}</span>
-      <span class="grade-sum-pct">${d.pct}%</span>
-      <span class="grade-sum-score">${d.score}점</span>
+      <span class="grade-sum-frac">${d.total ? `${d.achieved}/${d.total}` : '—'}</span>
+      <span class="grade-sum-pct">${d.total ? d.pct + '%' : '—'}</span>
+      <span class="grade-sum-score">${d.total ? d.score + '점' : '—'}</span>
     </div>`;
+  const hasDetail = g.lectureDetails && g.lectureDetails.length > 0;
   return `<div class="grade-summary">
     ${row('개념', 'c1', g.concept)}
     ${row('미션', 'c2', g.mission)}
@@ -540,6 +600,7 @@ function renderGradeSummaryHTML(g) {
       <span>총점</span>
       <span><strong>${g.total}</strong> / ${g.max}점</span>
     </div>
+    ${hasDetail ? `<button class="btn-grade-detail" onclick="openGradeDetail()">세부 채점 내역 보기</button>` : ''}
   </div>`;
 }
 
@@ -685,6 +746,42 @@ document.getElementById('thinkSubmitBtn').addEventListener('click', async () => 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+
+// ── 성적 상세 모달 ──
+window.openGradeDetail = function() {
+  const g = sectionData.grade;
+  if (!g || !g.lectureDetails || !g.lectureDetails.length) return;
+  const ok  = s => `<span class="gd-ok">✓</span>`;
+  const no  = s => `<span class="gd-no">✗</span>`;
+  const na  = ()  => `<span class="gd-na">미실시</span>`;
+  const rows = g.lectureDetails.map(d => `<tr>
+    <td>${esc(d.title)}</td>
+    <td>${d.concept.enabled ? (d.concept.achieved ? ok() : no()) : na()}</td>
+    <td>${d.mission.enabled ? (d.mission.achieved ? ok() : no()) : na()}</td>
+    <td>${d.think.enabled   ? (d.think.achieved   ? ok() : no()) : na()}</td>
+  </tr>`).join('');
+  document.getElementById('gradeDetailContent').innerHTML = `
+    <table class="gd-table">
+      <thead>
+        <tr>
+          <th>강의</th>
+          <th style="background:var(--c1-l);color:var(--c1)">개념체크</th>
+          <th style="background:var(--c2-l);color:var(--c2)">미션체크</th>
+          <th style="background:var(--c1-l);color:var(--c1)">생각체크</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  document.getElementById('gradeDetailModal').style.display = 'flex';
+};
+
+document.getElementById('gradeDetailClose').addEventListener('click', () => {
+  document.getElementById('gradeDetailModal').style.display = 'none';
+});
+document.getElementById('gradeDetailModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('gradeDetailModal'))
+    document.getElementById('gradeDetailModal').style.display = 'none';
+});
 </script>
 </body>
 </html>

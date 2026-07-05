@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HOISTORY 학습 공간 - 관리자 모드</title>
+<title>DIVE INTO HISTORY : LMS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet">
@@ -233,6 +233,20 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
 .band-table td:first-child{font-size:11px;color:var(--sub);white-space:nowrap;background:var(--cream)}
 .band-input{width:60px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;text-align:center;outline:none}
 .band-input:focus{border-color:var(--c4)}
+
+/* ── 성적 반영 바 ── */
+.grade-publish-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--white);border:1.5px solid var(--border);border-radius:12px;padding:14px 18px;margin-top:14px;flex-wrap:wrap}
+.grade-publish-info{}
+.grade-publish-status-lbl{font-size:13px;font-weight:700}
+.grade-publish-status-lbl.published{color:var(--c2)}
+.grade-publish-status-lbl.unpublished{color:var(--sub)}
+.grade-publish-hint{font-size:11px;color:var(--sub);margin-top:3px}
+.btn-publish{padding:10px 22px;background:var(--c4);color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s}
+.btn-publish:hover{background:#6D28D9}
+.btn-publish:disabled{opacity:.4;cursor:not-allowed}
+.btn-unpublish{padding:10px 22px;background:none;color:var(--c2);border:1.5px solid var(--c2);border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s}
+.btn-unpublish:hover{background:var(--c2-l)}
+.grade-subtab.pub::after{content:' ✓';color:var(--c2);font-size:10px}
 </style>
 </head>
 <body>
@@ -240,7 +254,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
 <!-- ────── 로그인 ────── -->
 <div id="loginView">
   <div class="login-box">
-    <div class="login-title">HOISTORY 학습 공간</div>
+    <div class="login-title">DIVE INTO HISTORY : LMS</div>
     <div class="login-sub">관리자 모드</div>
     <input class="login-input" id="pwInput" type="password" placeholder="비밀번호" autocomplete="current-password">
     <button class="login-btn" id="loginBtn">로그인</button>
@@ -252,7 +266,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
 <div id="adminView">
   <header class="adm-header">
     <div>
-      <div class="adm-title">HOISTORY 학습 공간</div>
+      <div class="adm-title">DIVE INTO HISTORY : LMS</div>
       <div class="adm-sub">관리자 모드</div>
     </div>
     <button class="adm-logout" id="logoutBtn">나가기</button>
@@ -349,8 +363,9 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
 
       <div id="gradeTableWrap"><div class="empty-panel">강의를 선택하고 불러오기를 눌러주세요.</div></div>
       <div id="gradeSaveWrap" style="display:none;margin-top:20px">
-        <button class="add-btn p" id="gradeSaveBtn" style="width:100%;padding:14px;font-size:14px">전체 저장</button>
+        <button class="add-btn p" id="gradeSaveBtn" style="width:100%;padding:14px;font-size:14px">임시 저장 (전체·미반영)</button>
       </div>
+      <div id="gradePublishBar" style="display:none"></div>
 
       <!-- ── 성적 설정 ── -->
       <div class="grade-settings-section">
@@ -730,10 +745,12 @@ let _gradeStudents    = [];
 let _gradeLessons     = [];
 let _gradeLectures    = [];
 let _gradeRecords     = {};
-let _gradeThinkTimes  = {};   // { studentId: Date }
-let _gradeMissionTimes = {};  // { studentId: Date }
+let _gradeThinkTimes  = {};
+let _gradeMissionTimes = {};
 let _gradeLessonKey   = '';
 let _gradeEnabled     = { concept: true, mission: true, think: true };
+let _publishStatus    = {};   // { classNum: boolean }
+let _currentGradeClass = null;
 
 function extractLessonNum(title) {
   const m = String(title).match(/^(\d+)강/);
@@ -932,9 +949,25 @@ async function loadGradeData() {
       } catch(e) {}
     }
 
+    // 반영 상태 로드
+    _publishStatus = {};
+    try {
+      const pubSnap = await getDocs(query(
+        collection(db, 'grade_publish_status'),
+        where('lessonKey', '==', _gradeLessonKey)
+      ));
+      pubSnap.docs.forEach(d => {
+        const pd = d.data();
+        if (pd.published) _publishStatus[pd.classNum] = true;
+      });
+    } catch(e) {}
+
     renderGradeTable();
     renderGradeStats();
-    setupSubtabs('gradeTableWrap', 'gradeSubtabBar');
+    setupSubtabs('gradeTableWrap', 'gradeSubtabBar', (cls) => {
+      _currentGradeClass = cls;
+      renderGradePublishBar(cls);
+    });
     document.getElementById('gradeSaveWrap').style.display = 'block';
     refreshGradeSettingsLectures();
   } catch(e) {
@@ -1047,7 +1080,7 @@ function renderGradeTable() {
   });
 }
 
-function setupSubtabs(tableWrapId, barId) {
+function setupSubtabs(tableWrapId, barId, onClassChange = null) {
   const bar = document.getElementById(barId);
   const clsSet = new Set();
   document.querySelectorAll(`#${tableWrapId} tr[data-cls]`).forEach(r => clsSet.add(parseInt(r.dataset.cls)));
@@ -1058,7 +1091,6 @@ function setupSubtabs(tableWrapId, barId) {
     `<button class="grade-subtab${i === 0 ? ' active' : ''}" data-cls="${cls}">${cls}반</button>`
   ).join('');
 
-  // 첫 번째 반만 표시
   const firstCls = nums[0];
   document.querySelectorAll(`#${tableWrapId} tr[data-cls]`).forEach(row => {
     row.style.display = parseInt(row.dataset.cls) === firstCls ? '' : 'none';
@@ -1072,9 +1104,11 @@ function setupSubtabs(tableWrapId, barId) {
       document.querySelectorAll(`#${tableWrapId} tr[data-cls]`).forEach(row => {
         row.style.display = parseInt(row.dataset.cls) === cls ? '' : 'none';
       });
+      if (onClassChange) onClassChange(cls);
     });
   });
   bar.style.display = 'flex';
+  if (onClassChange) onClassChange(firstCls);
 }
 
 function renderGradeStats() {
@@ -1307,6 +1341,133 @@ function renderGradeSettings() {
   }).join('');
 }
 
+// ── 성적 반영 바 ──
+function renderGradePublishBar(classNum) {
+  const bar = document.getElementById('gradePublishBar');
+  if (!classNum || !_gradeLessonKey) { bar.style.display = 'none'; return; }
+  const published = !!_publishStatus[classNum];
+  const lecTitle = _gradeLectures.find(l =>
+    (extractLessonNum(l.title || '') || l.docId) === _gradeLessonKey
+  )?.title || `${_gradeLessonKey}강`;
+
+  bar.style.display = '';
+  bar.innerHTML = `
+    <div class="grade-publish-info">
+      <div class="grade-publish-status-lbl ${published ? 'published' : 'unpublished'}">
+        ${published ? '✓ 성적 반영됨' : '미반영'} — ${esc(lecTitle)} · ${classNum}반
+      </div>
+      <div class="grade-publish-hint">
+        ${published
+          ? '학생 성적 조회에 반영된 상태입니다.'
+          : '아직 학생 성적 조회에 반영되지 않았습니다.'}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      ${published
+        ? `<button class="btn-unpublish" id="publishActionBtn">반영 취소</button>`
+        : `<button class="btn-publish" id="publishActionBtn">성적 반영하기 (${classNum}반)</button>`}
+    </div>`;
+
+  document.getElementById('publishActionBtn').addEventListener('click',
+    () => published ? unpublishClassGrades(classNum) : publishClassGrades(classNum)
+  );
+}
+
+function updateSubtabPublishBadge(classNum, published) {
+  const bar = document.getElementById('gradeSubtabBar');
+  const btn = bar?.querySelector(`.grade-subtab[data-cls="${classNum}"]`);
+  if (!btn) return;
+  btn.className = `grade-subtab${btn.classList.contains('active') ? ' active' : ''}${published ? ' pub' : ''}`;
+  btn.dataset.cls = classNum;
+  btn.textContent = `${classNum}반`;
+}
+
+function updateAllSubtabBadges() {
+  const bar = document.getElementById('gradeSubtabBar');
+  bar?.querySelectorAll('.grade-subtab').forEach(btn => {
+    const cls = parseInt(btn.dataset.cls);
+    const active = btn.classList.contains('active');
+    btn.className = `grade-subtab${active ? ' active' : ''}${_publishStatus[cls] ? ' pub' : ''}`;
+  });
+}
+
+async function publishClassGrades(classNum) {
+  if (!_gradeLessonKey) return;
+  const studentsInClass = _gradeStudents.filter(s => {
+    if (s.id === '00000') return false;
+    return Math.floor((parseInt(s.id) - 30000) / 100) === classNum;
+  });
+  if (!confirm(`${classNum}반 ${studentsInClass.length}명의 성적을 반영하시겠습니까?\n학생 성적 조회에 즉시 표시됩니다.`)) return;
+
+  const btn = document.getElementById('publishActionBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '반영 중...'; }
+
+  try {
+    const lecture = _gradeLectures.find(l =>
+      (extractLessonNum(l.title || '') || l.docId) === _gradeLessonKey
+    );
+    const lessonTitle = lecture?.title || '';
+
+    await Promise.all(studentsInClass.map(s =>
+      setDoc(doc(db, 'grade_records', `${_gradeLessonKey}_${s.id}`), {
+        lessonKey: _gradeLessonKey, lessonTitle,
+        studentId: s.id, studentName: s.name,
+        concept: _gradeRecords[s.id].concept,
+        mission: _gradeRecords[s.id].mission,
+        think:   _gradeRecords[s.id].think,
+        published: true,
+        updatedAt: serverTimestamp(),
+      }, { merge: true })
+    ));
+
+    await setDoc(doc(db, 'grade_publish_status', `${_gradeLessonKey}_${classNum}`), {
+      published: true, publishedAt: serverTimestamp(),
+      lessonKey: _gradeLessonKey, classNum,
+    });
+
+    _publishStatus[classNum] = true;
+    renderGradePublishBar(classNum);
+    updateSubtabPublishBadge(classNum, true);
+    alert(`${classNum}반 성적 반영 완료!`);
+  } catch(e) {
+    alert('반영 실패: ' + e.message);
+  }
+}
+
+async function unpublishClassGrades(classNum) {
+  if (!_gradeLessonKey) return;
+  if (!confirm(`${classNum}반 성적 반영을 취소하시겠습니까?\n학생 성적 조회에서 제거됩니다.`)) return;
+
+  const studentsInClass = _gradeStudents.filter(s => {
+    if (s.id === '00000') return false;
+    return Math.floor((parseInt(s.id) - 30000) / 100) === classNum;
+  });
+
+  const btn = document.getElementById('publishActionBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '취소 중...'; }
+
+  try {
+    await setDoc(doc(db, 'grade_publish_status', `${_gradeLessonKey}_${classNum}`), {
+      published: false, updatedAt: serverTimestamp(),
+      lessonKey: _gradeLessonKey, classNum,
+    });
+
+    await Promise.all(studentsInClass.map(s =>
+      setDoc(doc(db, 'grade_records', `${_gradeLessonKey}_${s.id}`),
+        { published: false, updatedAt: serverTimestamp() },
+        { merge: true }
+      )
+    ));
+
+    _publishStatus[classNum] = false;
+    renderGradePublishBar(classNum);
+    updateSubtabPublishBadge(classNum, false);
+    alert(`${classNum}반 성적 반영 취소 완료.`);
+  } catch(e) {
+    alert('취소 실패: ' + e.message);
+  }
+}
+
 async function saveGradeSettings() {
   const selectedLectures = [...document.querySelectorAll('.lecture-check-cb:checked')].map(cb => cb.value);
   const base  = _gradeSettings.bands || DEFAULT_BANDS;
@@ -1348,13 +1509,13 @@ async function saveGradeRecords() {
         mission:     _gradeRecords[s.id].mission,
         think:       _gradeRecords[s.id].think,
         updatedAt:   serverTimestamp(),
-      })
+      }, { merge: true })
     ));
-    alert(`${_gradeStudents.length}명 저장 완료!`);
+    alert(`${_gradeStudents.length}명 임시 저장 완료! (학생에게 미반영)`);
   } catch(e) {
     alert('저장 실패: ' + e.message);
   } finally {
-    btn.disabled = false; btn.textContent = '전체 저장';
+    btn.disabled = false; btn.textContent = '임시 저장 (전체·미반영)';
   }
 }
 </script>
