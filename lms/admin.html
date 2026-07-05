@@ -607,11 +607,12 @@ function esc(s) {
 }
 
 // ── 성적 체크 ──
-let _gradeStudents  = [];
-let _gradeLessons   = [];
-let _gradeLectures  = [];
-let _gradeRecords   = {};
-let _gradeLessonKey = '';
+let _gradeStudents   = [];
+let _gradeLessons    = [];
+let _gradeLectures   = [];
+let _gradeRecords    = {};
+let _gradeThinkTimes = {};   // { studentId: Date }
+let _gradeLessonKey  = '';
 
 function extractLessonNum(title) {
   const m = String(title).match(/^(\d+)강/);
@@ -708,7 +709,8 @@ async function loadGradeData() {
 
   try {
     // 기본값 초기화
-    _gradeRecords = {};
+    _gradeRecords    = {};
+    _gradeThinkTimes = {};
     _gradeStudents.forEach(s => {
       _gradeRecords[s.id] = {
         concept: { achieved: false, onTime: false },
@@ -722,6 +724,7 @@ async function loadGradeData() {
       collection(db, 'grade_records'),
       where('lessonKey', '==', _gradeLessonKey)
     ));
+    const savedSet = new Set();
     existing.docs.forEach(d => {
       const r = d.data();
       if (_gradeRecords[r.studentId]) {
@@ -730,10 +733,11 @@ async function loadGradeData() {
           mission: r.mission || { achieved: false, onTime: false },
           think:   r.think   || { achieved: false, onTime: false },
         };
+        savedSet.add(r.studentId);
       }
     });
 
-    // 생각체크 자동감지
+    // 생각체크 자동감지 (제출시간 수집)
     if (thinkDocId) {
       const tSnap = await getDocs(query(
         collection(db, 'submissions'),
@@ -741,7 +745,11 @@ async function loadGradeData() {
       ));
       tSnap.docs.forEach(d => {
         const sub = d.data();
-        if (_gradeRecords[sub.id]) _gradeRecords[sub.id].think.achieved = true;
+        if (!_gradeRecords[sub.id]) return;
+        _gradeRecords[sub.id].think.achieved = true;
+        if (!savedSet.has(sub.id)) _gradeRecords[sub.id].think.onTime = true;
+        const ts = sub.createdAt;
+        if (ts) _gradeThinkTimes[sub.id] = ts.toDate ? ts.toDate() : new Date(ts);
       });
     }
 
@@ -749,9 +757,11 @@ async function loadGradeData() {
     if (missionColl) {
       try {
         const mSnap = await getDocs(collection(db, missionColl));
-        const done  = new Set(mSnap.docs.map(d => d.data().studentId || d.id));
-        _gradeStudents.forEach(s => {
-          if (done.has(s.id)) _gradeRecords[s.id].mission.achieved = true;
+        mSnap.docs.forEach(d => {
+          const sid = d.data().studentId || d.id;
+          if (!_gradeRecords[sid]) return;
+          _gradeRecords[sid].mission.achieved = true;
+          if (!savedSet.has(sid)) _gradeRecords[sid].mission.onTime = true;
         });
       } catch(e) {}
     }
@@ -775,23 +785,31 @@ function renderGradeTable() {
   const chk = (sid, type, field, checked) =>
     `<input type="checkbox" class="grade-cb ${type}" data-sid="${esc(sid)}" data-t="${type}" data-f="${field}" ${checked?'checked':''}>`;
 
+  function fmtTime(d) {
+    if (!d) return '—';
+    const M = d.getMonth()+1, D = d.getDate();
+    const h = String(d.getHours()).padStart(2,'0'), m = String(d.getMinutes()).padStart(2,'0');
+    return `${M}/${D} ${h}:${m}`;
+  }
+
   let html = `<div class="grade-table-wrap"><table class="grade-table">
     <thead>
       <tr>
         <th rowspan="2">학번</th><th rowspan="2">이름</th>
         <th colspan="2" class="gh-concept">개념체크</th>
         <th colspan="2" class="gh-mission">미션체크</th>
-        <th colspan="2" class="gh-think">생각체크</th>
+        <th colspan="3" class="gh-think">생각체크</th>
       </tr>
       <tr>
         <th class="gh-concept">달성</th><th class="gh-concept">제시간</th>
         <th class="gh-mission">달성</th><th class="gh-mission">제시간</th>
-        <th class="gh-think">달성</th><th class="gh-think">제시간</th>
+        <th class="gh-think">달성</th><th class="gh-think">제시간</th><th class="gh-think">제출시간</th>
       </tr>
     </thead><tbody>`;
 
   _gradeStudents.forEach(s => {
     const r = _gradeRecords[s.id];
+    const tTime = fmtTime(_gradeThinkTimes[s.id] || null);
     html += `<tr>
       <td class="tc-id">${esc(s.id)}</td>
       <td class="tc-name">${esc(s.name)}</td>
@@ -801,6 +819,7 @@ function renderGradeTable() {
       <td>${chk(s.id,'mission','onTime',  r.mission.onTime)}</td>
       <td>${chk(s.id,'think',  'achieved',r.think.achieved)}</td>
       <td>${chk(s.id,'think',  'onTime',  r.think.onTime)}</td>
+      <td style="font-size:11px;color:var(--sub)">${esc(tTime)}</td>
     </tr>`;
   });
 

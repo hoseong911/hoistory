@@ -116,9 +116,9 @@ async function main() {
       lessonTitle: LESSON_TITLE,
       studentId:   sid,
       studentName: students[sid],
-      concept: { achieved: false, onTime: false },
-      mission: { achieved: missionDone.has(sid), onTime: false },
-      think:   { achieved: thinkDone.has(sid),   onTime: false },
+      concept: { achieved: false,                onTime: false },
+      mission: { achieved: missionDone.has(sid), onTime: missionDone.has(sid) },
+      think:   { achieved: thinkDone.has(sid),   onTime: thinkDone.has(sid) },
       updatedAt: now
     };
     try {
