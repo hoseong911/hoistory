@@ -58,6 +58,10 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 ## 세션 시작 규칙
 - 매 세션 시작 시 반드시 `git pull`을 먼저 실행한다. 사용자가 별도로 요청하지 않아도 항상 자동으로 실행한다.
 
+## Git 규칙
+- 코드 수정 후 확인 없이 바로 `git add → git commit → git push`를 자동으로 실행한다.
+- push 전에 사용자 허락을 구하지 않는다.
+
 ## 응답 규칙
 - 모든 대화·주석·사용자 메시지는 한국어로 작성한다.
 
