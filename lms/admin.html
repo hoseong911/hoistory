@@ -174,14 +174,17 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
 .grade-table th{background:var(--cream);font-weight:700;color:var(--sub)}
 .grade-table th.gh-concept{background:var(--c1-l);color:var(--c1)}
 .grade-table th.gh-mission{background:var(--c2-l);color:var(--c2)}
-.grade-table th.gh-think  {background:var(--c3-l);color:var(--c3)}
+.grade-table th.gh-think  {background:var(--c1-l);color:var(--c1)}
 .grade-table td.tc-id{font-size:11px;color:var(--sub)}
 .grade-table td.tc-name{text-align:left;font-weight:600}
 .grade-table tbody tr:hover{background:var(--cream)}
+.grade-table .class-header-row td{background:var(--cream-dark,#EDEAD9);font-weight:700;font-size:12px;padding:6px 12px;text-align:left;color:var(--sub);letter-spacing:.3px}
 .grade-cb{width:17px;height:17px;cursor:pointer;accent-color:var(--c4)}
 .grade-cb.concept{accent-color:var(--c1)}
 .grade-cb.mission{accent-color:var(--c2)}
-.grade-cb.think  {accent-color:var(--c3)}
+.grade-cb.think  {accent-color:var(--c1)}
+.grade-all-cb{width:13px;height:13px;cursor:pointer;margin-right:3px;vertical-align:middle;opacity:.7}
+.grade-time-late{color:#DC2626;font-weight:600}
 </style>
 </head>
 <body>
@@ -252,15 +255,15 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
 
     <div class="grade-config-card">
       <div class="grade-config-row">
-        <span class="grade-config-lbl">강의 선택</span>
+        <span class="grade-config-lbl">개념 체크</span>
         <select id="gradeLessonSel" class="grade-config-sel"><option value="">-- 강의 선택 --</option></select>
       </div>
       <div class="grade-config-row">
-        <span class="grade-config-lbl">생각체크 연결</span>
+        <span class="grade-config-lbl">생각 체크</span>
         <select id="gradeThinkSel" class="grade-config-sel"><option value="">-- 연결 없음 (수동) --</option></select>
       </div>
       <div class="grade-config-row">
-        <span class="grade-config-lbl">미션체크 소스</span>
+        <span class="grade-config-lbl">미션 체크</span>
         <select id="gradeMissionColl" class="grade-config-sel">
           <option value="">-- 없음 (수동) --</option>
         </select>
@@ -609,12 +612,13 @@ function esc(s) {
 }
 
 // ── 성적 체크 ──
-let _gradeStudents   = [];
-let _gradeLessons    = [];
-let _gradeLectures   = [];
-let _gradeRecords    = {};
-let _gradeThinkTimes = {};   // { studentId: Date }
-let _gradeLessonKey  = '';
+let _gradeStudents    = [];
+let _gradeLessons     = [];
+let _gradeLectures    = [];
+let _gradeRecords     = {};
+let _gradeThinkTimes  = {};   // { studentId: Date }
+let _gradeMissionTimes = {};  // { studentId: Date }
+let _gradeLessonKey   = '';
 
 function extractLessonNum(title) {
   const m = String(title).match(/^(\d+)강/);
@@ -728,8 +732,9 @@ async function loadGradeData() {
 
   try {
     // 기본값 초기화
-    _gradeRecords    = {};
-    _gradeThinkTimes = {};
+    _gradeRecords      = {};
+    _gradeThinkTimes   = {};
+    _gradeMissionTimes = {};
     _gradeStudents.forEach(s => {
       _gradeRecords[s.id] = {
         concept: { achieved: false, onTime: false },
@@ -772,15 +777,18 @@ async function loadGradeData() {
       });
     }
 
-    // 미션체크 자동감지
+    // 미션체크 자동감지 (제출시간 수집)
     if (missionColl) {
       try {
         const mSnap = await getDocs(collection(db, missionColl));
         mSnap.docs.forEach(d => {
-          const sid = d.data().studentId || d.id;
+          const data = d.data();
+          const sid  = data.studentId || d.id;
           if (!_gradeRecords[sid]) return;
           _gradeRecords[sid].mission.achieved = true;
           if (!savedSet.has(sid)) _gradeRecords[sid].mission.onTime = true;
+          const ts = data.createdAt;
+          if (ts) _gradeMissionTimes[sid] = ts.toDate ? ts.toDate() : new Date(ts);
         });
       } catch(e) {}
     }
@@ -801,45 +809,81 @@ function renderGradeTable() {
     return;
   }
 
-  const chk = (sid, type, field, checked) =>
-    `<input type="checkbox" class="grade-cb ${type}" data-sid="${esc(sid)}" data-t="${type}" data-f="${field}" ${checked?'checked':''}>`;
-
   function fmtTime(d) {
     if (!d) return '—';
     const M = d.getMonth()+1, D = d.getDate();
     const h = String(d.getHours()).padStart(2,'0'), m = String(d.getMinutes()).padStart(2,'0');
     return `${M}/${D} ${h}:${m}`;
   }
+  function dayKey(d) {
+    return d ? `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}` : '';
+  }
+  function majorityDay(timesMap, students) {
+    const cnt = {};
+    students.forEach(s => { const k = dayKey(timesMap[s.id]); if (k) cnt[k] = (cnt[k]||0)+1; });
+    const keys = Object.keys(cnt);
+    return keys.length ? keys.sort((a,b) => cnt[b]-cnt[a])[0] : null;
+  }
+
+  // 반별 그룹핑 (00000 제외)
+  const classes = {};
+  _gradeStudents.filter(s => s.id !== '00000').forEach(s => {
+    const cls = Math.floor((parseInt(s.id) - 30000) / 100);
+    if (cls < 1 || cls > 9) return;
+    if (!classes[cls]) classes[cls] = [];
+    classes[cls].push(s);
+  });
+  const classNums = Object.keys(classes).map(Number).sort((a,b) => a-b);
+
+  const allCb = (t, f) =>
+    `<input type="checkbox" class="grade-all-cb" data-t="${t}" data-f="${f}" title="전체 선택/해제">`;
+  const chk = (sid, type, field, checked) =>
+    `<input type="checkbox" class="grade-cb ${type}" data-sid="${esc(sid)}" data-t="${type}" data-f="${field}" ${checked?'checked':''}>`;
+  const timeSpan = (d, isLate) =>
+    `<span style="font-size:11px" class="${isLate?'grade-time-late':''}">${esc(fmtTime(d))}</span>`;
 
   let html = `<div class="grade-table-wrap"><table class="grade-table">
     <thead>
       <tr>
         <th rowspan="2">학번</th><th rowspan="2">이름</th>
         <th colspan="2" class="gh-concept">개념체크</th>
-        <th colspan="2" class="gh-mission">미션체크</th>
+        <th colspan="3" class="gh-mission">미션체크</th>
         <th colspan="3" class="gh-think">생각체크</th>
       </tr>
       <tr>
-        <th class="gh-concept">달성</th><th class="gh-concept">제시간</th>
-        <th class="gh-mission">달성</th><th class="gh-mission">제시간</th>
-        <th class="gh-think">달성</th><th class="gh-think">제시간</th><th class="gh-think">제출시간</th>
+        <th class="gh-concept">${allCb('concept','achieved')}달성</th>
+        <th class="gh-concept">${allCb('concept','onTime')}기한</th>
+        <th class="gh-mission">${allCb('mission','achieved')}달성</th>
+        <th class="gh-mission">${allCb('mission','onTime')}기한</th>
+        <th class="gh-mission">제출시간</th>
+        <th class="gh-think">${allCb('think','achieved')}달성</th>
+        <th class="gh-think">${allCb('think','onTime')}기한</th>
+        <th class="gh-think">제출시간</th>
       </tr>
     </thead><tbody>`;
 
-  _gradeStudents.forEach(s => {
-    const r = _gradeRecords[s.id];
-    const tTime = fmtTime(_gradeThinkTimes[s.id] || null);
-    html += `<tr>
-      <td class="tc-id">${esc(s.id)}</td>
-      <td class="tc-name">${esc(s.name)}</td>
-      <td>${chk(s.id,'concept','achieved',r.concept.achieved)}</td>
-      <td>${chk(s.id,'concept','onTime',  r.concept.onTime)}</td>
-      <td>${chk(s.id,'mission','achieved',r.mission.achieved)}</td>
-      <td>${chk(s.id,'mission','onTime',  r.mission.onTime)}</td>
-      <td>${chk(s.id,'think',  'achieved',r.think.achieved)}</td>
-      <td>${chk(s.id,'think',  'onTime',  r.think.onTime)}</td>
-      <td style="font-size:11px;color:var(--sub)">${esc(tTime)}</td>
-    </tr>`;
+  classNums.forEach(cls => {
+    const studs = classes[cls];
+    const tMaj  = majorityDay(_gradeThinkTimes,   studs);
+    const mMaj  = majorityDay(_gradeMissionTimes, studs);
+    html += `<tr class="class-header-row"><td colspan="10">${cls}반 (${studs.length}명)</td></tr>`;
+    studs.forEach(s => {
+      const r  = _gradeRecords[s.id];
+      const tD = _gradeThinkTimes[s.id]   || null;
+      const mD = _gradeMissionTimes[s.id] || null;
+      html += `<tr>
+        <td class="tc-id">${esc(s.id)}</td>
+        <td class="tc-name">${esc(s.name)}</td>
+        <td>${chk(s.id,'concept','achieved',r.concept.achieved)}</td>
+        <td>${chk(s.id,'concept','onTime',  r.concept.onTime)}</td>
+        <td>${chk(s.id,'mission','achieved',r.mission.achieved)}</td>
+        <td>${chk(s.id,'mission','onTime',  r.mission.onTime)}</td>
+        <td>${timeSpan(mD, !!(mD && mMaj && dayKey(mD) !== mMaj))}</td>
+        <td>${chk(s.id,'think',  'achieved',r.think.achieved)}</td>
+        <td>${chk(s.id,'think',  'onTime',  r.think.onTime)}</td>
+        <td>${timeSpan(tD, !!(tD && tMaj && dayKey(tD) !== tMaj))}</td>
+      </tr>`;
+    });
   });
 
   html += '</tbody></table></div>';
@@ -849,6 +893,19 @@ function renderGradeTable() {
     cb.addEventListener('change', e => {
       const { sid, t, f } = e.target.dataset;
       if (_gradeRecords[sid]) _gradeRecords[sid][t][f] = e.target.checked;
+    });
+  });
+
+  // 전체 선택/해제
+  wrap.querySelectorAll('.grade-all-cb').forEach(cb => {
+    cb.addEventListener('change', e => {
+      const { t, f } = e.target.dataset;
+      const checked = e.target.checked;
+      wrap.querySelectorAll(`.grade-cb.${t}[data-f="${f}"]`).forEach(c => {
+        c.checked = checked;
+        const sid = c.dataset.sid;
+        if (_gradeRecords[sid]) _gradeRecords[sid][t][f] = checked;
+      });
     });
   });
 }
