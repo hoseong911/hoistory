@@ -613,34 +613,34 @@ let _gradeLectures  = [];
 let _gradeRecords   = {};
 let _gradeLessonKey = '';
 
-async function initGradeTab() {
-  // class_lessons 로드
-  try {
-    const snap = await getDocs(query(collection(db, 'class_lessons'), orderBy('order','asc')));
-    _gradeLessons = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
-    const sel = document.getElementById('gradeLessonSel');
-    _gradeLessons.forEach(l => {
-      const o = document.createElement('option');
-      o.value = l.docId;
-      o.textContent = `${l.order ?? '?'}강 — ${l.title}`;
-      sel.appendChild(o);
-    });
-    sel.addEventListener('change', onGradeLessonChange);
-  } catch(e) {}
+function extractLessonNum(title) {
+  const m = String(title).match(/^(\d+)강/);
+  return m ? m[1] : null;
+}
 
-  // lectures 로드 (생각체크 연결용)
+async function initGradeTab() {
+  // lectures 로드 → 강의 선택 + 생각체크 선택 공용
   try {
     const snap = await getDocs(collection(db, 'lectures'));
-    _gradeLectures = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
-    const sel = document.getElementById('gradeThinkSel');
-    _gradeLectures
-      .sort((a,b) => String(a.title).localeCompare(String(b.title)))
-      .forEach(l => {
+    _gradeLectures = snap.docs
+      .map(d => ({ docId: d.id, ...d.data() }))
+      .sort((a, b) => {
+        const na = parseInt(extractLessonNum(a.title) || '9999');
+        const nb = parseInt(extractLessonNum(b.title) || '9999');
+        return na - nb;
+      });
+
+    const lessonSel = document.getElementById('gradeLessonSel');
+    const thinkSel  = document.getElementById('gradeThinkSel');
+    _gradeLectures.forEach(l => {
+      [lessonSel, thinkSel].forEach(sel => {
         const o = document.createElement('option');
         o.value = l.docId;
         o.textContent = l.title || l.docId;
         sel.appendChild(o);
       });
+    });
+    lessonSel.addEventListener('change', onGradeLessonChange);
   } catch(e) {}
 
   // 학생 명단 (RTDB)
@@ -668,8 +668,10 @@ async function initGradeTab() {
 async function onGradeLessonChange() {
   const docId = document.getElementById('gradeLessonSel').value;
   if (!docId) return;
-  const lesson = _gradeLessons.find(l => l.docId === docId);
-  const key = String(lesson?.order ?? docId);
+  const lecture = _gradeLectures.find(l => l.docId === docId);
+  const key = extractLessonNum(lecture?.title || '') || docId;
+  // 생각체크 기본값: 강의 자신으로 설정
+  document.getElementById('gradeThinkSel').value = docId;
   try {
     const cfg = await getDoc(doc(db, 'grade_lecture_config', key));
     if (cfg.exists()) {
@@ -687,8 +689,8 @@ async function loadGradeData() {
   const lessonDocId = document.getElementById('gradeLessonSel').value;
   if (!lessonDocId) { alert('강의를 먼저 선택해 주세요.'); return; }
 
-  const lesson = _gradeLessons.find(l => l.docId === lessonDocId);
-  _gradeLessonKey = String(lesson?.order ?? lessonDocId);
+  const lecture = _gradeLectures.find(l => l.docId === lessonDocId);
+  _gradeLessonKey = extractLessonNum(lecture?.title || '') || lessonDocId;
 
   const thinkDocId  = document.getElementById('gradeThinkSel').value;
   const missionColl = document.getElementById('gradeMissionColl').value.trim();
@@ -815,8 +817,8 @@ function renderGradeTable() {
 
 async function saveGradeRecords() {
   if (!_gradeLessonKey || !_gradeStudents.length) return;
-  const lesson = _gradeLessons.find(l => String(l.order ?? l.docId) === _gradeLessonKey);
-  const lessonTitle = lesson?.title || '';
+  const lecture = _gradeLectures.find(l => (extractLessonNum(l.title || '') || l.docId) === _gradeLessonKey);
+  const lessonTitle = lecture?.title || '';
 
   const btn = document.getElementById('gradeSaveBtn');
   btn.disabled = true; btn.textContent = '저장 중…';
