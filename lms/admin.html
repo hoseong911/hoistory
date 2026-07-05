@@ -185,6 +185,27 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
 .grade-cb.think  {accent-color:var(--c1)}
 .grade-all-cb{width:13px;height:13px;cursor:pointer;margin-right:3px;vertical-align:middle;opacity:.7}
 .grade-time-late{color:#DC2626;font-weight:600}
+
+/* ── 성적 체크 서브탭 ── */
+.grade-subtab-bar{display:none;gap:4px;margin-bottom:16px;flex-wrap:wrap}
+.grade-subtab{padding:6px 16px;font-family:inherit;font-size:12px;font-weight:700;border:1.5px solid var(--border);border-radius:999px;background:none;cursor:pointer;color:var(--sub);transition:all .15s}
+.grade-subtab.active,.grade-subtab:hover{background:var(--c4);color:#fff;border-color:var(--c4)}
+
+/* ── 성적 설정 섹션 ── */
+.grade-settings-section{margin-top:32px;border-top:1px solid var(--border);padding-top:24px}
+.grade-settings-title{font-family:'Gowun Batang',serif;font-size:18px;font-weight:700;margin-bottom:16px;color:var(--text)}
+.grade-settings-card{background:var(--white);border-radius:14px;padding:18px 20px;border:1px solid var(--border);margin-bottom:14px}
+.grade-settings-subtitle{font-size:12px;font-weight:700;color:var(--sub);margin-bottom:12px;letter-spacing:.4px;text-transform:uppercase}
+.lecture-check-grid{display:flex;flex-wrap:wrap;gap:8px}
+.lecture-check-item{display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;background:var(--cream);border-radius:8px;padding:6px 12px;border:1px solid var(--border);transition:background .15s}
+.lecture-check-item input{accent-color:var(--c4);cursor:pointer}
+.lecture-check-item:has(input:checked){background:var(--c4-l);border-color:var(--c4)}
+.band-table{width:100%;border-collapse:collapse;font-size:13px}
+.band-table th,.band-table td{padding:7px 10px;border:1px solid var(--border);text-align:center}
+.band-table th{background:var(--cream);font-weight:700;color:var(--sub);font-size:11px;letter-spacing:.3px}
+.band-table td:first-child{font-size:11px;color:var(--sub);white-space:nowrap;background:var(--cream)}
+.band-input{width:60px;padding:4px 6px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:13px;text-align:center;outline:none}
+.band-input:focus{border-color:var(--c4)}
 </style>
 </head>
 <body>
@@ -250,7 +271,6 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
   <div class="tab-panel" id="panel-grade">
     <div class="panel-top">
       <div class="panel-title">성적 체크</div>
-      <button class="add-btn p" id="gradeLoadBtn">불러오기</button>
     </div>
 
     <div class="grade-config-card">
@@ -267,12 +287,39 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
         <select id="gradeMissionColl" class="grade-config-sel">
           <option value="">-- 없음 (수동) --</option>
         </select>
+        <button class="add-btn p" id="gradeLoadBtn" style="flex-shrink:0">불러오기</button>
       </div>
     </div>
+
+    <div class="grade-subtab-bar" id="gradeSubtabBar"></div>
 
     <div id="gradeTableWrap"><div class="empty-panel">강의를 선택하고 불러오기를 눌러주세요.</div></div>
     <div id="gradeSaveWrap" style="display:none;margin-top:20px">
       <button class="add-btn p" id="gradeSaveBtn" style="width:100%;padding:14px;font-size:14px">전체 저장</button>
+    </div>
+
+    <!-- ── 성적 설정 ── -->
+    <div class="grade-settings-section">
+      <div class="grade-settings-title">성적 설정</div>
+      <div class="grade-settings-card">
+        <div class="grade-settings-subtitle">반영할 강의 선택</div>
+        <div class="lecture-check-grid" id="gradeSettingsLectures"><span style="font-size:12px;color:var(--sub)">불러오는 중...</span></div>
+      </div>
+      <div class="grade-settings-card">
+        <div class="grade-settings-subtitle">급간 설정</div>
+        <table class="band-table">
+          <thead>
+            <tr>
+              <th>달성률</th>
+              <th>개념 (점)</th>
+              <th>미션 (점)</th>
+              <th>생각 (점)</th>
+            </tr>
+          </thead>
+          <tbody id="bandTableBody"></tbody>
+        </table>
+      </div>
+      <button class="add-btn p" id="gradeSettingsSaveBtn" style="width:100%;padding:14px;font-size:14px">설정 저장</button>
     </div>
   </div>
 </div>
@@ -388,6 +435,7 @@ function showAdmin() {
   initConceptTab();
   initMissionTab();
   initGradeTab();
+  initGradeSettings();
 }
 
 // ── 탭 ──
@@ -724,6 +772,7 @@ async function loadGradeData() {
     await setDoc(doc(db, 'grade_lecture_config', _gradeLessonKey), {
       thinkLectureDocId: thinkDocId,
       missionCollection: missionColl,
+      lessonTitle: lecture?.title || `${_gradeLessonKey}강`,
     });
   } catch(e) {}
 
@@ -794,6 +843,7 @@ async function loadGradeData() {
     }
 
     renderGradeTable();
+    setupGradeSubtabs();
     document.getElementById('gradeSaveWrap').style.display = 'block';
   } catch(e) {
     alert('불러오기 실패: ' + e.message);
@@ -866,12 +916,12 @@ function renderGradeTable() {
     const studs = classes[cls];
     const tMaj  = majorityDay(_gradeThinkTimes,   studs);
     const mMaj  = majorityDay(_gradeMissionTimes, studs);
-    html += `<tr class="class-header-row"><td colspan="10">${cls}반 (${studs.length}명)</td></tr>`;
+    html += `<tr class="class-header-row" data-cls="${cls}"><td colspan="10">${cls}반 (${studs.length}명)</td></tr>`;
     studs.forEach(s => {
       const r  = _gradeRecords[s.id];
       const tD = _gradeThinkTimes[s.id]   || null;
       const mD = _gradeMissionTimes[s.id] || null;
-      html += `<tr>
+      html += `<tr data-cls="${cls}">
         <td class="tc-id">${esc(s.id)}</td>
         <td class="tc-name">${esc(s.name)}</td>
         <td>${chk(s.id,'concept','achieved',r.concept.achieved)}</td>
@@ -908,6 +958,112 @@ function renderGradeTable() {
       });
     });
   });
+}
+
+function setupGradeSubtabs() {
+  const bar = document.getElementById('gradeSubtabBar');
+  const clsSet = new Set();
+  document.querySelectorAll('#gradeTableWrap tr[data-cls]').forEach(r => clsSet.add(parseInt(r.dataset.cls)));
+  if (!clsSet.size) { bar.style.display = 'none'; return; }
+
+  let _activeClass = 0;
+  const nums = Array.from(clsSet).sort((a, b) => a - b);
+  bar.innerHTML = [0, ...nums].map(cls =>
+    `<button class="grade-subtab${cls === 0 ? ' active' : ''}" data-cls="${cls}">${cls === 0 ? '전체' : cls + '반'}</button>`
+  ).join('');
+  bar.querySelectorAll('.grade-subtab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _activeClass = parseInt(btn.dataset.cls);
+      bar.querySelectorAll('.grade-subtab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('#gradeTableWrap tr[data-cls]').forEach(row => {
+        row.style.display = (!_activeClass || parseInt(row.dataset.cls) === _activeClass) ? '' : 'none';
+      });
+    });
+  });
+  bar.style.display = 'flex';
+}
+
+// ── 성적 설정 ──
+const DEFAULT_BANDS = [
+  { min: 90, concept: 30, mission: 40, think: 30 },
+  { min: 80, concept: 27, mission: 36, think: 27 },
+  { min: 70, concept: 24, mission: 32, think: 24 },
+  { min: 60, concept: 21, mission: 28, think: 21 },
+  { min: 50, concept: 18, mission: 24, think: 18 },
+  { min: 40, concept: 15, mission: 20, think: 15 },
+  { min: 30, concept: 12, mission: 16, think: 12 },
+  { min: 20, concept: 9,  mission: 12, think: 9  },
+  { min: 10, concept: 6,  mission: 8,  think: 6  },
+  { min: 0,  concept: 3,  mission: 4,  think: 3  },
+];
+let _gradeSettings        = null;
+let _allGradedLectures    = [];
+
+async function initGradeSettings() {
+  try {
+    const snap = await getDocs(collection(db, 'grade_lecture_config'));
+    _allGradedLectures = snap.docs
+      .map(d => ({ key: d.id, title: d.data().lessonTitle || `${d.id}강` }))
+      .sort((a, b) => parseInt(a.key || 0) - parseInt(b.key || 0));
+  } catch(e) {}
+
+  try {
+    const snap = await getDoc(doc(db, 'grade_settings', 'config'));
+    _gradeSettings = snap.exists() ? snap.data() : { selectedLectures: [], bands: DEFAULT_BANDS };
+  } catch(e) {
+    _gradeSettings = { selectedLectures: [], bands: DEFAULT_BANDS };
+  }
+
+  renderGradeSettings();
+  document.getElementById('gradeSettingsSaveBtn').addEventListener('click', saveGradeSettings);
+}
+
+function renderGradeSettings() {
+  const container = document.getElementById('gradeSettingsLectures');
+  const selected  = _gradeSettings.selectedLectures || [];
+  container.innerHTML = _allGradedLectures.length
+    ? _allGradedLectures.map(l =>
+        `<label class="lecture-check-item">
+          <input type="checkbox" class="lecture-check-cb" value="${esc(l.key)}" ${selected.includes(l.key) ? 'checked' : ''}>
+          ${esc(l.title)}
+        </label>`).join('')
+    : '<span style="font-size:12px;color:var(--sub)">불러온 강의가 없습니다. 성적 체크를 먼저 불러오세요.</span>';
+
+  const bands = _gradeSettings.bands || DEFAULT_BANDS;
+  document.getElementById('bandTableBody').innerHTML = bands.map((band, i) => {
+    const nextMin = i === 0 ? 100 : bands[i - 1].min;
+    const label   = i === 0 ? `${band.min}% 이상` : `${band.min}~${nextMin}%`;
+    return `<tr>
+      <td>${label}</td>
+      <td><input type="number" class="band-input" data-idx="${i}" data-t="concept" value="${band.concept ?? 0}" min="0" max="9999"></td>
+      <td><input type="number" class="band-input" data-idx="${i}" data-t="mission" value="${band.mission ?? 0}" min="0" max="9999"></td>
+      <td><input type="number" class="band-input" data-idx="${i}" data-t="think"   value="${band.think   ?? 0}" min="0" max="9999"></td>
+    </tr>`;
+  }).join('');
+}
+
+async function saveGradeSettings() {
+  const selectedLectures = [...document.querySelectorAll('.lecture-check-cb:checked')].map(cb => cb.value);
+  const base  = _gradeSettings.bands || DEFAULT_BANDS;
+  const bands = base.map((band, i) => ({
+    min:     band.min,
+    concept: parseInt(document.querySelector(`.band-input[data-idx="${i}"][data-t="concept"]`)?.value ?? 0),
+    mission: parseInt(document.querySelector(`.band-input[data-idx="${i}"][data-t="mission"]`)?.value ?? 0),
+    think:   parseInt(document.querySelector(`.band-input[data-idx="${i}"][data-t="think"]`)?.value   ?? 0),
+  }));
+
+  const btn = document.getElementById('gradeSettingsSaveBtn');
+  btn.disabled = true; btn.textContent = '저장 중…';
+  try {
+    await setDoc(doc(db, 'grade_settings', 'config'), { selectedLectures, bands });
+    _gradeSettings = { selectedLectures, bands };
+    alert('설정 저장 완료!');
+  } catch(e) {
+    alert('저장 실패: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '설정 저장';
+  }
 }
 
 async function saveGradeRecords() {

@@ -140,6 +140,20 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 @keyframes dotpulse{0%,80%,100%{transform:scale(.55);opacity:.35}40%{transform:scale(1);opacity:1}}
 @media(max-width:960px){.hub-grid{display:none}.mobile-hub{display:flex}.hub-body{padding:20px 14px 60px}.hub-header{padding:12px 16px}.hub-welcome{margin-bottom:20px}}
 @media(max-width:480px){.login-wrap{padding:40px 24px 28px}.login-brand{font-size:24px}.hub-logo{font-size:18px}.think-modal-box{padding:22px 18px}.consent-box{padding:28px 20px}}
+
+/* ── 성적 요약 ── */
+.grade-summary{display:flex;flex-direction:column;gap:4px}
+.grade-sum-row{display:grid;grid-template-columns:44px 1fr 42px 52px;align-items:center;gap:6px;padding:6px 8px;border-radius:8px;background:var(--cream)}
+.grade-sum-label{font-size:11px;font-weight:700;letter-spacing:.2px;text-align:center;padding:3px 2px;border-radius:6px}
+.grade-sum-label.c1{background:var(--c1-m);color:var(--c1)}
+.grade-sum-label.c2{background:var(--c2-m);color:var(--c2)}
+.grade-sum-label.c3{background:var(--c3-m);color:var(--c3)}
+.grade-sum-frac{font-size:14px;font-weight:700;color:var(--text)}
+.grade-sum-pct{font-size:12px;font-weight:600;color:var(--text-sub);text-align:right}
+.grade-sum-score{font-size:13px;font-weight:700;text-align:right;color:var(--text)}
+.grade-sum-total{margin-top:6px;padding:10px 12px;background:var(--c4-l);border-radius:10px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--c4)}
+.grade-sum-total strong{font-size:20px;font-weight:800}
+.grade-no-data{font-size:12px;color:var(--text-sub);text-align:center;padding:24px 8px;opacity:.6}
 </style>
 </head>
 <body>
@@ -439,16 +453,82 @@ function startListening() {
     renderAll();
   });
 
-  // 4. 성적 체크 — lms_items where section='grade'
-  onSnapshot(query(collection(db, 'lms_items'), where('section','==','grade')), snap => {
-    sectionData.grade = snap.docs
-      .map(d => ({ docId: d.id, ...d.data() }))
-      .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-    renderAll();
-  });
+  // 4. 성적 체크 — grade_records 기반 계산
+  loadStudentGrade();
 }
 
 function renderAll() { renderPC(); renderMobile(); }
+
+// ── 성적 체크 계산 ──
+async function loadStudentGrade() {
+  sectionData.grade = null;
+  renderAll();
+  try {
+    const settingsSnap = await getDoc(doc(db, 'grade_settings', 'config'));
+    if (!settingsSnap.exists()) { sectionData.grade = { _summary: false }; renderAll(); return; }
+    const { selectedLectures = [], bands = [] } = settingsSnap.data();
+    if (!selectedLectures.length || !bands.length) { sectionData.grade = { _summary: false }; renderAll(); return; }
+
+    const records = {};
+    await Promise.all(selectedLectures.map(async key => {
+      try {
+        const snap = await getDoc(doc(db, 'grade_records', `${key}_${currentStudentId}`));
+        if (snap.exists()) records[key] = snap.data();
+      } catch(e) {}
+    }));
+
+    const n = selectedLectures.length;
+    let cA = 0, mA = 0, tA = 0;
+    selectedLectures.forEach(key => {
+      const r = records[key];
+      if (!r) return;
+      if (r.concept?.achieved) cA++;
+      if (r.mission?.achieved) mA++;
+      if (r.think?.achieved)   tA++;
+    });
+
+    function calcScore(achieved, total, type) {
+      const pct  = total ? Math.round(achieved / total * 100) : 0;
+      const band = bands.find(b => pct >= b.min) || bands[bands.length - 1];
+      return { achieved, total, pct, score: band ? (band[type] || 0) : 0 };
+    }
+
+    const concept = calcScore(cA, n, 'concept');
+    const mission = calcScore(mA, n, 'mission');
+    const think   = calcScore(tA, n, 'think');
+    const maxScore = (bands[0]?.concept || 0) + (bands[0]?.mission || 0) + (bands[0]?.think || 0);
+
+    sectionData.grade = {
+      _summary: true,
+      concept, mission, think,
+      total: concept.score + mission.score + think.score,
+      max:   maxScore,
+    };
+  } catch(e) {
+    sectionData.grade = { _summary: false };
+  }
+  renderAll();
+}
+
+function renderGradeSummaryHTML(g) {
+  if (!g._summary) return `<div class="grade-no-data">성적 정보가 없습니다</div>`;
+  const row = (label, cls, d) =>
+    `<div class="grade-sum-row">
+      <span class="grade-sum-label ${cls}">${label}</span>
+      <span class="grade-sum-frac">${d.achieved} / ${d.total}</span>
+      <span class="grade-sum-pct">${d.pct}%</span>
+      <span class="grade-sum-score">${d.score}점</span>
+    </div>`;
+  return `<div class="grade-summary">
+    ${row('개념', 'c1', g.concept)}
+    ${row('미션', 'c2', g.mission)}
+    ${row('생각', 'c3', g.think)}
+    <div class="grade-sum-total">
+      <span>총점</span>
+      <span><strong>${g.total}</strong> / ${g.max}점</span>
+    </div>
+  </div>`;
+}
 
 function renderPC() {
   const grid = document.getElementById('hubGrid');
@@ -457,11 +537,14 @@ function renderPC() {
     const items = sectionData[s.key];
     const card  = document.createElement('div');
     card.className = `sec-card ${s.cls}`;
+    const isSummary = items?._summary !== undefined;
     const body = items === null
       ? '<div class="loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>'
-      : `<div class="icon-grid" id="pc-${s.key}"></div>`;
+      : isSummary
+        ? renderGradeSummaryHTML(items)
+        : `<div class="icon-grid" id="pc-${s.key}"></div>`;
     card.innerHTML = `<div class="sec-head"><div class="sec-badge">${s.sub}</div><div class="sec-name">${s.name}</div></div><hr class="sec-divider"><div class="sec-body">${body}</div>`;
-    if (items !== null) fillIconGrid(card.querySelector(`#pc-${s.key}`), items);
+    if (items !== null && !isSummary) fillIconGrid(card.querySelector(`#pc-${s.key}`), items);
     grid.appendChild(card);
   });
 }
@@ -470,9 +553,10 @@ function renderMobile() {
   const hub = document.getElementById('mobileHub');
   hub.innerHTML = '';
   SECTIONS.forEach(s => {
-    const isOpen = _openSections.has(s.key);
-    const items  = sectionData[s.key];
-    const count  = items === null ? '…' : String(items.length);
+    const isOpen    = _openSections.has(s.key);
+    const items     = sectionData[s.key];
+    const isSummary = items?._summary !== undefined;
+    const count     = items === null ? '…' : isSummary ? (items._summary ? `${items.total}점` : '-') : String(items.length);
     const sec    = document.createElement('div');
     sec.className = `mob-section ${s.mob}`;
     sec.innerHTML = `
@@ -489,6 +573,7 @@ function renderMobile() {
     });
     const mobGrid = sec.querySelector(`#mob-${s.key}`);
     if (items === null) mobGrid.innerHTML = '<div class="loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+    else if (isSummary) mobGrid.innerHTML = renderGradeSummaryHTML(items);
     else fillIconGrid(mobGrid, items);
     hub.appendChild(sec);
   });
