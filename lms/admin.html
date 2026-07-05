@@ -1151,9 +1151,9 @@ async function loadScoreData() {
         selectedLectures.forEach(key => {
           const en  = enabledMap[key];
           const rec = recByLec[key]?.[s.id];
-          if (en.concept) { cN++; if (rec?.concept?.achieved) cA++; }
-          if (en.mission) { mN++; if (rec?.mission?.achieved) mA++; }
-          if (en.think)   { tN++; if (rec?.think?.achieved)   tA++; }
+          if (en.concept) { cN += 2; if (rec?.concept?.achieved) cA++; if (rec?.concept?.onTime) cA++; }
+          if (en.mission) { mN += 2; if (rec?.mission?.achieved) mA++; if (rec?.mission?.onTime) mA++; }
+          if (en.think)   { tN += 2; if (rec?.think?.achieved)   tA++; if (rec?.think?.onTime)   tA++; }
         });
         const concept = calcScore(cA, cN, 'concept');
         const mission = calcScore(mA, mN, 'mission');
@@ -1188,7 +1188,7 @@ function renderScoreTable(maxScore) {
   let html = `<div class="grade-score-table-wrap"><table class="grade-score-table">
     <thead>
       <tr>
-        <th rowspan="2">학번</th><th rowspan="2">이름</th><th rowspan="2">반</th>
+        <th rowspan="2">학번</th><th rowspan="2">이름</th>
         <th colspan="3" class="sh-c">개념체크</th>
         <th colspan="3" class="sh-m">미션체크</th>
         <th colspan="3" class="sh-t">생각체크</th>
@@ -1203,13 +1203,12 @@ function renderScoreTable(maxScore) {
 
   Object.keys(classes).sort((a,b)=>a-b).forEach(cls => {
     const studs = classes[cls];
-    html += `<tr class="sc-cls-row" data-cls="${cls}"><td colspan="13">${cls}반 (${studs.length}명)</td></tr>`;
+    html += `<tr class="sc-cls-row" data-cls="${cls}"><td colspan="12">${cls}반 (${studs.length}명)</td></tr>`;
     studs.forEach(s => {
       const c=s.concept, m=s.mission, t=s.think;
       html += `<tr data-cls="${cls}">
         <td style="font-size:11px;color:var(--sub)">${esc(s.id)}</td>
         <td style="text-align:left;font-weight:600">${esc(s.name)}</td>
-        <td>${s.cls}반</td>
         <td>${c.total?`${c.achieved}/${c.total}`:'미실시'}</td><td>${c.total?c.pct+'%':'—'}</td><td style="font-weight:700;color:var(--c1)">${c.total?c.score:'—'}</td>
         <td>${m.total?`${m.achieved}/${m.total}`:'미실시'}</td><td>${m.total?m.pct+'%':'—'}</td><td style="font-weight:700;color:var(--c2)">${m.total?m.score:'—'}</td>
         <td>${t.total?`${t.achieved}/${t.total}`:'미실시'}</td><td>${t.total?t.pct+'%':'—'}</td><td style="font-weight:700;color:var(--c1)">${t.total?t.score:'—'}</td>
