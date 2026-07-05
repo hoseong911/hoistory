@@ -261,7 +261,9 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
       </div>
       <div class="grade-config-row">
         <span class="grade-config-lbl">미션체크 소스</span>
-        <input id="gradeMissionColl" class="grade-config-inp" type="text" placeholder="Firestore 컬렉션명 (비우면 수동)">
+        <select id="gradeMissionColl" class="grade-config-sel">
+          <option value="">-- 없음 (수동) --</option>
+        </select>
       </div>
     </div>
 
@@ -327,7 +329,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getFirestore, collection, query, orderBy, where, onSnapshot,
-  addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, serverTimestamp
+  addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, serverTimestamp, limit
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
@@ -661,6 +663,23 @@ async function initGradeTab() {
         .sort((a, b) => a.id.localeCompare(b.id));
     }
   } catch(e) {}
+
+  // 미션 소스 자동탐색 — 새 escape 앱 추가 시 아래 배열에 추가
+  const missionCandidates = [
+    'escape26_2_reflections',
+  ];
+  const missionSel = document.getElementById('gradeMissionColl');
+  for (const coll of missionCandidates) {
+    try {
+      const snap = await getDocs(query(collection(db, coll), limit(1)));
+      if (!snap.empty) {
+        const o = document.createElement('option');
+        o.value = coll;
+        o.textContent = coll;
+        missionSel.appendChild(o);
+      }
+    } catch(e) {}
+  }
 
   document.getElementById('gradeLoadBtn').addEventListener('click', loadGradeData);
   document.getElementById('gradeSaveBtn').addEventListener('click', saveGradeRecords);
