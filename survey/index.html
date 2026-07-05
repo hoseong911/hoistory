@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>역사 수업 설문조사</title>
+  <style>
+    :root {
+      --c4: #7c3aed;
+      --c4-l: #f5f0ff;
+      --c4-d: #5b21b6;
+      --cream: #fafaf8;
+      --border: #e5e2dc;
+      --text: #1e1b16;
+      --sub: #7a756e;
+      --bg: #f0ede8;
+      --card: #ffffff;
+      --danger: #dc2626;
+      --green: #16a34a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+
+    /* ── Top bar ── */
+    .top-bar {
+      background: linear-gradient(135deg, var(--c4-d), var(--c4));
+      padding: 20px 20px 14px;
+      color: white;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .top-title { font-size: 15px; font-weight: 800; }
+    .top-sub { font-size: 11px; opacity: 0.75; margin-top: 2px; }
+    .progress-track {
+      background: rgba(255,255,255,0.25);
+      height: 4px;
+      border-radius: 2px;
+      margin-top: 12px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: white;
+      border-radius: 2px;
+      transition: width 0.4s ease;
+    }
+    .progress-label { font-size: 11px; opacity: 0.7; margin-top: 5px; }
+
+    /* ── Wrap ── */
+    #surveyApp { max-width: 640px; margin: 0 auto; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 22px 20px;
+      margin: 14px 14px 0;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+    }
+    .sec-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: var(--c4);
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1.5px solid var(--border);
+    }
+
+    /* ── Question ── */
+    .q-block { margin-bottom: 20px; }
+    .q-block:last-child { margin-bottom: 0; }
+    .q-label {
+      font-size: 13.5px;
+      font-weight: 600;
+      line-height: 1.65;
+      margin-bottom: 10px;
+    }
+    .q-label .q-num { color: var(--c4); margin-right: 3px; }
+    .req-star { color: var(--danger); }
+    .opt-tag {
+      font-size: 10px;
+      color: var(--sub);
+      font-weight: 400;
+      background: var(--bg);
+      padding: 1px 6px;
+      border-radius: 4px;
+      margin-left: 5px;
+      vertical-align: middle;
+    }
+
+    /* ── Scale ── */
+    .scale-wrap { display: flex; flex-direction: column; gap: 5px; }
+    .scale-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 13px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: var(--cream);
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+      transition: all 0.12s;
+      user-select: none;
+    }
+    .scale-btn:hover { border-color: var(--c4); background: var(--c4-l); }
+    .scale-btn.selected {
+      border-color: var(--c4);
+      background: var(--c4-l);
+      color: var(--c4);
+      font-weight: 600;
+    }
+    .scale-radio {
+      width: 17px; height: 17px;
+      border: 2px solid var(--border);
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.12s;
+    }
+    .scale-btn.selected .scale-radio {
+      border-color: var(--c4);
+      background: var(--c4);
+    }
+    .scale-btn.selected .scale-radio::after {
+      content: '';
+      width: 6px; height: 6px;
+      background: white;
+      border-radius: 50%;
+    }
+    .scale-num { font-size: 11px; color: var(--sub); min-width: 10px; }
+
+    /* ── Checkbox ── */
+    .check-wrap { display: flex; flex-direction: column; gap: 5px; }
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 13px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: var(--cream);
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.12s;
+      user-select: none;
+    }
+    .check-item:hover { border-color: var(--c4); background: var(--c4-l); }
+    .check-item.checked {
+      border-color: var(--c4);
+      background: var(--c4-l);
+      color: var(--c4);
+      font-weight: 600;
+    }
+    .check-box {
+      width: 17px; height: 17px;
+      border: 2px solid var(--border);
+      border-radius: 4px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.12s;
+    }
+    .check-item.checked .check-box {
+      background: var(--c4);
+      border-color: var(--c4);
+    }
+    .check-item.checked .check-box::after {
+      content: '✓';
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    /* ── Textarea ── */
+    .survey-ta {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: var(--cream);
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text);
+      resize: vertical;
+      min-height: 76px;
+      line-height: 1.6;
+      transition: border-color 0.12s;
+    }
+    .survey-ta:focus { outline: none; border-color: var(--c4); }
+    .survey-ta::placeholder { color: #b5b0a8; }
+
+    /* ── Intro ── */
+    .intro-card { padding: 28px 22px; }
+    .intro-title { font-size: 21px; font-weight: 800; margin-bottom: 8px; }
+    .intro-desc { font-size: 13px; color: var(--sub); line-height: 1.75; margin-bottom: 22px; }
+    .form-label { font-size: 11px; font-weight: 700; color: var(--sub); margin-bottom: 5px; letter-spacing: 0.3px; }
+    .form-input {
+      width: 100%;
+      padding: 12px 13px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: var(--cream);
+      font-family: inherit;
+      font-size: 15px;
+      color: var(--text);
+      margin-bottom: 12px;
+      transition: border-color 0.12s;
+    }
+    .form-input:focus { outline: none; border-color: var(--c4); }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      width: 100%;
+      padding: 14px;
+      background: var(--c4);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: opacity 0.12s;
+    }
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+    .nav-wrap { display: flex; gap: 8px; margin: 12px 14px 0; }
+    .btn-nav {
+      flex: 1;
+      padding: 13px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      background: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text);
+      font-family: inherit;
+      transition: all 0.12s;
+    }
+    .btn-nav:hover { border-color: var(--c4); color: var(--c4); }
+    .btn-nav.fill { background: var(--c4); color: white; border-color: var(--c4); }
+    .btn-nav.fill:hover { opacity: 0.88; color: white; }
+
+    /* ── Done ── */
+    .done-wrap { text-align: center; padding: 44px 22px; }
+    .done-icon { font-size: 52px; margin-bottom: 16px; }
+    .done-title { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+    .done-desc { font-size: 13px; color: var(--sub); line-height: 1.8; }
+
+    /* ── Footer ── */
+    .app-footer {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      padding: 12px; text-align: center; pointer-events: none;
+    }
+    .admin-btn {
+      pointer-events: all;
+      background: none; border: none; cursor: pointer;
+      font-size: 11px; color: var(--sub); opacity: 0.35;
+      font-family: inherit;
+      transition: opacity 0.12s;
+    }
+    .admin-btn:hover { opacity: 1; }
+
+    /* ══ ADMIN OVERLAY ══ */
+    #adminOverlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: #f8f7f5;
+      overflow-y: auto;
+      z-index: 200;
+    }
+    .adm-top {
+      background: #1a1025;
+      color: white;
+      padding: 0 16px;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .adm-top-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 0 0;
+    }
+    .adm-top-title { font-size: 14px; font-weight: 700; }
+    .adm-close {
+      background: none; border: none; color: white;
+      font-size: 20px; cursor: pointer; opacity: 0.6; padding: 4px;
+    }
+    .adm-close:hover { opacity: 1; }
+    .adm-tabs { display: flex; gap: 0; padding-top: 8px; }
+    .adm-tab {
+      padding: 9px 16px; font-size: 13px;
+      color: rgba(255,255,255,0.45); cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.12s;
+    }
+    .adm-tab.active { color: white; border-bottom-color: var(--c4); }
+
+    .adm-body { max-width: 720px; margin: 0 auto; padding: 16px 14px 40px; }
+
+    /* Admin save bar */
+    .adm-save-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: white; border-radius: 12px; padding: 12px 16px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .adm-save-msg { font-size: 12px; color: var(--sub); }
+    .btn-adm-save {
+      padding: 8px 20px; background: var(--c4); color: white;
+      border: none; border-radius: 8px; font-size: 13px; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+    }
+    .btn-adm-save:hover { opacity: 0.88; }
+
+    /* Admin section block */
+    .adm-sec-block {
+      background: white; border-radius: 12px; margin-bottom: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden;
+    }
+    .adm-sec-hd {
+      padding: 12px 16px;
+      background: var(--c4-l);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .adm-sec-num {
+      background: var(--c4); color: white;
+      border-radius: 20px; padding: 2px 9px;
+      font-size: 11px; font-weight: 700; flex-shrink: 0;
+    }
+    .adm-sec-title-inp {
+      flex: 1; border: 1.5px solid transparent; background: transparent;
+      font-size: 14px; font-weight: 700; color: var(--c4);
+      padding: 4px 8px; border-radius: 6px; font-family: inherit;
+    }
+    .adm-sec-title-inp:focus { outline: none; border-color: var(--c4); background: white; }
+
+    .adm-q-list { padding: 10px 16px; }
+    .adm-q-item {
+      padding: 12px 0; border-bottom: 1px solid var(--border);
+    }
+    .adm-q-item:last-child { border-bottom: none; }
+    .adm-q-meta {
+      font-size: 10px; color: var(--sub); font-weight: 600;
+      margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    .adm-q-inp {
+      width: 100%; padding: 8px 10px;
+      border: 1.5px solid var(--border); border-radius: 8px;
+      font-family: inherit; font-size: 13px; color: var(--text);
+      background: var(--cream); resize: vertical; min-height: 34px;
+      transition: border-color 0.12s;
+    }
+    .adm-q-inp:focus { outline: none; border-color: var(--c4); }
+    .adm-opts-label { font-size: 10px; color: var(--sub); font-weight: 600; margin: 8px 0 4px; }
+    .adm-opt-row { display: flex; gap: 5px; margin-bottom: 4px; }
+    .adm-opt-inp {
+      flex: 1; padding: 6px 10px;
+      border: 1.5px solid var(--border); border-radius: 6px;
+      font-family: inherit; font-size: 12px; background: var(--cream);
+      transition: border-color 0.12s;
+    }
+    .adm-opt-inp:focus { outline: none; border-color: var(--c4); }
+    .adm-opt-del {
+      padding: 5px 9px; background: none;
+      border: 1.5px solid var(--border); border-radius: 6px;
+      cursor: pointer; color: var(--sub); font-size: 12px;
+      transition: all 0.12s;
+    }
+    .adm-opt-del:hover { border-color: var(--danger); color: var(--danger); }
+    .adm-opt-add {
+      font-size: 12px; color: var(--c4); background: none;
+      border: 1.5px dashed var(--c4); border-radius: 6px;
+      padding: 5px 12px; cursor: pointer; margin-top: 2px; font-family: inherit;
+    }
+    .adm-opt-add:hover { background: var(--c4-l); }
+
+    /* Stats */
+    .stat-card {
+      background: white; border-radius: 12px; padding: 16px;
+      margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .stat-sec-label {
+      font-size: 13px; font-weight: 800; color: var(--c4);
+      margin: 16px 0 8px;
+    }
+    .stat-sec-label:first-child { margin-top: 0; }
+    .stat-q-text { font-size: 13px; font-weight: 600; margin-bottom: 10px; line-height: 1.5; }
+    .stat-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .stat-bar-lbl { min-width: 90px; font-size: 11px; color: var(--sub); text-align: right; }
+    .stat-bar-track {
+      flex: 1; height: 13px; background: var(--bg);
+      border-radius: 6px; overflow: hidden;
+    }
+    .stat-bar-fill {
+      height: 100%; background: var(--c4); border-radius: 6px;
+      transition: width 0.5s ease;
+    }
+    .stat-bar-cnt { min-width: 22px; font-size: 12px; font-weight: 600; color: var(--text); }
+    .stat-avg { font-size: 11px; color: var(--sub); margin-top: 6px; }
+    .stat-text-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+    .stat-text-item {
+      background: var(--bg); border-radius: 8px;
+      padding: 8px 11px; font-size: 12px; line-height: 1.55;
+    }
+    .stat-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--c4-l); color: var(--c4);
+      border-radius: 20px; padding: 3px 12px;
+      font-size: 12px; font-weight: 700; margin-bottom: 14px;
+    }
+
+    /* Individual responses */
+    .resp-card {
+      background: white; border-radius: 12px; padding: 14px 16px;
+      margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .resp-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-bottom: 10px; border-bottom: 1px solid var(--border); margin-bottom: 10px;
+    }
+    .resp-name { font-size: 15px; font-weight: 700; }
+    .resp-id { font-size: 12px; color: var(--sub); margin-top: 1px; }
+    .resp-date { font-size: 11px; color: var(--sub); }
+    .resp-q { margin-bottom: 8px; }
+    .resp-q-text { font-size: 11px; color: var(--sub); margin-bottom: 2px; line-height: 1.4; }
+    .resp-q-ans { font-size: 13px; color: var(--text); }
+
+    .empty-state { text-align: center; padding: 44px 20px; color: var(--sub); font-size: 13px; }
+  </style>
+</head>
+<body>
+
+<!-- ══ SURVEY ══ -->
+<div id="surveyApp">
+  <div class="top-bar">
+    <div class="top-title">2026학년도 역사 수업 설문조사</div>
+    <div class="top-sub">인천동양중학교 3학년 1학기</div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progFill" style="width:0%"></div>
+    </div>
+    <div class="progress-label" id="progLabel"></div>
+  </div>
+  <div id="surveyContent"></div>
+</div>
+
+<!-- ══ ADMIN OVERLAY ══ -->
+<div id="adminOverlay">
+  <div class="adm-top">
+    <div class="adm-top-row">
+      <span class="adm-top-title">관리자 패널</span>
+      <button class="adm-close" id="admCloseBtn">✕</button>
+    </div>
+    <div class="adm-tabs">
+      <div class="adm-tab active" data-tab="edit">설문 편집</div>
+      <div class="adm-tab" data-tab="stats">응답 통계</div>
+      <div class="adm-tab" data-tab="responses">개별 응답</div>
+    </div>
+  </div>
+  <div class="adm-body" id="admBody"></div>
+</div>
+
+<div class="app-footer">
+  <button class="admin-btn" id="adminTrigger">관리자</button>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, addDoc, collection, getDocs, query, orderBy }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain: "ho0911seong-56638.firebaseapp.com",
+  projectId: "ho0911seong-56638",
+  storageBucket: "ho0911seong-56638.firebasestorage.app",
+  messagingSenderId: "994509567071",
+  appId: "1:994509567071:web:8b33bb03a3d8f3a9f557ea"
+};
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+
+const ADMIN_PW = 'ghtjd12!@';
+
+// ── Default config ──
+const DEFAULT_CONFIG = {
+  sections: [
+    {
+      id: 'sec1', title: '수업 전반',
+      questions: [
+        { id:'s1q1', text:'이번 학기 수업 전반에 대해 얼마나 만족하나요?', type:'scale', options:['전혀 그렇지 않다','그렇지 않다','보통이다','그렇다','매우 그렇다'], required:true },
+        { id:'s1q2', text:'수업 내용이 이해하기 쉬웠나요?', type:'scale', options:['전혀 그렇지 않다','그렇지 않다','보통이다','그렇다','매우 그렇다'], required:true },
+        { id:'s1q3', text:'선생님의 설명 방식이 효과적이라고 느꼈나요?', type:'scale', options:['전혀 그렇지 않다','그렇지 않다','보통이다','그렇다','매우 그렇다'], required:true },
+        { id:'s1q4', text:'수업 시간에 충분한 활동이 제공되었나요?', type:'scale', options:['전혀 그렇지 않다','그렇지 않다','보통이다','그렇다','매우 그렇다'], required:true },
+        { id:'s1q5', text:'수업 시간에 실시한 여러 활동이 학습에 도움이 되었나요?', type:'scale', options:['전혀 그렇지 않다','그렇지 않다','보통이다','그렇다','매우 그렇다'], required:true },
+        { id:'s1q6', text:'수업의 전반적인 만족도와 관련해서 하고 싶은 말이 있다면 이야기해주세요.', type:'text', required:false },
+      ]
+    },
+    {
+      id: 'sec2', title: '학습자료',
+      questions: [
+        { id:'s2q1', text:'수업에 활용된 활동지는 유익했나요?', type:'scale', options:['전혀 그렇지 않다','그렇지 않다','보통이다','그렇다','매우 그렇다'], required:true },
+        { id:'s2q2', text:'수업에 활용된 활동지의 분량은 적절했나요?', type:'scale', options:['전혀 그렇지 않다','그렇지 않다','보통이다','그렇다','매우 그렇다'], required:true },
+        { id:'s2q3', text:'수업에 활용된 PPT는 유익했나요?', type:'scale', options:['전혀 그렇지 않다','그렇지 않다','보통이다','그렇다','매우 그렇다'], required:true },
+        { id:'s2q4', text:'수업에 활용된 PPT의 분량은 적절했나요?', type:'scale', options:['전혀 그렇지 않다','그렇지 않다','보통이다','그렇다','매우 그렇다'], required:true },
+        { id:'s2q5', text:'학습자료와 관련해서 하고 싶은 말이 있다면 이야기해주세요.', type:'text', required:false },
+      ]
+    },
+    {
+      id: 'sec3', title: '지필/수행평가',
+      questions: [
+        { id:'s3q1', text:'1학기 1회시험의 난도는 어땠나요?', type:'scale', options:['매우 쉬웠다','쉬웠다','적당했다','어려웠다','매우 어려웠다'], required:true },
+        { id:'s3q2', text:'1학기 2회시험의 난도는 어땠나요?', type:'scale', options:['매우 쉬웠다','쉬웠다','적당했다','어려웠다','매우 어려웠다'], required:true },
+        { id:'s3q3', text:"1학기 수행평가 중 논술형('삼국통일에 대한 나의 생각 쓰기') 수행평가의 난도는 어땠나요?", type:'scale', options:['매우 쉬웠다','쉬웠다','적당했다','어려웠다','매우 어려웠다'], required:true },
+        { id:'s3q4', text:'1학기 수행평가 중 포트폴리오의 난도는 어땠나요?', type:'scale', options:['매우 쉬웠다','쉬웠다','적당했다','어려웠다','매우 어려웠다'], required:true },
+        { id:'s3q5', text:'1학기 지필평가와 관련해서 배부된 총정리 자료에 대한 전반적인 만족도는 어땠나요?', type:'scale', options:['전혀 그렇지 않다','그렇지 않다','보통이다','그렇다','매우 그렇다'], required:true },
+        { id:'s3q6', text:'지필평가와 관련해서 하고 싶은 말이 있다면 이야기해주세요.', type:'text', required:false },
+        { id:'s3q7', text:'수행평가와 관련해서 하고 싶은 말이 있다면 이야기해주세요.', type:'text', required:false },
+      ]
+    },
+    {
+      id: 'sec4', title: '체크 활동',
+      questions: [
+        { id:'s4q1', text:'매 수업 시간에 했던 개념 체크의 난도는 어땠나요?', type:'scale', options:['매우 쉬웠다','쉬웠다','적당했다','어려웠다','매우 어려웠다'], required:true },
+        { id:'s4q1a', text:'위 답변을 선택한 이유를 작성해주세요. 더불어 개념 체크(개념 정리 활동)에 대한 의견을 남겨주셔도 좋습니다.', type:'text', required:false },
+        { id:'s4q2', text:'매 수업 시간에 했던 생각 체크의 난도는 어땠나요?', type:'scale', options:['매우 쉬웠다','쉬웠다','적당했다','어려웠다','매우 어려웠다'], required:true },
+        { id:'s4q2a', text:'위 답변을 선택한 이유를 작성해주세요. 더불어 생각 체크(수업 성찰 활동)에 대한 의견을 남겨주셔도 좋습니다.', type:'text', required:false },
+        { id:'s4q3', text:'기억에 남거나 가장 재밌었던 미션 체크 활동을 골라주세요. (중복 가능)', type:'checkbox', options:['(관리자가 옵션을 편집해주세요)','옵션 2','옵션 3','옵션 4','옵션 5'], required:true },
+        { id:'s4q3a', text:'위 답변을 선택한 이유를 작성해주세요. 더불어 미션 체크(학생 중심 수업활동)에 대한 의견을 남겨주셔도 좋습니다.', type:'text', required:false },
+        { id:'s4q3b', text:'미션 체크나 수행평가 등을 실시할 때 모둠별로 하는 것에 대해 어떻게 생각하십니까?', type:'text', required:false },
+      ]
+    },
+    {
+      id: 'sec5', title: '소감',
+      questions: [
+        { id:'s5q1', text:'1학기 동안 역사 수업을 하면서 본인 스스로에게 해주고 싶은 말이 있다면?', type:'text', required:false },
+        { id:'s5q2', text:'2학기에 역사 수업을 들을 본인에게 하고 싶은 말이 있다면?', type:'text', required:false },
+        { id:'s5q3', text:'마지막으로 역사 선생님께 하고 싶은 말이 있다면?', type:'text', required:false },
+      ]
+    },
+  ]
+};
+
+// ── State ──
+let config = null;
+let step = 0; // 0=intro, 1..n=sections, n+1=done
+let answers = {};
+let studentId = '';
+let studentName = '';
+let adminLoggedIn = false;
+let currentAdminTab = 'edit';
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Init ──
+async function init() {
+  try {
+    const snap = await getDoc(doc(db, 'survey_config', 'main'));
+    config = snap.exists() ? snap.data() : JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+  } catch { config = JSON.parse(JSON.stringify(DEFAULT_CONFIG)); }
+  renderStep();
+}
+
+// ── Progress ──
+function setProgress(cur, total) {
+  const pct = total > 0 ? Math.round(cur / total * 100) : 0;
+  document.getElementById('progFill').style.width = pct + '%';
+  const lbl = document.getElementById('progLabel');
+  if (cur === 0) lbl.textContent = '시작 전';
+  else if (cur >= total) lbl.textContent = '완료';
+  else lbl.textContent = `${cur} / ${total - 1} 섹션 완료`;
+}
+
+// ── Render ──
+function renderStep() {
+  const total = config.sections.length + 2;
+  setProgress(step, total);
+  const el = document.getElementById('surveyContent');
+  el.innerHTML = '';
+
+  if (step === 0) {
+    el.innerHTML = renderIntroHTML();
+    el.querySelector('#startBtn').addEventListener('click', startSurvey);
+  } else if (step <= config.sections.length) {
+    const sec = config.sections[step - 1];
+    el.innerHTML = renderSectionHTML(sec);
+    el.innerHTML += renderNavHTML(step === config.sections.length);
+    attachSectionListeners(sec, el);
+    attachNavListeners(el, step === config.sections.length);
+  } else {
+    el.innerHTML = renderDoneHTML();
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function renderIntroHTML() {
+  return `
+    <div class="card intro-card">
+      <div class="intro-title">안녕하세요!</div>
+      <div class="intro-desc">
+        이 설문은 1학기 역사 수업에 대한 여러분의 솔직한 의견을 듣기 위한 것입니다.<br><br>
+        총 5개 섹션으로 구성되어 있으며 약 5~10분 소요됩니다.<br>
+        정직하고 성실하게 답해주세요 :)
+      </div>
+      <div class="form-label">학번 (5자리)</div>
+      <input class="form-input" id="inpId" type="text" inputmode="numeric" maxlength="5" placeholder="예: 30101" value="${esc(studentId)}">
+      <div class="form-label">이름</div>
+      <input class="form-input" id="inpName" type="text" placeholder="이름을 입력하세요" value="${esc(studentName)}">
+      <button class="btn-primary" id="startBtn">시작하기 →</button>
+    </div>`;
+}
+
+function renderSectionHTML(sec) {
+  let qNum = 0;
+  const qs = sec.questions.map(q => {
+    if (q.type === 'scale') qNum++;
+    const prefix = q.type === 'scale' ? `<span class="q-num">${qNum}.</span>` : '';
+    const suffix = q.required ? '<span class="req-star">*</span>' : '<span class="opt-tag">선택</span>';
+    const label = `<div class="q-label">${prefix}${esc(q.text)}${suffix}</div>`;
+
+    if (q.type === 'scale') {
+      const sel = answers[q.id];
+      const btns = q.options.map((opt, i) => {
+        const v = i + 1;
+        const cls = sel === v ? 'scale-btn selected' : 'scale-btn';
+        return `<div class="${cls}" data-qid="${esc(q.id)}" data-val="${v}">
+          <div class="scale-radio"></div>
+          <span class="scale-num">${v}</span>
+          <span>${esc(opt)}</span>
+        </div>`;
+      }).join('');
+      return `<div class="q-block">${label}<div class="scale-wrap">${btns}</div></div>`;
+    }
+
+    if (q.type === 'checkbox') {
+      const sel = answers[q.id] || [];
+      const items = q.options.map(opt => {
+        const cls = sel.includes(opt) ? 'check-item checked' : 'check-item';
+        return `<div class="${cls}" data-qid="${esc(q.id)}" data-opt="${esc(opt)}">
+          <div class="check-box"></div>
+          <span>${esc(opt)}</span>
+        </div>`;
+      }).join('');
+      return `<div class="q-block">${label}<div class="check-wrap">${items}</div></div>`;
+    }
+
+    if (q.type === 'text') {
+      const val = answers[q.id] || '';
+      return `<div class="q-block">${label}<textarea class="survey-ta" data-qid="${esc(q.id)}" placeholder="자유롭게 작성해주세요.">${esc(val)}</textarea></div>`;
+    }
+    return '';
+  }).join('');
+
+  return `<div class="card"><div class="sec-title">${esc(sec.title)}</div>${qs}</div>`;
+}
+
+function renderNavHTML(isLast) {
+  const prevBtn = step > 1 ? `<button class="btn-nav" id="prevBtn">← 이전</button>` : '';
+  const nextBtn = `<button class="btn-nav fill" id="nextBtn">${isLast ? '제출하기' : '다음 →'}</button>`;
+  return `<div class="nav-wrap">${prevBtn}${nextBtn}</div>`;
+}
+
+function renderDoneHTML() {
+  return `<div class="card done-wrap">
+    <div class="done-icon">🎉</div>
+    <div class="done-title">제출 완료!</div>
+    <div class="done-desc">설문에 참여해 주셔서 감사합니다.<br>여러분의 소중한 의견이 더 좋은 수업을 만드는 데<br>큰 도움이 됩니다.</div>
+  </div>`;
+}
+
+// ── Section listeners ──
+function attachSectionListeners(sec, el) {
+  el.querySelectorAll('.scale-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const qid = btn.dataset.qid;
+      const val = parseInt(btn.dataset.val);
+      answers[qid] = val;
+      el.querySelectorAll(`.scale-btn[data-qid="${qid}"]`).forEach((b, i) => {
+        b.classList.toggle('selected', i + 1 === val);
+      });
+    });
+  });
+
+  el.querySelectorAll('.check-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const qid = item.dataset.qid;
+      const opt = item.dataset.opt;
+      if (!answers[qid]) answers[qid] = [];
+      if (answers[qid].includes(opt)) {
+        answers[qid] = answers[qid].filter(v => v !== opt);
+        item.classList.remove('checked');
+      } else {
+        answers[qid].push(opt);
+        item.classList.add('checked');
+      }
+    });
+  });
+
+  el.querySelectorAll('.survey-ta').forEach(ta => {
+    ta.addEventListener('input', () => { answers[ta.dataset.qid] = ta.value; });
+  });
+}
+
+function attachNavListeners(el, isLast) {
+  const prev = el.querySelector('#prevBtn');
+  const next = el.querySelector('#nextBtn');
+  if (prev) prev.addEventListener('click', () => { step--; renderStep(); });
+  if (next) next.addEventListener('click', isLast ? submitSurvey : nextStep);
+}
+
+// ── Actions ──
+function startSurvey() {
+  const id   = document.getElementById('inpId').value.trim();
+  const name = document.getElementById('inpName').value.trim();
+  if (!id || id.length !== 5 || !/^\d+$/.test(id)) { alert('학번을 5자리 숫자로 입력해주세요.'); return; }
+  if (!name) { alert('이름을 입력해주세요.'); return; }
+  studentId = id; studentName = name;
+  step = 1; renderStep();
+}
+
+function nextStep() {
+  if (!validateSection()) return;
+  step++; renderStep();
+}
+
+function validateSection() {
+  const sec = config.sections[step - 1];
+  for (const q of sec.questions) {
+    if (!q.required) continue;
+    if (q.type === 'scale' && !answers[q.id]) {
+      alert('필수 항목을 모두 선택해주세요.');
+      return false;
+    }
+    if (q.type === 'checkbox' && (!answers[q.id] || !answers[q.id].length)) {
+      alert('하나 이상 선택해주세요.');
+      return false;
+    }
+  }
+  return true;
+}
+
+async function submitSurvey() {
+  if (!validateSection()) return;
+  const btn = document.getElementById('nextBtn');
+  btn.disabled = true; btn.textContent = '제출 중...';
+  try {
+    await addDoc(collection(db, 'survey_responses'), {
+      studentId, studentName,
+      submittedAt: new Date(),
+      answers,
+    });
+    step = config.sections.length + 1;
+    renderStep();
+  } catch(e) {
+    alert('제출 중 오류가 발생했습니다. 다시 시도해주세요.\n' + e.message);
+    btn.disabled = false; btn.textContent = '제출하기';
+  }
+}
+
+// ── Admin ──
+document.getElementById('adminTrigger').addEventListener('click', () => {
+  if (!adminLoggedIn) {
+    const pw = prompt('관리자 비밀번호를 입력하세요:');
+    if (pw !== ADMIN_PW) { if (pw !== null) alert('비밀번호가 틀렸습니다.'); return; }
+    adminLoggedIn = true;
+  }
+  document.getElementById('adminOverlay').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  renderAdminTab();
+});
+
+document.getElementById('admCloseBtn').addEventListener('click', () => {
+  document.getElementById('adminOverlay').style.display = 'none';
+  document.body.style.overflow = '';
+});
+
+document.querySelectorAll('.adm-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    currentAdminTab = tab.dataset.tab;
+    document.querySelectorAll('.adm-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === currentAdminTab));
+    renderAdminTab();
+  });
+});
+
+async function renderAdminTab() {
+  if (currentAdminTab === 'edit') renderAdminEdit();
+  else if (currentAdminTab === 'stats') { document.getElementById('admBody').innerHTML = '<div class="empty-state">불러오는 중...</div>'; await renderAdminStats(); }
+  else { document.getElementById('admBody').innerHTML = '<div class="empty-state">불러오는 중...</div>'; await renderAdminResponses(); }
+}
+
+// ── Admin Edit ──
+function renderAdminEdit() {
+  const body = document.getElementById('admBody');
+  let html = `<div class="adm-save-bar">
+    <span class="adm-save-msg">변경사항을 저장하면 즉시 반영됩니다.</span>
+    <button class="btn-adm-save" id="admSaveBtn">저장하기</button>
+  </div>`;
+
+  config.sections.forEach((sec, si) => {
+    let qHtml = '';
+    sec.questions.forEach((q, qi) => {
+      const typeLbl = q.type === 'scale' ? '5점 척도' : q.type === 'checkbox' ? '복수 선택' : '주관식';
+      const reqLbl = q.required ? '필수' : '선택';
+
+      let optsHtml = '';
+      if (q.type === 'scale' || q.type === 'checkbox') {
+        const rows = q.options.map((opt, oi) => `
+          <div class="adm-opt-row" data-si="${si}" data-qi="${qi}" data-oi="${oi}">
+            <input class="adm-opt-inp opt-inp" value="${esc(opt)}" data-si="${si}" data-qi="${qi}" data-oi="${oi}">
+            ${q.type === 'checkbox' ? `<button class="adm-opt-del del-opt-btn" data-si="${si}" data-qi="${qi}" data-oi="${oi}">✕</button>` : ''}
+          </div>`).join('');
+        optsHtml = `
+          <div class="adm-opts-label">${q.type === 'scale' ? '선택지 라벨 (1→5 순서)' : '선택지 목록'}</div>
+          <div class="adm-opts-container">${rows}</div>
+          ${q.type === 'checkbox' ? `<button class="adm-opt-add add-opt-btn" data-si="${si}" data-qi="${qi}">+ 옵션 추가</button>` : ''}`;
+      }
+
+      qHtml += `<div class="adm-q-item">
+        <div class="adm-q-meta">Q${qi+1} · ${typeLbl} · ${reqLbl}</div>
+        <textarea class="adm-q-inp q-text-inp" rows="2" data-si="${si}" data-qi="${qi}">${esc(q.text)}</textarea>
+        ${optsHtml}
+      </div>`;
+    });
+
+    html += `<div class="adm-sec-block">
+      <div class="adm-sec-hd">
+        <span class="adm-sec-num">${si+1}</span>
+        <input class="adm-sec-title-inp sec-title-inp" value="${esc(sec.title)}" data-si="${si}">
+      </div>
+      <div class="adm-q-list">${qHtml}</div>
+    </div>`;
+  });
+
+  body.innerHTML = html;
+
+  // Attach listeners
+  body.querySelectorAll('.sec-title-inp').forEach(inp => {
+    inp.addEventListener('input', () => { config.sections[+inp.dataset.si].title = inp.value; });
+  });
+  body.querySelectorAll('.q-text-inp').forEach(ta => {
+    ta.addEventListener('input', () => { config.sections[+ta.dataset.si].questions[+ta.dataset.qi].text = ta.value; });
+  });
+  body.querySelectorAll('.opt-inp').forEach(inp => {
+    inp.addEventListener('input', () => { config.sections[+inp.dataset.si].questions[+inp.dataset.qi].options[+inp.dataset.oi] = inp.value; });
+  });
+  body.querySelectorAll('.del-opt-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      config.sections[+btn.dataset.si].questions[+btn.dataset.qi].options.splice(+btn.dataset.oi, 1);
+      renderAdminEdit();
+    });
+  });
+  body.querySelectorAll('.add-opt-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      config.sections[+btn.dataset.si].questions[+btn.dataset.qi].options.push('새 옵션');
+      renderAdminEdit();
+    });
+  });
+  body.querySelector('#admSaveBtn').addEventListener('click', async () => {
+    try {
+      await setDoc(doc(db, 'survey_config', 'main'), config);
+      alert('저장되었습니다.');
+    } catch(e) { alert('저장 실패: ' + e.message); }
+  });
+}
+
+// ── Admin Stats ──
+async function renderAdminStats() {
+  const body = document.getElementById('admBody');
+  try {
+    const snap = await getDocs(query(collection(db, 'survey_responses'), orderBy('submittedAt', 'desc')));
+    const responses = snap.docs.map(d => d.data());
+    const total = responses.length;
+    if (!total) { body.innerHTML = '<div class="empty-state">아직 제출된 응답이 없습니다.</div>'; return; }
+
+    let html = `<div class="stat-badge">총 ${total}명 응답</div>`;
+    config.sections.forEach(sec => {
+      html += `<div class="stat-sec-label">${esc(sec.title)}</div>`;
+      sec.questions.forEach(q => {
+        if (q.type === 'scale') {
+          const counts = [0,0,0,0,0];
+          responses.forEach(r => { const v = r.answers?.[q.id]; if (v >= 1 && v <= 5) counts[v-1]++; });
+          const answered = counts.reduce((a,b) => a+b, 0);
+          const sum = counts.reduce((a,b,i) => a + b*(i+1), 0);
+          const avg = answered ? (sum/answered).toFixed(2) : '—';
+          const bars = q.options.map((opt, i) => {
+            const pct = total > 0 ? Math.round(counts[i]/total*100) : 0;
+            return `<div class="stat-bar-row">
+              <div class="stat-bar-lbl">${esc(opt)}</div>
+              <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${pct}%"></div></div>
+              <div class="stat-bar-cnt">${counts[i]}</div>
+            </div>`;
+          }).join('');
+          html += `<div class="stat-card"><div class="stat-q-text">${esc(q.text)}</div>${bars}<div class="stat-avg">평균 ${avg}점 (${answered}명 응답)</div></div>`;
+
+        } else if (q.type === 'checkbox') {
+          const optCounts = {};
+          q.options.forEach(o => optCounts[o] = 0);
+          responses.forEach(r => { (r.answers?.[q.id] || []).forEach(v => { if (v in optCounts) optCounts[v]++; }); });
+          const bars = q.options.map(opt => {
+            const cnt = optCounts[opt] || 0;
+            const pct = total > 0 ? Math.round(cnt/total*100) : 0;
+            return `<div class="stat-bar-row">
+              <div class="stat-bar-lbl">${esc(opt)}</div>
+              <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${pct}%"></div></div>
+              <div class="stat-bar-cnt">${cnt}</div>
+            </div>`;
+          }).join('');
+          html += `<div class="stat-card"><div class="stat-q-text">${esc(q.text)}</div>${bars}</div>`;
+
+        } else if (q.type === 'text') {
+          const texts = responses.map(r => r.answers?.[q.id]).filter(v => v && v.trim());
+          if (!texts.length) return;
+          const items = texts.map(v => `<li class="stat-text-item">${esc(v)}</li>`).join('');
+          html += `<div class="stat-card"><div class="stat-q-text">${esc(q.text)}</div><ul class="stat-text-list">${items}</ul></div>`;
+        }
+      });
+    });
+    body.innerHTML = html;
+  } catch(e) { body.innerHTML = `<div class="empty-state" style="color:var(--danger)">오류: ${esc(e.message)}</div>`; }
+}
+
+// ── Admin Responses ──
+async function renderAdminResponses() {
+  const body = document.getElementById('admBody');
+  try {
+    const snap = await getDocs(query(collection(db, 'survey_responses'), orderBy('submittedAt', 'desc')));
+    const responses = snap.docs.map(d => d.data());
+    if (!responses.length) { body.innerHTML = '<div class="empty-state">아직 제출된 응답이 없습니다.</div>'; return; }
+
+    let html = `<div class="stat-badge">총 ${responses.length}명 응답</div>`;
+    responses.forEach(r => {
+      const date = r.submittedAt?.toDate?.() || new Date();
+      const dateStr = date.toLocaleDateString('ko-KR') + ' ' + date.toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
+      let ansHtml = '';
+      config.sections.forEach(sec => {
+        sec.questions.forEach(q => {
+          const val = r.answers?.[q.id];
+          if (val == null || val === '') return;
+          let displayVal = '';
+          if (q.type === 'scale') displayVal = `${val}점 — ${q.options[val-1] || ''}`;
+          else if (q.type === 'checkbox') displayVal = Array.isArray(val) ? val.join(', ') : String(val);
+          else displayVal = String(val);
+          ansHtml += `<div class="resp-q">
+            <div class="resp-q-text">${esc(q.text)}</div>
+            <div class="resp-q-ans">${esc(displayVal)}</div>
+          </div>`;
+        });
+      });
+      html += `<div class="resp-card">
+        <div class="resp-header">
+          <div><div class="resp-name">${esc(r.studentName)}</div><div class="resp-id">${esc(r.studentId)}</div></div>
+          <div class="resp-date">${dateStr}</div>
+        </div>
+        ${ansHtml}
+      </div>`;
+    });
+    body.innerHTML = html;
+  } catch(e) { body.innerHTML = `<div class="empty-state" style="color:var(--danger)">오류: ${esc(e.message)}</div>`; }
+}
+
+init();
+</script>
+</body>
+</html>
