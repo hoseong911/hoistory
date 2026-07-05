@@ -31,8 +31,12 @@
     .top-bar {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
+      border-radius: 0 0 20px 20px;
       padding: 18px 20px;
       position: sticky; top: 0; z-index: 10;
+    }
+    .top-bar-inner {
+      max-width: 640px; margin: 0 auto; text-align: center;
     }
     .top-title { font-size: 16px; font-weight: 800; }
     .top-title span { color: var(--green); }
@@ -334,7 +338,9 @@
 <!-- ══ SURVEY ══ -->
 <div id="surveyApp">
   <div class="top-bar">
-    <div class="top-title">2026학년도 3학년 1학기 역사 수업 설문조사</div>
+    <div class="top-bar-inner">
+      <div class="top-title">2026학년도 3학년 1학기 역사 수업 설문조사</div>
+    </div>
   </div>
   <div id="surveyContent"></div>
 </div>
@@ -550,7 +556,7 @@ function renderSectionHTML(sec) {
   const qs = sec.questions.map(q => {
     if (q.type === 'scale') qNum++;
     const prefix = q.type === 'scale' ? `<span class="q-num">${qNum}.</span>` : '';
-    const label = `<div class="q-label">${prefix}${esc(q.text)}<span class="req-star">*</span></div>`;
+    const label = `<div class="q-label">${prefix}${esc(q.text)}</div>`;
 
     if (q.type === 'scale') {
       const sel = answers[q.id];
@@ -595,7 +601,7 @@ function renderSectionHTML(sec) {
       const val = answers[q.id] || '';
       return `<div class="q-block">${label}
         <textarea class="survey-ta" data-qid="${esc(q.id)}" placeholder="자유롭게 작성해주세요.">${esc(val)}</textarea>
-        <div class="char-count" data-qid="${esc(q.id)}">${val.length}자</div>
+        <div class="char-count" data-qid="${esc(q.id)}">${val.replace(/\s/g, '').length}자</div>
       </div>`;
     }
     return '';
@@ -660,7 +666,7 @@ function attachSectionListeners(sec, el) {
     ta.addEventListener('input', () => {
       answers[ta.dataset.qid] = ta.value;
       const cc = el.querySelector(`.char-count[data-qid="${ta.dataset.qid}"]`);
-      if (cc) cc.textContent = `${ta.value.length}자`;
+      if (cc) cc.textContent = `${ta.value.replace(/\s/g, '').length}자`;
       saveSession();
     });
   });
