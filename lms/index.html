@@ -469,33 +469,45 @@ async function loadStudentGrade() {
     const { selectedLectures = [], bands = [] } = settingsSnap.data();
     if (!selectedLectures.length || !bands.length) { sectionData.grade = { _summary: false }; renderAll(); return; }
 
-    const records = {};
+    // 강의별 미실시 플래그 + 성적 기록 동시 로드
+    const enabledMap = {}, records = {};
     await Promise.all(selectedLectures.map(async key => {
       try {
-        const snap = await getDoc(doc(db, 'grade_records', `${key}_${currentStudentId}`));
-        if (snap.exists()) records[key] = snap.data();
-      } catch(e) {}
+        const [cfgSnap, recSnap] = await Promise.all([
+          getDoc(doc(db, 'grade_lecture_config', key)),
+          getDoc(doc(db, 'grade_records', `${key}_${currentStudentId}`)),
+        ]);
+        const d = cfgSnap.exists() ? cfgSnap.data() : {};
+        enabledMap[key] = {
+          concept: d.conceptEnabled !== false,
+          mission: d.missionEnabled !== false,
+          think:   d.thinkEnabled   !== false,
+        };
+        if (recSnap.exists()) records[key] = recSnap.data();
+      } catch(e) {
+        enabledMap[key] = { concept:true, mission:true, think:true };
+      }
     }));
 
-    const n = selectedLectures.length;
-    let cA = 0, mA = 0, tA = 0;
+    let cA=0, cN=0, mA=0, mN=0, tA=0, tN=0;
     selectedLectures.forEach(key => {
-      const r = records[key];
-      if (!r) return;
-      if (r.concept?.achieved) cA++;
-      if (r.mission?.achieved) mA++;
-      if (r.think?.achieved)   tA++;
+      const r  = records[key];
+      const en = enabledMap[key];
+      if (en.concept) { cN++; if (r?.concept?.achieved) cA++; }
+      if (en.mission) { mN++; if (r?.mission?.achieved) mA++; }
+      if (en.think)   { tN++; if (r?.think?.achieved)   tA++; }
     });
 
     function calcScore(achieved, total, type) {
-      const pct  = total ? Math.round(achieved / total * 100) : 0;
+      if (!total) return { achieved:0, total:0, pct:0, score:0 };
+      const pct  = Math.round(achieved / total * 100);
       const band = bands.find(b => pct >= b.min) || bands[bands.length - 1];
       return { achieved, total, pct, score: band ? (band[type] || 0) : 0 };
     }
 
-    const concept = calcScore(cA, n, 'concept');
-    const mission = calcScore(mA, n, 'mission');
-    const think   = calcScore(tA, n, 'think');
+    const concept = calcScore(cA, cN, 'concept');
+    const mission = calcScore(mA, mN, 'mission');
+    const think   = calcScore(tA, tN, 'think');
     const maxScore = (bands[0]?.concept || 0) + (bands[0]?.mission || 0) + (bands[0]?.think || 0);
 
     sectionData.grade = {

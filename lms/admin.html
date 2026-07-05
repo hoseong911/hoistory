@@ -163,9 +163,12 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
 }
 
 /* ── 성적 체크 어드민 ── */
-.grade-config-card{background:var(--white);border-radius:14px;padding:18px 20px;border:1px solid var(--border);margin-bottom:20px;display:flex;flex-direction:column;gap:12px}
+.grade-config-card{background:var(--white);border-radius:14px;padding:18px 20px;border:1px solid var(--border);margin-bottom:20px;display:flex;gap:14px;align-items:stretch}
+.grade-config-rows{flex:1;display:flex;flex-direction:column;gap:12px}
 .grade-config-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .grade-config-lbl{font-size:12px;font-weight:700;color:var(--sub);white-space:nowrap;min-width:90px}
+.grade-na-toggle{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--sub);cursor:pointer;white-space:nowrap;flex-shrink:0;padding:4px 0}
+.grade-na-toggle input{accent-color:var(--c4);cursor:pointer;width:14px;height:14px}
 .grade-config-sel,.grade-config-inp{flex:1;min-width:160px;padding:9px 12px;border:1.5px solid var(--border);border-radius:9px;font-family:inherit;font-size:13px;background:var(--white);outline:none;transition:border-color .2s}
 .grade-config-sel:focus,.grade-config-inp:focus{border-color:var(--c4)}
 .grade-table-wrap{overflow-x:auto}
@@ -186,10 +189,34 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
 .grade-all-cb{width:13px;height:13px;cursor:pointer;margin-right:3px;vertical-align:middle;opacity:.7}
 .grade-time-late{color:#DC2626;font-weight:600}
 
-/* ── 성적 체크 서브탭 ── */
+/* ── 성적 체크 모드탭·서브탭 ── */
+.grade-mode-tabs{display:flex;gap:6px;margin-bottom:20px}
+.grade-mode-tab{padding:8px 22px;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--border);border-radius:10px;background:none;cursor:pointer;color:var(--sub);transition:all .15s}
+.grade-mode-tab.active{background:var(--c4-l);color:var(--c4);border-color:var(--c4)}
 .grade-subtab-bar{display:none;gap:4px;margin-bottom:16px;flex-wrap:wrap}
 .grade-subtab{padding:6px 16px;font-family:inherit;font-size:12px;font-weight:700;border:1.5px solid var(--border);border-radius:999px;background:none;cursor:pointer;color:var(--sub);transition:all .15s}
 .grade-subtab.active,.grade-subtab:hover{background:var(--c4);color:#fff;border-color:var(--c4)}
+
+/* ── 통계 바 ── */
+.grade-stats-bar{display:none;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.grade-stat-chip{flex:1;min-width:110px;background:var(--white);border:1px solid var(--border);border-radius:10px;padding:10px 16px;display:flex;flex-direction:column;gap:3px}
+.grade-stat-lbl{font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.3px}
+.grade-stat-val{font-size:16px;font-weight:800;color:var(--text)}
+.grade-stat-na{font-size:13px;font-weight:600;color:var(--border)}
+
+/* ── 성적 조회 ── */
+.grade-score-top{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.grade-score-info{flex:1;font-size:12px;color:var(--sub)}
+.grade-score-table-wrap{overflow-x:auto}
+.grade-score-table{width:100%;border-collapse:collapse;font-size:12px}
+.grade-score-table th,.grade-score-table td{padding:7px 10px;border:1px solid var(--border);text-align:center;white-space:nowrap}
+.grade-score-table th{background:var(--cream);font-weight:700;color:var(--sub);font-size:11px}
+.grade-score-table th.sh-c{background:var(--c1-l);color:var(--c1)}
+.grade-score-table th.sh-m{background:var(--c2-l);color:var(--c2)}
+.grade-score-table th.sh-t{background:var(--c1-l);color:var(--c1)}
+.grade-score-table th.sh-tot{background:var(--c4-l);color:var(--c4)}
+.grade-score-table tbody tr:hover{background:var(--cream)}
+.grade-score-table .sc-cls-row td{background:var(--cream-dark,#EDEAD9);font-weight:700;font-size:12px;padding:6px 12px;text-align:left;color:var(--sub)}
 
 /* ── 성적 설정 섹션 ── */
 .grade-settings-section{margin-top:32px;border-top:1px solid var(--border);padding-top:24px}
@@ -273,53 +300,92 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cre
       <div class="panel-title">성적 체크</div>
     </div>
 
-    <div class="grade-config-card">
-      <div class="grade-config-row">
-        <span class="grade-config-lbl">개념 체크</span>
-        <select id="gradeLessonSel" class="grade-config-sel"><option value="">-- 강의 선택 --</option></select>
+    <div class="grade-mode-tabs">
+      <button class="grade-mode-tab active" data-mode="input">체크 입력</button>
+      <button class="grade-mode-tab" data-mode="score">성적 조회</button>
+    </div>
+
+    <!-- ── 체크 입력 ── -->
+    <div id="gradeInputSection">
+      <div class="grade-config-card">
+        <div class="grade-config-rows">
+          <div class="grade-config-row">
+            <span class="grade-config-lbl">개념 체크</span>
+            <select id="gradeLessonSel" class="grade-config-sel"><option value="">-- 강의 선택 --</option></select>
+            <label class="grade-na-toggle"><input type="checkbox" id="gradeConceptNA"> 미실시</label>
+          </div>
+          <div class="grade-config-row">
+            <span class="grade-config-lbl">생각 체크</span>
+            <select id="gradeThinkSel" class="grade-config-sel"><option value="">-- 연결 없음 (수동) --</option></select>
+            <label class="grade-na-toggle"><input type="checkbox" id="gradeThinkNA"> 미실시</label>
+          </div>
+          <div class="grade-config-row">
+            <span class="grade-config-lbl">미션 체크</span>
+            <select id="gradeMissionColl" class="grade-config-sel">
+              <option value="">-- 없음 (수동) --</option>
+            </select>
+            <label class="grade-na-toggle"><input type="checkbox" id="gradeMissionNA"> 미실시</label>
+          </div>
+        </div>
+        <button class="add-btn p" id="gradeLoadBtn" style="align-self:stretch;padding:0 22px;writing-mode:initial">불러오기</button>
       </div>
-      <div class="grade-config-row">
-        <span class="grade-config-lbl">생각 체크</span>
-        <select id="gradeThinkSel" class="grade-config-sel"><option value="">-- 연결 없음 (수동) --</option></select>
+
+      <div class="grade-stats-bar" id="gradeStatsBar">
+        <div class="grade-stat-chip">
+          <div class="grade-stat-lbl">개념 달성</div>
+          <div class="grade-stat-val" id="statConcept">-</div>
+        </div>
+        <div class="grade-stat-chip">
+          <div class="grade-stat-lbl">미션 달성</div>
+          <div class="grade-stat-val" id="statMission">-</div>
+        </div>
+        <div class="grade-stat-chip">
+          <div class="grade-stat-lbl">생각 달성</div>
+          <div class="grade-stat-val" id="statThink">-</div>
+        </div>
       </div>
-      <div class="grade-config-row">
-        <span class="grade-config-lbl">미션 체크</span>
-        <select id="gradeMissionColl" class="grade-config-sel">
-          <option value="">-- 없음 (수동) --</option>
-        </select>
-        <button class="add-btn p" id="gradeLoadBtn" style="flex-shrink:0">불러오기</button>
+
+      <div class="grade-subtab-bar" id="gradeSubtabBar"></div>
+
+      <div id="gradeTableWrap"><div class="empty-panel">강의를 선택하고 불러오기를 눌러주세요.</div></div>
+      <div id="gradeSaveWrap" style="display:none;margin-top:20px">
+        <button class="add-btn p" id="gradeSaveBtn" style="width:100%;padding:14px;font-size:14px">전체 저장</button>
+      </div>
+
+      <!-- ── 성적 설정 ── -->
+      <div class="grade-settings-section">
+        <div class="grade-settings-title">성적 설정</div>
+        <div class="grade-settings-card">
+          <div class="grade-settings-subtitle">반영할 강의 선택</div>
+          <div class="lecture-check-grid" id="gradeSettingsLectures"><span style="font-size:12px;color:var(--sub)">불러오는 중...</span></div>
+        </div>
+        <div class="grade-settings-card">
+          <div class="grade-settings-subtitle">급간 설정</div>
+          <table class="band-table">
+            <thead>
+              <tr>
+                <th>달성률</th>
+                <th>개념 (점)</th>
+                <th>미션 (점)</th>
+                <th>생각 (점)</th>
+              </tr>
+            </thead>
+            <tbody id="bandTableBody"></tbody>
+          </table>
+        </div>
+        <button class="add-btn p" id="gradeSettingsSaveBtn" style="width:100%;padding:14px;font-size:14px">설정 저장</button>
       </div>
     </div>
 
-    <div class="grade-subtab-bar" id="gradeSubtabBar"></div>
-
-    <div id="gradeTableWrap"><div class="empty-panel">강의를 선택하고 불러오기를 눌러주세요.</div></div>
-    <div id="gradeSaveWrap" style="display:none;margin-top:20px">
-      <button class="add-btn p" id="gradeSaveBtn" style="width:100%;padding:14px;font-size:14px">전체 저장</button>
-    </div>
-
-    <!-- ── 성적 설정 ── -->
-    <div class="grade-settings-section">
-      <div class="grade-settings-title">성적 설정</div>
-      <div class="grade-settings-card">
-        <div class="grade-settings-subtitle">반영할 강의 선택</div>
-        <div class="lecture-check-grid" id="gradeSettingsLectures"><span style="font-size:12px;color:var(--sub)">불러오는 중...</span></div>
+    <!-- ── 성적 조회 ── -->
+    <div id="gradeScoreSection" style="display:none">
+      <div class="grade-score-top">
+        <div class="grade-score-info" id="gradeScoreInfo">성적 설정에서 선택된 강의 기준 성적</div>
+        <button class="add-btn p" id="gradeScoreLoadBtn">불러오기</button>
+        <button class="add-btn g" id="gradeExportBtn" style="display:none">엑셀 내보내기</button>
       </div>
-      <div class="grade-settings-card">
-        <div class="grade-settings-subtitle">급간 설정</div>
-        <table class="band-table">
-          <thead>
-            <tr>
-              <th>달성률</th>
-              <th>개념 (점)</th>
-              <th>미션 (점)</th>
-              <th>생각 (점)</th>
-            </tr>
-          </thead>
-          <tbody id="bandTableBody"></tbody>
-        </table>
-      </div>
-      <button class="add-btn p" id="gradeSettingsSaveBtn" style="width:100%;padding:14px;font-size:14px">설정 저장</button>
+      <div class="grade-subtab-bar" id="gradeSubtabScore"></div>
+      <div id="gradeScoreWrap"><div class="empty-panel">불러오기를 눌러주세요.</div></div>
     </div>
   </div>
 </div>
@@ -667,6 +733,7 @@ let _gradeRecords     = {};
 let _gradeThinkTimes  = {};   // { studentId: Date }
 let _gradeMissionTimes = {};  // { studentId: Date }
 let _gradeLessonKey   = '';
+let _gradeEnabled     = { concept: true, mission: true, think: true };
 
 function extractLessonNum(title) {
   const m = String(title).match(/^(\d+)강/);
@@ -735,6 +802,19 @@ async function initGradeTab() {
 
   document.getElementById('gradeLoadBtn').addEventListener('click', loadGradeData);
   document.getElementById('gradeSaveBtn').addEventListener('click', saveGradeRecords);
+  document.getElementById('gradeScoreLoadBtn').addEventListener('click', loadScoreData);
+  document.getElementById('gradeExportBtn').addEventListener('click', exportScoreCSV);
+
+  // 모드탭 전환
+  document.querySelectorAll('.grade-mode-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.grade-mode-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const isScore = btn.dataset.mode === 'score';
+      document.getElementById('gradeInputSection').style.display = isScore ? 'none' : '';
+      document.getElementById('gradeScoreSection').style.display = isScore ? '' : 'none';
+    });
+  });
 }
 
 async function onGradeLessonChange() {
@@ -742,7 +822,6 @@ async function onGradeLessonChange() {
   if (!docId) return;
   const lecture = _gradeLectures.find(l => l.docId === docId);
   const key = extractLessonNum(lecture?.title || '') || docId;
-  // 생각체크 기본값: 강의 자신으로 설정
   document.getElementById('gradeThinkSel').value = docId;
   try {
     const cfg = await getDoc(doc(db, 'grade_lecture_config', key));
@@ -750,9 +829,15 @@ async function onGradeLessonChange() {
       const d = cfg.data();
       document.getElementById('gradeThinkSel').value    = d.thinkLectureDocId || '';
       document.getElementById('gradeMissionColl').value = d.missionCollection || '';
+      document.getElementById('gradeConceptNA').checked = d.conceptEnabled === false;
+      document.getElementById('gradeMissionNA').checked = d.missionEnabled === false;
+      document.getElementById('gradeThinkNA').checked   = d.thinkEnabled   === false;
     } else {
       document.getElementById('gradeThinkSel').value    = '';
       document.getElementById('gradeMissionColl').value = '';
+      document.getElementById('gradeConceptNA').checked = false;
+      document.getElementById('gradeMissionNA').checked = false;
+      document.getElementById('gradeThinkNA').checked   = false;
     }
   } catch(e) {}
 }
@@ -766,6 +851,10 @@ async function loadGradeData() {
 
   const thinkDocId  = document.getElementById('gradeThinkSel').value;
   const missionColl = document.getElementById('gradeMissionColl').value.trim();
+  const conceptEnabled = !document.getElementById('gradeConceptNA').checked;
+  const missionEnabled = !document.getElementById('gradeMissionNA').checked;
+  const thinkEnabled   = !document.getElementById('gradeThinkNA').checked;
+  _gradeEnabled = { concept: conceptEnabled, mission: missionEnabled, think: thinkEnabled };
 
   // 설정 저장
   try {
@@ -773,6 +862,7 @@ async function loadGradeData() {
       thinkLectureDocId: thinkDocId,
       missionCollection: missionColl,
       lessonTitle: lecture?.title || `${_gradeLessonKey}강`,
+      conceptEnabled, missionEnabled, thinkEnabled,
     });
   } catch(e) {}
 
@@ -843,8 +933,10 @@ async function loadGradeData() {
     }
 
     renderGradeTable();
-    setupGradeSubtabs();
+    renderGradeStats();
+    setupSubtabs('gradeTableWrap', 'gradeSubtabBar');
     document.getElementById('gradeSaveWrap').style.display = 'block';
+    refreshGradeSettingsLectures();
   } catch(e) {
     alert('불러오기 실패: ' + e.message);
   } finally {
@@ -885,6 +977,11 @@ function renderGradeTable() {
   });
   const classNums = Object.keys(classes).map(Number).sort((a,b) => a-b);
 
+  const cE = _gradeEnabled.concept;
+  const mE = _gradeEnabled.mission;
+  const tE = _gradeEnabled.think;
+  const totalCols = 2 + (cE?2:0) + (mE?3:0) + (tE?3:0);
+
   const allCb = (t, f) =>
     `<input type="checkbox" class="grade-all-cb" data-t="${t}" data-f="${f}" title="전체 선택/해제">`;
   const chk = (sid, type, field, checked) =>
@@ -896,19 +993,14 @@ function renderGradeTable() {
     <thead>
       <tr>
         <th rowspan="2">학번</th><th rowspan="2">이름</th>
-        <th colspan="2" class="gh-concept">개념체크</th>
-        <th colspan="3" class="gh-mission">미션체크</th>
-        <th colspan="3" class="gh-think">생각체크</th>
+        ${cE ? `<th colspan="2" class="gh-concept">개념체크</th>` : ''}
+        ${mE ? `<th colspan="3" class="gh-mission">미션체크</th>` : ''}
+        ${tE ? `<th colspan="3" class="gh-think">생각체크</th>` : ''}
       </tr>
       <tr>
-        <th class="gh-concept">${allCb('concept','achieved')}달성</th>
-        <th class="gh-concept">${allCb('concept','onTime')}기한</th>
-        <th class="gh-mission">${allCb('mission','achieved')}달성</th>
-        <th class="gh-mission">${allCb('mission','onTime')}기한</th>
-        <th class="gh-mission">제출시간</th>
-        <th class="gh-think">${allCb('think','achieved')}달성</th>
-        <th class="gh-think">${allCb('think','onTime')}기한</th>
-        <th class="gh-think">제출시간</th>
+        ${cE ? `<th class="gh-concept">${allCb('concept','achieved')}달성</th><th class="gh-concept">${allCb('concept','onTime')}기한</th>` : ''}
+        ${mE ? `<th class="gh-mission">${allCb('mission','achieved')}달성</th><th class="gh-mission">${allCb('mission','onTime')}기한</th><th class="gh-mission">제출시간</th>` : ''}
+        ${tE ? `<th class="gh-think">${allCb('think','achieved')}달성</th><th class="gh-think">${allCb('think','onTime')}기한</th><th class="gh-think">제출시간</th>` : ''}
       </tr>
     </thead><tbody>`;
 
@@ -916,7 +1008,7 @@ function renderGradeTable() {
     const studs = classes[cls];
     const tMaj  = majorityDay(_gradeThinkTimes,   studs);
     const mMaj  = majorityDay(_gradeMissionTimes, studs);
-    html += `<tr class="class-header-row" data-cls="${cls}"><td colspan="10">${cls}반 (${studs.length}명)</td></tr>`;
+    html += `<tr class="class-header-row" data-cls="${cls}"><td colspan="${totalCols}">${cls}반 (${studs.length}명)</td></tr>`;
     studs.forEach(s => {
       const r  = _gradeRecords[s.id];
       const tD = _gradeThinkTimes[s.id]   || null;
@@ -924,14 +1016,9 @@ function renderGradeTable() {
       html += `<tr data-cls="${cls}">
         <td class="tc-id">${esc(s.id)}</td>
         <td class="tc-name">${esc(s.name)}</td>
-        <td>${chk(s.id,'concept','achieved',r.concept.achieved)}</td>
-        <td>${chk(s.id,'concept','onTime',  r.concept.onTime)}</td>
-        <td>${chk(s.id,'mission','achieved',r.mission.achieved)}</td>
-        <td>${chk(s.id,'mission','onTime',  r.mission.onTime)}</td>
-        <td>${timeSpan(mD, !!(mD && mMaj && dayKey(mD) !== mMaj))}</td>
-        <td>${chk(s.id,'think',  'achieved',r.think.achieved)}</td>
-        <td>${chk(s.id,'think',  'onTime',  r.think.onTime)}</td>
-        <td>${timeSpan(tD, !!(tD && tMaj && dayKey(tD) !== tMaj))}</td>
+        ${cE ? `<td>${chk(s.id,'concept','achieved',r.concept.achieved)}</td><td>${chk(s.id,'concept','onTime',r.concept.onTime)}</td>` : ''}
+        ${mE ? `<td>${chk(s.id,'mission','achieved',r.mission.achieved)}</td><td>${chk(s.id,'mission','onTime',r.mission.onTime)}</td><td>${timeSpan(mD,!!(mD&&mMaj&&dayKey(mD)!==mMaj))}</td>` : ''}
+        ${tE ? `<td>${chk(s.id,'think','achieved',r.think.achieved)}</td><td>${chk(s.id,'think','onTime',r.think.onTime)}</td><td>${timeSpan(tD,!!(tD&&tMaj&&dayKey(tD)!==tMaj))}</td>` : ''}
       </tr>`;
     });
   });
@@ -960,28 +1047,206 @@ function renderGradeTable() {
   });
 }
 
-function setupGradeSubtabs() {
-  const bar = document.getElementById('gradeSubtabBar');
+function setupSubtabs(tableWrapId, barId) {
+  const bar = document.getElementById(barId);
   const clsSet = new Set();
-  document.querySelectorAll('#gradeTableWrap tr[data-cls]').forEach(r => clsSet.add(parseInt(r.dataset.cls)));
+  document.querySelectorAll(`#${tableWrapId} tr[data-cls]`).forEach(r => clsSet.add(parseInt(r.dataset.cls)));
   if (!clsSet.size) { bar.style.display = 'none'; return; }
 
-  let _activeClass = 0;
   const nums = Array.from(clsSet).sort((a, b) => a - b);
-  bar.innerHTML = [0, ...nums].map(cls =>
-    `<button class="grade-subtab${cls === 0 ? ' active' : ''}" data-cls="${cls}">${cls === 0 ? '전체' : cls + '반'}</button>`
+  bar.innerHTML = nums.map((cls, i) =>
+    `<button class="grade-subtab${i === 0 ? ' active' : ''}" data-cls="${cls}">${cls}반</button>`
   ).join('');
+
+  // 첫 번째 반만 표시
+  const firstCls = nums[0];
+  document.querySelectorAll(`#${tableWrapId} tr[data-cls]`).forEach(row => {
+    row.style.display = parseInt(row.dataset.cls) === firstCls ? '' : 'none';
+  });
+
   bar.querySelectorAll('.grade-subtab').forEach(btn => {
     btn.addEventListener('click', () => {
-      _activeClass = parseInt(btn.dataset.cls);
+      const cls = parseInt(btn.dataset.cls);
       bar.querySelectorAll('.grade-subtab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      document.querySelectorAll('#gradeTableWrap tr[data-cls]').forEach(row => {
-        row.style.display = (!_activeClass || parseInt(row.dataset.cls) === _activeClass) ? '' : 'none';
+      document.querySelectorAll(`#${tableWrapId} tr[data-cls]`).forEach(row => {
+        row.style.display = parseInt(row.dataset.cls) === cls ? '' : 'none';
       });
     });
   });
   bar.style.display = 'flex';
+}
+
+function renderGradeStats() {
+  const bar      = document.getElementById('gradeStatsBar');
+  const entries  = Object.entries(_gradeRecords);
+  const total    = entries.length;
+  function chip(type, elId) {
+    const el = document.getElementById(elId);
+    if (!_gradeEnabled[type]) {
+      el.innerHTML = '<span class="grade-stat-na">미실시</span>';
+    } else {
+      const n = entries.filter(([, r]) => r[type]?.achieved).length;
+      el.textContent = `${n}명 / ${total}명`;
+    }
+  }
+  chip('concept', 'statConcept');
+  chip('mission', 'statMission');
+  chip('think',   'statThink');
+  bar.style.display = 'flex';
+}
+
+// ── 성적 조회 ──
+let _scoreData = [];
+
+async function loadScoreData() {
+  const btn = document.getElementById('gradeScoreLoadBtn');
+  btn.disabled = true; btn.textContent = '불러오는 중…';
+  document.getElementById('gradeScoreWrap').innerHTML = '<div class="empty-panel">불러오는 중...</div>';
+  document.getElementById('gradeExportBtn').style.display = 'none';
+
+  try {
+    const settingsSnap = await getDoc(doc(db, 'grade_settings', 'config'));
+    if (!settingsSnap.exists()) throw new Error('성적 설정이 없습니다. 성적 설정을 먼저 저장해 주세요.');
+    const { selectedLectures = [], bands = [] } = settingsSnap.data();
+    if (!selectedLectures.length) throw new Error('반영할 강의가 선택되지 않았습니다.');
+    if (!bands.length) throw new Error('급간 설정이 없습니다.');
+
+    // 강의별 미실시 플래그 로드
+    const enabledMap = {};
+    await Promise.all(selectedLectures.map(async key => {
+      try {
+        const snap = await getDoc(doc(db, 'grade_lecture_config', key));
+        const d = snap.exists() ? snap.data() : {};
+        enabledMap[key] = {
+          concept: d.conceptEnabled !== false,
+          mission: d.missionEnabled !== false,
+          think:   d.thinkEnabled   !== false,
+        };
+      } catch(e) { enabledMap[key] = { concept:true, mission:true, think:true }; }
+    }));
+
+    // 강의별 grade_records 전체 로드
+    const recByLec = {};
+    await Promise.all(selectedLectures.map(async key => {
+      try {
+        const snap = await getDocs(query(collection(db, 'grade_records'), where('lessonKey','==',key)));
+        recByLec[key] = {};
+        snap.docs.forEach(d => { const r = d.data(); recByLec[key][r.studentId] = r; });
+      } catch(e) {}
+    }));
+
+    function calcScore(achieved, total, type) {
+      if (!total) return { achieved:0, total:0, pct:0, score:0 };
+      const pct  = Math.round(achieved / total * 100);
+      const band = bands.find(b => pct >= b.min) || bands[bands.length-1];
+      return { achieved, total, pct, score: band ? (band[type]||0) : 0 };
+    }
+
+    _scoreData = _gradeStudents
+      .filter(s => s.id !== '00000')
+      .map(s => {
+        const cls = Math.floor((parseInt(s.id) - 30000) / 100);
+        let cA=0, cN=0, mA=0, mN=0, tA=0, tN=0;
+        selectedLectures.forEach(key => {
+          const en  = enabledMap[key];
+          const rec = recByLec[key]?.[s.id];
+          if (en.concept) { cN++; if (rec?.concept?.achieved) cA++; }
+          if (en.mission) { mN++; if (rec?.mission?.achieved) mA++; }
+          if (en.think)   { tN++; if (rec?.think?.achieved)   tA++; }
+        });
+        const concept = calcScore(cA, cN, 'concept');
+        const mission = calcScore(mA, mN, 'mission');
+        const think   = calcScore(tA, tN, 'think');
+        return { id:s.id, name:s.name, cls, concept, mission, think,
+          total: concept.score + mission.score + think.score };
+      })
+      .sort((a, b) => a.id.localeCompare(b.id));
+
+    const maxScore = (bands[0]?.concept||0) + (bands[0]?.mission||0) + (bands[0]?.think||0);
+    document.getElementById('gradeScoreInfo').textContent =
+      `반영 강의 ${selectedLectures.length}개 기준 · 최대 ${maxScore}점`;
+
+    renderScoreTable(maxScore);
+    setupSubtabs('gradeScoreWrap', 'gradeSubtabScore');
+    document.getElementById('gradeExportBtn').style.display = '';
+  } catch(e) {
+    document.getElementById('gradeScoreWrap').innerHTML = `<div class="empty-panel">${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = '불러오기';
+  }
+}
+
+function renderScoreTable(maxScore) {
+  if (!_scoreData.length) {
+    document.getElementById('gradeScoreWrap').innerHTML = '<div class="empty-panel">성적 데이터가 없습니다.</div>';
+    return;
+  }
+  const classes = {};
+  _scoreData.forEach(s => { if (!classes[s.cls]) classes[s.cls]=[]; classes[s.cls].push(s); });
+
+  let html = `<div class="grade-score-table-wrap"><table class="grade-score-table">
+    <thead>
+      <tr>
+        <th rowspan="2">학번</th><th rowspan="2">이름</th><th rowspan="2">반</th>
+        <th colspan="3" class="sh-c">개념체크</th>
+        <th colspan="3" class="sh-m">미션체크</th>
+        <th colspan="3" class="sh-t">생각체크</th>
+        <th rowspan="2" class="sh-tot">총점<br><span style="font-size:10px;font-weight:400">/${maxScore}</span></th>
+      </tr>
+      <tr>
+        <th class="sh-c">달성</th><th class="sh-c">%</th><th class="sh-c">점수</th>
+        <th class="sh-m">달성</th><th class="sh-m">%</th><th class="sh-m">점수</th>
+        <th class="sh-t">달성</th><th class="sh-t">%</th><th class="sh-t">점수</th>
+      </tr>
+    </thead><tbody>`;
+
+  Object.keys(classes).sort((a,b)=>a-b).forEach(cls => {
+    const studs = classes[cls];
+    html += `<tr class="sc-cls-row" data-cls="${cls}"><td colspan="13">${cls}반 (${studs.length}명)</td></tr>`;
+    studs.forEach(s => {
+      const c=s.concept, m=s.mission, t=s.think;
+      html += `<tr data-cls="${cls}">
+        <td style="font-size:11px;color:var(--sub)">${esc(s.id)}</td>
+        <td style="text-align:left;font-weight:600">${esc(s.name)}</td>
+        <td>${s.cls}반</td>
+        <td>${c.total?`${c.achieved}/${c.total}`:'미실시'}</td><td>${c.total?c.pct+'%':'—'}</td><td style="font-weight:700;color:var(--c1)">${c.total?c.score:'—'}</td>
+        <td>${m.total?`${m.achieved}/${m.total}`:'미실시'}</td><td>${m.total?m.pct+'%':'—'}</td><td style="font-weight:700;color:var(--c2)">${m.total?m.score:'—'}</td>
+        <td>${t.total?`${t.achieved}/${t.total}`:'미실시'}</td><td>${t.total?t.pct+'%':'—'}</td><td style="font-weight:700;color:var(--c1)">${t.total?t.score:'—'}</td>
+        <td style="font-weight:800;color:var(--c4)">${s.total}</td>
+      </tr>`;
+    });
+  });
+  html += '</tbody></table></div>';
+  document.getElementById('gradeScoreWrap').innerHTML = html;
+}
+
+function exportScoreCSV() {
+  if (!_scoreData.length) return;
+  const BOM = '﻿';
+  const headers = ['학번','이름','반','개념달성','개념총','개념%','개념점수','미션달성','미션총','미션%','미션점수','생각달성','생각총','생각%','생각점수','총점'];
+  const rows = _scoreData.map(s => [
+    s.id, s.name, `${s.cls}반`,
+    s.concept.achieved, s.concept.total||'미실시', s.concept.total ? s.concept.pct+'%' : '—', s.concept.total ? s.concept.score : '—',
+    s.mission.achieved, s.mission.total||'미실시', s.mission.total ? s.mission.pct+'%' : '—', s.mission.total ? s.mission.score : '—',
+    s.think.achieved,   s.think.total  ||'미실시', s.think.total   ? s.think.pct+'%'   : '—', s.think.total   ? s.think.score   : '—',
+    s.total,
+  ]);
+  const csv  = BOM + [headers, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a'); a.href=url; a.download='성적조회.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function refreshGradeSettingsLectures() {
+  try {
+    const snap = await getDocs(collection(db, 'grade_lecture_config'));
+    _allGradedLectures = snap.docs
+      .map(d => ({ key: d.id, title: d.data().lessonTitle || `${d.id}강` }))
+      .sort((a, b) => parseInt(a.key||0) - parseInt(b.key||0));
+  } catch(e) {}
+  if (_gradeSettings) renderGradeSettings();
 }
 
 // ── 성적 설정 ──
