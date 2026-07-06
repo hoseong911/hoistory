@@ -483,6 +483,9 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
         <select id="lesson-select" onchange="onLessonChange(this.value)"></select>
         <button class="cbtn-sm" onclick="addLesson()">+ 새 강의</button>
         <button class="cbtn-danger" onclick="deleteLesson()">강의 삭제</button>
+        <input type="file" id="ce-file-input" accept=".hwpx,.pdf" style="display:none" onchange="ceHandleFileUpload(this.files[0])">
+        <button class="cbtn-sm" id="ce-file-btn" onclick="document.getElementById('ce-file-input').click()">+ 활동지 파일로 새 강의</button>
+        <span id="ce-file-status" class="field-hint"></span>
       </div>
 
       <div class="sub-tab-bar">
@@ -932,6 +935,8 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 
 <!-- 개념 체크 미리보기 렌더러: 학생 화면(class/lesson.html)과 완전히 동일한 렌더링 로직을 공유한다 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<!-- hwpx 파일(zip+xml) 압축 해제용: 활동지 업로드로 새 강의 자동 생성 기능에 사용 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="../class/slide-render.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -1509,6 +1514,151 @@ async function resetContent() {
     await ceGetLessonsFromFirestore();
   }
   ceLoadLessonData(ceCurrentLessonNum);
+}
+
+// ── 활동지 파일(hwpx/pdf) 업로드로 새 강의 자동 생성 ──
+// hwpx는 zip 안의 Preview/PrvText.txt(한글이 검색 색인용으로 만들어두는 순수 텍스트)를
+// 우선 사용하고, 없으면 Contents/section*.xml에서 태그만 제거해 텍스트를 뽑아낸다.
+// pdf는 텍스트 추출 없이 파일 그대로 Claude에 문서로 전달한다(Claude가 PDF를 직접 읽을 수 있음).
+async function ceGetClaudeApiKey() {
+  const snap = await getDoc(doc(db, 'settings', 'claude'));
+  return snap.exists() ? (snap.data().apiKey || '') : '';
+}
+
+async function ceExtractHwpxText(file) {
+  const zip = await JSZip.loadAsync(file);
+  const preview = zip.file('Preview/PrvText.txt');
+  if (preview) {
+    const text = await preview.async('string');
+    if (text.trim()) return text;
+  }
+  const sectionNames = Object.keys(zip.files)
+    .filter(n => /^Contents\/section\d+\.xml$/.test(n))
+    .sort();
+  let text = '';
+  for (const name of sectionNames) {
+    const xml = await zip.file(name).async('string');
+    text += xml.replace(/<[^>]+>/g, '\n').replace(/\n{2,}/g, '\n') + '\n';
+  }
+  return text;
+}
+
+function ceFileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+const CE_LESSON_JSON_SCHEMA = `{
+  "lesson": { "title": "수업 제목", "unit": "학습 단원 (예: Ⅲ-4. 고려의 생활과 문화)", "page": "교과서 페이지", "objectives": ["학습 목표 문장", "..."] },
+  "contentLines": [
+    { "type": "divider", "title": "슬라이드 제목" },
+    { "type": "row", "label": "소제목/항목명", "items": ["빈칸은 {정답} 형태로 표시한 문장", "..."] }
+  ],
+  "think": { "question": "오늘의 생각 질문", "guide": "답변 안내 문구" }
+}`;
+
+const CE_LESSON_JSON_INSTRUCTION = `다음은 중학교 역사 수업 활동지 내용이다. 이 내용을 분석해서 아래 JSON 스키마로 정확히 변환해줘.
+
+- contentLines는 활동지의 소제목 단위로 나눠서 만들어줘. 새 슬라이드로 나눌 만큼 주제가 바뀌는 지점 앞에는 {"type":"divider","title":"..."}를 넣어줘.
+- 활동지의 빈칸(밑줄, 괄호, ○○ 등) 문제는 정답을 알 수 있으면 문장 안에 {정답} 형태로 표시해줘. 정답을 알 수 없으면 표시 없이 문장 그대로 넣어줘.
+- 이미지나 표는 텍스트로 옮길 수 없으면 생략해도 된다.
+- 학습 목표가 활동지에 명시돼 있지 않으면 내용을 보고 1~3개 합리적으로 추론해서 채워줘.
+- 다른 설명 없이 아래 스키마와 동일한 구조의 JSON만 출력해줘.
+
+스키마:
+${CE_LESSON_JSON_SCHEMA}
+
+활동지 내용:
+`;
+
+async function ceRequestLessonJson(claudeKey, content) {
+  const messageContent = typeof content === 'string'
+    ? [{ type: 'text', text: CE_LESSON_JSON_INSTRUCTION + content }]
+    : [
+        { type: 'text', text: CE_LESSON_JSON_INSTRUCTION },
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: content } }
+      ];
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+    body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:4096, messages:[{ role:'user', content: messageContent }] })
+  });
+  if (!res.ok) throw new Error(`API 오류 ${res.status}`);
+  const data = await res.json();
+  const raw = (data.content?.[0]?.text || '').replace(/```json|```/g,'').trim();
+  return JSON.parse(raw);
+}
+
+function ceValidateParsedLesson(d) {
+  return !!d && d.lesson && typeof d.lesson === 'object'
+    && Array.isArray(d.lesson.objectives)
+    && Array.isArray(d.contentLines)
+    && d.contentLines.every(l => l && (l.type==='divider'||l.type==='row'||l.type==='image'))
+    && d.think && typeof d.think === 'object';
+}
+
+async function ceHandleFileUpload(file) {
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const statusEl = document.getElementById('ce-file-status');
+  const btnEl = document.getElementById('ce-file-btn');
+  const inputEl = document.getElementById('ce-file-input');
+  if (ext !== 'hwpx' && ext !== 'pdf') {
+    alert('.hwpx 또는 .pdf 파일만 지원합니다.');
+    inputEl.value = '';
+    return;
+  }
+
+  const claudeKey = await ceGetClaudeApiKey();
+  if (!claudeKey) { alert('설정에서 Claude API 키를 먼저 등록해주세요.'); inputEl.value = ''; return; }
+
+  const num = (prompt('강 번호를 입력하세요 (예: 24)') || '').trim();
+  if (!num) { inputEl.value = ''; return; }
+  if (ceLessonsCache.find(l => l.num === num)) { alert('이미 있는 강 번호입니다.'); inputEl.value = ''; return; }
+
+  btnEl.disabled = true;
+  if (statusEl) statusEl.textContent = '파일 분석 중… (최대 1분 정도 걸릴 수 있습니다)';
+
+  try {
+    let parsed;
+    if (ext === 'hwpx') {
+      const text = await ceExtractHwpxText(file);
+      if (!text.trim()) throw new Error('파일에서 텍스트를 찾지 못했습니다.');
+      parsed = await ceRequestLessonJson(claudeKey, text);
+    } else {
+      const base64 = await ceFileToBase64(file);
+      parsed = await ceRequestLessonJson(claudeKey, base64);
+    }
+    if (!ceValidateParsedLesson(parsed)) throw new Error('AI 응답 구조가 올바르지 않습니다.');
+
+    const order = ceLessonsCache.length + 1;
+    const content = {
+      lesson: {
+        num, title: parsed.lesson.title || '새 강의', unit: parsed.lesson.unit || '', page: parsed.lesson.page || '',
+        objectives: parsed.lesson.objectives.length ? parsed.lesson.objectives : ['학습 목표를 입력하세요']
+      },
+      contentLines: parsed.contentLines,
+      think: { question: parsed.think.question || '', guide: parsed.think.guide || '' }
+    };
+    await addDoc(collection(db, 'class_lessons'), {
+      num, title: content.lesson.title, unit: content.lesson.unit, year: '2026', order, content
+    });
+    await ceGetLessonsFromFirestore();
+    ceCurrentLessonNum = num;
+    cePopulateLessonSelect();
+    ceLoadLessonData(num);
+    if (statusEl) statusEl.textContent = '생성되었습니다. 내용을 검토하고 저장해주세요.';
+  } catch (e) {
+    if (statusEl) statusEl.textContent = '';
+    alert('강의 생성 실패: ' + e.message);
+  } finally {
+    btnEl.disabled = false;
+    inputEl.value = '';
+  }
 }
 
 // 예시 슬라이드 미리보기 (개념 Check 슬라이드 1개, 없으면 표지)
@@ -2506,7 +2656,7 @@ Object.assign(window, {
   addDivider, addContentRow, addImageSlide, toggleDividerImg, deleteLine, moveLine,
   updateImageItem, addImageItem, removeImageItem,
   updateLesson, updateObjectives, updateLine, updateLineItems, updateThink,
-  resetContent, saveContent,
+  resetContent, saveContent, ceHandleFileUpload,
   onFsSliderInput, onFsNumberInput, onColorChange, resetDesign, saveDesign,
 });
 
