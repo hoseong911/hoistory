@@ -82,13 +82,13 @@
         ${slide.rows.map(rowHTML).join('')}
       </div>`;
 
-    const imgSrc = slide.img != null
-      ? `/hoistory/class/img/${lesson.num}_${slide.img}.png`
+    const imgBase = slide.img != null
+      ? `/hoistory/class/img/${lesson.num}_${slide.img}`
       : null;
     const imgSize = slide.imgSize != null ? slide.imgSize : 50;
-    const imgPanel = imgSrc ? `
+    const imgPanel = imgBase ? `
       <div class="clayout-img" style="flex: 0 0 ${imgSize}%">
-        <img src="${imgSrc}" alt="${slide.imgCaption || ''}">
+        <img src="${imgBase}.png" alt="${slide.imgCaption || ''}" onerror="SlideRenderImgFallback(this,'${imgBase}',0)">
         ${slide.imgCaption ? `<p class="clayout-caption">${slide.imgCaption}</p>` : ''}
       </div>` : '';
 
@@ -113,10 +113,17 @@
     const images = slide.images && slide.images.length ? slide.images : [{ img: slide.img, src: slide.src, caption: slide.caption }];
     const cols = images.length === 4 ? 2 : Math.min(images.length, 3) || 1;
     const cells = images.map(im => {
-      const src = im.img != null ? `/hoistory/class/img/${lesson.num}_${im.img}.png` : (im.src || '');
+      if (im.img != null) {
+        const base = `/hoistory/class/img/${lesson.num}_${im.img}`;
+        return `
+          <div class="grid-img-cell">
+            <img src="${base}.png" alt="${im.caption || slide.title || ''}" class="grid-img" onerror="SlideRenderImgFallback(this,'${base}',0)">
+            ${im.caption ? `<p class="grid-img-caption">${im.caption}</p>` : ''}
+          </div>`;
+      }
       return `
         <div class="grid-img-cell">
-          <img src="${src}" alt="${im.caption || slide.title || ''}" class="grid-img">
+          <img src="${im.src || ''}" alt="${im.caption || slide.title || ''}" class="grid-img">
           ${im.caption ? `<p class="grid-img-caption">${im.caption}</p>` : ''}
         </div>`;
     }).join('');
@@ -164,6 +171,17 @@
     }
     return `<div class="slide${extraClass}">${inner}</div>`;
   }
+
+  /* img 번호로 만든 경로는 확장자를 png로 가정하는데, 실제 저장 파일이 jpg인 경우가
+     섞여 있어서 로드 실패 시 jpg -> jpeg 순으로 다시 시도한다. onerror 인라인 속성에서
+     호출해야 하므로 전역(window)에 노출한다. */
+  function SlideRenderImgFallback(imgEl, basePath, idx) {
+    const exts = ['jpg', 'jpeg'];
+    if (idx >= exts.length) { imgEl.onerror = null; return; }
+    imgEl.onerror = () => SlideRenderImgFallback(imgEl, basePath, idx + 1);
+    imgEl.src = `${basePath}.${exts[idx]}`;
+  }
+  global.SlideRenderImgFallback = SlideRenderImgFallback;
 
   /* 이미지 클릭 → 확대 라이트박스. 오버레이는 최초 호출 시 한 번만 만들어 body에 붙인다. */
   let lightbox = null;
