@@ -146,6 +146,7 @@
       extraClass = ' slide-cover';
       inner = coverHTML(lesson);
     } else if (slide.type === 'objectives') {
+      extraClass = ' slide-objectives';
       inner = objectivesHTML(lesson);
     } else if (slide.type === 'concept') {
       inner = conceptHTML(slide, lesson);
