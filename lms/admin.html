@@ -1587,7 +1587,11 @@ async function ceRequestLessonJson(claudeKey, content) {
     headers: { 'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
     body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:4096, messages:[{ role:'user', content: messageContent }] })
   });
-  if (!res.ok) throw new Error(`API 오류 ${res.status}`);
+  if (!res.ok) {
+    let detail = '';
+    try { detail = (await res.json())?.error?.message || ''; } catch(e) {}
+    throw new Error(`API 오류 ${res.status}${detail ? ' - ' + detail : ''}`);
+  }
   const data = await res.json();
   const raw = (data.content?.[0]?.text || '').replace(/```json|```/g,'').trim();
   return JSON.parse(raw);
