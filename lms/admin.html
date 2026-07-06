@@ -31,25 +31,11 @@
 }
 html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--surface);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
 
-/* ── 로그인 ── */
-#loginView{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.login-box{background:var(--canvas);border-radius:32px;padding:48px 40px;width:100%;max-width:360px;box-shadow:var(--shadow);border:1px solid var(--hairline-soft);text-align:center}
-.login-title{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:22px;color:var(--primary);letter-spacing:1px;margin-bottom:4px}
-.login-sub{font-size:13px;color:var(--slate);margin-bottom:32px}
-.login-input{width:100%;padding:0 16px;border:1.5px solid var(--hairline);border-radius:8px;font-family:inherit;font-size:15px;outline:none;margin-bottom:10px;background:var(--canvas);transition:border-color .2s;height:44px}
-.login-input:focus{border-color:var(--primary)}
-.login-btn{width:100%;padding:13px;background:var(--primary);color:#fff;border:none;border-radius:100px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:background .2s}
-.login-btn:hover{background:var(--primary-deep)}
-.login-err{font-size:12px;color:var(--critical);margin-top:8px;display:none}
-
 /* ── 어드민 ── */
-#adminView{display:none;flex-direction:column;min-height:100vh}
+#adminView{display:flex;flex-direction:column;min-height:100vh}
 .adm-header{background:var(--canvas);border-bottom:1px solid var(--hairline-soft);padding:14px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:30}
 .adm-title{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:16px;color:var(--primary);letter-spacing:.5px}
 .adm-sub{font-size:11px;color:var(--slate);margin-top:2px}
-.adm-logout{font-size:12px;color:var(--charcoal);background:none;border:1.5px solid var(--hairline);border-radius:100px;padding:6px 14px;cursor:pointer;font-family:inherit;transition:background .15s}
-.adm-logout:hover{background:var(--surface)}
-
 /* ── 사이드바 레이아웃 ── */
 .adm-body{display:flex;flex:1;min-height:calc(100vh - 57px)}
 .adm-sidebar{width:210px;flex-shrink:0;background:var(--canvas);border-right:1px solid var(--hairline-soft);position:sticky;top:57px;height:calc(100vh - 57px);overflow-y:auto;padding:12px 0}
@@ -346,17 +332,6 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 </head>
 <body data-mode="complete">
 
-<!-- ────── 로그인 ────── -->
-<div id="loginView">
-  <div class="login-box">
-    <div class="login-title">DIVE INTO HISTORY : LMS</div>
-    <div class="login-sub">관리자 모드</div>
-    <input class="login-input" id="pwInput" type="password" placeholder="비밀번호" autocomplete="current-password">
-    <button class="login-btn" id="loginBtn">로그인</button>
-    <div class="login-err" id="loginErr">비밀번호가 올바르지 않습니다</div>
-  </div>
-</div>
-
 <!-- ────── 어드민 ────── -->
 <div id="adminView">
   <header class="adm-header">
@@ -364,7 +339,6 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
       <div class="adm-title">DIVE INTO HISTORY : LMS</div>
       <div class="adm-sub">관리자 모드</div>
     </div>
-    <button class="adm-logout" id="logoutBtn">나가기</button>
   </header>
 
   <div class="adm-body">
@@ -727,9 +701,6 @@ const app  = initializeApp(firebaseConfig);
 const db   = getFirestore(app);
 const rtdb = getDatabase(app);
 
-const ADMIN_PW  = 'ghtjd12!@';   // 비밀번호 변경 시 이 줄만 수정
-const SESS_KEY  = 'lms_admin_auth';
-
 const SECTION_MAP = {
   concept: { colorVar:'--c1', previewClass:'preview-concept' },
   mission: { colorVar:'--c2', previewClass:'preview-mission' },
@@ -737,29 +708,7 @@ const SECTION_MAP = {
   grade:   { colorVar:'--c4', previewClass:'preview-grade'   },
 };
 
-// ── 로그인 체크 ──
-if (sessionStorage.getItem(SESS_KEY) === '1') showAdmin();
-
-document.getElementById('loginBtn').addEventListener('click', tryLogin);
-document.getElementById('pwInput').addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
-function tryLogin() {
-  const pw = document.getElementById('pwInput').value;
-  if (pw === ADMIN_PW) {
-    sessionStorage.setItem(SESS_KEY, '1');
-    showAdmin();
-  } else {
-    document.getElementById('loginErr').style.display = 'block';
-    document.getElementById('pwInput').value = '';
-    document.getElementById('pwInput').focus();
-  }
-}
-
-function showAdmin() {
-  document.getElementById('loginView').style.display  = 'none';
-  document.getElementById('adminView').style.display  = 'flex';
-  document.getElementById('logoutBtn').addEventListener('click', () => {
-    sessionStorage.removeItem(SESS_KEY); location.reload();
-  });
+function initAdmin() {
   initSidebar();
   startListening();
   ceInitContent();
@@ -2277,6 +2226,9 @@ Object.assign(window, {
   resetContent, saveContent,
   onFsSliderInput, onFsNumberInput, onColorChange, resetDesign, saveDesign,
 });
+
+// 스크립트 최상위 const/let 선언이 모두 끝난 뒤에 호출해야 TDZ 에러가 안 난다.
+initAdmin();
 </script>
 </body>
 </html>
