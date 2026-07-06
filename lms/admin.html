@@ -490,6 +490,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 
       <div class="sub-tab-bar">
         <button class="sub-tab active" data-sub="cover"   onclick="switchSubTab('cover')">표지</button>
+        <button class="sub-tab"        data-sub="opening" onclick="switchSubTab('opening')">오프닝 퀘스천</button>
         <button class="sub-tab"        data-sub="concept" onclick="switchSubTab('concept')">개념 체크</button>
         <button class="sub-tab"        data-sub="mission" onclick="switchSubTab('mission')">미션 체크</button>
         <button class="sub-tab"        data-sub="think"   onclick="switchSubTab('think')">생각 체크</button>
@@ -502,15 +503,22 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
         </div>
       </div>
 
+      <div id="sub-opening" class="sub-panel">
+        <div class="s-card">
+          <div class="s-head">오프닝 퀘스천 <span class="field-hint">수업 시작 전, 개념 체크에 들어가기 전에 보여주는 도입 질문입니다.</span></div>
+          <div class="s-body" id="opening-form"></div>
+        </div>
+      </div>
+
       <div id="sub-concept" class="sub-panel">
         <div class="s-card">
           <div class="s-head">개념 Check 콘텐츠 <span class="field-hint">회색 카드(구분선)가 새 슬라이드의 시작입니다. ⋮⋮ 핸들을 드래그하면 순서를 바꿀 수 있어요.</span></div>
           <div class="s-body">
             <div id="content-lines"></div>
             <div class="btn-row" style="margin-top:10px">
-              <button class="cbtn-sm" onclick="addDivider()">+ 구분선(새 슬라이드) 추가</button>
-              <button class="cbtn-sm" onclick="addContentRow()">+ 행 추가</button>
-              <button class="cbtn-sm" onclick="addImageSlide()">+ 이미지 슬라이드</button>
+              <button class="cbtn-sm" onclick="addDivider('concept')">+ 구분선(새 슬라이드) 추가</button>
+              <button class="cbtn-sm" onclick="addContentRow('concept')">+ 행 추가</button>
+              <button class="cbtn-sm" onclick="addImageSlide('concept')">+ 이미지 슬라이드</button>
             </div>
           </div>
         </div>
@@ -518,8 +526,15 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 
       <div id="sub-mission" class="sub-panel">
         <div class="s-card">
-          <div class="s-head">미션 Check</div>
-          <div class="s-body"><p class="field-hint">아직 준비 중입니다. 내용은 이후에 추가할 예정이에요.</p></div>
+          <div class="s-head">미션 Check 콘텐츠 <span class="field-hint">개념 체크와 같은 방식으로, 미션 활동 내용을 별도 슬라이드로 구성합니다.</span></div>
+          <div class="s-body">
+            <div id="mission-content-lines"></div>
+            <div class="btn-row" style="margin-top:10px">
+              <button class="cbtn-sm" onclick="addDivider('mission')">+ 구분선(새 슬라이드) 추가</button>
+              <button class="cbtn-sm" onclick="addContentRow('mission')">+ 행 추가</button>
+              <button class="cbtn-sm" onclick="addImageSlide('mission')">+ 이미지 슬라이드</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1278,7 +1293,9 @@ async function deleteLesson() {
 function ceBlankLessonData(num) {
   return {
     lesson: { num, title: '새 강의', unit: '', page: '', objectives: ['학습 목표를 입력하세요'] },
+    opening: { question: '', guide: '' },
     contentLines: [],
+    mission: { contentLines: [] },
     think: { question: '', guide: '' }
   };
 }
@@ -1311,16 +1328,24 @@ function ceLoadLessonData(num) {
 
   if (ceIsValidContentData(lesson?.content)) {
     ceCd = lesson.content;
+    // 오프닝 퀘스천·미션 체크는 나중에 추가된 필드라, 그 전에 저장된 강의는 없을 수 있다.
+    // 없으면 빈 값으로 채워서(기존 데이터를 지우지 않고) 렌더링이 깨지지 않게 한다.
+    if (!ceCd.opening) ceCd.opening = { question: '', guide: '' };
+    if (!ceCd.mission || !Array.isArray(ceCd.mission.contentLines)) ceCd.mission = { contentLines: [] };
   } else {
     const def = CE_LESSON_DEFAULTS[num];
     ceCd = def ? ceDeepCopy(def) : ceBlankLessonData(num);
+    if (!ceCd.opening) ceCd.opening = { question: '', guide: '' };
+    if (!ceCd.mission || !Array.isArray(ceCd.mission.contentLines)) ceCd.mission = { contentLines: [] };
     // Firestore에 저장된 content가 없거나 깨져 있었던 것이므로, 방금 만든 기본값을
     // 바로 Firestore에도 반영해서 실제 학생 페이지도 같은 내용을 보게 한다.
     if (lesson) ceSaveContentToFirestore(lesson.docId, ceCd);
   }
 
   ceRenderCoverForm();
-  ceRenderContentLines();
+  ceRenderOpeningForm();
+  ceRenderContentLines('concept');
+  ceRenderContentLines('mission');
   ceRenderThinkForm();
   ceRenderPreview();
 }
@@ -1343,55 +1368,66 @@ function ceRenderCoverForm() {
 function updateLesson(f,v){ ceCd.lesson[f]=v; ceRenderPreview(); }
 function updateObjectives(v){ ceCd.lesson.objectives = v.split('\n').filter(s=>s.trim()!==''); ceRenderPreview(); }
 
-// ── 개념 Check 콘텐츠 (구분선 + 행, 드래그로 순서 변경) ──
+// ── 개념/미션 Check 콘텐츠 (구분선 + 행, 드래그로 순서 변경) ──
+// 개념 체크와 미션 체크는 완전히 같은 방식(구분선/행/이미지)으로 편집하므로, 어느 쪽을
+// 편집 중인지를 target('concept'|'mission')으로 받아서 같은 함수를 재사용한다.
+function ceLinesFor(target) {
+  return target === 'mission' ? ceCd.mission.contentLines : ceCd.contentLines;
+}
+function ceContainerIdFor(target) {
+  return target === 'mission' ? 'mission-content-lines' : 'content-lines';
+}
+
 // 드래그 핸들이 잘 안 잡힐 때를 위한 대체 수단 (위/아래로 한 칸씩 이동)
-function ceMoveButtons(i) {
-  const last = ceCd.contentLines.length - 1;
+function ceMoveButtons(target, i) {
+  const last = ceLinesFor(target).length - 1;
   return `
     <span class="cl-move">
-      <button class="cl-move-btn" onclick="moveLine(${i},-1)" ${i === 0 ? 'disabled' : ''} title="위로 이동">↑</button>
-      <button class="cl-move-btn" onclick="moveLine(${i},1)" ${i === last ? 'disabled' : ''} title="아래로 이동">↓</button>
+      <button class="cl-move-btn" onclick="moveLine('${target}',${i},-1)" ${i === 0 ? 'disabled' : ''} title="위로 이동">↑</button>
+      <button class="cl-move-btn" onclick="moveLine('${target}',${i},1)" ${i === last ? 'disabled' : ''} title="아래로 이동">↓</button>
     </span>`;
 }
-function moveLine(i, dir) {
+function moveLine(target, i, dir) {
+  const lines = ceLinesFor(target);
   const j = i + dir;
-  if (j < 0 || j >= ceCd.contentLines.length) return;
-  const [item] = ceCd.contentLines.splice(i, 1);
-  ceCd.contentLines.splice(j, 0, item);
-  ceRenderContentLines();
+  if (j < 0 || j >= lines.length) return;
+  const [item] = lines.splice(i, 1);
+  lines.splice(j, 0, item);
+  ceRenderContentLines(target);
   ceRenderPreview();
 }
 
-function ceRenderContentLines() {
-  const container = document.getElementById('content-lines');
-  if (!ceCd.contentLines.length) {
+function ceRenderContentLines(target) {
+  const lines = ceLinesFor(target);
+  const container = document.getElementById(ceContainerIdFor(target));
+  if (!lines.length) {
     container.innerHTML = '<p class="field-hint">아직 내용이 없습니다. 아래 버튼으로 구분선과 행을 추가하세요.</p>';
     return;
   }
-  container.innerHTML = ceCd.contentLines.map((line, i) => {
+  container.innerHTML = lines.map((line, i) => {
     if (line.type === 'divider') {
       const hasImg = line.img != null;
       return `
         <div class="cl-divider" draggable="true" data-idx="${i}">
           <div class="cl-divider-top">
             <span class="cl-handle">⋮⋮</span>
-            ${ceMoveButtons(i)}
+            ${ceMoveButtons(target,i)}
             <span class="cl-divider-label">새 슬라이드</span>
-            <input type="text" class="cl-divider-title" placeholder="슬라이드 제목" value="${esc(line.title)}" oninput="updateLine(${i},'title',this.value)">
-            <button class="cbtn-sm" onclick="toggleDividerImg(${i})">${hasImg ? '이미지 제거' : '+ 이미지 삽입'}</button>
-            <button class="cbtn-danger" onclick="deleteLine(${i})">삭제</button>
+            <input type="text" class="cl-divider-title" placeholder="슬라이드 제목" value="${esc(line.title)}" oninput="updateLine('${target}',${i},'title',this.value)">
+            <button class="cbtn-sm" onclick="toggleDividerImg('${target}',${i})">${hasImg ? '이미지 제거' : '+ 이미지 삽입'}</button>
+            <button class="cbtn-danger" onclick="deleteLine('${target}',${i})">삭제</button>
           </div>
           ${hasImg ? `
           <div class="cl-img-row">
             <span class="cl-img-label">이미지 번호</span>
-            <input type="number" class="cl-img-input" min="1" max="99" value="${line.img}" oninput="updateLine(${i},'img',+this.value)">
+            <input type="number" class="cl-img-input" min="1" max="99" value="${line.img}" oninput="updateLine('${target}',${i},'img',+this.value)">
             <span class="cl-img-label">배치</span>
-            <select class="cl-img-select" onchange="updateLine(${i},'imgLayout',this.value)">
+            <select class="cl-img-select" onchange="updateLine('${target}',${i},'imgLayout',this.value)">
               <option value="right" ${(line.imgLayout||'right')==='right'?'selected':''}>우측</option>
               <option value="bottom" ${line.imgLayout==='bottom'?'selected':''}>하단</option>
             </select>
             <span class="cl-img-label">비율</span>
-            <input type="number" class="cl-img-input" min="20" max="70" value="${line.imgSize!=null?line.imgSize:50}" oninput="updateLine(${i},'imgSize',+this.value)">
+            <input type="number" class="cl-img-input" min="20" max="70" value="${line.imgSize!=null?line.imgSize:50}" oninput="updateLine('${target}',${i},'imgSize',+this.value)">
             <span class="cl-img-label">%</span>
           </div>` : ''}
         </div>`;
@@ -1401,71 +1437,85 @@ function ceRenderContentLines() {
         <div class="cl-image" draggable="true" data-idx="${i}">
           <div class="cl-divider-top">
             <span class="cl-handle">⋮⋮</span>
-            ${ceMoveButtons(i)}
+            ${ceMoveButtons(target,i)}
             <span class="cl-image-label">이미지 슬라이드</span>
-            <input type="text" class="cl-divider-title" placeholder="제목 (선택)" value="${esc(line.title||'')}" oninput="updateLine(${i},'title',this.value)" style="max-width:220px">
-            <button class="cbtn-danger" onclick="deleteLine(${i})">삭제</button>
+            <input type="text" class="cl-divider-title" placeholder="제목 (선택)" value="${esc(line.title||'')}" oninput="updateLine('${target}',${i},'title',this.value)" style="max-width:220px">
+            <button class="cbtn-danger" onclick="deleteLine('${target}',${i})">삭제</button>
           </div>
           ${line.images.map((im, j) => `
             <div class="cl-img-row">
               <span class="cl-img-label">번호</span>
-              <input type="number" class="cl-img-input" min="1" max="99" value="${im.img||1}" oninput="updateImageItem(${i},${j},'img',+this.value)">
-              <input type="text" class="cl-divider-title" placeholder="캡션 (선택)" value="${esc(im.caption||'')}" oninput="updateImageItem(${i},${j},'caption',this.value)" style="max-width:180px">
-              ${line.images.length > 1 ? `<button class="cbtn-sm" onclick="removeImageItem(${i},${j})">이 이미지 제거</button>` : ''}
+              <input type="number" class="cl-img-input" min="1" max="99" value="${im.img||1}" oninput="updateImageItem('${target}',${i},${j},'img',+this.value)">
+              <input type="text" class="cl-divider-title" placeholder="캡션 (선택)" value="${esc(im.caption||'')}" oninput="updateImageItem('${target}',${i},${j},'caption',this.value)" style="max-width:180px">
+              ${line.images.length > 1 ? `<button class="cbtn-sm" onclick="removeImageItem('${target}',${i},${j})">이 이미지 제거</button>` : ''}
             </div>`).join('')}
-          <button class="cbtn-sm" onclick="addImageItem(${i})">+ 이미지 추가 (그리드 배치)</button>
+          <button class="cbtn-sm" onclick="addImageItem('${target}',${i})">+ 이미지 추가 (그리드 배치)</button>
         </div>`;
     }
     return `
       <div class="cl-row" draggable="true" data-idx="${i}">
         <span class="cl-handle">⋮⋮</span>
-        ${ceMoveButtons(i)}
-        <input type="text" class="cl-label" placeholder="라벨" value="${esc(line.label)}" oninput="updateLine(${i},'label',this.value)">
-        <textarea class="cl-items" placeholder="{단어}는 빈칸, 한 줄 = 한 항목" oninput="updateLineItems(${i},this.value)">${esc(line.items.join('\n'))}</textarea>
-        <button class="cbtn-danger" onclick="deleteLine(${i})">삭제</button>
+        ${ceMoveButtons(target,i)}
+        <input type="text" class="cl-label" placeholder="라벨" value="${esc(line.label)}" oninput="updateLine('${target}',${i},'label',this.value)">
+        <textarea class="cl-items" placeholder="{단어}는 빈칸, 한 줄 = 한 항목" oninput="updateLineItems('${target}',${i},this.value)">${esc(line.items.join('\n'))}</textarea>
+        <button class="cbtn-danger" onclick="deleteLine('${target}',${i})">삭제</button>
       </div>`;
   }).join('');
-  ceWireDragEvents();
+  ceWireDragEvents(target);
 }
 
-function updateLine(i,f,v)    { ceCd.contentLines[i][f]=v; ceRenderPreview(); }
-function updateLineItems(i,v) { ceCd.contentLines[i].items = v.split('\n').filter(s=>s.trim()!==''); ceRenderPreview(); }
-function deleteLine(i)        { ceCd.contentLines.splice(i,1); ceRenderContentLines(); ceRenderPreview(); }
-function addDivider()         { ceCd.contentLines.push({ type:'divider', title:'새 슬라이드' }); ceRenderContentLines(); ceRenderPreview(); }
-function toggleDividerImg(i) {
-  const line = ceCd.contentLines[i];
+function updateLine(target,i,f,v)    { ceLinesFor(target)[i][f]=v; ceRenderPreview(); }
+function updateLineItems(target,i,v) { ceLinesFor(target)[i].items = v.split('\n').filter(s=>s.trim()!==''); ceRenderPreview(); }
+function deleteLine(target,i)        { ceLinesFor(target).splice(i,1); ceRenderContentLines(target); ceRenderPreview(); }
+function addDivider(target)          { ceLinesFor(target).push({ type:'divider', title:'새 슬라이드' }); ceRenderContentLines(target); ceRenderPreview(); }
+function toggleDividerImg(target,i) {
+  const line = ceLinesFor(target)[i];
   if (line.img != null) {
     delete line.img; delete line.imgLayout; delete line.imgSize;
   } else {
     line.img = 1; line.imgLayout = 'right'; line.imgSize = 50;
   }
-  ceRenderContentLines(); ceRenderPreview();
+  ceRenderContentLines(target); ceRenderPreview();
 }
-function addContentRow()      { ceCd.contentLines.push({ type:'row', label:'새 라벨', items:['내용을 입력하세요'] }); ceRenderContentLines(); ceRenderPreview(); }
-function addImageSlide()      { ceCd.contentLines.push({ type:'image', images:[{ img:1, caption:'' }], title:'' }); ceRenderContentLines(); ceRenderPreview(); }
-function updateImageItem(li,ii,f,v) { ceCd.contentLines[li].images[ii][f] = v; ceRenderPreview(); }
-function addImageItem(li)     { ceCd.contentLines[li].images.push({ img:1, caption:'' }); ceRenderContentLines(); ceRenderPreview(); }
-function removeImageItem(li,ii) { ceCd.contentLines[li].images.splice(ii,1); ceRenderContentLines(); ceRenderPreview(); }
+function addContentRow(target)      { ceLinesFor(target).push({ type:'row', label:'새 라벨', items:['내용을 입력하세요'] }); ceRenderContentLines(target); ceRenderPreview(); }
+function addImageSlide(target)      { ceLinesFor(target).push({ type:'image', images:[{ img:1, caption:'' }], title:'' }); ceRenderContentLines(target); ceRenderPreview(); }
+function updateImageItem(target,li,ii,f,v) { ceLinesFor(target)[li].images[ii][f] = v; ceRenderPreview(); }
+function addImageItem(target,li)     { ceLinesFor(target)[li].images.push({ img:1, caption:'' }); ceRenderContentLines(target); ceRenderPreview(); }
+function removeImageItem(target,li,ii) { ceLinesFor(target)[li].images.splice(ii,1); ceRenderContentLines(target); ceRenderPreview(); }
 
 let ceDragSrcIdx = null;
-function ceWireDragEvents() {
-  document.querySelectorAll('#content-lines .cl-row, #content-lines .cl-divider, #content-lines .cl-image').forEach(el => {
-    el.addEventListener('dragstart', () => { ceDragSrcIdx = +el.dataset.idx; el.classList.add('dragging'); });
+let ceDragSrcTarget = null;
+function ceWireDragEvents(target) {
+  const containerId = ceContainerIdFor(target);
+  document.querySelectorAll(`#${containerId} .cl-row, #${containerId} .cl-divider, #${containerId} .cl-image`).forEach(el => {
+    el.addEventListener('dragstart', () => { ceDragSrcIdx = +el.dataset.idx; ceDragSrcTarget = target; el.classList.add('dragging'); });
     el.addEventListener('dragend',   () => { el.classList.remove('dragging'); });
     el.addEventListener('dragover',  e => e.preventDefault());
     el.addEventListener('drop', e => {
       e.preventDefault();
+      if (ceDragSrcTarget !== target) return;
+      const lines = ceLinesFor(target);
       const targetIdx = +el.dataset.idx;
       if (ceDragSrcIdx === null || ceDragSrcIdx === targetIdx) return;
-      const [moved] = ceCd.contentLines.splice(ceDragSrcIdx, 1);
+      const [moved] = lines.splice(ceDragSrcIdx, 1);
       const insertAt = ceDragSrcIdx < targetIdx ? targetIdx - 1 : targetIdx;
-      ceCd.contentLines.splice(insertAt, 0, moved);
+      lines.splice(insertAt, 0, moved);
       ceDragSrcIdx = null;
-      ceRenderContentLines();
+      ceRenderContentLines(target);
       ceRenderPreview();
     });
   });
 }
+
+// ── 오프닝 퀘스천 폼 ──
+function ceRenderOpeningForm() {
+  const o = ceCd.opening;
+  const el = document.getElementById('opening-form');
+  el.innerHTML = `
+    ${ceFTextarea('오프닝 질문', o.question, `updateOpening('question',this.value)`, 3)}
+    ${ceFTextarea('안내 문구', o.guide, `updateOpening('guide',this.value)`, 3)}`;
+}
+function updateOpening(f,v){ ceCd.opening[f]=v; ceRenderPreview(); }
 
 // ── 생각 Check 폼 ──
 function ceRenderThinkForm() {
@@ -1493,7 +1543,7 @@ async function ceSaveContentToFirestore(docId, cd) {
     num: cd.lesson.num,
     title: cd.lesson.title,
     unit: cd.lesson.unit,
-    content: { lesson: cd.lesson, contentLines: cd.contentLines, think: cd.think }
+    content: { lesson: cd.lesson, opening: cd.opening, contentLines: cd.contentLines, mission: cd.mission, think: cd.think }
   });
 }
 
@@ -1559,7 +1609,12 @@ function ceFileToBase64(file) {
 
 const CE_LESSON_JSON_SCHEMA = `{
   "lesson": { "title": "수업 제목", "unit": "학습 단원 (예: Ⅲ-4. 고려의 생활과 문화)", "page": "교과서 페이지", "objectives": ["학습 목표 문장", "..."] },
-  "contentLines": [
+  "opening": { "question": "수업 시작 전 도입 질문 (없으면 빈 문자열)", "guide": "안내 문구 (없으면 빈 문자열)" },
+  "conceptContentLines": [
+    { "type": "divider", "title": "슬라이드 제목" },
+    { "type": "row", "label": "소제목/항목명", "items": ["빈칸은 {정답} 형태로 표시한 문장", "..."] }
+  ],
+  "missionContentLines": [
     { "type": "divider", "title": "슬라이드 제목" },
     { "type": "row", "label": "소제목/항목명", "items": ["빈칸은 {정답} 형태로 표시한 문장", "..."] }
   ],
@@ -1568,9 +1623,18 @@ const CE_LESSON_JSON_SCHEMA = `{
 
 const CE_LESSON_JSON_INSTRUCTION = `다음은 중학교 역사 수업 활동지 내용이다. 이 내용을 분석해서 아래 JSON 스키마로 정확히 변환해줘.
 
-- contentLines는 활동지의 소제목 단위로 나눠서 만들어줘. 새 슬라이드로 나눌 만큼 주제가 바뀌는 지점 앞에는 {"type":"divider","title":"..."}를 넣어줘.
+활동지 내용은 성격에 따라 4곳 중 하나로 나눠 담아야 한다:
+- opening: 수업을 시작하기 전에 던지는 도입 질문(오프닝 퀘스천). 활동지에 이런 질문이 없으면 question/guide를 빈 문자열로 둬라.
+- conceptContentLines: 개념 설명, 빈칸 채우기, 용어 정리 등 "배우는" 내용.
+- missionContentLines: 학생이 직접 해보는 활동·과제·퀘스트·게임형 미션 내용.
+- think: 수업 마무리에 학생 스스로 생각해서 답하는 서술형 질문.
+
+conceptContentLines·missionContentLines 공통 규칙:
+- 소제목 단위로 나눠서 만들어줘. 새 슬라이드로 나눌 만큼 주제가 바뀌는 지점 앞에는 {"type":"divider","title":"..."}를 넣어줘.
 - 활동지의 빈칸(밑줄, 괄호, ○○ 등) 문제는 정답을 알 수 있으면 문장 안에 {정답} 형태로 표시해줘. 정답을 알 수 없으면 표시 없이 문장 그대로 넣어줘.
 - 이미지나 표는 텍스트로 옮길 수 없으면 생략해도 된다.
+- 해당하는 내용이 활동지에 없으면 빈 배열 []로 둬라.
+
 - 학습 목표가 활동지에 명시돼 있지 않으면 내용을 보고 1~3개 합리적으로 추론해서 채워줘.
 - 다른 설명 없이 아래 스키마와 동일한 구조의 JSON만 출력해줘.
 
@@ -1606,10 +1670,12 @@ async function ceRequestLessonJson(claudeKey, content) {
 }
 
 function ceValidateParsedLesson(d) {
+  const validLines = ls => Array.isArray(ls) && ls.every(l => l && (l.type==='divider'||l.type==='row'||l.type==='image'));
   return !!d && d.lesson && typeof d.lesson === 'object'
     && Array.isArray(d.lesson.objectives)
-    && Array.isArray(d.contentLines)
-    && d.contentLines.every(l => l && (l.type==='divider'||l.type==='row'||l.type==='image'))
+    && validLines(d.conceptContentLines)
+    && validLines(d.missionContentLines)
+    && d.opening && typeof d.opening === 'object'
     && d.think && typeof d.think === 'object';
 }
 
@@ -1653,7 +1719,9 @@ async function ceHandleFileUpload(file) {
         num, title: parsed.lesson.title || '새 강의', unit: parsed.lesson.unit || '', page: parsed.lesson.page || '',
         objectives: parsed.lesson.objectives.length ? parsed.lesson.objectives : ['학습 목표를 입력하세요']
       },
-      contentLines: parsed.contentLines,
+      opening: { question: parsed.opening.question || '', guide: parsed.opening.guide || '' },
+      contentLines: parsed.conceptContentLines,
+      mission: { contentLines: parsed.missionContentLines },
       think: { question: parsed.think.question || '', guide: parsed.think.guide || '' }
     };
     await addDoc(collection(db, 'class_lessons'), {
@@ -2667,7 +2735,7 @@ Object.assign(window, {
   switchSubTab, addLesson, deleteLesson, onLessonChange,
   addDivider, addContentRow, addImageSlide, toggleDividerImg, deleteLine, moveLine,
   updateImageItem, addImageItem, removeImageItem,
-  updateLesson, updateObjectives, updateLine, updateLineItems, updateThink,
+  updateLesson, updateObjectives, updateLine, updateLineItems, updateThink, updateOpening,
   resetContent, saveContent, ceHandleFileUpload,
   onFsSliderInput, onFsNumberInput, onColorChange, resetDesign, saveDesign,
 });

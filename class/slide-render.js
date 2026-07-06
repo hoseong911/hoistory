@@ -71,10 +71,10 @@
       </div>`;
   }
 
-  function conceptHTML(slide, lesson) {
+  function checkStyleHTML(slide, lesson, badgeLabel) {
     const header = `
       <div class="slide-header">
-        <span class="check-badge">개념 Check</span>
+        <span class="check-badge">${badgeLabel}</span>
         <h2 class="slide-title">${slide.title}</h2>
       </div>`;
     const rows = `
@@ -107,6 +107,23 @@
         </div>`;
     }
     return `${header}${rows}`;
+  }
+
+  function conceptHTML(slide, lesson) { return checkStyleHTML(slide, lesson, '개념 Check'); }
+  function missionHTML(slide, lesson) { return checkStyleHTML(slide, lesson, '미션 Check'); }
+
+  function openingHTML(slide, lesson) {
+    return `
+      <div class="slide-header">
+        <span class="check-badge">오프닝 퀘스천</span>
+        <h2 class="slide-title">${lesson.num}강</h2>
+      </div>
+      <p class="think-question">${slide.question.replace(/\n/g, '<br>')}</p>
+      ${slide.guide ? `
+      <div class="think-body">
+        <p class="think-guide">${slide.guide.replace(/\n/g, '<br>')}</p>
+      </div>` : ''}
+    `;
   }
 
   function imageHTML(slide, lesson) {
@@ -148,15 +165,14 @@
     `;
   }
 
-  /* 어드민 콘텐츠 편집 데이터({lesson, contentLines, think})를 실제 화면이 쓰는
-     slides 배열 형태로 변환한다. 어드민 미리보기와 실제 학생 페이지(lesson.html)가
-     동일한 이 함수를 써서 두 화면이 항상 일치하도록 한다. */
-  function buildSlidesFromData(d) {
-    const slides = [{ type: 'cover' }, { type: 'objectives' }];
+  /* contentLines(구분선/행/이미지 배열)를 slide 배열로 변환. 개념 체크·미션 체크가
+     같은 구조를 쓰므로 type만 다르게 해서 공유한다. */
+  function buildCheckSlides(lines, type) {
+    const slides = [];
     let current = null;
-    d.contentLines.forEach(line => {
+    (lines || []).forEach(line => {
       if (line.type === 'divider') {
-        current = { type: 'concept', title: line.title, rows: [] };
+        current = { type, title: line.title, rows: [] };
         if (line.img != null) {
           current.img = line.img;
           current.layout = line.imgLayout || 'right';
@@ -171,10 +187,23 @@
         });
         current = null;
       } else {
-        if (!current) { current = { type: 'concept', title: '', rows: [] }; slides.push(current); }
+        if (!current) { current = { type, title: '', rows: [] }; slides.push(current); }
         current.rows.push({ label: line.label, items: line.items });
       }
     });
+    return slides;
+  }
+
+  /* 어드민 콘텐츠 편집 데이터({lesson, opening, contentLines, mission, think})를 실제
+     화면이 쓰는 slides 배열 형태로 변환한다. 어드민 미리보기와 실제 학생 페이지
+     (lesson.html)가 동일한 이 함수를 써서 두 화면이 항상 일치하도록 한다. */
+  function buildSlidesFromData(d) {
+    const slides = [{ type: 'cover' }, { type: 'objectives' }];
+    if (d.opening && d.opening.question) {
+      slides.push({ type: 'opening', question: d.opening.question, guide: d.opening.guide || '' });
+    }
+    slides.push(...buildCheckSlides(d.contentLines, 'concept'));
+    if (d.mission) slides.push(...buildCheckSlides(d.mission.contentLines, 'mission'));
     slides.push({ type: 'think', question: d.think.question, guide: d.think.guide });
     return slides;
   }
@@ -189,8 +218,13 @@
     } else if (slide.type === 'objectives') {
       extraClass = ' slide-objectives';
       inner = objectivesHTML(lesson);
+    } else if (slide.type === 'opening') {
+      extraClass = ' slide-think'; // 생각 체크와 같은 단순 질문형 슬라이드라 배경 스타일을 재사용
+      inner = openingHTML(slide, lesson);
     } else if (slide.type === 'concept') {
       inner = conceptHTML(slide, lesson);
+    } else if (slide.type === 'mission') {
+      inner = missionHTML(slide, lesson);
     } else if (slide.type === 'image') {
       inner = imageHTML(slide, lesson);
     } else if (slide.type === 'think') {
