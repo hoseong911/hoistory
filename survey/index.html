@@ -331,15 +331,21 @@
     .resp-q-text { font-size: 13px; color: var(--sub); margin-bottom: 2px; line-height: 1.4; }
     .resp-q-ans { font-size: 15px; color: var(--text); }
     .empty-state { text-align: center; padding: 44px 20px; color: var(--sub); font-size: 16px; }
-    .resp-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
-    .resp-table td { padding: 8px 4px; font-size: 14px; vertical-align: top; }
-    .resp-table tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+    .resp-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; border: 1px solid var(--border); }
+    .resp-table td { padding: 12px 12px; font-size: 14px; vertical-align: top; border: 1px solid var(--border); }
     .resp-table td.resp-table-sec {
       color: var(--green); font-weight: 800; font-size: 13px;
-      width: 20%; vertical-align: middle; border-right: 1px solid var(--border); padding-right: 10px;
+      width: 20%; vertical-align: middle; text-align: center;
     }
     .resp-table td.resp-table-q { color: var(--sub); width: 48%; line-height: 1.4; }
+    .resp-table td.resp-table-q.resp-table-q-narrow { width: 30%; }
     .resp-table td.resp-table-a { font-weight: 700; text-align: right; line-height: 1.5; }
+    .resp-table td.resp-table-a.resp-table-a-check { text-align: left; }
+    .resp-check-list { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+    .resp-check-pill {
+      background: var(--green-dim); color: var(--green); font-weight: 800;
+      font-size: 13px; padding: 4px 12px; border-radius: 500px;
+    }
     .resp-text-heading {
       font-size: 15px; font-weight: 800; color: var(--green);
       margin: 18px 0 10px; padding-top: 14px; border-top: 1px solid var(--border);
@@ -1162,8 +1168,9 @@ function buildRespCardHTML(r) {
       if (q.type === 'scale') {
         rows.push(`<td class="resp-table-q">${esc(q.text)}</td><td class="resp-table-a">${val}점 · ${esc(q.options[val-1] || '')}</td>`);
       } else if (q.type === 'checkbox') {
-        const dv = Array.isArray(val) ? val.map(v => esc(v)).join('<br>') : esc(String(val));
-        rows.push(`<td class="resp-table-q">${esc(q.text)}</td><td class="resp-table-a">${dv}</td>`);
+        const items = Array.isArray(val) ? val : [String(val)];
+        const dv = `<div class="resp-check-list">${items.map(v => `<span class="resp-check-pill">${esc(v)}</span>`).join('')}</div>`;
+        rows.push(`<td class="resp-table-q resp-table-q-narrow">${esc(q.text)}</td><td class="resp-table-a resp-table-a-check">${dv}</td>`);
       } else if (q.type === 'text') {
         textItems.push(`<div class="resp-q"><div class="resp-q-text">${esc(q.text)}</div><div class="resp-q-ans">${esc(val)}</div></div>`);
       }
