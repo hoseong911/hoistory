@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
-<!-- 개념 체크 미리보기가 학생 화면(class/26_23.html)과 100% 동일하게 렌더링되도록 공용 슬라이드 스타일을 그대로 불러온다.
+<!-- 개념 체크 미리보기가 학생 화면(class/lesson.html)과 100% 동일하게 렌더링되도록 공용 슬라이드 스타일을 그대로 불러온다.
      이 파일의 :root 변수 중 --text/--border는 아래 이 페이지 자체 :root 선언이 나중에 와서 재정의하므로 전역 충돌은 없다. -->
 <link rel="stylesheet" href="../class/slide-style.css">
 <style>
@@ -681,7 +681,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
   </div>
 </div>
 
-<!-- 개념 체크 미리보기 렌더러: 학생 화면(class/26_23.html)과 완전히 동일한 렌더링 로직을 공유한다 -->
+<!-- 개념 체크 미리보기 렌더러: 학생 화면(class/lesson.html)과 완전히 동일한 렌더링 로직을 공유한다 -->
 <script src="../class/slide-render.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
@@ -782,8 +782,7 @@ function startListening() {
 
 // ══════════ 개념 체크 (class/admin.html 이식) ══════════
 // slide-render.js(classic script, 전역 SlideRender)와 slide-style.css를 그대로 이어받아
-// 학생 화면(class/26_23.html)과 미리보기가 항상 100% 동일하게 렌더링되도록 한다.
-const CE_SK = 'hoistory_class_settings';
+// 학생 화면(class/lesson.html)과 미리보기가 항상 100% 동일하게 렌더링되도록 한다.
 const CE_FONT_KEYS = ['title','body','label','obj','cover','coverTagline','coverMeta','think','thinkGuide'];
 const CE_FONT_VAR_MAP = {
   title: '--fs-slide-title', body: '--fs-body', label: '--fs-label', obj: '--fs-obj',
@@ -855,9 +854,16 @@ function rescalePreview() {
 window.addEventListener('resize', rescalePreview);
 
 // ── 디자인 탭 ──
-function ceInitDesign() {
-  const saved = JSON.parse(localStorage.getItem(CE_SK) || '{}');
-  ceCs = ceDeepMerge(CE_SD, saved);
+// 폰트 크기·색상은 강의별이 아니라 전체 공통 설정이라 settings/class_design 문서 하나에 저장한다.
+async function ceInitDesign() {
+  const snap = await getDoc(doc(db, 'settings', 'class_design'));
+  if (snap.exists()) {
+    ceCs = ceDeepMerge(CE_SD, snap.data());
+  } else {
+    // 학생 페이지도 같은 값을 봐야 하므로 기본값을 바로 Firestore에도 기록해둔다.
+    ceCs = ceDeepMerge(CE_SD, {});
+    await setDoc(doc(db, 'settings', 'class_design'), ceCs);
+  }
   ceLoadDesignInputs();
   ceRenderPreview();
   ceApplyDesignPreview();
@@ -929,14 +935,14 @@ function ceSetSlideVars(el, cfg) {
   });
 }
 
-function saveDesign() {
+async function saveDesign() {
   ceReadDesignInputs();
-  localStorage.setItem(CE_SK, JSON.stringify(ceCs));
+  await setDoc(doc(db, 'settings', 'class_design'), ceCs);
   ceShowToast('toast-design');
 }
-function resetDesign() {
-  localStorage.removeItem(CE_SK);
+async function resetDesign() {
   ceCs = ceDeepMerge(CE_SD, {});
+  await setDoc(doc(db, 'settings', 'class_design'), ceCs);
   ceLoadDesignInputs();
   ceApplyDesignPreview();
 }
@@ -967,9 +973,11 @@ async function addLesson() {
   const title = (prompt('수업 제목을 입력하세요') || '새 강의').trim();
   const unit = (prompt('학습 단원을 입력하세요 (예: Ⅲ-4. 고려의 생활과 문화)') || '').trim();
   const year = (prompt('연도를 입력하세요 (예: 2026)') || '2026').trim();
-  const file = (prompt(`파일명을 입력하세요 (예: 26_${num})`) || `26_${num}`).trim();
   const order = ceLessonsCache.length + 1;
-  await addDoc(collection(db, 'class_lessons'), { num, title, unit, file, year, order });
+  await addDoc(collection(db, 'class_lessons'), {
+    num, title, unit, year, order,
+    content: ceBlankLessonData(num)
+  });
   await ceGetLessonsFromFirestore();
   ceCurrentLessonNum = num;
   cePopulateLessonSelect();
@@ -990,8 +998,6 @@ async function deleteLesson() {
 }
 
 // ── 강의 내용 탭 ──
-function ceLessonDataKey(num) { return 'class_data_26_' + num; }
-
 function ceBlankLessonData(num) {
   return {
     lesson: { num, title: '새 강의', unit: '', page: '', objectives: ['학습 목표를 입력하세요'] },
@@ -1000,7 +1006,7 @@ function ceBlankLessonData(num) {
   };
 }
 
-// localStorage에 저장된 데이터가 지금 코드가 기대하는 구조(lesson/contentLines/think)와
+// Firestore에 저장된 content가 지금 코드가 기대하는 구조(lesson/contentLines/think)와
 // 맞는지 검사한다. 구조가 안 맞으면 렌더링이 통째로 깨지므로 그런 경우 기본값으로 대체한다.
 function ceIsValidContentData(d) {
   return !!d
@@ -1014,7 +1020,7 @@ async function ceInitContent() {
   if (!ceLessonsCache.length) {
     await addDoc(collection(db, 'class_lessons'), {
       num: '23', title: '고려의 사회, 고려의 문화',
-      unit: 'Ⅲ-4. 고려의 생활과 문화', file: '26_23', year: '2026', order: 1
+      unit: 'Ⅲ-4. 고려의 생활과 문화', year: '2026', order: 1
     });
     await ceGetLessonsFromFirestore();
   }
@@ -1024,19 +1030,16 @@ async function ceInitContent() {
 }
 
 function ceLoadLessonData(num) {
-  const key = ceLessonDataKey(num);
-  const saved = localStorage.getItem(key);
-  let parsed = null;
-  if (saved) {
-    try { parsed = JSON.parse(saved); } catch (e) { parsed = null; }
-  }
+  const lesson = ceLessonsCache.find(l => l.num === num);
 
-  if (ceIsValidContentData(parsed)) {
-    ceCd = parsed;
+  if (ceIsValidContentData(lesson?.content)) {
+    ceCd = lesson.content;
   } else {
     const def = CE_LESSON_DEFAULTS[num];
     ceCd = def ? ceDeepCopy(def) : ceBlankLessonData(num);
-    localStorage.removeItem(key);
+    // Firestore에 저장된 content가 없거나 깨져 있었던 것이므로, 방금 만든 기본값을
+    // 바로 Firestore에도 반영해서 실제 학생 페이지도 같은 내용을 보게 한다.
+    if (lesson) ceSaveContentToFirestore(lesson.docId, ceCd);
   }
 
   ceRenderCoverForm();
@@ -1205,66 +1208,44 @@ function ceFTextarea(label, val, handler, rows=2, hint='') {
   return `<div class="field-group"><div class="field-label">${label}${h}</div><textarea class="field-input" rows="${rows}" oninput="${handler}">${esc(val)}</textarea></div>`;
 }
 
-// contentLines(+lesson+think)를 실제 사이트가 쓰는 slides 배열 형태로 변환
-function ceBuildSlidesFromData(d) {
-  const slides = [{ type: 'cover' }, { type: 'objectives' }];
-  let current = null;
-  d.contentLines.forEach(line => {
-    if (line.type === 'divider') {
-      current = { type: 'concept', title: line.title, rows: [] };
-      if (line.img != null) {
-        current.img = line.img;
-        current.layout = line.imgLayout || 'right';
-        current.imgSize = line.imgSize != null ? line.imgSize : 50;
-      }
-      slides.push(current);
-    } else if (line.type === 'image') {
-      slides.push({
-        type: 'image',
-        title: line.title || '',
-        images: line.images.map(im => ({ img: im.img || 1, caption: im.caption || '' }))
-      });
-      current = null;
-    } else {
-      if (!current) { current = { type: 'concept', title: '', rows: [] }; slides.push(current); }
-      current.rows.push({ label: line.label, items: line.items });
-    }
+// ceCd({lesson, contentLines, think})를 현재 강의의 Firestore 문서에 그대로 저장.
+// 학생 페이지(lesson.html)는 이 content 필드를 읽어서 SlideRender.buildSlidesFromData로
+// 직접 slides를 만들기 때문에, 여기서 slides를 미리 계산해서 같이 저장할 필요는 없다.
+async function ceSaveContentToFirestore(docId, cd) {
+  await updateDoc(doc(db, 'class_lessons', docId), {
+    num: cd.lesson.num,
+    title: cd.lesson.title,
+    unit: cd.lesson.unit,
+    content: { lesson: cd.lesson, contentLines: cd.contentLines, think: cd.think }
   });
-  slides.push({ type: 'think', question: d.think.question, guide: d.think.guide, qr: d.think.qr });
-  return slides;
 }
 
-function saveContent() {
-  const payload = {
-    lesson: ceCd.lesson,
-    contentLines: ceCd.contentLines,
-    think: ceCd.think,
-    slides: ceBuildSlidesFromData(ceCd)
-  };
-  localStorage.setItem(ceLessonDataKey(ceCurrentLessonNum), JSON.stringify(payload));
-
-  // 강 번호·제목이 바뀌었을 수 있으니 Firestore 강의 목록도 함께 갱신
+async function saveContent() {
   const lesson = ceLessonsCache.find(l => l.num === ceCurrentLessonNum);
-  if (lesson) {
-    updateDoc(doc(db, 'class_lessons', lesson.docId), { num: ceCd.lesson.num, title: ceCd.lesson.title })
-      .then(async () => { await ceGetLessonsFromFirestore(); cePopulateLessonSelect(); });
-  }
-
+  if (!lesson) return;
+  await ceSaveContentToFirestore(lesson.docId, ceCd);
+  await ceGetLessonsFromFirestore();
+  ceCurrentLessonNum = ceCd.lesson.num;
+  cePopulateLessonSelect();
   ceShowToast('toast-content');
 }
-function resetContent() {
+async function resetContent() {
   if (!confirm('기본값으로 초기화하시겠습니까?')) return;
-  localStorage.removeItem(ceLessonDataKey(ceCurrentLessonNum));
+  const lesson = ceLessonsCache.find(l => l.num === ceCurrentLessonNum);
+  if (lesson) {
+    await updateDoc(doc(db, 'class_lessons', lesson.docId), { content: null });
+    await ceGetLessonsFromFirestore();
+  }
   ceLoadLessonData(ceCurrentLessonNum);
 }
 
 // 예시 슬라이드 미리보기 (개념 Check 슬라이드 1개, 없으면 표지)
-// 실제 페이지(26_23.html)와 완전히 동일한 slide-render.js로 그려서 미리보기와
+// 실제 페이지(lesson.html)와 완전히 동일한 slide-render.js로 그려서 미리보기와
 // 실제 화면이 항상 100% 일치하도록 한다.
 function ceRenderPreview() {
   const inner = document.getElementById('design-pv-inner');
   if (!inner || !ceCd.contentLines) return;
-  const slides = ceBuildSlidesFromData(ceCd);
+  const slides = SlideRender.buildSlidesFromData(ceCd);
   const sample = slides.find(s => s.type === 'concept') || slides[0];
   inner.innerHTML = SlideRender.renderSlideHTML(sample, ceCd.lesson);
   SlideRender.wireLightbox(inner);

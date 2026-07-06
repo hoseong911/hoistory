@@ -1,5 +1,5 @@
 /* ════════════════════════════════════════════════════════
-   슬라이드 렌더링 엔진 — 26_23.html(학생용)과 admin.html(미리보기)이
+   슬라이드 렌더링 엔진 — lesson.html(학생용)과 admin.html(미리보기)이
    똑같이 이 파일을 불러써서, 슬라이드 HTML 생성 로직이 항상 일치하도록 한다.
    ════════════════════════════════════════════════════════ */
 (function (global) {
@@ -151,6 +151,37 @@
     `;
   }
 
+  /* 어드민 콘텐츠 편집 데이터({lesson, contentLines, think})를 실제 화면이 쓰는
+     slides 배열 형태로 변환한다. 어드민 미리보기와 실제 학생 페이지(lesson.html)가
+     동일한 이 함수를 써서 두 화면이 항상 일치하도록 한다. */
+  function buildSlidesFromData(d) {
+    const slides = [{ type: 'cover' }, { type: 'objectives' }];
+    let current = null;
+    d.contentLines.forEach(line => {
+      if (line.type === 'divider') {
+        current = { type: 'concept', title: line.title, rows: [] };
+        if (line.img != null) {
+          current.img = line.img;
+          current.layout = line.imgLayout || 'right';
+          current.imgSize = line.imgSize != null ? line.imgSize : 50;
+        }
+        slides.push(current);
+      } else if (line.type === 'image') {
+        slides.push({
+          type: 'image',
+          title: line.title || '',
+          images: line.images.map(im => ({ img: im.img || 1, caption: im.caption || '' }))
+        });
+        current = null;
+      } else {
+        if (!current) { current = { type: 'concept', title: '', rows: [] }; slides.push(current); }
+        current.rows.push({ label: line.label, items: line.items });
+      }
+    });
+    slides.push({ type: 'think', question: d.think.question, guide: d.think.guide, qr: d.think.qr });
+    return slides;
+  }
+
   /* slide + lesson 데이터를 받아 완성된 <div class="slide ...">...</div> HTML 문자열을 돌려준다 */
   function renderSlideHTML(slide, lesson) {
     let extraClass = '';
@@ -211,6 +242,6 @@
     });
   }
 
-  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox };
+  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, buildSlidesFromData };
 
 })(window);

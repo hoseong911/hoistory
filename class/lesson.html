@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>강의</title>
+  <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="slide-style.css">
+  <style>
+    /* ════ 리셋 ════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; }
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ════ 슬라이드 컨테이너 ════ */
+    #slides {
+      position: fixed;
+      top: 0; left: 0;
+      width: 1920px;
+      height: 1080px;
+      transform-origin: top left;
+      overflow: hidden;
+    }
+
+    /* ════ 슬라이드 위치·전환 애니메이션 (이 페이지 전용, 디자인은 slide-style.css 공용) ════
+       .slide-cover는 공용 CSS에서 position:relative를 쓰므로, 여기서도 명시적으로
+       다시 선언해 이 페이지의 절대 위치 지정이 항상 이기도록 한다. */
+    .slide, .slide-cover {
+      position: absolute;
+      top: 0; left: 0;
+      transform: translateY(100%);
+      transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: transform;
+    }
+
+    /* ════ 오버레이 UI ════ */
+    #back-btn {
+      position: fixed;
+      top: 18px;
+      left: 22px;
+      background: rgba(28,52,97,0.08);
+      border: 1px solid rgba(28,52,97,0.16);
+      color: var(--navy);
+      font-family: var(--font);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 6px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      z-index: 200;
+    }
+    #back-btn:hover { background: rgba(28,52,97,0.14); }
+
+    #mode-badge {
+      position: fixed;
+      top: 18px;
+      right: 22px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      padding: 5px 14px;
+      border-radius: 20px;
+      z-index: 200;
+    }
+    body[data-mode="complete"] #mode-badge { background: rgba(28,52,97,0.09); color: var(--navy); }
+    body[data-mode="blank"]    #mode-badge { background: rgba(184,48,48,0.09); color: var(--red); }
+
+    #slide-counter {
+      position: fixed;
+      bottom: 22px;
+      right: 26px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: rgba(44,40,35,0.28);
+      z-index: 200;
+      pointer-events: none;
+    }
+
+    #load-error {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      color: var(--text-sub, #7a6f5e);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── 슬라이드 (JS가 생성) ── -->
+<div id="slides" hidden></div>
+
+<!-- ── 오버레이 UI ── -->
+<button id="back-btn"      hidden onclick="goBack()">목록으로</button>
+<div    id="mode-badge"    hidden></div>
+<div    id="slide-counter" hidden></div>
+<div    id="load-error"    hidden></div>
+
+<script src="slide-render.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import {
+  getFirestore, collection, query, where, getDocs, doc, getDoc
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+const app = initializeApp({
+  apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain: "ho0911seong-56638.firebaseapp.com",
+  projectId: "ho0911seong-56638",
+  storageBucket: "ho0911seong-56638.firebasestorage.app",
+  messagingSenderId: "994509567071",
+  appId: "1:994509567071:web:8b33bb03a3d8f3a9f557ea"
+});
+const db = getFirestore(app);
+
+const SETTING_DEFAULTS = {
+  baseFontSize: 16,
+  fonts: { title: 29, body: 18, label: 16, cover: 120, coverTagline: 36, coverMeta: 28, think: 30, thinkGuide: 18, obj: 17 },
+  navy:    '#1c3461',
+  red:     '#b83030',
+  bg:      '#e8e0d0',
+  slideBg: '#f7f2e8',
+  rowBg:   '#f2ede0',
+  text:    '#2c2823'
+};
+
+function applySettings(raw) {
+  const s    = Object.assign({}, SETTING_DEFAULTS, raw);
+  const f    = Object.assign({}, SETTING_DEFAULTS.fonts, raw.fonts || {});
+  const root = document.documentElement;
+  root.style.fontSize = s.baseFontSize + 'px';
+  root.style.setProperty('--navy',            s.navy);
+  root.style.setProperty('--red',             s.red);
+  root.style.setProperty('--bg',              s.bg);
+  root.style.setProperty('--slide-bg',        s.slideBg);
+  root.style.setProperty('--row-bg',          s.rowBg);
+  root.style.setProperty('--text',            s.text);
+  root.style.setProperty('--fs-slide-title',   f.title        + 'px');
+  root.style.setProperty('--fs-body',          f.body         + 'px');
+  root.style.setProperty('--fs-label',         f.label        + 'px');
+  root.style.setProperty('--fs-cover-title',   f.cover        + 'px');
+  root.style.setProperty('--fs-cover-tagline', f.coverTagline + 'px');
+  root.style.setProperty('--fs-cover-meta',    f.coverMeta    + 'px');
+  root.style.setProperty('--fs-question',      f.think        + 'px');
+  root.style.setProperty('--fs-think-guide',   f.thinkGuide   + 'px');
+  root.style.setProperty('--fs-obj',           f.obj          + 'px');
+}
+
+function showError(msg) {
+  const el = document.getElementById('load-error');
+  el.textContent = msg;
+  el.hidden = false;
+}
+
+function goBack() { location.href = 'index.html'; }
+window.goBack = goBack;
+
+async function init() {
+  const num = new URLSearchParams(location.search).get('num');
+  if (!num) { showError('강의 번호(?num=)가 없습니다.'); return; }
+
+  const [lessonSnap, designSnap] = await Promise.all([
+    getDocs(query(collection(db, 'class_lessons'), where('num', '==', num))),
+    getDoc(doc(db, 'settings', 'class_design'))
+  ]);
+  applySettings(designSnap.exists() ? designSnap.data() : {});
+
+  if (lessonSnap.empty) { showError(`${num}강을 찾을 수 없습니다.`); return; }
+  const lessonDoc = lessonSnap.docs[0].data();
+  const content = lessonDoc.content;
+  if (!content || !content.lesson || !Array.isArray(content.contentLines)) {
+    showError('아직 등록된 콘텐츠가 없습니다.');
+    return;
+  }
+
+  const LESSON = content.lesson;
+  const SLIDES = SlideRender.buildSlidesFromData(content);
+  document.title = `${LESSON.num}강 · ${LESSON.title}`;
+
+  /* ── 렌더링 ── */
+  const container = document.getElementById('slides');
+  SLIDES.forEach(s => {
+    container.insertAdjacentHTML('beforeend', SlideRender.renderSlideHTML(s, LESSON));
+  });
+  SlideRender.wireLightbox(container);
+
+  /* ── 슬라이드 제어 ── */
+  const slidesEl  = container;
+  const backBtn   = document.getElementById('back-btn');
+  const modeBadge = document.getElementById('mode-badge');
+  const counterEl = document.getElementById('slide-counter');
+
+  let currentSlideIdx = 0;
+  function currentIdx() { return currentSlideIdx; }
+  function totalCount() { return slidesEl.querySelectorAll('.slide').length; }
+
+  function updateCounter() {
+    counterEl.textContent = `${currentIdx() + 1} / ${totalCount()}`;
+  }
+
+  function startSlides(mode) {
+    document.body.dataset.mode  = mode;
+    slidesEl.hidden              = false;
+    backBtn.hidden               = false;
+    modeBadge.hidden             = false;
+    counterEl.hidden             = false;
+    modeBadge.textContent        = mode === 'complete' ? '완성형' : '빈칸형';
+
+    /* 모든 슬라이드를 아래쪽 대기 위치로 초기화, 첫 슬라이드만 표시 */
+    const slides = slidesEl.querySelectorAll('.slide');
+    slides.forEach((s, i) => {
+      s.style.transition = 'none';
+      s.style.transform  = i === 0 ? 'translateY(0)' : 'translateY(100%)';
+    });
+    currentSlideIdx = 0;
+    transitioning   = false;
+    updateCounter();
+
+    if (mode === 'blank') {
+      slidesEl.querySelectorAll('.blank').forEach(el => {
+        el.addEventListener('click', () => el.classList.toggle('revealed'));
+      });
+    }
+  }
+
+  /* ── 밀어내기 전환 (PPT Push 방식) ── */
+  let transitioning = false;
+
+  function scrollToSlide(targetIdx) {
+    const slides = Array.from(slidesEl.querySelectorAll('.slide'));
+    targetIdx = Math.max(0, Math.min(targetIdx, slides.length - 1));
+    if (targetIdx === currentSlideIdx || transitioning) return;
+
+    const dir = targetIdx > currentSlideIdx ? 1 : -1;
+    const fromSlide = slides[currentSlideIdx];
+    const toSlide   = slides[targetIdx];
+
+    /* 진입 슬라이드를 진입 방향 바깥에 즉시 배치 */
+    toSlide.style.transition = 'none';
+    toSlide.style.transform  = `translateY(${dir * 100}%)`;
+    toSlide.getBoundingClientRect(); /* reflow 강제 */
+
+    /* 두 슬라이드 동시 애니메이션 */
+    transitioning = true;
+    fromSlide.style.transition = 'transform 0.55s cubic-bezier(0.4,0,0.2,1)';
+    toSlide.style.transition   = 'transform 0.55s cubic-bezier(0.4,0,0.2,1)';
+    fromSlide.style.transform  = `translateY(${-dir * 100}%)`;
+    toSlide.style.transform    = 'translateY(0)';
+
+    currentSlideIdx = targetIdx;
+    updateCounter();
+    setTimeout(() => { transitioning = false; }, 580);
+  }
+
+  /* ── 키보드·마우스휠 탐색 ── */
+  document.addEventListener('keydown', e => {
+    if (slidesEl.hidden) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); scrollToSlide(currentIdx() + 1); }
+    else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); scrollToSlide(currentIdx() - 1); }
+  });
+
+  slidesEl.addEventListener('wheel', e => {
+    e.preventDefault();
+    scrollToSlide(currentIdx() + (e.deltaY > 0 ? 1 : -1));
+  }, { passive: false });
+
+  /* ── 터치 스와이프 ── */
+  let touchStartY = 0;
+  slidesEl.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; }, { passive: true });
+  slidesEl.addEventListener('touchend', e => {
+    const diff = touchStartY - e.changedTouches[0].clientY;
+    if (Math.abs(diff) > 40) scrollToSlide(currentIdx() + (diff > 0 ? 1 : -1));
+  }, { passive: true });
+
+  /* ── 해상도 대응 scale ── */
+  function rescaleSlides() {
+    slidesEl.style.transform = `scale(${window.innerWidth / 1920})`;
+  }
+  window.addEventListener('resize', rescaleSlides);
+  rescaleSlides();
+
+  /* ── URL ?mode= 파라미터로 시작 (허브에서 항상 전달, 없으면 완성형 기본) ── */
+  const modeParam = new URLSearchParams(location.search).get('mode');
+  startSlides(modeParam === 'blank' ? 'blank' : 'complete');
+}
+
+init();
+</script>
+</body>
+</html>
