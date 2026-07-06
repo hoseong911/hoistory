@@ -133,7 +133,6 @@
       </div>
       <p class="think-question">${slide.question.replace(/\n/g, '<br>')}</p>
       <div class="think-body">
-        ${slide.qr ? `<img src="${slide.qr}" alt="QR코드" class="think-qr">` : ''}
         <p class="think-guide">${slide.guide.replace(/\n/g, '<br>').replace('50자', '<strong>50자</strong>')}</p>
       </div>
     `;
