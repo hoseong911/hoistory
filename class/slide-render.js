@@ -228,6 +228,17 @@
     return lightbox;
   }
 
+  /* clayout-right 레이아웃에서 이미지 패널 높이를 첫 번째 concept-row 높이에 맞춤. */
+  function alignClayoutImages(container) {
+    container.querySelectorAll('.clayout-right').forEach(layout => {
+      const firstRow = layout.querySelector('.concept-row');
+      const imgPanel = layout.querySelector('.clayout-img');
+      if (!firstRow || !imgPanel) return;
+      imgPanel.style.height = firstRow.offsetHeight + 'px';
+      imgPanel.style.overflow = 'hidden';
+    });
+  }
+
   /* container 안의 슬라이드 이미지들에 클릭 시 확대 보기를 붙인다. 렌더 후(슬라이드를 새로 그릴 때마다) 호출. */
   function wireLightbox(container) {
     const box = ensureLightbox();
@@ -239,6 +250,6 @@
     });
   }
 
-  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, buildSlidesFromData };
+  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, alignClayoutImages, buildSlidesFromData };
 
 })(window);
