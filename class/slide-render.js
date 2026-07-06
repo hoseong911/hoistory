@@ -175,7 +175,7 @@
         current.rows.push({ label: line.label, items: line.items });
       }
     });
-    slides.push({ type: 'think', question: d.think.question, guide: d.think.guide, qr: d.think.qr });
+    slides.push({ type: 'think', question: d.think.question, guide: d.think.guide });
     return slides;
   }
 
