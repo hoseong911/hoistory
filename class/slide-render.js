@@ -83,7 +83,7 @@
       </div>`;
 
     const imgSrc = slide.img != null
-      ? `img/${lesson.num}_${String(slide.img).padStart(2, '0')}.jpg`
+      ? `/hoistory/class/img/${lesson.num}_${slide.img}.png`
       : null;
     const imgSize = slide.imgSize != null ? slide.imgSize : 50;
     const imgPanel = imgSrc ? `
@@ -111,7 +111,7 @@
 
   function imageHTML(slide, lesson) {
     const src = slide.img != null
-      ? `img/${lesson.num}_${String(slide.img).padStart(2, '0')}.jpg`
+      ? `/hoistory/class/img/${lesson.num}_${slide.img}.png`
       : (slide.src || '');
     return `
       <div class="slide-header">
