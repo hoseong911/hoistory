@@ -331,6 +331,23 @@
     .resp-q-text { font-size: 11px; color: var(--sub); margin-bottom: 2px; line-height: 1.4; }
     .resp-q-ans { font-size: 13px; color: var(--text); }
     .empty-state { text-align: center; padding: 44px 20px; color: var(--sub); font-size: 14px; }
+    .resp-sec-title { font-size: 12px; font-weight: 800; color: var(--green); margin: 14px 0 6px; }
+    .resp-sec-title:first-child { margin-top: 0; }
+    .resp-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+    .resp-table td { padding: 8px 4px; font-size: 12px; vertical-align: top; }
+    .resp-table tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+    .resp-table td.resp-table-q { color: var(--sub); width: 58%; line-height: 1.4; }
+    .resp-table td.resp-table-a { font-weight: 700; text-align: right; }
+    .resp-text-heading {
+      font-size: 13px; font-weight: 800; color: var(--green);
+      margin: 18px 0 10px; padding-top: 14px; border-top: 1px solid var(--border);
+    }
+    .resp-text-sec { font-size: 11px; font-weight: 700; color: var(--sub); margin: 12px 0 6px; }
+    .resp-text-sec:first-child { margin-top: 0; }
+    .resp-pager { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .resp-pager .btn-nav { flex: none; padding: 10px 20px; }
+    .resp-pager .btn-nav:disabled { opacity: 0.35; cursor: not-allowed; }
+    .resp-pager-count { flex: 1; text-align: center; font-size: 13px; font-weight: 700; color: var(--sub); }
 
     /* ── Response filter tags / sort ── */
     .resp-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
@@ -508,8 +525,8 @@ let currentAdminTab = 'edit';
 // ── Response list (admin) state ──
 let allResponses = [];
 let respFilterClass = 'all'; // 'all' | 1~6
-let respSortMode = 'default'; // 'default' | 'class' | 'studentId'
 let respSortDir = 'asc';
+let respIndex = 0;
 
 // ── Stat modal matches (admin) ──
 let statMatches = {};
@@ -1039,10 +1056,54 @@ async function renderAdminResponses() {
   try {
     const snap = await getDocs(query(collection(db, 'survey_responses'), orderBy('submittedAt', 'desc')));
     allResponses = snap.docs.map(d => ({ _docId: d.id, ...d.data() }));
+    respIndex = 0;
     renderResponseList();
   } catch(e) {
     body.innerHTML = `<div class="empty-state" style="color:var(--danger)">오류: ${esc(e.message)}</div>`;
   }
+}
+
+function buildRespCardHTML(r) {
+  const date = r.submittedAt?.toDate?.() || new Date();
+  const dateStr = date.toLocaleDateString('ko-KR') + ' ' + date.toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
+
+  let tableHtml = '';
+  let textHtml = '';
+
+  config.sections.forEach(sec => {
+    const rows = [];
+    const textItems = [];
+    sec.questions.forEach(q => {
+      const val = r.answers?.[q.id];
+      if (val == null || val === '') return;
+      if (q.type === 'scale') {
+        rows.push(`<tr><td class="resp-table-q">${esc(q.text)}</td><td class="resp-table-a">${val}점 · ${esc(q.options[val-1] || '')}</td></tr>`);
+      } else if (q.type === 'checkbox') {
+        const dv = Array.isArray(val) ? val.join(', ') : String(val);
+        rows.push(`<tr><td class="resp-table-q">${esc(q.text)}</td><td class="resp-table-a">${esc(dv)}</td></tr>`);
+      } else if (q.type === 'text') {
+        textItems.push(`<div class="resp-q"><div class="resp-q-text">${esc(q.text)}</div><div class="resp-q-ans">${esc(val)}</div></div>`);
+      }
+    });
+    if (rows.length) {
+      tableHtml += `<div class="resp-sec-title">${esc(sec.title)}</div><table class="resp-table"><tbody>${rows.join('')}</tbody></table>`;
+    }
+    if (textItems.length) {
+      textHtml += `<div class="resp-text-sec">${esc(sec.title)}</div>${textItems.join('')}`;
+    }
+  });
+
+  return `<div class="resp-card" data-docid="${esc(r._docId)}">
+    <div class="resp-header">
+      <div><div class="resp-name">${esc(r.studentName)}</div><div class="resp-id">${esc(r.studentId)}</div></div>
+      <div class="resp-header-right">
+        <div class="resp-date">${dateStr}</div>
+        <button class="btn-del-resp" data-docid="${esc(r._docId)}">삭제</button>
+      </div>
+    </div>
+    ${tableHtml}
+    ${textHtml ? `<div class="resp-text-heading">서술형 응답</div>${textHtml}` : ''}
+  </div>`;
 }
 
 function renderResponseList() {
@@ -1057,19 +1118,10 @@ function renderResponseList() {
     ? allResponses.slice()
     : allResponses.filter(r => getClassNum(r.studentId) === respFilterClass);
 
-  const sorted = filtered.slice();
-  if (respSortMode === 'class') {
-    sorted.sort((a, b) => {
-      const d = getClassNum(a.studentId) - getClassNum(b.studentId);
-      const cmp = d !== 0 ? d : (a.studentId || '').localeCompare(b.studentId || '');
-      return respSortDir === 'asc' ? cmp : -cmp;
-    });
-  } else if (respSortMode === 'studentId') {
-    sorted.sort((a, b) => {
-      const cmp = (a.studentId || '').localeCompare(b.studentId || '');
-      return respSortDir === 'asc' ? cmp : -cmp;
-    });
-  }
+  const sorted = filtered.slice().sort((a, b) => {
+    const cmp = (a.studentId || '').localeCompare(b.studentId || '');
+    return respSortDir === 'asc' ? cmp : -cmp;
+  });
 
   const tagDefs = [
     { key: 'all', label: '전체' },
@@ -1080,72 +1132,60 @@ function renderResponseList() {
     `<div class="resp-tag${respFilterClass === t.key ? ' active' : ''}" data-key="${t.key}">${t.label}</div>`
   ).join('');
 
-  const sortBtnHtml = (mode, label) => {
-    const active = respSortMode === mode;
-    const arrow = active ? (respSortDir === 'asc' ? ' ↑' : ' ↓') : '';
-    return `<button class="resp-sort-btn${active ? ' active' : ''}" data-mode="${mode}">${label}${arrow}</button>`;
-  };
-
+  const sortArrow = respSortDir === 'asc' ? ' ↑' : ' ↓';
   const filterLabel = respFilterClass === 'all' ? '전체' : `${respFilterClass}반`;
+
   let html = `
     <div class="resp-tags">${tagsHtml}</div>
-    <div class="resp-sort-row">${sortBtnHtml('class', '반별')}${sortBtnHtml('studentId', '학번별')}</div>
+    <div class="resp-sort-row"><button class="resp-sort-btn active" id="respSortBtn">학번순${sortArrow}</button></div>
     <div class="adm-top-bar">
       <div class="stat-badge">${filterLabel} ${sorted.length}명 응답</div>
       <button class="btn-reset" id="resetAllBtn">전체 초기화</button>
     </div>`;
 
-  sorted.forEach(r => {
-    const date = r.submittedAt?.toDate?.() || new Date();
-    const dateStr = date.toLocaleDateString('ko-KR') + ' ' + date.toLocaleTimeString('ko-KR', {hour:'2-digit', minute:'2-digit'});
-    let ansHtml = '';
-    config.sections.forEach(sec => {
-      sec.questions.forEach(q => {
-        const val = r.answers?.[q.id];
-        if (val == null || val === '') return;
-        let dv = '';
-        if (q.type === 'scale') dv = `${val}점 — ${q.options[val-1] || ''}`;
-        else if (q.type === 'checkbox') dv = Array.isArray(val) ? val.join(', ') : String(val);
-        else dv = String(val);
-        ansHtml += `<div class="resp-q">
-          <div class="resp-q-text">${esc(q.text)}</div>
-          <div class="resp-q-ans">${esc(dv)}</div>
-        </div>`;
+  if (!sorted.length) {
+    html += '<div class="empty-state">해당 조건의 응답이 없습니다.</div>';
+    body.innerHTML = html;
+  } else {
+    if (respIndex >= sorted.length) respIndex = sorted.length - 1;
+    if (respIndex < 0) respIndex = 0;
+
+    html += `<div class="resp-pager">
+      <button class="btn-nav" id="respPrevBtn" ${respIndex <= 0 ? 'disabled' : ''}>이전</button>
+      <div class="resp-pager-count">${respIndex + 1} / ${sorted.length}</div>
+      <button class="btn-nav" id="respNextBtn" ${respIndex >= sorted.length - 1 ? 'disabled' : ''}>다음</button>
+    </div>`;
+    html += buildRespCardHTML(sorted[respIndex]);
+    body.innerHTML = html;
+
+    body.querySelector('#respPrevBtn')?.addEventListener('click', () => { respIndex--; renderResponseList(); });
+    body.querySelector('#respNextBtn')?.addEventListener('click', () => { respIndex++; renderResponseList(); });
+
+    body.querySelectorAll('.btn-del-resp').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('이 응답을 삭제하시겠습니까?')) return;
+        try {
+          await deleteDoc(doc(db, 'survey_responses', btn.dataset.docid));
+          allResponses = allResponses.filter(r => r._docId !== btn.dataset.docid);
+          renderResponseList();
+        } catch(e) { alert('삭제 실패: ' + e.message); }
       });
     });
-    html += `<div class="resp-card" data-docid="${esc(r._docId)}">
-      <div class="resp-header">
-        <div><div class="resp-name">${esc(r.studentName)}</div><div class="resp-id">${esc(r.studentId)}</div></div>
-        <div class="resp-header-right">
-          <div class="resp-date">${dateStr}</div>
-          <button class="btn-del-resp" data-docid="${esc(r._docId)}">삭제</button>
-        </div>
-      </div>
-      ${ansHtml}
-    </div>`;
-  });
-
-  body.innerHTML = html;
+  }
 
   body.querySelectorAll('.resp-tag').forEach(tag => {
     tag.addEventListener('click', () => {
       const k = tag.dataset.key;
       respFilterClass = k === 'all' ? 'all' : parseInt(k, 10);
+      respIndex = 0;
       renderResponseList();
     });
   });
 
-  body.querySelectorAll('.resp-sort-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const mode = btn.dataset.mode;
-      if (respSortMode === mode) {
-        respSortDir = respSortDir === 'asc' ? 'desc' : 'asc';
-      } else {
-        respSortMode = mode;
-        respSortDir = 'asc';
-      }
-      renderResponseList();
-    });
+  body.querySelector('#respSortBtn').addEventListener('click', () => {
+    respSortDir = respSortDir === 'asc' ? 'desc' : 'asc';
+    respIndex = 0;
+    renderResponseList();
   });
 
   body.querySelector('#resetAllBtn').addEventListener('click', async () => {
@@ -1156,17 +1196,6 @@ function renderResponseList() {
       allResponses = [];
       body.innerHTML = '<div class="empty-state">초기화가 완료되었습니다.</div>';
     } catch(e) { alert('초기화 실패: ' + e.message); }
-  });
-
-  body.querySelectorAll('.btn-del-resp').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      if (!confirm('이 응답을 삭제하시겠습니까?')) return;
-      try {
-        await deleteDoc(doc(db, 'survey_responses', btn.dataset.docid));
-        allResponses = allResponses.filter(r => r._docId !== btn.dataset.docid);
-        renderResponseList();
-      } catch(e) { alert('삭제 실패: ' + e.message); }
-    });
   });
 }
 
