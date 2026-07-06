@@ -128,10 +128,7 @@
         </div>`;
     }).join('');
     return `
-      <div class="slide-header">
-        <span class="check-badge">자료</span>
-        <h2 class="slide-title">${slide.title || ''}</h2>
-      </div>
+      ${slide.title ? `<div class="slide-header"><span class="check-badge">자료</span><h2 class="slide-title">${slide.title}</h2></div>` : ''}
       <div class="image-body" style="grid-template-columns: repeat(${cols}, 1fr)">
         ${cells}
       </div>
