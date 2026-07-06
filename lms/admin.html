@@ -1527,11 +1527,9 @@ async function ceGetClaudeApiKey() {
 
 async function ceExtractHwpxText(file) {
   const zip = await JSZip.loadAsync(file);
-  const preview = zip.file('Preview/PrvText.txt');
-  if (preview) {
-    const text = await preview.async('string');
-    if (text.trim()) return text;
-  }
+  // Preview/PrvText.txt는 한글이 미리보기·검색 색인용으로 만드는 요약 텍스트라
+  // 문서가 길면 중간에서 잘려 있을 수 있다. 전체 본문이 들어있는 section*.xml을
+  // 먼저 시도하고, 그게 비어 있을 때만 PrvText.txt로 대체한다.
   const sectionNames = Object.keys(zip.files)
     .filter(n => /^Contents\/section\d+\.xml$/.test(n))
     .sort();
@@ -1539,6 +1537,13 @@ async function ceExtractHwpxText(file) {
   for (const name of sectionNames) {
     const xml = await zip.file(name).async('string');
     text += xml.replace(/<[^>]+>/g, '\n').replace(/\n{2,}/g, '\n') + '\n';
+  }
+  if (text.trim()) return text;
+
+  const preview = zip.file('Preview/PrvText.txt');
+  if (preview) {
+    const previewText = await preview.async('string');
+    if (previewText.trim()) return previewText;
   }
   return text;
 }
@@ -1585,7 +1590,7 @@ async function ceRequestLessonJson(claudeKey, content) {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
-    body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:4096, messages:[{ role:'user', content: messageContent }] })
+    body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:8192, messages:[{ role:'user', content: messageContent }] })
   });
   if (!res.ok) {
     let detail = '';
@@ -1593,6 +1598,9 @@ async function ceRequestLessonJson(claudeKey, content) {
     throw new Error(`API 오류 ${res.status}${detail ? ' - ' + detail : ''}`);
   }
   const data = await res.json();
+  if (data.stop_reason === 'max_tokens') {
+    throw new Error('활동지 내용이 길어서 응답이 중간에 잘렸습니다. 활동지를 나눠서 올려주세요.');
+  }
   const raw = (data.content?.[0]?.text || '').replace(/```json|```/g,'').trim();
   return JSON.parse(raw);
 }
