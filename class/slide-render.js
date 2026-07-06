@@ -110,17 +110,23 @@
   }
 
   function imageHTML(slide, lesson) {
-    const src = slide.img != null
-      ? `/hoistory/class/img/${lesson.num}_${slide.img}.png`
-      : (slide.src || '');
+    const images = slide.images && slide.images.length ? slide.images : [{ img: slide.img, src: slide.src, caption: slide.caption }];
+    const cols = images.length === 4 ? 2 : Math.min(images.length, 3) || 1;
+    const cells = images.map(im => {
+      const src = im.img != null ? `/hoistory/class/img/${lesson.num}_${im.img}.png` : (im.src || '');
+      return `
+        <div class="grid-img-cell">
+          <img src="${src}" alt="${im.caption || slide.title || ''}" class="grid-img">
+          ${im.caption ? `<p class="grid-img-caption">${im.caption}</p>` : ''}
+        </div>`;
+    }).join('');
     return `
       <div class="slide-header">
         <span class="check-badge">자료</span>
         <h2 class="slide-title">${slide.title || ''}</h2>
       </div>
-      <div class="image-body">
-        <img src="${src}" alt="${slide.title || ''}" class="main-img">
-        ${slide.caption ? `<p class="main-img-caption">${slide.caption}</p>` : ''}
+      <div class="image-body" style="grid-template-columns: repeat(${cols}, 1fr)">
+        ${cells}
       </div>
     `;
   }
@@ -159,6 +165,34 @@
     return `<div class="slide${extraClass}">${inner}</div>`;
   }
 
-  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML };
+  /* 이미지 클릭 → 확대 라이트박스. 오버레이는 최초 호출 시 한 번만 만들어 body에 붙인다. */
+  let lightbox = null;
+  function ensureLightbox() {
+    if (lightbox) return lightbox;
+    const overlay = document.createElement('div');
+    overlay.className = 'img-lightbox-overlay';
+    overlay.innerHTML = `<button class="img-lightbox-close" aria-label="닫기">&times;</button><img>`;
+    document.body.appendChild(overlay);
+    const imgEl = overlay.querySelector('img');
+    const close = () => overlay.classList.remove('open');
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    overlay.querySelector('.img-lightbox-close').addEventListener('click', close);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    lightbox = { overlay, imgEl, close };
+    return lightbox;
+  }
+
+  /* container 안의 슬라이드 이미지들에 클릭 시 확대 보기를 붙인다. 렌더 후(슬라이드를 새로 그릴 때마다) 호출. */
+  function wireLightbox(container) {
+    const box = ensureLightbox();
+    container.querySelectorAll('.grid-img, .clayout-img img').forEach(img => {
+      img.addEventListener('click', () => {
+        box.imgEl.src = img.src;
+        box.overlay.classList.add('open');
+      });
+    });
+  }
+
+  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox };
 
 })(window);
