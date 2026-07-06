@@ -312,19 +312,23 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .concept-embed .sub-tab.active{color:var(--cnavy);border-bottom-color:var(--cnavy)}
 .concept-embed .sub-panel{display:none}
 .concept-embed .sub-panel.active{display:block}
-.concept-embed .cl-divider,.concept-embed .cl-row{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--cborder);border-radius:8px;margin-bottom:8px;background:var(--cwhite)}
+.concept-embed .cl-divider,.concept-embed .cl-row,.concept-embed .cl-image{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--cborder);border-radius:8px;margin-bottom:8px;background:var(--cwhite)}
 .concept-embed .cl-divider{background:#eef1f8;border-color:#c3d0ea;flex-direction:column;align-items:stretch;gap:8px}
 .concept-embed .cl-divider.dragging,.concept-embed .cl-row.dragging{opacity:.35}
 .concept-embed .cl-divider-top{display:flex;align-items:center;gap:10px}
 .concept-embed .cl-handle{cursor:grab;color:var(--csub);font-size:1.1rem;user-select:none;flex-shrink:0;line-height:1;padding-top:6px}
-.concept-embed .cl-divider .cl-handle{padding-top:0}
+.concept-embed .cl-move{display:flex;flex-direction:column;gap:2px;flex-shrink:0}
+.concept-embed .cl-move-btn{width:20px;height:16px;padding:0;border:1px solid var(--cborder);border-radius:4px;background:var(--cwhite);color:var(--csub);font-size:.65rem;line-height:1;cursor:pointer}
+.concept-embed .cl-move-btn:hover{background:#eaeaf0}
+.concept-embed .cl-move-btn:disabled{opacity:.3;cursor:default}
+.concept-embed .cl-divider .cl-handle,.concept-embed .cl-image .cl-handle{padding-top:0}
 .concept-embed .cl-divider-label{font-size:.74rem;font-weight:700;color:var(--cnavy);flex-shrink:0;white-space:nowrap}
 .concept-embed .cl-divider-title{flex:1;padding:7px 10px;border:1px solid var(--cborder);border-radius:6px;font-family:var(--font);font-size:.85rem;font-weight:700}
 .concept-embed .cl-img-row{display:flex;align-items:center;gap:8px;padding:8px 10px;margin-left:26px;background:rgba(28,52,97,0.06);border-radius:6px;flex-wrap:wrap}
 .concept-embed .cl-img-label{font-size:.74rem;font-weight:700;color:var(--cnavy);white-space:nowrap}
 .concept-embed .cl-img-input{width:64px;padding:4px 6px;border:1px solid var(--cborder);border-radius:5px;font-family:var(--font);font-size:.82rem;text-align:center}
 .concept-embed .cl-img-select{padding:4px 8px;border:1px solid var(--cborder);border-radius:5px;font-family:var(--font);font-size:.82rem;background:var(--cwhite)}
-.concept-embed .cl-image{background:#fdf3e7;border-color:#e8d4b0;align-items:center}
+.concept-embed .cl-image{background:#fdf3e7;border-color:#e8d4b0;flex-direction:column;align-items:stretch;gap:8px}
 .concept-embed .cl-image-label{font-size:.74rem;font-weight:700;color:#9a6a20;flex-shrink:0;white-space:nowrap}
 .concept-embed .cl-label{width:130px;flex-shrink:0;padding:8px 10px;border:1px solid var(--cborder);border-radius:6px;font-family:var(--font);font-size:.85rem}
 .concept-embed .cl-items{flex:1;padding:8px 10px;border:1px solid var(--cborder);border-radius:6px;font-family:var(--font);font-size:.85rem;resize:vertical;min-height:50px;line-height:1.5}
@@ -1060,6 +1064,24 @@ function updateLesson(f,v){ ceCd.lesson[f]=v; ceRenderPreview(); }
 function updateObjectives(v){ ceCd.lesson.objectives = v.split('\n').filter(s=>s.trim()!==''); ceRenderPreview(); }
 
 // ── 개념 Check 콘텐츠 (구분선 + 행, 드래그로 순서 변경) ──
+// 드래그 핸들이 잘 안 잡힐 때를 위한 대체 수단 (위/아래로 한 칸씩 이동)
+function ceMoveButtons(i) {
+  const last = ceCd.contentLines.length - 1;
+  return `
+    <span class="cl-move">
+      <button class="cl-move-btn" onclick="moveLine(${i},-1)" ${i === 0 ? 'disabled' : ''} title="위로 이동">↑</button>
+      <button class="cl-move-btn" onclick="moveLine(${i},1)" ${i === last ? 'disabled' : ''} title="아래로 이동">↓</button>
+    </span>`;
+}
+function moveLine(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= ceCd.contentLines.length) return;
+  const [item] = ceCd.contentLines.splice(i, 1);
+  ceCd.contentLines.splice(j, 0, item);
+  ceRenderContentLines();
+  ceRenderPreview();
+}
+
 function ceRenderContentLines() {
   const container = document.getElementById('content-lines');
   if (!ceCd.contentLines.length) {
@@ -1073,6 +1095,7 @@ function ceRenderContentLines() {
         <div class="cl-divider" draggable="true" data-idx="${i}">
           <div class="cl-divider-top">
             <span class="cl-handle">⋮⋮</span>
+            ${ceMoveButtons(i)}
             <span class="cl-divider-label">새 슬라이드</span>
             <input type="text" class="cl-divider-title" placeholder="슬라이드 제목" value="${esc(line.title)}" oninput="updateLine(${i},'title',this.value)">
             <button class="cbtn-sm" onclick="toggleDividerImg(${i})">${hasImg ? '이미지 제거' : '+ 이미지 삽입'}</button>
@@ -1098,6 +1121,7 @@ function ceRenderContentLines() {
         <div class="cl-image" draggable="true" data-idx="${i}">
           <div class="cl-divider-top">
             <span class="cl-handle">⋮⋮</span>
+            ${ceMoveButtons(i)}
             <span class="cl-image-label">이미지 슬라이드</span>
             <input type="text" class="cl-divider-title" placeholder="제목 (선택)" value="${esc(line.title||'')}" oninput="updateLine(${i},'title',this.value)" style="max-width:220px">
             <button class="cbtn-danger" onclick="deleteLine(${i})">삭제</button>
@@ -1115,6 +1139,7 @@ function ceRenderContentLines() {
     return `
       <div class="cl-row" draggable="true" data-idx="${i}">
         <span class="cl-handle">⋮⋮</span>
+        ${ceMoveButtons(i)}
         <input type="text" class="cl-label" placeholder="라벨" value="${esc(line.label)}" oninput="updateLine(${i},'label',this.value)">
         <textarea class="cl-items" placeholder="{단어}는 빈칸, 한 줄 = 한 항목" oninput="updateLineItems(${i},this.value)">${esc(line.items.join('\n'))}</textarea>
         <button class="cbtn-danger" onclick="deleteLine(${i})">삭제</button>
@@ -2236,7 +2261,7 @@ async function saveGradeRecords() {
 // window에 자동으로 붙지 않는다. 인라인 핸들러가 찾을 수 있도록 명시적으로 노출한다.
 Object.assign(window, {
   switchSubTab, addLesson, deleteLesson, onLessonChange,
-  addDivider, addContentRow, addImageSlide, toggleDividerImg, deleteLine,
+  addDivider, addContentRow, addImageSlide, toggleDividerImg, deleteLine, moveLine,
   updateImageItem, addImageItem, removeImageItem,
   updateLesson, updateObjectives, updateLine, updateLineItems, updateThink,
   resetContent, saveContent,
