@@ -709,17 +709,6 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
           <div class="form-group"><label class="form-label">강의명</label><input class="form-input" id="th-new-title" placeholder="예: 1강 선사시대"></div>
           <div class="form-group"><label class="form-label">오늘의 질문</label><input class="form-input" id="th-new-q" placeholder="생각 질문을 입력하세요"></div>
           <div class="form-group"><label class="form-label">설명 (선택)</label><textarea class="form-textarea" id="th-new-ref" style="height:90px" placeholder="참고 내용이나 설명을 자유롭게 작성하세요"></textarea></div>
-          <div class="form-group"><label class="form-label">아이콘 (이모지)</label>
-            <div class="emoji-palette-wrap" id="thinkEmojiWrap">
-              <div class="emoji-display" onclick="toggleThinkEmojiPicker()">
-                <span id="thinkSelectedEmoji">💭</span>
-              </div>
-              <div class="emoji-picker" id="thinkEmojiPicker">
-                <div class="emoji-cats" id="thinkEmojiCats"></div>
-                <div class="emoji-grid" id="thinkEmojiGrid"></div>
-              </div>
-            </div>
-          </div>
           <div style="display:flex;gap:10px">
             <button class="btn-save" style="flex:0;padding:10px 28px;background:var(--c3)" onclick="thAddLecture()">생성</button>
             <button class="btn-cancel" onclick="thHideNewForm()">취소</button>
@@ -2231,24 +2220,83 @@ async function renderMissionPreview(cat) {
   if (!cat) { container.innerHTML = ''; return; }
   try {
     const snap  = await getDocs(query(collection(db, 'cards'), where('category','==',cat)));
-    const items = snap.docs.map(d => d.data()).sort((a,b) => (a.order??999)-(b.order??999));
-    container.innerHTML = items.length
-      ? `<p style="font-size:12px;color:var(--sub);margin-bottom:10px">현재 카테고리 "${esc(cat)}" 카드 (${items.length}개):</p>`
-      : '<div class="empty-panel">이 카테고리에 카드가 없습니다.</div>';
-    items.forEach(item => {
+    const items = snap.docs.map(d => ({ docId: d.id, ...d.data() })).sort((a,b) => (a.order??999)-(b.order??999));
+    window._missionItems = items;
+    window._missionCat   = cat;
+    if (!items.length) { container.innerHTML = '<div class="empty-panel">이 카테고리에 카드가 없습니다.</div>'; return; }
+    container.innerHTML = `<p style="font-size:12px;color:var(--sub);margin-bottom:10px">카드 ${items.length}개</p>`;
+    items.forEach((item, idx) => {
       const row = document.createElement('div');
       row.className = 'item-row';
+      row.id = `mission-row-${item.docId}`;
       const iconStr = String(item.emoji||'📌');
       row.innerHTML = `
         <div class="item-icon-preview preview-mission" style="font-size:${iconStr.length<=2?'20px':'13px'}">${esc(iconStr)}</div>
         <div class="item-info">
           <div class="item-label">${esc(item.title||'')}</div>
-          ${item.desc ? `<div class="item-sublabel">${esc(item.desc)}</div>` : ''}
+          <div class="item-url">${esc(item.url||'')}</div>
+        </div>
+        <div class="item-meta">
+          <button class="edit-btn" ${idx===0?'disabled':''} onclick="missionMoveCard('${item.docId}','up',${idx})">▲</button>
+          <button class="edit-btn" ${idx===items.length-1?'disabled':''} onclick="missionMoveCard('${item.docId}','down',${idx})">▼</button>
+          <button class="edit-btn" onclick="missionStartEdit('${item.docId}')">수정</button>
+          <button class="del-btn" onclick="missionDeleteCard('${item.docId}')">삭제</button>
         </div>`;
       container.appendChild(row);
     });
-  } catch(_) {}
+  } catch(e) { console.warn(e); }
 }
+
+window.missionStartEdit = function(docId) {
+  const item = (window._missionItems||[]).find(i => i.docId === docId);
+  if (!item) return;
+  const row = document.getElementById(`mission-row-${docId}`);
+  if (!row) return;
+  row.innerHTML = `
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%;padding:4px 0">
+      <input id="me-emoji-${docId}" class="form-input" value="${esc(String(item.emoji||'📌'))}" placeholder="이모지" style="width:56px;text-align:center">
+      <input id="me-title-${docId}" class="form-input" value="${esc(item.title||'')}" placeholder="제목" style="flex:1;min-width:100px">
+      <input id="me-url-${docId}" class="form-input" value="${esc(item.url||'')}" placeholder="URL" style="flex:2;min-width:140px">
+      <button class="btn-save" style="flex:0;padding:7px 16px;background:var(--c3)" onclick="missionSaveEdit('${docId}')">저장</button>
+      <button class="btn-cancel" onclick="renderMissionPreview(window._missionCat)">취소</button>
+    </div>`;
+};
+
+window.missionSaveEdit = async function(docId) {
+  const emoji = document.getElementById(`me-emoji-${docId}`)?.value.trim() || '📌';
+  const title = document.getElementById(`me-title-${docId}`)?.value.trim();
+  const url   = document.getElementById(`me-url-${docId}`)?.value.trim();
+  if (!title) { alert('제목을 입력하세요.'); return; }
+  try {
+    await updateDoc(doc(db, 'cards', docId), { emoji, title, url });
+    renderMissionPreview(window._missionCat);
+  } catch(e) { alert('저장 실패: ' + e.message); }
+};
+
+window.missionDeleteCard = async function(docId) {
+  const item = (window._missionItems||[]).find(i => i.docId === docId);
+  if (!confirm(`"${item?.title||'이 카드'}"를 삭제하시겠습니까?`)) return;
+  try {
+    await deleteDoc(doc(db, 'cards', docId));
+    renderMissionPreview(window._missionCat);
+  } catch(e) { alert('삭제 실패: ' + e.message); }
+};
+
+window.missionMoveCard = async function(docId, dir, idx) {
+  const items = window._missionItems;
+  if (!items) return;
+  const targetIdx = dir === 'up' ? idx - 1 : idx + 1;
+  if (targetIdx < 0 || targetIdx >= items.length) return;
+  const cur    = items[idx];
+  const target = items[targetIdx];
+  try {
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'cards', cur.docId),    { order: target.order ?? targetIdx });
+    batch.update(doc(db, 'cards', target.docId), { order: cur.order ?? idx });
+    await batch.commit();
+    renderMissionPreview(window._missionCat);
+  } catch(e) { alert('순서 변경 실패: ' + e.message); }
+};
 
 function renderList(sec, items) {
   const container = document.getElementById(`list-${sec}`);
@@ -3527,17 +3575,14 @@ initAdmin();
   window.thHideNewForm = function() {
     document.getElementById('th-new-form').style.display = 'none';
     ['th-new-title','th-new-q','th-new-ref'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-    thinkSelectedEmoji = '💭';
-    const sp = document.getElementById('thinkSelectedEmoji'); if (sp) sp.textContent = '💭';
   };
   window.thAddLecture = async function() {
     const title = document.getElementById('th-new-title').value.trim();
     const question = document.getElementById('th-new-q').value.trim();
     const reference = document.getElementById('th-new-ref').value.trim();
-    const icon = thinkSelectedEmoji || '💭';
     if (!title || !question) { alert('강의명과 질문을 입력해주세요.'); return; }
     try {
-      await addDoc(collection(db, 'think_lectures'), { title, question, reference, icon, isOpen: false, isArchived: false, createdAt: Date.now() });
+      await addDoc(collection(db, 'think_lectures'), { title, question, reference, isOpen: false, isArchived: false, createdAt: Date.now() });
       window.thHideNewForm();
     } catch(e) { alert('저장 실패: ' + e.message); }
   };
