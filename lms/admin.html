@@ -706,7 +706,10 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
       <div class="stu-card" id="th-new-form" style="display:none;margin-bottom:14px">
         <div class="stu-card-head">새 강의 만들기</div>
         <div class="stu-card-body">
-          <div class="form-group"><label class="form-label">강의명</label><input class="form-input" id="th-new-title" placeholder="예: 1강 선사시대"></div>
+          <div style="display:flex;gap:10px;align-items:flex-end">
+            <div class="form-group" style="margin-bottom:0;width:80px"><label class="form-label">번호</label><input class="form-input" id="th-new-num" type="text" placeholder="예: 1" style="text-align:center"></div>
+            <div class="form-group" style="margin-bottom:0;flex:1"><label class="form-label">강의명</label><input class="form-input" id="th-new-title" placeholder="예: 선사시대"></div>
+          </div>
           <div class="form-group"><label class="form-label">오늘의 질문</label><input class="form-input" id="th-new-q" placeholder="생각 질문을 입력하세요"></div>
           <div class="form-group"><label class="form-label">설명 (선택)</label><textarea class="form-textarea" id="th-new-ref" style="height:90px" placeholder="참고 내용이나 설명을 자유롭게 작성하세요"></textarea></div>
           <div style="display:flex;gap:10px">
@@ -3574,15 +3577,18 @@ initAdmin();
   };
   window.thHideNewForm = function() {
     document.getElementById('th-new-form').style.display = 'none';
-    ['th-new-title','th-new-q','th-new-ref'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['th-new-num','th-new-title','th-new-q','th-new-ref'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   };
   window.thAddLecture = async function() {
+    const num = document.getElementById('th-new-num').value.trim();
     const title = document.getElementById('th-new-title').value.trim();
     const question = document.getElementById('th-new-q').value.trim();
     const reference = document.getElementById('th-new-ref').value.trim();
     if (!title || !question) { alert('강의명과 질문을 입력해주세요.'); return; }
+    const data = { title, question, reference, isOpen: false, isArchived: false, createdAt: Date.now() };
+    if (num) data.icon = num;
     try {
-      await addDoc(collection(db, 'think_lectures'), { title, question, reference, isOpen: false, isArchived: false, createdAt: Date.now() });
+      await addDoc(collection(db, 'think_lectures'), data);
       window.thHideNewForm();
     } catch(e) { alert('저장 실패: ' + e.message); }
   };
