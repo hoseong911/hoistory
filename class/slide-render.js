@@ -45,14 +45,15 @@
     `;
   }
 
-  function objectivesHTML(lesson) {
+  /* 번호가 매겨진 목록 형태의 슬라이드(학습 목표, 초성 퀴즈가 이 구성을 공유한다) */
+  function numberedListHTML(items, badgeLabel, lesson) {
     return `
       <div class="slide-header">
-        <span class="check-badge">학습 목표</span>
+        <span class="check-badge">${badgeLabel}</span>
         <h2 class="slide-title">${lesson.num}강 · ${lesson.title}</h2>
       </div>
       <div class="obj-list">
-        ${lesson.objectives.map((o, i) => `
+        ${items.map((o, i) => `
           <div class="obj-item">
             <span class="obj-num">${i + 1}</span>
             <p class="obj-text">${parseText(o)}</p>
@@ -61,6 +62,8 @@
       </div>
     `;
   }
+  function objectivesHTML(lesson) { return numberedListHTML(lesson.objectives, '학습 목표', lesson); }
+  function chosungHTML(slide, lesson) { return numberedListHTML(slide.items, '초성 퀴즈', lesson); }
 
   function rowHTML(row) {
     const items = row.items.map(item => `<p>${parseItemText(item)}</p>`).join('');
@@ -112,13 +115,13 @@
   function conceptHTML(slide, lesson) { return checkStyleHTML(slide, lesson, '개념 Check'); }
   function missionHTML(slide, lesson) { return checkStyleHTML(slide, lesson, '미션 Check'); }
 
-  function openingHTML(slide, lesson) {
+  function diveHTML(slide, lesson) {
     return `
       <div class="slide-header">
-        <span class="check-badge">오프닝 퀘스천</span>
+        <span class="check-badge">Dive into HISTORY</span>
         <h2 class="slide-title">${lesson.num}강</h2>
       </div>
-      <p class="think-question">${slide.question.replace(/\n/g, '<br>')}</p>
+      <p class="think-question">${(slide.title||'').replace(/\n/g, '<br>')}</p>
       ${slide.guide ? `
       <div class="think-body">
         <p class="think-guide">${slide.guide.replace(/\n/g, '<br>')}</p>
@@ -194,13 +197,19 @@
     return slides;
   }
 
-  /* 어드민 콘텐츠 편집 데이터({lesson, opening, contentLines, mission, think})를 실제
+  /* 어드민 콘텐츠 편집 데이터({lesson, dive, contentLines, mission, think})를 실제
      화면이 쓰는 slides 배열 형태로 변환한다. 어드민 미리보기와 실제 학생 페이지
      (lesson.html)가 동일한 이 함수를 써서 두 화면이 항상 일치하도록 한다. */
   function buildSlidesFromData(d) {
     const slides = [{ type: 'cover' }, { type: 'objectives' }];
-    if (d.opening && d.opening.question) {
-      slides.push({ type: 'opening', question: d.opening.question, guide: d.opening.guide || '' });
+    // opening{question,guide}은 dive{title,guide}로 바뀌기 전 필드명. 아직 admin에서
+    // 다시 저장하지 않은 예전 강의도 그대로 보이도록 대비한다.
+    const dive = d.dive || (d.opening ? { title: d.opening.question, guide: d.opening.guide } : null);
+    if (dive && (dive.title || dive.guide)) {
+      slides.push({ type: 'dive', title: dive.title || '', guide: dive.guide || '' });
+    }
+    if (d.dive && d.dive.chosungEnabled && d.dive.chosungItems && d.dive.chosungItems.length) {
+      slides.push({ type: 'chosung', items: d.dive.chosungItems });
     }
     slides.push(...buildCheckSlides(d.contentLines, 'concept'));
     if (d.mission) slides.push(...buildCheckSlides(d.mission.contentLines, 'mission'));
@@ -218,9 +227,12 @@
     } else if (slide.type === 'objectives') {
       extraClass = ' slide-objectives';
       inner = objectivesHTML(lesson);
-    } else if (slide.type === 'opening') {
+    } else if (slide.type === 'dive') {
       extraClass = ' slide-think'; // 생각 체크와 같은 단순 질문형 슬라이드라 배경 스타일을 재사용
-      inner = openingHTML(slide, lesson);
+      inner = diveHTML(slide, lesson);
+    } else if (slide.type === 'chosung') {
+      extraClass = ' slide-objectives'; // 학습 목표와 같은 번호 목록 구성이라 배경 스타일을 재사용
+      inner = chosungHTML(slide, lesson);
     } else if (slide.type === 'concept') {
       inner = conceptHTML(slide, lesson);
     } else if (slide.type === 'mission') {

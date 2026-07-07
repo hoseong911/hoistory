@@ -384,7 +384,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .concept-embed .pv-solo-inner{width:1920px;height:1080px;position:absolute;top:0;left:0;transform-origin:top left}
 .concept-embed .field-group{margin-bottom:14px}
 .concept-embed .field-label{font-size:.78rem;font-weight:700;color:var(--csub);margin-bottom:5px;display:flex;align-items:center;gap:8px}
-.concept-embed .field-hint{font-size:.72rem;color:#b0a898;font-weight:400}
+.concept-embed .field-hint{font-size:.72rem;color:#b0a898;font-weight:400;margin-left:8px}
 .concept-embed .field-input{width:100%;padding:9px 12px;border:1px solid var(--cborder);border-radius:7px;font-family:var(--font);font-size:.9rem;outline:none;color:var(--ctext)}
 .concept-embed .field-input:focus{border-color:var(--cnavy)}
 .concept-embed textarea.field-input{resize:vertical;min-height:56px;line-height:1.55}
@@ -490,7 +490,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 
       <div class="sub-tab-bar">
         <button class="sub-tab active" data-sub="cover"   onclick="switchSubTab('cover')">표지</button>
-        <button class="sub-tab"        data-sub="opening" onclick="switchSubTab('opening')">오프닝 퀘스천</button>
+        <button class="sub-tab"        data-sub="dive"    onclick="switchSubTab('dive')">Dive</button>
         <button class="sub-tab"        data-sub="concept" onclick="switchSubTab('concept')">개념 체크</button>
         <button class="sub-tab"        data-sub="mission" onclick="switchSubTab('mission')">미션 체크</button>
         <button class="sub-tab"        data-sub="think"   onclick="switchSubTab('think')">생각 체크</button>
@@ -503,10 +503,14 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
         </div>
       </div>
 
-      <div id="sub-opening" class="sub-panel">
+      <div id="sub-dive" class="sub-panel">
         <div class="s-card">
-          <div class="s-head">오프닝 퀘스천 <span class="field-hint">수업 시작 전, 개념 체크에 들어가기 전에 보여주는 도입 질문입니다.</span></div>
-          <div class="s-body" id="opening-form"></div>
+          <div class="s-head">Dive into HISTORY <span class="field-hint">수업 전 활동입니다. 표지와 개념 체크 사이에 자유로운 형태로 보여줍니다.</span></div>
+          <div class="s-body" id="dive-form"></div>
+        </div>
+        <div class="s-card">
+          <div class="s-head">초성 퀴즈 <span class="field-hint">체크하면 학습 목표 슬라이드와 같은 구성의 초성 퀴즈 슬라이드가 추가됩니다.</span></div>
+          <div class="s-body" id="chosung-form"></div>
         </div>
       </div>
 
@@ -1293,11 +1297,26 @@ async function deleteLesson() {
 function ceBlankLessonData(num) {
   return {
     lesson: { num, title: '새 강의', unit: '', page: '', objectives: ['학습 목표를 입력하세요'] },
-    opening: { question: '', guide: '' },
+    dive: { title: '', guide: '', chosungEnabled: false, chosungItems: [] },
     contentLines: [],
     mission: { contentLines: [] },
     think: { question: '', guide: '' }
   };
+}
+
+// dive(Dive into HISTORY)·미션 체크는 나중에 추가된 필드라 그 전에 저장된 강의는 없을 수
+// 있다. 없으면 빈 값으로 채워서(기존 데이터를 지우지 않고) 렌더링이 깨지지 않게 한다.
+// 구버전에서 쓰던 opening{question,guide} 필드가 남아있으면 dive{title,guide}로 옮긴다.
+function ceEnsureNewFields(cd) {
+  if (!cd.dive) {
+    cd.dive = cd.opening
+      ? { title: cd.opening.question || '', guide: cd.opening.guide || '', chosungEnabled: false, chosungItems: [] }
+      : { title: '', guide: '', chosungEnabled: false, chosungItems: [] };
+  }
+  if (cd.dive.chosungEnabled === undefined) cd.dive.chosungEnabled = false;
+  if (!Array.isArray(cd.dive.chosungItems)) cd.dive.chosungItems = [];
+  delete cd.opening;
+  if (!cd.mission || !Array.isArray(cd.mission.contentLines)) cd.mission = { contentLines: [] };
 }
 
 // Firestore에 저장된 content가 지금 코드가 기대하는 구조(lesson/contentLines/think)와
@@ -1328,22 +1347,18 @@ function ceLoadLessonData(num) {
 
   if (ceIsValidContentData(lesson?.content)) {
     ceCd = lesson.content;
-    // 오프닝 퀘스천·미션 체크는 나중에 추가된 필드라, 그 전에 저장된 강의는 없을 수 있다.
-    // 없으면 빈 값으로 채워서(기존 데이터를 지우지 않고) 렌더링이 깨지지 않게 한다.
-    if (!ceCd.opening) ceCd.opening = { question: '', guide: '' };
-    if (!ceCd.mission || !Array.isArray(ceCd.mission.contentLines)) ceCd.mission = { contentLines: [] };
+    ceEnsureNewFields(ceCd);
   } else {
     const def = CE_LESSON_DEFAULTS[num];
     ceCd = def ? ceDeepCopy(def) : ceBlankLessonData(num);
-    if (!ceCd.opening) ceCd.opening = { question: '', guide: '' };
-    if (!ceCd.mission || !Array.isArray(ceCd.mission.contentLines)) ceCd.mission = { contentLines: [] };
+    ceEnsureNewFields(ceCd);
     // Firestore에 저장된 content가 없거나 깨져 있었던 것이므로, 방금 만든 기본값을
     // 바로 Firestore에도 반영해서 실제 학생 페이지도 같은 내용을 보게 한다.
     if (lesson) ceSaveContentToFirestore(lesson.docId, ceCd);
   }
 
   ceRenderCoverForm();
-  ceRenderOpeningForm();
+  ceRenderDiveForm();
   ceRenderContentLines('concept');
   ceRenderContentLines('mission');
   ceRenderThinkForm();
@@ -1507,15 +1522,30 @@ function ceWireDragEvents(target) {
   });
 }
 
-// ── 오프닝 퀘스천 폼 ──
-function ceRenderOpeningForm() {
-  const o = ceCd.opening;
-  const el = document.getElementById('opening-form');
+// ── Dive into HISTORY(수업 전 활동) 폼 ──
+// 활동 종류가 다양해서(영상, 게임, 이야기 등) 구조를 강제하지 않고 제목·안내 문구
+// 자유 서식만 제공한다. 초성 퀴즈처럼 별도 슬라이드 구성이 필요한 활동은 체크박스로 켠다.
+function ceRenderDiveForm() {
+  const d = ceCd.dive;
+  const el = document.getElementById('dive-form');
   el.innerHTML = `
-    ${ceFTextarea('오프닝 질문', o.question, `updateOpening('question',this.value)`, 3)}
-    ${ceFTextarea('안내 문구', o.guide, `updateOpening('guide',this.value)`, 3)}`;
+    ${ceFInputInline('제목', d.title, `updateDive('title',this.value)`)}
+    ${ceFTextarea('안내 문구', d.guide, `updateDive('guide',this.value)`, 3)}`;
+  ceRenderChosungForm();
 }
-function updateOpening(f,v){ ceCd.opening[f]=v; ceRenderPreview(); }
+function updateDive(f,v){ ceCd.dive[f]=v; ceRenderPreview(); }
+
+function ceRenderChosungForm() {
+  const d = ceCd.dive;
+  const el = document.getElementById('chosung-form');
+  el.innerHTML = `
+    <label class="field-inline-label" style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px">
+      <input type="checkbox" ${d.chosungEnabled?'checked':''} onchange="updateChosungEnabled(this.checked)"> 초성 퀴즈 슬라이드 사용
+    </label>
+    ${d.chosungEnabled ? ceFTextarea('초성 퀴즈 항목', d.chosungItems.join('\n'), `updateChosungItems(this.value)`, 4, '한 줄 = 항목 하나, 학습 목표 슬라이드와 같은 번호 목록으로 표시됩니다.') : ''}`;
+}
+function updateChosungEnabled(v) { ceCd.dive.chosungEnabled = v; ceRenderChosungForm(); ceRenderPreview(); }
+function updateChosungItems(v)   { ceCd.dive.chosungItems = v.split('\n').filter(s=>s.trim()!==''); ceRenderPreview(); }
 
 // ── 생각 Check 폼 ──
 function ceRenderThinkForm() {
@@ -1543,7 +1573,7 @@ async function ceSaveContentToFirestore(docId, cd) {
     num: cd.lesson.num,
     title: cd.lesson.title,
     unit: cd.lesson.unit,
-    content: { lesson: cd.lesson, opening: cd.opening, contentLines: cd.contentLines, mission: cd.mission, think: cd.think }
+    content: { lesson: cd.lesson, dive: cd.dive, contentLines: cd.contentLines, mission: cd.mission, think: cd.think }
   });
 }
 
@@ -1609,7 +1639,8 @@ function ceFileToBase64(file) {
 
 const CE_LESSON_JSON_SCHEMA = `{
   "lesson": { "title": "수업 제목", "unit": "학습 단원 (예: Ⅲ-4. 고려의 생활과 문화)", "page": "교과서 페이지", "objectives": ["학습 목표 문장", "..."] },
-  "opening": { "question": "수업 시작 전 도입 질문 (없으면 빈 문자열)", "guide": "안내 문구 (없으면 빈 문자열)" },
+  "dive": { "title": "수업 전 활동 제목 (없으면 빈 문자열)", "guide": "안내 문구 (없으면 빈 문자열)" },
+  "chosungItems": ["초성 퀴즈 문제/정답 한 줄 (초성 퀴즈가 없으면 빈 배열)", "..."],
   "conceptContentLines": [
     { "type": "divider", "title": "슬라이드 제목" },
     { "type": "row", "label": "소제목/항목명", "items": ["빈칸은 {정답} 형태로 표시한 문장", "..."] }
@@ -1623,14 +1654,15 @@ const CE_LESSON_JSON_SCHEMA = `{
 
 const CE_LESSON_JSON_INSTRUCTION = `다음은 중학교 역사 수업 활동지 내용이다. 이 내용을 분석해서 아래 JSON 스키마로 정확히 변환해줘.
 
-활동지 내용은 성격에 따라 4곳 중 하나로 나눠 담아야 한다:
-- opening: 수업을 시작하기 전에 던지는 도입 질문(오프닝 퀘스천). 활동지에 이런 질문이 없으면 question/guide를 빈 문자열로 둬라.
+활동지 내용은 성격에 따라 나눠 담아야 한다:
+- dive: 표지와 개념 체크 사이, 수업을 시작하기 전에 하는 활동("Dive into HISTORY"). 형태가 자유로우니 구조화하지 말고 제목과 안내 문구로만 요약해줘. 이런 활동이 없으면 title/guide를 빈 문자열로 둬라.
+- chosungItems: 활동지에 초성 퀴즈(예: ㄱㄴㄷ으로 단어 맞히기)가 있으면 문제/정답을 한 줄씩 배열로 넣어줘. 없으면 빈 배열로 둬라.
 - conceptContentLines: 개념 설명, 빈칸 채우기, 용어 정리 등 "배우는" 내용.
 - missionContentLines: 학생이 직접 해보는 활동·과제·퀘스트·게임형 미션 내용.
 - think: 수업 마무리에 학생 스스로 생각해서 답하는 서술형 질문.
 
 conceptContentLines·missionContentLines 공통 규칙:
-- 소제목 단위로 나눠서 만들어줘. 새 슬라이드로 나눌 만큼 주제가 바뀌는 지점 앞에는 {"type":"divider","title":"..."}를 넣어줘.
+- 기본값은 표(행 라벨) 하나당 슬라이드 하나다. 행마다 그 앞에 {"type":"divider","title":"..."} 하나를 넣고 바로 뒤에 그 행 하나만 담은 {"type":"row",...}를 배치해줘 (구분선 1개 + 행 1개가 반복되는 형태). 여러 표를 한 슬라이드로 합치지 마라 — 합치고 나누는 건 선생님이 나중에 직접 정한다.
 - 활동지의 빈칸(밑줄, 괄호, ○○ 등) 문제는 정답을 알 수 있으면 문장 안에 {정답} 형태로 표시해줘. 정답을 알 수 없으면 표시 없이 문장 그대로 넣어줘.
 - 이미지나 표는 텍스트로 옮길 수 없으면 생략해도 된다.
 - 해당하는 내용이 활동지에 없으면 빈 배열 []로 둬라.
@@ -1675,7 +1707,8 @@ function ceValidateParsedLesson(d) {
     && Array.isArray(d.lesson.objectives)
     && validLines(d.conceptContentLines)
     && validLines(d.missionContentLines)
-    && d.opening && typeof d.opening === 'object'
+    && d.dive && typeof d.dive === 'object'
+    && Array.isArray(d.chosungItems)
     && d.think && typeof d.think === 'object';
 }
 
@@ -1719,7 +1752,10 @@ async function ceHandleFileUpload(file) {
         num, title: parsed.lesson.title || '새 강의', unit: parsed.lesson.unit || '', page: parsed.lesson.page || '',
         objectives: parsed.lesson.objectives.length ? parsed.lesson.objectives : ['학습 목표를 입력하세요']
       },
-      opening: { question: parsed.opening.question || '', guide: parsed.opening.guide || '' },
+      dive: {
+        title: parsed.dive.title || '', guide: parsed.dive.guide || '',
+        chosungEnabled: parsed.chosungItems.length > 0, chosungItems: parsed.chosungItems
+      },
       contentLines: parsed.conceptContentLines,
       mission: { contentLines: parsed.missionContentLines },
       think: { question: parsed.think.question || '', guide: parsed.think.guide || '' }
@@ -1774,15 +1810,6 @@ function ceShowToast(id) {
   clearTimeout(ceToastTimers[id]);
   ceToastTimers[id] = setTimeout(() => el.classList.remove('show'), 2500);
 }
-
-Object.assign(window, {
-  addLesson, deleteLesson, onLessonChange, switchSubTab,
-  addDivider, addContentRow, addImageSlide,
-  updateLesson, updateObjectives, updateThink,
-  updateLine, updateLineItems, deleteLine, toggleDividerImg,
-  onFsSliderInput, onFsNumberInput, onColorChange,
-  saveDesign, resetDesign, saveContent, resetContent,
-});
 
 // ── 미션 체크 탭 (카테고리 선택) ──
 async function initMissionTab() {
@@ -2735,7 +2762,8 @@ Object.assign(window, {
   switchSubTab, addLesson, deleteLesson, onLessonChange,
   addDivider, addContentRow, addImageSlide, toggleDividerImg, deleteLine, moveLine,
   updateImageItem, addImageItem, removeImageItem,
-  updateLesson, updateObjectives, updateLine, updateLineItems, updateThink, updateOpening,
+  updateLesson, updateObjectives, updateLine, updateLineItems, updateThink,
+  updateDive, updateChosungEnabled, updateChosungItems,
   resetContent, saveContent, ceHandleFileUpload,
   onFsSliderInput, onFsNumberInput, onColorChange, resetDesign, saveDesign,
 });
