@@ -2926,6 +2926,7 @@ initAdmin();
         <td class="stu-td-cls">${stuParseClass(s.studentId)||'—'}</td>
         <td><div class="stu-actions">
           <button class="stu-btn stu-btn-edit" onclick="stuStartEdit('${stuEsc(s.studentId)}')">수정</button>
+          <button class="stu-btn stu-btn-edit" onclick="stuResetPassword('${stuEsc(s.studentId)}','${stuEsc(s.studentName)}')">비밀번호 초기화</button>
           <button class="stu-btn stu-btn-del" onclick="stuDelete('${stuEsc(s._key)}','${stuEsc(s.studentName)}')">삭제</button>
         </div></td>
       </tr>`;
@@ -2969,6 +2970,18 @@ initAdmin();
   window.stuDelete = async function(key, sname) {
     if (!confirm(`${sname} 학생을 삭제하시겠습니까?`)) return;
     await remove(ref(rtdb, `students/${key}`));
+  };
+
+  // 학생이 LMS 로그인 때 직접 설정한 비밀번호(lms_auth/{studentId} 문서)를 초기화한다.
+  // 문서를 통째로 지우면 다음 로그인 때 "첫 방문"으로 처리돼 새 비밀번호를 설정하게 된다.
+  window.stuResetPassword = async function(sid, sname) {
+    if (!confirm(`${sname}(${sid}) 학생의 비밀번호를 초기화하시겠습니까?\n다음 로그인 때 새 비밀번호를 설정하게 됩니다.`)) return;
+    try {
+      await deleteDoc(doc(db, 'lms_auth', sid));
+      alert('비밀번호가 초기화되었습니다.');
+    } catch (e) {
+      alert('초기화 실패: ' + e.message);
+    }
   };
 
   window.stuClearAll = async function() {
