@@ -41,33 +41,40 @@
       will-change: transform;
     }
 
-    /* ════ 오버레이 UI ════ */
+    /* ════ 오버레이 UI ════ (크기는 이전 대비 80%) */
     #back-btn {
       position: fixed;
       top: 18px;
       left: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
       background: rgba(28,52,97,0.08);
       border: 1px solid rgba(28,52,97,0.16);
       color: var(--navy);
-      font-family: var(--font);
-      font-size: 0.82rem;
-      font-weight: 600;
-      padding: 6px 16px;
-      border-radius: 20px;
+      font-size: 0.7rem;
+      line-height: 1;
+      padding: 0;
+      border-radius: 50%;
       cursor: pointer;
       z-index: 200;
     }
     #back-btn:hover { background: rgba(28,52,97,0.14); }
 
+    /* 완성형/빈칸형 클릭 토글 */
     #mode-badge {
       position: fixed;
       top: 18px;
       right: 22px;
-      font-size: 0.78rem;
+      font-size: 0.62rem;
       font-weight: 700;
-      padding: 5px 14px;
-      border-radius: 20px;
+      padding: 4px 11px;
+      border-radius: 16px;
+      cursor: pointer;
       z-index: 200;
+      user-select: none;
     }
     body[data-mode="complete"] #mode-badge { background: rgba(28,52,97,0.09); color: var(--navy); }
     body[data-mode="blank"]    #mode-badge { background: rgba(184,48,48,0.09); color: var(--red); }
@@ -100,7 +107,7 @@
 <div id="slides" hidden></div>
 
 <!-- ── 오버레이 UI ── -->
-<button id="back-btn"      hidden onclick="goBack()">목록으로</button>
+<button id="back-btn"      hidden onclick="goBack()" title="목록으로" aria-label="목록으로">🏠</button>
 <div    id="mode-badge"    hidden></div>
 <div    id="slide-counter" hidden></div>
 <div    id="load-error"    hidden></div>
@@ -126,6 +133,8 @@ const SETTING_DEFAULTS = {
   baseFontSize: 16,
   fonts: { title: 29, body: 18, label: 16, cover: 120, coverTagline: 36, coverMeta: 28, think: 30, thinkGuide: 18, obj: 17 },
   lineHeights: { body: 1.45, label: 1.45, obj: 1.7, think: 1.5, thinkGuide: 1.4 },
+  letterSpacing: 0,
+  textWidth: 100,
   navy:    '#1c3461',
   red:     '#b83030',
   bg:      '#e8e0d0',
@@ -162,6 +171,8 @@ function applySettings(raw) {
   root.style.setProperty('--lh-obj',           lh.obj);
   root.style.setProperty('--lh-question',      lh.think);
   root.style.setProperty('--lh-think-guide',   lh.thinkGuide);
+  root.style.setProperty('--ls-global',        s.letterSpacing + 'em');
+  root.style.setProperty('--tw-global',        s.textWidth / 100);
 }
 
 function showError(msg) {
@@ -219,13 +230,23 @@ async function init() {
     counterEl.textContent = `${currentIdx() + 1} / ${totalCount()}`;
   }
 
+  function setMode(mode) {
+    document.body.dataset.mode = mode;
+    modeBadge.textContent      = mode === 'complete' ? '완성형' : '빈칸형';
+  }
+
+  // 완성형 <-> 빈칸형 클릭 전환. 현재 슬라이드 위치는 그대로 두고 모드만 바꾼다
+  // (data-mode에 따라 .blank 표시 여부가 CSS로 정해지므로 슬라이드를 다시 그릴 필요는 없음).
+  modeBadge.addEventListener('click', () => {
+    setMode(document.body.dataset.mode === 'complete' ? 'blank' : 'complete');
+  });
+
   function startSlides(mode) {
-    document.body.dataset.mode  = mode;
-    slidesEl.hidden              = false;
-    backBtn.hidden               = false;
-    modeBadge.hidden             = false;
-    counterEl.hidden             = false;
-    modeBadge.textContent        = mode === 'complete' ? '완성형' : '빈칸형';
+    setMode(mode);
+    slidesEl.hidden  = false;
+    backBtn.hidden   = false;
+    modeBadge.hidden = false;
+    counterEl.hidden = false;
 
     /* 모든 슬라이드를 아래쪽 대기 위치로 초기화, 첫 슬라이드만 표시 */
     const slides = slidesEl.querySelectorAll('.slide');
@@ -237,11 +258,11 @@ async function init() {
     transitioning   = false;
     updateCounter();
 
-    if (mode === 'blank') {
-      slidesEl.querySelectorAll('.blank').forEach(el => {
-        el.addEventListener('click', () => el.classList.toggle('revealed'));
-      });
-    }
+    // 빈칸 클릭 시 그 항목만 개별 공개. 모드와 무관하게 항상 붙여두고,
+    // 실제로 가려 보이는지는 data-mode에 따른 CSS가 결정한다.
+    slidesEl.querySelectorAll('.blank').forEach(el => {
+      el.addEventListener('click', () => el.classList.toggle('revealed'));
+    });
   }
 
   /* ── 밀어내기 전환 (PPT Push 방식) ── */
