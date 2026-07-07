@@ -266,7 +266,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .th-answer-text{font-size:14px;line-height:1.7;color:var(--text);word-break:break-word}
 .th-answer-meta{font-size:12px;color:var(--sub);margin-top:6px}
 .th-answer-actions{display:flex;gap:6px}
-.th-stat-chips{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.th-stat-chips{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:16px}
 .th-stat-chip{background:var(--canvas);border-radius:12px;padding:10px 16px;font-size:12px;color:var(--sub);min-width:80px;text-align:center;border:1px solid var(--hairline-soft)}
 .th-stat-chip.clickable{cursor:pointer;transition:.15s}
 .th-stat-chip.clickable:hover{background:var(--surface)}
@@ -652,6 +652,29 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
       <select id="missionCategorySelect" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:10px;font-family:inherit;font-size:14px;background:var(--white);outline:none"></select>
       <button id="saveMissionCategoryBtn" class="add-btn g">저장</button>
     </div>
+
+    <div class="stu-card">
+      <div class="stu-card-head">새 카드 추가</div>
+      <div class="stu-card-body">
+        <p class="field-hint" style="margin-bottom:10px">위에서 선택하고 저장한 카테고리에 새 웹앱 카드를 추가합니다. 학생 허브의 미션 체크 영역에 바로 표시됩니다.</p>
+        <div class="stu-add-row">
+          <div class="stu-field" style="width:70px">
+            <label>이모지</label>
+            <input type="text" id="missionCardEmoji" maxlength="4" placeholder="📌">
+          </div>
+          <div class="stu-field">
+            <label>제목</label>
+            <input type="text" id="missionCardTitle" placeholder="예) 고려의 선택">
+          </div>
+          <div class="stu-field" style="flex:1;min-width:220px">
+            <label>웹앱 주소 (URL)</label>
+            <input type="text" id="missionCardUrl" placeholder="예) goryeo_choice/index.html">
+          </div>
+          <button class="cbtn cbtn-primary" id="missionAddCardBtn" style="margin-top:auto">추가</button>
+        </div>
+      </div>
+    </div>
+
     <div id="missionPreviewList" class="item-list"></div>
   </div>
   <div class="adm-panel" id="panel-think-question">
@@ -683,44 +706,46 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
     </div>
 
     <div id="th-answer">
-      <div class="grade-subtab-bar" style="display:flex;margin-bottom:16px">
-        <button class="grade-subtab active" id="th-atab-lecture-btn" onclick="thAnswerSubTab('lecture')">강의별</button>
-        <button class="grade-subtab" id="th-atab-class-btn" onclick="thAnswerSubTab('class')">반별</button>
-        <button class="grade-subtab" id="th-atab-pick-btn" onclick="thAnswerSubTab('pick')">PICK</button>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <div class="grade-subtab-bar" style="margin-bottom:0">
+          <button class="grade-subtab active" id="th-atab-lecture-btn" onclick="thAnswerSubTab('lecture')">강의별</button>
+          <button class="grade-subtab" id="th-atab-class-btn" onclick="thAnswerSubTab('class')">반별</button>
+          <button class="grade-subtab" id="th-atab-pick-btn" onclick="thAnswerSubTab('pick')">PICK</button>
+        </div>
+
+        <!-- 강의별 전용 컨트롤 -->
+        <select class="grade-config-sel th-ctrl-lecture" id="th-sel-lec" onchange="thRenderAnswerLecture()"><option value="">강의를 선택하세요</option></select>
+        <div class="th-sort-wrap th-ctrl-lecture" id="th-sort-lec" style="display:none">
+          <button class="th-sort-btn active" onclick="thSetSort('recent',this)">최신순</button>
+          <button class="th-sort-btn" onclick="thSetSort('id-asc',this)">학번↑</button>
+          <button class="th-sort-btn" onclick="thSetSort('id-desc',this)">학번↓</button>
+        </div>
+
+        <!-- 반별 전용 컨트롤 -->
+        <select class="grade-config-sel th-ctrl-class" style="max-width:90px;display:none" id="th-sel-cls" onchange="thRenderAnswerClass()">
+          <option value="1">1반</option><option value="2">2반</option><option value="3">3반</option>
+          <option value="4">4반</option><option value="5">5반</option><option value="6">6반</option>
+        </select>
+        <select class="grade-config-sel th-ctrl-class" id="th-sel-cls-lec" style="display:none" onchange="thRenderAnswerClass()"><option value="">강의를 선택하세요</option></select>
+
+        <!-- PICK 전용 컨트롤 -->
+        <select class="grade-config-sel th-ctrl-pick" id="th-sel-pick" style="display:none" onchange="thRenderPick()"><option value="">강의를 선택하세요</option></select>
       </div>
 
       <!-- 강의별 -->
       <div id="th-atab-lecture">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-          <select class="grade-config-sel" id="th-sel-lec" onchange="thRenderAnswerLecture()"><option value="">강의를 선택하세요</option></select>
-          <div class="th-sort-wrap" id="th-sort-lec" style="display:none">
-            <button class="th-sort-btn active" onclick="thSetSort('recent',this)">최신순</button>
-            <button class="th-sort-btn" onclick="thSetSort('id-asc',this)">학번↑</button>
-            <button class="th-sort-btn" onclick="thSetSort('id-desc',this)">학번↓</button>
-          </div>
-        </div>
         <div id="th-lec-stats" class="th-stat-chips" style="display:none"></div>
         <div id="th-lec-answers"></div>
       </div>
 
       <!-- 반별 -->
       <div id="th-atab-class" style="display:none">
-        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-          <select class="grade-config-sel" style="max-width:90px" id="th-sel-cls" onchange="thRenderAnswerClass()">
-            <option value="1">1반</option><option value="2">2반</option><option value="3">3반</option>
-            <option value="4">4반</option><option value="5">5반</option><option value="6">6반</option>
-          </select>
-          <select class="grade-config-sel" id="th-sel-cls-lec" onchange="thRenderAnswerClass()"><option value="">강의를 선택하세요</option></select>
-        </div>
         <div id="th-cls-stats" class="th-stat-chips" style="display:none"></div>
         <div id="th-cls-answers"></div>
       </div>
 
       <!-- PICK -->
       <div id="th-atab-pick" style="display:none">
-        <div style="margin-bottom:16px">
-          <select class="grade-config-sel" id="th-sel-pick" onchange="thRenderPick()"><option value="">강의를 선택하세요</option></select>
-        </div>
         <div id="th-pick-stats" class="th-stat-chips" style="display:none"></div>
         <div id="th-pick-answers"></div>
       </div>
@@ -983,6 +1008,21 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
       <button class="th-grade-tab" onclick="thSwitchGradeTab('review',this)">AI 채점</button>
     </div>
     <div id="th-grade-body" style="max-height:420px;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- 성적 체크 학생 피드백 모달 -->
+<div class="modal-backdrop" id="gradeFeedbackBackdrop" onclick="if(event.target===this)closeGradeFeedbackModal()">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-title" id="gradeFeedbackTitle">피드백 작성</div>
+    <p class="field-hint" style="margin:-14px 0 16px">임시 저장 또는 반영하기를 눌러야 학생에게 저장됩니다.</p>
+    <div class="form-group">
+      <textarea class="form-textarea" id="gradeFeedbackInput" style="height:140px" placeholder="이 강의에 대한 피드백을 입력하세요"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-save" onclick="saveGradeFeedback()">확인</button>
+      <button class="btn-cancel" onclick="closeGradeFeedbackModal()">취소</button>
+    </div>
   </div>
 </div>
 
@@ -2025,6 +2065,33 @@ async function initMissionTab() {
     } catch(e) { alert('저장 실패: ' + e.message); }
   });
 
+  // hoistory/admin.html의 카드 추가와 동일한 데이터 구조(cards 컬렉션의
+  // emoji/title/desc/url/category/locked/order)로 카드를 만든다.
+  document.getElementById('missionAddCardBtn').addEventListener('click', async () => {
+    const cat = sel.value;
+    if (!cat) { alert('먼저 카테고리를 선택하고 저장해 주세요.'); return; }
+    const emoji = (document.getElementById('missionCardEmoji').value || '').trim() || '📌';
+    const title = document.getElementById('missionCardTitle').value.trim();
+    const url   = document.getElementById('missionCardUrl').value.trim();
+    if (!title || !url) { alert('제목과 웹앱 주소를 입력해 주세요.'); return; }
+    const btn = document.getElementById('missionAddCardBtn');
+    btn.disabled = true;
+    try {
+      const snap  = await getDocs(query(collection(db, 'cards'), where('category','==',cat)));
+      const order = snap.docs.length ? Math.max(...snap.docs.map(d => d.data().order || 0)) + 1 : 0;
+      await addDoc(collection(db, 'cards'), { emoji, title, desc: '', url, category: cat, locked: false, order });
+      document.getElementById('missionCardEmoji').value = '';
+      document.getElementById('missionCardTitle').value = '';
+      document.getElementById('missionCardUrl').value = '';
+      renderMissionPreview(cat);
+      alert('카드가 추가되었습니다.');
+    } catch(e) {
+      alert('추가 실패: ' + e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
   renderMissionPreview(currentCat);
 }
 
@@ -2040,12 +2107,12 @@ async function renderMissionPreview(cat) {
     items.forEach(item => {
       const row = document.createElement('div');
       row.className = 'item-row';
-      const iconStr = String(item.icon||'?');
+      const iconStr = String(item.emoji||'📌');
       row.innerHTML = `
         <div class="item-icon-preview preview-mission" style="font-size:${iconStr.length<=2?'20px':'13px'}">${esc(iconStr)}</div>
         <div class="item-info">
-          <div class="item-label">${esc(item.label||'')}</div>
-          ${item.sublabel ? `<div class="item-sublabel">${esc(item.sublabel)}</div>` : ''}
+          <div class="item-label">${esc(item.title||'')}</div>
+          ${item.desc ? `<div class="item-sublabel">${esc(item.desc)}</div>` : ''}
         </div>`;
       container.appendChild(row);
     });
@@ -2318,6 +2385,7 @@ async function loadGradeData() {
         mission: { achieved: false, onTime: false },
         think:   { achieved: false, onTime: false },
         absent:  false,
+        feedback: '',
       };
     });
 
@@ -2335,6 +2403,7 @@ async function loadGradeData() {
           mission: r.mission || { achieved: false, onTime: false },
           think:   r.think   || { achieved: false, onTime: false },
           absent:  r.absent  || false,
+          feedback: r.feedback || '',
         };
         savedSet.add(r.studentId);
       }
@@ -2400,6 +2469,29 @@ async function loadGradeData() {
   }
 }
 
+// ── 강의별 학생 피드백 ──
+// 체크박스와 마찬가지로 여기서는 메모리(_gradeRecords)만 바꾸고, 실제 저장은
+// 기존 "임시 저장"/"반영하기" 흐름을 그대로 타야 학생 화면에 반영된다.
+let _gradeFeedbackSid = null;
+function openGradeFeedbackModal(sid, name) {
+  if (!_gradeRecords[sid]) return;
+  _gradeFeedbackSid = sid;
+  document.getElementById('gradeFeedbackTitle').textContent = `${name} 학생 피드백`;
+  document.getElementById('gradeFeedbackInput').value = _gradeRecords[sid].feedback || '';
+  document.getElementById('gradeFeedbackBackdrop').classList.add('open');
+}
+function closeGradeFeedbackModal() {
+  document.getElementById('gradeFeedbackBackdrop').classList.remove('open');
+  _gradeFeedbackSid = null;
+}
+function saveGradeFeedback() {
+  if (!_gradeFeedbackSid) return;
+  const val = document.getElementById('gradeFeedbackInput').value.trim();
+  if (_gradeRecords[_gradeFeedbackSid]) _gradeRecords[_gradeFeedbackSid].feedback = val;
+  closeGradeFeedbackModal();
+  renderGradeTable();
+}
+
 function renderGradeTable() {
   const wrap = document.getElementById('gradeTableWrap');
   if (!_gradeStudents.length) {
@@ -2436,7 +2528,7 @@ function renderGradeTable() {
   const cE = _gradeEnabled.concept;
   const mE = _gradeEnabled.mission;
   const tE = _gradeEnabled.think;
-  const totalCols = 2 + (cE?2:0) + (mE?3:0) + (tE?3:0);
+  const totalCols = 2 + (cE?2:0) + (mE?3:0) + (tE?3:0) + 1;
 
   const allCb = (t, f) =>
     `<input type="checkbox" class="grade-all-cb" data-t="${t}" data-f="${f}" title="전체 선택/해제 (현재 반에만 적용)">`;
@@ -2452,6 +2544,7 @@ function renderGradeTable() {
         ${cE ? `<th colspan="2" class="gh-concept">개념체크</th>` : ''}
         ${mE ? `<th colspan="3" class="gh-mission">미션체크</th>` : ''}
         ${tE ? `<th colspan="3" class="gh-think">생각체크</th>` : ''}
+        <th rowspan="2">피드백</th>
       </tr>
       <tr>
         ${cE ? `<th class="gh-concept">${allCb('concept','achieved')}달성</th><th class="gh-concept">${allCb('concept','onTime')}기한</th>` : ''}
@@ -2475,6 +2568,7 @@ function renderGradeTable() {
         ${cE ? `<td>${chk(s.id,'concept','achieved',r.concept.achieved,r.absent)}</td><td>${chk(s.id,'concept','onTime',r.concept.onTime,r.absent)}</td>` : ''}
         ${mE ? `<td>${chk(s.id,'mission','achieved',r.mission.achieved,r.absent)}</td><td>${chk(s.id,'mission','onTime',r.mission.onTime,r.absent)}</td><td>${timeSpan(mD,!!(mD&&mMaj&&dayKey(mD)!==mMaj))}</td>` : ''}
         ${tE ? `<td>${chk(s.id,'think','achieved',r.think.achieved,r.absent)}</td><td>${chk(s.id,'think','onTime',r.think.onTime,r.absent)}</td><td>${timeSpan(tD,!!(tD&&tMaj&&dayKey(tD)!==tMaj))}</td>` : ''}
+        <td><button class="stu-btn stu-btn-edit" onclick="openGradeFeedbackModal('${esc(s.id)}','${esc(s.name)}')">${r.feedback ? '피드백 수정' : '피드백 작성'}</button></td>
       </tr>`;
     });
   });
@@ -2874,6 +2968,7 @@ async function publishClassGrades(classNum) {
         mission: _gradeRecords[s.id].mission,
         think:   _gradeRecords[s.id].think,
         absent:  _gradeRecords[s.id].absent || false,
+        feedback: _gradeRecords[s.id].feedback || '',
         published: true,
         updatedAt: serverTimestamp(),
       }, { merge: true })
@@ -2968,6 +3063,7 @@ async function saveGradeRecords() {
         mission:     _gradeRecords[s.id].mission,
         think:       _gradeRecords[s.id].think,
         absent:      _gradeRecords[s.id].absent || false,
+        feedback:    _gradeRecords[s.id].feedback || '',
         updatedAt:   serverTimestamp(),
       }, { merge: true })
     ));
@@ -2992,6 +3088,7 @@ Object.assign(window, {
   onFsSliderInput, onFsNumberInput, onLhSliderInput, onLhNumberInput,
   onLsSliderInput, onLsNumberInput, onTwSliderInput, onTwNumberInput,
   onColorChange, resetDesign, saveDesign,
+  openGradeFeedbackModal, closeGradeFeedbackModal, saveGradeFeedback,
 });
 
 // 스크립트 최상위 const/let 선언이 모두 끝난 뒤에 호출해야 TDZ 에러가 안 난다.
@@ -3373,6 +3470,7 @@ initAdmin();
       document.getElementById(`th-atab-${t}-btn`)?.classList.toggle('active', t === tab);
       const panel = document.getElementById(`th-atab-${t}`);
       if (panel) panel.style.display = t === tab ? '' : 'none';
+      document.querySelectorAll(`.th-ctrl-${t}`).forEach(el => { el.style.display = t === tab ? '' : 'none'; });
     });
     if (tab === 'lecture') thRenderAnswerLecture();
     else if (tab === 'class') thRenderAnswerClass();
