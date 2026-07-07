@@ -2309,7 +2309,6 @@ function esc(s) {
 // ── 성적 체크 ──
 let _gradeStudents    = [];
 let _gradeLessons     = [];
-let _gradeLectures    = [];
 let _gradeRecords     = {};
 let _gradeThinkTimes  = {};
 let _gradeMissionTimes = {};
@@ -2317,11 +2316,6 @@ let _gradeLessonKey   = '';
 let _gradeEnabled     = { concept: true, mission: true, think: true };
 let _publishStatus    = {};   // { classNum: boolean }
 let _currentGradeClass = null;
-
-function extractLessonNum(title) {
-  const m = String(title).match(/^(\d+)강/);
-  return m ? m[1] : null;
-}
 
 async function initGradeTab() {
   // 개념 체크 강의 선택(gradeLessonSel)은 class_lessons(개념 체크에서 만든 강의)에서,
@@ -2344,24 +2338,8 @@ async function initGradeTab() {
     lessonSel.addEventListener('change', onGradeLessonChange);
   } catch(e) {}
 
-  try {
-    const snap = await getDocs(collection(db, 'think_lectures'));
-    _gradeLectures = snap.docs
-      .map(d => ({ docId: d.id, ...d.data() }))
-      .sort((a, b) => {
-        const na = parseInt(extractLessonNum(a.title) || '9999');
-        const nb = parseInt(extractLessonNum(b.title) || '9999');
-        return na - nb;
-      });
-
-    const thinkSel = document.getElementById('gradeThinkSel');
-    _gradeLectures.forEach(l => {
-      const o = document.createElement('option');
-      o.value = l.docId;
-      o.textContent = l.title || l.docId;
-      thinkSel.appendChild(o);
-    });
-  } catch(e) {}
+  // 생각 체크 연결(gradeThinkSel)은 thPopulateSelects()가 think_lectures onSnapshot으로
+  // 이미 채우고 있어서(자동 시작 시점부터 계속 동기화) 여기서 또 채우면 중복 추가된다. 손대지 않는다.
 
   // 학생 명단 (RTDB)
   try {
