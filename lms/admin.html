@@ -2324,7 +2324,26 @@ function extractLessonNum(title) {
 }
 
 async function initGradeTab() {
-  // lectures 로드 → 강의 선택 + 생각체크 선택 공용
+  // 개념 체크 강의 선택(gradeLessonSel)은 class_lessons(개념 체크에서 만든 강의)에서,
+  // 생각 체크 연결(gradeThinkSel)은 lectures(생각 체크 강의)에서 따로 가져온다.
+  // 예전엔 둘 다 lectures를 같이 썼는데, 그러면 개념 체크와 무관한 강의까지 섞여 나왔다.
+  try {
+    const snap = await getDocs(collection(db, 'class_lessons'));
+    _gradeLessons = snap.docs
+      .map(d => ({ docId: d.id, ...d.data() }))
+      .filter(l => l.num)
+      .sort((a, b) => parseInt(a.num) - parseInt(b.num));
+
+    const lessonSel = document.getElementById('gradeLessonSel');
+    _gradeLessons.forEach(l => {
+      const o = document.createElement('option');
+      o.value = l.num;
+      o.textContent = `${l.num}강 · ${l.title || ''}`;
+      lessonSel.appendChild(o);
+    });
+    lessonSel.addEventListener('change', onGradeLessonChange);
+  } catch(e) {}
+
   try {
     const snap = await getDocs(collection(db, 'lectures'));
     _gradeLectures = snap.docs
@@ -2335,17 +2354,13 @@ async function initGradeTab() {
         return na - nb;
       });
 
-    const lessonSel = document.getElementById('gradeLessonSel');
-    const thinkSel  = document.getElementById('gradeThinkSel');
+    const thinkSel = document.getElementById('gradeThinkSel');
     _gradeLectures.forEach(l => {
-      [lessonSel, thinkSel].forEach(sel => {
-        const o = document.createElement('option');
-        o.value = l.docId;
-        o.textContent = l.title || l.docId;
-        sel.appendChild(o);
-      });
+      const o = document.createElement('option');
+      o.value = l.docId;
+      o.textContent = l.title || l.docId;
+      thinkSel.appendChild(o);
     });
-    lessonSel.addEventListener('change', onGradeLessonChange);
   } catch(e) {}
 
   // 학생 명단 (RTDB)
@@ -2390,11 +2405,8 @@ async function initGradeTab() {
 }
 
 async function onGradeLessonChange() {
-  const docId = document.getElementById('gradeLessonSel').value;
-  if (!docId) return;
-  const lecture = _gradeLectures.find(l => l.docId === docId);
-  const key = extractLessonNum(lecture?.title || '') || docId;
-  document.getElementById('gradeThinkSel').value = docId;
+  const key = document.getElementById('gradeLessonSel').value;
+  if (!key) return;
   try {
     const cfg = await getDoc(doc(db, 'grade_lecture_config', key));
     if (cfg.exists()) {
@@ -2415,11 +2427,10 @@ async function onGradeLessonChange() {
 }
 
 async function loadGradeData() {
-  const lessonDocId = document.getElementById('gradeLessonSel').value;
-  if (!lessonDocId) { alert('강의를 먼저 선택해 주세요.'); return; }
+  const lessonNum = document.getElementById('gradeLessonSel').value;
+  if (!lessonNum) { alert('강의를 먼저 선택해 주세요.'); return; }
 
-  const lecture = _gradeLectures.find(l => l.docId === lessonDocId);
-  _gradeLessonKey = extractLessonNum(lecture?.title || '') || lessonDocId;
+  _gradeLessonKey = lessonNum;
 
   const thinkDocId  = document.getElementById('gradeThinkSel').value;
   const missionColl = document.getElementById('gradeMissionColl').value.trim();
@@ -2430,10 +2441,11 @@ async function loadGradeData() {
 
   // 설정 저장
   try {
+    const lesson = _gradeLessons.find(l => l.num === _gradeLessonKey);
     await setDoc(doc(db, 'grade_lecture_config', _gradeLessonKey), {
       thinkLectureDocId: thinkDocId,
       missionCollection: missionColl,
-      lessonTitle: lecture?.title || `${_gradeLessonKey}강`,
+      lessonTitle: lesson?.title || `${_gradeLessonKey}강`,
       conceptEnabled, missionEnabled, thinkEnabled,
     });
   } catch(e) {}
@@ -2990,9 +3002,7 @@ function renderGradePublishBar(classNum) {
   const bar = document.getElementById('gradePublishBar');
   if (!classNum || !_gradeLessonKey) { bar.style.display = 'none'; return; }
   const published = !!_publishStatus[classNum];
-  const lecTitle = _gradeLectures.find(l =>
-    (extractLessonNum(l.title || '') || l.docId) === _gradeLessonKey
-  )?.title || `${_gradeLessonKey}강`;
+  const lecTitle = _gradeLessons.find(l => l.num === _gradeLessonKey)?.title || `${_gradeLessonKey}강`;
 
   bar.style.display = '';
   bar.innerHTML = `
@@ -3047,10 +3057,8 @@ async function publishClassGrades(classNum) {
   if (btn) { btn.disabled = true; btn.textContent = '반영 중...'; }
 
   try {
-    const lecture = _gradeLectures.find(l =>
-      (extractLessonNum(l.title || '') || l.docId) === _gradeLessonKey
-    );
-    const lessonTitle = lecture?.title || '';
+    const lesson = _gradeLessons.find(l => l.num === _gradeLessonKey);
+    const lessonTitle = lesson?.title || '';
 
     await Promise.all(studentsInClass.map(s =>
       setDoc(doc(db, 'grade_records', `${_gradeLessonKey}_${s.id}`), {
@@ -3139,8 +3147,8 @@ async function saveGradeSettings() {
 
 async function saveGradeRecords() {
   if (!_gradeLessonKey || !_gradeStudents.length) return;
-  const lecture = _gradeLectures.find(l => (extractLessonNum(l.title || '') || l.docId) === _gradeLessonKey);
-  const lessonTitle = lecture?.title || '';
+  const lesson = _gradeLessons.find(l => l.num === _gradeLessonKey);
+  const lessonTitle = lesson?.title || '';
 
   const btn = document.getElementById('gradeSaveBtn');
   btn.disabled = true; btn.textContent = '저장 중…';
