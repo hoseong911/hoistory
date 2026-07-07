@@ -4,10 +4,19 @@
    ════════════════════════════════════════════════════════ */
 (function (global) {
 
+  // 스페이스를 2칸 이상 연달아 쓰면 브라우저가 하나로 줄여버리므로, 짝수 번째
+  // 스페이스를 &nbsp;로 바꿔 타이핑한 칸 수 그대로 보이게 한다(홀수 번째는 일반
+  // 스페이스로 남겨둬서 줄바꿈 지점은 그대로 유지된다).
+  function preserveSpaces(str) {
+    return String(str).replace(/ {2,}/g, run =>
+      Array.from(run, (_, i) => (i % 2 === 0 ? ' ' : '&nbsp;')).join('')
+    );
+  }
+
   function parseText(str) {
     // 빈칸을 임시 플레이스홀더로 보호
     const blanks = [];
-    let s = str.replace(/\{([^}]+)\}/g, (_, inner) => {
+    let s = preserveSpaces(str).replace(/\{([^}]+)\}/g, (_, inner) => {
       blanks.push(inner);
       return `\x00${blanks.length - 1}\x00`;
     });
@@ -41,8 +50,8 @@
   function coverHTML(lesson) {
     return `
       <span class="cover-tagline">생각하고 활동하고 질문하는 역사 수업</span>
-      <h1 class="cover-title">${lesson.title.replace(/\n/g, '<br>')}</h1>
-      <p class="cover-meta">${lesson.unit} &nbsp;·&nbsp; ${lesson.page}</p>
+      <h1 class="cover-title">${preserveSpaces(lesson.title).replace(/\n/g, '<br>')}</h1>
+      <p class="cover-meta">${preserveSpaces(lesson.unit)} &nbsp;·&nbsp; ${preserveSpaces(lesson.page)}</p>
       <div class="cover-num-bg">${lesson.num}</div>
     `;
   }
@@ -52,7 +61,7 @@
     return `
       <div class="slide-header">
         <span class="check-badge">${badgeLabel}</span>
-        <h2 class="slide-title">${lesson.num}강 · ${lesson.title}</h2>
+        <h2 class="slide-title">${lesson.num}강 · ${preserveSpaces(lesson.title)}</h2>
       </div>
       <div class="obj-list">
         ${items.map((o, i) => `
@@ -71,7 +80,7 @@
     const items = row.items.map(item => `<p>${parseItemText(item)}</p>`).join('');
     return `
       <div class="concept-row">
-        <div class="row-label">${row.label}</div>
+        <div class="row-label">${preserveSpaces(row.label)}</div>
         <div class="row-content">${items}</div>
       </div>`;
   }
@@ -80,7 +89,7 @@
     const header = `
       <div class="slide-header">
         <span class="check-badge">${badgeLabel}</span>
-        <h2 class="slide-title">${slide.title}</h2>
+        <h2 class="slide-title">${preserveSpaces(slide.title)}</h2>
       </div>`;
     const rows = `
       <div class="concept-rows">
@@ -123,10 +132,10 @@
         <span class="check-badge">Dive into HISTORY</span>
         <h2 class="slide-title">${lesson.num}강</h2>
       </div>
-      <p class="think-question">${(slide.title||'').replace(/\n/g, '<br>')}</p>
+      <p class="think-question">${preserveSpaces(slide.title||'').replace(/\n/g, '<br>')}</p>
       ${slide.guide ? `
       <div class="think-body">
-        <p class="think-guide">${slide.guide.replace(/\n/g, '<br>')}</p>
+        <p class="think-guide">${preserveSpaces(slide.guide).replace(/\n/g, '<br>')}</p>
       </div>` : ''}
     `;
   }
@@ -150,7 +159,7 @@
         </div>`;
     }).join('');
     return `
-      ${slide.title ? `<div class="slide-header"><span class="check-badge">자료</span><h2 class="slide-title">${slide.title}</h2></div>` : ''}
+      ${slide.title ? `<div class="slide-header"><span class="check-badge">자료</span><h2 class="slide-title">${preserveSpaces(slide.title)}</h2></div>` : ''}
       <div class="image-body" style="grid-template-columns: repeat(${cols}, 1fr)">
         ${cells}
       </div>
@@ -163,9 +172,9 @@
         <span class="check-badge think">생각 Check</span>
         <h2 class="slide-title">${lesson.num}강</h2>
       </div>
-      <p class="think-question">${slide.question.replace(/\n/g, '<br>')}</p>
+      <p class="think-question">${preserveSpaces(slide.question).replace(/\n/g, '<br>')}</p>
       <div class="think-body">
-        <p class="think-guide">${slide.guide.replace(/\n/g, '<br>').replace('50자', '<strong>50자</strong>')}</p>
+        <p class="think-guide">${preserveSpaces(slide.guide).replace(/\n/g, '<br>').replace('50자', '<strong>50자</strong>')}</p>
       </div>
     `;
   }
