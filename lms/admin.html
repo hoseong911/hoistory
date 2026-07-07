@@ -592,6 +592,17 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
         </div>
 
         <div class="s-card" style="margin-bottom:0">
+          <div class="s-head">줄간격</div>
+          <div class="s-body">
+            <div class="fs-row"><span class="fs-name">본문 내용</span><input type="range" class="fs-slider" id="lh-body" min="1" max="2.5" step="0.05" value="1.45" oninput="onLhSliderInput('body')"><input type="number" class="fs-val" id="lv-body" min="1" max="2.5" step="0.05" value="1.45" oninput="onLhNumberInput('body')"></div>
+            <div class="fs-row"><span class="fs-name">행 라벨</span><input type="range" class="fs-slider" id="lh-label" min="1" max="2.5" step="0.05" value="1.45" oninput="onLhSliderInput('label')"><input type="number" class="fs-val" id="lv-label" min="1" max="2.5" step="0.05" value="1.45" oninput="onLhNumberInput('label')"></div>
+            <div class="fs-row"><span class="fs-name">학습 목표</span><input type="range" class="fs-slider" id="lh-obj" min="1" max="2.5" step="0.05" value="1.7" oninput="onLhSliderInput('obj')"><input type="number" class="fs-val" id="lv-obj" min="1" max="2.5" step="0.05" value="1.7" oninput="onLhNumberInput('obj')"></div>
+            <div class="fs-row"><span class="fs-name">생각 질문</span><input type="range" class="fs-slider" id="lh-think" min="1" max="2.5" step="0.05" value="1.5" oninput="onLhSliderInput('think')"><input type="number" class="fs-val" id="lv-think" min="1" max="2.5" step="0.05" value="1.5" oninput="onLhNumberInput('think')"></div>
+            <div class="fs-row"><span class="fs-name">생각 안내문구</span><input type="range" class="fs-slider" id="lh-thinkGuide" min="1" max="2.5" step="0.05" value="1.4" oninput="onLhSliderInput('thinkGuide')"><input type="number" class="fs-val" id="lv-thinkGuide" min="1" max="2.5" step="0.05" value="1.4" oninput="onLhNumberInput('thinkGuide')"></div>
+          </div>
+        </div>
+
+        <div class="s-card" style="margin-bottom:0">
           <div class="s-head">색상 설정</div>
           <div class="s-body">
             <div class="color-grid">
@@ -1080,9 +1091,15 @@ const CE_FONT_VAR_MAP = {
   cover: '--fs-cover-title', coverTagline: '--fs-cover-tagline', coverMeta: '--fs-cover-meta',
   think: '--fs-question', thinkGuide: '--fs-think-guide',
 };
+const CE_LH_KEYS = ['body','label','obj','think','thinkGuide'];
+const CE_LH_VAR_MAP = {
+  body: '--lh-body', label: '--lh-label', obj: '--lh-obj',
+  think: '--lh-question', thinkGuide: '--lh-think-guide',
+};
 const CE_SD = {
   baseFontSize: 16,
   fonts: { title: 29, body: 18, label: 16, obj: 17, cover: 120, coverTagline: 36, coverMeta: 28, think: 30, thinkGuide: 18 },
+  lineHeights: { body: 1.45, label: 1.45, obj: 1.7, think: 1.5, thinkGuide: 1.4 },
   navy: '#1c3461', red: '#b83030',
   bg: '#e8e0d0', slideBg: '#f7f2e8', rowBg: '#f2ede0', text: '#2c2823',
   thinkGuideColor: '#7a6f5e',
@@ -1169,6 +1186,11 @@ function ceLoadDesignInputs() {
     document.getElementById('fs-' + k).value = f[k];
     document.getElementById('fv-' + k).value = f[k];
   });
+  const lh = ceCs.lineHeights || CE_SD.lineHeights;
+  CE_LH_KEYS.forEach(k => {
+    document.getElementById('lh-' + k).value = lh[k];
+    document.getElementById('lv-' + k).value = lh[k];
+  });
   document.getElementById('c-navy').value    = ceCs.navy;
   document.getElementById('c-red').value     = ceCs.red;
   document.getElementById('c-bg').value      = ceCs.bg;
@@ -1182,9 +1204,12 @@ function ceLoadDesignInputs() {
 function ceReadDesignInputs() {
   const fonts = {};
   CE_FONT_KEYS.forEach(k => { fonts[k] = +document.getElementById('fs-' + k).value; });
+  const lineHeights = {};
+  CE_LH_KEYS.forEach(k => { lineHeights[k] = +document.getElementById('lh-' + k).value; });
   ceCs = {
     baseFontSize: +document.getElementById('fs-base').value,
     fonts,
+    lineHeights,
     navy:    document.getElementById('c-navy').value,
     red:     document.getElementById('c-red').value,
     bg:      document.getElementById('c-bg').value,
@@ -1205,6 +1230,18 @@ function onFsNumberInput(k) {
   const v = document.getElementById('fv-' + k).value;
   if (v === '') return;
   document.getElementById('fs-' + k).value = v;
+  ceReadDesignInputs();
+  ceApplyDesignPreview();
+}
+function onLhSliderInput(k) {
+  document.getElementById('lv-' + k).value = document.getElementById('lh-' + k).value;
+  ceReadDesignInputs();
+  ceApplyDesignPreview();
+}
+function onLhNumberInput(k) {
+  const v = document.getElementById('lv-' + k).value;
+  if (v === '') return;
+  document.getElementById('lh-' + k).value = v;
   ceReadDesignInputs();
   ceApplyDesignPreview();
 }
@@ -1230,6 +1267,10 @@ function ceSetSlideVars(el, cfg) {
   el.style.setProperty('--badge-color',       c.badgeColor      || CE_SD.badgeColor);
   CE_FONT_KEYS.forEach(k => {
     el.style.setProperty(CE_FONT_VAR_MAP[k], (f[k] || CE_SD.fonts[k]) + 'px');
+  });
+  const lh = c.lineHeights || CE_SD.lineHeights;
+  CE_LH_KEYS.forEach(k => {
+    el.style.setProperty(CE_LH_VAR_MAP[k], lh[k] || CE_SD.lineHeights[k]);
   });
 }
 
@@ -2854,7 +2895,7 @@ Object.assign(window, {
   updateLesson, updateObjectives, updateLine, updateLineItems, updateThink,
   updateDive, updateChosungEnabled, updateChosungItems, ceToggleLessonOpen,
   resetContent, saveContent, ceHandleFileUpload,
-  onFsSliderInput, onFsNumberInput, onColorChange, resetDesign, saveDesign,
+  onFsSliderInput, onFsNumberInput, onLhSliderInput, onLhNumberInput, onColorChange, resetDesign, saveDesign,
 });
 
 // 스크립트 최상위 const/let 선언이 모두 끝난 뒤에 호출해야 TDZ 에러가 안 난다.
