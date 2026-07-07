@@ -119,6 +119,18 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .stu-field label{font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.5px}
 .stu-field input{padding:10px 16px;border:1.5px solid var(--hairline);border-radius:100px;font-family:inherit;font-size:14px;background:var(--canvas);color:var(--text);outline:none;width:160px;transition:border-color .15s}
 .stu-field input:focus{border-color:var(--navy)}
+.emoji-palette-wrap{position:relative}
+.emoji-display{background:var(--canvas);border:1.5px solid var(--hairline);border-radius:100px;padding:9px 12px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;width:60px;height:40px;box-sizing:border-box;transition:border-color .15s}
+.emoji-display:hover{border-color:var(--navy)}
+.emoji-picker{display:none;position:absolute;top:calc(100% + 6px);left:0;background:var(--canvas);border:1px solid var(--hairline);border-radius:10px;padding:12px;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,.14);width:280px}
+.emoji-picker.open{display:block}
+.emoji-cats{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.emoji-cat-btn{background:var(--surface);border:none;border-radius:6px;padding:5px 10px;color:var(--sub);font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s}
+.emoji-cat-btn:hover{color:var(--text)}
+.emoji-cat-btn.active{background:var(--navy);color:#fff}
+.emoji-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;max-height:180px;overflow-y:auto}
+.emoji-btn{background:transparent;border:none;font-size:20px;cursor:pointer;padding:5px;border-radius:6px;line-height:1;font-family:inherit}
+.emoji-btn:hover{background:var(--surface)}
 .stu-search-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
 .stu-search{flex:0 0 220px;padding:10px 16px 10px 40px;border:1.5px solid var(--hairline);border-radius:100px;font-family:inherit;font-size:14px;background:var(--canvas);color:var(--text);outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:14px center;transition:border-color .15s}
 .stu-search:focus{border-color:var(--navy)}
@@ -659,7 +671,15 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
         <div class="stu-add-row">
           <div class="stu-field">
             <label>이모지</label>
-            <input type="text" id="missionCardEmoji" maxlength="4" placeholder="📌" style="width:60px">
+            <div class="emoji-palette-wrap" id="missionEmojiWrap">
+              <div class="emoji-display" onclick="toggleMissionEmojiPicker()">
+                <span id="missionSelectedEmoji">📌</span>
+              </div>
+              <div class="emoji-picker" id="missionEmojiPicker">
+                <div class="emoji-cats" id="missionEmojiCats"></div>
+                <div class="emoji-grid" id="missionEmojiGrid"></div>
+              </div>
+            </div>
           </div>
           <div class="stu-field">
             <label>제목</label>
@@ -2048,6 +2068,56 @@ function ceShowToast(id) {
 // ── 미션 체크 탭 (카테고리 선택) ──
 // 카테고리를 직접 고르게 하지 않고, 이미 설정돼 있던 값을 그대로 쓰거나
 // (처음이라 없으면) 고정 카테고리를 하나 만들어서 계속 그 카테고리에만 카드를 쌓는다.
+// hoistory/admin.html의 아이콘 선택 팔레트와 동일한 이모지 목록·구조를 재사용한다.
+const MISSION_EMOJI_DATA = {
+  '교육·역사': ['🏛️','📚','📖','📜','🗺️','🗿','⚔️','🛡️','🏺','🪙','🔭','🔬','✏️','📝','🎓','🏫','🧭','🗓️','📅','🪶'],
+  '게임·활동': ['🎮','🕹️','🎲','🎯','🏆','🥇','🎖️','🚪','🔑','🗝️','💡','🧩','🎪','🎠','🎡','🎢','🎭','🎨','🎬','🎤'],
+  '자연·장소': ['🌍','🌏','🏔️','🗻','🌋','⛩️','🏯','🗼','🗽','🌉','🌃','🌄','🌅','🌊','🏖️','🏕️','🌸','🍀','🌿','🍃'],
+  '사물·기타': ['⭐','🌟','💫','✨','🔥','💎','🛍️','🎁','📦','💌','🔔','📣','💬','🌈','❤️','💙','💚','💛','💜','🩷'],
+  '동물': ['🦅','🦁','🐯','🦊','🐺','🦋','🦚','🦜','🐉','🦄','🐘','🦒','🐬','🦈','🐧','🦀','🦑','🐙'],
+};
+let missionSelectedEmoji = '📌';
+let missionEmojiCat = Object.keys(MISSION_EMOJI_DATA)[0];
+
+function initMissionEmojiPicker() {
+  const cats = document.getElementById('missionEmojiCats');
+  Object.keys(MISSION_EMOJI_DATA).forEach((cat, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'emoji-cat-btn' + (i === 0 ? ' active' : '');
+    btn.textContent = cat;
+    btn.onclick = () => {
+      missionEmojiCat = cat;
+      cats.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderMissionEmojiGrid();
+    };
+    cats.appendChild(btn);
+  });
+  renderMissionEmojiGrid();
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#missionEmojiWrap')) closeMissionEmojiPicker();
+  });
+}
+function renderMissionEmojiGrid() {
+  const grid = document.getElementById('missionEmojiGrid');
+  grid.innerHTML = '';
+  (MISSION_EMOJI_DATA[missionEmojiCat] || []).forEach(em => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'emoji-btn';
+    btn.textContent = em;
+    btn.onclick = () => {
+      missionSelectedEmoji = em;
+      document.getElementById('missionSelectedEmoji').textContent = em;
+      closeMissionEmojiPicker();
+    };
+    grid.appendChild(btn);
+  });
+}
+function toggleMissionEmojiPicker() { document.getElementById('missionEmojiPicker').classList.toggle('open'); }
+function closeMissionEmojiPicker() { document.getElementById('missionEmojiPicker').classList.remove('open'); }
+
 async function initMissionTab() {
   let cat = '';
   try {
@@ -2059,10 +2129,12 @@ async function initMissionTab() {
     try { await setDoc(doc(db, 'settings', 'lms_config'), { mission_category: cat }, { merge: true }); } catch(_) {}
   }
 
+  initMissionEmojiPicker();
+
   // hoistory/admin.html의 카드 추가와 동일한 데이터 구조(cards 컬렉션의
   // emoji/title/desc/url/category/locked/order)로 카드를 만든다.
   document.getElementById('missionAddCardBtn').addEventListener('click', async () => {
-    const emoji = (document.getElementById('missionCardEmoji').value || '').trim() || '📌';
+    const emoji = missionSelectedEmoji;
     const title = document.getElementById('missionCardTitle').value.trim();
     const url   = document.getElementById('missionCardUrl').value.trim();
     if (!title || !url) { alert('제목과 웹앱 주소를 입력해 주세요.'); return; }
@@ -2072,7 +2144,8 @@ async function initMissionTab() {
       const snap  = await getDocs(query(collection(db, 'cards'), where('category','==',cat)));
       const order = snap.docs.length ? Math.max(...snap.docs.map(d => d.data().order || 0)) + 1 : 0;
       await addDoc(collection(db, 'cards'), { emoji, title, desc: '', url, category: cat, locked: false, order });
-      document.getElementById('missionCardEmoji').value = '';
+      missionSelectedEmoji = '📌';
+      document.getElementById('missionSelectedEmoji').textContent = '📌';
       document.getElementById('missionCardTitle').value = '';
       document.getElementById('missionCardUrl').value = '';
       renderMissionPreview(cat);
@@ -3106,6 +3179,7 @@ Object.assign(window, {
   onLsSliderInput, onLsNumberInput, onTwSliderInput, onTwNumberInput,
   onColorChange, resetDesign, saveDesign,
   openGradeFeedbackModal, closeGradeFeedbackModal, saveGradeFeedback,
+  toggleMissionEmojiPicker, closeMissionEmojiPicker,
 });
 
 // 스크립트 최상위 const/let 선언이 모두 끝난 뒤에 호출해야 TDZ 에러가 안 난다.
