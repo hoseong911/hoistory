@@ -2345,7 +2345,7 @@ async function initGradeTab() {
   } catch(e) {}
 
   try {
-    const snap = await getDocs(collection(db, 'lectures'));
+    const snap = await getDocs(collection(db, 'think_lectures'));
     _gradeLectures = snap.docs
       .map(d => ({ docId: d.id, ...d.data() }))
       .sort((a, b) => {
@@ -2491,7 +2491,7 @@ async function loadGradeData() {
     // 생각체크 자동감지 (제출시간 수집)
     if (thinkDocId) {
       const tSnap = await getDocs(query(
-        collection(db, 'submissions'),
+        collection(db, 'think_submissions'),
         where('lectureDocId', '==', thinkDocId)
       ));
       tSnap.docs.forEach(d => {
@@ -3414,7 +3414,7 @@ initAdmin();
   function thStartLecListener() {
     if (thLecUnsub) thLecUnsub();
     thLecUnsub = onSnapshot(
-      query(collection(db, 'lectures'), orderBy('createdAt', 'desc')),
+      query(collection(db, 'think_lectures'), orderBy('createdAt', 'desc')),
       snap => {
         thLectures = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
         thPopulateSelects();
@@ -3494,7 +3494,7 @@ initAdmin();
     const reference = document.getElementById('th-new-ref').value.trim();
     if (!title || !question) { alert('강의명과 질문을 입력해주세요.'); return; }
     try {
-      await addDoc(collection(db, 'lectures'), { title, question, reference, isOpen: false, isArchived: false, createdAt: Date.now() });
+      await addDoc(collection(db, 'think_lectures'), { title, question, reference, isOpen: false, isArchived: false, createdAt: Date.now() });
       window.thHideNewForm();
     } catch(e) { alert('저장 실패: ' + e.message); }
   };
@@ -3538,7 +3538,7 @@ initAdmin();
     const isOn = el.classList.toggle('on');
     const lbl = document.getElementById(`th-tog-lbl-${docId}`);
     if (lbl) { lbl.textContent = isOn ? '공개 중' : '비공개'; lbl.style.color = isOn ? 'var(--c3)' : 'var(--sub)'; }
-    updateDoc(doc(db, 'lectures', docId), { isOpen: isOn }).catch(e => console.warn(e));
+    updateDoc(doc(db, 'think_lectures', docId), { isOpen: isOn }).catch(e => console.warn(e));
   };
   window.thToggleEdit = function(docId, open) {
     document.getElementById(`th-view-${docId}`).style.display = open ? 'none' : '';
@@ -3553,15 +3553,15 @@ initAdmin();
     const question = document.getElementById(`th-eq-${docId}`)?.value.trim();
     const reference = document.getElementById(`th-er-${docId}`)?.value.trim() || '';
     if (!title || !question) { alert('강의명과 질문은 필수입니다.'); return; }
-    await updateDoc(doc(db, 'lectures', docId), { title, question, reference });
+    await updateDoc(doc(db, 'think_lectures', docId), { title, question, reference });
     window.thToggleEdit(docId, false);
   };
   window.thDeleteLecture = async function(docId, title) {
     if (!confirm(`"${title}"을(를) 삭제하시겠습니까?\n모든 답변도 함께 삭제됩니다.`)) return;
-    const snap = await getDocs(query(collection(db, 'submissions'), where('lectureDocId', '==', docId)));
+    const snap = await getDocs(query(collection(db, 'think_submissions'), where('lectureDocId', '==', docId)));
     const batch = writeBatch(db);
     snap.docs.forEach(d => batch.delete(d.ref));
-    batch.delete(doc(db, 'lectures', docId));
+    batch.delete(doc(db, 'think_lectures', docId));
     await batch.commit();
   };
 
@@ -3598,7 +3598,7 @@ initAdmin();
     thLoadedLecId = lecId;
     thSubs = null;
     thSubUnsub = onSnapshot(
-      query(collection(db, 'submissions'), where('lectureDocId', '==', lecId)),
+      query(collection(db, 'think_submissions'), where('lectureDocId', '==', lecId)),
       snap => { thSubs = snap.docs.map(d => ({ subId: d.id, ...d.data() })); cb(); },
       err => console.warn('[think] submissions:', err)
     );
@@ -3623,11 +3623,11 @@ initAdmin();
   window.thTogglePick = async function(subId) {
     if (!thSubs) return;
     const t = thSubs.find(s => s.subId === subId);
-    if (t) await updateDoc(doc(db, 'submissions', subId), { isPicked: !t.isPicked });
+    if (t) await updateDoc(doc(db, 'think_submissions', subId), { isPicked: !t.isPicked });
   };
   window.thDeleteSub = async function(subId) {
     if (!confirm('이 학생의 답변을 삭제하시겠습니까?')) return;
-    await deleteDoc(doc(db, 'submissions', subId));
+    await deleteDoc(doc(db, 'think_submissions', subId));
   };
 
   window.thRenderAnswerLecture = function() {
