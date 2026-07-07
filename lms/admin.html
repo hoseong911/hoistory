@@ -227,11 +227,12 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 
 /* ── 성적 체크 어드민 ── */
 .grade-config-card{background:var(--canvas);border-radius:16px;padding:18px 20px;border:1px solid var(--hairline-soft);margin-bottom:20px;display:flex;gap:14px;align-items:stretch;flex-wrap:wrap}
-.grade-config-rows{flex:1;display:flex;flex-direction:row;flex-wrap:wrap;gap:16px;min-width:0}
-.grade-config-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;min-width:230px}
-.grade-config-lbl{font-size:12px;font-weight:700;color:var(--sub);white-space:nowrap;min-width:90px}
-.grade-na-toggle{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--sub);cursor:pointer;white-space:nowrap;flex-shrink:0;padding:4px 0}
-.grade-na-toggle input{accent-color:var(--c4);cursor:pointer;width:14px;height:14px}
+.grade-config-rows{flex:1;display:flex;flex-direction:row;flex-wrap:wrap;gap:14px;min-width:0}
+.grade-config-row{display:flex;flex-direction:column;align-items:flex-start;gap:6px;flex:1;min-width:190px}
+.grade-config-lbl{font-size:12px;font-weight:700;color:var(--sub);white-space:nowrap}
+.grade-na-toggle{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--sub);cursor:pointer;white-space:nowrap;background:var(--surface);border:1px solid var(--hairline-soft);border-radius:8px;padding:3px 9px}
+.grade-na-toggle input{accent-color:var(--c4);cursor:pointer;width:12px;height:12px}
+.grade-config-row .grade-config-sel{width:100%;min-width:0}
 .grade-config-sel,.grade-config-inp{flex:1;min-width:130px;padding:9px 12px;border:1.5px solid var(--hairline);border-radius:8px;font-family:inherit;font-size:13px;background:var(--canvas);outline:none;transition:border-color .2s}
 .grade-config-sel:focus,.grade-config-inp:focus{border-color:var(--c4)}
 .lecture-add-row{display:flex;gap:8px;align-items:center;margin-bottom:12px}
@@ -352,13 +353,11 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .band-input{width:42px;padding:2px 3px;border:1px solid var(--hairline);border-radius:5px;font-family:inherit;font-size:11px;text-align:center;outline:none}
 .band-input:focus{border-color:var(--c4)}
 
-/* ── 성적 반영 바 ── */
-.grade-publish-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--canvas);border:1.5px solid var(--hairline-soft);border-radius:16px;padding:14px 18px;margin-top:14px;flex-wrap:wrap}
-.grade-publish-info{}
-.grade-publish-status-lbl{font-size:13px;font-weight:700}
+/* ── 성적 반영 (반 태그 옆 액션 영역) ── */
+.grade-check-actions{display:flex;align-items:center;gap:8px;margin-left:auto;flex-wrap:wrap}
+.grade-publish-status-lbl{font-size:12px;font-weight:700;white-space:nowrap}
 .grade-publish-status-lbl.published{color:var(--c2)}
 .grade-publish-status-lbl.unpublished{color:var(--sub)}
-.grade-publish-hint{font-size:11px;color:var(--sub);margin-top:3px}
 .btn-publish{padding:10px 24px;background:var(--c4);color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:background .2s}
 .btn-publish:hover{background:#6D28D9}
 .btn-publish:disabled{opacity:.4;cursor:not-allowed}
@@ -780,20 +779,20 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
         <div class="grade-config-rows">
           <div class="grade-config-row">
             <span class="grade-config-lbl">개념 체크</span>
-            <select id="gradeLessonSel" class="grade-config-sel"><option value="">-- 강의 선택 --</option></select>
             <label class="grade-na-toggle"><input type="checkbox" id="gradeConceptNA"> 미실시</label>
+            <select id="gradeLessonSel" class="grade-config-sel"><option value="">-- 강의 선택 --</option></select>
           </div>
           <div class="grade-config-row">
             <span class="grade-config-lbl">생각 체크</span>
-            <select id="gradeThinkSel" class="grade-config-sel"><option value="">-- 연결 없음 (수동) --</option></select>
             <label class="grade-na-toggle"><input type="checkbox" id="gradeThinkNA"> 미실시</label>
+            <select id="gradeThinkSel" class="grade-config-sel"><option value="">-- 연결 없음 (수동) --</option></select>
           </div>
           <div class="grade-config-row">
             <span class="grade-config-lbl">미션 체크</span>
+            <label class="grade-na-toggle"><input type="checkbox" id="gradeMissionNA"> 미실시</label>
             <select id="gradeMissionColl" class="grade-config-sel">
               <option value="">-- 없음 (수동) --</option>
             </select>
-            <label class="grade-na-toggle"><input type="checkbox" id="gradeMissionNA"> 미실시</label>
           </div>
         </div>
         <button class="add-btn p" id="gradeLoadBtn" style="align-self:stretch;padding:0 22px;writing-mode:initial">불러오기</button>
@@ -814,13 +813,16 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
         </div>
       </div>
 
-      <div class="grade-subtab-bar" id="gradeSubtabBar"></div>
+      <div class="grade-score-top">
+        <div class="grade-subtab-bar" id="gradeSubtabBar" style="margin-bottom:0"></div>
+        <div class="grade-check-actions" id="gradeCheckActions" style="display:none">
+          <button class="add-btn p" id="gradeSaveBtn">임시 저장</button>
+          <span class="grade-publish-status-lbl" id="gradePublishStatusLbl"></span>
+          <button class="btn-publish" id="publishActionBtn" style="display:none"></button>
+        </div>
+      </div>
 
       <div id="gradeTableWrap"><div class="empty-panel">강의를 선택하고 불러오기를 눌러주세요.</div></div>
-      <div id="gradeSaveWrap" style="display:none;margin-top:20px">
-        <button class="add-btn p" id="gradeSaveBtn" style="width:100%;padding:14px;font-size:14px">임시 저장 (전체·미반영)</button>
-      </div>
-      <div id="gradePublishBar" style="display:none"></div>
     </div>
   </div>
 
@@ -2512,12 +2514,12 @@ async function loadGradeData() {
     } catch(e) {}
 
     renderGradeTable();
-    renderGradeStats();
     setupSubtabs('gradeTableWrap', 'gradeSubtabBar', (cls) => {
       _currentGradeClass = cls;
+      renderGradeStats();
       renderGradePublishBar(cls === 'all' ? null : cls);
     }, true);
-    document.getElementById('gradeSaveWrap').style.display = 'block';
+    document.getElementById('gradeCheckActions').style.display = 'flex';
     refreshGradeSettingsLectures();
   } catch(e) {
     alert('불러오기 실패: ' + e.message);
@@ -2645,6 +2647,7 @@ function renderGradeTable() {
     cb.addEventListener('change', e => {
       const { sid, t, f } = e.target.dataset;
       if (_gradeRecords[sid]) _gradeRecords[sid][t][f] = e.target.checked;
+      if (f === 'achieved') renderGradeStats();
     });
   });
 
@@ -2662,6 +2665,7 @@ function renderGradeTable() {
         c.checked = checked;
         if (_gradeRecords[sid]) _gradeRecords[sid][t][f] = checked;
       });
+      if (f === 'achieved') renderGradeStats();
     });
   });
 
@@ -2679,6 +2683,7 @@ function renderGradeTable() {
         r.think.achieved   = false; r.think.onTime   = false;
       }
       renderGradeTable();
+      renderGradeStats();
     });
   });
 }
@@ -2721,9 +2726,13 @@ function setupSubtabs(tableWrapId, barId, onClassChange = null, includeAllTab = 
 }
 
 function renderGradeStats() {
-  const bar      = document.getElementById('gradeStatsBar');
-  const entries  = Object.entries(_gradeRecords);
-  const total    = entries.length;
+  const bar   = document.getElementById('gradeStatsBar');
+  const cls   = _currentGradeClass;
+  const entries = Object.entries(_gradeRecords).filter(([sid]) => {
+    if (cls == null || cls === 'all') return true;
+    return Math.floor((parseInt(sid) - 30000) / 100) === cls;
+  });
+  const total = entries.length;
   function chip(type, elId) {
     const el = document.getElementById(elId);
     if (!_gradeEnabled[type]) {
@@ -2977,32 +2986,23 @@ function renderGradeSettings() {
 
 // ── 성적 반영 바 ──
 function renderGradePublishBar(classNum) {
-  const bar = document.getElementById('gradePublishBar');
-  if (!classNum || !_gradeLessonKey) { bar.style.display = 'none'; return; }
+  const statusEl = document.getElementById('gradePublishStatusLbl');
+  const btn = document.getElementById('publishActionBtn');
+  if (!classNum || !_gradeLessonKey) {
+    statusEl.textContent = '';
+    statusEl.className = 'grade-publish-status-lbl';
+    btn.style.display = 'none';
+    return;
+  }
   const published = !!_publishStatus[classNum];
-  const lecTitle = _gradeLessons.find(l => l.num === _gradeLessonKey)?.title || `${_gradeLessonKey}강`;
 
-  bar.style.display = '';
-  bar.innerHTML = `
-    <div class="grade-publish-info">
-      <div class="grade-publish-status-lbl ${published ? 'published' : 'unpublished'}">
-        ${published ? '✓ 성적 반영됨' : '미반영'} — ${esc(lecTitle)} · ${classNum}반
-      </div>
-      <div class="grade-publish-hint">
-        ${published
-          ? '학생 성적 조회에 반영된 상태입니다.'
-          : '아직 학생 성적 조회에 반영되지 않았습니다.'}
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      ${published
-        ? `<button class="btn-unpublish" id="publishActionBtn">반영 취소</button>`
-        : `<button class="btn-publish" id="publishActionBtn">성적 반영하기 (${classNum}반)</button>`}
-    </div>`;
+  statusEl.textContent = published ? `✓ 반영됨 (${classNum}반)` : `미반영 (${classNum}반)`;
+  statusEl.className = `grade-publish-status-lbl ${published ? 'published' : 'unpublished'}`;
 
-  document.getElementById('publishActionBtn').addEventListener('click',
-    () => published ? unpublishClassGrades(classNum) : publishClassGrades(classNum)
-  );
+  btn.style.display = '';
+  btn.className = published ? 'btn-unpublish' : 'btn-publish';
+  btn.textContent = published ? '반영 취소' : '성적 반영하기';
+  btn.onclick = () => published ? unpublishClassGrades(classNum) : publishClassGrades(classNum);
 }
 
 function updateSubtabPublishBadge(classNum, published) {
