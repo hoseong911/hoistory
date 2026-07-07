@@ -709,6 +709,17 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
           <div class="form-group"><label class="form-label">강의명</label><input class="form-input" id="th-new-title" placeholder="예: 1강 선사시대"></div>
           <div class="form-group"><label class="form-label">오늘의 질문</label><input class="form-input" id="th-new-q" placeholder="생각 질문을 입력하세요"></div>
           <div class="form-group"><label class="form-label">설명 (선택)</label><textarea class="form-textarea" id="th-new-ref" style="height:90px" placeholder="참고 내용이나 설명을 자유롭게 작성하세요"></textarea></div>
+          <div class="form-group"><label class="form-label">아이콘 (이모지)</label>
+            <div class="emoji-palette-wrap" id="thinkEmojiWrap">
+              <div class="emoji-display" onclick="toggleThinkEmojiPicker()">
+                <span id="thinkSelectedEmoji">💭</span>
+              </div>
+              <div class="emoji-picker" id="thinkEmojiPicker">
+                <div class="emoji-cats" id="thinkEmojiCats"></div>
+                <div class="emoji-grid" id="thinkEmojiGrid"></div>
+              </div>
+            </div>
+          </div>
           <div style="display:flex;gap:10px">
             <button class="btn-save" style="flex:0;padding:10px 28px;background:var(--c3)" onclick="thAddLecture()">생성</button>
             <button class="btn-cancel" onclick="thHideNewForm()">취소</button>
@@ -2089,6 +2100,50 @@ const MISSION_EMOJI_DATA = {
 };
 let missionSelectedEmoji = '📌';
 let missionEmojiCat = Object.keys(MISSION_EMOJI_DATA)[0];
+
+let thinkSelectedEmoji = '💭';
+let thinkEmojiCat = Object.keys(MISSION_EMOJI_DATA)[0];
+
+function initThinkEmojiPicker() {
+  const cats = document.getElementById('thinkEmojiCats');
+  if (!cats) return;
+  Object.keys(MISSION_EMOJI_DATA).forEach((cat, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'emoji-cat-btn' + (i === 0 ? ' active' : '');
+    btn.textContent = cat;
+    btn.onclick = () => {
+      thinkEmojiCat = cat;
+      cats.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderThinkEmojiGrid();
+    };
+    cats.appendChild(btn);
+  });
+  renderThinkEmojiGrid();
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#thinkEmojiWrap')) closeThinkEmojiPicker();
+  });
+}
+function renderThinkEmojiGrid() {
+  const grid = document.getElementById('thinkEmojiGrid');
+  if (!grid) return;
+  grid.innerHTML = '';
+  (MISSION_EMOJI_DATA[thinkEmojiCat] || []).forEach(em => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'emoji-btn';
+    btn.textContent = em;
+    btn.onclick = () => {
+      thinkSelectedEmoji = em;
+      document.getElementById('thinkSelectedEmoji').textContent = em;
+      closeThinkEmojiPicker();
+    };
+    grid.appendChild(btn);
+  });
+}
+function toggleThinkEmojiPicker() { document.getElementById('thinkEmojiPicker').classList.toggle('open'); }
+function closeThinkEmojiPicker() { document.getElementById('thinkEmojiPicker').classList.remove('open'); }
 
 function initMissionEmojiPicker() {
   const cats = document.getElementById('missionEmojiCats');
@@ -3472,14 +3527,17 @@ initAdmin();
   window.thHideNewForm = function() {
     document.getElementById('th-new-form').style.display = 'none';
     ['th-new-title','th-new-q','th-new-ref'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    thinkSelectedEmoji = '💭';
+    const sp = document.getElementById('thinkSelectedEmoji'); if (sp) sp.textContent = '💭';
   };
   window.thAddLecture = async function() {
     const title = document.getElementById('th-new-title').value.trim();
     const question = document.getElementById('th-new-q').value.trim();
     const reference = document.getElementById('th-new-ref').value.trim();
+    const icon = thinkSelectedEmoji || '💭';
     if (!title || !question) { alert('강의명과 질문을 입력해주세요.'); return; }
     try {
-      await addDoc(collection(db, 'think_lectures'), { title, question, reference, isOpen: false, isArchived: false, createdAt: Date.now() });
+      await addDoc(collection(db, 'think_lectures'), { title, question, reference, icon, isOpen: false, isArchived: false, createdAt: Date.now() });
       window.thHideNewForm();
     } catch(e) { alert('저장 실패: ' + e.message); }
   };
@@ -3510,6 +3568,7 @@ initAdmin();
             <div class="form-group"><label class="form-label">강의명</label><input class="form-input" id="th-et-${lec.docId}" value="${thEsc(lec.title)}"></div>
             <div class="form-group"><label class="form-label">질문</label><input class="form-input" id="th-eq-${lec.docId}" value="${thEsc(lec.question)}"></div>
             <div class="form-group"><label class="form-label">설명</label><textarea class="form-textarea" id="th-er-${lec.docId}" style="height:80px">${thEsc(lec.reference||'')}</textarea></div>
+            <div class="form-group"><label class="form-label">아이콘 (이모지)</label><input class="form-input" id="th-ei-${lec.docId}" value="${thEsc(lec.icon||'')}" placeholder="이모지를 붙여넣으세요" style="width:100px"></div>
             <div style="display:flex;gap:8px">
               <button class="btn-save" style="flex:0;padding:9px 22px;background:var(--c3)" onclick="thSaveLecture('${lec.docId}')">저장</button>
               <button class="btn-cancel" onclick="thToggleEdit('${lec.docId}',false)">취소</button>
@@ -3537,8 +3596,9 @@ initAdmin();
     const title = document.getElementById(`th-et-${docId}`)?.value.trim();
     const question = document.getElementById(`th-eq-${docId}`)?.value.trim();
     const reference = document.getElementById(`th-er-${docId}`)?.value.trim() || '';
+    const icon = document.getElementById(`th-ei-${docId}`)?.value.trim() || '';
     if (!title || !question) { alert('강의명과 질문은 필수입니다.'); return; }
-    await updateDoc(doc(db, 'think_lectures', docId), { title, question, reference });
+    await updateDoc(doc(db, 'think_lectures', docId), { title, question, reference, icon });
     window.thToggleEdit(docId, false);
   };
   window.thDeleteLecture = async function(docId, title) {
@@ -3897,6 +3957,7 @@ initAdmin();
   };
 
   /* ─ 자동 시작 ─ */
+  initThinkEmojiPicker();
   thStartLecListener();
   thLoadStudents();
   thLoadApiKey();
