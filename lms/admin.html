@@ -2389,8 +2389,8 @@ async function loadGradeData() {
     renderGradeStats();
     setupSubtabs('gradeTableWrap', 'gradeSubtabBar', (cls) => {
       _currentGradeClass = cls;
-      renderGradePublishBar(cls);
-    });
+      renderGradePublishBar(cls === 'all' ? null : cls);
+    }, true);
     document.getElementById('gradeSaveWrap').style.display = 'block';
     refreshGradeSettingsLectures();
   } catch(e) {
@@ -2439,9 +2439,9 @@ function renderGradeTable() {
   const totalCols = 2 + (cE?2:0) + (mE?3:0) + (tE?3:0);
 
   const allCb = (t, f) =>
-    `<input type="checkbox" class="grade-all-cb" data-t="${t}" data-f="${f}" title="전체 선택/해제">`;
-  const chk = (sid, type, field, checked) =>
-    `<input type="checkbox" class="grade-cb ${type}" data-sid="${esc(sid)}" data-t="${type}" data-f="${field}" ${checked?'checked':''}>`;
+    `<input type="checkbox" class="grade-all-cb" data-t="${t}" data-f="${f}" title="전체 선택/해제 (현재 반에만 적용)">`;
+  const chk = (sid, type, field, checked, disabled) =>
+    `<input type="checkbox" class="grade-cb ${type}" data-sid="${esc(sid)}" data-t="${type}" data-f="${field}" ${checked?'checked':''} ${disabled?'disabled title="결석 처리된 학생은 미달성으로 고정됩니다"':''}>`;
   const timeSpan = (d, isLate) =>
     `<span style="font-size:11px" class="${isLate?'grade-time-late':''}">${esc(fmtTime(d))}</span>`;
 
@@ -2472,15 +2472,23 @@ function renderGradeTable() {
       html += `<tr data-cls="${cls}" data-sid="${esc(s.id)}" class="${r.absent ? 'absent-row' : ''}">
         <td class="tc-id">${esc(s.id)}</td>
         <td class="tc-name" data-sid="${esc(s.id)}" title="클릭하면 결석으로 표시/해제됩니다">${esc(s.name)}</td>
-        ${cE ? `<td>${chk(s.id,'concept','achieved',r.concept.achieved)}</td><td>${chk(s.id,'concept','onTime',r.concept.onTime)}</td>` : ''}
-        ${mE ? `<td>${chk(s.id,'mission','achieved',r.mission.achieved)}</td><td>${chk(s.id,'mission','onTime',r.mission.onTime)}</td><td>${timeSpan(mD,!!(mD&&mMaj&&dayKey(mD)!==mMaj))}</td>` : ''}
-        ${tE ? `<td>${chk(s.id,'think','achieved',r.think.achieved)}</td><td>${chk(s.id,'think','onTime',r.think.onTime)}</td><td>${timeSpan(tD,!!(tD&&tMaj&&dayKey(tD)!==tMaj))}</td>` : ''}
+        ${cE ? `<td>${chk(s.id,'concept','achieved',r.concept.achieved,r.absent)}</td><td>${chk(s.id,'concept','onTime',r.concept.onTime,r.absent)}</td>` : ''}
+        ${mE ? `<td>${chk(s.id,'mission','achieved',r.mission.achieved,r.absent)}</td><td>${chk(s.id,'mission','onTime',r.mission.onTime,r.absent)}</td><td>${timeSpan(mD,!!(mD&&mMaj&&dayKey(mD)!==mMaj))}</td>` : ''}
+        ${tE ? `<td>${chk(s.id,'think','achieved',r.think.achieved,r.absent)}</td><td>${chk(s.id,'think','onTime',r.think.onTime,r.absent)}</td><td>${timeSpan(tD,!!(tD&&tMaj&&dayKey(tD)!==tMaj))}</td>` : ''}
       </tr>`;
     });
   });
 
   html += '</tbody></table></div>';
   wrap.innerHTML = html;
+
+  // 이 함수가 다시 호출돼 표를 새로 그려도(예: 결석 토글) 이전에 선택돼 있던
+  // 반 필터가 풀리지 않도록 다시 적용한다.
+  if (_currentGradeClass != null) {
+    wrap.querySelectorAll('tr[data-cls]').forEach(row => {
+      row.style.display = (_currentGradeClass === 'all' || parseInt(row.dataset.cls) === _currentGradeClass) ? '' : 'none';
+    });
+  }
 
   wrap.querySelectorAll('.grade-cb').forEach(cb => {
     cb.addEventListener('change', e => {
@@ -2489,59 +2497,76 @@ function renderGradeTable() {
     });
   });
 
-  // 전체 선택/해제
+  // 전체 선택/해제 — 태그를 "전체"로 바꾸지 않은 이상 현재 보고 있는 반에만 적용,
+  // 결석 처리된 학생은 미달성으로 고정돼야 하므로 전체 선택에서도 건너뛴다.
   wrap.querySelectorAll('.grade-all-cb').forEach(cb => {
     cb.addEventListener('change', e => {
       const { t, f } = e.target.dataset;
       const checked = e.target.checked;
       wrap.querySelectorAll(`.grade-cb.${t}[data-f="${f}"]`).forEach(c => {
-        c.checked = checked;
         const sid = c.dataset.sid;
+        const row = c.closest('tr');
+        if (_currentGradeClass !== 'all' && parseInt(row.dataset.cls) !== _currentGradeClass) return;
+        if (_gradeRecords[sid]?.absent) return;
+        c.checked = checked;
         if (_gradeRecords[sid]) _gradeRecords[sid][t][f] = checked;
       });
     });
   });
 
-  // 이름 클릭 -> 결석 표시/해제 (나중에 알아볼 수 있게 표시만 하고 저장에 같이 반영)
+  // 이름 클릭 -> 결석 표시/해제. 결석으로 표시하면 달성/기한을 전부 미달성으로 고정한다
+  // (분모는 그대로 두고 미달성 처리만 — 그 강의를 들었다는 사실 자체는 바뀌지 않으므로).
   wrap.querySelectorAll('.tc-name').forEach(td => {
     td.addEventListener('click', () => {
       const sid = td.dataset.sid;
-      if (!_gradeRecords[sid]) return;
-      _gradeRecords[sid].absent = !_gradeRecords[sid].absent;
-      td.closest('tr').classList.toggle('absent-row', _gradeRecords[sid].absent);
+      const r = _gradeRecords[sid];
+      if (!r) return;
+      r.absent = !r.absent;
+      if (r.absent) {
+        r.concept.achieved = false; r.concept.onTime = false;
+        r.mission.achieved = false; r.mission.onTime = false;
+        r.think.achieved   = false; r.think.onTime   = false;
+      }
+      renderGradeTable();
     });
   });
 }
 
-function setupSubtabs(tableWrapId, barId, onClassChange = null) {
+// includeAllTab: 맨 앞에 "전체" 탭을 추가한다(성적 체크 입력에서만 사용).
+// 기본 선택은 항상 첫 번째 반이라, "전체"를 직접 누르지 않는 이상 반별 적용이 우선된다.
+function setupSubtabs(tableWrapId, barId, onClassChange = null, includeAllTab = false) {
   const bar = document.getElementById(barId);
   const clsSet = new Set();
   document.querySelectorAll(`#${tableWrapId} tr[data-cls]`).forEach(r => clsSet.add(parseInt(r.dataset.cls)));
   if (!clsSet.size) { bar.style.display = 'none'; return; }
 
   const nums = Array.from(clsSet).sort((a, b) => a - b);
-  bar.innerHTML = nums.map((cls, i) =>
-    `<button class="grade-subtab${i === 0 ? ' active' : ''}" data-cls="${cls}">${cls}반</button>`
-  ).join('');
+  const tabs = includeAllTab ? ['all', ...nums] : nums;
+  const defaultTab = includeAllTab ? nums[0] : nums[0];
 
-  const firstCls = nums[0];
-  document.querySelectorAll(`#${tableWrapId} tr[data-cls]`).forEach(row => {
-    row.style.display = parseInt(row.dataset.cls) === firstCls ? '' : 'none';
-  });
+  function showRows(cls) {
+    document.querySelectorAll(`#${tableWrapId} tr[data-cls]`).forEach(row => {
+      row.style.display = (cls === 'all' || parseInt(row.dataset.cls) === cls) ? '' : 'none';
+    });
+  }
+
+  bar.innerHTML = tabs.map(cls =>
+    `<button class="grade-subtab${cls === defaultTab ? ' active' : ''}" data-cls="${cls}">${cls === 'all' ? '전체' : cls + '반'}</button>`
+  ).join('');
+  showRows(defaultTab);
 
   bar.querySelectorAll('.grade-subtab').forEach(btn => {
     btn.addEventListener('click', () => {
-      const cls = parseInt(btn.dataset.cls);
+      const raw = btn.dataset.cls;
+      const cls = raw === 'all' ? 'all' : parseInt(raw);
       bar.querySelectorAll('.grade-subtab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      document.querySelectorAll(`#${tableWrapId} tr[data-cls]`).forEach(row => {
-        row.style.display = parseInt(row.dataset.cls) === cls ? '' : 'none';
-      });
+      showRows(cls);
       if (onClassChange) onClassChange(cls);
     });
   });
   bar.style.display = 'flex';
-  if (onClassChange) onClassChange(firstCls);
+  if (onClassChange) onClassChange(defaultTab);
 }
 
 function renderGradeStats() {
