@@ -1638,36 +1638,42 @@ function ceFileToBase64(file) {
 }
 
 const CE_LESSON_JSON_SCHEMA = `{
-  "lesson": { "title": "수업 제목", "unit": "학습 단원 (예: Ⅲ-4. 고려의 생활과 문화)", "page": "교과서 페이지", "objectives": ["학습 목표 문장", "..."] },
+  "lesson": { "title": "수업 제목", "unit": "학습 단원 (예: Ⅲ-4. 고려의 생활과 문화)", "page": "교과서 페이지", "objectives": ["학습 목표 문장(활동지에 있는 그대로)", "..."] },
   "dive": { "title": "수업 전 활동 제목 (없으면 빈 문자열)", "guide": "안내 문구 (없으면 빈 문자열)" },
   "chosungItems": ["초성 퀴즈 문제/정답 한 줄 (초성 퀴즈가 없으면 빈 배열)", "..."],
   "conceptContentLines": [
     { "type": "divider", "title": "슬라이드 제목" },
-    { "type": "row", "label": "소제목/항목명", "items": ["빈칸은 {정답} 형태로 표시한 문장", "..."] }
+    { "type": "row", "label": "회색 칸(행 라벨) 텍스트", "items": ["표 안의 한 줄", "그 다음 줄", "..."] }
   ],
   "missionContentLines": [
     { "type": "divider", "title": "슬라이드 제목" },
-    { "type": "row", "label": "소제목/항목명", "items": ["빈칸은 {정답} 형태로 표시한 문장", "..."] }
+    { "type": "row", "label": "회색 칸(행 라벨) 텍스트", "items": ["표 안의 한 줄", "그 다음 줄", "..."] }
   ],
   "think": { "question": "오늘의 생각 질문", "guide": "답변 안내 문구" }
 }`;
 
-const CE_LESSON_JSON_INSTRUCTION = `다음은 중학교 역사 수업 활동지 내용이다. 이 내용을 분석해서 아래 JSON 스키마로 정확히 변환해줘.
+const CE_LESSON_JSON_INSTRUCTION = `다음은 중학교 역사 수업 활동지 내용이다. 이 내용을 아래 JSON 스키마로 옮겨 적어줘.
+
+가장 중요한 원칙: 이건 활동지를 그대로 옮기는 "전사" 작업이다. 활동지에 없는 문장·설명·예시·학습 목표를 새로 만들어서 추가하지 마라. 활동지에 적힌 텍스트만 그대로 옮겨라. 아래 "빈칸 채우기"만 유일한 예외다(빈칸에 들어갈 정답을 채워 넣는 것).
 
 활동지 내용은 성격에 따라 나눠 담아야 한다:
-- dive: 표지와 개념 체크 사이, 수업을 시작하기 전에 하는 활동("Dive into HISTORY"). 형태가 자유로우니 구조화하지 말고 제목과 안내 문구로만 요약해줘. 이런 활동이 없으면 title/guide를 빈 문자열로 둬라.
-- chosungItems: 활동지에 초성 퀴즈(예: ㄱㄴㄷ으로 단어 맞히기)가 있으면 문제/정답을 한 줄씩 배열로 넣어줘. 없으면 빈 배열로 둬라.
+- dive: 표지와 개념 체크 사이, 수업을 시작하기 전에 하는 활동("Dive into HISTORY"). 형태가 자유로우니 구조화하지 말고 활동지에 적힌 문구를 그대로 title/guide에 옮겨라. 이런 활동이 없으면 title/guide를 빈 문자열로 둬라.
+- chosungItems: 활동지에 초성 퀴즈(예: ㄱㄴㄷ으로 단어 맞히기)가 있으면 문제를 한 줄씩 배열로 그대로 옮겨라. 없으면 빈 배열로 둬라.
 - conceptContentLines: 개념 설명, 빈칸 채우기, 용어 정리 등 "배우는" 내용.
 - missionContentLines: 학생이 직접 해보는 활동·과제·퀘스트·게임형 미션 내용.
 - think: 수업 마무리에 학생 스스로 생각해서 답하는 서술형 질문.
 
-conceptContentLines·missionContentLines 공통 규칙:
-- 기본값은 표(행 라벨) 하나당 슬라이드 하나다. 행마다 그 앞에 {"type":"divider","title":"..."} 하나를 넣고 바로 뒤에 그 행 하나만 담은 {"type":"row",...}를 배치해줘 (구분선 1개 + 행 1개가 반복되는 형태). 여러 표를 한 슬라이드로 합치지 마라 — 합치고 나누는 건 선생님이 나중에 직접 정한다.
-- 활동지의 빈칸(밑줄, 괄호, ○○ 등) 문제는 정답을 알 수 있으면 문장 안에 {정답} 형태로 표시해줘. 정답을 알 수 없으면 표시 없이 문장 그대로 넣어줘.
-- 이미지나 표는 텍스트로 옮길 수 없으면 생략해도 된다.
+conceptContentLines·missionContentLines 규칙 (정확히 지켜라):
+- 활동지의 표는 왼쪽에 회색(음영) 칸이 있고 오른쪽에 실제 내용이 있는 구조다. 이 회색 칸 하나(행 라벨, 예: "1. 태조")가 슬라이드 하나에 대응한다. 회색 칸이 바뀔 때만 새로 {"type":"divider","title":"..."}를 만들고 그 뒤에 row 하나를 배치해라 (구분선 1개 + row 1개가 반복).
+- 같은 회색 칸 밑에 여러 줄(①②③, a.b.c. 등 하위 항목)이 있어도 슬라이드를 나누지 마라. 그 줄들은 전부 같은 row의 items 배열에 한 줄당 하나씩 넣어라. 절대 여러 줄을 <br>이나 </br> 같은 HTML 태그로 이어붙이지 마라 — 반드시 배열 원소를 나눠서 넣어라.
+- divider의 title은 그 표가 속한 절/구역의 부제목(활동지에서 "개념 체크" 뒤에 적힌 소제목)을 그대로 옮겨 적어라. 같은 부제 아래 여러 표(행)가 있으면 그 부제를 각 슬라이드 title에 반복해서 써도 된다.
+- row의 label은 회색 칸에 적힌 텍스트를 그대로 옮겨라.
+- 빈칸(밑줄, 괄호, ○○ 등)에 들어갈 정답을 알고 있으면 그 줄 안에서 정답을 중괄호 한 겹으로 정확히 감싸서 표시해라: {정답}. 중괄호를 두 겹({{정답}})으로 쓰지 마라 — 항상 한 겹만. 정답을 확신할 수 없으면 빈칸 표시 없이 원문 그대로 둬라(추측해서 틀린 답을 넣지 마라).
+- 빈칸을 채우는 것 외에는 원문에 있는 문구를 고치거나 다듬지 말고 그대로 옮겨라.
+- 표 안의 그림·도식은 텍스트로 옮길 수 없으면 생략해도 된다.
 - 해당하는 내용이 활동지에 없으면 빈 배열 []로 둬라.
 
-- 학습 목표가 활동지에 명시돼 있지 않으면 내용을 보고 1~3개 합리적으로 추론해서 채워줘.
+- 학습 목표가 활동지에 명시적으로 적혀 있지 않으면 objectives를 빈 배열로 둬라. 추측해서 만들어내지 마라.
 - 다른 설명 없이 아래 스키마와 동일한 구조의 JSON만 출력해줘.
 
 스키마:
@@ -1698,7 +1704,26 @@ async function ceRequestLessonJson(claudeKey, content) {
     throw new Error('활동지 내용이 길어서 응답이 중간에 잘렸습니다. 활동지를 나눠서 올려주세요.');
   }
   const raw = (data.content?.[0]?.text || '').replace(/```json|```/g,'').trim();
-  return JSON.parse(raw);
+  return ceSanitizeParsedLesson(JSON.parse(raw));
+}
+
+// AI가 프롬프트를 어기고 실수하는 두 가지를 코드에서 한 번 더 바로잡는다:
+// 1) 강조 중괄호를 {{정답}}처럼 두 겹으로 쓰는 경우 -> {정답}로 축소
+// 2) 표 안의 여러 줄을 <br>/</br> 태그로 이어붙이는 경우 -> items 배열 원소로 분리
+function ceSanitizeParsedLesson(d) {
+  const fixBraces = s => typeof s === 'string' ? s.replace(/\{{2,}/g, '{').replace(/\}{2,}/g, '}') : s;
+  const splitBr = s => fixBraces(s).split(/<\/?br\s*\/?>/i).map(x => x.trim()).filter(Boolean);
+  const fixLines = lines => (lines || []).map(line => {
+    if (line.type === 'row') return { ...line, label: fixBraces(line.label), items: (line.items||[]).flatMap(splitBr) };
+    if (line.type === 'divider') return { ...line, title: fixBraces(line.title) };
+    return line;
+  });
+  if (d.conceptContentLines) d.conceptContentLines = fixLines(d.conceptContentLines);
+  if (d.missionContentLines) d.missionContentLines = fixLines(d.missionContentLines);
+  if (d.dive) { d.dive.title = fixBraces(d.dive.title); d.dive.guide = fixBraces(d.dive.guide); }
+  if (d.chosungItems) d.chosungItems = d.chosungItems.map(fixBraces);
+  if (d.think) { d.think.question = fixBraces(d.think.question); d.think.guide = fixBraces(d.think.guide); }
+  return d;
 }
 
 function ceValidateParsedLesson(d) {
