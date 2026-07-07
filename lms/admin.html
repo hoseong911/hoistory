@@ -20,13 +20,13 @@
   --text:#0A1317;--sub:#6B7280;
   --canvas:#FAFAF9;--surface:#F4F3EE;--hairline:#E5E4DF;--hairline-soft:#ECEAE4;
   --ink-deep:#0A1317;--charcoal:#4A5568;--slate:#6B7280;--stone:#C4C4C4;
-  --primary:#4F46E5;--primary-deep:#4338CA;
-  --navy:#4F46E5;
+  --primary:#1E3A8A;--primary-deep:#172554;
+  --navy:#1E3A8A;
   --accent:#2DD4BF;--accent-deep:#0F766E;--accent-l:rgba(45,212,191,0.12);
-  --c1:#4F46E5;--c1-l:rgba(79,70,229,0.08);--c1-m:rgba(79,70,229,0.15);
-  --c2:#4F46E5;--c2-l:rgba(79,70,229,0.08);--c2-m:rgba(79,70,229,0.15);
-  --c3:#4F46E5;--c3-l:rgba(79,70,229,0.08);--c3-m:rgba(79,70,229,0.15);
-  --c4:#4F46E5;--c4-l:rgba(79,70,229,0.08);--c4-m:rgba(79,70,229,0.15);
+  --c1:#1E3A8A;--c1-l:rgba(30,58,138,0.08);--c1-m:rgba(30,58,138,0.15);
+  --c2:#1E3A8A;--c2-l:rgba(30,58,138,0.08);--c2-m:rgba(30,58,138,0.15);
+  --c3:#1E3A8A;--c3-l:rgba(30,58,138,0.08);--c3-m:rgba(30,58,138,0.15);
+  --c4:#1E3A8A;--c4-l:rgba(30,58,138,0.08);--c4-m:rgba(30,58,138,0.15);
   --success:#16A34A;--critical:#DC2626;
   --shadow:rgba(20,22,26,0.25) 0px 1px 4px 0px;
   --shadow-hover:rgba(20,22,26,0.25) 0px 6px 20px 0px;
@@ -252,7 +252,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .grade-table th.gh-mission{background:var(--c2-l);color:var(--c2)}
 .grade-table th.gh-think  {background:var(--c1-l);color:var(--c1)}
 .grade-table td.tc-id{font-size:12px;color:var(--sub)}
-.grade-table td.tc-name{text-align:left;font-weight:600;cursor:pointer}
+.grade-table td.tc-name{text-align:left;font-weight:600;cursor:pointer;min-width:120px}
 .grade-table tr.absent-row td.tc-name{color:#DC2626;text-decoration:line-through}
 .grade-table tr.absent-row td.tc-name::after{content:'결석';margin-left:6px;font-size:10px;font-weight:700;color:#DC2626;text-decoration:none;background:rgba(220,38,38,.1);padding:1px 6px;border-radius:8px}
 .grade-table tr.absent-row{background:rgba(220,38,38,.04)}
@@ -2631,6 +2631,7 @@ async function loadGradeData() {
     renderGradeTable();
     setupSubtabs('gradeTableWrap', 'gradeSubtabBar', (cls) => {
       _currentGradeClass = cls;
+      syncGradeAllCb();
       renderGradeStats();
       renderGradePublishBar(cls === 'all' ? null : cls);
     }, true);
@@ -2664,6 +2665,20 @@ function saveGradeFeedback() {
   if (_gradeRecords[_gradeFeedbackSid]) _gradeRecords[_gradeFeedbackSid].feedback = val;
   closeGradeFeedbackModal();
   renderGradeTable();
+}
+
+function syncGradeAllCb() {
+  const wrap = document.getElementById('gradeTableWrap');
+  if (!wrap) return;
+  wrap.querySelectorAll('.grade-all-cb').forEach(allCb => {
+    const { t, f } = allCb.dataset;
+    const boxes = Array.from(wrap.querySelectorAll(`.grade-cb.${t}[data-f="${f}"]`)).filter(c => {
+      if (c.disabled) return false;
+      const row = c.closest('tr');
+      return _currentGradeClass === 'all' || parseInt(row.dataset.cls) === _currentGradeClass;
+    });
+    allCb.checked = boxes.length > 0 && boxes.every(c => c.checked);
+  });
 }
 
 function renderGradeTable() {
@@ -2762,6 +2777,7 @@ function renderGradeTable() {
     cb.addEventListener('change', e => {
       const { sid, t, f } = e.target.dataset;
       if (_gradeRecords[sid]) _gradeRecords[sid][t][f] = e.target.checked;
+      syncGradeAllCb();
       if (f === 'achieved') renderGradeStats();
     });
   });
@@ -2780,9 +2796,14 @@ function renderGradeTable() {
         c.checked = checked;
         if (_gradeRecords[sid]) _gradeRecords[sid][t][f] = checked;
       });
+      syncGradeAllCb();
       if (f === 'achieved') renderGradeStats();
     });
   });
+
+  // 표제목의 "전체 선택" 체크박스를 현재 보이는 개별 체크박스 상태와 맞춘다
+  // (결석으로 잠긴 체크박스는 판단에서 제외 — 전체 선택 자체가 결석 학생을 건너뛰므로).
+  syncGradeAllCb();
 
   // 이름 클릭 -> 결석 표시/해제. 결석으로 표시하면 달성/기한을 전부 미달성으로 고정한다
   // (분모는 그대로 두고 미달성 처리만 — 그 강의를 들었다는 사실 자체는 바뀌지 않으므로).
@@ -3243,10 +3264,19 @@ async function saveGradeRecords() {
   const lesson = _gradeLessons.find(l => l.num === _gradeLessonKey);
   const lessonTitle = lesson?.title || '';
 
+  // 체크박스 전체선택/해제와 마찬가지로, 저장도 지금 보고 있는 반에만 적용된다
+  // ("전체" 탭에서 누르면 학년 전체가 저장된다). 팝업에 뜨는 인원수도 실제로
+  // 저장된 범위와 일치시킨다.
+  const cls = _currentGradeClass;
+  const targets = (cls == null || cls === 'all')
+    ? _gradeStudents
+    : _gradeStudents.filter(s => Math.floor((parseInt(s.id) - 30000) / 100) === cls);
+  const scopeLabel = (cls == null || cls === 'all') ? '전체' : `${cls}반`;
+
   const btn = document.getElementById('gradeSaveBtn');
   btn.disabled = true; btn.textContent = '저장 중…';
   try {
-    await Promise.all(_gradeStudents.map(s =>
+    await Promise.all(targets.map(s =>
       setDoc(doc(db, 'grade_records', `${_gradeLessonKey}_${s.id}`), {
         lessonKey:   _gradeLessonKey,
         lessonTitle,
@@ -3260,11 +3290,11 @@ async function saveGradeRecords() {
         updatedAt:   serverTimestamp(),
       }, { merge: true })
     ));
-    alert(`${_gradeStudents.length}명 임시 저장 완료! (학생에게 미반영)`);
+    alert(`${scopeLabel} ${targets.length}명 임시 저장 완료! (학생에게 미반영)`);
   } catch(e) {
     alert('저장 실패: ' + e.message);
   } finally {
-    btn.disabled = false; btn.textContent = '임시 저장 (전체·미반영)';
+    btn.disabled = false; btn.textContent = '임시 저장';
   }
 }
 
