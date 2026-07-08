@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>인터뷰 어드민</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+@font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2');font-weight:900;font-display:swap}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --canvas:#FAFAF9;--surface:#F4F3EE;
+  --hairline:#E5E4DF;--hairline-soft:#ECEAE4;
+  --ink:#0A1317;--sub:#6B7280;--stone:#C4C4C4;
+  --primary:#1E3A8A;--primary-deep:#172554;--primary-soft:rgba(30,58,138,0.09);--primary-m:rgba(30,58,138,0.15);
+  --accent:#2DD4BF;--accent-deep:#0F766E;--accent-l:rgba(45,212,191,0.12);
+  --pass:#16A34A;--pass-l:rgba(22,163,74,0.1);
+  --insuf:#DC2626;--insuf-l:rgba(220,38,38,0.09);
+  --pick:#7C3AED;--pick-l:rgba(124,58,237,0.1);
+  --warn:#D97706;--warn-l:rgba(217,119,6,0.1);
+  --shadow:rgba(20,22,26,0.2) 0px 1px 4px 0px;
+}
+body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--surface);color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* ── 로그인 게이트 ── */
+#gate-login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.gate-card{width:100%;max-width:340px;background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:24px;padding:32px 28px;box-shadow:var(--shadow)}
+.gate-logo{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:18px;color:var(--primary);text-align:center;margin-bottom:6px}
+.gate-sub{font-size:12px;color:var(--sub);text-align:center;margin-bottom:24px}
+.gate-field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.gate-field label{font-size:12px;font-weight:700;color:var(--sub)}
+.gate-input{width:100%;padding:11px 14px;border:1.5px solid var(--hairline);border-radius:10px;font-family:inherit;font-size:14px;color:var(--ink);background:var(--surface);outline:none;transition:border-color .2s}
+.gate-input:focus{border-color:var(--primary)}
+.gate-err{font-size:12px;color:#DC2626;min-height:16px;margin-bottom:4px}
+.gate-btn{width:100%;padding:12px;border-radius:10px;background:var(--primary);color:#fff;font-family:'Paperlogy',sans-serif;font-weight:700;font-size:15px;border:none;cursor:pointer}
+.gate-btn:hover{background:var(--primary-deep)}
+
+/* ── 어드민 레이아웃 ── */
+#gate-admin{display:none;flex-direction:column;min-height:100vh}
+.adm-header{background:var(--canvas);border-bottom:1px solid var(--hairline-soft);padding:0 28px;display:flex;align-items:center;justify-content:space-between;height:54px;position:sticky;top:0;z-index:30}
+.adm-logo{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:16px;color:var(--primary)}
+.adm-tabs{display:flex;gap:2px;background:var(--surface);border:1px solid var(--hairline-soft);border-radius:10px;padding:3px}
+.adm-tab{padding:6px 20px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:700;color:var(--sub);background:none;border:none;cursor:pointer;transition:.15s}
+.adm-tab.active{background:var(--primary);color:#fff}
+.adm-logout{background:none;border:1.5px solid var(--hairline);border-radius:8px;padding:6px 14px;font-family:inherit;font-size:12px;font-weight:700;color:var(--sub);cursor:pointer}
+.adm-body{padding:24px 28px 60px;max-width:1100px;margin:0 auto;width:100%}
+
+/* ── 탭 패널 ── */
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+.section-card{background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:20px;padding:22px;margin-bottom:16px;box-shadow:var(--shadow)}
+.section-title{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:15px;color:var(--ink);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+
+/* ── 버튼 ── */
+.btn{padding:9px 18px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;border:none;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-deep)}
+.btn-accent{background:var(--accent-l);color:var(--accent-deep);border:1.5px solid rgba(45,212,191,.3)}.btn-accent:hover{background:rgba(45,212,191,.22)}
+.btn-ghost{background:none;border:1.5px solid var(--hairline);color:var(--sub)}.btn-ghost:hover{border-color:var(--stone);color:var(--ink)}
+.btn-danger{background:var(--insuf-l);color:var(--insuf);border:1.5px solid rgba(220,38,38,.2)}.btn-danger:hover{background:rgba(220,38,38,.16)}
+.btn-sm{padding:5px 12px;font-size:12px;border-radius:7px}
+.btn-xs{padding:4px 10px;font-size:11px;border-radius:6px}
+
+/* ── 인원 설정 ── */
+.class-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.class-input-wrap{display:flex;flex-direction:column;gap:4px}
+.class-input-wrap label{font-size:11px;font-weight:700;color:var(--sub);text-align:center}
+.class-num-input{width:100%;padding:8px;border:1.5px solid var(--hairline);border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;text-align:center;color:var(--ink);background:var(--surface);outline:none}
+.class-num-input:focus{border-color:var(--primary)}
+
+/* ── 인물 아코디언 ── */
+.char-row{border:1px solid var(--hairline-soft);border-radius:14px;overflow:hidden;margin-bottom:8px}
+.char-row-head{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;background:var(--canvas);user-select:none}
+.char-row-head:hover{background:var(--surface)}
+.char-emoji{font-size:22px;flex-shrink:0}
+.char-row-name{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:15px;flex:1}
+.char-row-role{font-size:12px;color:var(--sub)}
+.char-row-toggle{font-size:18px;color:var(--stone)}
+.char-row.open .char-row-toggle{color:var(--primary)}
+.char-row-body{display:none;padding:0 16px 16px;border-top:1px solid var(--hairline-soft)}
+.char-row.open .char-row-body{display:block}
+.char-meta-row{display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;margin:12px 0}
+.meta-input{width:100%;padding:8px 10px;border:1.5px solid var(--hairline);border-radius:8px;font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);outline:none}
+.meta-input:focus{border-color:var(--primary)}
+.q-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.q-item{display:flex;align-items:flex-start;gap:8px}
+.q-num{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--primary-soft);color:var(--primary);font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:7px}
+.q-textarea{flex:1;padding:8px 10px;border:1.5px solid var(--hairline);border-radius:8px;font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);outline:none;resize:vertical;min-height:54px;line-height:1.5}
+.q-textarea:focus{border-color:var(--primary)}
+.q-del-btn{flex-shrink:0;padding:6px 8px;border-radius:7px;background:none;border:1.5px solid var(--hairline);font-size:13px;cursor:pointer;color:var(--stone);margin-top:4px}
+.q-del-btn:hover{color:var(--insuf);border-color:var(--insuf)}
+.char-actions{display:flex;gap:8px;justify-content:space-between;margin-top:8px}
+
+/* ── 통계 칩 ── */
+.stats-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.stat-chip{background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:14px;padding:14px 18px;min-width:130px;box-shadow:var(--shadow)}
+.stat-chip-label{font-size:11px;font-weight:700;color:var(--sub);margin-bottom:6px}
+.stat-chip-val{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:22px;color:var(--ink)}
+.stat-chip-val span{font-size:13px;font-weight:700;color:var(--sub);margin-left:2px}
+.stat-chip.accent .stat-chip-val{color:var(--accent-deep)}
+.stat-chip.pass .stat-chip-val{color:var(--pass)}
+.stat-chip.insuf .stat-chip-val{color:var(--insuf)}
+.stat-chip.pick-chip .stat-chip-val{color:var(--pick)}
+.stat-sub{display:flex;gap:14px;margin-top:4px}
+.stat-sub-item{font-size:12px;font-weight:700}
+
+/* ── 반 필터 ── */
+.class-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.cf-btn{padding:7px 16px;border-radius:100px;border:1.5px solid var(--hairline);background:var(--canvas);font-family:inherit;font-size:13px;font-weight:700;color:var(--sub);cursor:pointer;transition:.15s}
+.cf-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+
+/* ── 학생 카드 ── */
+.student-list{display:flex;flex-direction:column;gap:8px}
+.stu-card{background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.stu-head{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer}
+.stu-head:hover{background:var(--surface)}
+.stu-class-badge{flex-shrink:0;padding:3px 8px;border-radius:6px;background:var(--primary-soft);color:var(--primary);font-size:11px;font-weight:800}
+.stu-info{flex:1;min-width:0}
+.stu-name{font-weight:800;font-size:14px}
+.stu-id{font-size:12px;color:var(--sub)}
+.stu-char{font-size:12px;color:var(--sub);margin-left:6px}
+.status-badge{flex-shrink:0;padding:4px 10px;border-radius:7px;font-size:11px;font-weight:800}
+.sb-pending{background:var(--surface);color:var(--stone);border:1px solid var(--hairline)}
+.sb-pass{background:var(--pass-l);color:var(--pass)}
+.sb-insuf{background:var(--insuf-l);color:var(--insuf)}
+.sb-pick{background:var(--pick-l);color:var(--pick)}
+.stu-toggle{font-size:16px;color:var(--stone);flex-shrink:0}
+.stu-card.open .stu-toggle{color:var(--primary)}
+.stu-body{display:none;padding:0 16px 16px;border-top:1px solid var(--hairline-soft)}
+.stu-card.open .stu-body{display:block}
+.stu-status-btns{display:flex;gap:6px;margin:12px 0 14px}
+.ssb{padding:6px 14px;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;border:1.5px solid transparent;cursor:pointer;transition:.15s}
+.ssb-pass{background:var(--pass-l);color:var(--pass);border-color:rgba(22,163,74,.2)}.ssb-pass.active,.ssb-pass:hover{background:var(--pass);color:#fff}
+.ssb-insuf{background:var(--insuf-l);color:var(--insuf);border-color:rgba(220,38,38,.2)}.ssb-insuf.active,.ssb-insuf:hover{background:var(--insuf);color:#fff}
+.ssb-pick{background:var(--pick-l);color:var(--pick);border-color:rgba(124,58,237,.2)}.ssb-pick.active,.ssb-pick:hover{background:var(--pick);color:#fff}
+.ans-block{margin-bottom:14px}
+.ans-q-label{font-size:12px;font-weight:800;color:var(--primary);margin-bottom:4px}
+.ans-text{font-size:13px;color:var(--ink);line-height:1.65;background:var(--surface);padding:10px 12px;border-radius:8px;white-space:pre-wrap;word-break:break-word}
+.ans-empty{font-size:13px;color:var(--stone);font-style:italic;padding:10px 12px;background:var(--surface);border-radius:8px}
+.deep-block{border-top:1px solid var(--hairline-soft);padding-top:12px;margin-top:4px}
+.deep-q-label{font-size:12px;font-weight:800;color:var(--accent-deep);margin-bottom:4px}
+
+.scoring-bar{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.score-info{font-size:12px;color:var(--sub)}
+.no-data{text-align:center;padding:40px 20px;color:var(--stone);font-size:14px}
+
+/* ── 확인 모달 ── */
+.modal-back{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:200;padding:20px}
+.modal-back.open{display:flex}
+.modal-box{background:var(--canvas);border-radius:20px;padding:28px;max-width:380px;width:100%}
+.modal-title{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:16px;margin-bottom:10px}
+.modal-desc{font-size:13px;color:var(--sub);line-height:1.6;margin-bottom:20px}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end}
+
+.loading-bar{display:none;height:3px;background:linear-gradient(90deg,var(--accent),var(--primary));border-radius:2px;animation:loading 1.2s ease-in-out infinite;margin-bottom:12px}
+@keyframes loading{0%{opacity:.4;transform:scaleX(.3);transform-origin:left}50%{opacity:1;transform:scaleX(1)}100%{opacity:.4;transform:scaleX(.3);transform-origin:right}}
+</style>
+</head>
+<body>
+
+<!-- 로그인 게이트 -->
+<div id="gate-login">
+  <div class="gate-card">
+    <div class="gate-logo">INTERVIEW ADMIN</div>
+    <div class="gate-sub">조선의 기틀을 만든 자들</div>
+    <div class="gate-field">
+      <label>이메일</label>
+      <input type="email" id="gate-email" class="gate-input" placeholder="이메일">
+    </div>
+    <div class="gate-field">
+      <label>비밀번호</label>
+      <input type="password" id="gate-pw" class="gate-input" placeholder="비밀번호">
+    </div>
+    <div class="gate-err" id="gate-err"></div>
+    <button class="gate-btn" id="gate-login-btn">로그인</button>
+  </div>
+</div>
+
+<!-- 어드민 -->
+<div id="gate-admin">
+  <header class="adm-header">
+    <div class="adm-logo">INTERVIEW ADMIN</div>
+    <div class="adm-tabs">
+      <button class="adm-tab active" data-tab="contents">Contents</button>
+      <button class="adm-tab" data-tab="answer">Answer</button>
+    </div>
+    <button class="adm-logout" id="logout-btn">로그아웃</button>
+  </header>
+
+  <div class="adm-body">
+
+    <!-- ── Contents 탭 ── -->
+    <div class="tab-panel active" id="tab-contents">
+
+      <!-- 반별 인원 설정 -->
+      <div class="section-card">
+        <div class="section-title">📋 반별 예상 인원 설정</div>
+        <div class="class-grid" id="class-size-grid"></div>
+        <div style="display:flex;justify-content:flex-end;margin-top:14px">
+          <button class="btn btn-accent" id="save-class-btn">인원 저장</button>
+        </div>
+      </div>
+
+      <!-- 인물 관리 -->
+      <div class="section-card">
+        <div class="section-title">
+          👤 인물 / 질문 관리
+          <button class="btn btn-ghost btn-sm" id="add-char-btn" style="margin-left:auto">+ 인물 추가</button>
+        </div>
+        <div id="char-accordion"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;flex-wrap:wrap;gap:8px">
+          <button class="btn btn-danger" id="reset-btn">🗑 답변 전체 초기화</button>
+          <button class="btn btn-primary" id="save-content-btn">💾 저장 (Firebase 반영)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Answer 탭 ── -->
+    <div class="tab-panel" id="tab-answer">
+      <div class="class-filter" id="class-filter"></div>
+
+      <div class="stats-row" id="stats-row">
+        <div class="stat-chip">
+          <div class="stat-chip-label">전체 인원</div>
+          <div class="stat-chip-val"><span id="s-total">0</span><span>명</span></div>
+        </div>
+        <div class="stat-chip accent">
+          <div class="stat-chip-label">제출 / 미제출</div>
+          <div class="stat-sub">
+            <span class="stat-sub-item" style="color:var(--accent-deep)"><span id="s-sub">0</span>명 제출</span>
+            <span class="stat-sub-item" style="color:var(--stone)"><span id="s-unsub">0</span>명 미제출</span>
+          </div>
+        </div>
+        <div class="stat-chip insuf">
+          <div class="stat-chip-label">통과 / 미흡</div>
+          <div class="stat-sub">
+            <span class="stat-sub-item" style="color:var(--pass)"><span id="s-pass">0</span>명 통과</span>
+            <span class="stat-sub-item" style="color:var(--insuf)"><span id="s-insuf">0</span>명 미흡</span>
+          </div>
+        </div>
+        <div class="stat-chip pick-chip">
+          <div class="stat-chip-label">PICK</div>
+          <div class="stat-chip-val"><span id="s-pick">0</span><span>명</span></div>
+        </div>
+      </div>
+
+      <div class="scoring-bar">
+        <button class="btn btn-primary" id="score-btn">🤖 채점하기</button>
+        <span class="score-info" id="score-info">채점하기를 누르면 미채점 학생의 답변을 자동으로 평가합니다.</span>
+      </div>
+      <div class="loading-bar" id="loading-bar"></div>
+      <div class="student-list" id="student-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- 초기화 확인 모달 -->
+<div class="modal-back" id="reset-modal">
+  <div class="modal-box">
+    <div class="modal-title">답변 전체 초기화</div>
+    <div class="modal-desc">모든 학생의 제출 답변이 Firestore에서 삭제됩니다. 이 작업은 되돌릴 수 없습니다. 정말 진행하시겠습니까?</div>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" id="reset-cancel-btn">취소</button>
+      <button class="btn btn-danger" id="reset-confirm-btn">초기화</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import{getFirestore,doc,getDoc,setDoc,deleteDoc,collection,onSnapshot,writeBatch,updateDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+const app=initializeApp({apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",authDomain:"ho0911seong-56638.firebaseapp.com",projectId:"ho0911seong-56638",storageBucket:"ho0911seong-56638.firebasestorage.app",messagingSenderId:"994509567071",appId:"1:994509567071:web:8b33bb03a3d8f3a9f557ea"});
+const db=getFirestore(app);
+const auth=getAuth(app);
+
+/* ─────────── State ─────────── */
+let CONTENT={characters:[]};
+let classSizes={1:0,2:0,3:0,4:0,5:0,6:0};
+let students=[]; // Firestore docs
+let currentFilter='전체';
+let unsub=null;
+
+const DEFAULT_CHARACTERS=[
+  {id:'taejong',name:'태종',role:'조선 3대 국왕',emoji:'👑',questions:['전하, 신하들의 최고 기구인 의정부를 거치지 않고 6조의 판서들에게 직접 업무를 보고받으시는(6조 직계제) 진짜 이유가 무엇입니까?','왕족과 공신들이 거느리던 개인 군대(사병)를 전부 없애버리셨습니다. 굳이 군사력을 국가로 집중시키신 이유가 궁금합니다.','모든 국사를 직접 챙기시려면 엄청나게 피곤하실 것 같습니다. 혹시 신하들을 전혀 믿지 못하시는 건가요?']},
+  {id:'sejong',name:'세종',role:'조선 4대 국왕',emoji:'📖',questions:["아버님(태종)께서 만들어 놓으신 강력한 6조 직계제를 폐지하고, 다시 영의정 등 3정승과 국사를 논의하는 '의정부 서사제'를 실시하신 이유가 무엇입니까?",'집현전을 설치하고 젊은 학자들과 밤낮으로 토론(경연)을 하신다고 들었습니다. 굳이 신하들과 피곤하게 토론하시는 이유가 있나요?','만약 신하들이 전하의 의견에 끝까지 반대한다면, 그때는 어떻게 결정하실 생각이십니까?']},
+  {id:'samsa',name:'3사 관원',role:'사헌부·사간원·홍문관',emoji:'🖋️',questions:["대감께서 속한 '3사'는 조선 최고의 엘리트 직장이라고 들었습니다. 구체적으로 어떤 일을 하시길래 다들 그렇게 우러러보는 것입니까?",'전하의 정책을 대놓고 비판하거나 높은 대신들의 비리를 고발하시는데, 혹시 나중에 보복을 당하거나 왕에게 미움을 받을까 두렵지 않으십니까?',"새로운 관리를 임명할 때 대감들의 동의(서경)를 꼭 받아야 한다고 들었습니다. 동의를 해주고 말고를 결정하는 대감만의 '합격 기준'은 무엇입니까?"]},
+  {id:'yuhyangso',name:'유향소 양반',role:'지방 자치 기구',emoji:'🏘️',questions:["나으리, 왕께서 직접 고을에 사또(수령)를 파견하셨는데, 굳이 지역 양반들이 모여 '유향소'라는 기구를 따로 만드신 이유가 무엇입니까?",'사또가 새로 부임하면 지역 사정을 잘 모를 텐데, 유향소에서는 사또를 그저 무조건 도와주기만 하는 건가요? 아니면 다른 역할도 있습니까?',"고을의 실무를 담당하는 '향리(아전)'들을 유향소에서 굉장히 엄격하게 감시한다고 들었습니다. 향리들을 그렇게 견제해야만 하는 특별한 이유가 있습니까?"]}
+];
+
+/* ─────────── Auth ─────────── */
+onAuthStateChanged(auth,user=>{
+  if(user){
+    document.getElementById('gate-login').style.display='none';
+    document.getElementById('gate-admin').style.display='flex';
+    loadSettings();
+    startAnswerListener();
+  } else {
+    document.getElementById('gate-login').style.display='flex';
+    document.getElementById('gate-admin').style.display='none';
+    if(unsub){unsub();unsub=null;}
+  }
+});
+
+document.getElementById('gate-login-btn').addEventListener('click',async()=>{
+  const email=document.getElementById('gate-email').value.trim();
+  const pw=document.getElementById('gate-pw').value;
+  const errEl=document.getElementById('gate-err');
+  try{
+    await signInWithEmailAndPassword(auth,email,pw);
+  }catch(e){
+    errEl.textContent='이메일 또는 비밀번호를 확인해 주세요.';
+  }
+});
+document.getElementById('gate-pw').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('gate-login-btn').click();});
+document.getElementById('logout-btn').addEventListener('click',()=>signOut(auth));
+
+/* ─────────── Tab nav ─────────── */
+document.querySelectorAll('.adm-tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.adm-tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  });
+});
+
+/* ─────────── Load Settings ─────────── */
+async function loadSettings(){
+  // Content
+  try{
+    const snap=await getDoc(doc(db,'settings','interview_content'));
+    if(snap.exists()&&Array.isArray(snap.data().characters)&&snap.data().characters.length)
+      CONTENT={characters:snap.data().characters};
+    else CONTENT={characters:DEFAULT_CHARACTERS};
+  }catch(e){CONTENT={characters:DEFAULT_CHARACTERS};}
+
+  // Class sizes
+  try{
+    const snap=await getDoc(doc(db,'settings','interview_config'));
+    if(snap.exists()&&snap.data().classSizes) classSizes={...classSizes,...snap.data().classSizes};
+  }catch(e){}
+
+  renderClassSizeGrid();
+  renderCharAccordion();
+}
+
+/* ─────────── 인원 설정 ─────────── */
+function renderClassSizeGrid(){
+  document.getElementById('class-size-grid').innerHTML=[1,2,3,4,5,6].map(n=>`
+    <div class="class-input-wrap">
+      <label>${n}반</label>
+      <input type="number" class="class-num-input" data-class="${n}" value="${classSizes[n]||0}" min="0">
+    </div>
+  `).join('');
+}
+
+document.getElementById('save-class-btn').addEventListener('click',async()=>{
+  document.querySelectorAll('.class-num-input').forEach(inp=>{
+    classSizes[+inp.dataset.class]=parseInt(inp.value)||0;
+  });
+  await setDoc(doc(db,'settings','interview_config'),{classSizes},{merge:true});
+  alert('인원 설정이 저장되었습니다.');
+  updateStats();
+});
+
+/* ─────────── 인물 아코디언 ─────────── */
+function renderCharAccordion(){
+  const container=document.getElementById('char-accordion');
+  container.innerHTML=CONTENT.characters.map((c,ci)=>`
+    <div class="char-row" data-ci="${ci}">
+      <div class="char-row-head">
+        <span class="char-emoji">${c.emoji}</span>
+        <span class="char-row-name">${c.name}</span>
+        <span class="char-row-role">${c.role}</span>
+        <span class="char-row-toggle">▸</span>
+      </div>
+      <div class="char-row-body">
+        <div class="char-meta-row">
+          <input class="meta-input c-emoji" value="${escHtml(c.emoji)}" placeholder="이모지">
+          <input class="meta-input c-name" value="${escHtml(c.name)}" placeholder="이름">
+          <input class="meta-input c-role" value="${escHtml(c.role)}" placeholder="역할">
+        </div>
+        <div class="q-list" data-ci="${ci}">
+          ${c.questions.map((q,qi)=>`
+            <div class="q-item" data-qi="${qi}">
+              <span class="q-num">${qi+1}</span>
+              <textarea class="q-textarea" rows="2">${escHtml(q)}</textarea>
+              <button class="q-del-btn" title="삭제">✕</button>
+            </div>
+          `).join('')}
+        </div>
+        <div class="char-actions">
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm add-q-btn">+ 질문 추가</button>
+            <button class="btn btn-danger btn-sm del-char-btn">인물 삭제</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.char-row-head').forEach(head=>{
+    head.addEventListener('click',()=>{
+      const row=head.closest('.char-row');
+      const isOpen=row.classList.contains('open');
+      container.querySelectorAll('.char-row.open').forEach(r=>{r.classList.remove('open');r.querySelector('.char-row-toggle').textContent='▸';});
+      if(!isOpen){row.classList.add('open');head.querySelector('.char-row-toggle').textContent='▾';}
+    });
+  });
+
+  container.querySelectorAll('.q-del-btn').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      const item=btn.closest('.q-item');
+      const ci=+btn.closest('.char-row').dataset.ci;
+      const qi=+item.dataset.qi;
+      CONTENT.characters[ci].questions.splice(qi,1);
+      renderCharAccordion();
+      // Re-open the same accordion
+      const rows=document.querySelectorAll('.char-row');
+      if(rows[ci]){rows[ci].classList.add('open');rows[ci].querySelector('.char-row-toggle').textContent='▾';}
+    });
+  });
+
+  container.querySelectorAll('.add-q-btn').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      const ci=+btn.closest('.char-row').dataset.ci;
+      CONTENT.characters[ci].questions.push('');
+      renderCharAccordion();
+      const rows=document.querySelectorAll('.char-row');
+      if(rows[ci]){rows[ci].classList.add('open');rows[ci].querySelector('.char-row-toggle').textContent='▾';}
+    });
+  });
+
+  container.querySelectorAll('.del-char-btn').forEach(btn=>{
+    btn.addEventListener('click',e=>{
+      e.stopPropagation();
+      const ci=+btn.closest('.char-row').dataset.ci;
+      if(confirm(`'${CONTENT.characters[ci].name}' 인물을 삭제하시겠습니까?`)){
+        CONTENT.characters.splice(ci,1);
+        renderCharAccordion();
+      }
+    });
+  });
+}
+
+document.getElementById('add-char-btn').addEventListener('click',()=>{
+  CONTENT.characters.push({id:'char_'+Date.now(),name:'새 인물',role:'역할',emoji:'🏛️',questions:['']});
+  renderCharAccordion();
+  const rows=document.querySelectorAll('.char-row');
+  const last=rows[rows.length-1];
+  if(last){last.classList.add('open');last.querySelector('.char-row-toggle').textContent='▾';}
+});
+
+function collectContentFromDOM(){
+  document.querySelectorAll('.char-row').forEach((row,ci)=>{
+    if(!CONTENT.characters[ci])return;
+    CONTENT.characters[ci].emoji=row.querySelector('.c-emoji').value.trim()||'🏛️';
+    CONTENT.characters[ci].name=row.querySelector('.c-name').value.trim();
+    CONTENT.characters[ci].role=row.querySelector('.c-role').value.trim();
+    row.querySelectorAll('.q-textarea').forEach((ta,qi)=>{
+      CONTENT.characters[ci].questions[qi]=ta.value.trim();
+    });
+  });
+}
+
+document.getElementById('save-content-btn').addEventListener('click',async()=>{
+  collectContentFromDOM();
+  try{
+    await setDoc(doc(db,'settings','interview_content'),CONTENT);
+    alert('콘텐츠가 저장되었습니다.');
+  }catch(e){alert('저장 실패: '+e.message);}
+});
+
+/* ─────────── 답변 초기화 ─────────── */
+document.getElementById('reset-btn').addEventListener('click',()=>document.getElementById('reset-modal').classList.add('open'));
+document.getElementById('reset-cancel-btn').addEventListener('click',()=>document.getElementById('reset-modal').classList.remove('open'));
+document.getElementById('reset-confirm-btn').addEventListener('click',async()=>{
+  document.getElementById('reset-modal').classList.remove('open');
+  try{
+    const batch=writeBatch(db);
+    students.forEach(s=>batch.delete(doc(db,'interview_joseon_answers',s.studentId)));
+    await batch.commit();
+    alert('초기화 완료');
+  }catch(e){alert('오류: '+e.message);}
+});
+
+/* ─────────── 실시간 리스너 ─────────── */
+function startAnswerListener(){
+  if(unsub)unsub();
+  unsub=onSnapshot(collection(db,'interview_joseon_answers'),snap=>{
+    students=[];
+    snap.forEach(d=>students.push({id:d.id,...d.data()}));
+    students.sort((a,b)=>(a.classNum||'').localeCompare(b.classNum||'')||String(a.studentId).localeCompare(String(b.studentId)));
+    renderClassFilter();
+    updateStats();
+    renderStudentList();
+  });
+}
+
+/* ─────────── 반 필터 ─────────── */
+function renderClassFilter(){
+  const classes=['전체',...new Set(students.map(s=>s.classNum).filter(Boolean)).values()].sort((a,b)=>a==='전체'?-1:b==='전체'?1:a.localeCompare(b));
+  document.getElementById('class-filter').innerHTML=classes.map(c=>`
+    <button class="cf-btn${c===currentFilter?' active':''}" data-c="${c}">${c==='전체'?'전체':c+'반'}</button>
+  `).join('');
+  document.querySelectorAll('.cf-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      currentFilter=btn.dataset.c;
+      document.querySelectorAll('.cf-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      updateStats();
+      renderStudentList();
+    });
+  });
+}
+
+function filteredStudents(){
+  if(currentFilter==='전체')return students;
+  return students.filter(s=>s.classNum===currentFilter);
+}
+
+function expectedCount(){
+  if(currentFilter==='전체')return Object.values(classSizes).reduce((a,b)=>a+b,0);
+  return classSizes[+currentFilter]||0;
+}
+
+/* ─────────── 통계 ─────────── */
+function updateStats(){
+  const fs=filteredStudents();
+  const submitted=fs.filter(s=>s.charId&&s.answers&&Object.values(s.answers).some(v=>v&&v.trim()));
+  const expected=expectedCount();
+  const unsub2=Math.max(0,expected-submitted.length);
+  const pass=fs.filter(s=>s.status==='pass').length;
+  const insuf=fs.filter(s=>s.status==='insuf'||s.status==='insufficient').length+unsub2;
+  const pick=fs.filter(s=>s.status==='pick').length;
+
+  document.getElementById('s-total').textContent=expected||fs.length;
+  document.getElementById('s-sub').textContent=submitted.length;
+  document.getElementById('s-unsub').textContent=unsub2;
+  document.getElementById('s-pass').textContent=pass;
+  document.getElementById('s-insuf').textContent=insuf;
+  document.getElementById('s-pick').textContent=pick;
+}
+
+/* ─────────── 채점 ─────────── */
+document.getElementById('score-btn').addEventListener('click',async()=>{
+  const toScore=filteredStudents().filter(s=>!s.status||s.status==='pending');
+  if(!toScore.length){document.getElementById('score-info').textContent='채점할 학생이 없습니다.';return;}
+  const lb=document.getElementById('loading-bar');
+  lb.style.display='block';
+  document.getElementById('score-info').textContent=`${toScore.length}명 채점 중...`;
+
+  try{
+    const batch=writeBatch(db);
+    toScore.forEach(s=>{
+      const status=autoScore(s);
+      batch.update(doc(db,'interview_joseon_answers',s.studentId),{status});
+    });
+    await batch.commit();
+    document.getElementById('score-info').textContent=`${toScore.length}명 채점 완료`;
+  }catch(e){
+    document.getElementById('score-info').textContent='채점 오류: '+e.message;
+  }
+  lb.style.display='none';
+});
+
+function autoScore(s){
+  const answers=s.answers||{};
+  const vals=Object.values(answers);
+  const hasChar=!!s.charId;
+  const allAnswered=vals.length>=3&&vals.every(v=>v&&v.trim().length>0);
+  const avgLen=vals.length?vals.reduce((sum,v)=>sum+(v||'').trim().length,0)/vals.length:0;
+  const hasDeep=(s.deepQuestion||'').trim().length>=10;
+  if(hasChar&&allAnswered&&avgLen>=30&&hasDeep)return'pass';
+  return'insufficient';
+}
+
+/* ─────────── 학생 목록 ─────────── */
+function statusBadgeClass(status){
+  if(status==='pass')return'sb-pass';
+  if(status==='insufficient'||status==='insuf')return'sb-insuf';
+  if(status==='pick')return'sb-pick';
+  return'sb-pending';
+}
+function statusLabel(status){
+  if(status==='pass')return'통과';
+  if(status==='insufficient'||status==='insuf')return'미흡';
+  if(status==='pick')return'PICK';
+  return'미채점';
+}
+
+function renderStudentList(){
+  const list=filteredStudents();
+  const el=document.getElementById('student-list');
+  if(!list.length){el.innerHTML='<div class="no-data">아직 제출한 학생이 없습니다.</div>';return;}
+
+  el.innerHTML=list.map((s,i)=>{
+    const char=CONTENT.characters.find(c=>c.id===s.charId);
+    const qs=char?.questions||[];
+    const answers=s.answers||{};
+    const status=s.status||'pending';
+
+    const ansHtml=qs.map((q,qi)=>`
+      <div class="ans-block">
+        <div class="ans-q-label">Q${qi+1}. ${escHtml(q)}</div>
+        ${answers[qi]&&answers[qi].trim()
+          ?`<div class="ans-text">${escHtml(answers[qi])}</div>`
+          :`<div class="ans-empty">미작성</div>`}
+      </div>
+    `).join('');
+
+    return`<div class="stu-card" data-idx="${i}">
+      <div class="stu-head">
+        <span class="stu-class-badge">${s.classNum||'?'}반</span>
+        <div class="stu-info">
+          <div class="stu-name">${escHtml(s.name||'')} <span class="stu-id">${escHtml(String(s.studentId||''))}</span></div>
+          ${s.charId?`<span class="stu-char">${char?.emoji||''} ${escHtml(s.charName||s.charId)}</span>`:'<span class="stu-char" style="color:var(--stone)">미제출</span>'}
+        </div>
+        <span class="status-badge ${statusBadgeClass(status)}">${statusLabel(status)}</span>
+        <span class="stu-toggle">▸</span>
+      </div>
+      <div class="stu-body">
+        <div class="stu-status-btns">
+          <button class="ssb ssb-pass${status==='pass'?' active':''}" data-sid="${s.studentId}" data-st="pass">✓ 통과</button>
+          <button class="ssb ssb-insuf${status==='insufficient'||status==='insuf'?' active':''}" data-sid="${s.studentId}" data-st="insufficient">✗ 미흡</button>
+          <button class="ssb ssb-pick${status==='pick'?' active':''}" data-sid="${s.studentId}" data-st="pick">⭐ PICK</button>
+        </div>
+        ${s.charId?ansHtml:'<div class="ans-empty">제출된 답변이 없습니다.</div>'}
+        ${s.deepQuestion?`<div class="deep-block">
+          <div class="deep-q-label">✏️ 심화 질문 제작</div>
+          <div class="ans-text">${escHtml(s.deepQuestion)}</div>
+        </div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Accordion toggle
+  el.querySelectorAll('.stu-head').forEach(head=>{
+    head.addEventListener('click',()=>{
+      const card=head.closest('.stu-card');
+      const isOpen=card.classList.contains('open');
+      el.querySelectorAll('.stu-card.open').forEach(c=>{c.classList.remove('open');c.querySelector('.stu-toggle').textContent='▸';});
+      if(!isOpen){card.classList.add('open');head.querySelector('.stu-toggle').textContent='▾';}
+    });
+  });
+
+  // Status buttons
+  el.querySelectorAll('.ssb').forEach(btn=>{
+    btn.addEventListener('click',async e=>{
+      e.stopPropagation();
+      const sid=btn.dataset.sid;
+      const st=btn.dataset.st;
+      try{
+        await updateDoc(doc(db,'interview_joseon_answers',sid),{status:st});
+      }catch(err){alert('오류: '+err.message);}
+    });
+  });
+}
+
+function escHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+</script>
+</body>
+</html>
