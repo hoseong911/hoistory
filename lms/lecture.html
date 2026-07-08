@@ -6,7 +6,7 @@
   <title>강의</title>
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../class/slide-style.css?v=20260708d">
+  <link rel="stylesheet" href="../class/slide-style.css?v=20260708e">
   <style>
     /* ════ 리셋 ════ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -112,7 +112,7 @@
 <div    id="slide-counter" hidden></div>
 <div    id="load-error"    hidden></div>
 
-<script src="../class/slide-render.js?v=20260708d"></script>
+<script src="../class/slide-render.js?v=20260708e"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
@@ -230,15 +230,29 @@ async function init() {
     counterEl.textContent = `${currentIdx() + 1} / ${totalCount()}`;
   }
 
+  // 완성형/빈칸형 모드 전환 + 주소창의 ?mode= 값을 항상 현재 상태와 일치시킨다
+  // (새로고침해도, 링크를 복사해서 다시 열어도 마지막 상태 그대로 열리게).
   function setMode(mode) {
     document.body.dataset.mode = mode;
     modeBadge.textContent      = mode === 'complete' ? '완성형' : '빈칸형';
+    const url = new URL(location.href);
+    url.searchParams.set('mode', mode);
+    history.replaceState(null, '', url);
   }
 
   // 완성형 <-> 빈칸형 클릭 전환. 현재 슬라이드 위치는 그대로 두고 모드만 바꾼다
   // (data-mode에 따라 .blank 표시 여부가 CSS로 정해지므로 슬라이드를 다시 그릴 필요는 없음).
   modeBadge.addEventListener('click', () => {
     setMode(document.body.dataset.mode === 'complete' ? 'blank' : 'complete');
+  });
+
+  // 빈칸 클릭 시 그 항목만 개별 공개. 슬라이드 컨테이너 하나에 위임해서 걸어두므로
+  // 슬라이드 수·형식과 무관하게 항상 모든 빈칸에 적용된다. 실제로 가려 보이는지는
+  // data-mode에 따른 CSS가 결정한다.
+  slidesEl.addEventListener('click', e => {
+    const blank = e.target.closest('.blank');
+    if (!blank) return;
+    blank.classList.toggle('revealed');
   });
 
   function startSlides(mode) {
@@ -257,12 +271,6 @@ async function init() {
     currentSlideIdx = 0;
     transitioning   = false;
     updateCounter();
-
-    // 빈칸 클릭 시 그 항목만 개별 공개. 모드와 무관하게 항상 붙여두고,
-    // 실제로 가려 보이는지는 data-mode에 따른 CSS가 결정한다.
-    slidesEl.querySelectorAll('.blank').forEach(el => {
-      el.addEventListener('click', () => el.classList.toggle('revealed'));
-    });
   }
 
   /* ── 밀어내기 전환 (PPT Push 방식) ── */
