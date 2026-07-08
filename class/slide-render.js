@@ -77,7 +77,7 @@
   function chosungHTML(slide, lesson) { return numberedListHTML(slide.items, '초성 퀴즈', lesson); }
 
   function rowHTML(row, labelPos) {
-    const items = row.items.map(item => `<p>${parseItemText(item)}</p>`).join('');
+    const items = row.items.map(item => `<p class="blankable">${parseItemText(item)}</p>`).join('');
     const posClass = labelPos === 'top' ? ' label-top' : '';
     return `
       <div class="concept-row${posClass}">
@@ -117,7 +117,7 @@
       <div class="tlv-ev">
         <div class="tlv-dot"></div>
         <span class="tlv-memo">${preserveSpaces(ev.memo || '')}</span>
-        <div class="tlv-content">${(ev.content || []).map(t => `<p>${parseItemText(t)}</p>`).join('')}</div>
+        <div class="tlv-content">${(ev.content || []).map(t => `<p class="blankable">${parseItemText(t)}</p>`).join('')}</div>
       </div>`).join('');
     return `
       <div class="fmt-timeline-v">
@@ -132,7 +132,7 @@
     const col = (side, data) => `
       <div class="cmp-col ${side}">
         <div class="cmp-head">${preserveSpaces(data.label || '')}</div>
-        <div class="cmp-body">${(data.items || []).map(t => `<p>${parseItemText(t)}</p>`).join('')}</div>
+        <div class="cmp-body">${(data.items || []).map(t => `<p class="blankable">${parseItemText(t)}</p>`).join('')}</div>
       </div>`;
     return `
       <div class="fmt-compare">
