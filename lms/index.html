@@ -171,11 +171,12 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .grade-sum-total strong{font-size:20px;font-weight:800}
 .grade-no-data{font-size:13px;color:var(--slate);text-align:center;padding:24px 8px;opacity:.6}
 .grade-pending{font-size:13px;color:var(--slate);text-align:center;padding:20px 8px;opacity:.7;line-height:1.6}
-.btn-grade-detail{width:100%;margin-top:10px;padding:9px;background:var(--c4-l);color:var(--c4);border:1.5px solid var(--c4-m);border-radius:100px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s}
+.grade-btns{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+.btn-grade-detail{padding:9px 6px;background:var(--c4-l);color:var(--c4);border:1.5px solid var(--c4-m);border-radius:100px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s;text-align:center}
 .btn-grade-detail:hover{background:var(--c4-m)}
 
-/* ── 성적 상세 모달 ── */
-#gradeDetailModal{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:none;align-items:flex-start;justify-content:center;z-index:200;padding:40px 16px;overflow-y:auto}
+/* ── 성적 상세/피드백 모달 ── */
+.grade-modal{position:fixed;inset:0;background:rgba(0,0,0,0.65);display:none;align-items:flex-start;justify-content:center;z-index:200;padding:40px 16px;overflow-y:auto}
 .gd-box{background:var(--canvas);border-radius:32px;width:100%;max-width:520px;padding:28px;margin:auto}
 .gd-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
 .gd-title{font-family:'Gowun Batang',serif;font-size:18px;font-weight:700;color:var(--ink-deep)}
@@ -188,7 +189,11 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .gd-ok{color:var(--accent-deep);font-weight:700;font-size:15px}
 .gd-no{color:var(--stone);font-size:15px}
 .gd-na{color:var(--stone);font-size:12px}
-.gd-feedback{text-align:left;white-space:pre-wrap;word-break:break-word;font-size:13px;color:var(--charcoal)}
+.feedback-card{background:var(--surface);border-radius:12px;padding:16px 18px;margin-bottom:8px;border-left:3px solid var(--c4)}
+.feedback-card:last-child{margin-bottom:0}
+.feedback-lec{font-size:12px;font-weight:800;color:var(--c4);margin-bottom:8px;letter-spacing:.2px}
+.feedback-text{font-size:14px;color:var(--charcoal);line-height:1.75;word-break:break-word;white-space:pre-wrap}
+.feedback-empty{text-align:center;padding:28px;font-size:13px;color:var(--slate)}
 </style>
 </head>
 <body>
@@ -298,13 +303,24 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 </div>
 
 <!-- ── 성적 상세 모달 ── -->
-<div id="gradeDetailModal">
+<div id="gradeDetailModal" class="grade-modal">
   <div class="gd-box">
     <div class="gd-head">
       <div class="gd-title">세부 채점 내역</div>
       <button class="gd-close" id="gradeDetailClose">✕</button>
     </div>
     <div id="gradeDetailContent"></div>
+  </div>
+</div>
+
+<!-- ── 선생님 피드백 모달 ── -->
+<div id="gradeFeedbackModal" class="grade-modal">
+  <div class="gd-box">
+    <div class="gd-head">
+      <div class="gd-title">선생님 피드백</div>
+      <button class="gd-close" id="gradeFeedbackClose">✕</button>
+    </div>
+    <div id="gradeFeedbackContent"></div>
   </div>
 </div>
 
@@ -661,7 +677,10 @@ function renderGradeSummaryHTML(g) {
       <span>총점</span>
       <span><strong>${g.total}</strong> / ${g.max}점</span>
     </div>
-    ${hasDetail ? `<button class="btn-grade-detail" onclick="openGradeDetail()">세부 채점 내역 보기</button>` : ''}
+    ${hasDetail ? `<div class="grade-btns">
+      <button class="btn-grade-detail" onclick="openGradeDetail()">세부 채점 내역</button>
+      <button class="btn-grade-detail" onclick="openGradeFeedback()">선생님 피드백</button>
+    </div>` : ''}
   </div>`;
 }
 
@@ -820,7 +839,6 @@ window.openGradeDetail = function() {
     <td>${d.concept.enabled ? (d.concept.achieved ? ok() : no()) : na()}</td>
     <td>${d.mission.enabled ? (d.mission.achieved ? ok() : no()) : na()}</td>
     <td>${d.think.enabled   ? (d.think.achieved   ? ok() : no()) : na()}</td>
-    <td class="gd-feedback">${d.feedback ? esc(d.feedback) : '<span class="gd-na">—</span>'}</td>
   </tr>`).join('');
   document.getElementById('gradeDetailContent').innerHTML = `
     <table class="gd-table">
@@ -830,7 +848,6 @@ window.openGradeDetail = function() {
           <th style="background:var(--c1-l);color:var(--c1)">개념체크</th>
           <th style="background:var(--c2-l);color:var(--c2)">미션체크</th>
           <th style="background:var(--c1-l);color:var(--c1)">생각체크</th>
-          <th>선생님 피드백</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -844,6 +861,28 @@ document.getElementById('gradeDetailClose').addEventListener('click', () => {
 document.getElementById('gradeDetailModal').addEventListener('click', e => {
   if (e.target === document.getElementById('gradeDetailModal'))
     document.getElementById('gradeDetailModal').style.display = 'none';
+});
+
+// ── 선생님 피드백 모달 ──
+window.openGradeFeedback = function() {
+  const g = sectionData.grade;
+  if (!g || !g.lectureDetails || !g.lectureDetails.length) return;
+  const withFeedback = g.lectureDetails.filter(d => d.feedback);
+  document.getElementById('gradeFeedbackContent').innerHTML = withFeedback.length
+    ? withFeedback.map(d => `<div class="feedback-card">
+        <div class="feedback-lec">${esc(d.title)}</div>
+        <div class="feedback-text">${esc(d.feedback)}</div>
+      </div>`).join('')
+    : `<div class="feedback-empty">아직 등록된 피드백이 없습니다</div>`;
+  document.getElementById('gradeFeedbackModal').style.display = 'flex';
+};
+
+document.getElementById('gradeFeedbackClose').addEventListener('click', () => {
+  document.getElementById('gradeFeedbackModal').style.display = 'none';
+});
+document.getElementById('gradeFeedbackModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('gradeFeedbackModal'))
+    document.getElementById('gradeFeedbackModal').style.display = 'none';
 });
 </script>
 </body>
