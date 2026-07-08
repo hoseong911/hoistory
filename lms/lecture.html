@@ -6,7 +6,7 @@
   <title>강의</title>
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../class/slide-style.css?v=20260708c">
+  <link rel="stylesheet" href="../class/slide-style.css?v=20260708d">
   <style>
     /* ════ 리셋 ════ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -79,24 +79,6 @@
     body[data-mode="complete"] #mode-badge { background: rgba(28,52,97,0.09); color: var(--navy); }
     body[data-mode="blank"]    #mode-badge { background: rgba(184,48,48,0.09); color: var(--red); }
 
-    /* 빈칸형일 때만 나타나는 두 번째 뱃지 — 빈칸을 박스로 보여줄지, 통째로 숨길지 전환.
-       완전 숨김은 애들이 답을 진짜 아는지 테스트할 때, 박스형은 빈칸 존재만 알려주고 싶을 때. */
-    #blank-style-badge {
-      position: fixed;
-      top: 50px;
-      right: 22px;
-      font-size: 0.62rem;
-      font-weight: 700;
-      padding: 4px 11px;
-      border-radius: 16px;
-      cursor: pointer;
-      z-index: 200;
-      user-select: none;
-      background: rgba(44,40,35,0.08);
-      color: var(--text-sub, #7a6f5e);
-    }
-    body[data-mode="complete"] #blank-style-badge { display: none !important; }
-
     #slide-counter {
       position: fixed;
       bottom: 22px;
@@ -125,13 +107,12 @@
 <div id="slides" hidden></div>
 
 <!-- ── 오버레이 UI ── -->
-<button id="back-btn"        hidden onclick="goBack()" title="목록으로" aria-label="목록으로">🏠</button>
-<div    id="mode-badge"      hidden></div>
-<div    id="blank-style-badge" hidden></div>
-<div    id="slide-counter"   hidden></div>
+<button id="back-btn"      hidden onclick="goBack()" title="목록으로" aria-label="목록으로">🏠</button>
+<div    id="mode-badge"    hidden></div>
+<div    id="slide-counter" hidden></div>
 <div    id="load-error"    hidden></div>
 
-<script src="../class/slide-render.js?v=20260708c"></script>
+<script src="../class/slide-render.js?v=20260708d"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
@@ -239,7 +220,6 @@ async function init() {
   const slidesEl  = container;
   const backBtn   = document.getElementById('back-btn');
   const modeBadge = document.getElementById('mode-badge');
-  const blankStyleBadge = document.getElementById('blank-style-badge');
   const counterEl = document.getElementById('slide-counter');
 
   let currentSlideIdx = 0;
@@ -261,23 +241,11 @@ async function init() {
     setMode(document.body.dataset.mode === 'complete' ? 'blank' : 'complete');
   });
 
-  // 빈칸형일 때만 쓰는 두 번째 뱃지: 박스로 보여줄지, 완전히 숨길지. 수업 중에 즉석으로
-  // 바꿔가며 쓰는 용도라 저장하지 않고, 새로고침하면 항상 박스형으로 돌아온다.
-  function setBlankStyle(style) {
-    document.body.dataset.blankStyle = style;
-    blankStyleBadge.textContent = style === 'hidden' ? '빈칸 숨김: 완전' : '빈칸 숨김: 박스';
-  }
-  blankStyleBadge.addEventListener('click', () => {
-    setBlankStyle(document.body.dataset.blankStyle === 'hidden' ? 'box' : 'hidden');
-  });
-
   function startSlides(mode) {
     setMode(mode);
-    if (!document.body.dataset.blankStyle) setBlankStyle('box');
     slidesEl.hidden  = false;
     backBtn.hidden   = false;
     modeBadge.hidden = false;
-    blankStyleBadge.hidden = false;
     counterEl.hidden = false;
 
     /* 모든 슬라이드를 아래쪽 대기 위치로 초기화, 첫 슬라이드만 표시 */
@@ -290,25 +258,12 @@ async function init() {
     transitioning   = false;
     updateCounter();
 
-    // 빈칸 클릭 시 그 항목만 개별 공개(박스형). 모드와 무관하게 항상 붙여두고,
+    // 빈칸 클릭 시 그 항목만 개별 공개. 모드와 무관하게 항상 붙여두고,
     // 실제로 가려 보이는지는 data-mode에 따른 CSS가 결정한다.
     slidesEl.querySelectorAll('.blank').forEach(el => {
       el.addEventListener('click', () => el.classList.toggle('revealed'));
     });
   }
-
-  // 완전 숨김 스타일에서는 .blank가 display:none이라 직접 클릭할 대상이 없으므로(빈칸이
-  // 소제목(item-lead) 전체인 경우 그 자리가 통째로 사라져 클릭할 곳이 없어진다),
-  // 그 빈칸을 담고 있는 줄(.blankable — item-lead/item-text를 함께 감싸는 부모) 전체를
-  // 클릭하면 그 줄 안의 빈칸이 한꺼번에 열리게 한다.
-  slidesEl.addEventListener('click', e => {
-    if (document.body.dataset.blankStyle !== 'hidden') return;
-    const line = e.target.closest('.blankable');
-    if (!line) return;
-    const blanks = line.querySelectorAll('.blank');
-    if (!blanks.length) return;
-    blanks.forEach(b => b.classList.toggle('revealed'));
-  });
 
   /* ── 밀어내기 전환 (PPT Push 방식) ── */
   let transitioning = false;

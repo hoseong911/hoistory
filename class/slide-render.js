@@ -67,7 +67,7 @@
         ${items.map((o, i) => `
           <div class="obj-item">
             <span class="obj-num">${i + 1}</span>
-            <p class="obj-text blankable">${parseText(o)}</p>
+            <p class="obj-text">${parseText(o)}</p>
           </div>
         `).join('')}
       </div>
@@ -77,7 +77,7 @@
   function chosungHTML(slide, lesson) { return numberedListHTML(slide.items, '초성 퀴즈', lesson); }
 
   function rowHTML(row, labelPos) {
-    const items = row.items.map(item => `<p class="blankable">${parseItemText(item)}</p>`).join('');
+    const items = row.items.map(item => `<p>${parseItemText(item)}</p>`).join('');
     const posClass = labelPos === 'top' ? ' label-top' : '';
     return `
       <div class="concept-row${posClass}">
@@ -102,7 +102,7 @@
         <div class="tl-dot"></div>
         <div class="tl-card">
           <span class="tl-year">${preserveSpaces(ev.year || '')}</span>
-          <span class="tl-text blankable">${parseText(ev.label || '')}</span>
+          <span class="tl-text">${parseText(ev.label || '')}</span>
         </div>
       </div>`).join('');
     return `
@@ -117,7 +117,7 @@
       <div class="tlv-ev">
         <div class="tlv-dot"></div>
         <span class="tlv-memo">${preserveSpaces(ev.memo || '')}</span>
-        <div class="tlv-content">${(ev.content || []).map(t => `<p class="blankable">${parseItemText(t)}</p>`).join('')}</div>
+        <div class="tlv-content">${(ev.content || []).map(t => `<p>${parseItemText(t)}</p>`).join('')}</div>
       </div>`).join('');
     return `
       <div class="fmt-timeline-v">
@@ -132,7 +132,7 @@
     const col = (side, data) => `
       <div class="cmp-col ${side}">
         <div class="cmp-head">${preserveSpaces(data.label || '')}</div>
-        <div class="cmp-body">${(data.items || []).map(t => `<p class="blankable">${parseItemText(t)}</p>`).join('')}</div>
+        <div class="cmp-body">${(data.items || []).map(t => `<p>${parseItemText(t)}</p>`).join('')}</div>
       </div>`;
     return `
       <div class="fmt-compare">
@@ -146,7 +146,7 @@
     return `
       <div class="fmt-quote">
         <span class="qt-mark">&ldquo;</span>
-        <p class="qt-text blankable">${renderWithBreaks(slide.text || '')}</p>
+        <p class="qt-text">${renderWithBreaks(slide.text || '')}</p>
         ${slide.source ? `<p class="qt-src">${preserveSpaces(slide.source)}</p>` : ''}
       </div>`;
   }
@@ -157,7 +157,7 @@
     const inner = stages.map((st, i) => `
       <div class="fl-stage">
         <div class="fl-stage-label">${preserveSpaces(st.label || '')}</div>
-        <p class="fl-stage-text blankable">${renderWithBreaks(st.text || '')}</p>
+        <p class="fl-stage-text">${renderWithBreaks(st.text || '')}</p>
       </div>${i < stages.length - 1 ? `<div class="${chevClass}"></div>` : ''}`).join('');
     return `<div class="fmt-flow-${orientation}">${inner}</div>`;
   }
