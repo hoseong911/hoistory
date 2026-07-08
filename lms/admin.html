@@ -10,7 +10,7 @@
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <!-- 개념 체크 미리보기가 학생 화면(class/lesson.html)과 100% 동일하게 렌더링되도록 공용 슬라이드 스타일을 그대로 불러온다.
      이 파일의 :root 변수 중 --text/--border는 아래 이 페이지 자체 :root 선언이 나중에 와서 재정의하므로 전역 충돌은 없다. -->
-<link rel="stylesheet" href="../class/slide-style.css?v=20260708">
+<link rel="stylesheet" href="../class/slide-style.css?v=20260708b">
 <style>
 @font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2');font-weight:600;font-style:normal;font-display:swap}
 @font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2');font-weight:900;font-style:normal;font-display:swap}
@@ -443,6 +443,25 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .concept-embed .cl-image-label{font-size:.74rem;font-weight:700;color:#9a6a20;flex-shrink:0;white-space:nowrap}
 .concept-embed .cl-label{width:130px;flex-shrink:0;padding:8px 10px;border:1px solid var(--cborder);border-radius:6px;font-family:var(--font);font-size:.85rem}
 .concept-embed .cl-items{flex:1;padding:8px 10px;border:1px solid var(--cborder);border-radius:6px;font-family:var(--font);font-size:.85rem;resize:vertical;min-height:50px;line-height:1.5}
+
+/* ── 슬라이드 형식 선택(연표/비교표/사료 인용/플로우) — 구분선 카드 아래 접어둔다 ── */
+.concept-embed .cl-fmt-details{margin-top:8px}
+.concept-embed .cl-fmt-summary{cursor:pointer;font-size:.74rem;font-weight:700;color:var(--cnavy);padding:6px 10px;background:rgba(28,52,97,0.06);border-radius:6px;list-style:none;user-select:none}
+.concept-embed .cl-fmt-summary::-webkit-details-marker{display:none}
+.concept-embed .cl-fmt-summary:hover{background:rgba(28,52,97,0.1)}
+.concept-embed .cl-fmt-panel{margin-top:8px;padding:12px;background:var(--cwhite);border:1px solid var(--cborder);border-radius:8px;display:flex;flex-direction:column;gap:10px}
+.concept-embed .cl-fmt-chips{display:flex;gap:6px;flex-wrap:wrap}
+.concept-embed .cl-fmt-chip{font-family:var(--font);font-size:.76rem;font-weight:700;padding:5px 12px;border-radius:100px;border:1.5px solid var(--cborder);background:var(--cwhite);color:var(--csub);cursor:pointer}
+.concept-embed .cl-fmt-chip:hover{border-color:var(--cnavy);color:var(--ctext)}
+.concept-embed .cl-fmt-chip.active{background:var(--cnavy);border-color:var(--cnavy);color:#fff}
+.concept-embed .cl-fmt-fields{display:flex;flex-direction:column;gap:8px}
+.concept-embed .cl-fmt-fields-2col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.concept-embed .cl-fmt-col{display:flex;flex-direction:column;gap:6px}
+.concept-embed .cl-fmt-row{display:flex;gap:8px;align-items:flex-start}
+.concept-embed .cl-fmt-sm{width:110px;flex-shrink:0;padding:7px 10px;border:1px solid var(--cborder);border-radius:6px;font-family:var(--font);font-size:.82rem}
+.concept-embed .cl-fmt-grow{flex:1;min-width:0;padding:7px 10px;border:1px solid var(--cborder);border-radius:6px;font-family:var(--font);font-size:.82rem;min-height:40px;line-height:1.5;resize:vertical}
+.concept-embed .cl-fmt-del{flex-shrink:0;background:transparent;color:var(--cred);border:1px solid rgba(184,48,48,.25);font-size:.72rem;padding:6px 9px;border-radius:6px;cursor:pointer;font-family:var(--font);font-weight:600}
+.concept-embed .cl-labelpos{display:flex;align-items:center;gap:8px;font-size:.82rem;font-weight:600;color:var(--ctext);cursor:pointer}
 </style>
 </head>
 <body data-mode="complete">
@@ -1073,7 +1092,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- hwpx 파일(zip+xml) 압축 해제용: 활동지 업로드로 새 강의 자동 생성 기능에 사용 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="../class/slide-render.js?v=20260708"></script>
+<script src="../class/slide-render.js?v=20260708b"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
@@ -1618,6 +1637,116 @@ function moveLine(target, i, dir) {
   ceRenderPreview();
 }
 
+// ── 슬라이드 형식(연표/비교표/사료 인용/플로우) 선택 및 형식별 데이터 편집 ──
+// 기본값은 'rows'(지금까지의 행 나열)라서, 기존 강의는 아무 필드도 없어도 그대로 동작한다.
+const CE_FORMAT_LABELS = {
+  rows: '행 나열', 'timeline-h': '연표(가로)', 'timeline-v': '연표(세로)',
+  compare: '비교표', quote: '사료 인용', 'flow-h': '플로우(가로)', 'flow-v': '플로우(세로)'
+};
+const CE_FORMATS = ['rows','timeline-h','timeline-v','compare','quote','flow-h','flow-v'];
+
+function ceFormatChips(target, i, current) {
+  return CE_FORMATS.map(f => `<button type="button" class="cl-fmt-chip${current===f?' active':''}" onclick="setLineFormat('${target}',${i},'${f}')">${CE_FORMAT_LABELS[f]}</button>`).join('');
+}
+
+function setLineFormat(target, i, fmt) {
+  const line = ceLinesFor(target)[i];
+  if (fmt === 'rows') { delete line.format; }
+  else { line.format = fmt; }
+  if ((fmt === 'timeline-h' || fmt === 'timeline-v') && !line.events) {
+    line.events = fmt === 'timeline-h' ? [{ year: '', label: '' }] : [{ memo: '', content: [''] }];
+  }
+  if (fmt === 'compare') {
+    if (!line.left)  line.left  = { label: '', items: [''] };
+    if (!line.right) line.right = { label: '', items: [''] };
+  }
+  if (fmt === 'quote') {
+    if (line.quoteText == null)   line.quoteText = '';
+    if (line.quoteSource == null) line.quoteSource = '';
+  }
+  if ((fmt === 'flow-h' || fmt === 'flow-v') && !line.stages) {
+    line.stages = [{ label: '', text: '' }];
+  }
+  ceRenderContentLines(target);
+  ceRenderPreview();
+}
+
+function toggleLabelPos(target, i) {
+  const line = ceLinesFor(target)[i];
+  if (line.labelPos === 'top') delete line.labelPos;
+  else line.labelPos = 'top';
+  ceRenderPreview();
+}
+
+function ceFormatPanelBody(target, i, line) {
+  const fmt = line.format || 'rows';
+  if (fmt === 'timeline-h' || fmt === 'timeline-v') return ceTimelineEditor(target, i, line);
+  if (fmt === 'compare') return ceCompareEditor(target, i, line);
+  if (fmt === 'quote') return ceQuoteEditor(target, i, line);
+  if (fmt === 'flow-h' || fmt === 'flow-v') return ceFlowEditor(target, i, line);
+  return `
+    <label class="cl-labelpos">
+      <input type="checkbox" ${line.labelPos === 'top' ? 'checked' : ''} onchange="toggleLabelPos('${target}',${i})">
+      라벨을 상단에 배치 (항목 문장이 길 때 가로 폭을 넓게 사용)
+    </label>`;
+}
+
+function ceTimelineEditor(target, i, line) {
+  const isV = line.format === 'timeline-v';
+  const rows = line.events.map((ev, j) => isV ? `
+    <div class="cl-fmt-row">
+      <input type="text" class="cl-fmt-sm" placeholder="메모(연도 등)" value="${esc(ev.memo||'')}" oninput="updateEventField('${target}',${i},${j},'memo',this.value)">
+      <textarea class="cl-fmt-grow" placeholder="내용, 한 줄 = 한 항목, {단어}는 빈칸, ' : '로 소제목 구분" oninput="updateEventContent('${target}',${i},${j},this.value)">${esc((ev.content||[]).join('\n'))}</textarea>
+      <button class="cl-fmt-del" onclick="removeEvent('${target}',${i},${j})">삭제</button>
+    </div>` : `
+    <div class="cl-fmt-row">
+      <input type="text" class="cl-fmt-sm" placeholder="연도" value="${esc(ev.year||'')}" oninput="updateEventField('${target}',${i},${j},'year',this.value)">
+      <input type="text" class="cl-fmt-grow" placeholder="라벨, {단어}는 빈칸" value="${esc(ev.label||'')}" oninput="updateEventField('${target}',${i},${j},'label',this.value)">
+      <button class="cl-fmt-del" onclick="removeEvent('${target}',${i},${j})">삭제</button>
+    </div>`).join('');
+  return `<div class="cl-fmt-fields">${rows}<button type="button" class="cbtn-sm" onclick="addEvent('${target}',${i})">+ 사건 추가</button></div>`;
+}
+function updateEventField(target,i,j,f,v) { ceLinesFor(target)[i].events[j][f] = v; ceRenderPreview(); }
+function updateEventContent(target,i,j,v) { ceLinesFor(target)[i].events[j].content = v.split('\n').filter(s=>s.trim()!==''); ceRenderPreview(); }
+function addEvent(target,i) {
+  const line = ceLinesFor(target)[i];
+  line.events.push(line.format === 'timeline-v' ? { memo:'', content:[''] } : { year:'', label:'' });
+  ceRenderContentLines(target); ceRenderPreview();
+}
+function removeEvent(target,i,j) { ceLinesFor(target)[i].events.splice(j,1); ceRenderContentLines(target); ceRenderPreview(); }
+
+function ceCompareEditor(target, i, line) {
+  const side = (key, label) => `
+    <div class="cl-fmt-col">
+      <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="${label} 라벨" value="${esc(line[key].label||'')}" oninput="updateCompareField('${target}',${i},'${key}','label',this.value)">
+      <textarea class="cl-fmt-grow" placeholder="한 줄 = 한 항목, {단어}는 빈칸, ' : '로 소제목 구분" oninput="updateCompareItems('${target}',${i},'${key}',this.value)">${esc((line[key].items||[]).join('\n'))}</textarea>
+    </div>`;
+  return `<div class="cl-fmt-fields cl-fmt-fields-2col">${side('left','왼쪽(네이비)')}${side('right','오른쪽(레드)')}</div>`;
+}
+function updateCompareField(target,i,side,f,v) { ceLinesFor(target)[i][side][f] = v; ceRenderPreview(); }
+function updateCompareItems(target,i,side,v)  { ceLinesFor(target)[i][side].items = v.split('\n').filter(s=>s.trim()!==''); ceRenderPreview(); }
+
+function ceQuoteEditor(target, i, line) {
+  return `
+    <div class="cl-fmt-fields">
+      <textarea class="cl-fmt-grow" placeholder="원문 텍스트, {단어}는 빈칸" oninput="updateLine('${target}',${i},'quoteText',this.value)">${esc(line.quoteText||'')}</textarea>
+      <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="출처" value="${esc(line.quoteSource||'')}" oninput="updateLine('${target}',${i},'quoteSource',this.value)">
+    </div>`;
+}
+
+function ceFlowEditor(target, i, line) {
+  const rows = line.stages.map((st, j) => `
+    <div class="cl-fmt-row">
+      <input type="text" class="cl-fmt-sm" placeholder="단계명" value="${esc(st.label||'')}" oninput="updateStageField('${target}',${i},${j},'label',this.value)">
+      <textarea class="cl-fmt-grow" placeholder="설명, {단어}는 빈칸" oninput="updateStageField('${target}',${i},${j},'text',this.value)">${esc(st.text||'')}</textarea>
+      <button class="cl-fmt-del" onclick="removeStage('${target}',${i},${j})">삭제</button>
+    </div>`).join('');
+  return `<div class="cl-fmt-fields">${rows}<button type="button" class="cbtn-sm" onclick="addStage('${target}',${i})">+ 단계 추가</button></div>`;
+}
+function updateStageField(target,i,j,f,v) { ceLinesFor(target)[i].stages[j][f] = v; ceRenderPreview(); }
+function addStage(target,i) { ceLinesFor(target)[i].stages.push({label:'',text:''}); ceRenderContentLines(target); ceRenderPreview(); }
+function removeStage(target,i,j) { ceLinesFor(target)[i].stages.splice(j,1); ceRenderContentLines(target); ceRenderPreview(); }
+
 function ceRenderContentLines(target) {
   const lines = ceLinesFor(target);
   const container = document.getElementById(ceContainerIdFor(target));
@@ -1628,6 +1757,7 @@ function ceRenderContentLines(target) {
   container.innerHTML = lines.map((line, i) => {
     if (line.type === 'divider') {
       const hasImg = line.img != null;
+      const fmt = line.format || 'rows';
       return `
         <div class="cl-divider" draggable="true" data-idx="${i}">
           <div class="cl-divider-top">
@@ -1651,6 +1781,13 @@ function ceRenderContentLines(target) {
             <input type="number" class="cl-img-input" min="20" max="70" value="${line.imgSize!=null?line.imgSize:50}" oninput="updateLine('${target}',${i},'imgSize',+this.value)">
             <span class="cl-img-label">%</span>
           </div>` : ''}
+          <details class="cl-fmt-details">
+            <summary class="cl-fmt-summary">형식 · ${CE_FORMAT_LABELS[fmt]}</summary>
+            <div class="cl-fmt-panel">
+              <div class="cl-fmt-chips">${ceFormatChips(target,i,fmt)}</div>
+              ${ceFormatPanelBody(target,i,line)}
+            </div>
+          </details>
         </div>`;
     }
     if (line.type === 'image') {

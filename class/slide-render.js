@@ -67,7 +67,7 @@
         ${items.map((o, i) => `
           <div class="obj-item">
             <span class="obj-num">${i + 1}</span>
-            <p class="obj-text">${parseText(o)}</p>
+            <p class="obj-text blankable">${parseText(o)}</p>
           </div>
         `).join('')}
       </div>
@@ -76,24 +76,111 @@
   function objectivesHTML(lesson) { return numberedListHTML(lesson.objectives, '학습 목표', lesson); }
   function chosungHTML(slide, lesson) { return numberedListHTML(slide.items, '초성 퀴즈', lesson); }
 
-  function rowHTML(row) {
+  function rowHTML(row, labelPos) {
     const items = row.items.map(item => `<p>${parseItemText(item)}</p>`).join('');
+    const posClass = labelPos === 'top' ? ' label-top' : '';
     return `
-      <div class="concept-row">
+      <div class="concept-row${posClass}">
         <div class="row-label">${preserveSpaces(row.label)}</div>
         <div class="row-content">${items}</div>
       </div>`;
   }
 
-  function checkStyleHTML(slide, lesson, badgeLabel) {
-    const header = `
+  function checkHeaderHTML(badgeLabel, title) {
+    return `
       <div class="slide-header">
         <span class="check-badge">${badgeLabel}</span>
-        <h2 class="slide-title">${preserveSpaces(slide.title)}</h2>
+        <h2 class="slide-title">${preserveSpaces(title)}</h2>
       </div>`;
+  }
+
+  /* ── 새 슬라이드 형식(연표·비교표·사료 인용·플로우) 본문 렌더러 ──
+     기존 행 나열(rows)과 달리 좌측 이미지 패널(clayout)은 지원하지 않는다. */
+  function timelineHBodyHTML(slide) {
+    const events = (slide.events || []).map(ev => `
+      <div class="tl-ev">
+        <div class="tl-dot"></div>
+        <div class="tl-card">
+          <span class="tl-year">${preserveSpaces(ev.year || '')}</span>
+          <span class="tl-text blankable">${parseText(ev.label || '')}</span>
+        </div>
+      </div>`).join('');
+    return `
+      <div class="fmt-timeline-h">
+        <div class="tl-line"></div>
+        <div class="tl-events">${events}</div>
+      </div>`;
+  }
+
+  function timelineVBodyHTML(slide) {
+    const events = (slide.events || []).map(ev => `
+      <div class="tlv-ev">
+        <div class="tlv-dot"></div>
+        <span class="tlv-memo">${preserveSpaces(ev.memo || '')}</span>
+        <div class="tlv-content">${(ev.content || []).map(t => `<p>${parseItemText(t)}</p>`).join('')}</div>
+      </div>`).join('');
+    return `
+      <div class="fmt-timeline-v">
+        <div class="tlv-line"></div>
+        <div class="tlv-events">${events}</div>
+      </div>`;
+  }
+
+  function compareBodyHTML(slide) {
+    const left  = slide.left  || { label: '', items: [] };
+    const right = slide.right || { label: '', items: [] };
+    const col = (side, data) => `
+      <div class="cmp-col ${side}">
+        <div class="cmp-head">${preserveSpaces(data.label || '')}</div>
+        <div class="cmp-body">${(data.items || []).map(t => `<p>${parseItemText(t)}</p>`).join('')}</div>
+      </div>`;
+    return `
+      <div class="fmt-compare">
+        ${col('l', left)}
+        <div class="cmp-vs">VS</div>
+        ${col('r', right)}
+      </div>`;
+  }
+
+  function quoteBodyHTML(slide) {
+    return `
+      <div class="fmt-quote">
+        <span class="qt-mark">&ldquo;</span>
+        <p class="qt-text blankable">${renderWithBreaks(slide.text || '')}</p>
+        ${slide.source ? `<p class="qt-src">${preserveSpaces(slide.source)}</p>` : ''}
+      </div>`;
+  }
+
+  function flowBodyHTML(slide, orientation) {
+    const chevClass = orientation === 'v' ? 'fl-chev-v' : 'fl-chev-h';
+    const stages = (slide.stages || []);
+    const inner = stages.map((st, i) => `
+      <div class="fl-stage">
+        <div class="fl-stage-label">${preserveSpaces(st.label || '')}</div>
+        <p class="fl-stage-text blankable">${renderWithBreaks(st.text || '')}</p>
+      </div>${i < stages.length - 1 ? `<div class="${chevClass}"></div>` : ''}`).join('');
+    return `<div class="fmt-flow-${orientation}">${inner}</div>`;
+  }
+
+  function checkStyleHTML(slide, lesson, badgeLabel) {
+    const format = slide.format || 'rows';
+
+    if (format === 'quote') {
+      // 사료 인용은 슬라이드 제목이 선택 사항이라, 있을 때만 헤더를 붙인다.
+      const header = slide.title ? checkHeaderHTML(badgeLabel, slide.title) : '';
+      return `${header}${quoteBodyHTML(slide)}`;
+    }
+    if (format === 'timeline-h') return checkHeaderHTML(badgeLabel, slide.title) + timelineHBodyHTML(slide);
+    if (format === 'timeline-v') return checkHeaderHTML(badgeLabel, slide.title) + timelineVBodyHTML(slide);
+    if (format === 'compare')    return checkHeaderHTML(badgeLabel, slide.title) + compareBodyHTML(slide);
+    if (format === 'flow-h')     return checkHeaderHTML(badgeLabel, slide.title) + flowBodyHTML(slide, 'h');
+    if (format === 'flow-v')     return checkHeaderHTML(badgeLabel, slide.title) + flowBodyHTML(slide, 'v');
+
+    // format === 'rows' (기본값) — 기존 행 나열 + 이미지 좌/우 배치
+    const header = checkHeaderHTML(badgeLabel, slide.title);
     const rows = `
       <div class="concept-rows">
-        ${slide.rows.map(rowHTML).join('')}
+        ${slide.rows.map(r => rowHTML(r, slide.labelPos)).join('')}
       </div>`;
 
     const imgBase = slide.img != null
@@ -187,6 +274,16 @@
     (lines || []).forEach(line => {
       if (line.type === 'divider') {
         current = { type, title: line.title, rows: [] };
+        const fmt = line.format;
+        if (fmt && fmt !== 'rows') {
+          current.format = fmt;
+          if (fmt === 'timeline-h' || fmt === 'timeline-v') current.events = line.events || [];
+          else if (fmt === 'compare') { current.left = line.left || { label: '', items: [] }; current.right = line.right || { label: '', items: [] }; }
+          else if (fmt === 'quote') { current.text = line.quoteText || ''; current.source = line.quoteSource || ''; }
+          else if (fmt === 'flow-h' || fmt === 'flow-v') current.stages = line.stages || [];
+        } else if (line.labelPos === 'top') {
+          current.labelPos = 'top';
+        }
         if (line.img != null) {
           current.img = line.img;
           current.layout = line.imgLayout || 'right';
