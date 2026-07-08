@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>인터뷰 프리뷰</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+@font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2');font-weight:900;font-display:swap}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --canvas:#FAFAF9;--surface:#F4F3EE;
+  --hairline:#E5E4DF;--hairline-soft:#ECEAE4;
+  --ink:#0A1317;--sub:#6B7280;--stone:#C4C4C4;
+  --primary:#1E3A8A;--primary-deep:#172554;--primary-soft:rgba(30,58,138,0.09);
+  --accent:#2DD4BF;--accent-deep:#0F766E;--accent-l:rgba(45,212,191,0.12);
+  --pass:#16A34A;--pass-l:rgba(22,163,74,0.1);
+  --insuf:#DC2626;--insuf-l:rgba(220,38,38,0.09);
+  --shadow:rgba(20,22,26,0.22) 0px 1px 5px 0px;
+  --shadow-lg:rgba(20,22,26,0.22) 0px 8px 28px 0px;
+}
+body{font-family:'Pretendard',-apple-system,sans-serif;background:#E8E7E2;color:var(--ink);-webkit-font-smoothing:antialiased;padding:32px 16px 80px}
+
+/* ── 프리뷰 프레임 ── */
+.preview-banner{background:var(--accent-l);border:1.5px solid rgba(45,212,191,.3);border-radius:12px;padding:10px 18px;font-size:13px;font-weight:700;color:var(--accent-deep);text-align:center;margin-bottom:28px;max-width:680px;margin-left:auto;margin-right:auto}
+.screen-label{max-width:680px;margin:0 auto 10px;font-size:11px;font-weight:800;color:var(--sub);letter-spacing:.5px;text-transform:uppercase;padding:0 4px}
+.phone{max-width:680px;margin:0 auto 40px;background:var(--surface);border-radius:28px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.18)}
+.phone-inner{padding:28px 18px;display:flex;flex-direction:column;gap:14px}
+
+/* ── 공통 ── */
+.btn{padding:11px 22px;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-ghost{background:none;border:1.5px solid var(--hairline);color:var(--sub)}
+.btn-danger{background:var(--insuf-l);color:var(--insuf);border:1.5px solid rgba(220,38,38,.2)}
+.btn-full{width:100%;justify-content:center}
+.btn-back{display:inline-flex;align-items:center;gap:5px;background:none;border:none;font-family:inherit;font-size:13px;font-weight:700;color:var(--sub);padding:0}
+
+/* ── 표지 ── */
+.cover-inner{background:linear-gradient(155deg,var(--primary) 0%,var(--primary-deep) 100%);border-radius:24px;padding:56px 28px;text-align:center;position:relative;overflow:hidden}
+.cover-inner::before{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")}
+.cover-eyebrow{font-family:'Gowun Batang',serif;font-size:13px;color:rgba(255,255,255,.6);letter-spacing:.08em;margin-bottom:14px}
+.cover-title{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:26px;color:#fff;line-height:1.35;margin-bottom:10px}
+.cover-sub{font-size:13px;color:rgba(255,255,255,.65);line-height:1.7;margin-bottom:28px}
+.cover-chip{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.13);border-radius:100px;padding:7px 15px;font-size:13px;font-weight:700;color:#fff;margin-bottom:26px}
+.cover-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.cover-start{background:#fff;color:var(--primary);font-family:'Paperlogy',sans-serif;font-weight:700;font-size:15px;border:none;padding:13px 44px;border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.2)}
+
+/* ── 인물 선택 ── */
+.select-hint{text-align:center;font-size:14px;color:var(--sub)}
+.char-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.char-card{background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:22px;padding:20px 14px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;box-shadow:var(--shadow)}
+.char-card.done{border-color:var(--accent)}
+.char-avatar{width:68px;height:68px;border-radius:18px;background:var(--primary-soft);display:flex;align-items:center;justify-content:center;font-size:32px}
+.char-name{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:16px}
+.char-role{font-size:11.5px;color:var(--sub);font-weight:600;line-height:1.4}
+.done-tag{font-size:10px;font-weight:800;background:var(--accent-l);color:var(--accent-deep);padding:3px 8px;border-radius:6px;margin-top:2px}
+
+/* ── 인터뷰 ── */
+.iv-head{display:flex;align-items:center;gap:12px;background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:20px;padding:14px 16px;box-shadow:var(--shadow)}
+.iv-avatar{width:50px;height:50px;border-radius:14px;background:var(--primary-soft);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+.iv-name{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:17px}
+.iv-role{font-size:12px;color:var(--sub);margin-top:1px}
+.iv-notice{background:var(--primary-soft);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--primary);font-weight:600;line-height:1.5}
+.qa-block{background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
+.qa-num-row{display:flex;gap:9px;align-items:flex-start;margin-bottom:8px}
+.qa-num{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--primary);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;justify-content:center;margin-top:1px}
+.qa-q{font-size:14px;font-weight:600;line-height:1.55}
+.qa-ans{width:100%;min-height:88px;padding:10px 12px;border:1.5px solid var(--hairline);border-radius:10px;font-family:inherit;font-size:13.5px;line-height:1.6;color:var(--ink);background:var(--surface);resize:none;border-color:var(--primary)}
+
+/* ── AI 피드백 ── */
+.ai-q-result{background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:16px;padding:14px;box-shadow:var(--shadow)}
+.ai-q-label{font-size:11.5px;font-weight:800;color:var(--sub);margin-bottom:5px}
+.ai-preview{font-size:13px;color:var(--ink);line-height:1.55;background:var(--surface);padding:8px 10px;border-radius:8px;margin-bottom:8px}
+.ai-fb-row{display:flex;align-items:flex-start;gap:7px}
+.ai-badge{flex-shrink:0;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:800}
+.ai-badge.pass{background:var(--pass-l);color:var(--pass)}
+.ai-badge.insuf{background:var(--insuf-l);color:var(--insuf)}
+.ai-fb-text{font-size:13px;color:var(--sub);line-height:1.6}
+.ai-overall{border-radius:14px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ai-overall.pass{background:var(--pass-l);border:1.5px solid rgba(22,163,74,.2)}
+.ai-overall.insuf{background:var(--insuf-l);border:1.5px solid rgba(220,38,38,.2)}
+.ai-overall-title{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:15px}
+.ai-overall.pass .ai-overall-title{color:var(--pass)}
+.ai-overall.insuf .ai-overall-title{color:var(--insuf)}
+.ai-overall-desc{font-size:12.5px;color:var(--sub);margin-top:3px}
+.ai-overall-icon{font-size:30px}
+.ai-action-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* ── 제출 후 메뉴 ── */
+.post-header{text-align:center;padding:10px 0}
+.post-title{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:20px;margin-bottom:6px}
+.post-badge{display:inline-block;padding:4px 12px;border-radius:100px;font-size:12px;font-weight:800;margin-bottom:10px}
+.post-badge.pass{background:var(--pass-l);color:var(--pass)}
+.post-sub{font-size:13px;color:var(--sub)}
+.post-menu-btn{display:flex;align-items:center;gap:12px;background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:16px;padding:16px 18px;text-align:left;width:100%;box-shadow:var(--shadow)}
+.post-menu-icon{width:46px;height:46px;border-radius:12px;background:var(--primary-soft);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.post-menu-title{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:14px;margin-bottom:2px}
+.post-menu-desc{font-size:12px;color:var(--sub);line-height:1.45}
+
+/* ── 심화 질문 ── */
+.deep-tabs{display:flex;gap:7px;flex-wrap:wrap}
+.deep-tab{padding:7px 13px;border-radius:100px;border:1.5px solid var(--hairline);background:var(--canvas);font-size:12px;font-weight:700;color:var(--sub)}
+.deep-tab.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.deep-card-box{background:var(--canvas);border:1px solid var(--accent);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
+.deep-label{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:15px;color:var(--accent-deep);margin-bottom:6px}
+.deep-hint-text{font-size:13px;color:var(--sub);line-height:1.55;margin-bottom:10px}
+.deep-ta{width:100%;min-height:80px;padding:10px 12px;border:1.5px solid var(--accent);border-radius:10px;font-family:inherit;font-size:13.5px;line-height:1.6;color:var(--ink);background:var(--surface);resize:none}
+
+/* ── 친구 답변 (댓글) ── */
+.filter-row{display:flex;gap:6px;flex-wrap:wrap}
+.filter-btn{padding:6px 13px;border-radius:100px;border:1.5px solid var(--hairline);background:var(--canvas);font-size:12px;font-weight:700;color:var(--sub)}
+.filter-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.comment-card{background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.comment-head{display:flex;align-items:center;gap:10px;padding:12px 14px}
+.comment-avatar{width:40px;height:40px;border-radius:12px;background:var(--primary-soft);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.comment-info{flex:1}
+.comment-name{font-weight:800;font-size:14px}
+.comment-meta{font-size:12px;color:var(--sub);margin-top:1px}
+.comment-preview{font-size:12px;color:var(--stone);margin-top:2px}
+.comment-body{border-top:1px solid var(--hairline-soft);padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.comment-ans-q{font-size:11px;font-weight:800;color:var(--primary);margin-bottom:3px}
+.comment-ans-text{font-size:13px;color:var(--ink);line-height:1.65}
+
+/* ── 친구 심화질문 ── */
+.deep-q-card{background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:16px;padding:16px;box-shadow:var(--shadow)}
+.deep-q-meta{display:flex;align-items:center;gap:7px;margin-bottom:8px;font-size:12px;color:var(--sub);font-weight:600}
+.deep-q-text{font-size:14.5px;font-weight:700;line-height:1.6;margin-bottom:12px}
+.deep-q-reply-area{background:var(--surface);border-radius:12px;padding:12px;border:1.5px solid var(--hairline)}
+.deep-q-reply-label{font-size:11.5px;font-weight:800;color:var(--accent-deep);margin-bottom:6px}
+.deep-q-reply-ta{width:100%;min-height:70px;border:none;background:none;font-family:inherit;font-size:13px;line-height:1.6;color:var(--ink);outline:none;resize:none}
+</style>
+</head>
+<body>
+
+<div class="preview-banner">👁 인터뷰 화면 프리뷰 — 실제 데이터 예시입니다</div>
+
+<!-- ── 1. 표지 ── -->
+<div class="screen-label">① 표지 (Cover)</div>
+<div class="phone">
+  <div class="phone-inner">
+    <div class="cover-inner">
+      <div class="cover-eyebrow">생각하고 활동하고 질문하는 역사 수업</div>
+      <div class="cover-title">조선의 기틀을<br>만든 자들</div>
+      <div class="cover-sub">조선을 세운 인물들과 직접 인터뷰해 보세요.<br>그들의 결정 뒤에 숨겨진 이야기를 찾아봅시다.</div>
+      <div class="cover-chip">
+        <span class="cover-dot"></span>
+        1반 · 30115 · 김역사
+      </div>
+      <br>
+      <button class="cover-start">시작하기 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 2. 인물 선택 ── -->
+<div class="screen-label">② 인물 선택</div>
+<div class="phone">
+  <div class="phone-inner">
+    <p class="select-hint">김역사 학생, 인터뷰할 인물을 선택하세요!</p>
+    <div class="char-grid">
+      <div class="char-card done">
+        <div class="char-avatar">👑</div>
+        <div class="char-name">태종</div>
+        <div class="char-role">조선 3대 국왕</div>
+        <div class="done-tag">작성함</div>
+      </div>
+      <div class="char-card">
+        <div class="char-avatar">📖</div>
+        <div class="char-name">세종</div>
+        <div class="char-role">조선 4대 국왕</div>
+      </div>
+      <div class="char-card">
+        <div class="char-avatar">🖋️</div>
+        <div class="char-name">3사 관원</div>
+        <div class="char-role">사헌부·사간원·홍문관</div>
+      </div>
+      <div class="char-card">
+        <div class="char-avatar">🏘️</div>
+        <div class="char-name">유향소 양반</div>
+        <div class="char-role">지방 자치 기구</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 3. 답변 작성 ── -->
+<div class="screen-label">③ 답변 작성</div>
+<div class="phone">
+  <div class="phone-inner">
+    <button class="btn-back">← 인물 선택으로</button>
+    <div class="iv-head">
+      <div class="iv-avatar">👑</div>
+      <div>
+        <div class="iv-name">태종</div>
+        <div class="iv-role">조선 3대 국왕</div>
+      </div>
+    </div>
+    <div class="iv-notice">이 인물이라면 어떻게 대답할지 상상하며 작성해 보세요. 답변이 완성되면 AI 피드백을 받을 수 있어요.</div>
+
+    <div class="qa-block">
+      <div class="qa-num-row">
+        <span class="qa-num">1</span>
+        <span class="qa-q">전하, 신하들의 최고 기구인 의정부를 거치지 않고 6조의 판서들에게 직접 업무를 보고받으시는(6조 직계제) 진짜 이유가 무엇입니까?</span>
+      </div>
+      <textarea class="qa-ans" readonly>의정부를 통하면 신하들이 정보를 걸러서 올리거나 자신들의 이익에 맞게 왜곡할 수 있소. 나는 나라의 실제 상황을 직접 파악하고 싶었소. 고려가 망한 이유 중 하나도 권신들이 왕권을 침탈했기 때문이 아니겠소?</textarea>
+    </div>
+
+    <div class="qa-block">
+      <div class="qa-num-row">
+        <span class="qa-num">2</span>
+        <span class="qa-q">왕족과 공신들이 거느리던 개인 군대(사병)를 전부 없애버리셨습니다. 굳이 군사력을 국가로 집중시키신 이유가 궁금합니다.</span>
+      </div>
+      <textarea class="qa-ans" style="border-color:var(--hairline)" placeholder="태종의 입장에서 답변을 작성해보세요." readonly></textarea>
+    </div>
+
+    <div class="qa-block">
+      <div class="qa-num-row">
+        <span class="qa-num">3</span>
+        <span class="qa-q">모든 국사를 직접 챙기시려면 엄청나게 피곤하실 것 같습니다. 혹시 신하들을 전혀 믿지 못하시는 건가요?</span>
+      </div>
+      <textarea class="qa-ans" style="border-color:var(--hairline)" placeholder="태종의 입장에서 답변을 작성해보세요." readonly></textarea>
+    </div>
+
+    <button class="btn btn-primary btn-full">AI 피드백 받기 →</button>
+  </div>
+</div>
+
+<!-- ── 4-A. AI 피드백 (미흡) ── -->
+<div class="screen-label">④-A AI 피드백 — 미흡 예시</div>
+<div class="phone">
+  <div class="phone-inner">
+    <button class="btn-back">← 답변 수정하기</button>
+
+    <div class="ai-q-result">
+      <div class="ai-q-label">Q1. 6조 직계제의 진짜 이유는?</div>
+      <div class="ai-preview">의정부를 통하면 신하들이 정보를 걸러서 올리거나 자신들의 이익에 맞게 왜곡할 수 있소. 나는 나라의 실제 상황을 직접 파악하고 싶었소...</div>
+      <div class="ai-fb-row">
+        <span class="ai-badge pass">통과</span>
+        <span class="ai-fb-text">충분한 내용의 답변이에요. 인물의 입장을 잘 표현했습니다!</span>
+      </div>
+    </div>
+
+    <div class="ai-q-result">
+      <div class="ai-q-label">Q2. 사병 혁파의 이유는?</div>
+      <div class="ai-preview" style="color:var(--stone);font-style:italic">(미작성)</div>
+      <div class="ai-fb-row">
+        <span class="ai-badge insuf">미흡</span>
+        <span class="ai-fb-text">답변이 작성되지 않았어요. 인물의 입장에서 생각해보고 답변을 써보세요.</span>
+      </div>
+    </div>
+
+    <div class="ai-q-result">
+      <div class="ai-q-label">Q3. 신하를 믿지 못하는 건가요?</div>
+      <div class="ai-preview" style="color:var(--stone);font-style:italic">(미작성)</div>
+      <div class="ai-fb-row">
+        <span class="ai-badge insuf">미흡</span>
+        <span class="ai-fb-text">답변이 작성되지 않았어요. 인물의 입장에서 생각해보고 답변을 써보세요.</span>
+      </div>
+    </div>
+
+    <div class="ai-overall insuf">
+      <div>
+        <div class="ai-overall-title">보완이 필요해요</div>
+        <div class="ai-overall-desc">일부 답변을 더 보완하면 더 좋은 인터뷰가 될 거예요.</div>
+      </div>
+      <div class="ai-overall-icon">📝</div>
+    </div>
+    <div class="ai-action-row">
+      <button class="btn btn-ghost">← 다시 쓰기</button>
+      <button class="btn btn-danger btn-full" style="justify-content:center">그래도 제출하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 4-B. AI 피드백 (통과) ── -->
+<div class="screen-label">④-B AI 피드백 — 통과 예시</div>
+<div class="phone">
+  <div class="phone-inner">
+    <button class="btn-back">← 답변 수정하기</button>
+
+    <div class="ai-q-result">
+      <div class="ai-q-label">Q1. 6조 직계제의 진짜 이유는?</div>
+      <div class="ai-preview">의정부를 통하면 신하들이 정보를 걸러서 올리거나 왜곡할 수 있소. 나는 나라의 실제 상황을 직접 파악하고 싶었소...</div>
+      <div class="ai-fb-row">
+        <span class="ai-badge pass">통과</span>
+        <span class="ai-fb-text">충분한 내용의 답변이에요. 인물의 입장을 잘 표현했습니다!</span>
+      </div>
+    </div>
+
+    <div class="ai-q-result">
+      <div class="ai-q-label">Q2. 사병 혁파의 이유는?</div>
+      <div class="ai-preview">군사력이 여러 세력에 분산되면 내란이 일어날 위험이 있소. 왕씨 고려가 멸망한 것도 결국 무신들이 군사력을 장악했기 때문이오. 조선은 그 전철을 밟지 않을 것이오.</div>
+      <div class="ai-fb-row">
+        <span class="ai-badge pass">통과</span>
+        <span class="ai-fb-text">충분한 내용의 답변이에요. 인물의 입장을 잘 표현했습니다!</span>
+      </div>
+    </div>
+
+    <div class="ai-q-result">
+      <div class="ai-q-label">Q3. 신하를 믿지 못하는 건가요?</div>
+      <div class="ai-preview">믿지 못하는 것이 아니오. 시스템을 믿지 않는 것이오. 어떤 신하라도 권력이 집중되면 부패하는 법. 그래서 제도로 견제해야 하오. 개인을 탓하는 것이 아니라 구조를 바로잡는 것이오.</div>
+      <div class="ai-fb-row">
+        <span class="ai-badge pass">통과</span>
+        <span class="ai-fb-text">충분한 내용의 답변이에요. 인물의 입장을 잘 표현했습니다!</span>
+      </div>
+    </div>
+
+    <div class="ai-overall pass">
+      <div>
+        <div class="ai-overall-title">전체 통과</div>
+        <div class="ai-overall-desc">모든 답변이 충분해요. 제출해 보세요!</div>
+      </div>
+      <div class="ai-overall-icon">✅</div>
+    </div>
+    <div class="ai-action-row">
+      <button class="btn btn-ghost">← 다시 쓰기</button>
+      <button class="btn btn-primary" style="justify-content:center;flex:1">제출하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 5. 제출 후 메뉴 ── -->
+<div class="screen-label">⑤ 제출 후 메뉴</div>
+<div class="phone">
+  <div class="phone-inner">
+    <div class="post-header">
+      <div class="post-title">제출 완료!</div>
+      <div class="post-badge pass">통과</div>
+      <div class="post-sub">다음으로 무엇을 할까요?</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="post-menu-btn">
+        <div class="post-menu-icon">✏️</div>
+        <div>
+          <div class="post-menu-title">심화 질문 작성하기</div>
+          <div class="post-menu-desc">다른 인물들에게도 내가 직접 질문을 던져보세요</div>
+        </div>
+      </button>
+      <button class="post-menu-btn">
+        <div class="post-menu-icon">💬</div>
+        <div>
+          <div class="post-menu-title">다른 친구들의 답변 보기</div>
+          <div class="post-menu-desc">같은 인물을 선택한 친구들은 어떻게 답했을까요?</div>
+        </div>
+      </button>
+      <button class="post-menu-btn">
+        <div class="post-menu-icon">❓</div>
+        <div>
+          <div class="post-menu-title">다른 친구들의 심화 질문 보기</div>
+          <div class="post-menu-desc">친구들의 질문을 보고 나도 답해볼 수 있어요</div>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 6. 심화 질문 작성 ── -->
+<div class="screen-label">⑥ 심화 질문 작성</div>
+<div class="phone">
+  <div class="phone-inner">
+    <button class="btn-back">← 돌아가기</button>
+    <div class="iv-head">
+      <div class="iv-avatar">📖</div>
+      <div>
+        <div class="iv-name">세종</div>
+        <div class="iv-role">조선 4대 국왕</div>
+      </div>
+    </div>
+    <div class="deep-tabs">
+      <button class="deep-tab">👑 태종</button>
+      <button class="deep-tab active">📖 세종</button>
+      <button class="deep-tab">🖋️ 3사 관원</button>
+      <button class="deep-tab">🏘️ 유향소 양반</button>
+    </div>
+    <div class="deep-card-box">
+      <div class="deep-label">✏️ 나만의 심화 질문</div>
+      <div class="deep-hint-text">이 인물에게 묻고 싶은 질문을 만들어보세요. 역사적 판단, 가치관, 만약에 상황 등을 자유롭게 떠올려보세요!</div>
+      <textarea class="deep-ta" readonly>만약 훈민정음 창제에 반대한 신하들이 더 많았다면, 전하께서는 그래도 한글을 만드셨겠습니까? 신하들의 반대를 무릅쓰고 왕이 독단적으로 결정하는 것이 옳다고 생각하시는지요?</textarea>
+    </div>
+    <button class="btn btn-primary btn-full">심화 질문 제출하기</button>
+  </div>
+</div>
+
+<!-- ── 7. 친구 답변 보기 ── -->
+<div class="screen-label">⑦ 다른 친구들의 답변 보기 (댓글 스타일)</div>
+<div class="phone">
+  <div class="phone-inner">
+    <button class="btn-back">← 돌아가기</button>
+    <div class="filter-row">
+      <button class="filter-btn active">전체</button>
+      <button class="filter-btn">👑 태종</button>
+      <button class="filter-btn">📖 세종</button>
+      <button class="filter-btn">🖋️ 3사 관원</button>
+    </div>
+
+    <!-- 펼쳐진 카드 -->
+    <div class="comment-card">
+      <div class="comment-head">
+        <div class="comment-avatar">👑</div>
+        <div class="comment-info">
+          <div class="comment-name">박조선 <span style="font-size:12px;font-weight:400;color:var(--sub)">· 1반</span></div>
+          <div class="comment-meta">👑 태종</div>
+          <div class="comment-preview">의정부를 거치지 않고 직접 보고받는 것은...</div>
+        </div>
+        <span style="font-size:16px;color:var(--primary)">▾</span>
+      </div>
+      <div class="comment-body">
+        <div>
+          <div class="comment-ans-q">Q1. 6조 직계제의 진짜 이유는?</div>
+          <div class="comment-ans-text">의정부를 거치지 않고 직접 보고받는 것은 신하들이 정보를 독점하는 것을 막기 위함이오. 왕이 모든 정보를 직접 통제해야 나라가 제대로 돌아가오.</div>
+        </div>
+        <div>
+          <div class="comment-ans-q">Q2. 사병 혁파의 이유는?</div>
+          <div class="comment-ans-text">사병이 존재하면 언제라도 반란이 일어날 수 있소. 군사력은 오직 왕 한 명에게 집중되어야 하오. 그것이 나라의 안정을 보장하는 유일한 방법이오.</div>
+        </div>
+        <div>
+          <div class="comment-ans-q">Q3. 신하를 믿지 못하는 건가요?</div>
+          <div class="comment-ans-text">신하 개개인을 믿지 못하는 것이 아니라, 권력이란 본래 부패하는 것임을 알기 때문이오. 제도로 견제해야 모두가 옳은 길을 갈 수 있소.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 접힌 카드 -->
+    <div class="comment-card">
+      <div class="comment-head">
+        <div class="comment-avatar">📖</div>
+        <div class="comment-info">
+          <div class="comment-name">이한성 <span style="font-size:12px;font-weight:400;color:var(--sub)">· 2반</span></div>
+          <div class="comment-meta">📖 세종</div>
+          <div class="comment-preview">의정부 서사제를 다시 실시한 것은 아버님의 방식이...</div>
+        </div>
+        <span style="font-size:16px;color:var(--stone)">▸</span>
+      </div>
+    </div>
+
+    <div class="comment-card">
+      <div class="comment-head">
+        <div class="comment-avatar">🖋️</div>
+        <div class="comment-info">
+          <div class="comment-name">최사간 <span style="font-size:12px;font-weight:400;color:var(--sub)">· 1반</span></div>
+          <div class="comment-meta">🖋️ 3사 관원</div>
+          <div class="comment-preview">3사는 왕과 대신들을 감시하는 기구로서...</div>
+        </div>
+        <span style="font-size:16px;color:var(--stone)">▸</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── 8. 친구 심화질문 보기 ── -->
+<div class="screen-label">⑧ 다른 친구들의 심화 질문 보기</div>
+<div class="phone">
+  <div class="phone-inner">
+    <button class="btn-back">← 돌아가기</button>
+    <div class="filter-row">
+      <button class="filter-btn active">전체</button>
+      <button class="filter-btn">👑 태종</button>
+      <button class="filter-btn">📖 세종</button>
+    </div>
+
+    <div class="deep-q-card">
+      <div class="deep-q-meta">📖 세종 · 박조선 (1반)</div>
+      <div class="deep-q-text">만약 훈민정음 창제에 반대한 신하들이 더 많았다면, 그래도 한글을 만드셨겠습니까? 신하들의 반대를 무릅쓰고 왕이 독단적으로 결정하는 것이 옳다고 생각하시는지요?</div>
+      <div class="deep-q-reply-area">
+        <div class="deep-q-reply-label">✏️ 나도 답해보기</div>
+        <textarea class="deep-q-reply-ta" readonly>저는 세종이라면 그래도 만들었을 것이라 생각합니다. 백성을 위한 일이라면 신하들의 반대도 설득해야 한다고 생각했을 것 같습니다...</textarea>
+      </div>
+    </div>
+
+    <div class="deep-q-card">
+      <div class="deep-q-meta">👑 태종 · 이한성 (2반)</div>
+      <div class="deep-q-text">전하께서 아들 세종에게 왕위를 물려주신 후에도 상왕으로서 정치에 개입하셨습니다. 진정한 후계자 양성이란 무엇이라고 생각하십니까?</div>
+      <button class="btn btn-ghost" style="font-size:12.5px;padding:8px 16px">나도 답해보기 ▸</button>
+    </div>
+
+    <div class="deep-q-card">
+      <div class="deep-q-meta">🖋️ 3사 관원 · 최사간 (1반)</div>
+      <div class="deep-q-text">왕이 분명히 잘못된 결정을 내리고 있음을 알면서도, 모든 신하들이 찬성하고 있다면 혼자 반대할 수 있겠습니까? 그 용기는 어디서 나오는 것입니까?</div>
+      <button class="btn btn-ghost" style="font-size:12.5px;padding:8px 16px">나도 답해보기 ▸</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
