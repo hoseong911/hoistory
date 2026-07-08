@@ -327,6 +327,7 @@ let deepCharIdx=null;
 let deepDrafts={};
 let peerFilter='전체';
 let pdFilter='전체';
+let claudeApiKey=null;
 
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function showHint(el,t){el.textContent=t;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),1400);}
@@ -340,22 +341,51 @@ function getStudentFromLMS(){
   return{studentId:sid,name:sname,classNum:sid.charAt(2)};
 }
 
-/* ── AI 피드백 (휴리스틱) ── */
-function evalAnswer(ans){
-  const t=ans.trim();
-  if(t.length<15)return{ok:false,fb:'답변이 너무 짧아요. 이 인물이라면 어떤 이유로 그런 판단을 내렸을지 더 구체적으로 써보세요.'};
-  if(t.length<60)return{ok:false,fb:'내용은 있지만 더 깊이 있는 분석이 필요해요. 역사적 배경이나 인물의 처지를 함께 담아보세요.'};
-  return{ok:true,fb:'충분한 내용의 답변이에요. 인물의 입장을 잘 표현했습니다!'};
+/* ── AI 피드백 ── */
+function fbFromFlags(ht,hr){
+  if(ht&&hr)return{ok:true,fb:'충분한 내용의 답변이에요. 인물의 입장을 잘 표현했습니다!'};
+  if(ht&&!hr)return{ok:false,fb:'본인의 생각은 잘 담겼어요! 그런데 왜 그렇게 생각하는지 이유도 같이 써줘야 해요.'};
+  if(!ht&&hr)return{ok:false,fb:'이유는 잘 썼어요! 그런데 이 인물이 어떤 생각을 가졌는지 본인의 해석도 같이 써줘야 해요.'};
+  return{ok:false,fb:'인물의 입장에서 어떤 생각이었는지, 그리고 왜 그런 결정을 했는지 이유까지 함께 써봐요.'};
 }
 async function runAI(){
-  await new Promise(r=>setTimeout(r,1200));
-  const items=answers.map(a=>evalAnswer(a));
-  return{items,overallOk:items.every(i=>i.ok)};
+  const c=CHARS[selIdx];
+  const SHORT_FB='조금 더 자세히 써봐요. 생각과 이유를 담아 30자 이상 작성해야 통과할 수 있어요.';
+  const lengthOk=answers.map(a=>a.replace(/\s/g,'').length>=30);
+
+  if(!claudeApiKey){
+    const items=answers.map((_,i)=>lengthOk[i]?{ok:true,fb:'충분한 내용의 답변이에요. 인물의 입장을 잘 표현했습니다!'}:{ok:false,fb:SHORT_FB});
+    return{items,overallOk:items.every(i=>i.ok)};
+  }
+
+  try{
+    const prompt=`다음은 중학교 역사 수업에서 학생이 '${c.name}'의 입장이 되어 작성한 답변입니다.\n\n`
+      +c.questions.map((q,i)=>`[Q${i+1}] ${q}\n[A${i+1}] ${answers[i]||'(미작성)'}`).join('\n\n')
+      +`\n\n각 답변에 대해 두 가지만 판단하세요:\n1. 이 인물이 어떤 생각을 했는지 학생의 해석이 있는가\n2. 왜 그런 생각을 했는지 이유/근거가 있는가\n\n반드시 JSON 배열만 답하세요 (다른 텍스트 금지):\n[{"hasThought":true/false,"hasReason":true/false},{"hasThought":true/false,"hasReason":true/false},{"hasThought":true/false,"hasReason":true/false}]`;
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'x-api-key':claudeApiKey,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:150,messages:[{role:'user',content:prompt}]})
+    });
+    const data=await resp.json();
+    const text=data.content?.[0]?.text||'[]';
+    const parsed=JSON.parse(text.match(/\[[\s\S]*\]/)?.[0]||'[]');
+    const items=answers.map((_,i)=>{
+      if(!lengthOk[i])return{ok:false,fb:SHORT_FB};
+      const r=parsed[i]||{};
+      return fbFromFlags(!!r.hasThought,!!r.hasReason);
+    });
+    return{items,overallOk:items.every(i=>i.ok)};
+  }catch(e){
+    const items=answers.map((_,i)=>lengthOk[i]?{ok:true,fb:'충분한 내용의 답변이에요. 인물의 입장을 잘 표현했습니다!'}:{ok:false,fb:SHORT_FB});
+    return{items,overallOk:items.every(i=>i.ok)};
+  }
 }
 
 /* ── 표지 ── */
 async function initCover(){
   try{const snap=await getDoc(doc(db,'settings','interview_content'));if(snap.exists()&&Array.isArray(snap.data().characters)&&snap.data().characters.length)CHARS=snap.data().characters;}catch(e){}
+  try{const snap=await getDoc(doc(db,'settings','interview_config'));if(snap.exists()&&snap.data().claudeApiKey)claudeApiKey=snap.data().claudeApiKey;}catch(e){}
   student=getStudentFromLMS();
   if(student){
     document.getElementById('cover-chip-text').textContent=`${student.studentId} · ${student.name}`;
