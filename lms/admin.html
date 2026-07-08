@@ -33,11 +33,27 @@
 }
 html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--surface);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
 
+/* ── 로그인 ── */
+#loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-wrap{background:var(--canvas);border-radius:32px;padding:48px 40px 36px;width:100%;max-width:380px;box-shadow:var(--shadow);border:1px solid var(--hairline-soft);display:flex;flex-direction:column}
+.login-brand{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:26px;color:var(--primary);letter-spacing:1px;text-align:center;line-height:1.2}
+.login-sub{font-size:13px;color:var(--slate);text-align:center;margin-top:6px;margin-bottom:28px}
+.login-fields{display:flex;flex-direction:column;gap:10px}
+.login-input{width:100%;padding:0 16px;border:1.5px solid var(--hairline);border-radius:8px;font-family:inherit;font-size:15px;color:var(--text);background:var(--canvas);outline:none;transition:border-color .2s;height:44px}
+.login-input:focus{border-color:var(--primary)}
+.login-input:disabled{opacity:.5;cursor:not-allowed}
+.login-error{min-height:18px;font-size:13px;color:var(--critical);text-align:center;margin-top:8px}
+.login-enter-btn{width:100%;margin-top:14px;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:100px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:background .2s,opacity .2s}
+.login-enter-btn:hover:not(:disabled){background:var(--primary-deep)}
+.login-enter-btn:disabled{opacity:.5;cursor:not-allowed}
+
 /* ── 어드민 ── */
-#adminView{display:flex;flex-direction:column;min-height:100vh}
+#adminView{display:none;flex-direction:column;min-height:100vh}
 .adm-header{background:var(--canvas);border-bottom:1px solid var(--hairline-soft);padding:14px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:30}
 .adm-title{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:16px;color:var(--primary);letter-spacing:.5px}
 .adm-sub{font-size:12px;color:var(--slate);margin-top:2px}
+.adm-logout-btn{background:none;border:1.5px solid var(--hairline);border-radius:100px;padding:7px 14px;font-family:inherit;font-size:13px;color:var(--charcoal);cursor:pointer;transition:background .15s}
+.adm-logout-btn:hover{background:var(--surface)}
 /* ── 사이드바 레이아웃 ── */
 .adm-body{display:flex;flex:1;min-height:calc(100vh - 57px)}
 .adm-sidebar{width:210px;flex-shrink:0;background:var(--canvas);border-right:1px solid var(--hairline-soft);position:sticky;top:57px;height:calc(100vh - 57px);overflow-y:auto;padding:12px 0}
@@ -466,6 +482,20 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 </head>
 <body data-mode="complete">
 
+<!-- ────── 로그인 ────── -->
+<div id="loginScreen">
+  <div class="login-wrap">
+    <div class="login-brand">DIVE INTO HISTORY : LMS</div>
+    <div class="login-sub">관리자 모드</div>
+    <div class="login-fields">
+      <input type="email" class="login-input" id="loginEmail" placeholder="이메일" autocomplete="username">
+      <input type="password" class="login-input" id="loginPassword" placeholder="비밀번호" autocomplete="current-password">
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <button class="login-enter-btn" id="loginSubmitBtn">접속</button>
+  </div>
+</div>
+
 <!-- ────── 어드민 ────── -->
 <div id="adminView">
   <header class="adm-header">
@@ -473,6 +503,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
       <div class="adm-title">DIVE INTO HISTORY : LMS</div>
       <div class="adm-sub">관리자 모드</div>
     </div>
+    <button class="adm-logout-btn" id="adminLogoutBtn">로그아웃</button>
   </header>
 
   <div class="adm-body">
@@ -1100,6 +1131,7 @@ import {
   addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, writeBatch, serverTimestamp, limit
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getDatabase, ref, get, set, remove, update, onValue, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -1114,6 +1146,43 @@ const firebaseConfig = {
 const app  = initializeApp(firebaseConfig);
 const db   = getFirestore(app);
 const rtdb = getDatabase(app);
+const auth = getAuth(app);
+
+// ── 관리자 로그인 (Firebase Authentication) ──
+function showAdminView() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('adminView').style.display = 'flex';
+}
+function showLoginView() {
+  document.getElementById('adminView').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+}
+onAuthStateChanged(auth, user => { if (user) showAdminView(); else showLoginView(); });
+
+async function tryAdminLogin() {
+  const email    = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl    = document.getElementById('loginError');
+  const btn      = document.getElementById('loginSubmitBtn');
+  if (!email || !password) { errEl.textContent = '이메일과 비밀번호를 입력해 주세요'; return; }
+  btn.disabled = true; btn.textContent = '접속 중...';
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+    errEl.textContent = '';
+  } catch (e) {
+    errEl.textContent = '이메일 또는 비밀번호가 올바르지 않습니다';
+    document.getElementById('loginPassword').value = '';
+  } finally {
+    btn.disabled = false; btn.textContent = '접속';
+  }
+}
+document.getElementById('loginSubmitBtn').addEventListener('click', tryAdminLogin);
+document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') tryAdminLogin(); });
+document.getElementById('loginEmail').addEventListener('keydown', e => { if (e.key === 'Enter') tryAdminLogin(); });
+document.getElementById('adminLogoutBtn').addEventListener('click', () => {
+  if (!confirm('로그아웃 하시겠습니까?')) return;
+  signOut(auth);
+});
 
 const SECTION_MAP = {
   concept: { colorVar:'--c1', previewClass:'preview-concept' },
