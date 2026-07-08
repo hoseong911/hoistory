@@ -123,6 +123,23 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .del-btn{background:#FEF2F2;color:#DC2626}.del-btn:hover{background:#FEE2E2}
 
 .empty-panel{text-align:center;padding:60px 20px;color:var(--sub);font-size:14px}
+/* ── 공개/비공개 토글 버튼 ── */
+.lock-toggle{border:none;border-radius:100px;padding:4px 12px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;flex-shrink:0}
+.lock-toggle.open{background:rgba(22,163,74,0.1);color:#16A34A}
+.lock-toggle.open:hover{background:rgba(22,163,74,0.2)}
+.lock-toggle.locked{background:#FEF2F2;color:#DC2626}
+.lock-toggle.locked:hover{background:#FEE2E2}
+/* ── 앱 어드민 iframe 오버레이 ── */
+#app-admin-overlay{display:none;position:fixed;inset:0;z-index:200;flex-direction:column;background:var(--surface)}
+#app-admin-overlay.open{display:flex}
+.app-admin-bar{background:var(--canvas);border-bottom:1px solid var(--hairline-soft);padding:12px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.app-admin-title{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:15px;color:var(--primary);flex:1}
+.app-admin-close{background:none;border:1.5px solid var(--hairline);border-radius:8px;padding:6px 16px;font-family:inherit;font-size:13px;font-weight:700;color:var(--sub);cursor:pointer}
+.app-admin-close:hover{background:var(--surface)}
+#app-admin-frame{flex:1;border:none;width:100%;min-height:0}
+/* ── 어드민 버튼 ── */
+.admin-link-btn{background:rgba(30,58,138,0.08);color:var(--primary);border:1.5px solid rgba(30,58,138,0.2);border-radius:10px;padding:6px 14px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;flex-shrink:0}
+.admin-link-btn:hover{background:rgba(30,58,138,0.15)}
 /* ── 학생 관리 ── */
 .stu-card{background:var(--canvas);border-radius:16px;border:1px solid var(--hairline-soft);margin-bottom:16px;overflow:hidden}
 .stu-card-head{padding:16px 20px;border-bottom:1px solid var(--hairline-soft);font-weight:700;font-size:15px;color:var(--text)}
@@ -739,7 +756,11 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
           </div>
           <div class="stu-field" style="flex:1">
             <label>웹앱 주소 (URL)</label>
-            <input type="text" id="missionCardUrl" placeholder="예) goryeo_choice/index.html" style="width:100%">
+            <input type="text" id="missionCardUrl" placeholder="예) interview/index.html" style="width:100%">
+          </div>
+          <div class="stu-field" style="flex:1">
+            <label>어드민 주소 (선택)</label>
+            <input type="text" id="missionCardAdminUrl" placeholder="예) interview/admin.html" style="width:100%">
           </div>
           <button class="add-btn" id="missionAddCardBtn" style="margin-top:auto">추가</button>
         </div>
@@ -1032,6 +1053,15 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
     </main><!-- /adm-content -->
   </div><!-- /adm-body -->
 </div><!-- /adminView -->
+
+<!-- 앱 어드민 iframe 오버레이 -->
+<div id="app-admin-overlay">
+  <div class="app-admin-bar">
+    <div class="app-admin-title" id="app-admin-title"></div>
+    <button class="app-admin-close" onclick="closeAppAdmin()">닫기</button>
+  </div>
+  <iframe id="app-admin-frame" src="about:blank" allow="same-origin"></iframe>
+</div>
 
 <!-- ────── 추가/수정 모달 ────── -->
 <div class="modal-backdrop" id="modalBackdrop">
@@ -2400,20 +2430,24 @@ async function initMissionTab() {
   // hoistory/admin.html의 카드 추가와 동일한 데이터 구조(cards 컬렉션의
   // emoji/title/desc/url/category/locked/order)로 카드를 만든다.
   document.getElementById('missionAddCardBtn').addEventListener('click', async () => {
-    const emoji = missionSelectedEmoji;
-    const title = document.getElementById('missionCardTitle').value.trim();
-    const url   = document.getElementById('missionCardUrl').value.trim();
+    const emoji    = missionSelectedEmoji;
+    const title    = document.getElementById('missionCardTitle').value.trim();
+    const url      = document.getElementById('missionCardUrl').value.trim();
+    const adminUrl = document.getElementById('missionCardAdminUrl').value.trim();
     if (!title || !url) { alert('제목과 웹앱 주소를 입력해 주세요.'); return; }
     const btn = document.getElementById('missionAddCardBtn');
     btn.disabled = true;
     try {
       const snap  = await getDocs(query(collection(db, 'cards'), where('category','==',cat)));
       const order = snap.docs.length ? Math.max(...snap.docs.map(d => d.data().order || 0)) + 1 : 0;
-      await addDoc(collection(db, 'cards'), { emoji, title, desc: '', url, category: cat, locked: false, order });
+      const cardData = { emoji, title, desc: '', url, category: cat, locked: false, order };
+      if (adminUrl) cardData.adminUrl = adminUrl;
+      await addDoc(collection(db, 'cards'), cardData);
       missionSelectedEmoji = '📌';
       document.getElementById('missionSelectedEmoji').textContent = '📌';
       document.getElementById('missionCardTitle').value = '';
       document.getElementById('missionCardUrl').value = '';
+      document.getElementById('missionCardAdminUrl').value = '';
       renderMissionPreview(cat);
       alert('카드가 추가되었습니다.');
     } catch(e) {
@@ -2441,13 +2475,19 @@ async function renderMissionPreview(cat) {
       row.className = 'item-row';
       row.id = `mission-row-${item.docId}`;
       const iconStr = String(item.emoji||'📌');
+      const isLocked = !!item.locked;
+      const adminBtn = item.adminUrl
+        ? `<button class="admin-link-btn" onclick="openAppAdmin('${esc(item.adminUrl)}','${esc(item.title)}')">어드민</button>`
+        : '';
       row.innerHTML = `
         <div class="item-icon-preview preview-mission" style="font-size:${iconStr.length<=2?'20px':'13px'}">${esc(iconStr)}</div>
         <div class="item-info">
           <div class="item-label">${esc(item.title||'')}</div>
-          <div class="item-url">${esc(item.url||'')}</div>
+          <div class="item-url">${esc(item.url||'')}${item.adminUrl?` · 어드민: ${esc(item.adminUrl)}`:''}</div>
         </div>
         <div class="item-meta">
+          <button class="lock-toggle ${isLocked?'locked':'open'}" onclick="missionToggleLocked('${item.docId}',${isLocked})">${isLocked?'비공개':'공개'}</button>
+          ${adminBtn}
           <button class="edit-btn" ${idx===0?'disabled':''} onclick="missionMoveCard('${item.docId}','up',${idx})">▲</button>
           <button class="edit-btn" ${idx===items.length-1?'disabled':''} onclick="missionMoveCard('${item.docId}','down',${idx})">▼</button>
           <button class="edit-btn" onclick="missionStartEdit('${item.docId}')">수정</button>
@@ -2467,21 +2507,41 @@ window.missionStartEdit = function(docId) {
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%;padding:4px 0">
       <input id="me-emoji-${docId}" class="form-input" value="${esc(String(item.emoji||'📌'))}" placeholder="이모지" style="width:56px;text-align:center">
       <input id="me-title-${docId}" class="form-input" value="${esc(item.title||'')}" placeholder="제목" style="flex:1;min-width:100px">
-      <input id="me-url-${docId}" class="form-input" value="${esc(item.url||'')}" placeholder="URL" style="flex:2;min-width:140px">
+      <input id="me-url-${docId}" class="form-input" value="${esc(item.url||'')}" placeholder="웹앱 URL" style="flex:2;min-width:140px">
+      <input id="me-adminurl-${docId}" class="form-input" value="${esc(item.adminUrl||'')}" placeholder="어드민 URL (선택)" style="flex:2;min-width:140px">
       <button class="btn-save" style="flex:none;padding:7px 16px;background:var(--c3)" onclick="missionSaveEdit('${docId}')">저장</button>
       <button class="btn-cancel" onclick="renderMissionPreview(window._missionCat)">취소</button>
     </div>`;
 };
 
 window.missionSaveEdit = async function(docId) {
-  const emoji = document.getElementById(`me-emoji-${docId}`)?.value.trim() || '📌';
-  const title = document.getElementById(`me-title-${docId}`)?.value.trim();
-  const url   = document.getElementById(`me-url-${docId}`)?.value.trim();
+  const emoji    = document.getElementById(`me-emoji-${docId}`)?.value.trim() || '📌';
+  const title    = document.getElementById(`me-title-${docId}`)?.value.trim();
+  const url      = document.getElementById(`me-url-${docId}`)?.value.trim();
+  const adminUrl = document.getElementById(`me-adminurl-${docId}`)?.value.trim() || '';
   if (!title) { alert('제목을 입력하세요.'); return; }
   try {
-    await updateDoc(doc(db, 'cards', docId), { emoji, title, url });
+    await updateDoc(doc(db, 'cards', docId), { emoji, title, url, adminUrl });
     renderMissionPreview(window._missionCat);
   } catch(e) { alert('저장 실패: ' + e.message); }
+};
+
+window.missionToggleLocked = async function(docId, currentLocked) {
+  try {
+    await updateDoc(doc(db, 'cards', docId), { locked: !currentLocked });
+    renderMissionPreview(window._missionCat);
+  } catch(e) { alert('변경 실패: ' + e.message); }
+};
+
+window.openAppAdmin = function(adminUrl, title) {
+  document.getElementById('app-admin-title').textContent = title + ' 어드민';
+  document.getElementById('app-admin-frame').src = adminUrl;
+  document.getElementById('app-admin-overlay').classList.add('open');
+};
+
+window.closeAppAdmin = function() {
+  document.getElementById('app-admin-overlay').classList.remove('open');
+  document.getElementById('app-admin-frame').src = 'about:blank';
 };
 
 window.missionDeleteCard = async function(docId) {
