@@ -77,10 +77,11 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .think-close-btn{background:none;border:1.5px solid var(--hairline);border-radius:100px;padding:4px 14px;font-family:inherit;font-size:15px;color:var(--charcoal);cursor:pointer;flex-shrink:0;transition:background .15s}
 .think-close-btn:hover{background:var(--surface)}
 .think-question-box{background:var(--primary-soft);border-radius:16px;padding:18px 22px;font-family:'Gowun Batang',serif;font-size:16px;line-height:1.75;color:var(--ink-deep);white-space:pre-wrap}
-.think-ref-box{background:var(--surface);border-radius:12px;padding:10px 16px;font-size:13px;color:var(--slate);line-height:1.6;white-space:pre-wrap}
+.think-ref-box{background:var(--surface);border-radius:12px;padding:10px 16px;font-size:15px;color:var(--slate);line-height:1.6;white-space:pre-wrap}
 .think-textarea{width:100%;min-height:180px;padding:14px 16px;border:1.5px solid var(--hairline);border-radius:12px;font-family:inherit;font-size:15px;line-height:1.65;color:var(--ink-deep);outline:none;resize:vertical;transition:border-color .2s}
 .think-textarea:focus{border-color:var(--primary)}
-.think-meta{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--slate)}
+#thinkWriteArea{display:flex;flex-direction:column;gap:12px}
+.think-meta{display:flex;align-items:center;justify-content:flex-end;font-size:13px;color:var(--slate)}
 .think-char-count{font-weight:700}
 .think-char-count.ok{color:var(--accent-deep)}
 .think-char-count.short{color:var(--c3)}
@@ -274,7 +275,6 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
       <textarea class="think-textarea" id="thinkTextarea" rows="7" placeholder="이 곳에 생각을 작성해 주세요. (최소 50자)"></textarea>
       <div class="think-meta">
         <span class="think-char-count short" id="thinkCharCount">0자</span>
-        <span id="thinkTimer">0:00</span>
       </div>
       <button class="think-submit-btn" id="thinkSubmitBtn" disabled>제출하기</button>
     </div>
@@ -759,7 +759,7 @@ function makeIconItem(item) {
 }
 
 // ── 생각 체크 모달 ──
-let _thinkItem = null, _thinkStart = null, _thinkCheat = 0, _thinkTimerInterval = null;
+let _thinkItem = null, _thinkStart = null, _thinkCheat = 0;
 
 function openThinkModal(item) {
   _thinkItem  = item; _thinkStart = Date.now(); _thinkCheat = 0;
@@ -776,17 +776,12 @@ function openThinkModal(item) {
   document.getElementById('thinkSubmitBtn').textContent   = '제출하기';
   updateThinkMeta();
   document.getElementById('thinkModal').style.display = 'flex';
-  clearInterval(_thinkTimerInterval);
-  _thinkTimerInterval = setInterval(() => {
-    const e = Math.floor((Date.now() - _thinkStart) / 1000);
-    document.getElementById('thinkTimer').textContent = `${Math.floor(e/60)}:${String(e%60).padStart(2,'0')}`;
-  }, 1000);
   setTimeout(() => ta.focus(), 100);
 }
 
 function closeThinkModal() {
   document.getElementById('thinkModal').style.display = 'none';
-  clearInterval(_thinkTimerInterval); _thinkItem = null;
+  _thinkItem = null;
 }
 
 document.getElementById('thinkModalClose').addEventListener('click', closeThinkModal);
@@ -798,7 +793,7 @@ thinkTextarea.addEventListener('input', updateThinkMeta);
 thinkTextarea.addEventListener('paste', e => e.preventDefault());
 
 function updateThinkMeta() {
-  const len = thinkTextarea.value.length;
+  const len = thinkTextarea.value.replace(/\s/g, '').length;
   const el  = document.getElementById('thinkCharCount');
   el.textContent = `${len}자`;
   el.className   = 'think-char-count ' + (len >= 50 ? 'ok' : 'short');
@@ -809,16 +804,16 @@ document.addEventListener('visibilitychange', () => { if (_thinkItem && document
 
 document.getElementById('thinkSubmitBtn').addEventListener('click', async () => {
   const text = thinkTextarea.value.trim();
-  if (text.length < 50 || !_thinkItem) return;
+  const textLength = text.replace(/\s/g, '').length;
+  if (textLength < 50 || !_thinkItem) return;
   const duration = Math.floor((Date.now() - _thinkStart) / 1000);
-  clearInterval(_thinkTimerInterval);
   const btn = document.getElementById('thinkSubmitBtn');
   btn.disabled = true; btn.textContent = '제출 중...';
   try {
     await addDoc(collection(db, 'think_submissions'), {
       lectureDocId: _thinkItem.lectureDocId, lectureTitle: _thinkItem.lectureTitle,
       id: currentStudentId, name: currentStudentName, verify: currentStudentName,
-      text, textLength: text.length, duration, cheatCount: _thinkCheat,
+      text, textLength, duration, cheatCount: _thinkCheat,
       isPicked: false, createdAt: serverTimestamp(), source: 'lms'
     });
     document.getElementById('thinkWriteArea').style.display = 'none';
