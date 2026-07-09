@@ -91,6 +91,11 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .think-done-box{text-align:center;padding:24px 0;color:var(--accent-deep);font-size:16px;font-weight:700;line-height:2}
 .think-done-close{padding:9px 24px;border-radius:100px;border:1.5px solid var(--hairline);background:none;font-family:inherit;font-size:14px;cursor:pointer;transition:background .15s}
 .think-done-close:hover{background:var(--surface)}
+.think-already-box{text-align:center;padding:20px 0;display:flex;flex-direction:column;align-items:center;gap:12px}
+.think-already-msg{color:var(--accent-deep);font-size:16px;font-weight:700}
+.think-view-btn{padding:10px 22px;border-radius:100px;border:1.5px solid var(--primary);background:none;color:var(--primary);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s}
+.think-view-btn:hover{background:var(--primary-soft)}
+.think-my-answer{width:100%;text-align:left;background:var(--surface);border-radius:12px;padding:16px 18px;font-size:15px;line-height:1.75;color:var(--ink-deep);white-space:pre-wrap}
 
 /* ── 메인 허브 ── */
 #mainHub{display:none;flex-direction:column;min-height:100vh}
@@ -123,6 +128,8 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .s-mission .sec-badge{background:var(--c2-m);color:var(--c2)}.s-mission .sec-name{color:var(--c2)}.s-mission .icon-box{background:var(--c2-l);color:var(--c2)}.s-mission .icon-item:hover:not(.locked) .icon-box{background:var(--c2-m)}
 .s-think .sec-badge{background:var(--c1-m);color:var(--c1)}.s-think .sec-name{color:var(--c1)}.s-think .icon-box{background:var(--c1-l);color:var(--c1)}.s-think .icon-item:hover:not(.locked) .icon-box{background:var(--c1-m)}
 .s-grade .sec-badge{background:var(--c2-m);color:var(--c2)}.s-grade .sec-name{color:var(--c2)}.s-grade .icon-box{background:var(--c2-l);color:var(--c2)}.s-grade .icon-item:hover:not(.locked) .icon-box{background:var(--c2-m)}
+.s-contents{grid-column:1/-1}
+.s-contents .sec-badge{background:var(--c3-m);color:var(--c3)}.s-contents .sec-name{color:var(--c3)}.s-contents .icon-box{background:var(--c3-l);color:var(--c3)}.s-contents .icon-item:hover:not(.locked) .icon-box{background:var(--c3-m)}
 .mobile-hub{display:none;flex-direction:column;gap:12px}
 .mob-section{background:var(--canvas);border-radius:32px;overflow:hidden;border:1px solid var(--hairline-soft);box-shadow:var(--shadow)}
 .mob-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px;cursor:pointer;border:none;background:none;width:100%;text-align:left;font-family:inherit;transition:background .15s}
@@ -142,6 +149,7 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .ms-mission .mob-name{color:var(--c2)}.ms-mission .mob-count{background:var(--c2-m);color:var(--c2)}.ms-mission .icon-box{background:var(--c2-l);color:var(--c2)}.ms-mission .icon-item:hover:not(.locked) .icon-box{background:var(--c2-m)}
 .ms-think .mob-name{color:var(--c1)}.ms-think .mob-count{background:var(--c1-m);color:var(--c1)}.ms-think .icon-box{background:var(--c1-l);color:var(--c1)}.ms-think .icon-item:hover:not(.locked) .icon-box{background:var(--c1-m)}
 .ms-grade .mob-name{color:var(--c2)}.ms-grade .mob-count{background:var(--c2-m);color:var(--c2)}.ms-grade .icon-box{background:var(--c2-l);color:var(--c2)}.ms-grade .icon-item:hover:not(.locked) .icon-box{background:var(--c2-m)}
+.ms-contents .mob-name{color:var(--c3)}.ms-contents .mob-count{background:var(--c3-m);color:var(--c3)}.ms-contents .icon-box{background:var(--c3-l);color:var(--c3)}.ms-contents .icon-item:hover:not(.locked) .icon-box{background:var(--c3-m)}
 .loading-dots{display:flex;align-items:center;justify-content:center;gap:5px;padding:28px}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--hairline);animation:dotpulse 1.2s ease-in-out infinite}
 .dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
@@ -282,6 +290,12 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
       ✓ 제출 완료! 잘 했어요.<br>
       <button class="think-done-close" id="thinkDoneClose">닫기</button>
     </div>
+    <div class="think-already-box" id="thinkAlreadyBox" style="display:none">
+      <div class="think-already-msg">✓ 이미 제출했습니다.</div>
+      <button class="think-view-btn" id="thinkViewAnswerBtn">내가 쓴 답변 확인하기</button>
+      <div class="think-my-answer" id="thinkMyAnswerBox" style="display:none"></div>
+      <button class="think-done-close" id="thinkAlreadyClose">닫기</button>
+    </div>
   </div>
 </div>
 
@@ -329,7 +343,7 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
-  getFirestore, collection, query, orderBy, where, onSnapshot,
+  getFirestore, collection, query, orderBy, where, onSnapshot, getDocs,
   doc, getDoc, setDoc, addDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getDatabase } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
@@ -349,10 +363,11 @@ const rtdb = getDatabase(app);
 initAuth(rtdb);
 
 const SECTIONS = [
-  { key:'concept', name:'개념 체크', sub:'Concept Check', cls:'s-concept', mob:'ms-concept' },
-  { key:'mission', name:'미션 체크', sub:'Mission Check', cls:'s-mission', mob:'ms-mission' },
-  { key:'think',   name:'생각 체크', sub:'Think Check',   cls:'s-think',   mob:'ms-think'   },
-  { key:'grade',   name:'성적 체크', sub:'Grade Check',   cls:'s-grade',   mob:'ms-grade'   },
+  { key:'concept',  name:'개념 체크',   sub:'Concept Check', cls:'s-concept',  mob:'ms-concept'  },
+  { key:'mission',  name:'미션 체크',   sub:'Mission Check', cls:'s-mission',  mob:'ms-mission'  },
+  { key:'think',    name:'생각 체크',   sub:'Think Check',   cls:'s-think',    mob:'ms-think'    },
+  { key:'grade',    name:'성적 확인',   sub:'Grade Check',   cls:'s-grade',    mob:'ms-grade'    },
+  { key:'contents', name:'각종 콘텐츠', sub:'Contents',      cls:'s-contents', mob:'ms-contents' },
 ];
 
 const idInput    = document.getElementById('idInput');
@@ -517,8 +532,8 @@ function enterHub(id, name) {
   startListening();
 }
 
-// ── 4섹션 데이터 ──
-const sectionData  = { concept:null, mission:null, think:null, grade:null };
+// ── 섹션 데이터 ──
+const sectionData  = { concept:null, mission:null, think:null, grade:null, contents:null };
 let _openSections  = new Set(['concept']);
 
 function startListening() {
@@ -540,7 +555,7 @@ function startListening() {
     if (!cat) { sectionData.mission = []; renderAll(); return; }
     onSnapshot(query(collection(db, 'cards'), where('category','==', cat)), snap => {
       sectionData.mission = snap.docs
-        .map(d => { const data = d.data(); return { docId: d.id, ...data, label: data.title || data.label }; })
+        .map(d => { const data = d.data(); return { docId: d.id, ...data, label: data.title || data.label, url: resolveAppUrl(data.url) }; })
         .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
       renderAll();
     });
@@ -561,8 +576,20 @@ function startListening() {
     renderAll();
   });
 
-  // 4. 성적 체크 — grade_records 기반 계산
+  // 4. 성적 확인 — grade_records 기반 계산
   loadStudentGrade();
+
+  // 5. 각종 콘텐츠 — cards filtered by settings/lms_config.contents_category (미션 체크와 동일한 구조)
+  getDoc(doc(db, 'settings', 'lms_config')).then(cfg => {
+    const cat = cfg.exists() ? (cfg.data().contents_category || '') : '';
+    if (!cat) { sectionData.contents = []; renderAll(); return; }
+    onSnapshot(query(collection(db, 'cards'), where('category','==', cat)), snap => {
+      sectionData.contents = snap.docs
+        .map(d => { const data = d.data(); return { docId: d.id, ...data, label: data.title || data.label, url: resolveAppUrl(data.url) }; })
+        .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+      renderAll();
+    });
+  }).catch(() => { sectionData.contents = []; renderAll(); });
 }
 
 function renderAll() { renderPC(); renderMobile(); }
@@ -750,7 +777,7 @@ function makeIconItem(item) {
   if (item.isThink) {
     if (!item.locked) el.addEventListener('click', () => openThinkModal(item));
   } else {
-    if (!item.locked && item.url) { el.href = resolveAppUrl(item.url); el.target = '_blank'; el.rel = 'noopener'; }
+    if (!item.locked && item.url) { el.href = item.url; el.target = '_blank'; el.rel = 'noopener'; }
   }
   const iconStr   = String(item.emoji || item.icon || '?').trim();
   const sizeClass = iconStr.length <= 2 ? 'size-md' : iconStr.length <= 3 ? 'size-sm' : iconStr.length <= 5 ? 'size-lg' : 'size-xl';
@@ -759,23 +786,42 @@ function makeIconItem(item) {
 }
 
 // ── 생각 체크 모달 ──
-let _thinkItem = null, _thinkStart = null, _thinkCheat = 0;
+let _thinkItem = null, _thinkStart = null, _thinkCheat = 0, _thinkMyAnswer = '';
 
-function openThinkModal(item) {
+async function openThinkModal(item) {
   _thinkItem  = item; _thinkStart = Date.now(); _thinkCheat = 0;
   document.getElementById('thinkModalTitle').textContent    = item.lectureTitle;
   document.getElementById('thinkModalQuestion').textContent = item.question;
   const refEl = document.getElementById('thinkModalRef');
   if (item.reference) { refEl.textContent = item.reference; refEl.style.display = 'block'; }
   else { refEl.style.display = 'none'; }
+
   const ta = document.getElementById('thinkTextarea');
   ta.value = '';
-  document.getElementById('thinkWriteArea').style.display = 'block';
-  document.getElementById('thinkDoneBox').style.display   = 'none';
+  document.getElementById('thinkWriteArea').style.display   = 'none';
+  document.getElementById('thinkDoneBox').style.display     = 'none';
+  document.getElementById('thinkAlreadyBox').style.display  = 'none';
+  document.getElementById('thinkMyAnswerBox').style.display = 'none';
   document.getElementById('thinkSubmitBtn').disabled      = true;
   document.getElementById('thinkSubmitBtn').textContent   = '제출하기';
   updateThinkMeta();
   document.getElementById('thinkModal').style.display = 'flex';
+
+  // 이미 제출한 답변이 있는지 확인
+  try {
+    const snap = await getDocs(query(collection(db, 'think_submissions'),
+      where('lectureDocId', '==', item.lectureDocId), where('id', '==', currentStudentId)));
+    if (!snap.empty && _thinkItem === item) {
+      const subs = snap.docs.map(d => d.data())
+        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+      _thinkMyAnswer = subs[0].text || '';
+      document.getElementById('thinkAlreadyBox').style.display = 'flex';
+      return;
+    }
+  } catch(_) {}
+
+  if (_thinkItem !== item) return; // 그 사이 모달이 닫혔거나 다른 항목이 열림
+  document.getElementById('thinkWriteArea').style.display = 'flex';
   setTimeout(() => ta.focus(), 100);
 }
 
@@ -786,6 +832,12 @@ function closeThinkModal() {
 
 document.getElementById('thinkModalClose').addEventListener('click', closeThinkModal);
 document.getElementById('thinkDoneClose').addEventListener('click', closeThinkModal);
+document.getElementById('thinkAlreadyClose').addEventListener('click', closeThinkModal);
+document.getElementById('thinkViewAnswerBtn').addEventListener('click', () => {
+  const box = document.getElementById('thinkMyAnswerBox');
+  box.textContent = _thinkMyAnswer;
+  box.style.display = box.style.display === 'block' ? 'none' : 'block';
+});
 document.getElementById('thinkModal').addEventListener('click', e => { if (e.target === document.getElementById('thinkModal')) closeThinkModal(); });
 
 const thinkTextarea = document.getElementById('thinkTextarea');

@@ -252,6 +252,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .preview-mission{background:var(--c2-l);color:var(--c2)}
 .preview-think{background:var(--c3-l);color:var(--c3)}
 .preview-grade{background:var(--c4-l);color:var(--c4)}
+.preview-contents{background:var(--c2-l);color:var(--c2)}
 
 @media(max-width:768px){
   .adm-sidebar{width:170px}
@@ -560,6 +561,11 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
         <div class="nav-sub-item" data-subnav="grade-grade">Grade</div>
         <div class="nav-sub-item" data-subnav="grade-setting">Setting</div>
       </div>
+      <div class="nav-item nav-c2 has-sub" data-nav="contents">
+        <span class="nav-dot" style="background:var(--c2)"></span>각종 콘텐츠
+        <span class="nav-arrow">›</span>
+      </div>
+      <div class="nav-sub" id="subnav-contents"></div>
       <div class="nav-divider"></div>
       <div class="nav-item nav-dark" data-nav="students">
         <span class="nav-dot" style="background:var(--charcoal)"></span>학생 관리
@@ -965,6 +971,48 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
     </div>
   </div>
 
+  <div class="adm-panel" id="panel-contents">
+    <div class="panel-top">
+      <div class="panel-title">각종 콘텐츠</div>
+    </div>
+    <p style="font-size:14px;color:var(--sub);margin-bottom:20px">여기서 추가한 카드가 학생 허브의 각종 콘텐츠 영역에 표시됩니다.</p>
+
+    <div class="stu-card" style="overflow:visible">
+      <div class="stu-card-head">새 카드 추가</div>
+      <div class="stu-card-body">
+        <div class="stu-add-row">
+          <div class="stu-field">
+            <label>이모지</label>
+            <div class="emoji-palette-wrap" id="contentsEmojiWrap">
+              <div class="emoji-display" onclick="toggleContentsEmojiPicker()">
+                <span id="contentsSelectedEmoji">🧩</span>
+              </div>
+              <div class="emoji-picker" id="contentsEmojiPicker">
+                <div class="emoji-cats" id="contentsEmojiCats"></div>
+                <div class="emoji-grid" id="contentsEmojiGrid"></div>
+              </div>
+            </div>
+          </div>
+          <div class="stu-field">
+            <label>제목</label>
+            <input type="text" id="contentsCardTitle" placeholder="예) 역사 자료실" style="width:200px">
+          </div>
+          <div class="stu-field" style="flex:1">
+            <label>웹앱 주소 (URL)</label>
+            <input type="text" id="contentsCardUrl" placeholder="예) trip/index.html" style="width:100%">
+          </div>
+          <div class="stu-field" style="flex:1">
+            <label>어드민 주소 (선택)</label>
+            <input type="text" id="contentsCardAdminUrl" placeholder="예) trip/admin.html" style="width:100%">
+          </div>
+          <button class="add-btn" id="contentsAddCardBtn" style="margin-top:auto">추가</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="contentsPreviewList" class="item-list"></div>
+  </div>
+
   <!-- 학생 관리 -->
   <div class="adm-panel" id="panel-students">
     <div class="panel-top"><div class="panel-title">학생 관리</div></div>
@@ -1234,6 +1282,7 @@ function initAdmin() {
   initMissionTab();
   initGradeTab();
   initGradeSettings();
+  initContentsTab();
 }
 
 // ── 사이드바 ──
@@ -1254,6 +1303,13 @@ function initSidebar() {
     if (!item) return;
     e.stopPropagation();
     openMissionAppAdmin(item, item.dataset.appadmin);
+  });
+  // 각종 콘텐츠 하위 서브메뉴도 미션 체크와 동일하게 카드 목록에서 매번 새로 그려진다.
+  document.getElementById('subnav-contents').addEventListener('click', e => {
+    const item = e.target.closest('[data-appadmin]');
+    if (!item) return;
+    e.stopPropagation();
+    openContentsAppAdmin(item, item.dataset.appadmin);
   });
 }
 
@@ -1304,6 +1360,11 @@ function switchNav(nav) {
     const missionSub = document.getElementById('subnav-mission');
     if (missionSub) missionSub.classList.add('open');
   }
+  // 각종 콘텐츠도 미션 체크와 동일하게 서브메뉴를 카드 목록에서 동적으로 채운다.
+  if (mainNav === 'contents') {
+    const contentsSub = document.getElementById('subnav-contents');
+    if (contentsSub) contentsSub.classList.add('open');
+  }
 
   // 패널 전환
   document.querySelectorAll('.adm-panel').forEach(p => p.classList.remove('active'));
@@ -1323,6 +1384,13 @@ function switchNav(nav) {
 window.openMissionAppAdmin = function(el, adminUrl) {
   switchNav('mission');
   document.querySelectorAll('#subnav-mission .nav-sub-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  openAppAdmin(adminUrl);
+};
+
+window.openContentsAppAdmin = function(el, adminUrl) {
+  switchNav('contents');
+  document.querySelectorAll('#subnav-contents .nav-sub-item').forEach(i => i.classList.remove('active'));
   el.classList.add('active');
   openAppAdmin(adminUrl);
 };
@@ -2631,6 +2699,206 @@ window.missionMoveCard = async function(docId, dir, idx) {
   } catch(e) { alert('순서 변경 실패: ' + e.message); }
 };
 
+// ══════════ 각종 콘텐츠 (미션 체크와 동일한 카드 구조, 다른 카테고리) ══════════
+let contentsSelectedEmoji = '🧩';
+let contentsEmojiCat = Object.keys(MISSION_EMOJI_DATA)[0];
+
+function initContentsEmojiPicker() {
+  const cats = document.getElementById('contentsEmojiCats');
+  Object.keys(MISSION_EMOJI_DATA).forEach((cat, i) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'emoji-cat-btn' + (i === 0 ? ' active' : '');
+    btn.textContent = cat;
+    btn.onclick = () => {
+      contentsEmojiCat = cat;
+      cats.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderContentsEmojiGrid();
+    };
+    cats.appendChild(btn);
+  });
+  renderContentsEmojiGrid();
+  document.addEventListener('click', e => {
+    if (!e.target.closest('#contentsEmojiWrap')) closeContentsEmojiPicker();
+  });
+}
+function renderContentsEmojiGrid() {
+  const grid = document.getElementById('contentsEmojiGrid');
+  grid.innerHTML = '';
+  (MISSION_EMOJI_DATA[contentsEmojiCat] || []).forEach(em => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'emoji-btn';
+    btn.textContent = em;
+    btn.onclick = () => {
+      contentsSelectedEmoji = em;
+      document.getElementById('contentsSelectedEmoji').textContent = em;
+      closeContentsEmojiPicker();
+    };
+    grid.appendChild(btn);
+  });
+}
+function toggleContentsEmojiPicker() { document.getElementById('contentsEmojiPicker').classList.toggle('open'); }
+function closeContentsEmojiPicker() { document.getElementById('contentsEmojiPicker').classList.remove('open'); }
+
+async function initContentsTab() {
+  let cat = '';
+  try {
+    const cfg = await getDoc(doc(db, 'settings', 'lms_config'));
+    cat = cfg.exists() ? (cfg.data().contents_category || '') : '';
+  } catch(_) {}
+  if (!cat) {
+    cat = 'general_content';
+    try { await setDoc(doc(db, 'settings', 'lms_config'), { contents_category: cat }, { merge: true }); } catch(_) {}
+  }
+
+  initContentsEmojiPicker();
+
+  document.getElementById('contentsAddCardBtn').addEventListener('click', async () => {
+    const emoji    = contentsSelectedEmoji;
+    const title    = document.getElementById('contentsCardTitle').value.trim();
+    const url      = document.getElementById('contentsCardUrl').value.trim();
+    const adminUrl = document.getElementById('contentsCardAdminUrl').value.trim();
+    if (!title || !url) { alert('제목과 웹앱 주소를 입력해 주세요.'); return; }
+    const btn = document.getElementById('contentsAddCardBtn');
+    btn.disabled = true;
+    try {
+      const snap  = await getDocs(query(collection(db, 'cards'), where('category','==',cat)));
+      const order = snap.docs.length ? Math.max(...snap.docs.map(d => d.data().order || 0)) + 1 : 0;
+      const cardData = { emoji, title, desc: '', url, category: cat, locked: false, order };
+      if (adminUrl) cardData.adminUrl = adminUrl;
+      await addDoc(collection(db, 'cards'), cardData);
+      contentsSelectedEmoji = '🧩';
+      document.getElementById('contentsSelectedEmoji').textContent = '🧩';
+      document.getElementById('contentsCardTitle').value = '';
+      document.getElementById('contentsCardUrl').value = '';
+      document.getElementById('contentsCardAdminUrl').value = '';
+      renderContentsPreview(cat);
+      alert('카드가 추가되었습니다.');
+    } catch(e) {
+      alert('추가 실패: ' + e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  renderContentsPreview(cat);
+}
+
+function renderContentsSidebarSubnav(items) {
+  const sub = document.getElementById('subnav-contents');
+  if (!sub) return;
+  const linked = items.filter(i => i.adminUrl);
+  const prevActive = sub.querySelector('.nav-sub-item.active')?.dataset.appadmin;
+  if (!linked.length) {
+    sub.innerHTML = '<div class="nav-sub-item empty">연결된 어드민 없음</div>';
+    return;
+  }
+  sub.innerHTML = linked.map(item =>
+    `<div class="nav-sub-item${item.adminUrl===prevActive?' active':''}" data-appadmin="${esc(item.adminUrl)}">${esc(item.title||'(제목 없음)')}</div>`
+  ).join('');
+}
+
+async function renderContentsPreview(cat) {
+  const container = document.getElementById('contentsPreviewList');
+  if (!cat) { container.innerHTML = ''; return; }
+  try {
+    const snap  = await getDocs(query(collection(db, 'cards'), where('category','==',cat)));
+    const items = snap.docs.map(d => ({ docId: d.id, ...d.data() })).sort((a,b) => (a.order??999)-(b.order??999));
+    window._contentsItems = items;
+    window._contentsCat   = cat;
+    renderContentsSidebarSubnav(items);
+    if (!items.length) { container.innerHTML = '<div class="empty-panel">이 카테고리에 카드가 없습니다.</div>'; return; }
+    container.innerHTML = `<p style="font-size:13px;color:var(--sub);margin-bottom:10px">카드 ${items.length}개</p>`;
+    items.forEach((item, idx) => {
+      const row = document.createElement('div');
+      row.className = 'item-row';
+      row.id = `contents-row-${item.docId}`;
+      const iconStr = String(item.emoji||'🧩');
+      const isLocked = !!item.locked;
+      const adminBtn = item.adminUrl
+        ? `<button class="admin-link-btn" onclick="openAppAdmin('${esc(item.adminUrl)}')">어드민</button>`
+        : '';
+      row.innerHTML = `
+        <div class="item-icon-preview preview-contents" style="font-size:${iconStr.length<=2?'20px':'13px'}">${esc(iconStr)}</div>
+        <div class="item-info">
+          <div class="item-label">${esc(item.title||'')}</div>
+          <div class="item-url">${esc(item.url||'')}${item.adminUrl?` · 어드민: ${esc(item.adminUrl)}`:''}</div>
+        </div>
+        <div class="item-meta">
+          <button class="lock-toggle ${isLocked?'locked':'open'}" onclick="contentsToggleLocked('${item.docId}',${isLocked})">${isLocked?'비공개':'공개'}</button>
+          ${adminBtn}
+          <button class="edit-btn" ${idx===0?'disabled':''} onclick="contentsMoveCard('${item.docId}','up',${idx})">▲</button>
+          <button class="edit-btn" ${idx===items.length-1?'disabled':''} onclick="contentsMoveCard('${item.docId}','down',${idx})">▼</button>
+          <button class="edit-btn" onclick="contentsStartEdit('${item.docId}')">수정</button>
+          <button class="del-btn" onclick="contentsDeleteCard('${item.docId}')">삭제</button>
+        </div>`;
+      container.appendChild(row);
+    });
+  } catch(e) { console.warn(e); }
+}
+
+window.contentsStartEdit = function(docId) {
+  const item = (window._contentsItems||[]).find(i => i.docId === docId);
+  if (!item) return;
+  const row = document.getElementById(`contents-row-${docId}`);
+  if (!row) return;
+  row.innerHTML = `
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%;padding:4px 0">
+      <input id="ce-emoji-${docId}" class="form-input" value="${esc(String(item.emoji||'🧩'))}" placeholder="이모지" style="width:56px;text-align:center">
+      <input id="ce-title-${docId}" class="form-input" value="${esc(item.title||'')}" placeholder="제목" style="flex:1;min-width:100px">
+      <input id="ce-url-${docId}" class="form-input" value="${esc(item.url||'')}" placeholder="웹앱 URL" style="flex:2;min-width:140px">
+      <input id="ce-adminurl-${docId}" class="form-input" value="${esc(item.adminUrl||'')}" placeholder="어드민 URL (선택)" style="flex:2;min-width:140px">
+      <button class="btn-save" style="flex:none;padding:7px 16px;background:var(--c3)" onclick="contentsSaveEdit('${docId}')">저장</button>
+      <button class="btn-cancel" onclick="renderContentsPreview(window._contentsCat)">취소</button>
+    </div>`;
+};
+
+window.contentsSaveEdit = async function(docId) {
+  const emoji    = document.getElementById(`ce-emoji-${docId}`)?.value.trim() || '🧩';
+  const title    = document.getElementById(`ce-title-${docId}`)?.value.trim();
+  const url      = document.getElementById(`ce-url-${docId}`)?.value.trim();
+  const adminUrl = document.getElementById(`ce-adminurl-${docId}`)?.value.trim() || '';
+  if (!title) { alert('제목을 입력하세요.'); return; }
+  try {
+    await updateDoc(doc(db, 'cards', docId), { emoji, title, url, adminUrl });
+    renderContentsPreview(window._contentsCat);
+  } catch(e) { alert('저장 실패: ' + e.message); }
+};
+
+window.contentsToggleLocked = async function(docId, currentLocked) {
+  try {
+    await updateDoc(doc(db, 'cards', docId), { locked: !currentLocked });
+    renderContentsPreview(window._contentsCat);
+  } catch(e) { alert('변경 실패: ' + e.message); }
+};
+
+window.contentsDeleteCard = async function(docId) {
+  const item = (window._contentsItems||[]).find(i => i.docId === docId);
+  if (!confirm(`"${item?.title||'이 카드'}"를 삭제하시겠습니까?`)) return;
+  try {
+    await deleteDoc(doc(db, 'cards', docId));
+    renderContentsPreview(window._contentsCat);
+  } catch(e) { alert('삭제 실패: ' + e.message); }
+};
+
+window.contentsMoveCard = async function(docId, dir, idx) {
+  const items = window._contentsItems;
+  if (!items) return;
+  const targetIdx = dir === 'up' ? idx - 1 : idx + 1;
+  if (targetIdx < 0 || targetIdx >= items.length) return;
+  const cur    = items[idx];
+  const target = items[targetIdx];
+  try {
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'cards', cur.docId),    { order: target.order ?? targetIdx });
+    batch.update(doc(db, 'cards', target.docId), { order: cur.order ?? idx });
+    await batch.commit();
+    renderContentsPreview(window._contentsCat);
+  } catch(e) { alert('순서 변경 실패: ' + e.message); }
+};
+
 function renderList(sec, items) {
   const container = document.getElementById(`list-${sec}`);
   if (!items.length) {
@@ -3650,6 +3918,7 @@ Object.assign(window, {
   onColorChange, resetDesign, saveDesign,
   openGradeFeedbackModal, closeGradeFeedbackModal, saveGradeFeedback,
   toggleMissionEmojiPicker, closeMissionEmojiPicker,
+  toggleContentsEmojiPicker, closeContentsEmojiPicker,
 });
 
 // 스크립트 최상위 const/let 선언이 모두 끝난 뒤에 호출해야 TDZ 에러가 안 난다.
