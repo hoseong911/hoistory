@@ -45,6 +45,8 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--surface)
 .adm-tab.active{background:var(--primary);color:#fff}
 .adm-logout{background:none;border:1.5px solid var(--hairline);border-radius:8px;padding:6px 14px;font-family:inherit;font-size:12px;font-weight:700;color:var(--sub);cursor:pointer}
 .adm-body{padding:24px 28px 60px;max-width:1100px;margin:0 auto;width:100%}
+/* lms/admin iframe으로 embed된 경우: 이미 상위 어드민에 로그인되어 있으므로 로고·로그아웃은 숨긴다 */
+body.embedded .adm-logo,body.embedded .adm-logout{display:none}
 
 /* ── 탭 패널 ── */
 .tab-panel{display:none}
@@ -61,25 +63,20 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--surface)
 .btn-sm{padding:5px 12px;font-size:12px;border-radius:7px}
 .btn-xs{padding:4px 10px;font-size:11px;border-radius:6px}
 
-/* ── 인원 설정 ── */
-.class-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
-.class-input-wrap{display:flex;flex-direction:column;gap:4px}
-.class-input-wrap label{font-size:11px;font-weight:700;color:var(--sub);text-align:center}
-.class-num-input{width:100%;padding:8px;border:1.5px solid var(--hairline);border-radius:8px;font-family:inherit;font-size:14px;font-weight:700;text-align:center;color:var(--ink);background:var(--surface);outline:none}
-.class-num-input:focus{border-color:var(--primary)}
-
 /* ── 인물 아코디언 ── */
 .char-row{border:1px solid var(--hairline-soft);border-radius:14px;overflow:hidden;margin-bottom:8px}
 .char-row-head{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;background:var(--canvas);user-select:none}
 .char-row-head:hover{background:var(--surface)}
 .char-emoji{font-size:22px;flex-shrink:0}
+.char-thumb{width:26px;height:26px;border-radius:8px;object-fit:cover;flex-shrink:0}
 .char-row-name{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:15px;flex:1}
 .char-row-role{font-size:12px;color:var(--sub)}
 .char-row-toggle{font-size:18px;color:var(--stone)}
 .char-row.open .char-row-toggle{color:var(--primary)}
 .char-row-body{display:none;padding:0 16px 16px;border-top:1px solid var(--hairline-soft)}
 .char-row.open .char-row-body{display:block}
-.char-meta-row{display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;margin:12px 0}
+.char-meta-row{display:grid;grid-template-columns:1fr 1fr 80px;gap:8px;margin:12px 0 8px}
+.char-meta-row-2{margin:0 0 12px}
 .meta-input{width:100%;padding:8px 10px;border:1.5px solid var(--hairline);border-radius:8px;font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);outline:none}
 .meta-input:focus{border-color:var(--primary)}
 .q-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
@@ -192,15 +189,6 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--surface)
     <!-- ── Contents 탭 ── -->
     <div class="tab-panel active" id="tab-contents">
 
-      <!-- 반별 인원 설정 -->
-      <div class="section-card">
-        <div class="section-title">📋 반별 예상 인원 설정</div>
-        <div class="class-grid" id="class-size-grid"></div>
-        <div style="display:flex;justify-content:flex-end;margin-top:14px">
-          <button class="btn btn-accent" id="save-class-btn">인원 저장</button>
-        </div>
-      </div>
-
       <!-- 인물 관리 -->
       <div class="section-card">
         <div class="section-title">
@@ -271,17 +259,20 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--surface)
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import{getFirestore,doc,getDoc,setDoc,deleteDoc,collection,onSnapshot,writeBatch,updateDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import{getDatabase,ref,get}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-const app=initializeApp({apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",authDomain:"ho0911seong-56638.firebaseapp.com",projectId:"ho0911seong-56638",storageBucket:"ho0911seong-56638.firebasestorage.app",messagingSenderId:"994509567071",appId:"1:994509567071:web:8b33bb03a3d8f3a9f557ea"});
+const app=initializeApp({apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",authDomain:"ho0911seong-56638.firebaseapp.com",databaseURL:"https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"ho0911seong-56638",storageBucket:"ho0911seong-56638.firebasestorage.app",messagingSenderId:"994509567071",appId:"1:994509567071:web:8b33bb03a3d8f3a9f557ea"});
 const db=getFirestore(app);
 const auth=getAuth(app);
+const rtdb=getDatabase(app);
 
 /* ─────────── State ─────────── */
 let CONTENT={characters:[]};
-let classSizes={1:0,2:0,3:0,4:0,5:0,6:0};
-let students=[]; // Firestore docs
+let roster=[]; // lms/admin 학생 관리(RTDB students/)에서 불러온 반별 명단
+let students=[]; // Firestore docs (제출 답변)
 let currentFilter='전체';
 let unsub=null;
+const isEmbedded=window.self!==window.top;
 
 const DEFAULT_CHARACTERS=[
   {id:'taejong',name:'태종',role:'조선 3대 국왕',emoji:'👑',questions:['전하, 신하들의 최고 기구인 의정부를 거치지 않고 6조의 판서들에게 직접 업무를 보고받으시는(6조 직계제) 진짜 이유가 무엇입니까?','왕족과 공신들이 거느리던 개인 군대(사병)를 전부 없애버리셨습니다. 굳이 군사력을 국가로 집중시키신 이유가 궁금합니다.','모든 국사를 직접 챙기시려면 엄청나게 피곤하실 것 같습니다. 혹시 신하들을 전혀 믿지 못하시는 건가요?']},
@@ -291,18 +282,28 @@ const DEFAULT_CHARACTERS=[
 ];
 
 /* ─────────── Auth ─────────── */
-onAuthStateChanged(auth,user=>{
-  if(user){
-    document.getElementById('gate-login').style.display='none';
-    document.getElementById('gate-admin').style.display='flex';
-    loadSettings();
-    startAnswerListener();
-  } else {
-    document.getElementById('gate-login').style.display='flex';
-    document.getElementById('gate-admin').style.display='none';
-    if(unsub){unsub();unsub=null;}
-  }
-});
+// lms/admin(이미 로그인된 어드민)의 iframe으로 열린 경우 로그인 화면을 생략한다.
+async function initAdmin(){
+  document.getElementById('gate-login').style.display='none';
+  document.getElementById('gate-admin').style.display='flex';
+  await Promise.all([loadSettings(),loadRoster()]);
+  startAnswerListener();
+}
+
+if(isEmbedded){
+  document.body.classList.add('embedded');
+  initAdmin();
+} else {
+  onAuthStateChanged(auth,user=>{
+    if(user){
+      initAdmin();
+    } else {
+      document.getElementById('gate-login').style.display='flex';
+      document.getElementById('gate-admin').style.display='none';
+      if(unsub){unsub();unsub=null;}
+    }
+  });
+}
 
 document.getElementById('gate-login-btn').addEventListener('click',async()=>{
   const email=document.getElementById('gate-email').value.trim();
@@ -337,34 +338,27 @@ async function loadSettings(){
     else CONTENT={characters:DEFAULT_CHARACTERS};
   }catch(e){CONTENT={characters:DEFAULT_CHARACTERS};}
 
-  // Class sizes
-  try{
-    const snap=await getDoc(doc(db,'settings','interview_config'));
-    if(snap.exists()&&snap.data().classSizes) classSizes={...classSizes,...snap.data().classSizes};
-  }catch(e){}
-
-  renderClassSizeGrid();
   renderCharAccordion();
 }
 
-/* ─────────── 인원 설정 ─────────── */
-function renderClassSizeGrid(){
-  document.getElementById('class-size-grid').innerHTML=[1,2,3,4,5,6].map(n=>`
-    <div class="class-input-wrap">
-      <label>${n}반</label>
-      <input type="number" class="class-num-input" data-class="${n}" value="${classSizes[n]||0}" min="0">
-    </div>
-  `).join('');
+/* ─────────── 반별 명단 (lms/admin 학생 관리 RTDB students/ 를 그대로 사용) ─────────── */
+function classNumOf(sid){
+  sid=String(sid||'');
+  if(sid.length<3)return null;
+  const c=parseInt(sid.slice(1,3),10);
+  return isNaN(c)?null:c;
 }
 
-document.getElementById('save-class-btn').addEventListener('click',async()=>{
-  document.querySelectorAll('.class-num-input').forEach(inp=>{
-    classSizes[+inp.dataset.class]=parseInt(inp.value)||0;
-  });
-  await setDoc(doc(db,'settings','interview_config'),{classSizes},{merge:true});
-  alert('인원 설정이 저장되었습니다.');
-  updateStats();
-});
+async function loadRoster(){
+  try{
+    const snap=await get(ref(rtdb,'students'));
+    const data=snap.val()||{};
+    roster=Object.values(data).filter(Boolean)
+      .map(s=>({studentId:String(s.studentId||s.id||'').trim(),name:s.name||''}))
+      .filter(s=>s.studentId)
+      .map(s=>({...s,classNum:classNumOf(s.studentId)}));
+  }catch(e){roster=[];}
+}
 
 /* ─────────── 인물 아코디언 ─────────── */
 function renderCharAccordion(){
@@ -372,7 +366,7 @@ function renderCharAccordion(){
   container.innerHTML=CONTENT.characters.map((c,ci)=>`
     <div class="char-row" data-ci="${ci}">
       <div class="char-row-head">
-        <span class="char-emoji">${c.emoji}</span>
+        ${c.imageUrl?`<img class="char-thumb" src="${escHtml(c.imageUrl)}" alt="">`:`<span class="char-emoji">${c.emoji}</span>`}
         <span class="char-row-name">${c.name}</span>
         <span class="char-row-role">${c.role}</span>
         <span class="char-row-toggle">▸</span>
@@ -382,6 +376,9 @@ function renderCharAccordion(){
           <input class="meta-input c-emoji" value="${escHtml(c.emoji)}" placeholder="이모지">
           <input class="meta-input c-name" value="${escHtml(c.name)}" placeholder="이름">
           <input class="meta-input c-role" value="${escHtml(c.role)}" placeholder="역할">
+        </div>
+        <div class="char-meta-row-2">
+          <input class="meta-input c-imageurl" value="${escHtml(c.imageUrl||'')}" placeholder="일러스트 이미지 URL (선택, 비워두면 이모지로 표시)">
         </div>
         <div class="q-list" data-ci="${ci}">
           ${c.questions.map((q,qi)=>`
@@ -449,7 +446,7 @@ function renderCharAccordion(){
 }
 
 document.getElementById('add-char-btn').addEventListener('click',()=>{
-  CONTENT.characters.push({id:'char_'+Date.now(),name:'새 인물',role:'역할',emoji:'🏛️',questions:['']});
+  CONTENT.characters.push({id:'char_'+Date.now(),name:'새 인물',role:'역할',emoji:'🏛️',imageUrl:'',questions:['']});
   renderCharAccordion();
   const rows=document.querySelectorAll('.char-row');
   const last=rows[rows.length-1];
@@ -462,6 +459,7 @@ function collectContentFromDOM(){
     CONTENT.characters[ci].emoji=row.querySelector('.c-emoji').value.trim()||'🏛️';
     CONTENT.characters[ci].name=row.querySelector('.c-name').value.trim();
     CONTENT.characters[ci].role=row.querySelector('.c-role').value.trim();
+    CONTENT.characters[ci].imageUrl=row.querySelector('.c-imageurl').value.trim();
     row.querySelectorAll('.q-textarea').forEach((ta,qi)=>{
       CONTENT.characters[ci].questions[qi]=ta.value.trim();
     });
@@ -495,18 +493,21 @@ function startAnswerListener(){
   unsub=onSnapshot(collection(db,'interview_joseon_answers'),snap=>{
     students=[];
     snap.forEach(d=>students.push({id:d.id,...d.data()}));
-    students.sort((a,b)=>(a.classNum||'').localeCompare(b.classNum||'')||String(a.studentId).localeCompare(String(b.studentId)));
+    students.sort((a,b)=>(classNumOf(a.id)||0)-(classNumOf(b.id)||0)||String(a.studentId).localeCompare(String(b.studentId)));
     renderClassFilter();
     updateStats();
     renderStudentList();
   });
 }
 
-/* ─────────── 반 필터 ─────────── */
+/* ─────────── 반 필터 (lms/admin 학생 관리 명단 기준, 명단에 없으면 제출자 기준으로 보완) ─────────── */
 function renderClassFilter(){
-  const classes=['전체',...new Set(students.map(s=>s.classNum).filter(Boolean)).values()].sort((a,b)=>a==='전체'?-1:b==='전체'?1:a.localeCompare(b));
+  const fromRoster=roster.map(r=>r.classNum);
+  const fromSubmitted=students.map(s=>classNumOf(s.id));
+  const classNums=[...new Set([...fromRoster,...fromSubmitted])].filter(n=>n!=null).sort((a,b)=>a-b);
+  const classes=['전체',...classNums];
   document.getElementById('class-filter').innerHTML=classes.map(c=>`
-    <button class="cf-btn${c===currentFilter?' active':''}" data-c="${c}">${c==='전체'?'전체':c+'반'}</button>
+    <button class="cf-btn${String(c)===currentFilter?' active':''}" data-c="${c}">${c==='전체'?'전체':c+'반'}</button>
   `).join('');
   document.querySelectorAll('.cf-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
@@ -521,12 +522,17 @@ function renderClassFilter(){
 
 function filteredStudents(){
   if(currentFilter==='전체')return students;
-  return students.filter(s=>s.classNum===currentFilter);
+  return students.filter(s=>String(classNumOf(s.id))===currentFilter);
 }
 
+function rosterForFilter(){
+  if(currentFilter==='전체')return roster;
+  return roster.filter(r=>String(r.classNum)===currentFilter);
+}
+
+/* 학생 관리 명단이 등록돼 있으면 그 인원수를, 아직 명단이 없으면 제출자 수를 전체 인원으로 본다 */
 function expectedCount(){
-  if(currentFilter==='전체')return Object.values(classSizes).reduce((a,b)=>a+b,0);
-  return classSizes[+currentFilter]||0;
+  return roster.length?rosterForFilter().length:filteredStudents().length;
 }
 
 /* ─────────── 통계 ─────────── */
@@ -616,7 +622,7 @@ function renderStudentList(){
 
     return`<div class="stu-card" data-idx="${i}">
       <div class="stu-head">
-        <span class="stu-class-badge">${s.classNum||'?'}반</span>
+        <span class="stu-class-badge">${classNumOf(s.id)||'?'}반</span>
         <div class="stu-info">
           <div class="stu-name">${escHtml(s.name||'')} <span class="stu-id">${escHtml(String(s.studentId||''))}</span></div>
           ${s.charId?`<span class="stu-char">${char?.emoji||''} ${escHtml(s.charName||s.charId)}</span>`:'<span class="stu-char" style="color:var(--stone)">미제출</span>'}

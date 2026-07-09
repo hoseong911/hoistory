@@ -130,10 +130,9 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .lock-toggle.locked{background:#FEF2F2;color:#DC2626}
 .lock-toggle.locked:hover{background:#FEE2E2}
 /* ── 앱 어드민 iframe 오버레이 ── */
-#app-admin-overlay{display:none;position:fixed;inset:0;z-index:200;flex-direction:column;background:var(--surface)}
+#app-admin-overlay{display:none;flex:1;min-width:0;flex-direction:column;background:var(--surface)}
 #app-admin-overlay.open{display:flex}
-.app-admin-bar{background:var(--canvas);border-bottom:1px solid var(--hairline-soft);padding:12px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
-.app-admin-title{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:15px;color:var(--primary);flex:1}
+.app-admin-bar{background:var(--canvas);border-bottom:1px solid var(--hairline-soft);padding:12px 20px;display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-shrink:0}
 .app-admin-close{background:none;border:1.5px solid var(--hairline);border-radius:8px;padding:6px 16px;font-family:inherit;font-size:13px;font-weight:700;color:var(--sub);cursor:pointer}
 .app-admin-close:hover{background:var(--surface)}
 #app-admin-frame{flex:1;border:none;width:100%;min-height:0}
@@ -1051,17 +1050,16 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
   </div>
 
     </main><!-- /adm-content -->
+
+    <!-- 앱 어드민 iframe 영역 (사이드바·상단바는 그대로 두고 콘텐츠 영역만 대체) -->
+    <div id="app-admin-overlay">
+      <div class="app-admin-bar">
+        <button class="app-admin-close" onclick="closeAppAdmin()">목록으로</button>
+      </div>
+      <iframe id="app-admin-frame" src="about:blank" allow="same-origin"></iframe>
+    </div>
   </div><!-- /adm-body -->
 </div><!-- /adminView -->
-
-<!-- 앱 어드민 iframe 오버레이 -->
-<div id="app-admin-overlay">
-  <div class="app-admin-bar">
-    <div class="app-admin-title" id="app-admin-title"></div>
-    <button class="app-admin-close" onclick="closeAppAdmin()">닫기</button>
-  </div>
-  <iframe id="app-admin-frame" src="about:blank" allow="same-origin"></iframe>
-</div>
 
 <!-- ────── 추가/수정 모달 ────── -->
 <div class="modal-backdrop" id="modalBackdrop">
@@ -2477,7 +2475,7 @@ async function renderMissionPreview(cat) {
       const iconStr = String(item.emoji||'📌');
       const isLocked = !!item.locked;
       const adminBtn = item.adminUrl
-        ? `<button class="admin-link-btn" onclick="openAppAdmin('${esc(item.adminUrl)}','${esc(item.title)}')">어드민</button>`
+        ? `<button class="admin-link-btn" onclick="openAppAdmin('${esc(item.adminUrl)}')">어드민</button>`
         : '';
       row.innerHTML = `
         <div class="item-icon-preview preview-mission" style="font-size:${iconStr.length<=2?'20px':'13px'}">${esc(iconStr)}</div>
@@ -2533,15 +2531,16 @@ window.missionToggleLocked = async function(docId, currentLocked) {
   } catch(e) { alert('변경 실패: ' + e.message); }
 };
 
-window.openAppAdmin = function(adminUrl, title) {
-  document.getElementById('app-admin-title').textContent = title + ' 어드민';
+window.openAppAdmin = function(adminUrl) {
   document.getElementById('app-admin-frame').src = resolveAppUrl(adminUrl);
   document.getElementById('app-admin-overlay').classList.add('open');
+  document.querySelector('.adm-content').style.display = 'none';
 };
 
 window.closeAppAdmin = function() {
   document.getElementById('app-admin-overlay').classList.remove('open');
   document.getElementById('app-admin-frame').src = 'about:blank';
+  document.querySelector('.adm-content').style.display = '';
 };
 
 window.missionDeleteCard = async function(docId) {
