@@ -72,24 +72,30 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
 .btn-sm{padding:5px 12px;font-size:12px;border-radius:7px}
 .btn-xs{padding:4px 10px;font-size:11px;border-radius:6px}
 
-/* ── 인물 아코디언 : 나중에 일러스트가 들어갈 것을 감안해 2열 카드로 배치 ── */
-#char-accordion{display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start}
-@media(max-width:700px){#char-accordion{grid-template-columns:1fr}}
-.char-row{border:1px solid var(--hairline-soft);border-radius:14px;overflow:hidden}
-/* 펼친 인물 카드는 편집 필드가 많아 좁으면 답답하므로 그리드 두 칸을 모두 차지하게 확장 */
-.char-row.open{grid-column:1 / -1}
-.char-row-head{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;background:var(--canvas);user-select:none}
-.char-row-head:hover{background:var(--surface)}
-.char-emoji{font-size:22px;flex-shrink:0}
-.char-thumb{width:26px;height:26px;border-radius:8px;object-fit:cover;flex-shrink:0}
-.char-row-name{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:15px;flex:1}
-.char-row-role{font-size:12px;color:var(--sub)}
-.char-row-toggle{font-size:18px;color:var(--stone)}
-.char-row.open .char-row-toggle{color:var(--primary)}
-.char-row-body{display:none;padding:0 16px 16px;border-top:1px solid var(--hairline-soft)}
-.char-row.open .char-row-body{display:block}
-/* 이름·역할·이미지 URL 한 줄 배치 */
-.char-meta-row{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:8px;margin:12px 0 8px}
+/* ── 인물 탭 : 4x1로 가로 나열, 선택된 인물의 편집 영역은 아래에 전체 폭으로 표시 ── */
+.char-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.char-tab{flex:1 1 140px;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 10px;border:1.5px solid var(--hairline-soft);border-radius:14px;background:var(--canvas);cursor:pointer;transition:.15s;text-align:center}
+.char-tab:hover{border-color:var(--stone)}
+.char-tab.active{border-color:var(--primary);background:var(--primary-soft)}
+.char-tab .char-thumb{width:40px;height:40px;border-radius:12px;object-fit:cover}
+.char-tab .char-emoji{font-size:30px;line-height:1}
+.char-tab-name{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:13px;color:var(--ink)}
+.char-tab-role{font-size:11px;color:var(--sub)}
+
+.char-editor{border:1px solid var(--hairline-soft);border-radius:14px;padding:16px}
+.char-editor-empty{text-align:center;color:var(--stone);font-size:13px;padding:24px}
+
+/* 일러스트 업로드: 미리보기 + URL 입력 + 업로드 버튼 */
+.char-img-row{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+.char-img-preview{flex-shrink:0;width:64px;height:64px;border-radius:16px;background:var(--surface);border:1.5px solid var(--hairline-soft);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.char-img-preview img{width:100%;height:100%;object-fit:cover}
+.char-emoji-lg{font-size:32px}
+.char-img-controls{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
+.char-upload-label{cursor:pointer;justify-content:center}
+.char-upload-status{font-size:12px;color:var(--sub)}
+
+/* 이름·역할 한 줄 배치 */
+.char-meta-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 12px}
 .meta-input{width:100%;padding:8px 10px;border:1.5px solid var(--hairline);border-radius:8px;font-family:inherit;font-size:13px;color:var(--ink);background:var(--surface);outline:none}
 .meta-input:focus{border-color:var(--primary)}
 .q-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
@@ -205,7 +211,8 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
           👤 인물 / 질문 관리
           <button class="btn btn-ghost btn-sm" id="add-char-btn" style="margin-left:auto">+ 인물 추가</button>
         </div>
-        <div id="char-accordion"></div>
+        <div class="char-tabs" id="char-tabs"></div>
+        <div class="char-editor" id="char-editor"></div>
         <div style="display:flex;justify-content:center;align-items:center;margin-top:14px;flex-wrap:wrap;gap:8px">
           <button class="btn btn-danger" id="reset-btn">🗑 답변 전체 초기화</button>
           <button class="btn btn-accent" id="save-default-btn" title="지금 내용을 앞으로의 기본값(초기화 기준점)으로 저장합니다">기본값으로 반영</button>
@@ -271,11 +278,13 @@ import{initializeApp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-app
 import{getFirestore,doc,getDoc,setDoc,deleteDoc,collection,onSnapshot,writeBatch,updateDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import{getDatabase,ref,get}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import{getStorage,ref as sRef,uploadBytes,getDownloadURL}from"https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 
 const app=initializeApp({apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",authDomain:"ho0911seong-56638.firebaseapp.com",databaseURL:"https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"ho0911seong-56638",storageBucket:"ho0911seong-56638.firebasestorage.app",messagingSenderId:"994509567071",appId:"1:994509567071:web:8b33bb03a3d8f3a9f557ea"});
 const db=getFirestore(app);
 const auth=getAuth(app);
 const rtdb=getDatabase(app);
+const storage=getStorage(app);
 
 /* ─────────── State ─────────── */
 let CONTENT={characters:[]};
@@ -360,7 +369,7 @@ async function loadSettings(){
     }
   }catch(e){CONTENT={characters:DEFAULT_CHARACTERS};}
 
-  renderCharAccordion();
+  renderCharSection();
 }
 
 /* ─────────── 반별 명단 (lms/admin 학생 관리 RTDB students/ 를 그대로 사용) ─────────── */
@@ -384,106 +393,143 @@ async function loadRoster(){
   }catch(e){roster=[];}
 }
 
-/* ─────────── 인물 아코디언 ─────────── */
-function renderCharAccordion(){
-  const container=document.getElementById('char-accordion');
-  container.innerHTML=CONTENT.characters.map((c,ci)=>`
-    <div class="char-row" data-ci="${ci}">
-      <div class="char-row-head">
-        ${c.imageUrl?`<img class="char-thumb" src="${escHtml(c.imageUrl)}" alt="">`:`<span class="char-emoji">${c.emoji}</span>`}
-        <span class="char-row-name">${c.name}</span>
-        <span class="char-row-role">${c.role}</span>
-        <span class="char-row-toggle">▸</span>
-      </div>
-      <div class="char-row-body">
-        <div class="char-meta-row">
-          <input class="meta-input c-name" value="${escHtml(c.name)}" placeholder="이름">
-          <input class="meta-input c-role" value="${escHtml(c.role)}" placeholder="역할">
-          <input class="meta-input c-imageurl" value="${escHtml(c.imageUrl||'')}" placeholder="이미지 URL (선택)">
-        </div>
-        <div class="q-list" data-ci="${ci}">
-          ${c.questions.map((q,qi)=>`
-            <div class="q-item" data-qi="${qi}">
-              <span class="q-num">${qi+1}</span>
-              <textarea class="q-textarea" rows="2">${escHtml(q)}</textarea>
-              <button class="q-del-btn" title="삭제">✕</button>
-            </div>
-          `).join('')}
-        </div>
-        <div class="char-actions">
-          <div style="display:flex;gap:6px">
-            <button class="btn btn-ghost btn-sm add-q-btn">+ 질문 추가</button>
-            <button class="btn btn-danger btn-sm del-char-btn">인물 삭제</button>
-          </div>
-        </div>
-      </div>
+/* ─────────── 인물 탭 + 편집 영역 ─────────── */
+let activeCharIdx=0;
+
+function renderCharSection(){
+  renderCharTabs();
+  renderCharEditor();
+}
+
+function renderCharTabs(){
+  const wrap=document.getElementById('char-tabs');
+  wrap.innerHTML=CONTENT.characters.map((c,ci)=>`
+    <div class="char-tab${ci===activeCharIdx?' active':''}" data-ci="${ci}">
+      ${c.imageUrl?`<img class="char-thumb" src="${escHtml(c.imageUrl)}" alt="">`:`<span class="char-emoji">${c.emoji||'🏛️'}</span>`}
+      <span class="char-tab-name">${escHtml(c.name||'(이름 없음)')}</span>
+      <span class="char-tab-role">${escHtml(c.role||'')}</span>
     </div>
   `).join('');
-
-  container.querySelectorAll('.char-row-head').forEach(head=>{
-    head.addEventListener('click',()=>{
-      const row=head.closest('.char-row');
-      const isOpen=row.classList.contains('open');
-      container.querySelectorAll('.char-row.open').forEach(r=>{r.classList.remove('open');r.querySelector('.char-row-toggle').textContent='▸';});
-      if(!isOpen){row.classList.add('open');head.querySelector('.char-row-toggle').textContent='▾';}
-    });
-  });
-
-  container.querySelectorAll('.q-del-btn').forEach(btn=>{
-    btn.addEventListener('click',e=>{
-      e.stopPropagation();
-      const item=btn.closest('.q-item');
-      const ci=+btn.closest('.char-row').dataset.ci;
-      const qi=+item.dataset.qi;
-      CONTENT.characters[ci].questions.splice(qi,1);
-      renderCharAccordion();
-      // Re-open the same accordion
-      const rows=document.querySelectorAll('.char-row');
-      if(rows[ci]){rows[ci].classList.add('open');rows[ci].querySelector('.char-row-toggle').textContent='▾';}
-    });
-  });
-
-  container.querySelectorAll('.add-q-btn').forEach(btn=>{
-    btn.addEventListener('click',e=>{
-      e.stopPropagation();
-      const ci=+btn.closest('.char-row').dataset.ci;
-      CONTENT.characters[ci].questions.push('');
-      renderCharAccordion();
-      const rows=document.querySelectorAll('.char-row');
-      if(rows[ci]){rows[ci].classList.add('open');rows[ci].querySelector('.char-row-toggle').textContent='▾';}
-    });
-  });
-
-  container.querySelectorAll('.del-char-btn').forEach(btn=>{
-    btn.addEventListener('click',e=>{
-      e.stopPropagation();
-      const ci=+btn.closest('.char-row').dataset.ci;
-      if(confirm(`'${CONTENT.characters[ci].name}' 인물을 삭제하시겠습니까?`)){
-        CONTENT.characters.splice(ci,1);
-        renderCharAccordion();
-      }
+  wrap.querySelectorAll('.char-tab').forEach(tab=>{
+    tab.addEventListener('click',()=>{
+      const ci=+tab.dataset.ci;
+      if(ci===activeCharIdx)return;
+      syncEditorToContent(activeCharIdx);
+      activeCharIdx=ci;
+      renderCharSection();
     });
   });
 }
 
+// 탭을 전환하거나 저장하기 직전에, 지금 화면에 떠 있는 편집 필드 값을 CONTENT로 반영한다.
+// (탭 방식이라 한 번에 한 인물의 입력 필드만 DOM에 존재하므로, 이 동기화가 없으면
+// 탭을 옮기거나 저장하는 순간 방금 고친 값이 사라진다.)
+function syncEditorToContent(ci){
+  const editor=document.getElementById('char-editor');
+  const c=CONTENT.characters[ci];
+  if(!c||editor.dataset.ci===''||+editor.dataset.ci!==ci)return;
+  c.name=editor.querySelector('.c-name')?.value.trim()??c.name;
+  c.role=editor.querySelector('.c-role')?.value.trim()??c.role;
+  c.imageUrl=editor.querySelector('.c-imageurl')?.value.trim()??c.imageUrl;
+  editor.querySelectorAll('.q-textarea').forEach((ta,qi)=>{c.questions[qi]=ta.value.trim();});
+}
+
+function renderCharEditor(){
+  const editor=document.getElementById('char-editor');
+  const c=CONTENT.characters[activeCharIdx];
+  if(!c){
+    editor.innerHTML='<div class="char-editor-empty">인물이 없습니다. "+ 인물 추가"로 새 인물을 만들어보세요.</div>';
+    editor.dataset.ci='';
+    return;
+  }
+  editor.dataset.ci=String(activeCharIdx);
+  editor.innerHTML=`
+    <div class="char-img-row">
+      <div class="char-img-preview" id="char-img-preview">${c.imageUrl?`<img src="${escHtml(c.imageUrl)}" alt="">`:`<span class="char-emoji-lg">${c.emoji||'🏛️'}</span>`}</div>
+      <div class="char-img-controls">
+        <input class="meta-input c-imageurl" value="${escHtml(c.imageUrl||'')}" placeholder="이미지 URL (또는 오른쪽에서 업로드)">
+        <label class="btn btn-ghost btn-sm char-upload-label">🖼 일러스트 업로드
+          <input type="file" accept="image/*" id="char-upload-input" hidden>
+        </label>
+        <span class="char-upload-status" id="char-upload-status"></span>
+      </div>
+    </div>
+    <div class="char-meta-row">
+      <input class="meta-input c-name" value="${escHtml(c.name)}" placeholder="이름">
+      <input class="meta-input c-role" value="${escHtml(c.role)}" placeholder="역할">
+    </div>
+    <div class="q-list">
+      ${c.questions.map((q,qi)=>`
+        <div class="q-item" data-qi="${qi}">
+          <span class="q-num">${qi+1}</span>
+          <textarea class="q-textarea" rows="2">${escHtml(q)}</textarea>
+          <button class="q-del-btn" title="삭제">✕</button>
+        </div>
+      `).join('')}
+    </div>
+    <div class="char-actions">
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" id="add-q-btn">+ 질문 추가</button>
+        <button class="btn btn-danger btn-sm" id="del-char-btn">인물 삭제</button>
+      </div>
+    </div>`;
+
+  editor.querySelector('.c-imageurl').addEventListener('input',e=>{
+    c.imageUrl=e.target.value.trim();
+    document.getElementById('char-img-preview').innerHTML=c.imageUrl?`<img src="${escHtml(c.imageUrl)}" alt="">`:`<span class="char-emoji-lg">${c.emoji||'🏛️'}</span>`;
+  });
+
+  editor.querySelector('#char-upload-input').addEventListener('change',async e=>{
+    const file=e.target.files[0];
+    if(!file)return;
+    const statusEl=document.getElementById('char-upload-status');
+    statusEl.textContent='업로드 중...';
+    try{
+      const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+      const fileRef=sRef(storage,`interview/characters/${c.id||'char'}_${Date.now()}.${ext}`);
+      await uploadBytes(fileRef,file);
+      const url=await getDownloadURL(fileRef);
+      c.imageUrl=url;
+      statusEl.textContent='업로드 완료 (저장 버튼을 눌러야 반영됩니다)';
+      renderCharTabs();
+      renderCharEditor();
+    }catch(err){
+      statusEl.textContent='업로드 실패: '+err.message;
+    }
+  });
+
+  editor.querySelectorAll('.q-del-btn').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      syncEditorToContent(activeCharIdx);
+      const qi=+btn.closest('.q-item').dataset.qi;
+      c.questions.splice(qi,1);
+      renderCharEditor();
+    });
+  });
+
+  editor.querySelector('#add-q-btn').addEventListener('click',()=>{
+    syncEditorToContent(activeCharIdx);
+    c.questions.push('');
+    renderCharEditor();
+  });
+
+  editor.querySelector('#del-char-btn').addEventListener('click',()=>{
+    if(!confirm(`'${c.name}' 인물을 삭제하시겠습니까?`))return;
+    CONTENT.characters.splice(activeCharIdx,1);
+    if(activeCharIdx>=CONTENT.characters.length)activeCharIdx=Math.max(0,CONTENT.characters.length-1);
+    renderCharSection();
+  });
+}
+
 document.getElementById('add-char-btn').addEventListener('click',()=>{
+  syncEditorToContent(activeCharIdx);
   CONTENT.characters.push({id:'char_'+Date.now(),name:'새 인물',role:'역할',emoji:'🏛️',imageUrl:'',questions:['']});
-  renderCharAccordion();
-  const rows=document.querySelectorAll('.char-row');
-  const last=rows[rows.length-1];
-  if(last){last.classList.add('open');last.querySelector('.char-row-toggle').textContent='▾';}
+  activeCharIdx=CONTENT.characters.length-1;
+  renderCharSection();
 });
 
 function collectContentFromDOM(){
-  document.querySelectorAll('.char-row').forEach((row,ci)=>{
-    if(!CONTENT.characters[ci])return;
-    CONTENT.characters[ci].name=row.querySelector('.c-name').value.trim();
-    CONTENT.characters[ci].role=row.querySelector('.c-role').value.trim();
-    CONTENT.characters[ci].imageUrl=row.querySelector('.c-imageurl').value.trim();
-    row.querySelectorAll('.q-textarea').forEach((ta,qi)=>{
-      CONTENT.characters[ci].questions[qi]=ta.value.trim();
-    });
-  });
+  syncEditorToContent(activeCharIdx);
 }
 
 document.getElementById('save-content-btn').addEventListener('click',async()=>{
