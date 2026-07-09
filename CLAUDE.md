@@ -25,6 +25,20 @@ Current sub-apps: `blind_ryeo/`, `goryeo_choice/`, `hismile/`, `s_threads/`, `si
 
 The `mission/` folder contains standalone single-file HTML pages (no sub-folder structure).
 
+### LMS 통합 서브앱 (`lms/admin.html`의 미션 체크에서 연결되는 웹앱)
+`lms/admin.html`은 자체 미션 카드(Firestore `cards` 컬렉션, `settings/lms_config`의 `mission_category` 값이 카테고리)를 관리한다. 카드에 `adminUrl`을 지정하면 (a) 미션 카드 목록에 "어드민" 버튼이 생기고 (b) 사이드바 "미션 체크" 하위에 자동으로 서브메뉴 항목이 생겨 바로 그 웹앱 어드민을 iframe으로 연다(예: `interview/`).
+
+새 미션 웹앱의 `admin.html`을 만들 때 다음 패턴을 그대로 따른다(기준 예시: `interview/admin.html`):
+- `<title>` 은 lms 자체 표기(콜론)를 따른다 — `index.html`은 "웹앱 이름", `admin.html`은 "웹앱 이름 : 관리자 모드". (아래 디자인 원칙의 일반 하이픈 형식과 다른, lms 계열 전용 컨벤션.)
+- 상단 헤더는 로고/탭/로그아웃을 3열 그리드(`grid-template-columns:1fr auto 1fr`)로 배치하고 각 항목에 `grid-column`을 명시적으로 지정한다. `display:none`인 그리드 아이템은 auto-placement에서 완전히 빠지므로, 명시하지 않으면 로고·로그아웃을 숨겼을 때(임베드 시) 남은 탭이 1번 칸으로 밀려 들어가 중앙정렬이 깨진다.
+- `const isEmbedded = window.self !== window.top;`로 lms 안에 iframe으로 열렸는지 판별한다. 임베드된 경우:
+  - 로그인 게이트를 건너뛰고 바로 어드민 화면을 보여준다(이미 lms에 로그인돼 있으므로).
+  - 자체 로고·로그아웃 버튼은 숨긴다(`body.embedded` 클래스로 제어).
+  - `document.documentElement.classList.add('has-own-back')`를 반드시 추가한다 — lms가 이 마커를 보고 자기 쪽 상단의 중복된 "목록으로" 바를 자동으로 숨긴다(같은 origin이라 `frame.contentDocument`로 확인 가능).
+  - 헤더 안에 자체 "목록으로" 버튼을 두고(탭과 같은 줄) 클릭 시 `window.parent.closeAppAdmin()`을 호출한다.
+- 색상 팔레트는 lms/admin.html의 `:root` 토큰(`--primary:#1E3A8A`, `--accent:#2DD4BF`, `--canvas:#FAFAF9` 등)을 그대로 재사용해 lms와 통일된 톤을 유지한다.
+- lms에 등록할 때 "어드민 URL"은 hoistory 루트 기준 상대경로로 입력한다(예: `interview/admin.html`, `../`로 시작하면 안 됨 — `lms/admin.html`의 `resolveAppUrl()`이 루트 기준으로 풀어준다).
+
 ### Shared utilities (`shared/`)
 All modules are ES modules imported with a CDN-versioned Firebase path:
 
