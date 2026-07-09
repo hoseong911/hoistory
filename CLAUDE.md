@@ -61,6 +61,7 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 ## Git 규칙
 - 코드 수정 후 확인 없이 바로 `git add → git commit → git push`를 자동으로 실행한다.
 - push 전에 사용자 허락을 구하지 않는다.
+- git 관련 작업(커밋, 푸시, 로컬 git 사용자 설정 등)은 매번 허락을 구하지 않고 바로 진행한다. 파괴적인 작업(reset --hard, force push, 브랜치 삭제 등)만 예외로 사전에 확인한다.
 
 ## 응답 규칙
 - 모든 대화·주석·사용자 메시지는 한국어로 작성한다.
