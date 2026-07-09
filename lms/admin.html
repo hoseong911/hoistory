@@ -75,8 +75,11 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .nav-sub-item{padding:9px 20px 9px 44px;font-size:13px;font-weight:600;color:var(--slate);cursor:pointer;transition:all .15s}
 .nav-sub-item:hover{color:var(--text);background:var(--hairline-soft)}
 .nav-sub-item.active{color:var(--c1);font-weight:700;background:var(--c1-l)}
+#subnav-mission .nav-sub-item.active{color:var(--c2);background:var(--c2-l)}
 #subnav-think .nav-sub-item.active{color:var(--c3);background:var(--c3-l)}
 #subnav-grade .nav-sub-item.active{color:var(--c4);background:var(--c4-l)}
+#subnav-mission .nav-sub-item.empty{color:var(--stone);cursor:default}
+#subnav-mission .nav-sub-item.empty:hover{background:none;color:var(--stone)}
 .nav-divider{height:1px;background:var(--hairline-soft);margin:8px 0}
 
 /* ── 패널 ── */
@@ -535,9 +538,11 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
         <div class="nav-sub-item active" data-subnav="concept-content">Content</div>
         <div class="nav-sub-item" data-subnav="concept-design">Design</div>
       </div>
-      <div class="nav-item nav-c2" data-nav="mission">
+      <div class="nav-item nav-c2 has-sub" data-nav="mission">
         <span class="nav-dot" style="background:var(--c2)"></span>미션 체크
+        <span class="nav-arrow">›</span>
       </div>
+      <div class="nav-sub" id="subnav-mission"></div>
       <div class="nav-item nav-c3 has-sub" data-nav="think">
         <span class="nav-dot" style="background:var(--c3)"></span>생각 체크
         <span class="nav-arrow">›</span>
@@ -1242,6 +1247,14 @@ function initSidebar() {
       switchNav(item.dataset.subnav);
     });
   });
+  // 미션 체크 하위 서브메뉴는 카드 목록에 맞춰 매번 새로 그려지므로(renderMissionSidebarSubnav),
+  // 개별 항목에 리스너를 다는 대신 컨테이너에 위임한다.
+  document.getElementById('subnav-mission').addEventListener('click', e => {
+    const item = e.target.closest('[data-appadmin]');
+    if (!item) return;
+    e.stopPropagation();
+    openMissionAppAdmin(item, item.dataset.appadmin);
+  });
 }
 
 // 메뉴별 서브메뉴 목록 (첫 항목이 기본 진입 페이지)
@@ -1252,6 +1265,10 @@ const SUBNAV_MAP = {
 };
 
 function switchNav(nav) {
+  // 웹앱 어드민 iframe이 열려있는 상태에서 다른 메뉴로 이동하면 오버레이부터 닫는다.
+  const overlay = document.getElementById('app-admin-overlay');
+  if (overlay && overlay.classList.contains('open')) window.closeAppAdmin();
+
   let mainNav = nav;
   for (const [parent, subs] of Object.entries(SUBNAV_MAP)) {
     if (subs.includes(nav)) { mainNav = parent; break; }
@@ -1281,6 +1298,12 @@ function switchNav(nav) {
     const activeSubItem = document.querySelector(`.nav-sub-item[data-subnav="${subNav}"]`);
     if (activeSubItem) activeSubItem.classList.add('active');
   }
+  // 미션 체크는 서브메뉴가 카드 목록(어드민 연결된 웹앱)에서 동적으로 채워지므로 SUBNAV_MAP을 쓰지 않는다.
+  // 대신 미션 체크로 들어올 때마다 서브메뉴 트레이만 펼쳐 보여준다(기본 화면은 항상 카드 목록 패널).
+  if (mainNav === 'mission') {
+    const missionSub = document.getElementById('subnav-mission');
+    if (missionSub) missionSub.classList.add('open');
+  }
 
   // 패널 전환
   document.querySelectorAll('.adm-panel').forEach(p => p.classList.remove('active'));
@@ -1294,6 +1317,15 @@ function switchNav(nav) {
     window.thRenderAnswerLecture(); window.thRenderAnswerClass(); window.thRenderPick();
   }
 }
+
+// 사이드바의 미션 체크 서브메뉴에서 특정 웹앱 어드민을 바로 열 때: 카드 목록 패널로
+// 이동한 뒤(switchNav) 그 자리에서 곧바로 오버레이를 띄우고, 클릭한 서브메뉴 항목만 active로 표시한다.
+window.openMissionAppAdmin = function(el, adminUrl) {
+  switchNav('mission');
+  document.querySelectorAll('#subnav-mission .nav-sub-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  openAppAdmin(adminUrl);
+};
 
 // ── Firestore: lms_items (개념·미션·생각 섹션용) ──
 let _items = [];
@@ -2460,6 +2492,21 @@ async function initMissionTab() {
   renderMissionPreview(cat);
 }
 
+// 미션 카드 중 어드민 URL이 연결된 것만 사이드바의 "미션 체크" 서브메뉴로 뽑아 보여준다.
+function renderMissionSidebarSubnav(items) {
+  const sub = document.getElementById('subnav-mission');
+  if (!sub) return;
+  const linked = items.filter(i => i.adminUrl);
+  const prevActive = sub.querySelector('.nav-sub-item.active')?.dataset.appadmin;
+  if (!linked.length) {
+    sub.innerHTML = '<div class="nav-sub-item empty">연결된 어드민 없음</div>';
+    return;
+  }
+  sub.innerHTML = linked.map(item =>
+    `<div class="nav-sub-item${item.adminUrl===prevActive?' active':''}" data-appadmin="${esc(item.adminUrl)}">${esc(item.title||'(제목 없음)')}</div>`
+  ).join('');
+}
+
 async function renderMissionPreview(cat) {
   const container = document.getElementById('missionPreviewList');
   if (!cat) { container.innerHTML = ''; return; }
@@ -2468,6 +2515,7 @@ async function renderMissionPreview(cat) {
     const items = snap.docs.map(d => ({ docId: d.id, ...d.data() })).sort((a,b) => (a.order??999)-(b.order??999));
     window._missionItems = items;
     window._missionCat   = cat;
+    renderMissionSidebarSubnav(items);
     if (!items.length) { container.innerHTML = '<div class="empty-panel">이 카테고리에 카드가 없습니다.</div>'; return; }
     container.innerHTML = `<p style="font-size:13px;color:var(--sub);margin-bottom:10px">카드 ${items.length}개</p>`;
     items.forEach((item, idx) => {
