@@ -38,13 +38,19 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--surface)
 
 /* ── 어드민 레이아웃 ── */
 #gate-admin{display:none;flex-direction:column;min-height:100vh}
-/* 3열 그리드: 로고/탭/로그아웃 중 가운데 열(탭)이 로고·로그아웃 숨김 여부와 무관하게 항상 정중앙에 오도록 */
+/* 3열 그리드: 로고/탭/로그아웃 각각을 명시적으로 지정한 칸에 고정한다.
+   (주의) display:none인 그리드 아이템은 auto-placement에서 아예 빠져버려서, 로고·로그아웃을 숨기면
+   유일하게 남은 탭이 1번 칸으로 밀려 들어가 "중앙정렬이 안 되는" 버그가 생긴다. grid-column을 직접 못박아 방지. */
 .adm-header{background:var(--canvas);border-bottom:1px solid var(--hairline-soft);padding:0 28px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:54px;position:sticky;top:0;z-index:30}
-.adm-logo{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:16px;color:var(--primary);justify-self:start}
-.adm-tabs{display:flex;gap:2px;background:var(--surface);border:1px solid var(--hairline-soft);border-radius:10px;padding:3px;justify-self:center}
+.adm-logo{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:16px;color:var(--primary);justify-self:start;grid-column:1}
+.adm-tabs{display:flex;gap:2px;background:var(--surface);border:1px solid var(--hairline-soft);border-radius:10px;padding:3px;justify-self:center;grid-column:2}
 .adm-tab{padding:6px 20px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:700;color:var(--sub);background:none;border:none;cursor:pointer;transition:.15s}
 .adm-tab.active{background:var(--primary);color:#fff}
-.adm-logout{background:none;border:1.5px solid var(--hairline);border-radius:8px;padding:6px 14px;font-family:inherit;font-size:12px;font-weight:700;color:var(--sub);cursor:pointer;justify-self:end}
+.adm-logout{background:none;border:1.5px solid var(--hairline);border-radius:8px;padding:6px 14px;font-family:inherit;font-size:12px;font-weight:700;color:var(--sub);cursor:pointer;justify-self:end;grid-column:3}
+/* lms/admin iframe에 embed된 경우 상위 어드민의 "목록으로"를 대신하는 버튼. 로그아웃 자리를 대신 차지한다 */
+.adm-back{display:none;background:none;border:1.5px solid var(--hairline);border-radius:8px;padding:6px 14px;font-family:inherit;font-size:12px;font-weight:700;color:var(--sub);cursor:pointer;justify-self:end;grid-column:3}
+.adm-back:hover{background:var(--surface)}
+body.embedded .adm-back{display:inline-flex;align-items:center}
 .adm-body{padding:24px 28px 60px;max-width:1100px;margin:0 auto;width:100%}
 /* 중앙정렬은 박스/칩/카드 같은 덩어리 단위에만 적용한다(각 컨테이너의 justify-content:center 참고).
    박스 안 텍스트·라벨은 일반 정렬(좌측)로 두고, 버튼(확인류)만 중앙정렬한다. */
@@ -185,6 +191,7 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
       <button class="adm-tab" data-tab="answer">Answer</button>
     </div>
     <button class="adm-logout" id="logout-btn">로그아웃</button>
+    <button class="adm-back" id="embed-back-btn">목록으로</button>
   </header>
 
   <div class="adm-body">
@@ -296,6 +303,12 @@ async function initAdmin(){
 
 if(isEmbedded){
   document.body.classList.add('embedded');
+  // lms/admin에 이 마커가 있으면 상위의 "목록으로" 바를 대신 숨기고, 이 페이지 자체 헤더의
+  // 목록으로 버튼(Contents/Answer 탭과 같은 줄)을 쓰도록 신호를 보낸다.
+  document.documentElement.classList.add('has-own-back');
+  document.getElementById('embed-back-btn').addEventListener('click',()=>{
+    try{ window.parent.closeAppAdmin && window.parent.closeAppAdmin(); }catch(e){}
+  });
   initAdmin();
 } else {
   onAuthStateChanged(auth,user=>{
