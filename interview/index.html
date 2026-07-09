@@ -57,15 +57,24 @@ input,textarea,select{font-size:16px;font-family:inherit}
 .cover-start-btn:active{transform:scale(.97)}
 .cover-no-login{background:rgba(255,255,255,.1);border-radius:12px;padding:14px 18px;font-size:13px;color:rgba(255,255,255,.8);line-height:1.6;position:relative}
 
-/* ─────────── 인물 선택 ─────────── */
+/* ─────────── 인물 선택 (스와이프 캐러셀) ─────────── */
 .select-greeting{text-align:center;font-size:14px;color:var(--sub)}
-.char-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.char-card{background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:22px;padding:20px 14px;display:flex;flex-direction:column;align-items:center;gap:9px;cursor:pointer;text-align:center;box-shadow:var(--shadow);transition:transform .15s,box-shadow .15s;font-family:inherit;touch-action:manipulation}
-.char-card:active{transform:scale(.97)}
-.char-avatar{width:68px;height:68px;border-radius:18px;background:var(--primary-soft);display:flex;align-items:center;justify-content:center;font-size:32px;overflow:hidden}
-.char-avatar img,.iv-avatar img,.comment-avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
-.char-name{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:17px}
-.char-role{font-size:12px;color:var(--sub);font-weight:600;line-height:1.4;word-break:keep-all}
+.char-carousel{display:flex;align-items:center;gap:6px}
+.char-nav{flex-shrink:0;width:40px;height:40px;border-radius:50%;border:1.5px solid var(--hairline);background:var(--canvas);color:var(--ink);font-size:19px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;transition:.15s}
+.char-nav:active{background:var(--surface)}
+.char-nav:disabled{opacity:.3;cursor:default}
+.char-slide-viewport{flex:1;min-width:0;overflow:hidden;touch-action:pan-y}
+.char-slide-track{display:flex;transition:transform .3s cubic-bezier(.22,.61,.36,1)}
+.char-slide{flex:0 0 100%;min-width:0;display:flex;flex-direction:column;align-items:center;gap:10px;padding:8px 6px;text-align:center}
+.char-illust{width:220px;height:220px;max-width:68vw;max-height:68vw;border-radius:28px;background:var(--primary-soft);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.char-illust img{width:100%;height:100%;object-fit:contain}
+.char-emoji-big{font-size:96px;line-height:1}
+.char-name{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:19px}
+.char-role{font-size:13px;color:var(--sub);font-weight:600;line-height:1.4;word-break:keep-all}
+.char-dots{display:flex;justify-content:center;gap:6px}
+.char-dot{width:7px;height:7px;border-radius:50%;background:var(--hairline);cursor:pointer;transition:.15s}
+.char-dot.active{background:var(--primary);width:18px;border-radius:4px}
+.iv-avatar img,.comment-avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
 
 /* ─────────── 인터뷰 ─────────── */
 .iv-head{display:flex;align-items:center;gap:12px;background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:20px;padding:14px 16px;box-shadow:var(--shadow)}
@@ -168,9 +177,10 @@ input,textarea,select{font-size:16px;font-family:inherit}
   .cover-inner{padding:52px 22px}
   .cover-title{font-size:23px}
   .cover-sub{font-size:12px}
-  .char-grid{gap:10px}
-  .char-avatar{width:60px;height:60px;font-size:28px}
-  .char-name{font-size:15px}
+  .char-nav{width:36px;height:36px;font-size:17px}
+  .char-illust{width:180px;height:180px}
+  .char-emoji-big{font-size:76px}
+  .char-name{font-size:16px}
   .iv-head{padding:12px 14px}
   .qa-block{padding:14px}
   .post-menu-btn{padding:14px}
@@ -179,7 +189,6 @@ input,textarea,select{font-size:16px;font-family:inherit}
   .ai-action-row{grid-template-columns:1fr 1fr}
 }
 @media(max-width:360px){
-  .char-grid{grid-template-columns:1fr}
   .cover-title{font-size:20px}
 }
 </style>
@@ -208,7 +217,15 @@ input,textarea,select{font-size:16px;font-family:inherit}
   <!-- 인물 선택 -->
   <div class="screen" id="screen-select">
     <p class="select-greeting" id="select-greeting"></p>
-    <div class="char-grid" id="char-grid"></div>
+    <div class="char-carousel">
+      <button class="char-nav" id="char-prev-btn" aria-label="이전 인물">‹</button>
+      <div class="char-slide-viewport" id="char-slide-viewport">
+        <div class="char-slide-track" id="char-slide-track"></div>
+      </div>
+      <button class="char-nav" id="char-next-btn" aria-label="다음 인물">›</button>
+    </div>
+    <div class="char-dots" id="char-dots"></div>
+    <button class="btn btn-primary btn-full" id="char-select-btn">이 인물로 인터뷰 시작</button>
   </div>
 
   <!-- 인터뷰 -->
@@ -404,16 +421,66 @@ document.getElementById('cover-start-btn').addEventListener('click',()=>{
   renderCharGrid();showScreen('screen-select');
 });
 
-/* ── 인물 선택 ── */
+/* ── 인물 선택 (스와이프 캐러셀) ── */
+let charIdx=0;
+
 function renderCharGrid(){
-  document.getElementById('char-grid').innerHTML=CHARS.map((c,i)=>`
-    <button class="char-card" data-i="${i}">
-      <div class="char-avatar">${avatarInner(c)}</div>
+  charIdx=0;
+  document.getElementById('char-slide-track').innerHTML=CHARS.map(c=>`
+    <div class="char-slide">
+      <div class="char-illust">${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:`<span class="char-emoji-big">${esc(c.emoji||'🏛️')}</span>`}</div>
       <div class="char-name">${esc(c.name)}</div>
       <div class="char-role">${esc(c.role)}</div>
-    </button>`).join('');
-  document.querySelectorAll('.char-card').forEach(btn=>btn.addEventListener('click',()=>openInterview(+btn.dataset.i)));
+    </div>`).join('');
+  document.getElementById('char-dots').innerHTML=CHARS.map((_,i)=>`<span class="char-dot" data-i="${i}"></span>`).join('');
+  updateCharCarousel();
 }
+
+function updateCharCarousel(){
+  document.getElementById('char-slide-track').style.transform=`translateX(-${charIdx*100}%)`;
+  document.querySelectorAll('.char-dot').forEach((d,i)=>d.classList.toggle('active',i===charIdx));
+  document.getElementById('char-prev-btn').disabled=charIdx===0;
+  document.getElementById('char-next-btn').disabled=charIdx===CHARS.length-1;
+}
+
+function goToChar(i){
+  if(i<0||i>=CHARS.length)return;
+  charIdx=i;
+  updateCharCarousel();
+}
+
+document.getElementById('char-prev-btn').addEventListener('click',()=>goToChar(charIdx-1));
+document.getElementById('char-next-btn').addEventListener('click',()=>goToChar(charIdx+1));
+document.getElementById('char-select-btn').addEventListener('click',()=>openInterview(charIdx));
+document.getElementById('char-dots').addEventListener('click',e=>{
+  const dot=e.target.closest('.char-dot');
+  if(dot)goToChar(+dot.dataset.i);
+});
+
+// PC: 인물 선택 화면이 열려 있을 때만 좌우 화살표 키로 이동
+document.addEventListener('keydown',e=>{
+  if(!document.getElementById('screen-select').classList.contains('active'))return;
+  if(e.key==='ArrowLeft')goToChar(charIdx-1);
+  else if(e.key==='ArrowRight')goToChar(charIdx+1);
+});
+
+// 모바일: 좌우로 스와이프해서 인물 넘기기
+(function(){
+  const viewport=document.getElementById('char-slide-viewport');
+  let startX=0,startY=0,dragging=false;
+  viewport.addEventListener('touchstart',e=>{
+    startX=e.touches[0].clientX;startY=e.touches[0].clientY;dragging=true;
+  },{passive:true});
+  viewport.addEventListener('touchend',e=>{
+    if(!dragging)return;
+    dragging=false;
+    const dx=e.changedTouches[0].clientX-startX;
+    const dy=e.changedTouches[0].clientY-startY;
+    if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy)){
+      if(dx<0)goToChar(charIdx+1);else goToChar(charIdx-1);
+    }
+  },{passive:true});
+})();
 
 /* ── 인터뷰 ── */
 function openInterview(idx){
