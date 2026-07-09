@@ -68,12 +68,16 @@ input,textarea,select{font-size:16px;font-family:inherit}
 .char-nav:disabled{opacity:.3;cursor:default}
 .char-slide-viewport{flex:1;min-width:0;overflow:hidden;touch-action:pan-y}
 .char-slide-track{display:flex;height:100%;transition:transform .3s cubic-bezier(.22,.61,.36,1)}
-.char-slide{flex:0 0 100%;min-width:0;height:100%;display:flex;flex-direction:column;align-items:center;gap:10px;padding:4px 2px;text-align:center}
-.char-illust{width:100%;flex:1;min-height:0;display:flex;align-items:center;justify-content:center}
+/* 슬라이드에는 일러스트만 둔다(이름/역할을 슬라이드 안에 같이 두면 인물마다 텍스트
+   줄바꿈 여부가 달라 일러스트 높이가 서로 달라지는 문제가 있었음).
+   이름/역할은 캐러셀 바깥의 고정 영역(.char-info)에서 JS로 텍스트만 갈아끼운다. */
+.char-slide{flex:0 0 100%;min-width:0;height:100%;display:flex;align-items:center;justify-content:center}
+.char-illust{width:100%;height:100%;display:flex;align-items:center;justify-content:center}
 .char-illust img{width:100%;height:100%;object-fit:contain}
 .char-emoji-big{font-size:96px;line-height:1}
-.char-name{flex-shrink:0;font-family:'Paperlogy',sans-serif;font-weight:700;font-size:19px}
-.char-role{flex-shrink:0;font-size:13px;color:var(--sub);font-weight:600;line-height:1.4;word-break:keep-all}
+.char-info{flex-shrink:0;text-align:center}
+.char-name{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:19px}
+.char-role{font-size:13px;color:var(--sub);font-weight:600;line-height:1.4;word-break:keep-all;margin-top:2px}
 .char-dots{flex-shrink:0;display:flex;justify-content:center;gap:6px}
 .char-dot{width:7px;height:7px;border-radius:50%;background:var(--hairline);cursor:pointer;transition:.15s}
 .char-dot.active{background:var(--primary);width:18px;border-radius:4px}
@@ -226,6 +230,10 @@ input,textarea,select{font-size:16px;font-family:inherit}
           <div class="char-slide-track" id="char-slide-track"></div>
         </div>
         <button class="char-nav" id="char-next-btn" aria-label="다음 인물">›</button>
+      </div>
+      <div class="char-info">
+        <div class="char-name" id="char-name-label"></div>
+        <div class="char-role" id="char-role-label"></div>
       </div>
       <div class="char-dots" id="char-dots"></div>
       <button class="btn btn-primary btn-full" id="char-select-btn">이 인물로 인터뷰 시작</button>
@@ -433,8 +441,6 @@ function renderCharGrid(){
   document.getElementById('char-slide-track').innerHTML=CHARS.map(c=>`
     <div class="char-slide">
       <div class="char-illust">${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:`<span class="char-emoji-big">${esc(c.emoji||'🏛️')}</span>`}</div>
-      <div class="char-name">${esc(c.name)}</div>
-      <div class="char-role">${esc(c.role)}</div>
     </div>`).join('');
   document.getElementById('char-dots').innerHTML=CHARS.map((_,i)=>`<span class="char-dot" data-i="${i}"></span>`).join('');
   updateCharCarousel();
@@ -445,6 +451,9 @@ function updateCharCarousel(){
   document.querySelectorAll('.char-dot').forEach((d,i)=>d.classList.toggle('active',i===charIdx));
   document.getElementById('char-prev-btn').disabled=charIdx===0;
   document.getElementById('char-next-btn').disabled=charIdx===CHARS.length-1;
+  const c=CHARS[charIdx];
+  document.getElementById('char-name-label').textContent=c.name;
+  document.getElementById('char-role-label').textContent=c.role;
 }
 
 function goToChar(i){
