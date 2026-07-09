@@ -91,11 +91,9 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .think-done-box{text-align:center;padding:24px 0;color:var(--accent-deep);font-size:16px;font-weight:700;line-height:2}
 .think-done-close{padding:9px 24px;border-radius:100px;border:1.5px solid var(--hairline);background:none;font-family:inherit;font-size:14px;cursor:pointer;transition:background .15s}
 .think-done-close:hover{background:var(--surface)}
-.think-already-box{text-align:center;padding:20px 0;display:flex;flex-direction:column;align-items:center;gap:12px}
-.think-already-msg{color:var(--accent-deep);font-size:16px;font-weight:700}
-.think-view-btn{padding:10px 22px;border-radius:100px;border:1.5px solid var(--primary);background:none;color:var(--primary);font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s}
+.think-view-btn{align-self:flex-start;padding:8px 18px;border-radius:100px;border:1.5px solid var(--primary);background:none;color:var(--primary);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;transition:background .15s}
 .think-view-btn:hover{background:var(--primary-soft)}
-.think-my-answer{width:100%;text-align:left;background:var(--surface);border-radius:12px;padding:16px 18px;font-size:15px;line-height:1.75;color:var(--ink-deep);white-space:pre-wrap}
+.think-my-answer{width:100%;background:var(--surface);border-radius:12px;padding:16px 18px;font-size:15px;line-height:1.75;color:var(--ink-deep);white-space:pre-wrap}
 
 /* ── 메인 허브 ── */
 #mainHub{display:none;flex-direction:column;min-height:100vh}
@@ -280,6 +278,8 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
     <div class="think-question-box" id="thinkModalQuestion"></div>
     <div class="think-ref-box" id="thinkModalRef" style="display:none"></div>
     <div id="thinkWriteArea">
+      <button class="think-view-btn" id="thinkViewAnswerBtn" style="display:none">내가 쓴 답변 보기</button>
+      <div class="think-my-answer" id="thinkMyAnswerBox" style="display:none"></div>
       <textarea class="think-textarea" id="thinkTextarea" rows="7" placeholder="이 곳에 생각을 작성해 주세요. (최소 50자)"></textarea>
       <div class="think-meta">
         <span class="think-char-count short" id="thinkCharCount">0자</span>
@@ -289,12 +289,6 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
     <div class="think-done-box" id="thinkDoneBox" style="display:none">
       ✓ 제출 완료! 잘 했어요.<br>
       <button class="think-done-close" id="thinkDoneClose">닫기</button>
-    </div>
-    <div class="think-already-box" id="thinkAlreadyBox" style="display:none">
-      <div class="think-already-msg">✓ 이미 제출했습니다.</div>
-      <button class="think-view-btn" id="thinkViewAnswerBtn">내가 쓴 답변 확인하기</button>
-      <div class="think-my-answer" id="thinkMyAnswerBox" style="display:none"></div>
-      <button class="think-done-close" id="thinkAlreadyClose">닫기</button>
     </div>
   </div>
 </div>
@@ -798,16 +792,17 @@ async function openThinkModal(item) {
 
   const ta = document.getElementById('thinkTextarea');
   ta.value = '';
-  document.getElementById('thinkWriteArea').style.display   = 'none';
+  document.getElementById('thinkWriteArea').style.display   = 'flex';
   document.getElementById('thinkDoneBox').style.display     = 'none';
-  document.getElementById('thinkAlreadyBox').style.display  = 'none';
+  document.getElementById('thinkViewAnswerBtn').style.display = 'none';
   document.getElementById('thinkMyAnswerBox').style.display = 'none';
   document.getElementById('thinkSubmitBtn').disabled      = true;
   document.getElementById('thinkSubmitBtn').textContent   = '제출하기';
   updateThinkMeta();
   document.getElementById('thinkModal').style.display = 'flex';
+  setTimeout(() => ta.focus(), 100);
 
-  // 이미 제출한 답변이 있는지 확인
+  // 이미 제출한 답변이 있으면 "내가 쓴 답변 보기" 버튼을 텍스트에어리어 위에 노출
   try {
     const snap = await getDocs(query(collection(db, 'think_submissions'),
       where('lectureDocId', '==', item.lectureDocId), where('id', '==', currentStudentId)));
@@ -815,14 +810,9 @@ async function openThinkModal(item) {
       const subs = snap.docs.map(d => d.data())
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       _thinkMyAnswer = subs[0].text || '';
-      document.getElementById('thinkAlreadyBox').style.display = 'flex';
-      return;
+      document.getElementById('thinkViewAnswerBtn').style.display = 'inline-block';
     }
   } catch(_) {}
-
-  if (_thinkItem !== item) return; // 그 사이 모달이 닫혔거나 다른 항목이 열림
-  document.getElementById('thinkWriteArea').style.display = 'flex';
-  setTimeout(() => ta.focus(), 100);
 }
 
 function closeThinkModal() {
@@ -832,7 +822,6 @@ function closeThinkModal() {
 
 document.getElementById('thinkModalClose').addEventListener('click', closeThinkModal);
 document.getElementById('thinkDoneClose').addEventListener('click', closeThinkModal);
-document.getElementById('thinkAlreadyClose').addEventListener('click', closeThinkModal);
 document.getElementById('thinkViewAnswerBtn').addEventListener('click', () => {
   const box = document.getElementById('thinkMyAnswerBox');
   box.textContent = _thinkMyAnswer;
