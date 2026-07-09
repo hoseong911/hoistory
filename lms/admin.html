@@ -2535,7 +2535,7 @@ window.missionToggleLocked = async function(docId, currentLocked) {
 
 window.openAppAdmin = function(adminUrl, title) {
   document.getElementById('app-admin-title').textContent = title + ' 어드민';
-  document.getElementById('app-admin-frame').src = adminUrl;
+  document.getElementById('app-admin-frame').src = resolveAppUrl(adminUrl);
   document.getElementById('app-admin-overlay').classList.add('open');
 };
 
@@ -2687,6 +2687,15 @@ document.getElementById('modalBackdrop').addEventListener('click', function(e) {
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// 미션 카드 URL은 hoistory 루트 기준 상대경로(예: interview/admin.html)로 입력받는다.
+// 이 페이지 자체가 lms/ 하위에 있어 그대로 쓰면 lms/interview/... 로 잘못 풀리므로 루트 기준으로 보정한다.
+function resolveAppUrl(u) {
+  if (!u) return u;
+  if (/^(https?:)?\/\//i.test(u) || u.startsWith('/') || u.startsWith('#')) return u;
+  const root = location.pathname.replace(/\/lms\/.*$/, '/');
+  return root + u;
 }
 
 // ── 성적 체크 ──

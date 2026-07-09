@@ -750,7 +750,7 @@ function makeIconItem(item) {
   if (item.isThink) {
     if (!item.locked) el.addEventListener('click', () => openThinkModal(item));
   } else {
-    if (!item.locked && item.url) { el.href = item.url; el.target = '_blank'; el.rel = 'noopener'; }
+    if (!item.locked && item.url) { el.href = resolveAppUrl(item.url); el.target = '_blank'; el.rel = 'noopener'; }
   }
   const iconStr   = String(item.emoji || item.icon || '?').trim();
   const sizeClass = iconStr.length <= 2 ? 'size-md' : iconStr.length <= 3 ? 'size-sm' : iconStr.length <= 5 ? 'size-lg' : 'size-xl';
@@ -826,6 +826,15 @@ document.getElementById('thinkSubmitBtn').addEventListener('click', async () => 
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// 미션 카드 URL은 hoistory 루트 기준 상대경로(예: interview/index.html)로 입력받는다.
+// 이 페이지 자체가 lms/ 하위에 있어 그대로 쓰면 lms/interview/... 로 잘못 풀리므로 루트 기준으로 보정한다.
+function resolveAppUrl(u) {
+  if (!u) return u;
+  if (/^(https?:)?\/\//i.test(u) || u.startsWith('/') || u.startsWith('#')) return u;
+  const root = location.pathname.replace(/\/lms\/.*$/, '/');
+  return root + u;
 }
 
 // ── 성적 상세 모달 ──
