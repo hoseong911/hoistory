@@ -391,7 +391,7 @@ const enterBtn   = document.getElementById('enterBtn');
 
 let _idValid = false, _nameValid = false;
 let _pendingId = '', _pendingName = '';
-let _hasPw = false, _storedPw = null, _pwChecked = false, _pwValid = false;
+let _hasPw = false, _storedPw = null, _pwChecked = false, _pwValid = false, _pwAttemptFailed = false;
 let currentStudentId   = sessionStorage.getItem('lms_sid')   || '';
 let currentStudentName = sessionStorage.getItem('lms_sname') || '';
 
@@ -435,7 +435,7 @@ mountLoginVerification({
       if (!_pwChecked || pwInput.dataset.forId !== _pendingId) fetchStoredPassword(_pendingId);
     } else {
       pwInput.disabled = true; pwInput.value = '';
-      _hasPw = false; _storedPw = null; _pwChecked = false; _pwValid = false;
+      _hasPw = false; _storedPw = null; _pwChecked = false; _pwValid = false; _pwAttemptFailed = false;
       pwInput.placeholder = '비밀번호'; pwInput.dataset.forId = '';
     }
     nameInput.classList.toggle('valid', _nameValid);
@@ -455,13 +455,13 @@ async function fetchStoredPassword(sid) {
   _pwChecked = true; validatePassword(); updateStatus();
 }
 
-pwInput.addEventListener('input', validatePassword);
+pwInput.addEventListener('input', () => { _pwAttemptFailed = false; validatePassword(); });
 function validatePassword() {
   if (!_pwChecked) { _pwValid = false; updateStatus(); return; }
   const val = pwInput.value;
   _pwValid = _hasPw ? val === _storedPw : (val === '' || val.length >= 4);
   pwInput.classList.toggle('valid', _pwValid && val !== '');
-  pwInput.classList.toggle('error', !_pwValid && val !== '');
+  pwInput.classList.toggle('error', _pwAttemptFailed);
   updateStatus();
 }
 
@@ -474,8 +474,8 @@ function updateStatus() {
     if (nameInput.value.trim() !== '') line = { type:'err', icon:'✕', text:'이름을 다시 확인해 주세요' };
   } else if (_pwChecked) {
     if (_hasPw) {
-      if (pwInput.value === '')   line = { type:'info', icon:'🔒', text:'비밀번호가 설정되어 있습니다. 입력해 주세요.' };
-      else if (!_pwValid)         line = { type:'err',  icon:'✕',  text:'비밀번호가 틀렸습니다' };
+      if (_pwAttemptFailed)        line = { type:'err',  icon:'✕',  text:'비밀번호가 틀렸습니다. 다시 입력해 주세요.' };
+      else if (pwInput.value === '') line = { type:'info', icon:'🔒', text:'비밀번호가 설정되어 있습니다. 입력해 주세요.' };
     } else {
       if (pwInput.value.length > 0 && pwInput.value.length < 4) line = { type:'muted', icon:'·', text:'비밀번호는 4자 이상으로 설정해 주세요' };
       else if (pwInput.value.length >= 4) line = { type:'ok', icon:'✓', text:'새 비밀번호가 설정됩니다' };
@@ -483,7 +483,8 @@ function updateStatus() {
   }
   statusArea.innerHTML = line
     ? `<div class="status-line ${line.type}"><span class="status-icon">${line.icon}</span>${esc(line.text)}</div>` : '';
-  const canEnter = _idValid && _nameValid && _pwChecked && (_hasPw ? _pwValid : (pwInput.value === '' || pwInput.value.length >= 4));
+  // 비밀번호는 입력 중엔 막지 않고, 입장 시도 시점에 검증한다 (한 글자만 쳐도 "틀렸다"고 뜨는 문제 방지)
+  const canEnter = _idValid && _nameValid && _pwChecked && (_hasPw ? pwInput.value.length > 0 : (pwInput.value === '' || pwInput.value.length >= 4));
   enterBtn.disabled = !canEnter;
 }
 
@@ -493,6 +494,13 @@ function updateStatus() {
 
 enterBtn.addEventListener('click', async () => {
   if (!_pendingId || !_pendingName) return;
+  if (_hasPw && pwInput.value !== _storedPw) {
+    _pwAttemptFailed = true;
+    pwInput.classList.add('error');
+    updateStatus();
+    pwInput.focus();
+    return;
+  }
   if (!_hasPw && pwInput.value.length >= 4) {
     try { await setDoc(doc(db, 'lms_auth', _pendingId), { pw: pwInput.value }); } catch(_) {}
   }
