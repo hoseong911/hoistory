@@ -9,7 +9,15 @@
     <link rel="stylesheet" as="style" crossorigin
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
 
-    <!-- 공통 디자인 시스템 (theme.css 기본값: 다크 + 그린) -->
+    <!-- lms 연동 preset용 폰트 (lms/index.html과 동일) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        @font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2');font-weight:600;font-style:normal;font-display:swap}
+        @font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2');font-weight:900;font-style:normal;font-display:swap}
+    </style>
+
+    <!-- 공통 디자인 시스템 (lms 연동 preset: hi-preset-lms) -->
     <link rel="stylesheet" href="../shared/theme.css">
 
     <style>
@@ -17,10 +25,14 @@
            앱 전용 스타일 — 전부 --hi-* 토큰만 사용
            ════════════════════════════════════════════════════════ */
 
+        /* ─── lms 연동 폰트 (제목류는 lms와 동일하게 Paperlogy) ─── */
+        .hi-header-title { font-family: 'Paperlogy', sans-serif; }
+
         /* ─── 로그인 화면 ─── */
         .login-wrap { max-width: 480px; margin: 40px auto 0; }
         .login-logo { text-align: center; margin-bottom: 32px; }
         .login-logo h1 {
+            font-family: 'Paperlogy', sans-serif;
             font-size: 32px; font-weight: 900; letter-spacing: -1px;
             color: var(--hi-text); margin: 0;
         }
@@ -365,7 +377,7 @@
     </style>
 </head>
 
-<body class="hi-theme-dark hi-accent-green">
+<body class="hi-preset-lms">
 <div class="hi-page">
 
     <!-- ════════════════════════════════════════════════════════
@@ -423,7 +435,7 @@
             <h1 class="hi-header-title">역사 열공 <span>마일리지</span></h1>
             <div class="hi-header-controls">
                 <span class="hi-chip" id="user-chip"></span>
-                <button class="hi-btn hi-btn-outline hi-btn-sm"
+                <button class="hi-btn hi-btn-outline hi-btn-sm" id="logout-btn"
                         onclick="window.doLogout()">로그아웃</button>
             </div>
         </header>
@@ -632,6 +644,9 @@
     let studentList = [];
     let rankSort = 'days';
 
+    // lms 안에 iframe으로 열렸는지 여부 (같은 origin이면 sessionStorage를 그대로 공유한다)
+    const isEmbeddedInLms = window.self !== window.top;
+
     // ── 공통 auth 모듈 초기화 ──
     initAuth(db);
 
@@ -810,6 +825,21 @@
             excludeSpaces: true,
             format: (n) => `${n}자 (최소 10자, 공백 제외)`
         });
+
+        // lms 안에 임베드된 경우 — lms 로그인 세션(학번·이름)을 그대로 받아
+        // 자체 로그인 화면을 건너뛰고 바로 CHECK(사진 인증) 탭으로 진입한다.
+        if (isEmbeddedInLms) {
+            const sid = sessionStorage.getItem('lms_sid');
+            const sname = sessionStorage.getItem('lms_sname');
+            if (sid && sname) {
+                currentUser = { num: sid, name: sname, cls: parseClass(sid), grade: parseGrade(sid) };
+                localStorage.setItem('hi_history_user', JSON.stringify(currentUser));
+                document.getElementById('logout-btn').style.display = 'none';
+                showMain();
+                switchTab('check');
+                return;
+            }
+        }
 
         try {
             const saved = localStorage.getItem('hi_history_user');
