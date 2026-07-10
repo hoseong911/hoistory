@@ -189,14 +189,14 @@
         .guide-title { font-size: 14px; font-weight: 800; color: var(--hi-text); margin-bottom: 3px; }
         .guide-desc { font-size: 12px; color: var(--hi-text-muted); line-height: 1.6; }
 
-        /* ─── 사진 업로드 (CHECK 탭) ─── */
+        /* ─── 사진 업로드 (인증 폼) ─── */
         .upload-area {
             background: var(--hi-bg-mid);
             border: 2px dashed var(--hi-border);
-            border-radius: var(--hi-r-card);
-            min-height: 220px;
-            display: flex; align-items: center; justify-content: center;
-            margin-bottom: 14px; cursor: pointer;
+            border-radius: var(--hi-r-input);
+            min-height: 64px;
+            display: flex; align-items: center; justify-content: flex-start;
+            margin-bottom: 10px; cursor: pointer;
             transition: border-color 0.15s, background 0.15s;
             overflow: hidden;
         }
@@ -205,23 +205,47 @@
             background: var(--hi-bg-card);
         }
         .upload-placeholder {
-            display: flex; flex-direction: column; align-items: center;
-            gap: 10px; padding: 32px 16px; text-align: center;
+            display: flex; flex-direction: row; align-items: center;
+            gap: 12px; padding: 10px 14px; text-align: left; width: 100%;
         }
-        .upload-placeholder .ic { font-size: 36px; }
+        .upload-placeholder .ic { font-size: 24px; flex-shrink: 0; }
         .upload-placeholder .t {
-            font-size: 14px; font-weight: 800; color: var(--hi-text);
+            font-size: 13px; font-weight: 800; color: var(--hi-text);
         }
         .upload-placeholder .d {
-            font-size: 12px; color: var(--hi-text-muted); line-height: 1.6;
+            font-size: 11px; color: var(--hi-text-muted); line-height: 1.5; margin-top: 2px;
         }
         #cert-preview {
-            display: none; width: 100%; max-height: 360px;
+            display: none; width: 100%; max-height: 200px;
             object-fit: contain; border-radius: var(--hi-r-input);
         }
 
-        .upload-actions { display: flex; gap: 8px; margin-bottom: 14px; }
+        .upload-actions { display: flex; gap: 8px; margin-bottom: 10px; }
         .upload-actions button { flex: 1; }
+
+        /* ─── 접이식 섹션 (최근 인증 내역 / 안내) ─── */
+        .hi-accordion {
+            background: var(--hi-bg-mid);
+            border-radius: var(--hi-r-input);
+            margin-top: 12px;
+            overflow: hidden;
+        }
+        .hi-accordion summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 14px 16px;
+            font-size: 12px; font-weight: 800; letter-spacing: 0.4px;
+            color: var(--hi-text-muted);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .hi-accordion summary::-webkit-details-marker { display: none; }
+        .hi-accordion summary::after {
+            content: '▾';
+            font-size: 11px;
+            transition: transform 0.15s;
+        }
+        .hi-accordion[open] summary::after { transform: rotate(180deg); }
+        .hi-accordion-body { padding: 0 16px 16px; }
 
         .info-tag {
             background: var(--hi-accent-soft);
@@ -440,146 +464,154 @@
             </div>
         </header>
 
-        <div class="hi-tabs">
-            <button class="hi-tab active" id="tab-btn-home" onclick="window.switchTab('home')">HOME</button>
-            <button class="hi-tab" id="tab-btn-check" onclick="window.switchTab('check')">CHECK</button>
-            <button class="hi-tab" id="tab-btn-rank" onclick="window.switchTab('rank')">RANK</button>
+        <!-- 본인 통계 hero -->
+        <div class="stats-hero">
+            <div class="stats-big-num">
+                <span class="num" id="home-day-count">0</span>
+                <span class="label">일째 열공</span>
+            </div>
+            <div class="stats-sub" id="home-day-sub">아직 시작 전 — 첫 체크를 해보세요!</div>
         </div>
 
-        <!-- ─── HOME 탭 ─── -->
-        <div id="tab-home">
-            <!-- 본인 통계 hero -->
-            <div class="stats-hero">
-                <div class="stats-big-num">
-                    <span class="num" id="home-day-count">0</span>
-                    <span class="label">일째 열공</span>
+        <!-- 칭찬카드 안내 -->
+        <div class="praise-notice">
+            🎖️ 마일리지 누적 일수에 따라 <strong>칭찬 카드</strong>가 지급됩니다!
+        </div>
+
+        <!-- ─── 인증 폼 ─── -->
+        <div class="info-tag">
+            <div style="font-size:17px;margin-bottom:5px;">하루 1회 · AI 자동 판정</div>
+            <b>타임스탬프 앱으로 찍은 역사 공부 사진</b> 필수 · 통과 시 1일 적립
+        </div>
+
+        <div class="hi-card">
+            <div class="upload-area" onclick="document.getElementById('cert-file').click()">
+                <div class="upload-placeholder" id="cert-placeholder">
+                    <div class="ic">🖼️</div>
+                    <div>
+                        <div class="t">사진을 탭하여 선택</div>
+                        <div class="d">타임스탬프 앱으로 찍은 사진</div>
+                    </div>
                 </div>
-                <div class="stats-sub" id="home-day-sub">아직 시작 전 — 첫 체크를 해보세요!</div>
+                <img id="cert-preview" alt="미리보기">
+            </div>
+            <input type="file" id="cert-file" accept="image/*" style="display:none"
+                   onchange="window.previewPhoto(this)">
+
+            <div class="upload-actions">
+                <button class="hi-btn hi-btn-outline" style="flex:1;"
+                        onclick="window.triggerGallery()">🖼️ 갤러리에서 사진 선택</button>
             </div>
 
-            <!-- 칭찬카드 안내 -->
-            <div class="praise-notice">
-                🎖️ 마일리지 누적 일수에 따라 <strong>칭찬 카드</strong>가 지급됩니다!
+            <div class="hi-form-group">
+                <label class="hi-label">오늘 공부한 내용</label>
+                <textarea class="hi-textarea" id="cert-content" rows="3"
+                          style="min-height:80px;"
+                          placeholder="✏️ 문장의 형태로 작성해주세요!
+예) 오늘은 조선 후기 정치 변동을 정리했어요. 노론과 소론이 어떻게 갈라졌는지 이해했어요."></textarea>
+                <div class="char-count" id="cert-content-count"></div>
             </div>
 
-            <!-- 최근 내 인증 내역 -->
-            <p class="sec-h">📋 최근 내 인증 내역</p>
-            <div id="home-history-list">
+            <div class="hi-form-group">
+                <label class="hi-label">공부하면서 느낀 점</label>
+                <textarea class="hi-textarea" id="cert-feeling" rows="3"
+                          style="min-height:80px;"
+                          placeholder="💭 공부하면서 든 생각, 어려웠던 점, 새로 알게 된 점을 자유롭게 적어주세요!
+예) 노론과 소론의 갈등이 결국 학문적 차이에서 시작된 게 흥미로웠어요."></textarea>
+                <div class="char-count" id="cert-feeling-count"></div>
+            </div>
+
+            <div style="display:flex; gap:8px;">
+                <button class="hi-btn hi-btn-primary" style="flex:1;"
+                        id="cert-submit-btn" onclick="window.submitCert()">제출하기</button>
+                <button class="hi-btn hi-btn-outline"
+                        onclick="window.openRankModal()">랭킹 보기</button>
+            </div>
+        </div>
+
+        <!-- AI 판정 결과 -->
+        <div id="cert-result" class="cert-result" style="display:none;">
+            <div class="cert-result-icon" id="cert-result-icon"></div>
+            <div class="cert-result-title" id="cert-result-title"></div>
+            <div class="cert-result-desc" id="cert-result-desc"></div>
+            <div class="cert-result-meta" id="cert-result-meta"></div>
+        </div>
+
+        <!-- 최근 내 인증 내역 (접힘) -->
+        <details class="hi-accordion">
+            <summary>📋 최근 내 인증 내역</summary>
+            <div class="hi-accordion-body" id="home-history-list">
                 <p class="hi-empty">아직 인증 기록이 없어요</p>
             </div>
+        </details>
 
-            <!-- 사용 안내 -->
-            <p class="sec-h">📖 어떻게 참여하나요?</p>
-            <div class="guide-step">
-                <div class="guide-num">1</div>
-                <div class="guide-body">
-                    <div class="guide-title">역사 공부 사진 찍기</div>
-                    <div class="guide-desc">교과서·필기·문제집과 함께 <b>오늘 날짜 타임스탬프</b>가 찍힌 사진을 준비하세요. (타임스탬프 카메라 앱 활용)</div>
+        <!-- 사용 안내 (접힘) -->
+        <details class="hi-accordion">
+            <summary>📖 처음이신가요? 참여 방법 보기</summary>
+            <div class="hi-accordion-body">
+                <div class="guide-step">
+                    <div class="guide-num">1</div>
+                    <div class="guide-body">
+                        <div class="guide-title">역사 공부 사진 찍기</div>
+                        <div class="guide-desc">교과서·필기·문제집과 함께 <b>오늘 날짜 타임스탬프</b>가 찍힌 사진을 준비하세요. (타임스탬프 카메라 앱 활용)</div>
+                    </div>
                 </div>
-            </div>
-            <div class="guide-step">
-                <div class="guide-num">2</div>
-                <div class="guide-body">
-                    <div class="guide-title">CHECK 탭에서 업로드</div>
-                    <div class="guide-desc">사진 + 오늘 공부한 내용을 적어 제출하세요.</div>
+                <div class="guide-step">
+                    <div class="guide-num">2</div>
+                    <div class="guide-body">
+                        <div class="guide-title">위 폼에 업로드</div>
+                        <div class="guide-desc">사진 + 오늘 공부한 내용을 적어 제출하세요.</div>
+                    </div>
                 </div>
-            </div>
-            <div class="guide-step">
-                <div class="guide-num">3</div>
-                <div class="guide-body">
-                    <div class="guide-title">AI 자동 판정, 통과 시 1일 적립</div>
-                    <div class="guide-desc">통과하면 <b>1일</b>이 카운트돼요. <b>하루 1회</b>까지만 인증 가능.</div>
+                <div class="guide-step">
+                    <div class="guide-num">3</div>
+                    <div class="guide-body">
+                        <div class="guide-title">AI 자동 판정, 통과 시 1일 적립</div>
+                        <div class="guide-desc">통과하면 <b>1일</b>이 카운트돼요. <b>하루 1회</b>까지만 인증 가능.</div>
+                    </div>
                 </div>
-            </div>
-            <div class="guide-step">
-                <div class="guide-num">4</div>
-                <div class="guide-body">
-                    <div class="guide-title">랭킹에서 친구들과 비교</div>
-                    <div class="guide-desc">누적 일수로 우리 반·전체 랭킹이 매겨져요. 꾸준한 사람이 이깁니다!</div>
+                <div class="guide-step">
+                    <div class="guide-num">4</div>
+                    <div class="guide-body">
+                        <div class="guide-title">랭킹에서 친구들과 비교</div>
+                        <div class="guide-desc">"랭킹 보기" 버튼으로 누적 일수 랭킹을 확인하세요. 꾸준한 사람이 이깁니다!</div>
+                    </div>
                 </div>
-            </div>
-            <div class="guide-step">
-                <div class="guide-num">⏰</div>
-                <div class="guide-body">
-                    <div class="guide-title">인증 가능 시간</div>
-                    <div class="guide-desc">
-                        평일: <b>오후 3시 ~ 자정</b><br>
-                        주말·공휴일: <b>오전 6시 ~ 자정</b><br>
-                        <span style="opacity:0.8;">(자정 이후는 수면 보장을 위해 차단됩니다)</span>
+                <div class="guide-step">
+                    <div class="guide-num">⏰</div>
+                    <div class="guide-body">
+                        <div class="guide-title">인증 가능 시간</div>
+                        <div class="guide-desc">
+                            평일: <b>오후 3시 ~ 자정</b><br>
+                            주말·공휴일: <b>오전 6시 ~ 자정</b><br>
+                            <span style="opacity:0.8;">(자정 이후는 수면 보장을 위해 차단됩니다)</span>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </details>
 
-        <!-- ─── CHECK 탭 ─── -->
-        <div id="tab-check" class="hi-hidden">
-            <div class="info-tag">
-                <div style="font-size:17px;margin-bottom:5px;">하루 1회 · AI 자동 판정</div>
-                <b>타임스탬프 앱으로 찍은 역사 공부 사진</b> 필수 · 통과 시 1일 적립
-            </div>
+    </div>
+</div>
 
-            <div class="hi-card">
-                <div class="upload-area" onclick="document.getElementById('cert-file').click()">
-                    <div class="upload-placeholder" id="cert-placeholder">
-                        <div class="ic">🖼️</div>
-                        <div class="t">사진을 탭하여 선택</div>
-                        <div class="d">타임스탬프 앱으로 찍어둔 사진을 갤러리에서 선택하세요</div>
-                    </div>
-                    <img id="cert-preview" alt="미리보기">
-                </div>
-                <input type="file" id="cert-file" accept="image/*" style="display:none"
-                       onchange="window.previewPhoto(this)">
-
-                <div class="upload-actions">
-                    <button class="hi-btn hi-btn-outline" style="flex:1;"
-                            onclick="window.triggerGallery()">🖼️ 갤러리에서 사진 선택</button>
-                </div>
-
-                <div class="hi-form-group">
-                    <label class="hi-label">오늘 공부한 내용</label>
-                    <textarea class="hi-textarea" id="cert-content" rows="3"
-                              style="min-height:80px;"
-                              placeholder="✏️ 문장의 형태로 작성해주세요!
-예) 오늘은 조선 후기 정치 변동을 정리했어요. 노론과 소론이 어떻게 갈라졌는지 이해했어요."></textarea>
-                    <div class="char-count" id="cert-content-count"></div>
-                </div>
-
-                <div class="hi-form-group">
-                    <label class="hi-label">공부하면서 느낀 점</label>
-                    <textarea class="hi-textarea" id="cert-feeling" rows="3"
-                              style="min-height:80px;"
-                              placeholder="💭 공부하면서 든 생각, 어려웠던 점, 새로 알게 된 점을 자유롭게 적어주세요!
-예) 노론과 소론의 갈등이 결국 학문적 차이에서 시작된 게 흥미로웠어요."></textarea>
-                    <div class="char-count" id="cert-feeling-count"></div>
-                </div>
-
-                <button class="hi-btn hi-btn-primary hi-btn-block"
-                        id="cert-submit-btn" onclick="window.submitCert()">제출하기</button>
-            </div>
-
-            <!-- AI 판정 결과 -->
-            <div id="cert-result" class="cert-result" style="display:none;">
-                <div class="cert-result-icon" id="cert-result-icon"></div>
-                <div class="cert-result-title" id="cert-result-title"></div>
-                <div class="cert-result-desc" id="cert-result-desc"></div>
-                <div class="cert-result-meta" id="cert-result-meta"></div>
+<!-- ─── 랭킹 모달 ─── -->
+<div id="rank-modal" class="hi-modal-backdrop" style="display:none;"
+     onclick="if(event.target===this)window.closeRankModal()">
+    <div class="hi-modal" style="max-width: 480px;">
+        <h3 class="hi-modal-title">랭킹</h3>
+        <div class="rank-controls">
+            <select class="hi-select" id="rank-class-filter" onchange="window.renderRank()">
+                <option value="all">전체</option>
+            </select>
+            <div class="sort-toggle" id="rank-sort-toggle">
+                <button class="active" data-sort="days" onclick="window.setRankSort('days')">마일리지</button>
+                <button data-sort="num" onclick="window.setRankSort('num')">학번</button>
             </div>
         </div>
-
-        <!-- ─── RANK 탭 ─── -->
-        <div id="tab-rank" class="hi-hidden">
-            <div class="rank-controls">
-                <select class="hi-select" id="rank-class-filter" onchange="window.renderRank()">
-                    <option value="all">전체</option>
-                </select>
-                <div class="sort-toggle" id="rank-sort-toggle">
-                    <button class="active" data-sort="days" onclick="window.setRankSort('days')">마일리지</button>
-                    <button data-sort="num" onclick="window.setRankSort('num')">학번</button>
-                </div>
-            </div>
-            <div id="rank-list"></div>
+        <div id="rank-list" style="max-height:50vh; overflow-y:auto;"></div>
+        <div class="hi-modal-actions">
+            <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="window.closeRankModal()">닫기</button>
         </div>
-
     </div>
 </div>
 
@@ -836,7 +868,6 @@
                 localStorage.setItem('hi_history_user', JSON.stringify(currentUser));
                 document.getElementById('logout-btn').style.display = 'none';
                 showMain();
-                switchTab('check');
                 return;
             }
         }
@@ -851,14 +882,15 @@
     });
 
     // ────────────────────────────────────────────────────────
-    // 탭 전환
+    // 랭킹 모달
     // ────────────────────────────────────────────────────────
-    window.switchTab = (tab) => {
-        ['home','check','rank'].forEach(t => {
-            document.getElementById(`tab-btn-${t}`).classList.toggle('active', t === tab);
-            document.getElementById(`tab-${t}`).classList.toggle('hi-hidden', t !== tab);
-        });
-        if (tab === 'rank') populateClassFilter();
+    window.openRankModal = () => {
+        populateClassFilter();
+        renderRank();
+        document.getElementById('rank-modal').style.display = 'flex';
+    };
+    window.closeRankModal = () => {
+        document.getElementById('rank-modal').style.display = 'none';
     };
 
     // ────────────────────────────────────────────────────────
