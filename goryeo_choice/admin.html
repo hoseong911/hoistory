@@ -9,9 +9,24 @@
   <link rel="stylesheet" href="../shared/theme.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
+    /* interview/admin.html과 동일한 팔레트로 리테마 — shared/theme.css의 hi-preset-admin 변수 값만
+       이 파일 안에서 덮어쓴다(전역 shared/theme.css는 건드리지 않음, 다른 앱에는 영향 없음).
+       마크업·JS 로직은 그대로 두고 --hi-* 변수만 바꿔서 기존 var(--hi-*) 사용처가 전부 자동으로 재적용된다. */
+    body.hi-preset-admin {
+      --hi-bg-base: #F4F3EE; --hi-bg-surface: #FAFAF9; --hi-bg-mid: #F4F3EE;
+      --hi-bg-card: #FAFAF9; --hi-bg-elevated: #EFEDE6;
+      --hi-text: #0A1317; --hi-text-soft: #33414A; --hi-text-muted: #6B7280;
+      --hi-border: #E5E4DF; --hi-border-light: #C4C4C4;
+      --hi-accent: #1E3A8A; --hi-accent-hover: #172554; --hi-accent-strong: #172554; --hi-accent-soft: #E8ECF7;
+      --hi-on-accent: #ffffff;
+      --hi-positive: #16A34A; --hi-negative: #DC2626; --hi-warning: #D97706;
+      --hi-shadow-card: rgba(20,22,26,0.2) 0px 1px 4px 0px;
+      --hi-shadow-dialog: rgba(20,22,26,0.25) 0px 10px 25px;
+    }
+
     html, body { min-height: 100%; font-family: 'Pretendard', sans-serif; background: var(--hi-bg-base); color: var(--hi-text); }
 
-    /* ── 로그인 ── */
+    /* ── 로그인 게이트 (interview/admin.html의 gate-login과 동일한 카드형) ── */
     #loginScreen {
       position: fixed; inset: 0; z-index: 1000;
       background: var(--hi-bg-base);
@@ -20,81 +35,69 @@
     }
     .login-card {
       background: var(--hi-bg-surface);
-      border-radius: 16px;
-      padding: 40px 32px;
-      width: 100%; max-width: 380px;
+      border-radius: 24px;
+      padding: 32px 28px;
+      width: 100%; max-width: 340px;
       box-shadow: var(--hi-shadow-dialog);
       border: 1px solid var(--hi-border);
       text-align: center;
     }
-    .login-logo { font-family: 'Noto Serif KR', serif; font-size: 28px; font-weight: 900; margin-bottom: 4px; color: var(--hi-text); letter-spacing: 2px; }
-    .login-sub { font-size: 12px; color: var(--hi-text-muted); margin-bottom: 28px; letter-spacing: 0.5px; }
-    .login-error { font-size: 13px; color: var(--hi-negative); margin-top: 10px; min-height: 18px; display:none; }
+    .login-logo { font-family: 'Noto Serif KR', serif; font-size: 26px; font-weight: 900; margin-bottom: 4px; color: var(--hi-accent); letter-spacing: 2px; }
+    .login-sub { font-size: 12px; color: var(--hi-text-muted); margin-bottom: 24px; letter-spacing: 0.5px; }
+    .login-error { font-size: 12px; color: var(--hi-negative); margin-top: 10px; min-height: 16px; display:none; text-align:center; }
+    .login-foot { margin-top: 16px; }
+    .login-foot a { font-size: 12px; color: var(--hi-text-muted); text-decoration: none; }
+    .login-foot a:hover { color: var(--hi-text); }
 
-    /* ── 상단바 ── */
+    /* ── 어드민 헤더: 3열 그리드(로고 / 탭 / 로그아웃)로 interview/admin.html과 동일한 구조 ──
+       (주의) display:none인 그리드 아이템은 auto-placement에서 빠지므로, 로고·로그아웃을 숨겼을 때(임베드 시)
+       남은 탭이 1번 칸으로 밀려 들어가 중앙정렬이 깨진다. grid-column을 각각 명시해 방지한다. */
     #adminApp { display: none; min-height: 100vh; }
-    .topbar {
-      height: 56px; background: var(--hi-bg-surface);
-      border-bottom: 1px solid var(--hi-border);
-      display: flex; align-items: center;
-      padding: 0 20px;
-      position: sticky; top: 0; z-index: 100;
+    .adm-header {
+      background: var(--hi-bg-surface); border-bottom: 1px solid var(--hi-border);
+      padding: 0 28px; display: grid; grid-template-columns: 1fr auto 1fr;
+      align-items: center; height: 54px; position: sticky; top: 0; z-index: 100;
     }
-    .topbar-left { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
-    .back-btn {
-      background: none; border: 1px solid var(--hi-border);
-      padding: 6px 12px; border-radius: 8px;
-      font-size: 12px; font-weight: 700;
-      color: var(--hi-text-soft);
-      cursor: pointer; font-family: inherit;
+    .adm-logo { font-family: 'Noto Serif KR', serif; font-weight: 900; font-size: 16px; color: var(--hi-accent); justify-self: start; grid-column: 1; letter-spacing: 1px; white-space: nowrap; }
+    .adm-logout, .adm-back {
+      background: none; border: 1.5px solid var(--hi-border); border-radius: 8px;
+      padding: 6px 14px; font-family: inherit; font-size: 12px; font-weight: 700;
+      color: var(--hi-text-muted); cursor: pointer; justify-self: end; grid-column: 3;
       transition: 0.15s; white-space: nowrap;
     }
-    .back-btn:hover { border-color: var(--hi-text); color: var(--hi-text); }
-    .topbar-title { font-family: 'Noto Serif KR', serif; font-size: 16px; font-weight: 900; color: var(--hi-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .topbar-title small { font-family: 'Pretendard', sans-serif; font-size: 11px; color: var(--hi-text-muted); font-weight: 700; margin-left: 8px; padding: 3px 8px; background: var(--hi-bg-mid); border-radius: 6px; letter-spacing: 0.5px; }
-    .topbar-right { display: flex; align-items: center; gap: 8px; }
+    .adm-logout:hover, .adm-back:hover { border-color: var(--hi-text-muted); color: var(--hi-text); background: var(--hi-bg-mid); }
+    /* lms/admin의 iframe으로 embed된 경우 상위 어드민의 "목록으로"를 대신하는 버튼. 로그아웃 자리를 대신 차지한다 */
+    .adm-back { display: none; }
+    body.embedded .adm-back { display: inline-flex; align-items: center; }
+    body.embedded .adm-logo, body.embedded .adm-logout { display: none; }
 
-    /* ── 메인 탭 ── */
+    /* ── 메인 탭 (헤더 가운데 칸, 필 그룹) ── */
     .main-tabs {
-      display: flex; justify-content: center; background: var(--hi-bg-surface);
-      border-bottom: 1px solid var(--hi-border);
-      padding: 0 20px; gap: 4px;
-      position: sticky; top: 56px; z-index: 90;
-      overflow-x: hidden;
+      display: flex; gap: 2px; background: var(--hi-bg-mid);
+      border: 1px solid var(--hi-border); border-radius: 10px; padding: 3px;
+      justify-self: center; grid-column: 2;
     }
     .main-tab {
-      padding: 13px 18px; font-size: 13px; font-weight: 700;
-      color: var(--hi-text-muted);
-      background: none; border: none; cursor: pointer;
-      border-bottom: 2px solid transparent;
-      font-family: inherit;
-      transition: 0.12s; letter-spacing: 0.5px;
-      white-space: nowrap; margin-bottom: -1px;
+      padding: 6px 20px; border-radius: 7px; font-family: inherit;
+      font-size: 13px; font-weight: 700; color: var(--hi-text-muted);
+      background: none; border: none; cursor: pointer; transition: 0.15s;
     }
-    .main-tab:hover { color: var(--hi-text); }
-    .main-tab.active { color: var(--hi-accent); border-bottom-color: var(--hi-accent); }
+    .main-tab:hover:not(.active) { color: var(--hi-text); }
+    .main-tab.active { background: var(--hi-accent); color: #fff; }
 
-    /* ── 서브 탭 ── */
-    .sub-tabs {
-      display: flex; justify-content: center; background: var(--hi-bg-surface);
-      border-bottom: 1px solid var(--hi-border);
-      padding: 0 20px;
-      overflow-x: hidden; gap: 0;
-    }
+    /* ── 반 필터 (가운데 정렬 필 그룹, 다른 앱 어드민의 class-filter와 동일한 스타일) ── */
+    .sub-tabs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-bottom: 18px; }
     .sub-tab {
-      padding: 11px 14px; font-size: 12px; font-weight: 700;
-      color: var(--hi-text-muted);
-      background: none; border: none; cursor: pointer;
-      border-bottom: 2px solid transparent;
-      font-family: inherit;
-      transition: 0.12s;
-      white-space: nowrap; margin-bottom: -1px;
+      padding: 7px 16px; border-radius: 100px; border: 1.5px solid var(--hi-border);
+      background: var(--hi-bg-surface); font-family: inherit; font-size: 13px; font-weight: 700;
+      color: var(--hi-text-muted); cursor: pointer; transition: 0.15s;
     }
-    .sub-tab:hover { color: var(--hi-text); }
-    .sub-tab.active { color: var(--hi-accent); border-bottom-color: var(--hi-accent); }
+    .sub-tab:hover:not(.active) { border-color: var(--hi-text-muted); color: var(--hi-text); }
+    .sub-tab.active { background: var(--hi-accent); color: #fff; border-color: var(--hi-accent); }
 
-    /* ── 컨테이너 ── */
-    .container { max-width: 760px; margin: 0 auto; padding: 18px 14px 60px; }
+    /* ── 본문 영역 ── */
+    .adm-body { max-width: 900px; margin: 0 auto; padding: 24px 28px 60px; width: 100%; }
+    .container { max-width: 100%; margin: 0; padding: 0; }
 
     /* ── 정렬 + 도구 바 ── */
     .toolbar-row {
@@ -119,22 +122,28 @@
     }
     .sort-btn.active { color: var(--hi-on-accent); background: var(--hi-accent); }
 
-    /* ── 결말 통계 ── */
-    .stats-block { margin-bottom: 18px; }
-    .stats-title {
-      font-size: 11px; font-weight: 700;
-      color: var(--hi-text-muted);
-      letter-spacing: 1.2px;
-      margin: 0 4px 8px;
+    /* ── 결말 통계 (section-card 톤의 박스로) ── */
+    .stats-block {
+      background: var(--hi-bg-surface); border: 1px solid var(--hi-border);
+      border-radius: 20px; padding: 22px; margin-bottom: 16px;
+      box-shadow: var(--hi-shadow-card);
     }
+    .stats-title {
+      font-family: 'Noto Serif KR', serif;
+      font-size: 14px; font-weight: 800;
+      color: var(--hi-text);
+      letter-spacing: 0.3px;
+      margin: 0 0 12px;
+    }
+    .stats-title:not(:first-child) { margin-top: 20px; }
     .path-grid {
       display: grid; grid-template-columns: repeat(3, 1fr);
       gap: 8px; margin-bottom: 14px;
     }
     .path-card {
-      background: var(--hi-bg-surface);
+      background: var(--hi-bg-mid);
       border: 1px solid var(--hi-border);
-      border-radius: 10px;
+      border-radius: 14px;
       padding: 14px 10px;
       text-align: center;
       position: relative;
@@ -209,9 +218,10 @@
     .result-card {
       background: var(--hi-bg-surface);
       border: 1px solid var(--hi-border);
-      border-radius: 12px;
+      border-radius: 16px;
       padding: 14px 16px;
       margin-bottom: 10px;
+      box-shadow: var(--hi-shadow-card);
     }
     .rc-header {
       display: flex; align-items: center;
@@ -345,12 +355,14 @@
     .panel {
       background: var(--hi-bg-surface);
       border: 1px solid var(--hi-border);
-      border-radius: 12px;
-      padding: 18px 20px;
-      margin-bottom: 14px;
+      border-radius: 20px;
+      padding: 22px;
+      margin-bottom: 16px;
+      box-shadow: var(--hi-shadow-card);
     }
     .panel h3 {
-      font-size: 14px; font-weight: 800;
+      font-family: 'Noto Serif KR', serif;
+      font-size: 15px; font-weight: 800;
       color: var(--hi-text); margin-bottom: 6px;
     }
     .panel p {
@@ -398,10 +410,10 @@
     .panel-section { display: none; }
     .panel-section.active { display: block; }
 
-    /* 확인 모달 */
+    /* 확인 모달 (interview/admin.html의 modal-back/modal-box와 동일한 톤) */
     .confirm-bg {
       position: fixed; inset: 0;
-      background: rgba(0,0,0,0.4);
+      background: rgba(10,19,23,0.55);
       z-index: 600; display: none;
       align-items: center; justify-content: center;
       padding: 20px;
@@ -410,13 +422,13 @@
     .confirm-box {
       background: var(--hi-bg-surface);
       border: 1px solid var(--hi-border);
-      border-radius: 16px; padding: 24px;
+      border-radius: 20px; padding: 24px;
       width: 100%; max-width: 340px;
       box-shadow: var(--hi-shadow-dialog);
     }
-    .confirm-box h3 { font-size: 15px; font-weight: 800; margin-bottom: 8px; color: var(--hi-text); }
-    .confirm-box p { font-size: 13px; color: var(--hi-text-soft); margin-bottom: 20px; line-height: 1.6; }
-    .confirm-actions { display: flex; gap: 8px; justify-content: flex-end; }
+    .confirm-box h3 { font-family: 'Noto Serif KR', serif; font-size: 16px; font-weight: 800; margin-bottom: 8px; color: var(--hi-text); }
+    .confirm-box p { font-size: 13px; color: var(--hi-text-muted); margin-bottom: 20px; line-height: 1.6; }
+    .confirm-actions { display: flex; gap: 8px; justify-content: center; }
 
     /* 토스트 */
     #toast {
@@ -437,27 +449,22 @@
 
     /* 모바일 미세 조정 */
     @media (max-width: 420px) {
-      .container { padding: 14px 10px 60px; }
+      .adm-header, .adm-body { padding-left: 14px; padding-right: 14px; }
       .path-card .path-count { font-size: 22px; }
       .ending-chips-row { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); }
       .ending-chip { padding: 6px 8px; gap: 6px; }
       .ending-chip-char { font-size: 16px; width: 22px; }
       .ending-chip-title { font-size: 10px; }
-      .topbar-title { font-size: 14px; }
-      .main-tab { padding: 12px 14px; font-size: 12px; }
-      .sub-tab { padding: 10px 11px; font-size: 11px; }
+      .adm-logo { font-size: 14px; }
+      .main-tab { padding: 6px 12px; font-size: 12px; }
+      .sub-tab { padding: 6px 12px; font-size: 12px; }
     }
-    html.in-iframe .topbar-console { display: none !important; }
-    /* lms/admin iframe으로 embed된 경우: 로그아웃 대신 lms 쪽 "목록으로"를 대신하는 버튼을 보여준다 */
-    #embed-back-btn { display: none; }
-    body.embedded #embed-back-btn { display: inline-flex; align-items: center; }
-    body.embedded #admin-logout-btn { display: none; }
   </style>
 <script>if(window.self!==window.top)document.documentElement.classList.add('in-iframe');</script>
 </head>
 <body class="hi-preset-admin">
 
-<!-- ── 로그인 ── -->
+<!-- ── 로그인 게이트 (interview/admin.html과 동일한 카드형) ── -->
 <div id="loginScreen">
   <div class="login-card">
     <div class="login-logo">亂世의 士大夫</div>
@@ -467,32 +474,24 @@
       onkeydown="if(event.key==='Enter') tryLogin()">
     <button class="hi-btn hi-btn-primary hi-btn-block" onclick="tryLogin()" style="margin-top:12px;">접속</button>
     <div class="login-error" id="loginErr">비밀번호가 올바르지 않습니다.</div>
-    <div style="margin-top:18px;">
-      <a href="../admin.html" class="topbar-console" style="font-size:11px;color:var(--hi-text-muted);text-decoration:none;letter-spacing:0.5px;">어드민 콘솔로</a>
-    </div>
+    <div class="login-foot"><a href="index.html">학생 페이지로</a></div>
   </div>
 </div>
 
 <!-- ── 어드민 앱 ── -->
 <div id="adminApp">
-  <!-- 상단바 -->
-  <div class="topbar">
-    <div class="topbar-left">
-      <button class="back-btn topbar-console" onclick="location.href='../admin.html'">콘솔</button>
-      <div class="topbar-title">亂世의 士大夫 <small>관리자 모드</small></div>
+  <!-- 헤더: 3열 그리드(로고 / 탭 / 로그아웃) — interview·hismile 어드민과 동일한 구조 -->
+  <header class="adm-header">
+    <div class="adm-logo">亂世의 士大夫</div>
+    <div class="main-tabs">
+      <button class="main-tab active" id="mt-class" onclick="showPanel('class')">Class</button>
+      <button class="main-tab" id="mt-setting" onclick="showPanel('setting')">Setting</button>
     </div>
-    <div class="topbar-right">
-      <a href="index.html" class="topbar-console" style="font-size:12px;color:var(--hi-text-muted);text-decoration:none;padding:6px 10px;">학생 화면</a>
-      <button class="back-btn" id="admin-logout-btn" onclick="logoutAdmin()" style="color:var(--hi-negative);">로그아웃</button>
-      <button class="back-btn" id="embed-back-btn" onclick="window.parent.closeAppAdmin && window.parent.closeAppAdmin()">목록으로</button>
-    </div>
-  </div>
+    <button class="adm-logout" id="admin-logout-btn" onclick="logoutAdmin()">로그아웃</button>
+    <button class="adm-back" id="embed-back-btn" onclick="window.parent.closeAppAdmin && window.parent.closeAppAdmin()">목록으로</button>
+  </header>
 
-  <!-- 메인 탭 -->
-  <div class="main-tabs">
-    <button class="main-tab active" id="mt-class" onclick="showPanel('class')">CLASS</button>
-    <button class="main-tab" id="mt-setting" onclick="showPanel('setting')">SETTING</button>
-  </div>
+  <div class="adm-body">
 
   <!-- ══════════ CLASS 패널 ══════════ -->
   <section class="panel-section active" id="panel-class">
@@ -621,6 +620,8 @@
       </div>
     </div>
   </section>
+
+  </div><!-- /adm-body -->
 </div>
 
 <!-- 확인 모달 -->
