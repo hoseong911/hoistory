@@ -7,7 +7,6 @@
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Serif+KR:wght@400;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../shared/theme.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     /* interview/admin.html과 동일한 팔레트로 리테마 — shared/theme.css의 hi-preset-admin 변수 값만
        이 파일 안에서 덮어쓴다(전역 shared/theme.css는 건드리지 않음, 다른 앱에는 영향 없음).
@@ -70,20 +69,6 @@
     .adm-back { display: none; }
     body.embedded .adm-back { display: inline-flex; align-items: center; }
     body.embedded .adm-logo, body.embedded .adm-logout { display: none; }
-
-    /* ── 메인 탭 (헤더 가운데 칸, 필 그룹) ── */
-    .main-tabs {
-      display: flex; gap: 2px; background: var(--hi-bg-mid);
-      border: 1px solid var(--hi-border); border-radius: 10px; padding: 3px;
-      justify-self: center; grid-column: 2;
-    }
-    .main-tab {
-      padding: 6px 20px; border-radius: 7px; font-family: inherit;
-      font-size: 13px; font-weight: 700; color: var(--hi-text-muted);
-      background: none; border: none; cursor: pointer; transition: 0.15s;
-    }
-    .main-tab:hover:not(.active) { color: var(--hi-text); }
-    .main-tab.active { background: var(--hi-accent); color: #fff; }
 
     /* ── 반 필터 (가운데 정렬 필 그룹, 다른 앱 어드민의 class-filter와 동일한 스타일) ── */
     .sub-tabs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-bottom: 18px; }
@@ -166,10 +151,10 @@
     .path-card.retreat { border-top: 3px solid #6b7d4f; }
     .path-card.martyr { border-top: 3px solid #a94d4d; }
 
-    /* 12개 세부 결말 칩 */
+    /* 12개 세부 결말 칩 — 4칸씩 3줄 고정 */
     .ending-chips-row {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      grid-template-columns: repeat(4, 1fr);
       gap: 6px;
     }
     .ending-chip {
@@ -351,31 +336,6 @@
       background: #fef2f2;
     }
 
-    /* ── 설정 패널 ── */
-    .panel {
-      background: var(--hi-bg-surface);
-      border: 1px solid var(--hi-border);
-      border-radius: 20px;
-      padding: 22px;
-      margin-bottom: 16px;
-      box-shadow: var(--hi-shadow-card);
-    }
-    .panel h3 {
-      font-family: 'Noto Serif KR', serif;
-      font-size: 15px; font-weight: 800;
-      color: var(--hi-text); margin-bottom: 6px;
-    }
-    .panel p {
-      font-size: 12px; color: var(--hi-text-muted);
-      margin-bottom: 14px; line-height: 1.6;
-    }
-    .panel-danger {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-    }
-    .panel-danger h3 { color: var(--hi-negative); }
-    .panel-danger p { color: #b91c1c; }
-    .row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
     /* ── 빈 상태 / 로딩 ── */
     .empty {
@@ -441,12 +401,10 @@
     @media (max-width: 420px) {
       .adm-header, .adm-body { padding-left: 14px; padding-right: 14px; }
       .path-card .path-count { font-size: 22px; }
-      .ending-chips-row { grid-template-columns: repeat(auto-fill, minmax(108px, 1fr)); }
       .ending-chip { padding: 6px 8px; gap: 6px; }
       .ending-chip-char { font-size: 16px; width: 22px; }
       .ending-chip-title { font-size: 10px; }
       .adm-logo { font-size: 14px; }
-      .main-tab { padding: 6px 12px; font-size: 12px; }
       .sub-tab { padding: 6px 12px; font-size: 12px; }
     }
   </style>
@@ -470,13 +428,9 @@
 
 <!-- ── 어드민 앱 ── -->
 <div id="adminApp">
-  <!-- 헤더: 3열 그리드(로고 / 탭 / 로그아웃) — interview·hismile 어드민과 동일한 구조 -->
+  <!-- 헤더: 로고 / 로그아웃(또는 임베드 시 목록으로) — SETTING 탭 삭제로 화면이 CLASS 하나뿐이라 탭은 없앴다 -->
   <header class="adm-header">
     <div class="adm-logo">亂世의 士大夫</div>
-    <div class="main-tabs">
-      <button class="main-tab active" id="mt-class" onclick="showPanel('class')">Class</button>
-      <button class="main-tab" id="mt-setting" onclick="showPanel('setting')">Setting</button>
-    </div>
     <button class="adm-logout" id="admin-logout-btn" onclick="logoutAdmin()">로그아웃</button>
     <button class="adm-back" id="embed-back-btn" onclick="window.parent.closeAppAdmin && window.parent.closeAppAdmin()">목록으로</button>
   </header>
@@ -533,64 +487,6 @@
       <!-- 결과 리스트 -->
       <div id="resultList">
         <div class="loading-state"><div class="spinner"></div><span>결과 불러오는 중…</span></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ══════════ SETTING 패널 ══════════ -->
-  <section class="panel-section" id="panel-setting">
-    <div class="container">
-      <!-- 엑셀 내보내기 -->
-      <div class="panel">
-        <h3>엑셀로 내보내기</h3>
-        <p>플레이 결과 또는 학생 명단을 엑셀(.xlsx) 파일로 다운로드합니다.</p>
-        <div class="row-actions">
-          <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="exportResultsExcel()">결과 저장</button>
-          <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportStudentsExcel()">학생 명단 저장</button>
-        </div>
-        <div style="font-size:11px; color:var(--hi-text-muted); margin-top:10px;">
-          포함 항목: 학번 · 이름 · 출신 · 성향 · 결말 · 최종 스탯 · 소감 · 작성시각
-        </div>
-      </div>
-
-      <!-- 반별 삭제 -->
-      <div class="panel">
-        <h3>🎓 반별 결과 삭제</h3>
-        <p>특정 반의 모든 플레이 결과를 일괄 삭제합니다.</p>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <select class="hi-select" id="classDeleteSelect" style="flex:1; min-width:140px;">
-            <option value="">반 선택</option>
-            <option value="1">1반</option>
-            <option value="2">2반</option>
-            <option value="3">3반</option>
-            <option value="4">4반</option>
-            <option value="5">5반</option>
-            <option value="6">6반</option>
-          </select>
-          <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="deleteAllByClass()">해당 반 삭제</button>
-        </div>
-      </div>
-
-      <!-- 결말별 삭제 -->
-      <div class="panel">
-        <h3>결말별 삭제</h3>
-        <p>특정 경로(조선 합류 / 두문동 은거 / 순사)의 모든 결과를 일괄 삭제합니다.</p>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <select class="hi-select" id="pathDeleteSelect" style="flex:1; min-width:140px;">
-            <option value="">경로 선택</option>
-            <option value="open">조선 합류 (open 계열)</option>
-            <option value="retreat">두문동 은거 (retreat 계열)</option>
-            <option value="martyr">충절의 순사 (martyr 계열)</option>
-          </select>
-          <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="deleteAllByPath()">해당 경로 삭제</button>
-        </div>
-      </div>
-
-      <!-- 위험 구역 -->
-      <div class="panel panel-danger">
-        <h3>위험 구역</h3>
-        <p>아래 기능은 되돌릴 수 없습니다. 신중하게 사용하세요.</p>
-        <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="resetAll()" style="color:var(--hi-negative); border-color:var(--hi-negative);">전체 결과 초기화</button>
       </div>
     </div>
   </section>
@@ -754,15 +650,6 @@ function startListening() {
 }
 
 function renderAll() { renderClass(); }
-
-/* ===== 패널 전환 ===== */
-window.showPanel = (name) => {
-  document.querySelectorAll('.panel-section').forEach(el => el.classList.remove('active'));
-  document.getElementById(`panel-${name}`)?.classList.add('active');
-  document.querySelectorAll('.main-tab').forEach(el => el.classList.remove('active'));
-  document.getElementById(`mt-${name}`)?.classList.add('active');
-  window.scrollTo(0, 0);
-};
 
 /* ===== CLASS 패널 ===== */
 window.setClassTab = (val, btn) => {
@@ -948,95 +835,6 @@ function showToast(msg) {
   window._toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
 }
 
-/* ===== SETTING — 일괄 삭제 ===== */
-window.resetAll = () => {
-  openConfirm('⚠️ 전체 초기화', '전체 플레이 결과를 삭제합니다. 되돌릴 수 없습니다.', () => {
-    openConfirm('정말 삭제하시겠습니까?', '이 작업은 취소할 수 없습니다.', () => {
-      remove(resultsRef); showToast('전체 결과 삭제됨');
-    });
-  });
-};
-window.deleteAllByClass = () => {
-  const cls = document.getElementById('classDeleteSelect').value;
-  if (!cls) { showToast('반을 선택하세요'); return; }
-  const target = allResults.filter(r => classNumFromId(r.studentId) === parseInt(cls, 10));
-  if (!target.length) { showToast('해당 반의 결과가 없습니다'); return; }
-  openConfirm('반별 삭제', `${cls}반의 결과 ${target.length}개를 삭제합니까?`, () => {
-    target.forEach(r => remove(ref(db, `goryeo_results/${r._key}`)));
-    showToast(`${target.length}개 삭제`);
-  });
-};
-window.deleteAllByPath = () => {
-  const path = document.getElementById('pathDeleteSelect').value;
-  if (!path) { showToast('경로를 선택하세요'); return; }
-  const target = allResults.filter(r => pathOfEndingKey(r.ending) === path);
-  if (!target.length) { showToast('해당 경로의 결과가 없습니다'); return; }
-  openConfirm('경로별 삭제', `${PATH_LABEL[path]} 결과 ${target.length}개를 삭제합니까?`, () => {
-    target.forEach(r => remove(ref(db, `goryeo_results/${r._key}`)));
-    showToast(`${target.length}개 삭제`);
-  });
-};
-
-/* ===== 엑셀 내보내기 ===== */
-window.exportResultsExcel = () => {
-  if (!allResults.length) { showToast('내보낼 결과가 없습니다'); return; }
-  const rows = [...allResults]
-    .sort((a, b) => String(a.studentId||'').localeCompare(String(b.studentId||'')) || (a.timestamp||0) - (b.timestamp||0))
-    .map((r, i) => {
-      const meta = ENDINGS_META[r.ending];
-      const fs = r.finalStats || {};
-      return {
-        '번호': i+1,
-        '학번': r.studentId || '',
-        '이름': studentMap[r.studentId] || r.studentName || '',
-        '반': classLabel(r.studentId),
-        '출신': r.origin || '',
-        '성향': r.align || '',
-        '결말 경로': meta ? PATH_LABEL[meta.path] : '',
-        '결말': r.endingTitle || (meta ? meta.title : ''),
-        '명망': fs.fame ?? '',
-        '의리': fs.loyalty ?? '',
-        '학문': fs.study ?? '',
-        '생존': fs.survive ?? '',
-        '소감': r.reflection || '',
-        '작성시각': r.time || ''
-      };
-    });
-  const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = [
-    { wch: 5 }, { wch: 8 }, { wch: 10 }, { wch: 9 },
-    { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 18 },
-    { wch: 6 }, { wch: 6 }, { wch: 6 }, { wch: 6 },
-    { wch: 50 }, { wch: 18 }
-  ];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '플레이 결과');
-  const now = new Date(), pad = n => String(n).padStart(2,'0');
-  XLSX.writeFile(wb, `사대부_결과_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.xlsx`);
-  showToast('결과 다운로드 완료');
-};
-
-window.exportStudentsExcel = () => {
-  if (!allStudents.length) { showToast('학생 명단이 없습니다'); return; }
-  const rows = allStudents.map((s, i) => {
-    const mine = allResults.filter(r => r.studentId === s.studentId);
-    return {
-      '번호': i+1,
-      '학번': s.studentId || '',
-      '이름': s.name || '',
-      '반': classLabel(s.studentId),
-      '플레이 횟수': mine.length,
-      '소감 작성 수': mine.filter(r => (r.reflection||'').trim().length > 0).length
-    };
-  });
-  const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = Array(Object.keys(rows[0]).length).fill({ wch: 14 });
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '학생 명단');
-  const now = new Date(), pad = n => String(n).padStart(2,'0');
-  XLSX.writeFile(wb, `사대부_학생명단_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.xlsx`);
-  showToast('학생 명단 다운로드 완료');
-};
 </script>
 </body>
 </html>
