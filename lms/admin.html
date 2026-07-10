@@ -869,21 +869,30 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
           <div class="grade-config-row">
             <div class="grade-config-row-top">
               <span class="grade-config-lbl">개념 체크</span>
-              <label class="grade-na-toggle"><input type="checkbox" id="gradeConceptNA"> 미실시</label>
+              <div style="display:flex;align-items:center;gap:6px">
+                <select id="gradeConceptWeight" class="grade-na-toggle" style="cursor:pointer"><option value="1">1배</option><option value="2">2배</option></select>
+                <label class="grade-na-toggle"><input type="checkbox" id="gradeConceptNA"> 미실시</label>
+              </div>
             </div>
             <select id="gradeLessonSel" class="grade-config-sel"><option value="">-- 강의 선택 --</option></select>
           </div>
           <div class="grade-config-row">
             <div class="grade-config-row-top">
               <span class="grade-config-lbl">생각 체크</span>
-              <label class="grade-na-toggle"><input type="checkbox" id="gradeThinkNA"> 미실시</label>
+              <div style="display:flex;align-items:center;gap:6px">
+                <select id="gradeThinkWeight" class="grade-na-toggle" style="cursor:pointer"><option value="1">1배</option><option value="2">2배</option></select>
+                <label class="grade-na-toggle"><input type="checkbox" id="gradeThinkNA"> 미실시</label>
+              </div>
             </div>
             <select id="gradeThinkSel" class="grade-config-sel"><option value="">-- 연결 없음 (수동) --</option></select>
           </div>
           <div class="grade-config-row">
             <div class="grade-config-row-top">
               <span class="grade-config-lbl">미션 체크</span>
-              <label class="grade-na-toggle"><input type="checkbox" id="gradeMissionNA"> 미실시</label>
+              <div style="display:flex;align-items:center;gap:6px">
+                <select id="gradeMissionWeight" class="grade-na-toggle" style="cursor:pointer"><option value="1">1배</option><option value="2">2배</option></select>
+                <label class="grade-na-toggle"><input type="checkbox" id="gradeMissionNA"> 미실시</label>
+              </div>
             </div>
             <select id="gradeMissionColl" class="grade-config-sel">
               <option value="">-- 없음 (수동) --</option>
@@ -3118,12 +3127,18 @@ async function onGradeLessonChange() {
       document.getElementById('gradeConceptNA').checked = d.conceptEnabled === false;
       document.getElementById('gradeMissionNA').checked = d.missionEnabled === false;
       document.getElementById('gradeThinkNA').checked   = d.thinkEnabled   === false;
+      document.getElementById('gradeConceptWeight').value = String(d.conceptWeight || 1);
+      document.getElementById('gradeMissionWeight').value = String(d.missionWeight || 1);
+      document.getElementById('gradeThinkWeight').value   = String(d.thinkWeight   || 1);
     } else {
       document.getElementById('gradeThinkSel').value    = '';
       document.getElementById('gradeMissionColl').value = '';
       document.getElementById('gradeConceptNA').checked = false;
       document.getElementById('gradeMissionNA').checked = false;
       document.getElementById('gradeThinkNA').checked   = false;
+      document.getElementById('gradeConceptWeight').value = '1';
+      document.getElementById('gradeMissionWeight').value = '1';
+      document.getElementById('gradeThinkWeight').value   = '1';
     }
   } catch(e) {}
 }
@@ -3139,6 +3154,9 @@ async function loadGradeData() {
   const conceptEnabled = !document.getElementById('gradeConceptNA').checked;
   const missionEnabled = !document.getElementById('gradeMissionNA').checked;
   const thinkEnabled   = !document.getElementById('gradeThinkNA').checked;
+  const conceptWeight  = parseInt(document.getElementById('gradeConceptWeight').value) || 1;
+  const missionWeight  = parseInt(document.getElementById('gradeMissionWeight').value) || 1;
+  const thinkWeight    = parseInt(document.getElementById('gradeThinkWeight').value)   || 1;
   _gradeEnabled = { concept: conceptEnabled, mission: missionEnabled, think: thinkEnabled };
 
   // 설정 저장
@@ -3149,6 +3167,7 @@ async function loadGradeData() {
       missionCollection: missionColl,
       lessonTitle: lesson?.title || `${_gradeLessonKey}강`,
       conceptEnabled, missionEnabled, thinkEnabled,
+      conceptWeight, missionWeight, thinkWeight,
     });
   } catch(e) {}
 
@@ -3517,8 +3536,11 @@ async function loadScoreData() {
           concept: d.conceptEnabled !== false,
           mission: d.missionEnabled !== false,
           think:   d.thinkEnabled   !== false,
+          conceptWeight: parseInt(d.conceptWeight) || 1,
+          missionWeight: parseInt(d.missionWeight) || 1,
+          thinkWeight:   parseInt(d.thinkWeight)   || 1,
         };
-      } catch(e) { enabledMap[key] = { concept:true, mission:true, think:true }; }
+      } catch(e) { enabledMap[key] = { concept:true, mission:true, think:true, conceptWeight:1, missionWeight:1, thinkWeight:1 }; }
     }));
 
     // 강의별 grade_records 전체 로드
@@ -3546,9 +3568,9 @@ async function loadScoreData() {
         selectedLectures.forEach(key => {
           const en  = enabledMap[key];
           const rec = recByLec[key]?.[s.id];
-          if (en.concept) { cN += 2; if (rec?.concept?.achieved) cA++; if (rec?.concept?.onTime) cA++; }
-          if (en.mission) { mN += 2; if (rec?.mission?.achieved) mA++; if (rec?.mission?.onTime) mA++; }
-          if (en.think)   { tN += 2; if (rec?.think?.achieved)   tA++; if (rec?.think?.onTime)   tA++; }
+          if (en.concept) { cN += 2*en.conceptWeight; if (rec?.concept?.achieved) cA += en.conceptWeight; if (rec?.concept?.onTime) cA += en.conceptWeight; }
+          if (en.mission) { mN += 2*en.missionWeight; if (rec?.mission?.achieved) mA += en.missionWeight; if (rec?.mission?.onTime) mA += en.missionWeight; }
+          if (en.think)   { tN += 2*en.thinkWeight;   if (rec?.think?.achieved)   tA += en.thinkWeight;   if (rec?.think?.onTime)   tA += en.thinkWeight; }
         });
         const concept = calcScore(cA, cN, 'concept');
         const mission = calcScore(mA, mN, 'mission');
