@@ -196,9 +196,12 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
       <div class="section-card">
         <div class="section-title">
           👤 반별 학생 · 마일리지
-          <div class="sort-toggle" id="class-sort-toggle" style="margin-left:auto">
-            <button class="active" data-sort="num" onclick="window.setClassSort('num')">학번</button>
-            <button data-sort="days" onclick="window.setClassSort('days')">마일리지</button>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+            <button class="btn btn-danger btn-sm" onclick="window.resetAllMileage()">전체 마일리지 초기화</button>
+            <div class="sort-toggle" id="class-sort-toggle">
+              <button class="active" data-sort="num" onclick="window.setClassSort('num')">학번</button>
+              <button data-sort="days" onclick="window.setClassSort('days')">마일리지</button>
+            </div>
           </div>
         </div>
         <div class="class-filter" id="class-filter"></div>
@@ -501,6 +504,21 @@ window.saveMileage = async (studentId) => {
     await set(ref(db, `historyMileage/totalEarned/${studentId}`), newDays);
     alert('저장 완료');
   } catch (e) { alert('저장 실패: ' + e.message); }
+};
+
+// 인증 기록만 지워선 누적 일수(mileage)가 자동으로 0이 되지 않는다(별도 경로에 저장되기 때문).
+// 명단에 있는 학생 + 마일리지 값이 남아있는 학생(명단에서 빠졌어도) 전부를 대상으로 한 번에 0으로 맞춘다.
+window.resetAllMileage = async () => {
+  const ids = new Set([...roster.map(s => s.studentId), ...Object.keys(mileage)]);
+  if (!ids.size) { alert('초기화할 학생이 없어요'); return; }
+  if (!confirm(`전체 ${ids.size}명의 누적 일수를 0으로 초기화하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) return;
+  if (!confirm('마지막 확인: 정말로 모든 학생의 마일리지를 0으로 초기화하시겠습니까?')) return;
+  const updates = {};
+  ids.forEach(id => { updates[`mileage/${id}`] = 0; updates[`totalEarned/${id}`] = 0; });
+  try {
+    await update(ref(db, 'historyMileage'), updates);
+    alert('전체 초기화 완료');
+  } catch (e) { alert('초기화 실패: ' + e.message); }
 };
 
 /* ─────────── Certs 탭 ─────────── */
