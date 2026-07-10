@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>亂世의 士大夫 - 관리자 모드</title>
+  <title>亂世의 士大夫 : 관리자 모드</title>
   <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Serif+KR:wght@400;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../shared/theme.css">
@@ -448,6 +448,10 @@
       .sub-tab { padding: 10px 11px; font-size: 11px; }
     }
     html.in-iframe .topbar-console { display: none !important; }
+    /* lms/admin iframe으로 embed된 경우: 로그아웃 대신 lms 쪽 "목록으로"를 대신하는 버튼을 보여준다 */
+    #embed-back-btn { display: none; }
+    body.embedded #embed-back-btn { display: inline-flex; align-items: center; }
+    body.embedded #admin-logout-btn { display: none; }
   </style>
 <script>if(window.self!==window.top)document.documentElement.classList.add('in-iframe');</script>
 </head>
@@ -478,8 +482,9 @@
       <div class="topbar-title">亂世의 士大夫 <small>관리자 모드</small></div>
     </div>
     <div class="topbar-right">
-      <a href="sadaebu.html" style="font-size:12px;color:var(--hi-text-muted);text-decoration:none;padding:6px 10px;">학생 화면</a>
-      <button class="back-btn" onclick="logoutAdmin()" style="color:var(--hi-negative);">로그아웃</button>
+      <a href="index.html" class="topbar-console" style="font-size:12px;color:var(--hi-text-muted);text-decoration:none;padding:6px 10px;">학생 화면</a>
+      <button class="back-btn" id="admin-logout-btn" onclick="logoutAdmin()" style="color:var(--hi-negative);">로그아웃</button>
+      <button class="back-btn" id="embed-back-btn" onclick="window.parent.closeAppAdmin && window.parent.closeAppAdmin()">목록으로</button>
     </div>
   </div>
 
@@ -652,6 +657,9 @@ const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const resultsRef = ref(db, 'goryeo_results');
 
+// lms/admin의 iframe으로 열린 경우인지 여부 (interview/hismile 어드민과 동일한 패턴)
+const isEmbedded = window.self !== window.top;
+
 const ADMIN_PW_HASH = "57765044de4726b8a55db8c3846a7b6a038a2beaff40c0cc5113744ad8b62694";
 const SESSION_KEY = 'sadaebu_admin_v1';
 
@@ -732,6 +740,14 @@ function enterAdmin() {
   startListening();
 }
 window.addEventListener('DOMContentLoaded', () => {
+  // lms/admin에 이미 로그인되어 있으므로 로그인 화면을 생략하고 바로 들어간다.
+  if (isEmbedded) {
+    document.body.classList.add('embedded');
+    // lms/admin이 이 마커를 보고 자기 쪽 상단의 중복된 "목록으로" 바를 자동으로 숨긴다.
+    document.documentElement.classList.add('has-own-back');
+    enterAdmin();
+    return;
+  }
   if (sessionStorage.getItem(SESSION_KEY) === '1') enterAdmin();
 });
 
