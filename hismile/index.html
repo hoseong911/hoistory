@@ -618,6 +618,9 @@
     import {
         getStorage, ref as sRef, uploadBytes, getDownloadURL
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
+    import {
+        getFirestore, doc as fsDoc, onSnapshot as fsOnSnapshot
+    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     // ── 공통 라이브러리 ──
     import {
@@ -644,6 +647,14 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const storage = getStorage(app);
+    const fdb = getFirestore(app);
+
+    // Claude API 키는 lms/admin의 "설정 > Claude API 키"에서 관리하는 공유 값을 그대로 쓴다
+    // (hismile 자체 어드민의 설정 메뉴는 없앴다 — lms/admin과 연동).
+    let sharedClaudeApiKey = '';
+    fsOnSnapshot(fsDoc(fdb, 'settings', 'claude'), snap => {
+        sharedClaudeApiKey = snap.exists() ? (snap.data().apiKey || '') : '';
+    });
 
     // 공휴일 (필요 시 admin에서 관리 가능)
     const holidays = []; // 예: ["2026-03-01","2026-05-05"]
@@ -976,11 +987,11 @@
         }
 
         // API 키
-        const apiKey = globalData.config?.claudeApiKey || '';
+        const apiKey = sharedClaudeApiKey || globalData.config?.claudeApiKey || '';
         if (!apiKey) {
             return showRichToast({
                 icon: '⚙️', title: 'API 키 미설정',
-                message: '관리자가 Claude API 키를 설정해야 합니다',
+                message: 'lms/admin > 설정에서 Claude API 키를 등록해야 합니다',
                 kind: 'error'
             });
         }
