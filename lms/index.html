@@ -191,6 +191,14 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .gd-title{font-family:'Gowun Batang',serif;font-size:18px;font-weight:700;color:var(--ink-deep)}
 .gd-close{background:none;border:1.5px solid var(--hairline);border-radius:100px;padding:4px 14px;font-size:15px;color:var(--charcoal);cursor:pointer;transition:background .15s}
 .gd-close:hover{background:var(--surface)}
+
+/* ── 각종 콘텐츠 앱 모달 (새창 대신 팝업으로 열기) ── */
+.content-app-modal .gd-box{max-width:960px;height:calc(100vh - 80px);display:flex;flex-direction:column}
+.content-app-frame{flex:1;width:100%;min-height:0;border:none;border-radius:16px;background:#fff}
+@media (max-width:600px){
+  .content-app-modal{padding:0}
+  .content-app-modal .gd-box{max-width:none;width:100%;height:100vh;border-radius:0}
+}
 .gd-table{width:100%;border-collapse:collapse;font-size:14px}
 .gd-table th,.gd-table td{padding:8px 10px;border:1px solid var(--hairline-soft);text-align:center}
 .gd-table th{background:var(--surface);font-weight:700;color:var(--charcoal);font-size:12px;letter-spacing:.3px}
@@ -331,6 +339,17 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
       <button class="gd-close" id="gradeFeedbackClose">✕</button>
     </div>
     <div id="gradeFeedbackContent"></div>
+  </div>
+</div>
+
+<!-- ── 각종 콘텐츠 앱 모달 ── -->
+<div id="contentAppModal" class="grade-modal content-app-modal">
+  <div class="gd-box">
+    <div class="gd-head">
+      <div class="gd-title" id="contentAppModalTitle"></div>
+      <button class="gd-close" id="contentAppModalClose">✕</button>
+    </div>
+    <iframe class="content-app-frame" id="contentAppFrame" src="about:blank"></iframe>
   </div>
 </div>
 
@@ -579,7 +598,7 @@ function startListening() {
     if (!cat) { sectionData.contents = []; renderAll(); return; }
     onSnapshot(query(collection(db, 'cards'), where('category','==', cat)), snap => {
       sectionData.contents = snap.docs
-        .map(d => { const data = d.data(); return { docId: d.id, ...data, label: data.title || data.label, url: resolveAppUrl(data.url) }; })
+        .map(d => { const data = d.data(); return { docId: d.id, ...data, label: data.title || data.label, url: resolveAppUrl(data.url), openInModal: !!data.openInModal }; })
         .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
       renderAll();
     });
@@ -766,10 +785,13 @@ function fillIconGrid(container, items) {
 }
 
 function makeIconItem(item) {
-  const el = item.isThink ? document.createElement('button') : document.createElement('a');
+  const useAppModal = !item.isThink && item.openInModal;
+  const el = (item.isThink || useAppModal) ? document.createElement('button') : document.createElement('a');
   el.className = 'icon-item' + (item.locked ? ' locked' : '');
   if (item.isThink) {
     if (!item.locked) el.addEventListener('click', () => openThinkModal(item));
+  } else if (useAppModal) {
+    if (!item.locked && item.url) el.addEventListener('click', () => openContentAppModal(item));
   } else {
     if (!item.locked && item.url) { el.href = item.url; el.target = '_blank'; el.rel = 'noopener'; }
   }
@@ -934,6 +956,21 @@ document.getElementById('gradeFeedbackClose').addEventListener('click', () => {
 document.getElementById('gradeFeedbackModal').addEventListener('click', e => {
   if (e.target === document.getElementById('gradeFeedbackModal'))
     document.getElementById('gradeFeedbackModal').style.display = 'none';
+});
+
+// ── 각종 콘텐츠 앱 모달 (새창 대신 팝업으로 열기) ──
+function openContentAppModal(item) {
+  document.getElementById('contentAppModalTitle').textContent = item.label || '';
+  document.getElementById('contentAppFrame').src = item.url;
+  document.getElementById('contentAppModal').style.display = 'flex';
+}
+function closeContentAppModal() {
+  document.getElementById('contentAppModal').style.display = 'none';
+  document.getElementById('contentAppFrame').src = 'about:blank';
+}
+document.getElementById('contentAppModalClose').addEventListener('click', closeContentAppModal);
+document.getElementById('contentAppModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('contentAppModal')) closeContentAppModal();
 });
 </script>
 </body>

@@ -1014,6 +1014,10 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
             <label>어드민 주소 (선택)</label>
             <input type="text" id="contentsCardAdminUrl" placeholder="예) trip/admin.html" style="width:100%">
           </div>
+          <div class="stu-field">
+            <label>표시 방식</label>
+            <label class="grade-na-toggle" style="height:38px"><input type="checkbox" id="contentsCardModal"> 팝업으로 열기</label>
+          </div>
           <button class="add-btn" id="contentsAddCardBtn" style="margin-top:auto">추가</button>
         </div>
       </div>
@@ -2771,13 +2775,14 @@ async function initContentsTab() {
     const title    = document.getElementById('contentsCardTitle').value.trim();
     const url      = document.getElementById('contentsCardUrl').value.trim();
     const adminUrl = document.getElementById('contentsCardAdminUrl').value.trim();
+    const openInModal = document.getElementById('contentsCardModal').checked;
     if (!title || !url) { alert('제목과 웹앱 주소를 입력해 주세요.'); return; }
     const btn = document.getElementById('contentsAddCardBtn');
     btn.disabled = true;
     try {
       const snap  = await getDocs(query(collection(db, 'cards'), where('category','==',cat)));
       const order = snap.docs.length ? Math.max(...snap.docs.map(d => d.data().order || 0)) + 1 : 0;
-      const cardData = { emoji, title, desc: '', url, category: cat, locked: false, order };
+      const cardData = { emoji, title, desc: '', url, category: cat, locked: false, order, openInModal };
       if (adminUrl) cardData.adminUrl = adminUrl;
       await addDoc(collection(db, 'cards'), cardData);
       contentsSelectedEmoji = '🧩';
@@ -2785,6 +2790,7 @@ async function initContentsTab() {
       document.getElementById('contentsCardTitle').value = '';
       document.getElementById('contentsCardUrl').value = '';
       document.getElementById('contentsCardAdminUrl').value = '';
+      document.getElementById('contentsCardModal').checked = false;
       renderContentsPreview(cat);
       alert('카드가 추가되었습니다.');
     } catch(e) {
@@ -2835,7 +2841,7 @@ async function renderContentsPreview(cat) {
         <div class="item-icon-preview preview-contents" style="font-size:${iconStr.length<=2?'20px':'13px'}">${esc(iconStr)}</div>
         <div class="item-info">
           <div class="item-label">${esc(item.title||'')}</div>
-          <div class="item-url">${esc(item.url||'')}${item.adminUrl?` · 어드민: ${esc(item.adminUrl)}`:''}</div>
+          <div class="item-url">${esc(item.url||'')}${item.adminUrl?` · 어드민: ${esc(item.adminUrl)}`:''}${item.openInModal?' · 팝업으로 열기':''}</div>
         </div>
         <div class="item-meta">
           <button class="lock-toggle ${isLocked?'locked':'open'}" onclick="contentsToggleLocked('${item.docId}',${isLocked})">${isLocked?'비공개':'공개'}</button>
@@ -2861,6 +2867,7 @@ window.contentsStartEdit = function(docId) {
       <input id="ce-title-${docId}" class="form-input" value="${esc(item.title||'')}" placeholder="제목" style="flex:1;min-width:100px">
       <input id="ce-url-${docId}" class="form-input" value="${esc(item.url||'')}" placeholder="웹앱 URL" style="flex:2;min-width:140px">
       <input id="ce-adminurl-${docId}" class="form-input" value="${esc(item.adminUrl||'')}" placeholder="어드민 URL (선택)" style="flex:2;min-width:140px">
+      <label class="grade-na-toggle"><input type="checkbox" id="ce-modal-${docId}" ${item.openInModal?'checked':''}> 팝업으로 열기</label>
       <button class="btn-save" style="flex:none;padding:7px 16px;background:var(--c3)" onclick="contentsSaveEdit('${docId}')">저장</button>
       <button class="btn-cancel" onclick="renderContentsPreview(window._contentsCat)">취소</button>
     </div>`;
@@ -2871,9 +2878,10 @@ window.contentsSaveEdit = async function(docId) {
   const title    = document.getElementById(`ce-title-${docId}`)?.value.trim();
   const url      = document.getElementById(`ce-url-${docId}`)?.value.trim();
   const adminUrl = document.getElementById(`ce-adminurl-${docId}`)?.value.trim() || '';
+  const openInModal = document.getElementById(`ce-modal-${docId}`)?.checked || false;
   if (!title) { alert('제목을 입력하세요.'); return; }
   try {
-    await updateDoc(doc(db, 'cards', docId), { emoji, title, url, adminUrl });
+    await updateDoc(doc(db, 'cards', docId), { emoji, title, url, adminUrl, openInModal });
     renderContentsPreview(window._contentsCat);
   } catch(e) { alert('저장 실패: ' + e.message); }
 };
