@@ -90,21 +90,27 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
 .stat-chip-label{font-size:12px;font-weight:700;color:var(--sub);margin-bottom:6px}
 .stat-chip-val{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:30px;line-height:1;color:var(--ink)}
 
-/* ── 학생 카드 (아코디언) ── */
-.student-list{display:flex;flex-direction:column;gap:8px}
-.stu-card{background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
-.stu-head{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer}
-.stu-head:hover{background:var(--surface)}
-.stu-class-badge{flex-shrink:0;padding:3px 8px;border-radius:6px;background:var(--primary-soft);color:var(--primary);font-size:11px;font-weight:800}
-.stu-info{flex:1;min-width:0}
-.stu-name{font-weight:800;font-size:14px}
-.stu-id{font-size:12px;color:var(--sub);font-weight:400}
-.stu-days{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:18px;color:var(--accent-deep);flex-shrink:0}
+/* ── 학생 카드 (3열 그리드, 클릭 시 모달로 인증내역) ── */
+.student-list{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media (max-width:900px){.student-list{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.student-list{grid-template-columns:1fr}}
+.stu-card{background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:14px;box-shadow:var(--shadow);padding:14px 16px;cursor:pointer;transition:.15s;display:flex;flex-direction:column;gap:5px}
+.stu-card:hover{border-color:var(--stone)}
+.stu-class-badge{align-self:flex-start;flex-shrink:0;padding:3px 8px;border-radius:6px;background:var(--primary-soft);color:var(--primary);font-size:11px;font-weight:800}
+.stu-name{font-weight:800;font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stu-id{font-size:11px;color:var(--sub)}
+.stu-days{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:20px;color:var(--accent-deep)}
 .stu-days small{font-size:11px;color:var(--sub);font-weight:600;margin-left:2px}
-.stu-toggle{font-size:16px;color:var(--stone);flex-shrink:0}
-.stu-card.open .stu-toggle{color:var(--primary)}
-.stu-body{display:none;padding:0 16px 16px;border-top:1px solid var(--hairline-soft)}
-.stu-card.open .stu-body{display:block}
+
+/* ── 학생 상세 모달 ── */
+.stu-modal-back{position:fixed;inset:0;background:rgba(10,19,23,.55);display:none;align-items:center;justify-content:center;z-index:500;padding:20px}
+.stu-modal-back.open{display:flex}
+.stu-modal-box{background:var(--canvas);border-radius:20px;padding:24px;max-width:480px;width:100%;max-height:82vh;overflow-y:auto}
+.stu-modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px}
+.stu-modal-name{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:17px;color:var(--ink)}
+.stu-modal-close{background:none;border:1.5px solid var(--hairline);border-radius:8px;padding:5px 12px;font-family:inherit;font-size:12px;font-weight:700;color:var(--sub);cursor:pointer;flex-shrink:0}
+.stu-modal-close:hover{background:var(--surface)}
+.stu-modal-sub{font-size:13px;color:var(--sub);margin-bottom:14px}
 
 /* 누적 일수 직접 수정 */
 .mileage-edit-row{display:flex;align-items:center;gap:8px;margin:14px 0;padding:12px;background:var(--surface);border-radius:10px}
@@ -245,6 +251,18 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
       <div id="certs-list"></div>
     </div>
 
+  </div>
+</div>
+
+<!-- 학생 상세 모달 (카드 클릭 시 인증내역) -->
+<div id="stu-modal" class="stu-modal-back" onclick="if(event.target===this)window.closeStudentModal()">
+  <div class="stu-modal-box">
+    <div class="stu-modal-head">
+      <div class="stu-modal-name" id="stu-modal-name"></div>
+      <button class="stu-modal-close" onclick="window.closeStudentModal()">닫기</button>
+    </div>
+    <div class="stu-modal-sub" id="stu-modal-sub"></div>
+    <div id="stu-modal-body"></div>
   </div>
 </div>
 
@@ -435,37 +453,33 @@ window.renderClassView = () => {
 
   list.innerHTML = rows.map(s => {
     const days = mileage[s.studentId] || 0;
-    const certCount = allCerts.filter(c => String(c.studentNum) === s.studentId && c.result === 'pass').length;
     return `
-    <div class="stu-card" data-sid="${s.studentId}">
-      <div class="stu-head">
-        <span class="stu-class-badge">${s.classNum ?? '?'}반</span>
-        <div class="stu-info">
-          <div class="stu-name">${escHtml(s.name)} <span class="stu-id">${s.studentId} · 인증 ${certCount}회</span></div>
-        </div>
-        <div class="stu-days">${days}<small>일</small></div>
-        <span class="stu-toggle">▸</span>
-      </div>
-      <div class="stu-body"></div>
+    <div class="stu-card" data-sid="${s.studentId}" onclick="window.openStudentModal('${s.studentId}')">
+      <span class="stu-class-badge">${s.classNum ?? '?'}반</span>
+      <div class="stu-name">${escHtml(s.name)}</div>
+      <div class="stu-id">${s.studentId}</div>
+      <div class="stu-days">${days}<small>일</small></div>
     </div>`;
   }).join('');
-
-  list.querySelectorAll('.stu-head').forEach(head => {
-    head.addEventListener('click', () => {
-      const card = head.closest('.stu-card');
-      const isOpen = card.classList.contains('open');
-      list.querySelectorAll('.stu-card.open').forEach(c => { c.classList.remove('open'); c.querySelector('.stu-toggle').textContent = '▸'; });
-      if (!isOpen) {
-        card.classList.add('open');
-        head.querySelector('.stu-toggle').textContent = '▾';
-        renderStudentBody(card, card.dataset.sid);
-      }
-    });
-  });
 };
 
-function renderStudentBody(card, studentId) {
-  const body = card.querySelector('.stu-body');
+window.openStudentModal = (studentId) => {
+  const s = roster.find(r => r.studentId === studentId);
+  if (!s) return;
+  const days = mileage[studentId] || 0;
+  const certCount = allCerts.filter(c => String(c.studentNum) === studentId && c.result === 'pass').length;
+  document.getElementById('stu-modal-name').textContent = s.name;
+  document.getElementById('stu-modal-sub').textContent = `${studentId} · ${s.classNum ?? '?'}반 · 누적 ${days}일 · 인증 ${certCount}회`;
+  renderStudentModalBody(studentId);
+  document.getElementById('stu-modal').classList.add('open');
+};
+
+window.closeStudentModal = () => {
+  document.getElementById('stu-modal').classList.remove('open');
+};
+
+function renderStudentModalBody(studentId) {
+  const body = document.getElementById('stu-modal-body');
   const days = mileage[studentId] || 0;
   const certs = allCerts
     .filter(c => String(c.studentNum) === studentId && c.result === 'pass')
@@ -502,6 +516,7 @@ window.saveMileage = async (studentId) => {
   try {
     await set(ref(db, `historyMileage/mileage/${studentId}`), newDays);
     await set(ref(db, `historyMileage/totalEarned/${studentId}`), newDays);
+    window.openStudentModal(studentId);
     alert('저장 완료');
   } catch (e) { alert('저장 실패: ' + e.message); }
 };
