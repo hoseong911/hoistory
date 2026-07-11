@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>APP_NAME - 관리자 모드</title>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../../shared/theme.css">
+  <link rel="stylesheet" href="../../shared/admin-base.css">
+  <style>
+    /* ── 앱 고유 스타일 ── */
+  </style>
+</head>
+<body>
+
+<!-- ── 로그인 화면 ── -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">APP_NAME</div>
+    <div class="login-sub">관리자 모드</div>
+    <input class="hi-input" type="password" id="adminPw"
+      placeholder="비밀번호" style="text-align:center;letter-spacing:3px;"
+      onkeydown="if(event.key==='Enter') tryLogin()">
+    <div class="login-err" id="loginErr">비밀번호가 올바르지 않습니다.</div>
+    <button class="login-btn" onclick="tryLogin()">접속하기</button>
+    <div class="login-foot"><a href="index.html">학생 페이지로</a></div>
+  </div>
+</div>
+
+<!-- ── 어드민 앱 ── -->
+<div id="adminApp">
+  <!-- 콘텐츠 여기에 -->
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, set, push, onValue, remove, update, get }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain: "ho0911seong-56638.firebaseapp.com",
+  databaseURL: "https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ho0911seong-56638",
+  storageBucket: "ho0911seong-56638.firebasestorage.app",
+  messagingSenderId: "994509567071",
+  appId: "1:994509567071:web:REPLACE_APP_ID"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// REPLACE_APP_ID 와 아래 해시는 앱별로 교체
+const ADMIN_PW_HASH = "REPLACE_PW_HASH";
+const SESSION_KEY = "REPLACE_APP_KEY_admin_v1";
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+function enterAdmin() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('adminApp').classList.add('show');
+  startListening();
+}
+
+window.tryLogin = async () => {
+  const hash = await sha256(document.getElementById('adminPw').value);
+  if (hash === ADMIN_PW_HASH) {
+    sessionStorage.setItem(SESSION_KEY, '1');
+    enterAdmin();
+  } else {
+    document.getElementById('loginErr').style.display = 'block';
+  }
+};
+
+window.logoutAdmin = () => {
+  if (!confirm('로그아웃 하시겠습니까?')) return;
+  sessionStorage.removeItem(SESSION_KEY);
+  location.reload();
+};
+
+// ── iframe 임베드 감지: lms/admin.html에서 열릴 때 로그인 건너뜀 ──
+const isEmbedded = window.self !== window.top;
+window.addEventListener('DOMContentLoaded', () => {
+  if (isEmbedded) {
+    document.documentElement.classList.add('has-own-back');
+    enterAdmin();
+  } else if (sessionStorage.getItem(SESSION_KEY) === '1') {
+    enterAdmin();
+  }
+});
+
+// ── Firebase 구독 시작 ──
+function startListening() {
+  // TODO: onValue(...) 구독 코드 작성
+}
+
+</script>
+</body>
+</html>
