@@ -256,6 +256,7 @@ let students=[];
 let currentFilter='전체';
 let answerSort='newest';
 let unsub=null;
+let claudeApiKey='';
 const isEmbedded=window.self!==window.top;
 
 const DEFAULT_CHARACTERS=[
@@ -266,10 +267,14 @@ const DEFAULT_CHARACTERS=[
 ];
 
 /* ─────────── Auth ─────────── */
+async function loadClaudeKey(){
+  try{const snap=await getDoc(doc(db,'settings','claude'));if(snap.exists())claudeApiKey=snap.data().apiKey||'';}catch(e){}
+}
+
 async function initAdmin(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('adminApp').classList.add('show');
-  await Promise.all([loadSettings(),loadRoster()]);
+  await Promise.all([loadSettings(),loadRoster(),loadClaudeKey()]);
   startAnswerListener();
 }
 
@@ -581,23 +586,47 @@ function updateStats(){
 
 /* ─────────── 채점 ─────────── */
 document.getElementById('score-btn').addEventListener('click',async()=>{
+  if(!claudeApiKey){document.getElementById('score-info').textContent='설정에서 Claude API 키를 먼저 등록해주세요.';return;}
   const toScore=filteredStudents().filter(s=>!s.status||s.status==='pending');
   if(!toScore.length){document.getElementById('score-info').textContent='채점할 학생이 없습니다.';return;}
+  let customPrompt='';
+  try{const snap=await get(ref(rtdb,SCORING_PROMPT_PATH));customPrompt=snap.exists()?snap.val():'';}catch(e){}
+  if(!customPrompt){document.getElementById('score-info').textContent='채점 프롬프트를 설정해주세요. (⚙️ 버튼)';return;}
   const lb=document.getElementById('loading-bar');
   lb.style.display='block';
-  document.getElementById('score-info').textContent=`${toScore.length}명 채점 중...`;
+  const scoreBtn=document.getElementById('score-btn');
+  scoreBtn.disabled=true;
+  const statuses={};
+  for(let i=0;i<toScore.length;i++){
+    const s=toScore[i];
+    document.getElementById('score-info').textContent=`채점 중… (${i+1}/${toScore.length})`;
+    const char=CONTENT.characters.find(c=>c.id===s.charId);
+    const qs=char?.questions||[];
+    const answers=s.answers||{};
+    const lines=[];
+    if(char)lines.push(`역할: ${char.name} (${char.role})`);
+    qs.forEach((q,qi)=>{lines.push(`Q${qi+1}. ${q}`);lines.push(`답변: ${(answers[qi]||'').trim()||'(미작성)'}`);});
+    if(s.deepQuestion)lines.push(`심화 질문: ${s.deepQuestion.trim()}`);
+    const prompt=customPrompt.replace('{content}',lines.join('\n'));
+    try{
+      const res=await fetch('https://api.anthropic.com/v1/messages',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':claudeApiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:10,messages:[{role:'user',content:prompt}]})
+      });
+      if(!res.ok)throw new Error(`API ${res.status}`);
+      const data=await res.json();
+      statuses[s.studentId]=/^pass/i.test((data.content?.[0]?.text||'').trim())?'pass':'insufficient';
+    }catch(e){statuses[s.studentId]='insufficient';}
+  }
   try{
     const batch=writeBatch(db);
-    toScore.forEach(s=>{
-      const status=autoScore(s);
-      batch.update(doc(db,'interview_joseon_answers',s.studentId),{status});
-    });
+    Object.entries(statuses).forEach(([sid,status])=>{batch.update(doc(db,'interview_joseon_answers',sid),{status});});
     await batch.commit();
     document.getElementById('score-info').textContent=`${toScore.length}명 채점 완료`;
-  }catch(e){
-    document.getElementById('score-info').textContent='채점 오류: '+e.message;
-  }
+  }catch(e){document.getElementById('score-info').textContent='저장 오류: '+e.message;}
   lb.style.display='none';
+  scoreBtn.disabled=false;
 });
 
 function autoScore(s){

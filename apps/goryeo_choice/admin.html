@@ -571,6 +571,7 @@ let allStudents = [];      // [{studentId, name}]
 let studentMap = {};       // sid → name
 let classTab = 'all';      // 'all' or 1~6
 let resultSort = 'newest'; // 'sid' | 'newest'
+let claudeApiKey = '';
 
 /* ===== 유틸 ===== */
 async function sha256(str) {
@@ -653,6 +654,10 @@ function startListening() {
       : [];
     renderAll();
   });
+  // Claude API 키 (blind_ryeo 어드민 SETTING과 공유)
+  onValue(ref(db, 'goryeo_settings'), snap => {
+    claudeApiKey = (snap.val() || {}).claudeApiKey || '';
+  });
 }
 
 function renderAll() { renderClass(); }
@@ -728,11 +733,12 @@ function renderStats(results) {
     : allStudents.filter(s => classNumFromId(s.studentId) === classTab);
   const submittedIds = new Set(results.map(r => r.studentId));
   const pickCount = results.filter(r => r.pick).length;
+  const hasScores = results.some(r => r.score);
   document.getElementById('stTotal').textContent = classStudents.length || '-';
   document.getElementById('stSubmit').textContent = submittedIds.size;
   document.getElementById('stMissing').textContent = classStudents.length ? classStudents.length - submittedIds.size : '-';
-  document.getElementById('stPass').textContent = '-';
-  document.getElementById('stFail').textContent = '-';
+  document.getElementById('stPass').textContent = hasScores ? results.filter(r => r.score === 'pass').length : '-';
+  document.getElementById('stFail').textContent = hasScores ? results.filter(r => r.score === 'fail').length : '-';
   document.getElementById('stPick').textContent = pickCount;
 }
 
@@ -833,7 +839,35 @@ window.saveScoringPrompt = async () => {
   } catch(e) { msg.style.color = 'var(--hi-negative)'; msg.textContent = '저장 실패: ' + e.message; }
 };
 
-window.runScoring = () => { alert('채점 기능은 준비 중입니다.'); };
+window.runScoring = async () => {
+  if (!claudeApiKey) { alert('Claude API 키가 설정되지 않았습니다. blind_ryeo 어드민 SETTING에서 설정해주세요.'); return; }
+  const results = filteredResults().filter(r => r.reflection && r.reflection.trim());
+  if (!results.length) { alert('채점할 성찰 텍스트가 없습니다.'); return; }
+  let customPrompt = '';
+  try { const snap = await get(ref(db, SCORING_PROMPT_PATH)); customPrompt = snap.exists() ? snap.val() : ''; } catch(e) {}
+  if (!customPrompt) { alert('채점 프롬프트를 먼저 설정해주세요. (⚙️ 버튼 클릭)'); return; }
+  const btn = document.querySelector('[onclick="runScoring()"]');
+  const origText = btn?.textContent;
+  if (btn) btn.disabled = true;
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    if (btn) btn.textContent = `채점 중… (${i+1}/${results.length})`;
+    const content = `결말: ${r.endingTitle||r.ending||'—'}\n성찰 텍스트: ${r.reflection.trim()}`;
+    const prompt = customPrompt.replace('{content}', content);
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json','x-api-key':claudeApiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+        body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:10, messages:[{role:'user',content:prompt}] })
+      });
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      const data = await res.json();
+      const score = /^pass/i.test((data.content?.[0]?.text||'').trim()) ? 'pass' : 'fail';
+      await update(ref(db, `goryeo_results/${r._key}`), { score });
+    } catch(e) { console.warn('채점 실패:', r._key, e.message); }
+  }
+  if (btn) { btn.disabled = false; btn.textContent = origText; }
+};
 window.exportExcel = () => { alert('엑셀 내보내기 기능은 준비 중입니다.'); };
 
 /* ===== 확인 모달 ===== */

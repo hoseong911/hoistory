@@ -808,7 +808,36 @@ window.saveScoringPrompt = async () => {
   } catch(e) { msg.style.color = 'var(--hi-negative)'; msg.textContent = '저장 실패: ' + e.message; }
 };
 
-window.runScoring = () => { alert('채점 기능은 준비 중입니다.'); };
+window.runScoring = async () => {
+  if (!claudeApiKey) { alert('SETTING에서 Claude API 키를 먼저 등록해주세요.'); return; }
+  const classPosts = window._classPosts || [];
+  if (!classPosts.length) { alert('채점할 게시글이 없습니다.'); return; }
+  let customPrompt = '';
+  try { const snap = await get(ref(db, SCORING_PROMPT_PATH)); customPrompt = snap.exists() ? snap.val() : ''; } catch(e) {}
+  if (!customPrompt) { alert('채점 프롬프트를 먼저 설정해주세요. (⚙️ 버튼 클릭)'); return; }
+  const btn = document.querySelector('[onclick="runScoring()"]');
+  const origText = btn?.textContent;
+  if (btn) btn.disabled = true;
+  const updates = {};
+  for (let i = 0; i < classPosts.length; i++) {
+    const post = classPosts[i];
+    if (btn) btn.textContent = `채점 중… (${i+1}/${classPosts.length})`;
+    const content = `학생이 선택한 기관: ${post.org?.name||'(미지정)'}\n게시글 내용: ${post.content||''}`;
+    const prompt = customPrompt.replace('{content}', content);
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json','x-api-key':claudeApiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+        body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:10, messages:[{role:'user',content:prompt}] })
+      });
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      const data = await res.json();
+      updates[post.id] = /^pass/i.test((data.content?.[0]?.text||'').trim()) ? 'pass' : 'fail';
+    } catch(e) { updates[post.id] = 'fail'; }
+  }
+  await update(gradesRef, updates);
+  if (btn) { btn.disabled = false; btn.textContent = origText; }
+};
 window.exportExcel = () => { alert('엑셀 내보내기 기능은 준비 중입니다.'); };
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
