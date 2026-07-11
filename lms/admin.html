@@ -1116,13 +1116,22 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
     <div class="stu-card">
       <div class="stu-card-head">Claude API 키</div>
       <div class="stu-card-body">
-        <p style="font-size:14px;color:var(--sub);margin-bottom:16px;line-height:1.6">생각 체크 반별 탭의 AI 채점 기능에 사용됩니다. Firebase에 저장됩니다.</p>
+        <p style="font-size:14px;color:var(--sub);margin-bottom:16px;line-height:1.6">생각 체크 AI 채점 및 각 웹앱 어드민의 채점하기 기능에 사용됩니다. Firebase에 저장됩니다.</p>
+
+        <!-- 현재 키 상태 -->
+        <div id="settings-key-status" style="display:none;margin-bottom:16px;padding:10px 14px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);font-size:13px;display:flex;align-items:center;gap:10px">
+          <span id="settings-key-badge" style="font-weight:700"></span>
+          <span id="settings-key-preview" style="color:var(--sub);font-family:monospace"></span>
+          <button onclick="settingsDeleteApiKey()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:13px;color:#DC2626;font-weight:700;padding:2px 6px">삭제</button>
+        </div>
+
         <div class="form-group" style="margin-bottom:12px">
-          <label class="form-label">Anthropic API Key</label>
+          <label class="form-label">새 API Key 입력</label>
           <input class="form-input" type="password" id="settings-api-key" placeholder="sk-ant-...">
         </div>
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <button class="add-btn a" onclick="settingsSaveApiKey()">저장</button>
+          <button class="add-btn" id="settings-test-btn" style="display:none" onclick="settingsTestApiKey()">연결 테스트</button>
           <span id="settings-api-msg" style="font-size:14px;font-weight:700"></span>
         </div>
       </div>
@@ -1402,6 +1411,7 @@ function switchNav(nav) {
   if (panelId === 'panel-think-answer' && window.thRenderAnswerLecture) {
     window.thRenderAnswerLecture(); window.thRenderAnswerClass(); window.thRenderPick();
   }
+  if (panelId === 'panel-settings') settingsLoadKeyStatus();
 }
 
 // 사이드바의 미션 체크 서브메뉴에서 특정 웹앱 어드민을 바로 열 때: 카드 목록 패널로
@@ -4676,17 +4686,95 @@ initAdmin();
   };
 
   /* ─ 설정: API 키 ─ */
+
+  function settingsRenderStatus(key) {
+    const statusEl = document.getElementById('settings-key-status');
+    const badgeEl = document.getElementById('settings-key-badge');
+    const previewEl = document.getElementById('settings-key-preview');
+    const testBtn = document.getElementById('settings-test-btn');
+    if (!statusEl) return;
+    if (key) {
+      const masked = key.length > 16
+        ? key.slice(0, 14) + '···' + key.slice(-4)
+        : key.slice(0, 6) + '···';
+      statusEl.style.display = 'flex';
+      badgeEl.style.color = 'var(--c3)';
+      badgeEl.textContent = '✓ 등록됨';
+      previewEl.textContent = masked;
+      if (testBtn) testBtn.style.display = '';
+    } else {
+      statusEl.style.display = 'flex';
+      badgeEl.style.color = 'var(--sub)';
+      badgeEl.textContent = '미등록';
+      previewEl.textContent = '';
+      if (testBtn) testBtn.style.display = 'none';
+    }
+  }
+
+  window.settingsLoadKeyStatus = async function() {
+    const msgEl = document.getElementById('settings-api-msg');
+    if (msgEl) msgEl.textContent = '';
+    try {
+      const snap = await getDoc(doc(db, 'settings', 'claude'));
+      const key = snap.exists() ? (snap.data().apiKey || '') : '';
+      settingsRenderStatus(key);
+      if (key) thClaudeKey = key;
+    } catch(e) { settingsRenderStatus(''); }
+  };
+
   window.settingsSaveApiKey = async function() {
     const key = (document.getElementById('settings-api-key')?.value||'').trim();
     const msgEl = document.getElementById('settings-api-msg');
     if (!msgEl) return;
+    msgEl.textContent = '';
     if (!key.startsWith('sk-ant-')) { msgEl.style.color='#DC2626'; msgEl.textContent='올바른 API 키 형식이 아닙니다 (sk-ant-...)'; return; }
     try {
       await setDoc(doc(db,'settings','claude'), { apiKey: key }, { merge: true });
       thClaudeKey = key;
-      msgEl.style.color='var(--c3)'; msgEl.textContent='저장되었습니다.';
       document.getElementById('settings-api-key').value = '';
+      msgEl.style.color='var(--c3)'; msgEl.textContent='저장되었습니다.';
+      settingsRenderStatus(key);
     } catch(e) { msgEl.style.color='#DC2626'; msgEl.textContent='저장 실패: '+e.message; }
+  };
+
+  window.settingsDeleteApiKey = async function() {
+    if (!confirm('API 키를 삭제하시겠습니까?')) return;
+    const msgEl = document.getElementById('settings-api-msg');
+    try {
+      await setDoc(doc(db,'settings','claude'), { apiKey: '' }, { merge: true });
+      thClaudeKey = '';
+      settingsRenderStatus('');
+      if (msgEl) { msgEl.style.color='var(--sub)'; msgEl.textContent='삭제되었습니다.'; }
+    } catch(e) { if (msgEl) { msgEl.style.color='#DC2626'; msgEl.textContent='삭제 실패: '+e.message; } }
+  };
+
+  window.settingsTestApiKey = async function() {
+    const msgEl = document.getElementById('settings-api-msg');
+    const btn = document.getElementById('settings-test-btn');
+    if (!thClaudeKey) { if (msgEl) { msgEl.style.color='#DC2626'; msgEl.textContent='저장된 키가 없습니다.'; } return; }
+    if (btn) btn.disabled = true;
+    if (msgEl) { msgEl.style.color='var(--sub)'; msgEl.textContent='테스트 중…'; }
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': thClaudeKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 10, messages: [{ role: 'user', content: 'ping' }] })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || `HTTP ${res.status}`);
+      }
+      if (msgEl) { msgEl.style.color='var(--c3)'; msgEl.textContent='✓ 연결 성공'; }
+    } catch(e) {
+      if (msgEl) { msgEl.style.color='#DC2626'; msgEl.textContent='연결 실패: '+e.message; }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   };
 
   /* ─ 자동 시작 ─ */
