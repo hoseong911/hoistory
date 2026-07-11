@@ -222,6 +222,17 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .feedback-lec{font-size:12px;font-weight:800;color:var(--c4);margin-bottom:8px;letter-spacing:.2px}
 .feedback-text{font-size:14px;color:var(--charcoal);line-height:1.75;word-break:break-word;white-space:pre-wrap}
 .feedback-empty{text-align:center;padding:28px;font-size:13px;color:var(--slate)}
+/* ── 개념 체크 모드 선택 토스트 ── */
+#conceptPicker{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(calc(100% + 40px));background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:20px;padding:18px 20px 16px;box-shadow:var(--shadow-hover);min-width:260px;max-width:320px;width:calc(100vw - 48px);z-index:300;transition:transform .28s cubic-bezier(.34,1.56,.64,1),opacity .2s;opacity:0;pointer-events:none}
+#conceptPicker.show{transform:translateX(-50%) translateY(0);opacity:1;pointer-events:auto}
+.cp-label{font-size:11px;font-weight:700;color:var(--slate);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px}
+.cp-title{font-size:14px;font-weight:700;color:var(--ink-deep);margin-bottom:14px;line-height:1.4;word-break:keep-all}
+.cp-btns{display:flex;gap:8px}
+.cp-btn{flex:1;padding:11px 0;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:.15s}
+.cp-complete{background:var(--primary);color:#fff;border:none}
+.cp-complete:hover{background:var(--primary-deep)}
+.cp-blank{background:var(--surface);color:var(--primary);border:1.5px solid var(--primary)}
+.cp-blank:hover{background:var(--primary-soft)}
 </style>
 </head>
 <body>
@@ -585,7 +596,7 @@ function startListening() {
   onSnapshot(query(collection(db, 'class_lessons'), orderBy('order','desc')), snap => {
     sectionData.concept = snap.docs.map(d => {
       const l = d.data();
-      return { icon: l.num, label: l.title, sublabel: l.unit, url: `lecture.html?num=${l.num}&mode=complete`, locked: l.isOpen === false };
+      return { icon: l.num, label: l.title, sublabel: l.unit, num: l.num, isConcept: true, locked: l.isOpen === false };
     });
     renderAll();
   });
@@ -848,10 +859,12 @@ function fillIconGrid(container, items) {
 
 function makeIconItem(item) {
   const useAppModal = !item.isThink && item.openInModal;
-  const el = (item.isThink || useAppModal) ? document.createElement('button') : document.createElement('a');
+  const el = (item.isThink || useAppModal || item.isConcept) ? document.createElement('button') : document.createElement('a');
   el.className = 'icon-item' + (item.locked ? ' locked' : '');
   if (item.isThink) {
     if (!item.locked) el.addEventListener('click', () => openThinkModal(item));
+  } else if (item.isConcept) {
+    if (!item.locked) el.addEventListener('click', e => { e.stopPropagation(); openConceptPicker(item); });
   } else if (useAppModal) {
     if (!item.locked && item.url) el.addEventListener('click', () => openContentAppModal(item));
   } else {
@@ -1034,6 +1047,35 @@ document.getElementById('contentAppModalClose').addEventListener('click', closeC
 document.getElementById('contentAppModal').addEventListener('click', e => {
   if (e.target === document.getElementById('contentAppModal')) closeContentAppModal();
 });
+// ── 개념 체크 모드 선택 토스트 ──
+let _cpItem = null;
+const _cpEl = document.getElementById('conceptPicker');
+function openConceptPicker(item) {
+  _cpItem = item;
+  document.getElementById('cpTitle').textContent = item.label || '';
+  _cpEl.classList.add('show');
+}
+function closeConceptPicker() { _cpEl.classList.remove('show'); _cpItem = null; }
+document.getElementById('cpComplete').addEventListener('click', () => {
+  if (_cpItem) window.open(`lecture.html?num=${_cpItem.num}&mode=complete`, '_blank', 'noopener');
+  closeConceptPicker();
+});
+document.getElementById('cpBlank').addEventListener('click', () => {
+  if (_cpItem) window.open(`lecture.html?num=${_cpItem.num}&mode=blank`, '_blank', 'noopener');
+  closeConceptPicker();
+});
+document.addEventListener('click', e => {
+  if (_cpItem && !_cpEl.contains(e.target)) closeConceptPicker();
+});
 </script>
+
+<div id="conceptPicker">
+  <div class="cp-label">수업 유형 선택</div>
+  <div class="cp-title" id="cpTitle"></div>
+  <div class="cp-btns">
+    <button class="cp-btn cp-complete" id="cpComplete">완성형</button>
+    <button class="cp-btn cp-blank" id="cpBlank">빈칸형</button>
+  </div>
+</div>
 </body>
 </html>

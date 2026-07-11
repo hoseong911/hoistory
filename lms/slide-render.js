@@ -184,7 +184,7 @@
       </div>`;
 
     const imgBase = slide.img != null
-      ? `/hoistory/class/img/${lesson.num}_${slide.img}`
+      ? `/hoistory/lms/img/${lesson.num}_${slide.img}`
       : null;
     const imgSize = slide.imgSize != null ? slide.imgSize : 50;
     const imgPanel = imgBase ? `
@@ -232,7 +232,7 @@
     const cols = images.length === 4 ? 2 : Math.min(images.length, 3) || 1;
     const cells = images.map(im => {
       if (im.img != null) {
-        const base = `/hoistory/class/img/${lesson.num}_${im.img}`;
+        const base = `/hoistory/lms/img/${lesson.num}_${im.img}`;
         return `
           <div class="grid-img-cell">
             <img src="${base}.png" alt="${im.caption || slide.title || ''}" class="grid-img" onerror="SlideRenderImgFallback(this,'${base}',0)">
