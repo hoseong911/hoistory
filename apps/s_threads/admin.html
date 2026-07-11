@@ -481,6 +481,7 @@
       <!-- 액션 -->
       <div class="adm-action-row">
         <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="runScoring()">채점하기</button>
+        <button class="scoring-prompt-btn" onclick="openScoringModal()" title="채점 프롬프트 설정">⚙️</button>
         <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportExcel()">엑셀 내보내기</button>
         <div class="sort-box">
           <button class="sort-btn active" id="classSortNewest" onclick="setClassSort('newest')">최신순</button>
@@ -958,6 +959,36 @@ window.initDummy = () => {
   showToast(`더미 ${dummy.length}개 생성`);
 };
 
+/* ─ 채점 프롬프트 모달 ─ */
+const SCORING_PROMPT_PATH = 'adminConfig/s_threads/scoringPrompt';
+
+window.openScoringModal = async () => {
+  const backdrop = document.getElementById('scoring-modal-backdrop');
+  const ta = document.getElementById('scoring-prompt-textarea');
+  const msg = document.getElementById('scoring-modal-msg');
+  msg.textContent = '불러오는 중…'; msg.style.color = 'var(--hi-text-muted)';
+  backdrop.classList.add('open');
+  try {
+    const snap = await get(ref(db, SCORING_PROMPT_PATH));
+    ta.value = snap.exists() ? snap.val() : '';
+    msg.textContent = '';
+  } catch(e) { msg.textContent = '불러오기 실패'; msg.style.color = 'var(--hi-negative)'; }
+};
+window.closeScoringModal = () => {
+  document.getElementById('scoring-modal-backdrop').classList.remove('open');
+  document.getElementById('scoring-modal-msg').textContent = '';
+};
+window.saveScoringPrompt = async () => {
+  const prompt = (document.getElementById('scoring-prompt-textarea').value || '').trim();
+  const msg = document.getElementById('scoring-modal-msg');
+  if (!prompt) { msg.style.color = 'var(--hi-negative)'; msg.textContent = '프롬프트를 입력해주세요.'; return; }
+  try {
+    await set(ref(db, SCORING_PROMPT_PATH), prompt);
+    msg.style.color = 'var(--hi-positive)'; msg.textContent = '저장되었습니다.';
+    setTimeout(closeScoringModal, 900);
+  } catch(e) { msg.style.color = 'var(--hi-negative)'; msg.textContent = '저장 실패: ' + e.message; }
+};
+
 window.runScoring = () => { alert('채점 기능은 준비 중입니다.'); };
 window.exportExcel = () => { alert('엑셀 내보내기 기능은 준비 중입니다.'); };
 
@@ -1011,5 +1042,19 @@ window.exportPostsExcel = () => {
   showToast('게시글 다운로드 완료');
 };
 </script>
+
+<!-- 채점 프롬프트 모달 -->
+<div class="scoring-modal-backdrop" id="scoring-modal-backdrop" onclick="if(event.target===this)closeScoringModal()">
+  <div class="scoring-modal">
+    <div class="scoring-modal-title">채점 프롬프트 설정</div>
+    <p class="scoring-modal-desc">Claude가 학생 답변을 채점할 때 사용할 지침입니다.<br><code>{content}</code> 위치에 학생 답변이 삽입됩니다. 응답은 <code>pass</code> 또는 <code>fail</code>로만 하도록 지시해 주세요.</p>
+    <textarea class="scoring-modal-textarea" id="scoring-prompt-textarea" placeholder="예) 다음 학생의 게시글을 읽고, 신분에 맞는 내용이면 pass, 아니면 fail로만 답하세요.&#10;&#10;{content}"></textarea>
+    <div class="scoring-modal-msg" id="scoring-modal-msg"></div>
+    <div class="scoring-modal-footer">
+      <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="closeScoringModal()">취소</button>
+      <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="saveScoringPrompt()">저장</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
