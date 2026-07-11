@@ -207,9 +207,13 @@
           <div class="stat-chip-val" id="s-pick">0</div>
         </div>
       </div>
-      <div class="scoring-bar">
-        <button class="btn btn-primary" id="score-btn">채점하기</button>
-        <span class="score-info" id="score-info">채점하기를 누르면 미채점 학생의 답변을 자동으로 평가합니다.</span>
+      <div class="adm-action-row">
+        <button class="hi-btn hi-btn-primary hi-btn-sm" id="score-btn">채점하기</button>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportExcel()">엑셀 내보내기</button>
+        <div class="sort-box">
+          <button class="sort-btn active" id="sortNewest" onclick="setAnswerSort('newest')">최신순</button>
+          <button class="sort-btn" id="sortSid" onclick="setAnswerSort('sid')">학번순</button>
+        </div>
       </div>
       <div class="loading-bar" id="loading-bar"></div>
       <div class="student-list" id="student-list"></div>
@@ -249,6 +253,7 @@ let CONTENT={characters:[]};
 let roster=[];
 let students=[];
 let currentFilter='전체';
+let answerSort='newest';
 let unsub=null;
 const isEmbedded=window.self!==window.top;
 
@@ -620,7 +625,17 @@ function statusLabel(status){
 }
 
 function renderStudentList(){
-  const list=filteredStudents();
+  let list=filteredStudents();
+  // sort
+  if(answerSort==='sid'){
+    list=[...list].sort((a,b)=>String(a.studentId||'').localeCompare(String(b.studentId||'')));
+  } else {
+    list=[...list].sort((a,b)=>{
+      const ta=a.submittedAt?.seconds||a.timestamp||0;
+      const tb=b.submittedAt?.seconds||b.timestamp||0;
+      return tb-ta;
+    });
+  }
   const el=document.getElementById('student-list');
   if(!list.length){el.innerHTML='<div class="no-data">아직 제출한 학생이 없습니다.</div>';return;}
   el.innerHTML=list.map((s,i)=>{
@@ -628,6 +643,7 @@ function renderStudentList(){
     const qs=char?.questions||[];
     const answers=s.answers||{};
     const status=s.status||'pending';
+    const firstAnswer=qs.length>0?(answers[0]||'').trim():'';
     const ansHtml=qs.map((q,qi)=>`
       <div class="ans-block">
         <div class="ans-q-label">Q${qi+1}. ${escHtml(q)}</div>
@@ -636,21 +652,32 @@ function renderStudentList(){
           :`<div class="ans-empty">미작성</div>`}
       </div>
     `).join('');
-    return`<div class="stu-card" data-idx="${i}">
-      <div class="stu-head">
-        <span class="stu-class-badge">${classNumOf(s.id)||'?'}반</span>
-        <div class="stu-info">
-          <div class="stu-name">${escHtml(s.name||'')} <span class="stu-id">${escHtml(String(s.studentId||''))}</span></div>
-          ${s.charId?`<span class="stu-char">${char?.emoji||''} ${escHtml(s.charName||s.charId)}</span>`:'<span class="stu-char" style="color:var(--hi-text-muted)">미제출</span>'}
+    return`<div class="std-card" style="cursor:pointer;" data-idx="${i}" onclick="toggleCard(this)">
+      <div class="std-card-row">
+        <div>
+          <div class="std-sid">${escHtml(String(s.studentId||''))}</div>
+          <div class="std-name">${escHtml(s.name||'')}</div>
         </div>
-        <span class="status-badge ${statusBadgeClass(status)}">${statusLabel(status)}</span>
-        <span class="stu-toggle">▸</span>
+        <div class="std-badge-col">
+          ${char?`<span class="std-badge">${escHtml(char.emoji||'')} ${escHtml(s.charName||s.charId||'')}</span>`:''}
+        </div>
+        <div class="std-content">
+          <div class="std-content-main">${firstAnswer?escHtml(firstAnswer):'<span style="color:var(--hi-text-muted)">미제출</span>'}</div>
+          <div class="std-content-sub">${statusLabel(status)}</div>
+        </div>
+        <div class="std-actions" onclick="event.stopPropagation()">
+          <button class="std-pick${status==='pick'?' picked':''}" data-sid="${s.studentId}" onclick="togglePickStatus(this,'${s.studentId}','${status}')">
+            ${status==='pick'?'⭐':'☆'}
+          </button>
+          <button class="std-edit">✏️</button>
+          <button class="std-del" onclick="deleteAnswer('${s.studentId}')">✕</button>
+        </div>
       </div>
-      <div class="stu-body">
+      <div class="stu-body" style="display:none; padding:0 16px 14px;">
         <div class="stu-status-btns">
-          <button class="ssb ssb-pass${status==='pass'?' active':''}" data-sid="${s.studentId}" data-st="pass">통과</button>
-          <button class="ssb ssb-insuf${status==='insufficient'||status==='insuf'?' active':''}" data-sid="${s.studentId}" data-st="insufficient">미흡</button>
-          <button class="ssb ssb-pick${status==='pick'?' active':''}" data-sid="${s.studentId}" data-st="pick">PICK</button>
+          <button class="ssb ssb-pass${status==='pass'?' active':''}" data-sid="${s.studentId}" data-st="pass" onclick="event.stopPropagation();setSsb(this)">통과</button>
+          <button class="ssb ssb-insuf${status==='insufficient'||status==='insuf'?' active':''}" data-sid="${s.studentId}" data-st="insufficient" onclick="event.stopPropagation();setSsb(this)">미흡</button>
+          <button class="ssb ssb-pick${status==='pick'?' active':''}" data-sid="${s.studentId}" data-st="pick" onclick="event.stopPropagation();setSsb(this)">PICK</button>
         </div>
         ${s.charId?ansHtml:'<div class="ans-empty">제출된 답변이 없습니다.</div>'}
         ${s.deepQuestion?`<div class="deep-block">
@@ -660,27 +687,40 @@ function renderStudentList(){
       </div>
     </div>`;
   }).join('');
-
-  el.querySelectorAll('.stu-head').forEach(head=>{
-    head.addEventListener('click',()=>{
-      const card=head.closest('.stu-card');
-      const isOpen=card.classList.contains('open');
-      el.querySelectorAll('.stu-card.open').forEach(c=>{c.classList.remove('open');c.querySelector('.stu-toggle').textContent='▸';});
-      if(!isOpen){card.classList.add('open');head.querySelector('.stu-toggle').textContent='▾';}
-    });
-  });
-
-  el.querySelectorAll('.ssb').forEach(btn=>{
-    btn.addEventListener('click',async e=>{
-      e.stopPropagation();
-      const sid=btn.dataset.sid;
-      const st=btn.dataset.st;
-      try{
-        await updateDoc(doc(db,'interview_joseon_answers',sid),{status:st});
-      }catch(err){alert('오류: '+err.message);}
-    });
-  });
 }
+
+window.toggleCard=(card)=>{
+  const body=card.querySelector('.stu-body');
+  body.style.display=body.style.display==='none'?'':'none';
+};
+
+window.setSsb=async(btn)=>{
+  const sid=btn.dataset.sid;
+  const st=btn.dataset.st;
+  try{await updateDoc(doc(db,'interview_joseon_answers',sid),{status:st});}
+  catch(err){alert('오류: '+err.message);}
+};
+
+window.togglePickStatus=async(btn,sid,currentStatus)=>{
+  const newStatus=currentStatus==='pick'?'pending':'pick';
+  try{await updateDoc(doc(db,'interview_joseon_answers',sid),{status:newStatus});}
+  catch(e){alert('오류: '+e.message);}
+};
+
+window.deleteAnswer=async(sid)=>{
+  if(!confirm('이 학생의 답변을 삭제하시겠습니까?'))return;
+  try{await deleteDoc(doc(db,'interview_joseon_answers',sid));}
+  catch(e){alert('오류: '+e.message);}
+};
+
+window.exportExcel=()=>{alert('엑셀 내보내기 기능은 준비 중입니다.');};
+
+window.setAnswerSort=(s)=>{
+  answerSort=s;
+  document.getElementById('sortNewest').classList.toggle('active',s==='newest');
+  document.getElementById('sortSid').classList.toggle('active',s==='sid');
+  renderStudentList();
+};
 
 function escHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 </script>

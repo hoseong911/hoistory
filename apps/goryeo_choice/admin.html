@@ -386,7 +386,7 @@
       .sub-tab { padding: 6px 12px; font-size: 12px; }
     }
   </style>
-<script>if(window.self!==window.top)document.documentElement.classList.add('in-iframe');</script>
+<script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
 </head>
 <body class="hi-preset-admin">
 
@@ -453,12 +453,39 @@
         <div class="ending-chips-row" id="endingChips"></div>
       </div>
 
-      <!-- 도구 바 -->
-      <div class="toolbar-row">
-        <div class="summary" id="resultSummary">—</div>
+      <!-- 표준 통계 행 -->
+      <div class="stats-row" style="margin-top:16px;">
+        <div class="stat-chip">
+          <div class="stat-chip-label">전체 인원</div>
+          <div class="stat-chip-val" id="stTotal">-</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">제출 / 미제출</div>
+          <div class="stat-dual">
+            <div class="stat-dual-val" id="stSubmit" style="color:var(--hi-accent)">-</div>
+            <div class="stat-dual-val" id="stMissing" style="color:var(--hi-text-muted)">-</div>
+          </div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">통과 / 미흡</div>
+          <div class="stat-dual">
+            <div class="stat-dual-val" id="stPass" style="color:var(--hi-positive)">-</div>
+            <div class="stat-dual-val" id="stFail" style="color:var(--hi-negative)">-</div>
+          </div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">PICK</div>
+          <div class="stat-chip-val" id="stPick">-</div>
+        </div>
+      </div>
+
+      <!-- 표준 액션 줄 -->
+      <div class="adm-action-row">
+        <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="runScoring()">채점하기</button>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportExcel()">엑셀 내보내기</button>
         <div class="sort-box">
-          <button class="sort-btn active" id="sortSid" onclick="setResultSort('sid')">학번순</button>
-          <button class="sort-btn" id="sortNewest" onclick="setResultSort('newest')">최신순</button>
+          <button class="sort-btn active" id="sortNewest" onclick="setResultSort('newest')">최신순</button>
+          <button class="sort-btn" id="sortSid" onclick="setResultSort('sid')">학번순</button>
         </div>
       </div>
 
@@ -542,7 +569,7 @@ let allResults = [];       // [{_key, ...data}]
 let allStudents = [];      // [{studentId, name}]
 let studentMap = {};       // sid → name
 let classTab = 'all';      // 'all' or 1~6
-let resultSort = 'sid';    // 'sid' | 'newest'
+let resultSort = 'newest'; // 'sid' | 'newest'
 
 /* ===== 유틸 ===== */
 async function sha256(str) {
@@ -638,8 +665,8 @@ window.setClassTab = (val, btn) => {
 };
 window.setResultSort = (sort) => {
   resultSort = sort;
-  document.getElementById('sortSid').classList.toggle('active', sort === 'sid');
   document.getElementById('sortNewest').classList.toggle('active', sort === 'newest');
+  document.getElementById('sortSid').classList.toggle('active', sort === 'sid');
   renderClass();
 };
 
@@ -693,19 +720,30 @@ function renderStats(results) {
       </div>`;
   }).join('');
   document.getElementById('endingChips').innerHTML = chipsHtml;
+
+  // 표준 통계 행 업데이트
+  const classStudents = classTab === 'all'
+    ? allStudents
+    : allStudents.filter(s => classNumFromId(s.studentId) === classTab);
+  const submittedIds = new Set(results.map(r => r.studentId));
+  const pickCount = results.filter(r => r.pick).length;
+  document.getElementById('stTotal').textContent = classStudents.length || '-';
+  document.getElementById('stSubmit').textContent = submittedIds.size;
+  document.getElementById('stMissing').textContent = classStudents.length ? classStudents.length - submittedIds.size : '-';
+  document.getElementById('stPass').textContent = '-';
+  document.getElementById('stFail').textContent = '-';
+  document.getElementById('stPick').textContent = pickCount;
 }
 
 function renderResultList(results) {
   const container = document.getElementById('resultList');
-  const summary = document.getElementById('resultSummary');
 
   if (!results.length) {
     container.innerHTML = `<div class="empty"><div class="empty-icon">📜</div>${classTab==='all'?'아직 플레이 결과가 없습니다':'이 반의 플레이 결과가 없습니다'}</div>`;
-    summary.textContent = '0건';
     return;
   }
 
-  // 정렬: 학번 → 시간(오래된 순) / 또는 최신순
+  // 정렬: 최신순 / 학번순
   let sorted;
   if (resultSort === 'sid') {
     sorted = [...results].sort((a, b) => {
@@ -717,82 +755,55 @@ function renderResultList(results) {
     sorted = [...results].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   }
 
-  const uniqueStudents = new Set(sorted.map(r => r.studentId)).size;
-  summary.innerHTML = `<strong>${sorted.length}</strong>건 · <strong>${uniqueStudents}</strong>명`;
-
-  container.innerHTML = sorted.map(r => buildResultCard(r)).join('');
+  container.innerHTML = `<div class="std-list">${sorted.map(r => buildResultCard(r)).join('')}</div>`;
 }
 
 function buildResultCard(r) {
   const meta = ENDINGS_META[r.ending] || null;
   const endingTitle = r.endingTitle || (meta ? meta.title : '—');
-  const endingChar = meta ? meta.char : '?';
-  const endingPath = pathOfEndingKey(r.ending);
-
+  const endingPath = pathOfEndingKey(r.ending) || '';
   const name = studentMap[r.studentId] || r.studentName || '';
-  const cls = classLabel(r.studentId);
-
-  // 스탯 (15점 만점). 5 이하 → low(red), 12 이상 → high(green)
-  const fs = r.finalStats || {};
-  const renderStat = (label, val) => {
-    let cls = '';
-    if (typeof val === 'number') {
-      if (val <= 5) cls = ' low';
-      else if (val >= 12) cls = ' high';
-    }
-    return `
-      <div class="rc-stat${cls}">
-        <div class="rc-stat-label">${label}</div>
-        <div class="rc-stat-value">${val ?? '—'}</div>
-      </div>`;
-  };
-
   const reflection = (r.reflection || '').trim();
+  const picked = !!r.pick;
+  const pathKorean = endingPath === 'open' ? '조선합류' : endingPath === 'retreat' ? '두문동은거' : endingPath === 'martyr' ? '충절의순사' : '—';
 
-  return `
-    <div class="result-card">
-      <div class="rc-header">
-        <span class="rc-sid">${esc(r.studentId)} · ${esc(cls)}</span>
-        <span class="rc-sname">${esc(name)}</span>
-        <span class="rc-time">${esc(r.time || '')}</span>
+  return `<div class="std-card">
+    <div class="std-card-row">
+      <div>
+        <div class="std-sid">${esc(r.studentId||'')}</div>
+        <div class="std-name">${esc(name)}</div>
       </div>
-
-      <div class="rc-meta">
-        <div class="rc-meta-item">
-          <div class="rc-meta-label">▪ 인물 설정</div>
-          <div class="rc-meta-value">${esc(r.origin || '—')} · ${esc(r.align || '—')}</div>
-        </div>
-        <div class="rc-meta-item">
-          <div class="rc-meta-label">▪ 결말</div>
-          <div class="rc-meta-value rc-ending">
-            <span class="rc-ending-char">${endingChar}</span>${esc(endingTitle)}
-          </div>
-        </div>
+      <div class="std-badge-col">
+        <span class="std-badge ${endingPath}">${pathKorean}</span>
       </div>
-
-      <div class="rc-stats">
-        ${renderStat('명망', fs.fame)}
-        ${renderStat('의리', fs.loyalty)}
-        ${renderStat('학문', fs.study)}
-        ${renderStat('생존', fs.survive)}
+      <div class="std-content">
+        <div class="std-content-main">${esc(endingTitle)}</div>
+        ${reflection ? `<div class="std-content-sub">${esc(reflection)}</div>` : ''}
       </div>
-
-      <div class="rc-reflection-label">▪ 소감</div>
-      <div class="rc-reflection${reflection ? '' : ' empty'}">${reflection ? esc(reflection) : '(소감 미작성)'}</div>
-
-      <div class="rc-actions">
-        <button class="btn-del" onclick="deleteResult('${r._key}')">삭제</button>
+      <div class="std-actions">
+        <button class="std-pick${picked?' picked':''}" onclick="togglePick('${r._key}',${picked})">
+          ${picked?'⭐':'☆'}
+        </button>
+        <button class="std-edit" onclick="editResult('${r._key}')">✏️</button>
+        <button class="std-del" onclick="deleteResult('${r._key}')">✕</button>
       </div>
-    </div>`;
+    </div>
+  </div>`;
 }
 
-/* ===== 결과 삭제 ===== */
+/* ===== 결과 조작 ===== */
+window.togglePick = async (key, isPicked) => {
+  await update(ref(db, `goryeo_results/${key}`), { pick: isPicked ? null : true });
+};
+window.editResult = (key) => { /* stub */ };
 window.deleteResult = (key) => {
   openConfirm('결과 삭제', '이 플레이 결과를 삭제하시겠습니까?', () => {
     remove(ref(db, `goryeo_results/${key}`));
     showToast('삭제 완료');
   });
 };
+window.runScoring = () => { alert('채점 기능은 준비 중입니다.'); };
+window.exportExcel = () => { alert('엑셀 내보내기 기능은 준비 중입니다.'); };
 
 /* ===== 확인 모달 ===== */
 function openConfirm(title, desc, onOk) {

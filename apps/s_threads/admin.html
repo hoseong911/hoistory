@@ -412,14 +412,14 @@
   <!-- ══════════ FEED 패널 ══════════ -->
   <section class="tab-panel active" id="panel-feed">
     <!-- 신분 서브탭 -->
-    <div class="sub-tabs" id="feedSubTabs">
-      <button class="sub-tab active" onclick="setFeedFilter('all', this)">전체</button>
-      <button class="sub-tab" onclick="setFeedFilter('진골', this)">진골</button>
-      <button class="sub-tab" onclick="setFeedFilter('6두품', this)">6두품</button>
-      <button class="sub-tab" onclick="setFeedFilter('호족', this)">호족</button>
-      <button class="sub-tab" onclick="setFeedFilter('농민', this)">농민</button>
-      <button class="sub-tab" onclick="setFeedFilter('선종 승려', this)">선종</button>
-      <button class="sub-tab" onclick="setFeedFilter('풍수지리사', this)">풍수</button>
+    <div class="class-filter" id="feedSubTabs">
+      <button class="cf-btn active" onclick="setFeedFilter('all', this)">전체</button>
+      <button class="cf-btn" onclick="setFeedFilter('진골', this)">진골</button>
+      <button class="cf-btn" onclick="setFeedFilter('6두품', this)">6두품</button>
+      <button class="cf-btn" onclick="setFeedFilter('호족', this)">호족</button>
+      <button class="cf-btn" onclick="setFeedFilter('농민', this)">농민</button>
+      <button class="cf-btn" onclick="setFeedFilter('선종 승려', this)">선종</button>
+      <button class="cf-btn" onclick="setFeedFilter('풍수지리사', this)">풍수</button>
     </div>
 
     <div class="container">
@@ -441,13 +441,14 @@
   <!-- ══════════ CLASS 패널 ══════════ -->
   <section class="tab-panel" id="panel-class">
     <!-- 반 서브탭 -->
-    <div class="sub-tabs" id="classSubTabs">
-      <button class="sub-tab active" onclick="setClassTab(1, this)">1반</button>
-      <button class="sub-tab" onclick="setClassTab(2, this)">2반</button>
-      <button class="sub-tab" onclick="setClassTab(3, this)">3반</button>
-      <button class="sub-tab" onclick="setClassTab(4, this)">4반</button>
-      <button class="sub-tab" onclick="setClassTab(5, this)">5반</button>
-      <button class="sub-tab" onclick="setClassTab(6, this)">6반</button>
+    <div class="class-filter" id="classSubTabs">
+      <button class="cf-btn active" onclick="setClassTab('all', this)">전체</button>
+      <button class="cf-btn" onclick="setClassTab(1, this)">1반</button>
+      <button class="cf-btn" onclick="setClassTab(2, this)">2반</button>
+      <button class="cf-btn" onclick="setClassTab(3, this)">3반</button>
+      <button class="cf-btn" onclick="setClassTab(4, this)">4반</button>
+      <button class="cf-btn" onclick="setClassTab(5, this)">5반</button>
+      <button class="cf-btn" onclick="setClassTab(6, this)">6반</button>
     </div>
 
     <div class="container">
@@ -464,11 +465,23 @@
             <div class="stat-dual-val" id="stMissing" style="color:var(--hi-text-muted)">-</div>
           </div>
         </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">통과 / 미흡</div>
+          <div class="stat-dual">
+            <div class="stat-dual-val" id="stPass" style="color:var(--hi-positive)">-</div>
+            <div class="stat-dual-val" id="stFail" style="color:var(--hi-negative)">-</div>
+          </div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">PICK</div>
+          <div class="stat-chip-val" id="stPick">-</div>
+        </div>
       </div>
 
       <!-- 액션 -->
-      <div class="action-toolbar">
-        <button class="show-missing-btn" onclick="openActivityModal()">미제출 명단</button>
+      <div class="adm-action-row">
+        <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="runScoring()">채점하기</button>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportExcel()">엑셀 내보내기</button>
         <div class="sort-box">
           <button class="sort-btn active" id="classSortNewest" onclick="setClassSort('newest')">최신순</button>
           <button class="sort-btn" id="classSortId" onclick="setClassSort('id')">학번순</button>
@@ -569,7 +582,7 @@ let studentMap = {};
 let feedFilter = 'all';
 let feedSort = 'newest';
 let feedPickOnly = false;
-let classTab = 1;
+let classTab = 'all';
 let classSort = 'newest';
 let activityTabState = 'absent';
 let editingPostId = null;
@@ -657,7 +670,7 @@ window.showPanel = (name) => {
 // FEED
 window.setFeedFilter = (filter, btn) => {
   feedFilter = filter;
-  document.querySelectorAll('#feedSubTabs .sub-tab').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#feedSubTabs .cf-btn').forEach(el => el.classList.remove('active'));
   btn.classList.add('active');
   renderFeed();
 };
@@ -696,7 +709,7 @@ function renderFeed() {
 // CLASS
 window.setClassTab = (num, btn) => {
   classTab = num;
-  document.querySelectorAll('#classSubTabs .sub-tab').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#classSubTabs .cf-btn').forEach(el => el.classList.remove('active'));
   btn.classList.add('active');
   renderClass();
 };
@@ -708,76 +721,64 @@ window.setClassSort = (sort) => {
 };
 
 function renderClass() {
-  const classStudents = allStudents.filter(s => classNumFromId(s.studentId) === classTab);
-  const classPosts = allPosts.filter(p =>
-    p.studentId !== '00000' && classNumFromId(p.studentId) === classTab
-  );
+  const classStudents = classTab === 'all'
+    ? allStudents
+    : allStudents.filter(s => classNumFromId(s.studentId) === classTab);
+  const classPosts = classTab === 'all'
+    ? allPosts.filter(p => p.studentId !== '00000')
+    : allPosts.filter(p => p.studentId !== '00000' && classNumFromId(p.studentId) === classTab);
   const submittedIds = new Set(classPosts.map(p => p.studentId));
+  const pickCount = classPosts.filter(p => p.adminPick).length;
 
   document.getElementById('stTotal').textContent = classStudents.length || '-';
   document.getElementById('stSubmit').textContent = submittedIds.size;
   document.getElementById('stMissing').textContent = classStudents.length ? classStudents.length - submittedIds.size : '-';
+  document.getElementById('stPass').textContent = '-';
+  document.getElementById('stFail').textContent = '-';
+  document.getElementById('stPick').textContent = pickCount;
 
   window._classStudents = classStudents;
   window._submittedIds = submittedIds;
 
-  if (classSort === 'newest') {
-    const sorted = [...classPosts].sort((a,b) =>
-      (b.timestamp||0)-(a.timestamp||0) || (b.id||'').localeCompare(a.id||'')
-    );
-    renderClassFeed(sorted);
-  } else {
-    renderClassByStudent(classPosts, classStudents);
-  }
-}
+  const sorted = classSort === 'newest'
+    ? [...classPosts].sort((a,b) => (b.timestamp||0)-(a.timestamp||0) || (b.id||'').localeCompare(a.id||''))
+    : [...classPosts].sort((a,b) => String(a.studentId).localeCompare(String(b.studentId)));
 
-function renderClassFeed(posts) {
   const container = document.getElementById('classList');
-  if (!posts.length) {
-    container.innerHTML = `<div class="empty"><div class="empty-icon">📝</div>이 반의 게시글이 없습니다</div>`;
+  if (!sorted.length) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">📝</div>게시글이 없습니다</div>`;
     return;
   }
-  container.innerHTML = `<div class="feed-wrap">${posts.map(p => buildPostCard(p)).join('')}</div>`;
+  container.innerHTML = `<div class="std-list">${sorted.map(p => buildClassCard(p)).join('')}</div>`;
 }
 
-function renderClassByStudent(classPosts, classStudents) {
-  const container = document.getElementById('classList');
-  const postsByStudent = {};
-  classPosts.forEach(p => {
-    if (!postsByStudent[p.studentId]) postsByStudent[p.studentId] = [];
-    postsByStudent[p.studentId].push(p);
-  });
-  Object.values(postsByStudent).forEach(arr =>
-    arr.sort((a,b) => (a.timestamp||0)-(b.timestamp||0) || (a.id||'').localeCompare(b.id||''))
-  );
-  const allStudentIds = new Set([
-    ...classStudents.map(s => s.studentId),
-    ...classPosts.map(p => p.studentId)
-  ]);
-  const orderedIds = [
-    ...classStudents.map(s => s.studentId),
-    ...[...allStudentIds].filter(id => !classStudents.some(s => s.studentId === id))
-  ];
-  if (!orderedIds.length) {
-    container.innerHTML = `<div class="empty"><div class="empty-icon">📝</div>이 반의 데이터가 없습니다</div>`;
-    return;
-  }
-  container.innerHTML = orderedIds.map(sid => {
-    const student = classStudents.find(s => s.studentId === sid) || { studentId: sid, name: studentMap[sid] || '?' };
-    const posts = postsByStudent[sid] || [];
-    const headerHtml = `
-      <div class="class-card-header">
-        <span class="sid">${esc(sid)}</span>
-        <span class="sname">${esc(student.name)}</span>
-        ${!posts.length
-          ? '<span class="no-post">미제출</span>'
-          : `<span class="post-count">${posts.length}개</span>`}
-      </div>`;
-    const postsHtml = posts.length
-      ? posts.map(p => buildPostCard(p)).join('')
-      : `<div style="padding:12px 14px; font-size:12px; color:var(--hi-text-muted); font-style:italic;">게시글 없음</div>`;
-    return `<div class="class-card">${headerHtml}${postsHtml}</div>`;
-  }).join('');
+function buildClassCard(post) {
+  const sid = post.studentId || '';
+  const name = studentMap[sid] || post.realName || '';
+  const role = post.role || '';
+  const picked = !!post.adminPick;
+  return `<div class="std-card">
+    <div class="std-card-row">
+      <div>
+        <div class="std-sid">${esc(sid)}</div>
+        <div class="std-name">${esc(name)}</div>
+      </div>
+      <div class="std-badge-col">
+        ${role ? `<span class="std-badge">${roleIcons[role]||''} ${esc(role)}</span>` : ''}
+      </div>
+      <div class="std-content">
+        <div class="std-content-main">${esc(post.content||'')}</div>
+        <div class="std-content-sub">${esc(post.nickname||'')} · ${esc(post.time||'')}</div>
+      </div>
+      <div class="std-actions">
+        <button class="std-pick${picked?' picked':''}" onclick="togglePick('${post.id}',${picked},'${(post.content||'').slice(0,80).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' ')}','${esc(post.nickname||'').replace(/'/g,"\\'")}')">
+          ${picked?'⭐':'☆'}
+        </button>
+        <button class="std-edit" onclick="openPostEditModal('${post.id}')">✏️</button>
+        <button class="std-del" onclick="deletePost('${post.id}')">✕</button>
+      </div>
+    </div>
+  </div>`;
 }
 
 // 게시글 카드
@@ -956,6 +957,9 @@ window.initDummy = () => {
   });
   showToast(`더미 ${dummy.length}개 생성`);
 };
+
+window.runScoring = () => { alert('채점 기능은 준비 중입니다.'); };
+window.exportExcel = () => { alert('엑셀 내보내기 기능은 준비 중입니다.'); };
 
 // 비밀번호 변경
 window.changePassword = async () => {

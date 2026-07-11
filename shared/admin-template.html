@@ -10,8 +10,9 @@
   <style>
     /* ── 앱 고유 스타일 ── */
   </style>
+<script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
 </head>
-<body>
+<body class="hi-preset-admin">
 
 <!-- ── 로그인 화면 ── -->
 <div id="loginScreen">
@@ -29,7 +30,98 @@
 
 <!-- ── 어드민 앱 ── -->
 <div id="adminApp">
-  <!-- 콘텐츠 여기에 -->
+  <header class="adm-header">
+    <div class="adm-logo">APP_NAME<span class="adm-badge">관리자 모드</span></div>
+    <div class="adm-tabs">
+      <!-- FEED 탭이 있는 앱: -->
+      <button class="adm-tab active" onclick="showPanel('feed')">FEED</button>
+      <button class="adm-tab" onclick="showPanel('class')">ANSWER</button>
+    </div>
+    <button class="adm-logout" onclick="logoutAdmin()">로그아웃</button>
+    <button class="adm-back" onclick="window.parent.closeAppAdmin&&window.parent.closeAppAdmin()">목록으로</button>
+  </header>
+
+  <div class="adm-body">
+
+  <!-- ══════════ FEED 패널 ══════════ -->
+  <div id="panel-feed" class="tab-panel active">
+    <!-- 서브탭: .class-filter + .cf-btn 스타일 사용 (앱별 필터 항목 교체) -->
+    <div class="class-filter" id="feedSubTabs">
+      <button class="cf-btn active" onclick="setFeedFilter('all', this)">전체</button>
+      <!-- TODO: 앱별 서브탭 항목 추가 -->
+    </div>
+    <div class="admin-container">
+      <div class="sort-bar">
+        <div class="sort-box">
+          <button class="sort-btn active" id="feedSortNewest" onclick="setFeedSort('newest')">최신순</button>
+          <button class="sort-btn" id="feedSortPopular" onclick="setFeedSort('popular')">인기순</button>
+        </div>
+        <button class="filter-toggle" id="feedPickBtn" onclick="toggleFeedPick()">PICK</button>
+      </div>
+      <div id="feedList">
+        <div class="loading-state"><div class="spinner"></div><span>게시글 불러오는 중…</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════ ANSWER 패널 ══════════ -->
+  <div id="panel-class" class="tab-panel">
+    <!-- 1. 반 필터 -->
+    <div class="class-filter" id="classSubTabs">
+      <button class="cf-btn active" onclick="setClassTab('all', this)">전체</button>
+      <button class="cf-btn" onclick="setClassTab(1, this)">1반</button>
+      <button class="cf-btn" onclick="setClassTab(2, this)">2반</button>
+      <button class="cf-btn" onclick="setClassTab(3, this)">3반</button>
+      <button class="cf-btn" onclick="setClassTab(4, this)">4반</button>
+      <button class="cf-btn" onclick="setClassTab(5, this)">5반</button>
+      <button class="cf-btn" onclick="setClassTab(6, this)">6반</button>
+    </div>
+
+    <div class="admin-container">
+      <!-- 2. 통계 행 (4개 칩 고정) -->
+      <div class="stats-row">
+        <div class="stat-chip">
+          <div class="stat-chip-label">전체 인원</div>
+          <div class="stat-chip-val" id="stTotal">-</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">제출 / 미제출</div>
+          <div class="stat-dual">
+            <div class="stat-dual-val" id="stSubmit" style="color:var(--hi-accent)">-</div>
+            <div class="stat-dual-val" id="stMissing" style="color:var(--hi-text-muted)">-</div>
+          </div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">통과 / 미흡</div>
+          <div class="stat-dual">
+            <div class="stat-dual-val" id="stPass" style="color:var(--hi-positive)">-</div>
+            <div class="stat-dual-val" id="stFail" style="color:var(--hi-negative)">-</div>
+          </div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">PICK</div>
+          <div class="stat-chip-val" id="stPick">-</div>
+        </div>
+      </div>
+
+      <!-- 3. 액션 줄 -->
+      <div class="adm-action-row">
+        <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="runScoring()">채점하기</button>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportExcel()">엑셀 내보내기</button>
+        <div class="sort-box">
+          <button class="sort-btn active" id="classSortNewest" onclick="setClassSort('newest')">최신순</button>
+          <button class="sort-btn" id="classSortId" onclick="setClassSort('id')">학번순</button>
+        </div>
+      </div>
+
+      <!-- 4. 학생 카드 목록 -->
+      <div id="classList">
+        <div class="loading-state"><div class="spinner"></div><span>불러오는 중…</span></div>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /.adm-body -->
 </div>
 
 <script type="module">
@@ -50,7 +142,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// REPLACE_APP_ID 와 아래 해시는 앱별로 교체
+// REPLACE: 앱별로 아래 값 교체
 const ADMIN_PW_HASH = "REPLACE_PW_HASH";
 const SESSION_KEY = "REPLACE_APP_KEY_admin_v1";
 
@@ -71,7 +163,8 @@ window.tryLogin = async () => {
     sessionStorage.setItem(SESSION_KEY, '1');
     enterAdmin();
   } else {
-    document.getElementById('loginErr').style.display = 'block';
+    document.getElementById('loginErr').classList.add('show');
+    setTimeout(() => document.getElementById('loginErr').classList.remove('show'), 2500);
   }
 };
 
@@ -81,22 +174,160 @@ window.logoutAdmin = () => {
   location.reload();
 };
 
-// ── iframe 임베드 감지: lms/admin.html에서 열릴 때 로그인 건너뜀 ──
+// ── 임베드 감지: lms/admin.html에서 열릴 때 로그인 건너뜀 ──
 const isEmbedded = window.self !== window.top;
 window.addEventListener('DOMContentLoaded', () => {
   if (isEmbedded) {
-    document.documentElement.classList.add('has-own-back');
     enterAdmin();
   } else if (sessionStorage.getItem(SESSION_KEY) === '1') {
     enterAdmin();
   }
 });
 
+// ── 상태 변수 ──
+let allPosts = [], studentMap = {}, studentList = [], allGrades = {};
+let feedFilter = 'all', feedSort = 'newest', feedPickOnly = false;
+let classTab = 'all', classSort = 'newest';
+
+// ── 탭 전환 ──
+window.showPanel = (name) => {
+  document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
+  document.getElementById(`panel-${name}`)?.classList.add('active');
+  document.querySelectorAll('.adm-tab').forEach(el => el.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+};
+
+// ── FEED ──
+window.setFeedFilter = (filter, btn) => {
+  feedFilter = filter;
+  document.querySelectorAll('#feedSubTabs .cf-btn').forEach(el => el.classList.remove('active'));
+  btn.classList.add('active');
+  renderFeed();
+};
+window.setFeedSort = (sort) => {
+  feedSort = sort;
+  document.getElementById('feedSortNewest').classList.toggle('active', sort === 'newest');
+  document.getElementById('feedSortPopular').classList.toggle('active', sort === 'popular');
+  renderFeed();
+};
+window.toggleFeedPick = () => {
+  feedPickOnly = !feedPickOnly;
+  document.getElementById('feedPickBtn').classList.toggle('active', feedPickOnly);
+  renderFeed();
+};
+
+function renderFeed() {
+  // TODO: 앱별 렌더링 구현
+}
+
+// ── ANSWER ──
+window.setClassTab = (num, btn) => {
+  classTab = num;
+  document.querySelectorAll('#classSubTabs .cf-btn').forEach(el => el.classList.remove('active'));
+  btn.classList.add('active');
+  renderClass();
+};
+window.setClassSort = (sort) => {
+  classSort = sort;
+  document.getElementById('classSortNewest').classList.toggle('active', sort === 'newest');
+  document.getElementById('classSortId').classList.toggle('active', sort === 'id');
+  renderClass();
+};
+
+function classNumFromId(sid) {
+  if (!sid || String(sid).length < 3) return null;
+  const c = parseInt(String(sid).slice(1, 3), 10);
+  return isNaN(c) ? null : c;
+}
+
+function renderClass() {
+  const classStudents = classTab === 'all'
+    ? studentList
+    : studentList.filter(s => classNumFromId(s.studentId) === classTab);
+  const classPosts = classTab === 'all'
+    ? allPosts.filter(p => p.studentId !== '00000')
+    : allPosts.filter(p => p.studentId !== '00000' && classNumFromId(p.studentId) === classTab);
+  const submittedIds = new Set(classPosts.map(p => p.studentId));
+  const pickCount = classPosts.filter(p => p.adminPick).length;
+  const total = classStudents.length;
+  const submit = submittedIds.size;
+  const missing = total ? total - submit : 0;
+  // TODO: passCount / failCount 로직 추가
+  document.getElementById('stTotal').textContent = total || '-';
+  document.getElementById('stSubmit').textContent = submit;
+  document.getElementById('stMissing').textContent = total ? missing : '-';
+  document.getElementById('stPass').textContent = '-';
+  document.getElementById('stFail').textContent = '-';
+  document.getElementById('stPick').textContent = pickCount;
+
+  const sorted = classSort === 'newest'
+    ? [...classPosts].sort((a,b) => (b.timestamp||0)-(a.timestamp||0))
+    : [...classPosts].sort((a,b) => String(a.studentId).localeCompare(String(b.studentId)));
+
+  const container = document.getElementById('classList');
+  if (!sorted.length) { container.innerHTML = '<div class="empty-state">게시글이 없습니다.</div>'; return; }
+  container.innerHTML = `<div class="std-list">${sorted.map(p => buildStudentCard(p)).join('')}</div>`;
+}
+
+// ── 표준 학생 카드 빌더 ──
+// TODO: badge, content 필드는 앱별로 커스터마이즈
+function buildStudentCard(item) {
+  const sid = item.studentId || '';
+  const name = studentMap[sid] || item.realName || '';
+  const picked = !!item.adminPick;
+  // TODO: badgeClass = 앱별 경로 클래스 ('open'/'retreat'/'martyr' 또는 '')
+  const badgeClass = '';
+  // TODO: badgeLabel = 앱별 배지 텍스트
+  const badgeLabel = '';
+  // TODO: contentMain = 메인 콘텐츠 텍스트
+  const contentMain = item.content || '';
+  // TODO: contentSub = 서브 텍스트 (닉네임, 시간 등)
+  const contentSub = `${item.nickname||''} · ${item.time||''}`;
+
+  return `<div class="std-card">
+    <div class="std-card-row">
+      <div>
+        <div class="std-sid">${esc(sid)}</div>
+        <div class="std-name">${esc(name)}</div>
+      </div>
+      <div class="std-badge-col">
+        ${badgeLabel ? `<span class="std-badge ${badgeClass}">${badgeLabel}</span>` : ''}
+      </div>
+      <div class="std-content">
+        <div class="std-content-main">${esc(contentMain)}</div>
+        <div class="std-content-sub">${esc(contentSub)}</div>
+      </div>
+      <div class="std-actions">
+        <button class="std-pick${picked?' picked':''}" onclick="togglePick('${item.id}',${picked})">
+          ${picked?'⭐':'☆'}
+        </button>
+        <button class="std-edit" onclick="">✏️</button>
+        <button class="std-del" onclick="deleteItem('${item.id}')">✕</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── 스텁 함수 ──
+window.runScoring = () => { alert('채점 기능은 준비 중입니다.'); };
+window.exportExcel = () => { alert('엑셀 내보내기 기능은 준비 중입니다.'); };
+window.togglePick = async (id, isPicked) => {
+  // TODO: 앱별 Firebase 경로로 교체
+  // await update(ref(db, `APP_DATA/${id}`), { adminPick: isPicked ? null : true });
+};
+window.deleteItem = (id) => {
+  if (!confirm('삭제하시겠습니까?')) return;
+  // TODO: 앱별 Firebase 경로로 교체
+  // remove(ref(db, `APP_DATA/${id}`));
+};
+
 // ── Firebase 구독 시작 ──
 function startListening() {
   // TODO: onValue(...) 구독 코드 작성
+  // onValue(ref(db, 'APP_DATA'), snap => { ... renderAll(); });
 }
 
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 </script>
 </body>
 </html>
