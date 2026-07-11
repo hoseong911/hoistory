@@ -23,9 +23,6 @@
   --iv-pick: #b18cf2;
   --iv-pick-l: rgba(177,140,242,0.1);
 }
-body.embedded .topbar-logout { display: none; }
-body.embedded #embed-back-btn { display: inline-flex !important; }
-
 /* ── 섹션 카드 ── */
 .section-card { background: var(--hi-bg-surface); border-radius: 14px; padding: 22px; margin-bottom: 16px; border: 1px solid var(--hi-border); }
 .section-title { font-family: 'Paperlogy', sans-serif; font-weight: 700; font-size: 15px; color: var(--hi-text); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
@@ -137,43 +134,38 @@ body.embedded #embed-back-btn { display: inline-flex !important; }
 <!-- 로그인 -->
 <div id="loginScreen">
   <div class="login-card">
-    <div class="login-title">INTERVIEW ADMIN</div>
-    <div class="login-sub">조선의 기틀을 만든 자들</div>
-    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:14px">
-      <label style="font-size:12px;font-weight:700;color:var(--hi-text-muted)">이메일</label>
-      <input type="email" id="gate-email" placeholder="이메일" style="width:100%;padding:11px 14px;border:1px solid var(--hi-border);border-radius:8px;font-family:inherit;font-size:14px;color:var(--hi-text);background:var(--hi-bg-mid);outline:none">
+    <div class="login-logo">조선의 기틀을 만든 자들</div>
+    <div class="login-sub">관리자 모드</div>
+    <div class="field-group" style="text-align:left;margin-bottom:14px">
+      <label class="form-label">이메일</label>
+      <input type="email" class="hi-input" id="gate-email" placeholder="이메일">
     </div>
-    <div style="display:flex;flex-direction:column;gap:5px;margin-bottom:14px">
-      <label style="font-size:12px;font-weight:700;color:var(--hi-text-muted)">비밀번호</label>
-      <input type="password" id="gate-pw" placeholder="비밀번호" style="width:100%;padding:11px 14px;border:1px solid var(--hi-border);border-radius:8px;font-family:inherit;font-size:14px;color:var(--hi-text);background:var(--hi-bg-mid);outline:none">
+    <div class="field-group" style="text-align:left;margin-bottom:14px">
+      <label class="form-label">비밀번호</label>
+      <input type="password" class="hi-input" id="gate-pw" placeholder="비밀번호">
     </div>
     <div class="login-err" id="gate-err"></div>
-    <button id="gate-login-btn" style="width:100%;padding:12px;border-radius:10px;background:var(--iv-primary);color:#fff;font-family:inherit;font-size:14px;font-weight:700;border:none;cursor:pointer;margin-top:4px">로그인</button>
+    <button class="login-btn" id="gate-login-btn">접속하기</button>
   </div>
 </div>
 
 <!-- 어드민 -->
 <div id="adminApp">
-  <div class="topbar">
-    <div class="topbar-left">
-      <span class="topbar-title">조선의 기틀을 만든 자들</span>
-      <span class="topbar-badge">관리자 모드</span>
+  <header class="adm-header">
+    <div class="adm-logo">조선의 기틀을 만든 자들<span class="adm-badge">관리자 모드</span></div>
+    <div class="adm-tabs">
+      <button class="adm-tab active" data-tab="contents">Contents</button>
+      <button class="adm-tab" data-tab="answer">Answer</button>
     </div>
-    <div class="topbar-right">
-      <button class="topbar-back" id="embed-back-btn" style="display:none">목록으로</button>
-      <button class="topbar-logout" id="logout-btn">로그아웃</button>
-    </div>
-  </div>
+    <button class="adm-logout" id="logout-btn">로그아웃</button>
+    <button class="adm-back" onclick="window.parent.closeAppAdmin&&window.parent.closeAppAdmin()">목록으로</button>
+  </header>
 
-  <div class="main-tabs">
-    <button class="main-tab active" data-tab="contents">Contents</button>
-    <button class="main-tab" data-tab="answer">Answer</button>
-  </div>
-
+  <div class="adm-body">
   <div class="admin-container">
 
     <!-- Contents 탭 -->
-    <div class="panel-section active" id="tab-contents">
+    <div class="tab-panel active" id="tab-contents">
       <div class="section-card">
         <div class="section-title">
           인물 / 질문 관리
@@ -190,7 +182,7 @@ body.embedded #embed-back-btn { display: inline-flex !important; }
     </div>
 
     <!-- Answer 탭 -->
-    <div class="panel-section" id="tab-answer">
+    <div class="tab-panel" id="tab-answer">
       <div class="class-filter" id="class-filter"></div>
       <div class="stats-row" id="stats-row">
         <div class="stat-chip">
@@ -225,6 +217,7 @@ body.embedded #embed-back-btn { display: inline-flex !important; }
     </div>
 
   </div>
+  </div><!-- /.adm-body -->
 </div>
 
 <!-- 초기화 확인 모달 -->
@@ -276,12 +269,7 @@ async function initAdmin(){
 }
 
 if(isEmbedded){
-  document.body.classList.add('embedded');
   document.documentElement.classList.add('has-own-back');
-  document.getElementById('embed-back-btn').style.display='';
-  document.getElementById('embed-back-btn').addEventListener('click',()=>{
-    try{ window.parent.closeAppAdmin && window.parent.closeAppAdmin(); }catch(e){}
-  });
   initAdmin();
 } else {
   onAuthStateChanged(auth,user=>{
@@ -311,10 +299,10 @@ document.getElementById('gate-pw').addEventListener('keydown',e=>{if(e.key==='En
 document.getElementById('logout-btn').addEventListener('click',()=>signOut(auth));
 
 /* ─────────── Tab nav ─────────── */
-document.querySelectorAll('.main-tab').forEach(btn=>{
+document.querySelectorAll('.adm-tab').forEach(btn=>{
   btn.addEventListener('click',()=>{
-    document.querySelectorAll('.main-tab').forEach(b=>b.classList.remove('active'));
-    document.querySelectorAll('.panel-section').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.adm-tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
     btn.classList.add('active');
     document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
   });

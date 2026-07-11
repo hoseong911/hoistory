@@ -288,49 +288,42 @@ tbody tr:last-child td { border-bottom: none; }
   .td-explanation { max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 </style>
-<script>if(window.self!==window.top)document.documentElement.classList.add('in-iframe');</script>
+<script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
 </head>
 <body class="hi-preset-admin">
 
 <!-- 로그인 -->
 <div id="loginScreen">
   <div class="login-card">
-    <div class="login-title">OX 퀴즈</div>
+    <div class="login-logo">OX 퀴즈</div>
     <div class="login-sub">관리자 모드</div>
     <input type="password" class="hi-input" id="gate-pw" placeholder="비밀번호"
-           style="text-align:center;letter-spacing:3px;margin-bottom:12px;"
+           style="text-align:center;letter-spacing:3px;margin-bottom:8px;"
            onkeydown="if(event.key==='Enter')tryGate()">
-    <button class="hi-btn hi-btn-primary hi-btn-block" onclick="tryGate()">접속하기</button>
     <div class="login-err" id="gate-error"></div>
-    <div class="login-foot"><a href="26_2.html">학생 화면으로</a></div>
+    <button class="login-btn" onclick="tryGate()">접속하기</button>
+    <div class="login-foot"><a href="26_2.html">학생 페이지로</a></div>
   </div>
 </div>
 
 <!-- 어드민 앱 -->
-<div id="adminApp" style="display:none;">
-
-  <header class="topbar">
-    <div class="topbar-left">
-      <a href="../admin.html" class="topbar-back topbar-console">콘솔</a>
-      <span class="topbar-title">OX 퀴즈</span>
-      <span class="topbar-badge">관리자 모드</span>
+<div id="adminApp">
+  <header class="adm-header">
+    <div class="adm-logo">OX 퀴즈<span class="adm-badge">관리자 모드</span></div>
+    <div class="adm-tabs">
+      <button class="adm-tab active" onclick="switchTab('question',this)">QUESTION</button>
+      <button class="adm-tab" onclick="switchTab('class',this)">CLASS</button>
+      <button class="adm-tab" onclick="switchTab('setting',this)">SETTING</button>
     </div>
-    <div class="topbar-right">
-      <a href="26_2.html" class="topbar-link">학생 화면</a>
-      <button class="topbar-logout" onclick="logout()">로그아웃</button>
-    </div>
+    <button class="adm-logout" onclick="logout()">로그아웃</button>
+    <button class="adm-back" onclick="window.parent.closeAppAdmin&&window.parent.closeAppAdmin()">목록으로</button>
   </header>
 
-  <div class="main-tabs">
-    <button class="main-tab active" onclick="switchTab('question',this)">QUESTION</button>
-    <button class="main-tab" onclick="switchTab('class',this)">CLASS</button>
-    <button class="main-tab" onclick="switchTab('setting',this)">SETTING</button>
-  </div>
-
+  <div class="adm-body">
   <div class="container">
 
     <!-- QUESTION -->
-    <div class="tab-page active" id="tab-question">
+    <div class="tab-panel active" id="tab-question">
       <div class="filter-chips" style="justify-content:center;margin-bottom:16px;">
         <button class="chip active" onclick="switchQuestionSub('list',this)">📚 문제 목록</button>
         <button class="chip" onclick="switchQuestionSub('x',this)">✏️ X 바로잡기</button>
@@ -441,7 +434,7 @@ tbody tr:last-child td { border-bottom: none; }
     </div>
 
     <!-- CLASS -->
-    <div class="tab-page" id="tab-class">
+    <div class="tab-panel" id="tab-class">
       <div class="filter-chips" style="justify-content:center;margin-bottom:16px;">
         <button class="chip active" onclick="switchClassSub('list',this)">👥 명단</button>
         <button class="chip" onclick="switchClassSub('ranking',this)">🏆 랭킹</button>
@@ -508,7 +501,7 @@ tbody tr:last-child td { border-bottom: none; }
 
 
     <!-- SETTING -->
-    <div class="tab-page" id="tab-setting">
+    <div class="tab-panel" id="tab-setting">
       <div class="warning-banner">
         <span class="wb-icon"></span>
         <div>아래 작업들은 <strong>되돌릴 수 없습니다</strong>. 신중히 진행해주세요.<br>실행 전 데이터를 내보내기로 백업하는 것을 권장합니다.</div>
@@ -538,6 +531,7 @@ tbody tr:last-child td { border-bottom: none; }
     </div>
 
   </div><!-- /.container -->
+  </div><!-- /.adm-body -->
 </div><!-- /#adminApp -->
 
 <!-- 모달: 문제 추가/수정 -->
@@ -681,7 +675,7 @@ async function tryGate() {
       err.textContent = '';
       err.classList.remove('show');
       document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('adminApp').style.display = 'block';
+      document.getElementById('adminApp').classList.add('show');
       sessionStorage.setItem('ox-admin', '1');
       renderAll();
     } else {
@@ -703,14 +697,14 @@ function logout() {
 
 if (sessionStorage.getItem('ox-admin') === '1') {
   document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('adminApp').style.display = 'block';
+  document.getElementById('adminApp').classList.add('show');
   setTimeout(() => renderAll(), 100);
 }
 
 function switchTab(name, el) {
-  document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.adm-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-  document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
   if (name === 'class') loadClassData();

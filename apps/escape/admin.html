@@ -125,46 +125,41 @@
   @media(max-width:720px){.ep-layout{grid-template-columns:1fr;}}
   @media(max-width:480px){.section{padding:1rem;}.btn{padding:.55rem .8rem;}}
 </style>
-<script>if(window.self!==window.top)document.documentElement.classList.add('in-iframe');</script>
+<script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
 </head>
 <body class="hi-preset-admin">
 
 <!-- 로그인 -->
 <div id="loginScreen">
   <div class="login-card">
-    <div class="login-title">천년의 기억</div>
+    <div class="login-logo">천년의 기억</div>
     <div class="login-sub">관리자 모드</div>
     <input type="password" class="hi-input" id="pwInput" placeholder="비밀번호"
            onkeydown="if(event.key==='Enter')doAdminLogin()"
            style="text-align:center;letter-spacing:3px;">
-    <button class="hi-btn hi-btn-primary hi-btn-block" onclick="doAdminLogin()" style="margin-top:12px;">접속하기</button>
     <div class="login-err" id="loginErr">비밀번호가 올바르지 않습니다</div>
-    <div class="login-foot"><a href="../admin.html" class="topbar-console">어드민 콘솔로</a></div>
+    <button class="login-btn" onclick="doAdminLogin()">접속하기</button>
+    <div class="login-foot"><a href="26_2.html">학생 페이지로</a></div>
   </div>
 </div>
 
 <!-- 어드민 앱 -->
 <div id="adminApp">
-  <header class="topbar">
-    <div class="topbar-left">
-      <a href="../admin.html" class="topbar-back topbar-console">콘솔</a>
-      <span class="topbar-title">천년의 기억</span>
-      <span class="topbar-badge">관리자 모드</span>
+  <header class="adm-header">
+    <div class="adm-logo">천년의 기억<span class="adm-badge">관리자 모드</span></div>
+    <div class="adm-tabs">
+      <button class="adm-tab active" onclick="switchTab('episode',this)">EPISODE</button>
+      <button class="adm-tab" onclick="switchTab('class',this)">CLASS</button>
+      <button class="adm-tab" onclick="switchTab('setting',this)">SETTING</button>
     </div>
-    <div class="topbar-right">
-      <a href="26_2.html" class="topbar-link">학생 화면</a>
-      <button class="topbar-logout" onclick="logoutAdmin()">로그아웃</button>
-    </div>
+    <button class="adm-logout" onclick="logoutAdmin()">로그아웃</button>
+    <button class="adm-back" onclick="window.parent.closeAppAdmin&&window.parent.closeAppAdmin()">목록으로</button>
   </header>
 
-  <div class="main-tabs">
-    <button class="main-tab active" onclick="switchTab('episode',this)">EPISODE</button>
-    <button class="main-tab" onclick="switchTab('class',this)">CLASS</button>
-    <button class="main-tab" onclick="switchTab('setting',this)">SETTING</button>
-  </div>
+  <div class="adm-body">
 
   <!-- ── EPISODE ── -->
-  <div class="panel-section active" id="panel-episode">
+  <div class="tab-panel active" id="panel-episode">
     <div class="sub-tabs" id="epSubTabs">
       <button class="sub-tab active" onclick="switchEpTab('prologue',this)">프롤로그</button>
       <button class="sub-tab" onclick="switchEpTab('ep_1',this)">1</button>
@@ -292,7 +287,7 @@
   </div>
 
   <!-- ── CLASS ── -->
-  <div class="panel-section" id="panel-class">
+  <div class="tab-panel" id="panel-class">
     <div class="sub-tabs">
       <button class="sub-tab active" onclick="switchClassTab(0,this)">전체</button>
       <button class="sub-tab" onclick="switchClassTab(1,this)">1반</button>
@@ -318,7 +313,7 @@
   </div>
 
   <!-- ── SETTING ── -->
-  <div class="panel-section" id="panel-setting">
+  <div class="tab-panel" id="panel-setting">
     <div class="admin-container">
       <div class="panel">
         <h3>소감 내보내기</h3>
@@ -367,6 +362,8 @@
       </div>
     </div>
   </div>
+
+  </div><!-- /.adm-body -->
 </div>
 
 <div class="toast" id="toast"></div>
@@ -445,9 +442,9 @@ window.doAdminLogin = async function() {
 /* ─── 메인 탭 ─── */
 let classLoaded = false, settingLoaded = false;
 window.switchTab = function(name, btn) {
-  document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.adm-tab').forEach(t => t.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  document.querySelectorAll('.panel-section').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById(`panel-${name}`).classList.add('active');
   if (name === 'class' && !classLoaded) { classLoaded = true; Promise.all([loadAllReflections(), loadRoster()]).then(() => renderClassList()); }
   if (name === 'setting' && !settingLoaded) { settingLoaded = true; }

@@ -380,7 +380,7 @@
     }
     #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   </style>
-<script>if(window.self!==window.top)document.documentElement.classList.add('in-iframe');</script>
+<script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
 </head>
 <body class="hi-preset-admin">
 
@@ -392,39 +392,29 @@
     <input class="hi-input" type="password" id="adminPw"
       placeholder="비밀번호" style="text-align:center;letter-spacing:3px;"
       onkeydown="if(event.key==='Enter') tryLogin()">
-    <button class="hi-btn hi-btn-primary hi-btn-block" onclick="tryLogin()" style="margin-top:12px;">접속</button>
-    <div class="login-error" id="loginErr">비밀번호가 올바르지 않습니다.</div>
-    <div style="margin-top:18px;">
-      <a href="../admin.html" class="topbar-console" style="font-size:11px;color:var(--hi-text-muted);text-decoration:none;letter-spacing:0.5px;">어드민 콘솔로</a>
-    </div>
+    <div class="login-err" id="loginErr">비밀번호가 올바르지 않습니다.</div>
+    <button class="login-btn" onclick="tryLogin()">접속하기</button>
+    <div class="login-foot"><a href="index.html">학생 페이지로</a></div>
   </div>
 </div>
 
 <!-- ── 어드민 앱 ── -->
 <div id="adminApp">
-
-  <!-- 상단바 -->
-  <div class="topbar">
-    <div class="topbar-left">
-      <button class="back-btn topbar-console" onclick="location.href='../admin.html'">콘솔</button>
-      <span class="topbar-title">S_threads</span>
-      <span class="topbar-badge">관리자 모드</span>
+  <header class="adm-header">
+    <div class="adm-logo">S_threads<span class="adm-badge">관리자 모드</span></div>
+    <div class="adm-tabs">
+      <button class="adm-tab active" id="mt-feed" onclick="showPanel('feed')">FEED</button>
+      <button class="adm-tab" id="mt-class" onclick="showPanel('class')">CLASS</button>
+      <button class="adm-tab" id="mt-setting" onclick="showPanel('setting')">SETTING</button>
     </div>
-    <div class="topbar-right">
-      <a href="index.html" style="font-size:12px;color:var(--hi-text-muted);text-decoration:none;padding:6px 10px;">학생 화면</a>
-      <button class="back-btn" onclick="logoutAdmin()" style="color:var(--hi-negative);border-color:var(--hi-border);">로그아웃</button>
-    </div>
-  </div>
+    <button class="adm-logout" onclick="logoutAdmin()">로그아웃</button>
+    <button class="adm-back" onclick="window.parent.closeAppAdmin&&window.parent.closeAppAdmin()">목록으로</button>
+  </header>
 
-  <!-- 메인 탭 -->
-  <div class="main-tabs">
-    <button class="main-tab active" id="mt-feed" onclick="showPanel('feed')">FEED</button>
-    <button class="main-tab" id="mt-class" onclick="showPanel('class')">CLASS</button>
-    <button class="main-tab" id="mt-setting" onclick="showPanel('setting')">SETTING</button>
-  </div>
+  <div class="adm-body">
 
   <!-- ══════════ FEED 패널 ══════════ -->
-  <section class="panel-section active" id="panel-feed">
+  <section class="tab-panel active" id="panel-feed">
     <!-- 신분 서브탭 -->
     <div class="sub-tabs" id="feedSubTabs">
       <button class="sub-tab active" onclick="setFeedFilter('all', this)">전체</button>
@@ -453,7 +443,7 @@
   </section>
 
   <!-- ══════════ CLASS 패널 ══════════ -->
-  <section class="panel-section" id="panel-class">
+  <section class="tab-panel" id="panel-class">
     <!-- 반 서브탭 -->
     <div class="sub-tabs" id="classSubTabs">
       <button class="sub-tab active" onclick="setClassTab(1, this)">1반</button>
@@ -497,7 +487,7 @@
   </section>
 
   <!-- ══════════ SETTING 패널 ══════════ -->
-  <section class="panel-section" id="panel-setting">
+  <section class="tab-panel" id="panel-setting">
     <div class="container">
       <!-- 더미 생성 -->
       <div class="panel">
@@ -565,6 +555,7 @@
     </div>
   </section>
 
+  </div><!-- /.adm-body -->
 </div>
 
 <!-- 활동 모달 -->
@@ -690,7 +681,7 @@ window.logoutAdmin = () => {
 };
 function enterAdmin() {
   document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('adminApp').style.display = 'block';
+  document.getElementById('adminApp').classList.add('show');
   startListening();
 }
 window.addEventListener('DOMContentLoaded', () => {
@@ -724,9 +715,9 @@ function renderAll() { renderFeed(); renderClass(); }
 
 // 패널 전환
 window.showPanel = (name) => {
-  document.querySelectorAll('.panel-section').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
   document.getElementById(`panel-${name}`)?.classList.add('active');
-  document.querySelectorAll('.main-tab').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.adm-tab').forEach(el => el.classList.remove('active'));
   document.getElementById(`mt-${name}`)?.classList.add('active');
   window.scrollTo(0, 0);
 };

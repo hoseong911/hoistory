@@ -47,50 +47,42 @@
     /* 통계 기본 색상: base는 --hi-text, 여기선 accent 유지 */
     .stat-num { color: var(--hi-accent); }
   </style>
-<script>if(window.self!==window.top)document.documentElement.classList.add('in-iframe');</script>
+<script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
 </head>
 <body class="hi-preset-admin">
 
 <!-- 로그인 -->
 <div id="loginScreen">
   <div class="login-card">
-    <div class="login-title">Blind 려</div>
+    <div class="login-logo">Blind 려</div>
     <div class="login-sub">관리자 모드</div>
     <input type="password" class="hi-input" id="adminPw"
            placeholder="비밀번호"
            onkeydown="if(event.key==='Enter') tryLogin()"
            style="text-align:center; letter-spacing:3px;">
-    <button class="hi-btn hi-btn-primary hi-btn-block"
-            onclick="tryLogin()" style="margin-top:12px;">접속하기</button>
     <div class="login-err" id="loginErr">비밀번호가 올바르지 않습니다</div>
-    <div style="margin-top:18px;">
-      <a href="../admin.html" class="topbar-console" style="font-size:11px; color:var(--hi-text-muted); text-decoration:none;">어드민 콘솔로</a>
-    </div>
+    <button class="login-btn" onclick="tryLogin()">접속하기</button>
+    <div class="login-foot"><a href="index.html">학생 페이지로</a></div>
   </div>
 </div>
 
 <!-- 어드민 앱 -->
 <div id="adminApp">
-  <header class="topbar">
-    <div class="topbar-left">
-      <a href="../admin.html" class="topbar-back topbar-console">콘솔</a>
-      <span class="topbar-title">Blind 려</span>
-      <span class="topbar-badge">관리자 모드</span>
+  <header class="adm-header">
+    <div class="adm-logo">Blind 려<span class="adm-badge">관리자 모드</span></div>
+    <div class="adm-tabs">
+      <button class="adm-tab active" onclick="showMain('feed', this)">FEED</button>
+      <button class="adm-tab" onclick="showMain('class', this)">CLASS</button>
+      <button class="adm-tab" onclick="showMain('setting', this)">SETTING</button>
     </div>
-    <div class="topbar-right">
-      <a href="index.html" class="topbar-link">학생 화면</a>
-      <button class="topbar-logout" onclick="logoutAdmin()">로그아웃</button>
-    </div>
+    <button class="adm-logout" onclick="logoutAdmin()">로그아웃</button>
+    <button class="adm-back" onclick="window.parent.closeAppAdmin&&window.parent.closeAppAdmin()">목록으로</button>
   </header>
 
-  <div class="main-tabs">
-    <button class="main-tab active" onclick="showMain('feed', this)">FEED</button>
-    <button class="main-tab" onclick="showMain('class', this)">CLASS</button>
-    <button class="main-tab" onclick="showMain('setting', this)">SETTING</button>
-  </div>
+  <div class="adm-body">
 
   <!-- FEED -->
-  <div id="panel-feed" class="panel-section active">
+  <div id="panel-feed" class="tab-panel active">
     <div class="sub-tabs">
       <button class="sub-tab active" onclick="showFeedSub('all', this)">전체</button>
       <button class="sub-tab" onclick="showFeedSub('central', this)">중앙</button>
@@ -114,7 +106,7 @@
   </div>
 
   <!-- CLASS -->
-  <div id="panel-class" class="panel-section">
+  <div id="panel-class" class="tab-panel">
     <div class="sub-tabs" id="classSubTabs">
       <button class="sub-tab active" onclick="setClassTab(1, this)">1반</button>
       <button class="sub-tab" onclick="setClassTab(2, this)">2반</button>
@@ -155,7 +147,7 @@
   </div>
 
   <!-- SETTING -->
-  <div id="panel-setting" class="panel-section">
+  <div id="panel-setting" class="tab-panel">
     <div class="admin-container">
       <div class="panel">
         <h3>더미 게시글</h3>
@@ -221,6 +213,8 @@
       </div>
     </div>
   </div>
+
+  </div><!-- /.adm-body -->
 </div>
 
 <!-- 채점 결과 모달 -->
@@ -298,7 +292,7 @@ window.tryLogin = async () => {
   if (hash === ADMIN_PW_HASH) {
     sessionStorage.setItem(SESSION_KEY, '1');
     document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('adminApp').style.display = 'block';
+    document.getElementById('adminApp').classList.add('show');
     startListeners();
   } else {
     document.getElementById('loginErr').classList.add('show');
@@ -310,7 +304,7 @@ window.logoutAdmin = () => { sessionStorage.removeItem(SESSION_KEY); location.re
 window.addEventListener('load', () => {
   if (sessionStorage.getItem(SESSION_KEY) === '1') {
     document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('adminApp').style.display = 'block';
+    document.getElementById('adminApp').classList.add('show');
     startListeners();
   }
 });
@@ -366,7 +360,7 @@ window.showMain = (name, btn) => {
   ['feed','class','setting'].forEach(n => {
     document.getElementById(`panel-${n}`).classList.toggle('active', n === name);
   });
-  document.querySelectorAll('.main-tab').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.adm-tab').forEach(el => el.classList.remove('active'));
   btn.classList.add('active');
 };
 
