@@ -27,32 +27,44 @@
     return s;
   }
 
-  /* 한 줄 안에서 " : " 기준으로 하위 소제목(item-sublead)과 본문을 분리. 최상위
-     소제목(item-lead)은 parseItemText가 이미 처리하므로, 여기서는 항목 "안"에서
-     또 나오는 " : "(예: ①에 딸린 a./b./c.)만 대상으로 한다. 소제목+본문을 가로 flex
-     (sub-line)로 묶어서, 본문이 길어 줄바꿈될 때 본문 시작 위치에 맞춰 내어쓰기되게 한다. */
-  function parseLineWithSublead(line) {
-    const colonIdx = line.indexOf(' : ');
-    if (colonIdx > -1) {
-      const leadRaw = line.slice(0, colonIdx);
-      const rest    = line.slice(colonIdx + 3);
-      return `<span class="sub-line"><span class="item-sublead">${parseText(leadRaw)}&nbsp;&nbsp;&nbsp;</span><span class="sub-body">${parseText(rest)}</span></span>`;
-    }
-    return parseText(line);
-  }
-
   /* \n 또는 <br>/</br> 위치에서 줄바꿈 + 내어쓰기. <br>은 어드민 편집기의 textarea가
      항목(items) 구분자로 실제 개행(\n)을 쓰기 때문에, 한 항목 "안에서" 줄을 나누고 싶을
-     때(예: ①에 딸린 a./b./c. 하위 줄) 개행 대신 쓰는 표시다. 소제목이 있는 줄(sub-line)은
-     그 자체가 블록 레벨 flex라 알아서 새 줄로 떨어지므로 <br>을 따로 넣지 않는다 — 넣으면
-     줄 간격이 이중으로 벌어진다. */
+     때(예: ①에 딸린 a./b./c. 하위 줄, 또는 그 본문 중간에 Shift+Enter로 넣는 줄바꿈) 개행
+     대신 쓰는 표시다.
+
+     " : "로 시작하는 줄(예: "b.유입 : ...")은 소제목(item-sublead)+본문(sub-body)을 가로
+     flex(sub-line)로 묶는다. 그 다음에 이어지는, " : "가 없는 줄들(Shift+Enter로 추가한
+     줄바꿈)은 새 sub-line을 만들지 않고 직전 소제목의 sub-body 안에 <br>로 합쳐 넣는다 —
+     sub-body가 본문 시작 위치에서 시작하는 flex:1 박스이므로, 안에서 줄이 나뉘어도(수동
+     줄바꿈이든 자동 줄바꿈이든) 항상 본문 시작 위치에 맞춰 내어쓰기된다. */
   function renderWithBreaks(text) {
-    return text.replace(/<\/?br\s*\/?>/gi, '\n').split('\n').map((line, i) => {
-      const hasSublead = line.indexOf(' : ') > -1;
-      const html = parseLineWithSublead(line);
-      if (i === 0 || hasSublead) return html;
-      return `<br><span class="line-cont">${html}</span>`;
-    }).join('');
+    const lines = text.replace(/<\/?br\s*\/?>/gi, '\n').split('\n');
+    const out = [];
+    let subLead = null, subBodyLines = null;
+
+    function flushSub() {
+      if (subLead === null) return;
+      const body = subBodyLines.map(parseText).join('<br>');
+      out.push(`<span class="sub-line"><span class="item-sublead">${parseText(subLead)}&nbsp;&nbsp;&nbsp;</span><span class="sub-body">${body}</span></span>`);
+      subLead = null;
+      subBodyLines = null;
+    }
+
+    lines.forEach(line => {
+      const colonIdx = line.indexOf(' : ');
+      if (colonIdx > -1) {
+        flushSub();
+        subLead = line.slice(0, colonIdx);
+        subBodyLines = [line.slice(colonIdx + 3)];
+      } else if (subBodyLines) {
+        subBodyLines.push(line);
+      } else {
+        out.push(out.length === 0 ? parseText(line) : `<br><span class="line-cont">${parseText(line)}</span>`);
+      }
+    });
+    flushSub();
+
+    return out.join('');
   }
 
   /* item 문자열이 "소제목 : <br>..." 형태 — 즉 Tab으로 소제목을 구분한 직후 곧바로
