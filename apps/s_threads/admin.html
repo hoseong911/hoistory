@@ -482,6 +482,7 @@
       <div class="adm-action-row">
         <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="runScoring()">채점하기</button>
         <button class="scoring-prompt-btn" onclick="openScoringModal()" title="채점 프롬프트 설정">⚙️</button>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" id="aiPickBtn" onclick="runAiPick()">✨ AI 픽</button>
         <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportExcel()">엑셀 내보내기</button>
         <div class="sort-box">
           <button class="sort-btn active" id="classSortNewest" onclick="setClassSort('newest')">최신순</button>
@@ -1028,6 +1029,56 @@ window.runScoring = async () => {
   }
   if (btn) { btn.disabled = false; btn.textContent = origText; }
 };
+window.runAiPick = async () => {
+  if (!claudeApiKey) { alert('Claude API 키가 설정되지 않았습니다. blind_ryeo 어드민 SETTING에서 설정해주세요.'); return; }
+  const posts = allPosts.filter(p => p.studentId !== '00000' && p.content);
+  if (!posts.length) { alert('픽할 게시글이 없습니다.'); return; }
+  const btn = document.getElementById('aiPickBtn');
+  btn.disabled = true; btn.textContent = '✨ 분석 중…';
+  const postsText = posts.map((p, i) =>
+    `[${i+1}] 신분: ${p.role||'?'} / 게시글: ${p.content}`
+  ).join('\n');
+  const prompt = `당신은 중학교 역사 수업 보조 교사입니다.
+아래는 "S_threads(신라 하대 스레드)" 활동에서 학생들이 각 신분(진골/6두품/호족/농민/선종 승려/풍수지리사)의 입장으로 작성한 게시글 목록입니다.
+
+다음 기준으로 우수한 게시글 번호를 선정해주세요:
+- 해당 신분의 처지와 관점이 잘 담긴 글
+- 신라 하대의 역사적 맥락을 반영한 글
+- 다른 학생들과 공유할 만한 통찰이 있는 글
+- 전체의 20~30% 내외 선정
+
+게시글 목록:
+${postsText}
+
+응답: JSON 배열만 출력. 예) [1, 3, 7]
+픽할 번호 목록 (없으면 []):`;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json','x-api-key':claudeApiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+      body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:512, messages:[{role:'user',content:prompt}] })
+    });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const data = await res.json();
+    let raw = (data.content?.[0]?.text||'[]').replace(/```json|```/g,'').trim();
+    const s = raw.indexOf('['), e = raw.lastIndexOf(']');
+    if (s !== -1 && e !== -1) raw = raw.slice(s, e+1);
+    const nums = JSON.parse(raw);
+    if (!Array.isArray(nums) || !nums.length) { alert('AI가 픽할 게시글을 찾지 못했습니다.'); return; }
+    const updates = {};
+    nums.forEach(n => {
+      const p = posts[n - 1];
+      if (p) updates[`posts/${p.id}/adminPick`] = true;
+    });
+    await update(ref(db), updates);
+    alert(`✨ AI가 ${nums.length}개 게시글을 픽했습니다.`);
+  } catch(e) {
+    alert('AI 픽 실패: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ AI 픽';
+  }
+};
+
 window.exportExcel = () => { alert('엑셀 내보내기 기능은 준비 중입니다.'); };
 
 // 비밀번호 변경

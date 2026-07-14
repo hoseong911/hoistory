@@ -418,6 +418,10 @@
         <div class="arc-header-sub">신라 하대 활동 아카이브</div>
       </div>
     </div>
+    <div id="arcInfoBox" style="display:none;background:var(--hi-bg-mid);border:1px solid var(--hi-border);border-radius:10px;padding:12px 14px;margin-bottom:10px;">
+      <div id="arcTopic" style="font-size:13px;font-weight:800;color:var(--hi-text);margin-bottom:6px;"></div>
+      <div id="arcIntent" style="font-size:12px;color:var(--hi-text-soft);line-height:1.7;border-left:2px solid var(--hi-accent);padding-left:10px;"></div>
+    </div>
     <div class="arc-menu-grid">
       <button class="arc-menu-btn active" onclick="arcSetFilter('all',this)">📋 전체</button>
       <button class="arc-menu-btn pick-btn" onclick="arcSetFilter('pick',this)">⭐ Pick</button>
@@ -901,6 +905,19 @@ window.openArchive = () => {
   document.getElementById('archiveView').style.display = 'flex';
   window.scrollTo(0, 0);
   arcPage = 1;
+
+  // 아카이브 정보 (수업 주제/의도) 로드
+  get(ref(db, 'adminConfig/s_threads/archive')).then(snap => {
+    if (snap.exists()) {
+      const { topic, intent } = snap.val();
+      if (topic || intent) {
+        document.getElementById('arcTopic').textContent = topic || '';
+        document.getElementById('arcIntent').textContent = intent || '';
+        document.getElementById('arcInfoBox').style.display = 'block';
+      }
+    }
+  }).catch(() => {});
+
   if (!arcListening) {
     arcListening = true;
     onValue(postsRef, snap => {

@@ -786,6 +786,39 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
           </div>
           <button class="add-btn" id="missionAddCardBtn" style="margin-top:auto">추가</button>
         </div>
+
+        <!-- 아카이브 정보 (접기/펼치기) -->
+        <div style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px;display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:12px;font-weight:600;color:var(--sub);display:flex;align-items:center;gap:6px;">
+            <span id="missionArchiveDot" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--border);transition:.2s;"></span>
+            아카이브 정보
+          </span>
+          <button id="missionArchiveToggleBtn" onclick="toggleMissionArchive()"
+            style="background:none;border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600;color:var(--sub);cursor:pointer;font-family:inherit;transition:.15s;"
+            onmouseover="this.style.borderColor='var(--c3)';this.style.color='var(--c3)';"
+            onmouseout="if(!this.dataset.open){this.style.borderColor='var(--border)';this.style.color='var(--sub)';}">
+            📚 아카이브 정보 입력
+          </button>
+        </div>
+        <div id="missionArchivePanel" style="display:none;margin-top:12px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;">
+          <div style="font-size:11px;font-weight:700;color:var(--c3);letter-spacing:1px;margin-bottom:10px;">📚 아카이브 정보</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <label style="font-size:11px;font-weight:600;color:var(--sub);display:block;margin-bottom:4px;">수업 주제</label>
+              <input type="text" id="missionArchiveTopic" placeholder="예) 고려 말, 나라면 어떤 선택을 했을까?"
+                style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;background:var(--bg1);color:var(--text1);outline:none;"
+                oninput="updateMissionArchiveDot()">
+              <span style="font-size:11px;color:var(--sub);margin-top:3px;display:block;">아카이브 페이지 상단에 표시됩니다.</span>
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:600;color:var(--sub);display:block;margin-bottom:4px;">활동 의도</label>
+              <textarea id="missionArchiveIntent" placeholder="예) 학생들이 역사적 인물의 입장에서 선택의 맥락을 체험하게 합니다."
+                style="width:100%;min-height:68px;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;background:var(--bg1);color:var(--text1);outline:none;resize:vertical;"
+                oninput="updateMissionArchiveDot()"></textarea>
+              <span style="font-size:11px;color:var(--sub);margin-top:3px;display:block;">이 활동을 왜 했는지 간단히 적어주세요. 다른 선생님들에게 공유됩니다.</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2597,11 +2630,28 @@ async function initMissionTab() {
       const cardData = { emoji, title, desc: '', url, category: cat, locked: false, order };
       if (adminUrl) cardData.adminUrl = adminUrl;
       await addDoc(collection(db, 'cards'), cardData);
+
+      // 아카이브 정보 저장 (appKey = URL 두 번째 세그먼트)
+      const topic  = document.getElementById('missionArchiveTopic').value.trim();
+      const intent = document.getElementById('missionArchiveIntent').value.trim();
+      if (topic || intent) {
+        const appKey = url.split('/')[1];
+        if (appKey) await set(ref(rtdb, `adminConfig/${appKey}/archive`), { topic, intent });
+      }
+
       missionSelectedEmoji = '📌';
       document.getElementById('missionSelectedEmoji').textContent = '📌';
       document.getElementById('missionCardTitle').value = '';
       document.getElementById('missionCardUrl').value = '';
       document.getElementById('missionCardAdminUrl').value = '';
+      document.getElementById('missionArchiveTopic').value = '';
+      document.getElementById('missionArchiveIntent').value = '';
+      document.getElementById('missionArchivePanel').style.display = 'none';
+      document.getElementById('missionArchiveToggleBtn').dataset.open = '';
+      document.getElementById('missionArchiveToggleBtn').textContent = '📚 아카이브 정보 입력';
+      document.getElementById('missionArchiveToggleBtn').style.borderColor = '';
+      document.getElementById('missionArchiveToggleBtn').style.color = '';
+      updateMissionArchiveDot();
       renderMissionPreview(cat);
       alert('카드가 추가되었습니다.');
     } catch(e) {
@@ -2668,11 +2718,22 @@ async function renderMissionPreview(cat) {
   } catch(e) { console.warn(e); }
 }
 
-window.missionStartEdit = function(docId) {
+window.missionStartEdit = async function(docId) {
   const item = (window._missionItems||[]).find(i => i.docId === docId);
   if (!item) return;
   const row = document.getElementById(`mission-row-${docId}`);
   if (!row) return;
+
+  // 기존 아카이브 정보 로드
+  let existingTopic = '', existingIntent = '';
+  const appKey = (item.url||'').split('/')[1];
+  if (appKey) {
+    try {
+      const snap = await get(ref(rtdb, `adminConfig/${appKey}/archive`));
+      if (snap.exists()) { existingTopic = snap.val().topic||''; existingIntent = snap.val().intent||''; }
+    } catch(e) {}
+  }
+
   row.innerHTML = `
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%;padding:4px 0">
       <input id="me-emoji-${docId}" class="form-input" value="${esc(String(item.emoji||'📌'))}" placeholder="이모지" style="width:56px;text-align:center">
@@ -2681,6 +2742,17 @@ window.missionStartEdit = function(docId) {
       <input id="me-adminurl-${docId}" class="form-input" value="${esc(item.adminUrl||'')}" placeholder="어드민 URL (선택)" style="flex:2;min-width:140px">
       <button class="btn-save" style="flex:none;padding:7px 16px;background:var(--c3)" onclick="missionSaveEdit('${docId}')">저장</button>
       <button class="btn-cancel" onclick="renderMissionPreview(window._missionCat)">취소</button>
+    </div>
+    <div style="margin-top:10px;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;display:flex;flex-direction:column;gap:8px;">
+      <div style="font-size:11px;font-weight:700;color:var(--c3);letter-spacing:1px;">📚 아카이브 정보</div>
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--sub);display:block;margin-bottom:3px;">수업 주제</label>
+        <input id="me-archive-topic-${docId}" class="form-input" value="${esc(existingTopic)}" placeholder="수업 주제를 입력하세요" style="width:100%">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:600;color:var(--sub);display:block;margin-bottom:3px;">활동 의도</label>
+        <textarea id="me-archive-intent-${docId}" class="form-input" placeholder="활동 의도를 입력하세요" style="width:100%;min-height:60px;resize:vertical;">${esc(existingIntent)}</textarea>
+      </div>
     </div>`;
 };
 
@@ -2692,8 +2764,33 @@ window.missionSaveEdit = async function(docId) {
   if (!title) { alert('제목을 입력하세요.'); return; }
   try {
     await updateDoc(doc(db, 'cards', docId), { emoji, title, url, adminUrl });
+
+    // 아카이브 정보 저장
+    const topic  = document.getElementById(`me-archive-topic-${docId}`)?.value.trim() || '';
+    const intent = document.getElementById(`me-archive-intent-${docId}`)?.value.trim() || '';
+    const appKey = url.split('/')[1];
+    if (appKey) await set(ref(rtdb, `adminConfig/${appKey}/archive`), { topic, intent });
+
     renderMissionPreview(window._missionCat);
   } catch(e) { alert('저장 실패: ' + e.message); }
+};
+
+window.toggleMissionArchive = function() {
+  const panel = document.getElementById('missionArchivePanel');
+  const btn   = document.getElementById('missionArchiveToggleBtn');
+  const isOpen = panel.style.display === 'none';
+  panel.style.display = isOpen ? 'block' : 'none';
+  btn.dataset.open = isOpen ? '1' : '';
+  btn.textContent  = isOpen ? '▲ 닫기' : '📚 아카이브 정보 입력';
+  btn.style.borderColor = isOpen ? 'var(--c3)' : '';
+  btn.style.color       = isOpen ? 'var(--c3)' : '';
+};
+
+window.updateMissionArchiveDot = function() {
+  const topic  = document.getElementById('missionArchiveTopic')?.value.trim();
+  const intent = document.getElementById('missionArchiveIntent')?.value.trim();
+  const dot    = document.getElementById('missionArchiveDot');
+  if (dot) dot.style.background = (topic || intent) ? 'var(--c3)' : 'var(--border)';
 };
 
 window.missionToggleLocked = async function(docId, currentLocked) {

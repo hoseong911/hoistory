@@ -144,6 +144,7 @@
       <div class="adm-action-row">
         <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="runScoring()">채점하기</button>
         <button class="scoring-prompt-btn" onclick="openScoringModal()" title="채점 프롬프트 설정">⚙️</button>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" id="aiPickBtn" onclick="runAiPick()">✨ AI 픽</button>
         <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportExcel()">엑셀 내보내기</button>
         <div class="sort-box">
           <button class="sort-btn active" id="classSortNewest" onclick="setClassSort('newest', this)">최신순</button>
@@ -755,6 +756,56 @@ ${postsText}
     aiAnalyzing = false;
     const body = document.getElementById('gradeModalBody');
     body.innerHTML = `<div style="text-align:center; padding:32px 16px;"><p style="color:var(--hi-negative); font-size:14px; margin-bottom:14px; font-weight:700;">❌ AI 분석 실패</p><p style="font-size:12px; color:var(--hi-text-muted); margin-bottom:18px;">${esc(e.message || '알 수 없는 오류')}</p><button class="btn-ai" onclick="runAiReview()">🔄 다시 시도</button></div>`;
+  }
+};
+
+window.runAiPick = async () => {
+  if (!claudeApiKey) { alert('SETTING에서 Claude API 키를 먼저 등록해주세요.'); return; }
+  const posts = allPosts.filter(p => p.studentId !== '00000' && p.content);
+  if (!posts.length) { alert('픽할 게시글이 없습니다.'); return; }
+  const btn = document.getElementById('aiPickBtn');
+  btn.disabled = true; btn.textContent = '✨ 분석 중…';
+  const postsText = posts.map((p, i) =>
+    `[${i+1}] 기관: ${p.org?.name||'?'} / 게시글: ${p.content}`
+  ).join('\n');
+  const prompt = `당신은 중학교 역사 수업 보조 교사입니다.
+아래는 "고려 관료 익명 커뮤니티(Blind 려)" 활동에서 학생들이 자신이 선택한 관청 입장으로 작성한 게시글 목록입니다.
+
+다음 기준으로 우수한 게시글 번호를 선정해주세요:
+- 역사적 사고가 담긴 글 (단순 감상 X)
+- 선택한 기관의 역할과 맥락에 맞는 글
+- 다른 학생들과 공유할 만한 통찰이 있는 글
+- 전체의 20~30% 내외 선정
+
+게시글 목록:
+${postsText}
+
+응답: JSON 배열만 출력. 예) [1, 3, 7]
+픽할 번호 목록 (없으면 []):`;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json','x-api-key':claudeApiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+      body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:512, messages:[{role:'user',content:prompt}] })
+    });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const data = await res.json();
+    let raw = (data.content?.[0]?.text||'[]').replace(/```json|```/g,'').trim();
+    const s = raw.indexOf('['), e = raw.lastIndexOf(']');
+    if (s !== -1 && e !== -1) raw = raw.slice(s, e+1);
+    const nums = JSON.parse(raw);
+    if (!Array.isArray(nums) || !nums.length) { alert('AI가 픽할 게시글을 찾지 못했습니다.'); return; }
+    const updates = {};
+    nums.forEach(n => {
+      const p = posts[n - 1];
+      if (p) updates[`goryeo_v2/${p.id}/adminPick`] = true;
+    });
+    await update(ref(db), updates);
+    alert(`✨ AI가 ${nums.length}개 게시글을 픽했습니다.`);
+  } catch(e) {
+    alert('AI 픽 실패: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ AI 픽';
   }
 };
 

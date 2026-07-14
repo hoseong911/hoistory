@@ -422,6 +422,61 @@ body::before {
 .reflection-done-text { font-size:15px; color:var(--ink2); line-height:2; margin-bottom:24px; word-break:keep-all; }
 .btn-restart { padding:14px 32px; background:var(--ink); color:var(--paper); border:none; border-radius:6px; font-family:'Noto Serif KR',serif; font-size:14px; font-weight:700; letter-spacing:2px; cursor:pointer; transition:all 0.2s; }
 .btn-restart:hover { background:var(--ink2); }
+
+/* ═══ 아카이브 뷰 ═══ */
+#archiveView {
+  display: none; position: fixed; inset: 0; z-index: 900;
+  background: var(--paper); flex-direction: column;
+  overflow-y: auto;
+}
+.arc-header-gc {
+  position: sticky; top: 0; z-index: 10;
+  background: rgba(245,240,228,0.95); backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(60,40,20,0.12);
+  padding: 14px 20px;
+}
+.arc-header-gc-top {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+}
+.arc-info-box-gc {
+  display: none; background: rgba(60,40,20,0.05);
+  border-left: 3px solid var(--ink2);
+  border-radius: 0 8px 8px 0;
+  padding: 12px 14px; margin-bottom: 12px;
+}
+.arc-info-topic-gc { font-size: 14px; font-weight: 800; color: var(--ink); margin-bottom: 6px; font-family: 'Noto Serif KR', serif; }
+.arc-info-intent-gc { font-size: 12px; color: var(--ink2); line-height: 1.8; }
+.arc-filter-row-gc { display: flex; gap: 6px; flex-wrap: wrap; }
+.arc-filter-btn-gc {
+  padding: 5px 14px; border-radius: 100px;
+  border: 1px solid rgba(60,40,20,0.2);
+  background: none; font-size: 11px; font-weight: 700;
+  color: var(--ink2); cursor: pointer; font-family: inherit; transition: .15s;
+}
+.arc-filter-btn-gc.active {
+  background: var(--ink); border-color: var(--ink); color: var(--paper);
+}
+.arc-body-gc { flex: 1; max-width: 700px; margin: 0 auto; padding: 20px 20px 60px; width: 100%; }
+.arc-card-gc {
+  background: var(--paper);
+  border: 1px solid rgba(60,40,20,0.12);
+  border-radius: 10px; padding: 16px 18px;
+  margin-bottom: 12px;
+}
+.arc-card-gc.is-pick { background: rgba(176,140,74,0.08); border-color: rgba(176,140,74,0.3); }
+.arc-ending-badge-gc {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  padding: 3px 10px; border-radius: 20px;
+  background: rgba(60,40,20,0.08); color: var(--ink2);
+  margin-bottom: 8px; font-family: 'Pretendard', sans-serif;
+}
+.arc-ending-badge-gc.open { background: rgba(176,140,74,0.15); color: #7a5c1e; }
+.arc-ending-badge-gc.retreat { background: rgba(107,125,79,0.15); color: #4a6030; }
+.arc-ending-badge-gc.martyr { background: rgba(169,77,77,0.15); color: #8a2020; }
+.arc-reflection-gc {
+  font-size: 13px; line-height: 1.85; color: var(--ink2);
+  white-space: pre-wrap; font-family: 'Noto Serif KR', serif;
+}
 </style>
 </head>
 <body class="hi-preset-paper">
@@ -460,6 +515,12 @@ body::before {
     <div id="login-name-display" class="login-name-display"></div>
     <button class="login-btn" onclick="doLogin()">입장하기</button>
     <div class="login-err" id="login-err"></div>
+    <button onclick="openArchive()"
+      style="margin-top:14px;width:100%;padding:11px;background:none;border:1.5px solid rgba(245,240,228,0.25);border-radius:10px;color:rgba(245,240,228,0.7);font-size:13px;font-weight:700;cursor:pointer;font-family:'Pretendard',sans-serif;transition:.15s;"
+      onmouseover="this.style.borderColor='rgba(245,240,228,0.6)';this.style.color='rgba(245,240,228,1)';"
+      onmouseout="this.style.borderColor='rgba(245,240,228,0.25)';this.style.color='rgba(245,240,228,0.7)';">
+      📚 활동 아카이브 보기
+    </button>
   </div>
   <div style="display:flex;justify-content:center;gap:28px;margin-top:24px;margin-bottom:8px;position:relative;z-index:2;">
     <a href="../../lms/admin.html" style="text-decoration:none;color:var(--hi-text-muted);display:inline-flex;align-items:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a>
@@ -467,6 +528,34 @@ body::before {
     <a href="https://open.kakao.com/o/smm3ixqi" target="_blank" rel="noopener" style="text-decoration:none;color:var(--hi-text-muted);display:inline-flex;align-items:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></a>
   </div>
   <footer style="text-align:center;font-size:11px;color:#9ca3af;font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif !important;position:relative;z-index:2;">역사는 즐겁다 <span>✦</span> Dive into HISTORY</footer>
+</div>
+
+<!-- ── 아카이브 뷰 ── -->
+<div id="archiveView">
+  <div class="arc-header-gc">
+    <div class="arc-header-gc-top">
+      <button onclick="closeArchive()"
+        style="padding:6px 14px;background:none;border:1px solid rgba(60,40,20,0.25);border-radius:8px;font-size:12px;font-weight:700;color:var(--ink2);cursor:pointer;font-family:inherit;">
+        돌아가기
+      </button>
+      <div>
+        <div style="font-size:14px;font-weight:800;color:var(--ink);font-family:'Noto Serif KR',serif;">亂世의 士大夫</div>
+        <div style="font-size:11px;color:var(--ink2);">활동 아카이브</div>
+      </div>
+    </div>
+    <div id="arcInfoBoxGc" class="arc-info-box-gc">
+      <div class="arc-info-topic-gc" id="arcTopicGc"></div>
+      <div class="arc-info-intent-gc" id="arcIntentGc"></div>
+    </div>
+    <div class="arc-filter-row-gc">
+      <button class="arc-filter-btn-gc active" onclick="arcSetFilterGc('all',this)">📋 전체</button>
+      <button class="arc-filter-btn-gc" onclick="arcSetFilterGc('pick',this)">⭐ Pick</button>
+      <button class="arc-filter-btn-gc" onclick="arcSetFilterGc('open',this)">🌅 조선 합류</button>
+      <button class="arc-filter-btn-gc" onclick="arcSetFilterGc('retreat',this)">🌿 두문동 은거</button>
+      <button class="arc-filter-btn-gc" onclick="arcSetFilterGc('martyr',this)">⚔️ 충절의 순사</button>
+    </div>
+  </div>
+  <div class="arc-body-gc" id="arcFeedGc"></div>
 </div>
 
 <div id="title-screen" class="screen">
@@ -615,7 +704,7 @@ body::before {
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, set, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, set, push, get, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
 // ★ 공유 모듈
 import { initAuth, verifyStudentId, loadStudents } from '../../shared/auth.js';
@@ -1600,6 +1689,93 @@ window.addEventListener('beforeunload', (e) => {
 
 // ★ 우클릭 메뉴 차단
 document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ─── 아카이브 ───────────────────────────────────────────────
+const ENDINGS_PATH = { open:'조선합류', retreat:'두문동은거', martyr:'충절의순사' };
+let arcAllResults = [], arcFilterGc = 'all', arcListeningGc = false;
+
+function pathOf(key) {
+  if (!key) return null;
+  const base = String(key).split('_')[0];
+  return ['open','retreat','martyr'].includes(base) ? base : null;
+}
+
+window.openArchive = () => {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('archiveView').style.display = 'flex';
+  window.scrollTo(0, 0);
+
+  // 아카이브 정보 로드
+  get(ref(db, 'adminConfig/goryeo_choice/archive')).then(snap => {
+    if (snap.exists()) {
+      const { topic, intent } = snap.val();
+      if (topic || intent) {
+        document.getElementById('arcTopicGc').textContent = topic || '';
+        document.getElementById('arcIntentGc').textContent = intent || '';
+        document.getElementById('arcInfoBoxGc').style.display = 'block';
+      }
+    }
+  }).catch(() => {});
+
+  if (!arcListeningGc) {
+    arcListeningGc = true;
+    onValue(ref(db, 'goryeo_results'), snap => {
+      const data = snap.val();
+      arcAllResults = data ? Object.values(data) : [];
+      renderArcFeedGc();
+    });
+  } else renderArcFeedGc();
+};
+
+window.closeArchive = () => {
+  document.getElementById('archiveView').style.display = 'none';
+  showScreen(currentScreen || 'login-screen');
+  window.scrollTo(0, 0);
+};
+
+window.arcSetFilterGc = (filter, btnEl) => {
+  arcFilterGc = filter;
+  document.querySelectorAll('.arc-filter-btn-gc').forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  renderArcFeedGc();
+};
+
+const ENDINGS_META_ARC = {
+  open:'개국공신', open_architect:'창업의 설계자', open_scholar:'학자관료', open_pragmatist:'경세가',
+  retreat:'두문동 은거', retreat_teacher:'사림의 시조', retreat_purist:'절개의 선비', retreat_recluse:'은일거사',
+  martyr:'충절의 순사', martyr_icon:'충신열전', martyr_scholar:'학문의 순교자', martyr_unknown:'무명의 충혼'
+};
+
+function renderArcFeedGc() {
+  const feed = document.getElementById('arcFeedGc');
+  if (!feed) return;
+  let results = arcAllResults.filter(r => r.reflection && r.reflection.trim());
+
+  if (arcFilterGc === 'pick') results = results.filter(r => r.pick === true);
+  else if (arcFilterGc !== 'all') results = results.filter(r => pathOf(r.ending) === arcFilterGc);
+
+  results.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+
+  if (!results.length) {
+    feed.innerHTML = `<div style="padding:48px 20px;text-align:center;color:var(--ink2);font-size:13px;">📭 ${arcFilterGc==='pick'?'아직 Pick된 소감이 없어요.':'소감이 없어요.'}</div>`;
+    return;
+  }
+
+  feed.innerHTML = results.map(r => {
+    const path = pathOf(r.ending) || '';
+    const endingTitle = ENDINGS_META_ARC[r.ending] || r.endingTitle || r.ending || '—';
+    const pathLabel = { open:'🌅 조선 합류', retreat:'🌿 두문동 은거', martyr:'⚔️ 충절의 순사' }[path] || '';
+    return `<div class="arc-card-gc${r.pick ? ' is-pick' : ''}">
+      ${r.pick ? '<div style="font-size:10px;font-weight:700;color:#b08c4a;margin-bottom:6px;font-family:Pretendard,sans-serif;">⭐ Pick</div>' : ''}
+      <div class="arc-ending-badge-gc ${path}">${pathLabel} ${endingTitle}</div>
+      <div class="arc-reflection-gc">${escHtml(r.reflection.trim())}</div>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+}
 </script>
 </body>
 </html>
