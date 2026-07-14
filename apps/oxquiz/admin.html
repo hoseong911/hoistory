@@ -674,10 +674,8 @@ async function tryGate() {
     if (pw === storedPw) {
       err.textContent = '';
       err.classList.remove('show');
-      document.getElementById('loginScreen').style.display = 'none';
-      document.getElementById('adminApp').classList.add('show');
       sessionStorage.setItem('ox-admin', '1');
-      renderAll();
+      enterAdmin();
     } else {
       err.textContent = '비밀번호가 올바르지 않습니다';
       err.classList.add('show');
@@ -695,10 +693,19 @@ function logout() {
   location.reload();
 }
 
-if (sessionStorage.getItem('ox-admin') === '1') {
+function enterAdmin() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('adminApp').classList.add('show');
   setTimeout(() => renderAll(), 100);
+}
+
+const isEmbedded = window.self !== window.top;
+if (isEmbedded) {
+  // lms/admin에 이미 로그인되어 있으므로 로그인 화면을 생략하고 바로 들어간다.
+  document.documentElement.classList.add('has-own-back');
+  enterAdmin();
+} else if (sessionStorage.getItem('ox-admin') === '1') {
+  enterAdmin();
 }
 
 function switchTab(name, el) {
