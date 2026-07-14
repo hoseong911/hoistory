@@ -1914,6 +1914,23 @@ function toggleLabelPos(target, i) {
   ceRenderPreview();
 }
 
+/* 콘텐츠 textarea(cl-items/cl-fmt-grow) 공통 입력 보조: Tab → " : "(소제목 구분),
+   Shift+Enter → "<br>"(항목 안 줄바꿈) 삽입. 일반 Enter는 항목(줄) 구분으로 그대로 둔다. */
+function handleContentKeydown(e) {
+  let insertText = null;
+  if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+    insertText = ' : ';
+  } else if (e.key === 'Enter' && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+    insertText = '<br>';
+  } else {
+    return;
+  }
+  e.preventDefault();
+  const ta = e.target;
+  ta.setRangeText(insertText, ta.selectionStart, ta.selectionEnd, 'end');
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 function ceFormatPanelBody(target, i, line) {
   const fmt = line.format || 'rows';
   if (fmt === 'timeline-h' || fmt === 'timeline-v') return ceTimelineEditor(target, i, line);
@@ -1932,7 +1949,7 @@ function ceTimelineEditor(target, i, line) {
   const rows = line.events.map((ev, j) => isV ? `
     <div class="cl-fmt-row">
       <input type="text" class="cl-fmt-sm" placeholder="메모(연도 등)" value="${esc(ev.memo||'')}" oninput="updateEventField('${target}',${i},${j},'memo',this.value)">
-      <textarea class="cl-fmt-grow" placeholder="내용, 한 줄 = 한 항목, {단어}는 빈칸, ' : '로 소제목 구분" oninput="updateEventContent('${target}',${i},${j},this.value)">${esc((ev.content||[]).join('\n'))}</textarea>
+      <textarea class="cl-fmt-grow" placeholder="내용, 한 줄 = 한 항목, {단어}는 빈칸, ' : '로 소제목 구분" oninput="updateEventContent('${target}',${i},${j},this.value)" onkeydown="handleContentKeydown(event)">${esc((ev.content||[]).join('\n'))}</textarea>
       <button class="cl-fmt-del" onclick="removeEvent('${target}',${i},${j})">삭제</button>
     </div>` : `
     <div class="cl-fmt-row">
@@ -1955,7 +1972,7 @@ function ceCompareEditor(target, i, line) {
   const side = (key, label) => `
     <div class="cl-fmt-col">
       <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="${label} 라벨" value="${esc(line[key].label||'')}" oninput="updateCompareField('${target}',${i},'${key}','label',this.value)">
-      <textarea class="cl-fmt-grow" placeholder="한 줄 = 한 항목, {단어}는 빈칸, ' : '로 소제목 구분" oninput="updateCompareItems('${target}',${i},'${key}',this.value)">${esc((line[key].items||[]).join('\n'))}</textarea>
+      <textarea class="cl-fmt-grow" placeholder="한 줄 = 한 항목, {단어}는 빈칸, ' : '로 소제목 구분" oninput="updateCompareItems('${target}',${i},'${key}',this.value)" onkeydown="handleContentKeydown(event)">${esc((line[key].items||[]).join('\n'))}</textarea>
     </div>`;
   return `<div class="cl-fmt-fields cl-fmt-fields-2col">${side('left','왼쪽(네이비)')}${side('right','오른쪽(레드)')}</div>`;
 }
@@ -1965,7 +1982,7 @@ function updateCompareItems(target,i,side,v)  { ceLinesFor(target)[i][side].item
 function ceQuoteEditor(target, i, line) {
   return `
     <div class="cl-fmt-fields">
-      <textarea class="cl-fmt-grow" placeholder="원문 텍스트, {단어}는 빈칸" oninput="updateLine('${target}',${i},'quoteText',this.value)">${esc(line.quoteText||'')}</textarea>
+      <textarea class="cl-fmt-grow" placeholder="원문 텍스트, {단어}는 빈칸" oninput="updateLine('${target}',${i},'quoteText',this.value)" onkeydown="handleContentKeydown(event)">${esc(line.quoteText||'')}</textarea>
       <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="출처" value="${esc(line.quoteSource||'')}" oninput="updateLine('${target}',${i},'quoteSource',this.value)">
     </div>`;
 }
@@ -1974,7 +1991,7 @@ function ceFlowEditor(target, i, line) {
   const rows = line.stages.map((st, j) => `
     <div class="cl-fmt-row">
       <input type="text" class="cl-fmt-sm" placeholder="단계명" value="${esc(st.label||'')}" oninput="updateStageField('${target}',${i},${j},'label',this.value)">
-      <textarea class="cl-fmt-grow" placeholder="설명, {단어}는 빈칸" oninput="updateStageField('${target}',${i},${j},'text',this.value)">${esc(st.text||'')}</textarea>
+      <textarea class="cl-fmt-grow" placeholder="설명, {단어}는 빈칸" oninput="updateStageField('${target}',${i},${j},'text',this.value)" onkeydown="handleContentKeydown(event)">${esc(st.text||'')}</textarea>
       <button class="cl-fmt-del" onclick="removeStage('${target}',${i},${j})">삭제</button>
     </div>`).join('');
   return `<div class="cl-fmt-fields">${rows}<button type="button" class="cbtn-sm" onclick="addStage('${target}',${i})">+ 단계 추가</button></div>`;
@@ -2051,7 +2068,7 @@ function ceRenderContentLines(target) {
         <span class="cl-handle">⋮⋮</span>
         ${ceMoveButtons(target,i)}
         <input type="text" class="cl-label" placeholder="라벨" value="${esc(line.label)}" oninput="updateLine('${target}',${i},'label',this.value)">
-        <textarea class="cl-items" placeholder="{단어}는 빈칸, 한 줄 = 한 항목" oninput="updateLineItems('${target}',${i},this.value)">${esc(line.items.join('\n'))}</textarea>
+        <textarea class="cl-items" placeholder="{단어}는 빈칸, 한 줄 = 한 항목" oninput="updateLineItems('${target}',${i},this.value)" onkeydown="handleContentKeydown(event)">${esc(line.items.join('\n'))}</textarea>
         <button class="cbtn-danger" onclick="deleteLine('${target}',${i})">삭제</button>
       </div>`;
   }).join('');

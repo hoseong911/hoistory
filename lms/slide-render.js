@@ -27,13 +27,27 @@
     return s;
   }
 
+  /* 한 줄 안에서 " : " 기준으로 하위 소제목(item-sublead)과 본문을 분리. 최상위
+     소제목(item-lead)은 parseItemText가 이미 처리하므로, 여기서는 항목 "안"에서
+     또 나오는 " : "(예: ①에 딸린 a./b./c.)만 대상으로 한다. */
+  function parseLineWithSublead(line) {
+    const colonIdx = line.indexOf(' : ');
+    if (colonIdx > -1) {
+      const leadRaw = line.slice(0, colonIdx);
+      const rest    = line.slice(colonIdx + 3);
+      return `<span class="item-sublead">${parseText(leadRaw)}&nbsp;&nbsp;&nbsp;</span>${parseText(rest)}`;
+    }
+    return parseText(line);
+  }
+
   /* \n 또는 <br>/</br> 위치에서 줄바꿈 + 내어쓰기. <br>은 어드민 편집기의 textarea가
      항목(items) 구분자로 실제 개행(\n)을 쓰기 때문에, 한 항목 "안에서" 줄을 나누고 싶을
      때(예: ①에 딸린 a./b./c. 하위 줄) 개행 대신 쓰는 표시다. */
   function renderWithBreaks(text) {
-    return text.replace(/<\/?br\s*\/?>/gi, '\n').split('\n').map((line, i) =>
-      i === 0 ? parseText(line) : `<br><span class="line-cont">${parseText(line)}</span>`
-    ).join('');
+    return text.replace(/<\/?br\s*\/?>/gi, '\n').split('\n').map((line, i) => {
+      const html = parseLineWithSublead(line);
+      return i === 0 ? html : `<br><span class="line-cont">${html}</span>`;
+    }).join('');
   }
 
   /* " : " 기준으로 소제목(item-lead)과 본문(item-text) 분리. 콜론은 제거 */
