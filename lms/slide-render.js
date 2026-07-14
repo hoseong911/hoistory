@@ -50,20 +50,25 @@
     }).join('');
   }
 
+  /* item 문자열이 "소제목 : <br>..." 형태 — 즉 Tab으로 소제목을 구분한 직후 곧바로
+     Shift+Enter를 눌러 본문이 빈 줄로 시작하는 형태인지 판별한다. rowHTML이 이 값을
+     보고 <p>를 가로 배치(기존, 내어쓰기 있음) 대신 세로 배치(내어쓰기 없음)로 바꾼다. */
+  function isStackedItem(str) {
+    const colonIdx = str.indexOf(' : ');
+    return colonIdx > -1 && /^<br\s*\/?>/i.test(str.slice(colonIdx + 3));
+  }
+
   /* " : " 기준으로 소제목(item-lead)과 본문(item-text) 분리. 콜론은 제거.
-     소제목 뒤에 곧바로 줄바꿈(Tab 다음에 바로 Shift+Enter)이 오면, 소제목을 한 줄
-     전체를 차지하는 블록으로 띄우고 본문은 그 아래 줄 맨 왼쪽(들여쓰기 없이)부터
-     시작한다 — 일반적으로는 소제목 폭만큼 본문이 밀려나는 내어쓰기가 적용되는데,
-     그게 필요 없는 콘텐츠를 위한 신호로 이 빈 첫 줄을 사용한다. */
+     isStackedItem이 true인 경우, 본문 맨 앞의 빈 줄(<br>)은 렌더링에 쓰지 않고
+     제거한다 — 줄바꿈 자체는 rowHTML이 <p>를 세로 배치로 바꿔서 대신 표현하므로,
+     여기 남겨두면 위쪽에 빈 줄이 하나 더 끼어드는 이중 간격이 생긴다. */
   function parseItemText(str) {
     const colonIdx = str.indexOf(' : ');
     if (colonIdx > -1) {
       const leadRaw = str.slice(0, colonIdx);
       let   rest     = str.slice(colonIdx + 3);
-      const stacked  = /^<br\s*\/?>/i.test(rest);
-      if (stacked) rest = rest.replace(/^<br\s*\/?>/i, '');
-      const leadClass = 'item-lead' + (stacked ? ' item-lead-block' : '');
-      return `<span class="${leadClass}">${parseText(leadRaw)}&nbsp;&nbsp;&nbsp;</span><span class="item-text">${renderWithBreaks(rest)}</span>`;
+      if (isStackedItem(str)) rest = rest.replace(/^<br\s*\/?>/i, '');
+      return `<span class="item-lead">${parseText(leadRaw)}&nbsp;&nbsp;&nbsp;</span><span class="item-text">${renderWithBreaks(rest)}</span>`;
     }
     return `<span class="item-text">${renderWithBreaks(str)}</span>`;
   }
@@ -98,7 +103,7 @@
   function chosungHTML(slide, lesson) { return numberedListHTML(slide.items, '초성 퀴즈', lesson); }
 
   function rowHTML(row, labelPos) {
-    const items = row.items.map(item => `<p>${parseItemText(item)}</p>`).join('');
+    const items = row.items.map(item => `<p${isStackedItem(item) ? ' class="stack-item"' : ''}>${parseItemText(item)}</p>`).join('');
     const posClass = labelPos === 'top' ? ' label-top' : '';
     return `
       <div class="concept-row${posClass}">
