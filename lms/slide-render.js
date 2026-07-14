@@ -50,13 +50,20 @@
     }).join('');
   }
 
-  /* " : " 기준으로 소제목(item-lead)과 본문(item-text) 분리. 콜론은 제거 */
+  /* " : " 기준으로 소제목(item-lead)과 본문(item-text) 분리. 콜론은 제거.
+     소제목 뒤에 곧바로 줄바꿈(Tab 다음에 바로 Shift+Enter)이 오면, 소제목을 한 줄
+     전체를 차지하는 블록으로 띄우고 본문은 그 아래 줄 맨 왼쪽(들여쓰기 없이)부터
+     시작한다 — 일반적으로는 소제목 폭만큼 본문이 밀려나는 내어쓰기가 적용되는데,
+     그게 필요 없는 콘텐츠를 위한 신호로 이 빈 첫 줄을 사용한다. */
   function parseItemText(str) {
     const colonIdx = str.indexOf(' : ');
     if (colonIdx > -1) {
       const leadRaw = str.slice(0, colonIdx);
-      const rest    = str.slice(colonIdx + 3);
-      return `<span class="item-lead">${parseText(leadRaw)}&nbsp;&nbsp;&nbsp;</span><span class="item-text">${renderWithBreaks(rest)}</span>`;
+      let   rest     = str.slice(colonIdx + 3);
+      const stacked  = /^<br\s*\/?>/i.test(rest);
+      if (stacked) rest = rest.replace(/^<br\s*\/?>/i, '');
+      const leadClass = 'item-lead' + (stacked ? ' item-lead-block' : '');
+      return `<span class="${leadClass}">${parseText(leadRaw)}&nbsp;&nbsp;&nbsp;</span><span class="item-text">${renderWithBreaks(rest)}</span>`;
     }
     return `<span class="item-text">${renderWithBreaks(str)}</span>`;
   }
