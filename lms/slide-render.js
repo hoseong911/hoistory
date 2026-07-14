@@ -29,24 +29,29 @@
 
   /* 한 줄 안에서 " : " 기준으로 하위 소제목(item-sublead)과 본문을 분리. 최상위
      소제목(item-lead)은 parseItemText가 이미 처리하므로, 여기서는 항목 "안"에서
-     또 나오는 " : "(예: ①에 딸린 a./b./c.)만 대상으로 한다. */
+     또 나오는 " : "(예: ①에 딸린 a./b./c.)만 대상으로 한다. 소제목+본문을 가로 flex
+     (sub-line)로 묶어서, 본문이 길어 줄바꿈될 때 본문 시작 위치에 맞춰 내어쓰기되게 한다. */
   function parseLineWithSublead(line) {
     const colonIdx = line.indexOf(' : ');
     if (colonIdx > -1) {
       const leadRaw = line.slice(0, colonIdx);
       const rest    = line.slice(colonIdx + 3);
-      return `<span class="item-sublead">${parseText(leadRaw)}&nbsp;&nbsp;&nbsp;</span>${parseText(rest)}`;
+      return `<span class="sub-line"><span class="item-sublead">${parseText(leadRaw)}&nbsp;&nbsp;&nbsp;</span><span class="sub-body">${parseText(rest)}</span></span>`;
     }
     return parseText(line);
   }
 
   /* \n 또는 <br>/</br> 위치에서 줄바꿈 + 내어쓰기. <br>은 어드민 편집기의 textarea가
      항목(items) 구분자로 실제 개행(\n)을 쓰기 때문에, 한 항목 "안에서" 줄을 나누고 싶을
-     때(예: ①에 딸린 a./b./c. 하위 줄) 개행 대신 쓰는 표시다. */
+     때(예: ①에 딸린 a./b./c. 하위 줄) 개행 대신 쓰는 표시다. 소제목이 있는 줄(sub-line)은
+     그 자체가 블록 레벨 flex라 알아서 새 줄로 떨어지므로 <br>을 따로 넣지 않는다 — 넣으면
+     줄 간격이 이중으로 벌어진다. */
   function renderWithBreaks(text) {
     return text.replace(/<\/?br\s*\/?>/gi, '\n').split('\n').map((line, i) => {
+      const hasSublead = line.indexOf(' : ') > -1;
       const html = parseLineWithSublead(line);
-      return i === 0 ? html : `<br><span class="line-cont">${html}</span>`;
+      if (i === 0 || hasSublead) return html;
+      return `<br><span class="line-cont">${html}</span>`;
     }).join('');
   }
 
