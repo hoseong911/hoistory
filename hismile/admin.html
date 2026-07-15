@@ -180,7 +180,8 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
     <div class="gate-logo">역사 열공 마일리지</div>
     <div class="gate-sub">관리자 모드</div>
     <div class="gate-field">
-      <input type="password" id="gate-pw" class="gate-input" placeholder="비밀번호">
+      <input type="email" id="gate-email" class="gate-input" placeholder="이메일" autocomplete="username" style="margin-bottom:10px;">
+      <input type="password" id="gate-pw" class="gate-input" placeholder="비밀번호" autocomplete="current-password">
     </div>
     <div class="gate-err" id="gate-err"></div>
     <button class="gate-btn" id="gate-login-btn">접속하기</button>
@@ -281,6 +282,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import {
   getDatabase, ref, get, set, update, remove, onValue
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -294,6 +296,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const auth = getAuth(app);
 
 /* ─────────── State ─────────── */
 let roster = [];      // lms/admin 학생 관리(RTDB students/)와 동일한 명단, 읽기 전용
@@ -332,8 +335,9 @@ onValue(ref(db, 'historyMileage'), snap => {
   renderAll();
 });
 
-/* ─────────── 로그인 ───────────
-   lms/admin(이미 로그인된 어드민)의 iframe으로 열린 경우 로그인 화면을 생략한다. */
+/* ─────────── 로그인 (Firebase Authentication) ───────────
+   다른 어드민들과 같은 Firebase 프로젝트 계정을 공유하므로, lms/admin 등
+   같은 origin의 다른 어드민에 이미 로그인돼 있으면 자동으로 통과된다. */
 function initAdmin() {
   document.getElementById('gate-login').style.display = 'none';
   document.getElementById('gate-admin').style.display = 'flex';
@@ -347,39 +351,37 @@ if (isEmbedded) {
   document.getElementById('embed-back-btn').addEventListener('click', () => {
     try { window.parent.closeAppAdmin && window.parent.closeAppAdmin(); } catch (e) {}
   });
-  initAdmin();
-} else {
-  if (sessionStorage.getItem('hi_admin_ok') === '1') initAdmin();
 }
 
+onAuthStateChanged(auth, user => {
+  if (user) {
+    initAdmin();
+  } else {
+    document.getElementById('gate-admin').style.display = 'none';
+    document.getElementById('gate-login').style.display = 'flex';
+  }
+});
+
 document.getElementById('gate-login-btn').addEventListener('click', async () => {
+  const email = document.getElementById('gate-email').value.trim();
   const pw = document.getElementById('gate-pw').value;
   const errEl = document.getElementById('gate-err');
+  const btn = document.getElementById('gate-login-btn');
   errEl.textContent = '';
-  if (!pw) { errEl.textContent = '비밀번호를 입력해 주세요'; return; }
-
+  if (!email || !pw) { errEl.textContent = '이메일과 비밀번호를 입력해 주세요'; return; }
+  btn.disabled = true; btn.textContent = '접속 중...';
   try {
-    const snap = await get(ref(db, 'historyMileage/config/adminPw'));
-    const storedPw = snap.val();
-    if (!storedPw) {
-      if (pw.length < 4) { errEl.textContent = '초기 비밀번호는 4자 이상이어야 해요'; return; }
-      await set(ref(db, 'historyMileage/config/adminPw'), pw);
-    } else if (pw !== storedPw) {
-      errEl.textContent = '비밀번호가 일치하지 않습니다';
-      return;
-    }
-    sessionStorage.setItem('hi_admin_ok', '1');
+    await signInWithEmailAndPassword(auth, email, pw);
     document.getElementById('gate-pw').value = '';
-    initAdmin();
   } catch (e) {
-    errEl.textContent = '로그인 중 오류가 발생했어요';
+    errEl.textContent = '이메일 또는 비밀번호가 올바르지 않습니다';
+  } finally {
+    btn.disabled = false; btn.textContent = '접속하기';
   }
 });
 document.getElementById('gate-pw').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('gate-login-btn').click(); });
 document.getElementById('logout-btn').addEventListener('click', () => {
-  sessionStorage.removeItem('hi_admin_ok');
-  document.getElementById('gate-admin').style.display = 'none';
-  document.getElementById('gate-login').style.display = 'flex';
+  signOut(auth);
 });
 
 /* ─────────── 탭 ─────────── */

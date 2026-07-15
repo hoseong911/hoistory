@@ -9,6 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
 <link rel="stylesheet" href="../../shared/theme.css">
 <link rel="stylesheet" href="../../shared/admin-base.css">
 <style>
@@ -297,11 +298,14 @@ tbody tr:last-child td { border-bottom: none; }
   <div class="login-card">
     <div class="login-logo">OX 퀴즈</div>
     <div class="login-sub">관리자 모드</div>
-    <input type="password" class="hi-input" id="gate-pw" placeholder="비밀번호"
+    <input type="email" class="hi-input" id="gate-email" placeholder="이메일" autocomplete="username"
+           style="margin-bottom:10px;"
+           onkeydown="if(event.key==='Enter') document.getElementById('gate-pw').focus()">
+    <input type="password" class="hi-input" id="gate-pw" placeholder="비밀번호" autocomplete="current-password"
            style="text-align:center;letter-spacing:3px;margin-bottom:8px;"
            onkeydown="if(event.key==='Enter')tryGate()">
     <div class="login-err" id="gate-error"></div>
-    <button class="login-btn" onclick="tryGate()">접속하기</button>
+    <button class="login-btn" id="loginBtn" onclick="tryGate()">접속하기</button>
     <div class="login-foot"><a href="26_2.html">학생 페이지로</a></div>
   </div>
 </div>
@@ -526,7 +530,6 @@ tbody tr:last-child td { border-bottom: none; }
 
       <div class="setting-section-title">🔐 관리자 설정</div>
       <div class="setting-group">
-        <div class="setting-row"><div class="setting-info"><div class="setting-name">관리자 비밀번호 변경</div><div class="setting-desc">현재 비밀번호를 확인한 후 새 비밀번호를 설정합니다.</div></div><button class="btn btn-ghost btn-sm" onclick="openPwModal()">변경하기</button></div>
       </div>
     </div>
 
@@ -572,21 +575,6 @@ tbody tr:last-child td { border-bottom: none; }
   </div>
 </div>
 
-<!-- 모달: 비밀번호 변경 -->
-<div class="modal-backdrop" id="modal-pw">
-  <div class="modal-card" style="max-width:380px;">
-    <div class="modal-title">비밀번호 변경</div>
-    <div class="modal-sub">새 비밀번호는 다른 사람과 공유하지 마세요</div>
-    <div class="modal-input-row"><label>현재 비밀번호</label><input type="password" class="modal-input" id="pw-old"></div>
-    <div class="modal-input-row"><label>새 비밀번호</label><input type="password" class="modal-input" id="pw-new"></div>
-    <div class="modal-input-row"><label>새 비밀번호 확인</label><input type="password" class="modal-input" id="pw-new2"></div>
-    <div class="modal-actions">
-      <button class="btn btn-soft btn-md" onclick="closeModal('modal-pw')">취소</button>
-      <button class="btn btn-primary btn-md" onclick="changePassword()">변경 🔒</button>
-    </div>
-  </div>
-</div>
-
 <!-- 모달: 문제 상세 보기 -->
 <div class="modal-backdrop" id="modal-question-detail">
   <div class="modal-card" style="max-width:520px;">
@@ -627,6 +615,7 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 const fs = firebase.firestore();
+const auth = firebase.auth();
 const COL = {
   questions: 'ox2606_questions',
   rankings: 'ox2606_rankings',
@@ -634,8 +623,6 @@ const COL = {
   sessions: 'ox2606_sessions',
   admin: 'ox2606_admin',
 };
-const ADMIN_DOC = 'config';
-const DEFAULT_PW = 'ghtjd12!@';
 
 const state = {
   questions: [],
@@ -652,45 +639,26 @@ const state = {
 };
 
 async function tryGate() {
+  const email = document.getElementById('gate-email').value.trim();
   const pw = document.getElementById('gate-pw').value;
   const err = document.getElementById('gate-error');
-  err.textContent = '확인 중...';
-  err.classList.add('show');
-
-  console.log('=== 디버그 정보 ===');
-  console.log('입력한 비밀번호:', JSON.stringify(pw));
-
+  const btn = document.getElementById('loginBtn');
+  if (!email || !pw) { err.textContent = '이메일과 비밀번호를 입력해주세요'; err.classList.add('show'); return; }
+  err.classList.remove('show');
+  btn.disabled = true; btn.textContent = '접속 중...';
   try {
-    const docRef = fs.collection(COL.admin).doc(ADMIN_DOC);
-    const snap = await docRef.get();
-    let storedPw;
-    if (!snap.exists) {
-      await docRef.set({ password: DEFAULT_PW, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
-      storedPw = DEFAULT_PW;
-    } else {
-      storedPw = snap.data().password;
-    }
-
-    if (pw === storedPw) {
-      err.textContent = '';
-      err.classList.remove('show');
-      sessionStorage.setItem('ox-admin', '1');
-      enterAdmin();
-    } else {
-      err.textContent = '비밀번호가 올바르지 않습니다';
-      err.classList.add('show');
-      document.getElementById('gate-pw').value = '';
-    }
+    await auth.signInWithEmailAndPassword(email, pw);
   } catch (e) {
-    console.error('❌ 에러 발생:', e);
-    err.textContent = '오류: ' + (e.message || '확인 필요 (F12 콘솔)');
+    err.textContent = '이메일 또는 비밀번호가 올바르지 않습니다';
     err.classList.add('show');
+    document.getElementById('gate-pw').value = '';
+  } finally {
+    btn.disabled = false; btn.textContent = '접속하기';
   }
 }
 
 function logout() {
-  sessionStorage.removeItem('ox-admin');
-  location.reload();
+  auth.signOut();
 }
 
 function enterAdmin() {
@@ -700,13 +668,15 @@ function enterAdmin() {
 }
 
 const isEmbedded = window.self !== window.top;
-if (isEmbedded) {
-  // lms/admin에 이미 로그인되어 있으므로 로그인 화면을 생략하고 바로 들어간다.
-  document.documentElement.classList.add('has-own-back');
-  enterAdmin();
-} else if (sessionStorage.getItem('ox-admin') === '1') {
-  enterAdmin();
-}
+auth.onAuthStateChanged(user => {
+  if (user) {
+    if (isEmbedded) document.documentElement.classList.add('has-own-back');
+    enterAdmin();
+  } else {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('adminApp').classList.remove('show');
+  }
+});
 
 function switchTab(name, el) {
   document.querySelectorAll('.adm-tab').forEach(t => t.classList.remove('active'));
@@ -1363,29 +1333,7 @@ async function exportCorrections() {
   } catch (e) { console.error(e); miniToast('내보내기 실패', 'danger'); }
 }
 
-function openPwModal() {
-  document.getElementById('pw-old').value = '';
-  document.getElementById('pw-new').value = '';
-  document.getElementById('pw-new2').value = '';
-  document.getElementById('modal-pw').classList.add('show');
-}
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-
-async function changePassword() {
-  const oldPw = document.getElementById('pw-old').value;
-  const newPw = document.getElementById('pw-new').value;
-  const newPw2 = document.getElementById('pw-new2').value;
-  try {
-    const snap = await fs.collection(COL.admin).doc(ADMIN_DOC).get();
-    const storedPw = snap.exists ? snap.data().password : DEFAULT_PW;
-    if (oldPw !== storedPw) { miniToast('현재 비밀번호가 일치하지 않습니다', 'danger'); return; }
-    if (!newPw || newPw.length < 4) { miniToast('새 비밀번호는 4자 이상이어야 합니다', 'danger'); return; }
-    if (newPw !== newPw2) { miniToast('새 비밀번호가 일치하지 않습니다', 'danger'); return; }
-    await fs.collection(COL.admin).doc(ADMIN_DOC).update({ password: newPw, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-    closeModal('modal-pw');
-    miniToast('비밀번호가 변경되었습니다 🔒');
-  } catch (e) { console.error(e); miniToast('변경 실패', 'danger'); }
-}
 
 function esc(str) {
   if (typeof str !== 'string') str = String(str || '');

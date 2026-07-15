@@ -260,10 +260,12 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
   <div class="login-title">관리자 모드</div>
   <div class="login-sub">2026 IDY 3rd Grade · 260506</div>
   <div class="login-card">
+    <label class="g-label">이메일</label>
+    <input class="g-input" type="email" id="admin-email" placeholder="이메일 입력" autocomplete="username" style="margin-bottom:10px;">
     <label class="g-label">관리자 비밀번호</label>
-    <input class="g-input" type="password" id="admin-pw" placeholder="비밀번호 입력">
-    <button class="g-btn" onclick="tryLogin()">접속하기</button>
-    <div class="login-err" id="login-err">⚠ 비밀번호가 올바르지 않습니다</div>
+    <input class="g-input" type="password" id="admin-pw" placeholder="비밀번호 입력" autocomplete="current-password">
+    <button class="g-btn" id="loginBtn" onclick="tryLogin()">접속하기</button>
+    <div class="login-err" id="login-err">⚠ 이메일 또는 비밀번호가 올바르지 않습니다</div>
   </div>
 </div>
 
@@ -310,6 +312,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:1
 <script type="module">
 import { initializeApp }                                        from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
 import { getDatabase, ref, onValue, set, remove, get, update } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -322,8 +325,8 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db  = getDatabase(app);
+const auth = getAuth(app);
 
-const ADMIN_PW   = 'ghtjd12!@';
 const GAS_URL    = 'https://script.google.com/macros/s/AKfycbwyI-lc4yoCKr2yzj28UGLyALcz3OhiikNtl24qb-h1S3glhLhcP6xHj3W-uQhHHAeC1Q/exec';
 const DRIVE_URL1 = 'https://drive.google.com/drive/folders/18IhanvaL52hdphwegBs02H_I-Gg8GttZ';
 const DRIVE_URL2 = 'https://drive.google.com/drive/folders/1DNRv6Rckfu9ftk1z9BHp2SVLFxZvvZ-W';
@@ -452,16 +455,28 @@ function switchActTab(tab){
 }
 window.switchActTab = switchActTab;
 
-window.tryLogin = function(){
-  if(document.getElementById('admin-pw').value === ADMIN_PW){
-    document.getElementById('screen-login').style.display='none';
-    document.getElementById('screen-main').style.display='block';
-  } else {
-    document.getElementById('login-err').style.display='block';
+window.tryLogin = async function(){
+  const email = document.getElementById('admin-email').value.trim();
+  const pw = document.getElementById('admin-pw').value;
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('login-err');
+  if(!email || !pw){ err.style.display='block'; return; }
+  err.style.display='none';
+  btn.disabled = true; btn.textContent = '접속 중...';
+  try{
+    await signInWithEmailAndPassword(auth, email, pw);
+  }catch(e){
+    err.style.display='block';
     document.getElementById('admin-pw').value='';
+  }finally{
+    btn.disabled = false; btn.textContent = '접속하기';
   }
 };
 document.getElementById('admin-pw').addEventListener('keydown', e=>{ if(e.key==='Enter') tryLogin(); });
+onAuthStateChanged(auth, user => {
+  document.getElementById('screen-login').style.display = user ? 'none' : 'flex';
+  document.getElementById('screen-main').style.display = user ? 'block' : 'none';
+});
 
 window.openActivity = function(num){
   currentActivity = num;
