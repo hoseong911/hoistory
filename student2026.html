@@ -316,8 +316,9 @@
     <div class="login-card">
         <div class="login-logo">HOISTORY</div>
         <div class="login-sub">학생 명단 관리 · 2026</div>
-        <input type="password" id="pw-input" placeholder="비밀번호" onkeydown="if(event.key==='Enter') tryLogin()">
-        <button onclick="tryLogin()">접속</button>
+        <input type="email" id="email-input" placeholder="이메일" autocomplete="username" style="margin-bottom:10px;" onkeydown="if(event.key==='Enter') document.getElementById('pw-input').focus()">
+        <input type="password" id="pw-input" placeholder="비밀번호" autocomplete="current-password" onkeydown="if(event.key==='Enter') tryLogin()">
+        <button id="loginBtn" onclick="tryLogin()">접속</button>
         <div class="login-error" id="login-error"></div>
     </div>
 </div>
@@ -432,6 +433,7 @@
   import {
     getDatabase, ref, set, get, remove, update, onValue, push
   } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+  import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -445,24 +447,35 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
+  const auth = getAuth(app);
   // ✅ Firestore silla_students → Realtime DB students 로 변경
   const studentsRef = ref(db, 'students');
 
-  const PW = "ghtjd12!@";
   let students = [];
   let editingId = null;
 
-  // ── 로그인 ──────────────────────────────────────
-  window.tryLogin = function() {
+  // ── 로그인 (Firebase Authentication) ──────────────────────
+  window.tryLogin = async function() {
+    const email = document.getElementById('email-input').value.trim();
     const pw = document.getElementById('pw-input').value;
-    if (pw === PW) {
-      document.getElementById('login-screen').style.display = 'none';
-      startListener();
-    } else {
-      document.getElementById('login-error').textContent = '비밀번호가 올바르지 않습니다.';
+    const btn = document.getElementById('loginBtn');
+    if (!email || !pw) { document.getElementById('login-error').textContent = '이메일과 비밀번호를 입력해주세요.'; return; }
+    btn.disabled = true; btn.textContent = '접속 중...';
+    try {
+      await signInWithEmailAndPassword(auth, email, pw);
+      document.getElementById('login-error').textContent = '';
+    } catch (e) {
+      document.getElementById('login-error').textContent = '이메일 또는 비밀번호가 올바르지 않습니다.';
       document.getElementById('pw-input').value = '';
+    } finally {
+      btn.disabled = false; btn.textContent = '접속';
     }
   };
+
+  onAuthStateChanged(auth, user => {
+    document.getElementById('login-screen').style.display = user ? 'none' : 'flex';
+    if (user) startListener();
+  });
 
   // ── Realtime DB 구독 ───────────────────────────────
   function startListener() {

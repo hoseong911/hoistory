@@ -455,8 +455,9 @@
 <div id="adminLoginModal">
   <div class="alm-card">
     <div class="alm-title">관리자 비밀번호</div>
-    <div class="alm-error" id="adminLoginError">비밀번호가 틀렸습니다.</div>
-    <input class="form-input" id="adminLoginInput" type="password" placeholder="비밀번호를 입력하세요">
+    <div class="alm-error" id="adminLoginError">이메일 또는 비밀번호가 틀렸습니다.</div>
+    <input class="form-input" id="adminLoginEmail" type="email" autocomplete="username" placeholder="이메일" style="margin-bottom:10px;">
+    <input class="form-input" id="adminLoginInput" type="password" autocomplete="current-password" placeholder="비밀번호를 입력하세요">
     <div class="alm-btn-row">
       <button class="btn-nav" id="adminLoginCancel">취소</button>
       <button class="btn-nav fill" id="adminLoginSubmit">확인</button>
@@ -473,6 +474,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, addDoc, collection, getDocs, query, orderBy, deleteDoc }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -484,7 +486,7 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db  = getFirestore(app);
-const ADMIN_PW = 'ghtjd12!@';
+const auth = getAuth(app);
 
 // ── Default config ──
 const DEFAULT_CONFIG = {
@@ -554,6 +556,14 @@ let studentName = '';
 let adminLoggedIn = false;
 let currentAdminTab = 'edit';
 
+// ── Firebase Auth 상태 (다른 어드민들과 계정 공유) ──
+let authReady = false, resolveAuthReady;
+const authReadyPromise = new Promise(r => resolveAuthReady = r);
+onAuthStateChanged(auth, user => {
+  adminLoggedIn = !!user;
+  if (!authReady) { authReady = true; resolveAuthReady(); }
+});
+
 // ── Response list (admin) state ──
 let allResponses = [];
 let respFilterClass = 'all'; // 'all' | 1~6
@@ -615,7 +625,7 @@ async function init() {
   history.replaceState({ surveyStep: step }, '');
   renderStep();
 
-  if (sessionStorage.getItem('admin_auth') === '1') adminLoggedIn = true;
+  await authReadyPromise;
   if (adminLoggedIn && sessionStorage.getItem('adm_open') === '1') {
     currentAdminTab = sessionStorage.getItem('adm_tab') || 'edit';
     document.querySelectorAll('.adm-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === currentAdminTab));
@@ -900,26 +910,35 @@ document.getElementById('admCloseBtn').addEventListener('click', () => {
 // ── Admin login modal ──
 function openAdminLoginModal() {
   document.getElementById('adminLoginError').style.display = 'none';
+  document.getElementById('adminLoginEmail').value = '';
   document.getElementById('adminLoginInput').value = '';
   document.getElementById('adminLoginModal').classList.add('open');
-  setTimeout(() => document.getElementById('adminLoginInput').focus(), 50);
+  setTimeout(() => document.getElementById('adminLoginEmail').focus(), 50);
 }
 function closeAdminLoginModal() {
   document.getElementById('adminLoginModal').classList.remove('open');
 }
-function attemptAdminLogin() {
+async function attemptAdminLogin() {
+  const email = document.getElementById('adminLoginEmail').value.trim();
   const pw = document.getElementById('adminLoginInput').value;
-  if (pw !== ADMIN_PW) {
+  const btn = document.getElementById('adminLoginSubmit');
+  if (!email || !pw) { document.getElementById('adminLoginError').style.display = 'block'; return; }
+  btn.disabled = true; btn.textContent = '확인 중...';
+  try {
+    await signInWithEmailAndPassword(auth, email, pw);
+    closeAdminLoginModal();
+    openAdmin();
+  } catch (e) {
     document.getElementById('adminLoginError').style.display = 'block';
-    return;
+  } finally {
+    btn.disabled = false; btn.textContent = '확인';
   }
-  adminLoggedIn = true;
-  sessionStorage.setItem('admin_auth', '1');
-  closeAdminLoginModal();
-  openAdmin();
 }
 document.getElementById('adminLoginSubmit').addEventListener('click', attemptAdminLogin);
 document.getElementById('adminLoginCancel').addEventListener('click', closeAdminLoginModal);
+document.getElementById('adminLoginEmail').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('adminLoginInput').focus();
+});
 document.getElementById('adminLoginInput').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') attemptAdminLogin();
 });
