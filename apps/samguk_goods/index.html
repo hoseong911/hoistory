@@ -211,25 +211,45 @@
   </div>
 </div>
 
-<script>
-  const API_URL = "https://script.google.com/macros/s/AKfycbx7CSfknCaG9v6HVRLV8xyUh43vWcpPbyenSnXVnUmUBEWE7bCTHUbyRIEtDNVVWPci/exec";
+<div style="text-align:center;padding:20px;"><a href="admin.html" style="font-size:11px;color:#ccc;">관리자</a></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+    authDomain:"ho0911seong-56638.firebaseapp.com",
+    databaseURL:"https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId:"ho0911seong-56638",
+    storageBucket:"ho0911seong-56638.firebasestorage.app",
+    messagingSenderId:"994509567071",
+    appId:"1:994509567071:web:778c95931e95e9cbf557ea"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
   let goods = [];
 
-  fetch(API_URL).then(r => r.json()).then(rows => {
-    goods = rows.map(row => ({
-      name:      row["굿즈 이름"]           || "",
-      culture:   row["활용 유물 문화"]       || "",
-      nation:    row["활용 유물 국가"]       || "",
-      usage:     row["굿즈 용도"]            || "",
-      maker:     (row["학번"] || "") + " " + (row["본인 이름"] || ""),
-      studentId: String(row["학번"] || "").trim().split(".")[0],
-      classCode: String(row["학번"] || "").trim().split(".")[0].slice(0, 3),
-      price:     row["굿즈 가격"]            || "",
-      artifact:  row["활용 유물"]            || "",
-      target:    row["굿즈 판매 대상"]       || "",
-      desc:      row["굿즈 설명 및 특징"]    || "",
-      reason:    row["굿즈 제작 제안 이유"]  || "",
-    }));
+  getDocs(collection(db, 'samguk_goods')).then(snap => {
+    goods = snap.docs.map(d => {
+      const row = d.data();
+      const studentId = String(row.studentId || d.id || "").trim();
+      return {
+        name:      row.goodsName || "",
+        culture:   row.culture   || "",
+        nation:    row.nation    || "",
+        usage:     row.usage     || "",
+        maker:     studentId + " " + (row.name || ""),
+        studentId: studentId,
+        classCode: studentId.slice(0, 3),
+        price:     row.price    || "",
+        artifact:  row.artifact || "",
+        target:    row.target   || "",
+        desc:      row.desc     || "",
+        reason:    row.reason   || "",
+      };
+    });
     const p = getParams();
     document.getElementById("cultureFilter").value = p.c;
     document.getElementById("nationFilter").value  = p.n;
@@ -324,6 +344,11 @@
   }
   function closeModal() { document.getElementById("modalOverlay").classList.remove("open"); }
   function handleOverlayClick(e) { if (e.target === document.getElementById("modalOverlay")) closeModal(); }
+  // ★ type="module"로 바뀌면서 inline onclick="..."이 참조하는 함수들은 전역에 노출해야 한다
+  window.resetFilters = resetFilters;
+  window.applyFilterFromModal = applyFilterFromModal;
+  window.closeModal = closeModal;
+  window.handleOverlayClick = handleOverlayClick;
   ["cultureFilter","nationFilter","usageFilter","classFilter"].forEach(id =>
     document.getElementById(id).addEventListener("change", filterAndRender)
   );

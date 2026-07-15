@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>IDY 삼국시대 문화유산 굿즈 온라인 기획전 - 관리자 모드</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  <link rel="stylesheet" href="../../shared/theme.css">
+  <link rel="stylesheet" href="../../shared/admin-base.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    /* ── samguk_goods 고유 스타일 ── */
+    .sg-upload-box {
+      border: 2px dashed var(--hi-border); border-radius: 12px;
+      padding: 28px 20px; text-align: center; cursor: pointer;
+      transition: 0.15s;
+    }
+    .sg-upload-box:hover { border-color: var(--hi-accent); background: var(--hi-bg-mid); }
+    .sg-upload-box input { display: none; }
+    .sg-upload-label { font-size: 14px; font-weight: 700; color: var(--hi-text-soft); }
+    .sg-upload-sub { font-size: 12px; color: var(--hi-text-muted); margin-top: 6px; }
+    .sg-file-name { font-size: 13px; font-weight: 700; color: var(--hi-accent); margin-top: 10px; }
+
+    .sg-preview-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 14px; }
+    .sg-preview-table th, .sg-preview-table td { padding: 7px 10px; border-bottom: 1px solid var(--hi-border-faint); text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+    .sg-preview-table th { color: var(--hi-text-muted); font-weight: 700; position: sticky; top: 0; background: var(--hi-bg-surface); }
+    .sg-preview-wrap { max-height: 360px; overflow: auto; border: 1px solid var(--hi-border); border-radius: 10px; }
+    .sg-img-ok   { color: var(--hi-positive); font-weight: 800; }
+    .sg-img-bad  { color: var(--hi-negative); font-weight: 800; }
+    .sg-img-wait { color: var(--hi-text-muted); }
+
+    .sg-search { width: 100%; padding: 10px 14px; border: 1px solid var(--hi-border); border-radius: 8px; font-family: inherit; font-size: 13px; background: var(--hi-bg-surface); color: var(--hi-text); outline: none; margin-bottom: 12px; }
+    .sg-search:focus { border-color: var(--hi-accent); }
+    .sg-card { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--hi-border-faint); }
+    .sg-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; background: var(--hi-bg-mid); flex-shrink: 0; }
+    .sg-card-body { flex: 1; min-width: 0; }
+    .sg-card-title { font-size: 13px; font-weight: 700; color: var(--hi-text); }
+    .sg-card-sub { font-size: 11px; color: var(--hi-text-muted); margin-top: 2px; }
+    .sg-card-del { background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 800; color: var(--hi-text-muted); padding: 4px 8px; flex-shrink: 0; }
+    .sg-card-del:hover { color: var(--hi-negative); }
+  </style>
+<script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
+</head>
+<body class="hi-preset-admin">
+
+<!-- 로그인 -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">삼국 굿즈</div>
+    <div class="login-sub">관리자 모드</div>
+    <input type="password" class="hi-input" id="adminPw"
+           placeholder="비밀번호"
+           onkeydown="if(event.key==='Enter') tryLogin()"
+           style="text-align:center; letter-spacing:3px;">
+    <div class="login-err" id="loginErr">비밀번호가 올바르지 않습니다</div>
+    <button class="login-btn" onclick="tryLogin()">접속하기</button>
+    <div class="login-foot"><a href="index.html">학생 페이지로</a></div>
+  </div>
+</div>
+
+<!-- 어드민 앱 -->
+<div id="adminApp">
+  <header class="adm-header">
+    <div class="adm-logo">삼국 굿즈<span class="adm-badge">관리자 모드</span></div>
+    <div class="adm-tabs">
+      <button class="adm-tab active" onclick="showMain('upload', this)">엑셀 업로드</button>
+      <button class="adm-tab" onclick="showMain('status', this)">등록 현황</button>
+    </div>
+    <button class="adm-logout" onclick="logoutAdmin()">로그아웃</button>
+    <button class="adm-back" onclick="window.parent.closeAppAdmin&&window.parent.closeAppAdmin()">목록으로</button>
+  </header>
+
+  <div class="adm-body">
+
+  <!-- 엑셀 업로드 -->
+  <div id="panel-upload" class="tab-panel active">
+    <div class="admin-container">
+      <div class="section-card">
+        <div class="panel-title" style="margin-bottom:8px;">엑셀 파일 업로드</div>
+        <p style="font-size:12px; color:var(--hi-text-muted); line-height:1.7; margin-bottom:16px;">
+          다음 컬럼명을 포함한 엑셀(.xlsx) 또는 CSV 파일을 올려주세요:<br>
+          <strong>학번, 본인 이름, 굿즈 이름, 활용 유물, 활용 유물 문화, 활용 유물 국가, 굿즈 용도, 굿즈 가격, 굿즈 판매 대상, 굿즈 설명 및 특징, 굿즈 제작 제안 이유</strong><br>
+          이미지 파일은 <code>goods/학번.jpg</code> 형식으로 이 폴더에 이미 들어있어야 매칭됩니다.<br>
+          같은 학번으로 다시 업로드하면 기존 내용을 덮어씁니다.
+        </p>
+        <label class="sg-upload-box" for="fileInput">
+          <div class="sg-upload-label">📄 클릭해서 엑셀 파일 선택</div>
+          <div class="sg-upload-sub">.xlsx / .xls / .csv</div>
+          <div class="sg-file-name" id="fileName"></div>
+          <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="handleFile(this.files[0])">
+        </label>
+
+        <div id="previewArea" style="display:none; margin-top:18px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <span style="font-size:13px; font-weight:700; color:var(--hi-text);">총 <span id="previewCount">0</span>건 인식됨</span>
+            <button class="hi-btn hi-btn-primary hi-btn-sm" id="uploadBtn" onclick="uploadToFirestore()">Firestore에 저장</button>
+          </div>
+          <div class="sg-preview-wrap">
+            <table class="sg-preview-table">
+              <thead><tr><th>학번</th><th>이름</th><th>굿즈 이름</th><th>국가</th><th>이미지</th></tr></thead>
+              <tbody id="previewBody"></tbody>
+            </table>
+          </div>
+          <div id="uploadMsg" style="font-size:13px; font-weight:700; margin-top:12px; min-height:20px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 등록 현황 -->
+  <div id="panel-status" class="tab-panel">
+    <div class="admin-container">
+      <div class="stats-row">
+        <div class="stat-chip">
+          <div class="stat-chip-label">전체 등록</div>
+          <div class="stat-chip-val" id="stTotal">-</div>
+        </div>
+      </div>
+      <input type="text" class="sg-search" id="searchBox" placeholder="학번 또는 이름으로 검색" oninput="renderStatusList()">
+      <div id="statusList">
+        <div class="loading-state"><div class="spinner"></div><span>불러오는 중…</span></div>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /.adm-body -->
+</div>
+
+<!-- 확인 모달 -->
+<div class="confirm-overlay" id="confirmModal">
+  <div class="confirm-box">
+    <h3 id="confirmTitle"></h3>
+    <p id="confirmDesc"></p>
+    <div class="confirm-actions">
+      <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="closeConfirm()">취소</button>
+      <button class="hi-btn hi-btn-primary hi-btn-sm" id="confirmOk">확인</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getFirestore, collection, doc, onSnapshot, deleteDoc, writeBatch, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain:"ho0911seong-56638.firebaseapp.com",
+  databaseURL:"https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"ho0911seong-56638",
+  storageBucket:"ho0911seong-56638.firebasestorage.app",
+  messagingSenderId:"994509567071",
+  appId:"1:994509567071:web:778c95931e95e9cbf557ea"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const COL = 'samguk_goods';
+
+const ADMIN_PW_HASH = "c0d1027de4b1f99ad27d8438e4e76f4f2ca0d4933604062e29eb1cd93c469725";
+const SESSION_KEY = 'samguk_goods_admin_session';
+
+let parsedRows = [];
+let allDocs = [];
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+window.tryLogin = async () => {
+  const hash = await sha256(document.getElementById('adminPw').value);
+  if (hash === ADMIN_PW_HASH) {
+    sessionStorage.setItem(SESSION_KEY, '1');
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('adminApp').classList.add('show');
+    startListeners();
+  } else {
+    document.getElementById('loginErr').classList.add('show');
+    setTimeout(() => document.getElementById('loginErr').classList.remove('show'), 2500);
+  }
+};
+window.logoutAdmin = () => { sessionStorage.removeItem(SESSION_KEY); location.reload(); };
+
+const isEmbedded = window.self !== window.top;
+window.addEventListener('load', () => {
+  if (isEmbedded) {
+    document.documentElement.classList.add('has-own-back');
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('adminApp').classList.add('show');
+    startListeners();
+  } else if (sessionStorage.getItem(SESSION_KEY) === '1') {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('adminApp').classList.add('show');
+    startListeners();
+  }
+});
+
+function startListeners() {
+  onSnapshot(collection(db, COL), snap => {
+    allDocs = []; snap.forEach(d => allDocs.push({ id: d.id, ...d.data() }));
+    document.getElementById('stTotal').textContent = allDocs.length;
+    renderStatusList();
+  });
+}
+
+window.showMain = (name, btn) => {
+  ['upload','status'].forEach(n => document.getElementById(`panel-${n}`).classList.toggle('active', n === name));
+  document.querySelectorAll('.adm-tab').forEach(el => el.classList.remove('active'));
+  btn.classList.add('active');
+};
+
+/* ── 엑셀 업로드 ── */
+window.handleFile = (file) => {
+  if (!file) return;
+  document.getElementById('fileName').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      parsedRows = rows.map(mapRow).filter(r => r.studentId);
+      renderPreview();
+    } catch(err) {
+      alert('파일을 읽는 중 오류가 발생했습니다: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+};
+
+function mapRow(row) {
+  const sid = String(row["학번"] ?? '').trim().split('.')[0];
+  return {
+    studentId: sid,
+    name:     String(row["본인 이름"] ?? '').trim(),
+    goodsName:String(row["굿즈 이름"] ?? '').trim(),
+    culture:  String(row["활용 유물 문화"] ?? '').trim(),
+    nation:   String(row["활용 유물 국가"] ?? '').trim(),
+    usage:    String(row["굿즈 용도"] ?? '').trim(),
+    price:    String(row["굿즈 가격"] ?? '').trim(),
+    artifact: String(row["활용 유물"] ?? '').trim(),
+    target:   String(row["굿즈 판매 대상"] ?? '').trim(),
+    desc:     String(row["굿즈 설명 및 특징"] ?? '').trim(),
+    reason:   String(row["굿즈 제작 제안 이유"] ?? '').trim(),
+  };
+}
+
+function renderPreview() {
+  document.getElementById('previewArea').style.display = 'block';
+  document.getElementById('previewCount').textContent = parsedRows.length;
+  const body = document.getElementById('previewBody');
+  body.innerHTML = parsedRows.map((r, i) => `<tr>
+    <td>${esc(r.studentId)}</td><td>${esc(r.name)}</td><td>${esc(r.goodsName)}</td><td>${esc(r.nation)}</td>
+    <td id="imgchk-${i}" class="sg-img-wait">확인 중…</td>
+  </tr>`).join('');
+  parsedRows.forEach((r, i) => checkImage(r.studentId, i));
+}
+
+function checkImage(studentId, i) {
+  const img = new Image();
+  const cell = document.getElementById(`imgchk-${i}`);
+  img.onload = () => { if (cell) { cell.textContent = '✅'; cell.className = 'sg-img-ok'; } };
+  img.onerror = () => { if (cell) { cell.textContent = '❌ 없음'; cell.className = 'sg-img-bad'; } };
+  img.src = `goods/${studentId}.jpg`;
+}
+
+window.uploadToFirestore = async () => {
+  if (!parsedRows.length) return;
+  const btn = document.getElementById('uploadBtn');
+  const msg = document.getElementById('uploadMsg');
+  btn.disabled = true; btn.textContent = '저장 중…';
+  try {
+    const chunks = [];
+    for (let i = 0; i < parsedRows.length; i += 400) chunks.push(parsedRows.slice(i, i+400));
+    for (const chunk of chunks) {
+      const batch = writeBatch(db);
+      chunk.forEach(r => batch.set(doc(db, COL, r.studentId), { ...r, updatedAt: serverTimestamp() }));
+      await batch.commit();
+    }
+    msg.style.color = 'var(--hi-positive)';
+    msg.textContent = `✅ ${parsedRows.length}건 저장 완료`;
+  } catch(e) {
+    msg.style.color = 'var(--hi-negative)';
+    msg.textContent = '❌ 저장 실패: ' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Firestore에 저장';
+  }
+};
+
+/* ── 등록 현황 ── */
+window.renderStatusList = () => {
+  const q = (document.getElementById('searchBox').value || '').trim().toLowerCase();
+  let docs = [...allDocs].sort((a,b) => String(a.studentId||a.id).localeCompare(String(b.studentId||b.id)));
+  if (q) docs = docs.filter(d => (d.studentId||'').toLowerCase().includes(q) || (d.name||'').toLowerCase().includes(q) || (d.goodsName||'').toLowerCase().includes(q));
+  const list = document.getElementById('statusList');
+  if (!docs.length) { list.innerHTML = `<div class="empty-state"><div class="icon">📦</div>등록된 굿즈가 없습니다.</div>`; return; }
+  list.innerHTML = docs.map(d => `<div class="sg-card">
+    <img class="sg-thumb" src="goods/${esc(d.studentId||d.id)}.jpg" onerror="this.style.opacity=0.3;this.src='';">
+    <div class="sg-card-body">
+      <div class="sg-card-title">${esc(d.goodsName||'(제목 없음)')}</div>
+      <div class="sg-card-sub">${esc(d.studentId||d.id)} ${esc(d.name||'')} · ${esc(d.nation||'')} ${esc(d.culture||'')}</div>
+    </div>
+    <button class="sg-card-del" onclick="deleteItem('${esc(d.id)}')">✕</button>
+  </div>`).join('');
+};
+
+window.deleteItem = (id) => {
+  openConfirm('굿즈 삭제', '이 굿즈 등록 정보를 삭제하시겠습니까? (이미지 파일은 삭제되지 않습니다)', () => deleteDoc(doc(db, COL, id)));
+};
+
+function openConfirm(title, desc, onOk) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmDesc').textContent = desc;
+  document.getElementById('confirmOk').onclick = () => { closeConfirm(); onOk(); };
+  document.getElementById('confirmModal').classList.add('show');
+}
+function closeConfirm() { document.getElementById('confirmModal').classList.remove('show'); }
+window.closeConfirm = closeConfirm;
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s==null?'':String(s); return d.innerHTML; }
+</script>
+</body>
+</html>
