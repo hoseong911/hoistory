@@ -395,11 +395,14 @@
   <div class="login-card">
     <div class="login-logo">亂世의 士大夫</div>
     <div class="login-sub">관리자 모드</div>
+    <input class="hi-input" type="email" id="adminEmail"
+      placeholder="이메일" autocomplete="username" style="margin-bottom:10px;"
+      onkeydown="if(event.key==='Enter') document.getElementById('adminPw').focus()">
     <input class="hi-input" type="password" id="adminPw"
-      placeholder="비밀번호" style="text-align:center;letter-spacing:3px;"
+      placeholder="비밀번호" autocomplete="current-password" style="text-align:center;letter-spacing:3px;"
       onkeydown="if(event.key==='Enter') tryLogin()">
-    <div class="login-err" id="loginErr">비밀번호가 올바르지 않습니다.</div>
-    <button class="login-btn" onclick="tryLogin()">접속하기</button>
+    <div class="login-err" id="loginErr">이메일 또는 비밀번호가 올바르지 않습니다.</div>
+    <button class="login-btn" id="loginBtn" onclick="tryLogin()">접속하기</button>
     <div class="login-foot"><a href="index.html">학생 페이지로</a></div>
   </div>
 </div>
@@ -520,6 +523,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
   getDatabase, ref, set, get, onValue, remove, update
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 /* ===== Firebase ===== */
 const firebaseConfig = {
@@ -533,13 +538,11 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const auth = getAuth(app);
 const resultsRef = ref(db, 'goryeo_results');
 
 // lms/admin의 iframe으로 열린 경우인지 여부 (interview/hismile 어드민과 동일한 패턴)
 const isEmbedded = window.self !== window.top;
-
-const ADMIN_PW_HASH = "57765044de4726b8a55db8c3846a7b6a038a2beaff40c0cc5113744ad8b62694";
-const SESSION_KEY = 'sadaebu_admin_v1';
 
 /* ===== 12개 결말 정의 (sadaebu.html과 동기화) ===== */
 const ENDINGS_META = {
@@ -575,10 +578,6 @@ let resultSort = 'newest'; // 'sid' | 'newest'
 let claudeApiKey = '';
 
 /* ===== 유틸 ===== */
-async function sha256(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
 function esc(s) {
   const d = document.createElement('div'); d.textContent = String(s == null ? '' : s); return d.innerHTML;
 }
@@ -601,33 +600,44 @@ function pathOfEndingKey(key) {
 
 /* ===== 로그인 ===== */
 window.tryLogin = async () => {
-  const hash = await sha256(document.getElementById('adminPw').value);
-  if (hash === ADMIN_PW_HASH) {
-    sessionStorage.setItem(SESSION_KEY, '1');
-    enterAdmin();
-  } else {
-    document.getElementById('loginErr').classList.add('show');
+  const email = document.getElementById('adminEmail').value.trim();
+  const pw = document.getElementById('adminPw').value;
+  const err = document.getElementById('loginErr');
+  const btn = document.getElementById('loginBtn');
+  err.classList.remove('show');
+  if (!email || !pw) { err.textContent = '이메일과 비밀번호를 입력해주세요.'; err.classList.add('show'); return; }
+  btn.disabled = true; btn.textContent = '접속 중...';
+  try {
+    await signInWithEmailAndPassword(auth, email, pw);
+  } catch (e) {
+    err.textContent = '이메일 또는 비밀번호가 올바르지 않습니다.';
+    err.classList.add('show');
+  } finally {
+    btn.disabled = false; btn.textContent = '접속하기';
   }
 };
 window.logoutAdmin = () => {
   if (!confirm('로그아웃 하시겠습니까?')) return;
-  sessionStorage.removeItem(SESSION_KEY); location.reload();
+  signOut(auth);
 };
 function enterAdmin() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('adminApp').classList.add('show');
   startListening();
 }
-window.addEventListener('DOMContentLoaded', () => {
-  // lms/admin에 이미 로그인되어 있으므로 로그인 화면을 생략하고 바로 들어간다.
-  if (isEmbedded) {
-    document.body.classList.add('embedded');
-    // lms/admin이 이 마커를 보고 자기 쪽 상단의 중복된 "목록으로" 바를 자동으로 숨긴다.
-    document.documentElement.classList.add('has-own-back');
+onAuthStateChanged(auth, user => {
+  if (user) {
+    // lms/admin에 이미 로그인되어 있으면(같은 origin이라 세션 공유) iframe에서도 자동으로 통과된다.
+    if (isEmbedded) {
+      document.body.classList.add('embedded');
+      // lms/admin이 이 마커를 보고 자기 쪽 상단의 중복된 "목록으로" 바를 자동으로 숨긴다.
+      document.documentElement.classList.add('has-own-back');
+    }
     enterAdmin();
-    return;
+  } else {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('adminApp').classList.remove('show');
   }
-  if (sessionStorage.getItem(SESSION_KEY) === '1') enterAdmin();
 });
 
 /* ===== Firebase 구독 ===== */

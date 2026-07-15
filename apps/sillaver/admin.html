@@ -49,12 +49,16 @@
   <div class="login-card">
     <div class="login-logo">SILLAVER</div>
     <div class="login-sub">관리자 모드</div>
+    <input type="email" class="hi-input" id="adminEmail"
+           placeholder="이메일" autocomplete="username"
+           onkeydown="if(event.key==='Enter') document.getElementById('adminPw').focus()"
+           style="margin-bottom:10px;">
     <input type="password" class="hi-input" id="adminPw"
-           placeholder="비밀번호"
+           placeholder="비밀번호" autocomplete="current-password"
            onkeydown="if(event.key==='Enter') tryLogin()"
            style="text-align:center; letter-spacing:3px;">
-    <div class="login-err" id="loginErr">비밀번호가 올바르지 않습니다</div>
-    <button class="login-btn" onclick="tryLogin()">접속하기</button>
+    <div class="login-err" id="loginErr">이메일 또는 비밀번호가 올바르지 않습니다</div>
+    <button class="login-btn" id="loginBtn" onclick="tryLogin()">접속하기</button>
     <div class="login-foot"><a href="index.html">학생 페이지로</a></div>
   </div>
 </div>
@@ -167,6 +171,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebas
 import { getFirestore, collection, doc, onSnapshot, query, orderBy, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch }
   from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
 import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -180,12 +185,11 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const rtdb = getDatabase(app);
+const auth = getAuth(app);
 const studentsRef = ref(rtdb, 'students');
 // ★ Claude API 키는 앱마다 따로 두지 않고, blind_ryeo 어드민에 저장된 값을 그대로 공유해서 쓴다
 const settingsRef = ref(rtdb, 'goryeo_settings');
 
-const ADMIN_PW_HASH = "57765044de4726b8a55db8c3846a7b6a038a2beaff40c0cc5113744ad8b62694";
-const SESSION_KEY = 'sillaver_admin_session';
 const NEWS_CATS = ['정치','중앙제도','지방행정','군사','토지'];
 
 let allDocs = [], studentMap = {}, studentList = [];
@@ -193,36 +197,35 @@ let claudeApiKey = '';
 let classTab = 'all', classSort = 'newest';
 let guidesLoaded = false;
 
-async function sha256(str) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
-
 window.tryLogin = async () => {
-  const hash = await sha256(document.getElementById('adminPw').value);
-  if (hash === ADMIN_PW_HASH) {
-    sessionStorage.setItem(SESSION_KEY, '1');
+  const email = document.getElementById('adminEmail').value.trim();
+  const pw = document.getElementById('adminPw').value;
+  const err = document.getElementById('loginErr');
+  const btn = document.getElementById('loginBtn');
+  err.classList.remove('show');
+  if (!email || !pw) { err.textContent = '이메일과 비밀번호를 입력해주세요'; err.classList.add('show'); return; }
+  btn.disabled = true; btn.textContent = '접속 중...';
+  try {
+    await signInWithEmailAndPassword(auth, email, pw);
+  } catch (e) {
+    err.textContent = '이메일 또는 비밀번호가 올바르지 않습니다';
+    err.classList.add('show');
+  } finally {
+    btn.disabled = false; btn.textContent = '접속하기';
+  }
+};
+window.logoutAdmin = () => signOut(auth);
+
+const isEmbedded = window.self !== window.top;
+onAuthStateChanged(auth, user => {
+  if (user) {
+    if (isEmbedded) document.documentElement.classList.add('has-own-back');
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('adminApp').classList.add('show');
     startListeners();
   } else {
-    document.getElementById('loginErr').classList.add('show');
-    setTimeout(() => document.getElementById('loginErr').classList.remove('show'), 2500);
-  }
-};
-window.logoutAdmin = () => { sessionStorage.removeItem(SESSION_KEY); location.reload(); };
-
-const isEmbedded = window.self !== window.top;
-window.addEventListener('load', () => {
-  if (isEmbedded) {
-    document.documentElement.classList.add('has-own-back');
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('adminApp').classList.add('show');
-    startListeners();
-  } else if (sessionStorage.getItem(SESSION_KEY) === '1') {
-    document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('adminApp').classList.add('show');
-    startListeners();
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('adminApp').classList.remove('show');
   }
 });
 
