@@ -654,11 +654,15 @@
   <div class="login-card">
     <div class="login-title">Dive into History</div>
     <div class="login-sub">관리자 콘솔</div>
+    <input type="email" class="hi-input" id="emailInput"
+           placeholder="이메일" autocomplete="username"
+           onkeydown="if(event.key==='Enter') document.getElementById('pwInput').focus()"
+           style="margin-bottom:10px;">
     <input type="password" class="hi-input" id="pwInput"
-           placeholder="비밀번호"
+           placeholder="비밀번호" autocomplete="current-password"
            onkeydown="if(event.key==='Enter') tryLogin()"
            style="text-align:center;letter-spacing:4px;">
-    <button class="hi-btn hi-btn-primary hi-btn-block" onclick="tryLogin()" style="margin-top:12px;">접속</button>
+    <button class="hi-btn hi-btn-primary hi-btn-block" id="loginBtn" onclick="tryLogin()" style="margin-top:12px;">접속</button>
     <div class="login-error" id="loginError"></div>
     <div style="margin-top:18px;">
       <a href="index.html" style="font-size:11px;color:var(--hi-text-muted);text-decoration:none;letter-spacing:0.5px;">학생 허브로</a>
@@ -1052,6 +1056,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, collection, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getDatabase, ref, set, get, remove, update, onValue, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -1066,6 +1071,19 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const fdb = getFirestore(app);
 const rdb = getDatabase(app);
+const auth = getAuth(app);
+
+// ── 관리자 로그인 (Firebase Authentication) — 다른 어드민들과 계정을 공유한다 ──
+window._authSignIn = (email, pw) => signInWithEmailAndPassword(auth, email, pw);
+window._authSignOut = () => signOut(auth);
+onAuthStateChanged(auth, user => {
+  if (user) {
+    if (typeof window.showAdmin === 'function') window.showAdmin();
+  } else {
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('adminApp').style.display = 'none';
+  }
+});
 
 const COLLECTION = "cards";
 const SETTINGS_DOC = "settings/categories";
@@ -1178,7 +1196,6 @@ onValue(studentsRef, snap => {
 </script>
 
 <script>
-const PW = 'ghtjd12!@';
 const MAX_CATEGORIES = 4;
 window._categoryList = window._categoryList || [];
 window._adminLinks = window._adminLinks || [];
@@ -1195,16 +1212,25 @@ let selectedEmoji = '🏛️';
 let currentEmojiCat = Object.keys(EMOJI_DATA)[0];
 let editingStuId = null;
 
-/* ===== 로그인 ===== */
-function tryLogin() {
+/* ===== 로그인 (Firebase Authentication, window._authSignIn/_authSignOut은 모듈 스크립트에서 노출) ===== */
+async function tryLogin() {
+  const email = document.getElementById('emailInput').value.trim();
   const pw = document.getElementById('pwInput').value;
-  if (pw === PW) {
-    sessionStorage.setItem('admin_auth', '1');
-    showAdmin();
-  } else {
-    document.getElementById('loginError').textContent = '비밀번호가 올바르지 않습니다';
+  const btn = document.getElementById('loginBtn');
+  if (!email || !pw) {
+    document.getElementById('loginError').textContent = '이메일과 비밀번호를 입력해주세요';
+    return;
+  }
+  btn.disabled = true; btn.textContent = '접속 중...';
+  try {
+    await window._authSignIn(email, pw);
+    document.getElementById('loginError').textContent = '';
+  } catch (e) {
+    document.getElementById('loginError').textContent = '이메일 또는 비밀번호가 올바르지 않습니다';
     document.getElementById('pwInput').value = '';
     setTimeout(() => document.getElementById('loginError').textContent = '', 2500);
+  } finally {
+    btn.disabled = false; btn.textContent = '접속';
   }
 }
 window.tryLogin = tryLogin;
@@ -1214,17 +1240,13 @@ function showAdmin() {
   document.getElementById('adminApp').style.display = 'block';
   initEmojiPicker();
 }
+window.showAdmin = showAdmin;
 
 function logout() {
   if (!confirm('로그아웃 하시겠습니까?')) return;
-  sessionStorage.removeItem('admin_auth');
-  location.reload();
+  window._authSignOut();
 }
 window.logout = logout;
-
-if (sessionStorage.getItem('admin_auth') === '1') {
-  document.addEventListener('DOMContentLoaded', showAdmin);
-}
 
 /* ===== 페이지 네비 ===== */
 function goPage(page) {
@@ -1917,15 +1939,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 /* ============================================
  * 앱 프레임 (iframe 임베드)
+ * 모든 어드민이 Firebase Auth를 공유하므로, 이 프레임에 이미 로그인했다면
+ * 자식 iframe도 같은 세션을 그대로 인식해 자동으로 로그인된다 — 예전처럼
+ * sessionStorage/DOM을 직접 주입할 필요가 없다.
  * ============================================ */
-const IFRAME_CONFIGS = {
-  'blind_ryeo/admin.html':    { key: 'blind_ryeo_admin_session', loginSel: '#loginScreen', appSel: '#adminApp' },
-  'goryeo_choice/admin.html': { key: 'sadaebu_admin_v1',         loginSel: '#loginScreen', appSel: '#adminApp' },
-  's_threads/admin.html':     { key: 'sthreads_admin_v1',        loginSel: '#loginScreen', appSel: '#adminApp' },
-  'hismile/admin.html':       { key: 'hi_admin_ok',              loginSel: '#loginScreen', appSel: '#adminApp' },
-  'oxquiz/admin.html':        { key: 'ox-admin',                 loginSel: '#loginScreen', appSel: '#adminApp', initFn: 'renderAll' },
-};
-
 window.DEFAULT_APPS = [
   { id: 'default_blind_ryeo',    emoji: '📝', name: 'Blind 려',      url: 'blind_ryeo/admin.html' },
   { id: 'default_goryeo_choice', emoji: '📜', name: '亂世의 士大夫', url: 'goryeo_choice/admin.html' },
@@ -1943,49 +1960,17 @@ function goAppFrame(url, name) {
   document.getElementById('frameExtLink').href = url;
   closeSidebar();
 
-  const configKey = Object.keys(IFRAME_CONFIGS).find(k => url === k || url.endsWith('/' + k));
-  if (configKey && IFRAME_CONFIGS[configKey].key) sessionStorage.setItem(IFRAME_CONFIGS[configKey].key, '1');
-
   const iframe = document.getElementById('appFrame');
-  iframe.onload = null;
   iframe.src = url;
-
-  iframe.onload = () => {
-    if (configKey) injectIframeAuth(iframe, configKey);
-  };
 }
 window.goAppFrame = goAppFrame;
 
 function closeFrame() {
   const iframe = document.getElementById('appFrame');
-  iframe.onload = null;
   iframe.src = 'about:blank';
   goPage('dashboard');
 }
 window.closeFrame = closeFrame;
-
-function injectIframeAuth(iframe, configKey) {
-  const cfg = IFRAME_CONFIGS[configKey];
-  if (!cfg) return;
-  try {
-    const win = iframe.contentWindow;
-    const doc = iframe.contentDocument;
-    if (cfg.key) win.sessionStorage.setItem(cfg.key, '1');
-    const loginEl = cfg.loginSel ? doc.querySelector(cfg.loginSel) : null;
-    const appEl   = cfg.appSel   ? doc.querySelector(cfg.appSel)   : null;
-    if (loginEl) {
-      if (cfg.hideCls) loginEl.classList.add(cfg.hideCls);
-      else loginEl.style.display = 'none';
-    }
-    if (appEl) {
-      if (cfg.hideCls) appEl.classList.remove(cfg.hideCls);
-      else appEl.style.display = 'block';
-    }
-    if (cfg.initFn && typeof win[cfg.initFn] === 'function') win[cfg.initFn]();
-  } catch(e) {
-    console.warn('iframe 자동 로그인 실패:', e);
-  }
-}
 
 async function seedDefaultApps() {
   if (!confirm('기본 앱 6개를 현재 목록에 추가할까요?\n(이미 등록된 URL은 건너뜁니다)')) return;
