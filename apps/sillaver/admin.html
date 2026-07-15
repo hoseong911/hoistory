@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SILLAVER - 관리자 모드</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  <link rel="stylesheet" href="../../shared/theme.css">
+  <link rel="stylesheet" href="../../shared/admin-base.css">
+  <style>
+    /* ── sillaver 고유 스타일 ── */
+    .sv-card { border-bottom: 1px solid var(--hi-border-faint); padding: 14px 0; }
+    .sv-card:last-child { border-bottom: none; }
+    .sv-card-head { display: flex; align-items: center; gap: 8px; margin-bottom: 9px; }
+    .sv-card-id { font-size: 12px; font-weight: 800; color: var(--hi-text-muted); }
+    .sv-card-name { font-size: 13px; font-weight: 700; color: var(--hi-text); }
+    .sv-card-time { font-size: 11px; color: var(--hi-text-muted); margin-left: auto; }
+    .sv-card-del { background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 800; color: var(--hi-text-muted); padding: 2px 4px; }
+    .sv-card-del:hover { color: var(--hi-negative); }
+    .sv-kw-row { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+    .sv-kw-chip { font-size: 11px; padding: 3px 9px; border-radius: 12px; background: var(--hi-bg-mid); color: var(--hi-text-soft); }
+    .sv-news-item { display: flex; align-items: center; gap: 8px; padding: 6px 2px; border-top: 1px dashed var(--hi-border-faint); }
+    .sv-news-cat { font-size: 10px; font-weight: 700; color: var(--hi-accent); flex-shrink: 0; width: 56px; }
+    .sv-news-title { flex: 1; min-width: 0; font-size: 13px; color: var(--hi-text-soft); }
+    .sv-ad-row { display: flex; align-items: flex-start; gap: 8px; margin-top: 6px; padding: 10px 12px; background: var(--hi-bg-mid); border-radius: 8px; }
+    .sv-ad-label { font-size: 10px; font-weight: 800; color: var(--hi-text-muted); flex-shrink: 0; margin-top: 1px; }
+    .sv-ad-text { flex: 1; min-width: 0; font-size: 13px; color: var(--hi-text-soft); line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+    .sv-pick-star { background: none; border: none; cursor: pointer; font-size: 15px; color: var(--hi-text-muted); flex-shrink: 0; padding: 0 4px; line-height: 1; }
+    .sv-pick-star.picked { color: var(--hi-warning); }
+
+    /* 안내 문구 탭 */
+    .sv-guide-card { margin-bottom: 14px; }
+    .sv-guide-label { font-size: 13px; font-weight: 800; color: var(--hi-text); margin-bottom: 6px; }
+    .sv-guide-ta {
+      width: 100%; min-height: 70px; padding: 11px 13px;
+      border: 1px solid var(--hi-border); border-radius: 8px;
+      font-family: inherit; font-size: 13px; line-height: 1.6; resize: vertical;
+      background: var(--hi-bg-surface); color: var(--hi-text); outline: none;
+    }
+    .sv-guide-ta:focus { border-color: var(--hi-accent); }
+    #guideMsg { font-size: 13px; font-weight: 700; margin-top: 4px; min-height: 20px; }
+  </style>
+<script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
+</head>
+<body class="hi-preset-admin">
+
+<!-- 로그인 -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">SILLAVER</div>
+    <div class="login-sub">관리자 모드</div>
+    <input type="password" class="hi-input" id="adminPw"
+           placeholder="비밀번호"
+           onkeydown="if(event.key==='Enter') tryLogin()"
+           style="text-align:center; letter-spacing:3px;">
+    <div class="login-err" id="loginErr">비밀번호가 올바르지 않습니다</div>
+    <button class="login-btn" onclick="tryLogin()">접속하기</button>
+    <div class="login-foot"><a href="index.html">학생 페이지로</a></div>
+  </div>
+</div>
+
+<!-- 어드민 앱 -->
+<div id="adminApp">
+  <header class="adm-header">
+    <div class="adm-logo">SILLAVER<span class="adm-badge">관리자 모드</span></div>
+    <div class="adm-tabs">
+      <button class="adm-tab active" onclick="showMain('submit', this)">제출 관리</button>
+      <button class="adm-tab" onclick="showMain('guide', this)">안내 문구</button>
+    </div>
+    <button class="adm-logout" onclick="logoutAdmin()">로그아웃</button>
+    <button class="adm-back" onclick="window.parent.closeAppAdmin&&window.parent.closeAppAdmin()">목록으로</button>
+  </header>
+
+  <div class="adm-body">
+
+  <!-- 제출 관리 -->
+  <div id="panel-submit" class="tab-panel active">
+    <div class="class-filter" id="classSubTabs">
+      <button class="cf-btn active" onclick="setClassTab('all', this)">전체</button>
+      <button class="cf-btn" onclick="setClassTab(1, this)">1반</button>
+      <button class="cf-btn" onclick="setClassTab(2, this)">2반</button>
+      <button class="cf-btn" onclick="setClassTab(3, this)">3반</button>
+      <button class="cf-btn" onclick="setClassTab(4, this)">4반</button>
+      <button class="cf-btn" onclick="setClassTab(5, this)">5반</button>
+      <button class="cf-btn" onclick="setClassTab(6, this)">6반</button>
+    </div>
+    <div class="admin-container">
+      <div class="stats-row">
+        <div class="stat-chip">
+          <div class="stat-chip-label">전체 인원</div>
+          <div class="stat-chip-val" id="stTotal">-</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">제출 / 미제출</div>
+          <div class="stat-dual">
+            <div class="stat-dual-val" id="stSubmit" style="color:var(--hi-accent)">-</div>
+            <div class="stat-dual-val" id="stMissing" style="color:var(--hi-text-muted)">-</div>
+          </div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">뉴스 PICK</div>
+          <div class="stat-chip-val" id="stNewsPick">-</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">광고 PICK</div>
+          <div class="stat-chip-val" id="stAdPick">-</div>
+        </div>
+      </div>
+
+      <div class="adm-action-row">
+        <button class="hi-btn hi-btn-outline hi-btn-sm" id="aiPickNewsBtn" onclick="runAiPickNews()">✨ 뉴스 AI 픽</button>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" id="aiPickAdBtn" onclick="runAiPickAd()">✨ 광고 AI 픽</button>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportCSV()">엑셀 내보내기</button>
+        <div class="sort-box">
+          <button class="sort-btn active" id="classSortNewest" onclick="setClassSort('newest', this)">최신순</button>
+          <button class="sort-btn" id="classSortId" onclick="setClassSort('id', this)">학번순</button>
+        </div>
+      </div>
+
+      <div id="submitList">
+        <div class="loading-state"><div class="spinner"></div><span>불러오는 중…</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 안내 문구 -->
+  <div id="panel-guide" class="tab-panel">
+    <div class="admin-container">
+      <div class="section-card sv-guide-card">
+        <div class="sv-guide-label">STEP 1 안내 · 로그인</div>
+        <textarea class="sv-guide-ta" id="guide-step1" placeholder="예) 학번과 이름을 정확히 입력해주세요."></textarea>
+      </div>
+      <div class="section-card sv-guide-card">
+        <div class="sv-guide-label">STEP 2 안내 · 검색어 입력</div>
+        <textarea class="sv-guide-ta" id="guide-step2" placeholder="예) 오늘 배운 통일 신라 관련 검색어를 떠올려보세요."></textarea>
+      </div>
+      <div class="section-card sv-guide-card">
+        <div class="sv-guide-label">STEP 3 안내 · 뉴스 헤드라인</div>
+        <textarea class="sv-guide-ta" id="guide-step3" placeholder="예) 각 분야별로 통일 신라 시대에 있었을 법한 뉴스를 작성해보세요."></textarea>
+      </div>
+      <div class="section-card sv-guide-card">
+        <div class="sv-guide-label">STEP 4 안내 · 광고 배너</div>
+        <textarea class="sv-guide-ta" id="guide-step4" placeholder="예) 통일 신라 시대 상품이나 서비스를 광고해보세요."></textarea>
+      </div>
+      <button class="hi-btn hi-btn-primary" onclick="saveGuides()">저장</button>
+      <div id="guideMsg"></div>
+    </div>
+  </div>
+
+  </div><!-- /.adm-body -->
+</div>
+
+<!-- 확인 모달 -->
+<div class="confirm-overlay" id="confirmModal">
+  <div class="confirm-box">
+    <h3 id="confirmTitle"></h3>
+    <p id="confirmDesc"></p>
+    <div class="confirm-actions">
+      <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="closeConfirm()">취소</button>
+      <button class="hi-btn hi-btn-primary hi-btn-sm" id="confirmOk">확인</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getFirestore, collection, doc, onSnapshot, query, orderBy, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp, writeBatch }
+  from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain:"ho0911seong-56638.firebaseapp.com",
+  databaseURL:"https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"ho0911seong-56638",
+  storageBucket:"ho0911seong-56638.firebasestorage.app",
+  messagingSenderId:"994509567071",
+  appId:"1:994509567071:web:778c95931e95e9cbf557ea"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const rtdb = getDatabase(app);
+const studentsRef = ref(rtdb, 'students');
+// ★ Claude API 키는 앱마다 따로 두지 않고, blind_ryeo 어드민에 저장된 값을 그대로 공유해서 쓴다
+const settingsRef = ref(rtdb, 'goryeo_settings');
+
+const ADMIN_PW_HASH = "80b54792895a39ba4dbba7996ee5703665fdb411b0cad72bbbd62893e8589cca";
+const SESSION_KEY = 'sillaver_admin_session';
+const NEWS_CATS = ['정치','중앙제도','지방행정','군사','토지'];
+
+let allDocs = [], studentMap = {}, studentList = [];
+let claudeApiKey = '';
+let classTab = 'all', classSort = 'newest';
+let guidesLoaded = false;
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+window.tryLogin = async () => {
+  const hash = await sha256(document.getElementById('adminPw').value);
+  if (hash === ADMIN_PW_HASH) {
+    sessionStorage.setItem(SESSION_KEY, '1');
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('adminApp').classList.add('show');
+    startListeners();
+  } else {
+    document.getElementById('loginErr').classList.add('show');
+    setTimeout(() => document.getElementById('loginErr').classList.remove('show'), 2500);
+  }
+};
+window.logoutAdmin = () => { sessionStorage.removeItem(SESSION_KEY); location.reload(); };
+
+const isEmbedded = window.self !== window.top;
+window.addEventListener('load', () => {
+  if (isEmbedded) {
+    document.documentElement.classList.add('has-own-back');
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('adminApp').classList.add('show');
+    startListeners();
+  } else if (sessionStorage.getItem(SESSION_KEY) === '1') {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('adminApp').classList.add('show');
+    startListeners();
+  }
+});
+
+function startListeners() {
+  onValue(studentsRef, snap => {
+    const data = snap.val();
+    studentMap = {}; studentList = [];
+    if (data) {
+      Object.values(data).forEach(s => {
+        const sid = String(s.studentId || s.id || '');
+        const name = s.name || s.studentName || s.realName || '';
+        if (sid && name) { studentMap[sid] = name; studentList.push({ studentId: sid, name }); }
+      });
+      studentList.sort((a, b) => a.studentId.localeCompare(b.studentId));
+    }
+    renderSubmissions();
+  });
+  onSnapshot(query(collection(db, 'silla_v3'), orderBy('timestamp', 'desc')), snap => {
+    allDocs = []; snap.forEach(d => allDocs.push({ id: d.id, ...d.data() }));
+    renderSubmissions();
+  });
+  onValue(settingsRef, snap => { claudeApiKey = (snap.val() || {}).claudeApiKey || ''; });
+  if (!guidesLoaded) { guidesLoaded = true; loadGuides(); }
+}
+
+window.showMain = (name, btn) => {
+  ['submit','guide'].forEach(n => document.getElementById(`panel-${n}`).classList.toggle('active', n === name));
+  document.querySelectorAll('.adm-tab').forEach(el => el.classList.remove('active'));
+  btn.classList.add('active');
+};
+
+function classNumFromId(sid) {
+  if (!sid || String(sid).length < 3) return null;
+  const c = parseInt(String(sid).slice(1, 3), 10);
+  return isNaN(c) ? null : c;
+}
+
+window.setClassTab = (num, btn) => {
+  classTab = num;
+  document.querySelectorAll('#classSubTabs .cf-btn').forEach(el => el.classList.remove('active'));
+  btn.classList.add('active');
+  renderSubmissions();
+};
+window.setClassSort = (sort) => {
+  classSort = sort;
+  document.getElementById('classSortNewest').classList.toggle('active', sort === 'newest');
+  document.getElementById('classSortId').classList.toggle('active', sort === 'id');
+  renderSubmissions();
+};
+
+function renderSubmissions() {
+  const classStudents = classTab === 'all' ? studentList : studentList.filter(s => classNumFromId(s.studentId) === classTab);
+  const classDocs = classTab === 'all' ? allDocs : allDocs.filter(d => classNumFromId(d.studentId) === classTab);
+  const submittedIds = new Set(classDocs.map(d => d.studentId));
+  const total = classStudents.length, submit = submittedIds.size;
+  const missing = total ? total - submit : 0;
+  const newsPickCount = classDocs.reduce((sum, d) => sum + Object.values(d.newsPicks || {}).filter(p => p && p.picked).length, 0);
+  const adPickCount = classDocs.filter(d => d.adPick).length;
+  document.getElementById('stTotal').textContent = total || '-';
+  document.getElementById('stSubmit').textContent = submit;
+  document.getElementById('stMissing').textContent = total ? missing : '-';
+  document.getElementById('stNewsPick').textContent = newsPickCount;
+  document.getElementById('stAdPick').textContent = adPickCount;
+
+  const sorted = classSort === 'newest'
+    ? [...classDocs].sort((a,b) => (b.timestamp?.toMillis?.()||0)-(a.timestamp?.toMillis?.()||0))
+    : [...classDocs].sort((a,b) => String(a.studentId).localeCompare(String(b.studentId)));
+  const list = document.getElementById('submitList');
+  if (!sorted.length) { list.innerHTML = `<div class="empty-state"><div class="icon">📝</div>제출된 기록이 없습니다.</div>`; return; }
+  list.innerHTML = sorted.map(buildCard).join('');
+}
+
+function buildCard(d) {
+  const name = studentMap[d.studentId] || d.studentName || '';
+  const kwHtml = (d.keywords||[]).map(k => `<span class="sv-kw-chip">${esc(k)}</span>`).join('');
+  const newsHtml = (d.news||[]).map(n => {
+    const pick = (d.newsPicks && d.newsPicks[n.category]) || {};
+    const picked = !!pick.picked;
+    return `<div class="sv-news-item">
+      <span class="sv-news-cat">${esc(n.category)}</span>
+      <span class="sv-news-title">${esc(n.title)}</span>
+      <button class="sv-pick-star${picked?' picked':''}" onclick="toggleNewsPick('${d.id}','${esc(n.category)}',${picked})">${picked?'⭐':'☆'}</button>
+    </div>`;
+  }).join('');
+  const adPicked = !!d.adPick;
+  const adHtml = d.ad ? `<div class="sv-ad-row">
+      <span class="sv-ad-label">광고</span>
+      <span class="sv-ad-text">${esc(d.ad)}</span>
+      <button class="sv-pick-star${adPicked?' picked':''}" onclick="toggleAdPick('${d.id}',${adPicked})">${adPicked?'⭐':'☆'}</button>
+    </div>` : '';
+  return `<div class="sv-card">
+    <div class="sv-card-head">
+      <span class="sv-card-id">${esc(d.studentId||'')}</span>
+      <span class="sv-card-name">${esc(name)}</span>
+      <span class="sv-card-time">${formatTime(d.timestamp)}</span>
+      <button class="sv-card-del" onclick="deleteSubmission('${d.id}')">✕</button>
+    </div>
+    <div class="sv-kw-row">${kwHtml}</div>
+    ${newsHtml}
+    ${adHtml}
+  </div>`;
+}
+
+window.toggleNewsPick = async (docId, category, isPicked) => {
+  const newVal = !isPicked;
+  await updateDoc(doc(db, 'silla_v3', docId), {
+    [`newsPicks.${category}.picked`]: newVal,
+    [`newsPicks.${category}.pickedAt`]: newVal ? serverTimestamp() : null
+  });
+};
+window.toggleAdPick = async (docId, isPicked) => {
+  const newVal = !isPicked;
+  await updateDoc(doc(db, 'silla_v3', docId), {
+    adPick: newVal,
+    adPickedAt: newVal ? serverTimestamp() : null
+  });
+};
+
+window.deleteSubmission = (docId) => {
+  openConfirm('제출 기록 삭제', '이 학생의 제출 기록을 삭제하시겠습니까?', () => deleteDoc(doc(db, 'silla_v3', docId)));
+};
+
+window.runAiPickNews = async () => {
+  if (!claudeApiKey) { alert('Claude API 키가 설정되지 않았습니다. blind_ryeo 어드민 SETTING에서 설정해주세요.'); return; }
+  const items = [];
+  allDocs.forEach(d => (d.news||[]).forEach(n => items.push({ docId: d.id, category: n.category, title: n.title })));
+  if (!items.length) { alert('픽할 뉴스 헤드라인이 없습니다.'); return; }
+  const btn = document.getElementById('aiPickNewsBtn');
+  btn.disabled = true; btn.textContent = '✨ 분석 중…';
+  const postsText = items.map((it,i) => `[${i+1}] 분야: ${it.category} / 헤드라인: ${it.title}`).join('\n');
+  const prompt = `당신은 중학교 역사 수업 보조 교사입니다.
+아래는 "통일 신라 포털(SILLAVER)" 활동에서 학생들이 통일 신라 시대의 뉴스 기자가 되어 작성한 뉴스 헤드라인 목록입니다.
+
+다음 기준으로 우수한 헤드라인 번호를 선정해주세요:
+- 통일 신라 시대의 역사적 사실이나 맥락이 잘 반영된 글
+- 그 분야(정치/중앙제도/지방행정/군사/토지)의 특징을 잘 살린 글
+- 다른 학생들과 공유할 만한 참신하거나 통찰력 있는 글
+- 전체의 20~30% 내외 선정
+
+헤드라인 목록:
+${postsText}
+
+응답: JSON 배열만 출력. 예) [1, 3, 7]
+픽할 번호 목록 (없으면 []):`;
+  try {
+    const nums = await callClaudePick(prompt);
+    if (!nums.length) { alert('AI가 픽할 헤드라인을 찾지 못했습니다.'); return; }
+    const byDoc = {};
+    nums.forEach(n => {
+      const it = items[n-1]; if (!it) return;
+      (byDoc[it.docId] ||= {})[it.category] = true;
+    });
+    const batch = writeBatch(db);
+    Object.entries(byDoc).forEach(([docId, cats]) => {
+      const fields = {};
+      Object.keys(cats).forEach(cat => { fields[`newsPicks.${cat}.picked`] = true; fields[`newsPicks.${cat}.pickedAt`] = serverTimestamp(); });
+      batch.update(doc(db,'silla_v3',docId), fields);
+    });
+    await batch.commit();
+    alert(`✨ AI가 ${nums.length}개 헤드라인을 픽했습니다.`);
+  } catch(e) {
+    alert('AI 픽 실패: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ 뉴스 AI 픽';
+  }
+};
+
+window.runAiPickAd = async () => {
+  if (!claudeApiKey) { alert('Claude API 키가 설정되지 않았습니다. blind_ryeo 어드민 SETTING에서 설정해주세요.'); return; }
+  const items = allDocs.filter(d => d.ad);
+  if (!items.length) { alert('픽할 광고 배너가 없습니다.'); return; }
+  const btn = document.getElementById('aiPickAdBtn');
+  btn.disabled = true; btn.textContent = '✨ 분석 중…';
+  const postsText = items.map((d,i) => `[${i+1}] 광고: ${d.ad}`).join('\n');
+  const prompt = `당신은 중학교 역사 수업 보조 교사입니다.
+아래는 "통일 신라 포털(SILLAVER)" 활동에서 학생들이 통일 신라 시대의 상품/서비스를 홍보하기 위해 작성한 광고 배너 문구 목록입니다.
+
+다음 기준으로 우수한 광고 번호를 선정해주세요:
+- 통일 신라 시대의 역사적 사실이나 맥락을 창의적으로 반영한 글
+- 아이디어가 돋보이고 재치 있는 글
+- 다른 학생들과 공유할 만한 글
+- 전체의 20~30% 내외 선정
+
+광고 목록:
+${postsText}
+
+응답: JSON 배열만 출력. 예) [1, 3, 7]
+픽할 번호 목록 (없으면 []):`;
+  try {
+    const nums = await callClaudePick(prompt);
+    if (!nums.length) { alert('AI가 픽할 광고를 찾지 못했습니다.'); return; }
+    const batch = writeBatch(db);
+    nums.forEach(n => {
+      const d = items[n-1]; if (!d) return;
+      batch.update(doc(db,'silla_v3',d.id), { adPick: true, adPickedAt: serverTimestamp() });
+    });
+    await batch.commit();
+    alert(`✨ AI가 ${nums.length}개 광고를 픽했습니다.`);
+  } catch(e) {
+    alert('AI 픽 실패: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ 광고 AI 픽';
+  }
+};
+
+async function callClaudePick(prompt) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json','x-api-key':claudeApiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+    body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:512, messages:[{role:'user',content:prompt}] })
+  });
+  if (!res.ok) throw new Error(`API ${res.status}`);
+  const data = await res.json();
+  let raw = (data.content?.[0]?.text||'[]').replace(/```json|```/g,'').trim();
+  const s = raw.indexOf('['), e = raw.lastIndexOf(']');
+  if (s !== -1 && e !== -1) raw = raw.slice(s, e+1);
+  const nums = JSON.parse(raw);
+  return Array.isArray(nums) ? nums : [];
+}
+
+const CAT_KEYS = NEWS_CATS;
+window.exportCSV = () => {
+  const docs = classTab === 'all' ? allDocs : allDocs.filter(d => classNumFromId(d.studentId) === classTab);
+  const sorted = [...docs].sort((a,b) => String(a.studentId).localeCompare(String(b.studentId)));
+  const BOM = '﻿';
+  const headers = ['학번','이름','검색어', ...CAT_KEYS, '광고','뉴스PICK','광고PICK','제출시각'];
+  const rows = sorted.map(d => {
+    const name = studentMap[d.studentId] || d.studentName || '';
+    const kw = (d.keywords||[]).join(' / ');
+    const newsByCat = {}; (d.news||[]).forEach(n => newsByCat[n.category] = n.title);
+    const newsCols = CAT_KEYS.map(c => `"${(newsByCat[c]||'').replace(/"/g,'""')}"`);
+    const ad = `"${(d.ad||'').replace(/"/g,'""').replace(/\r?\n/g,' ')}"`;
+    const newsPickCnt = Object.values(d.newsPicks||{}).filter(p=>p&&p.picked).length;
+    return [d.studentId||'', name, `"${kw.replace(/"/g,'""')}"`, ...newsCols, ad, newsPickCnt, d.adPick?'O':'X', formatTime(d.timestamp)].join(',');
+  });
+  const csv = BOM + headers.join(',') + '\n' + rows.join('\n');
+  const now = new Date();
+  const date = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  const fname = classTab === 'all' ? `sillaver_전체_${date}.csv` : `sillaver_${classTab}반_${date}.csv`;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fname;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+};
+
+async function loadGuides() {
+  try {
+    const snap = await getDoc(doc(db, 'silla_settings', 'guides'));
+    if (!snap.exists()) return;
+    const data = snap.data();
+    [1,2,3,4].forEach(n => { const el = document.getElementById(`guide-step${n}`); if (el) el.value = data[`step${n}`] || ''; });
+  } catch(e) {}
+}
+window.saveGuides = async () => {
+  const msg = document.getElementById('guideMsg');
+  const payload = {};
+  [1,2,3,4].forEach(n => payload[`step${n}`] = document.getElementById(`guide-step${n}`).value.trim());
+  try {
+    await setDoc(doc(db, 'silla_settings', 'guides'), payload, { merge: true });
+    msg.style.color = 'var(--hi-positive)'; msg.textContent = '✅ 저장되었습니다.';
+  } catch(e) {
+    msg.style.color = 'var(--hi-negative)'; msg.textContent = '❌ 저장 실패: ' + e.message;
+  }
+};
+
+function openConfirm(title, desc, onOk) {
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmDesc').textContent = desc;
+  document.getElementById('confirmOk').onclick = () => { closeConfirm(); onOk(); };
+  document.getElementById('confirmModal').classList.add('show');
+}
+function closeConfirm() { document.getElementById('confirmModal').classList.remove('show'); }
+window.closeConfirm = closeConfirm;
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s==null?'':String(s); return d.innerHTML; }
+function formatTime(ts) {
+  const ms = ts?.toMillis?.() || 0;
+  if (!ms) return '';
+  const d = new Date(ms), now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const hh = String(d.getHours()).padStart(2,'0'), mm = String(d.getMinutes()).padStart(2,'0');
+  return sameDay ? `오늘 ${hh}:${mm}` : `${d.getMonth()+1}.${d.getDate()}. ${hh}:${mm}`;
+}
+</script>
+</body>
+</html>
