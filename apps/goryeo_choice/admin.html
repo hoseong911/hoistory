@@ -575,7 +575,7 @@ let allStudents = [];      // [{studentId, name}]
 let studentMap = {};       // sid → name
 let classTab = 'all';      // 'all' or 1~6
 let resultSort = 'newest'; // 'sid' | 'newest'
-let claudeApiKey = '';
+const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
 
 /* ===== 유틸 ===== */
 function esc(s) {
@@ -664,10 +664,6 @@ function startListening() {
       ? Object.entries(data).map(([k, v]) => ({ _key: k, ...v }))
       : [];
     renderAll();
-  });
-  // Claude API 키 (blind_ryeo 어드민 SETTING과 공유)
-  onValue(ref(db, 'goryeo_settings'), snap => {
-    claudeApiKey = (snap.val() || {}).claudeApiKey || '';
   });
 }
 
@@ -851,7 +847,6 @@ window.saveScoringPrompt = async () => {
 };
 
 window.runScoring = async () => {
-  if (!claudeApiKey) { alert('Claude API 키가 설정되지 않았습니다. blind_ryeo 어드민 SETTING에서 설정해주세요.'); return; }
   const results = filteredResults().filter(r => r.reflection && r.reflection.trim());
   if (!results.length) { alert('채점할 성찰 텍스트가 없습니다.'); return; }
   let customPrompt = '';
@@ -866,9 +861,9 @@ window.runScoring = async () => {
     const content = `결말: ${r.endingTitle||r.ending||'—'}\n성찰 텍스트: ${r.reflection.trim()}`;
     const prompt = customPrompt.replace('{content}', content);
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch(CLAUDE_PROXY_URL, {
         method: 'POST',
-        headers: { 'Content-Type':'application/json','x-api-key':claudeApiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+        headers: { 'Content-Type':'application/json' },
         body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:10, messages:[{role:'user',content:prompt}] })
       });
       if (!res.ok) throw new Error(`API ${res.status}`);
@@ -880,7 +875,6 @@ window.runScoring = async () => {
   if (btn) { btn.disabled = false; btn.textContent = origText; }
 };
 window.runAiPick = async () => {
-  if (!claudeApiKey) { alert('Claude API 키가 설정되지 않았습니다. blind_ryeo 어드민 SETTING에서 설정해주세요.'); return; }
   const results = filteredResults().filter(r => r.reflection && r.reflection.trim());
   if (!results.length) { alert('픽할 소감이 없습니다.'); return; }
   const btn = document.getElementById('aiPickBtn');
@@ -905,9 +899,9 @@ ${postsText}
 응답: JSON 배열만 출력. 예) [1, 3, 7]
 픽할 번호 목록 (없으면 []):`;
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(CLAUDE_PROXY_URL, {
       method: 'POST',
-      headers: { 'Content-Type':'application/json','x-api-key':claudeApiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+      headers: { 'Content-Type':'application/json' },
       body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:512, messages:[{role:'user',content:prompt}] })
     });
     if (!res.ok) throw new Error(`API ${res.status}`);

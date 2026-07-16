@@ -1149,24 +1149,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
     <div class="stu-card">
       <div class="stu-card-head">Claude API 키</div>
       <div class="stu-card-body">
-        <p style="font-size:14px;color:var(--sub);margin-bottom:16px;line-height:1.6">생각 체크 AI 채점 및 각 웹앱 어드민의 채점하기 기능에 사용됩니다. Firebase에 저장됩니다.</p>
-
-        <!-- 현재 키 상태 -->
-        <div id="settings-key-status" style="display:none;margin-bottom:16px;padding:10px 14px;border-radius:10px;background:var(--bg2);border:1px solid var(--border);font-size:13px;display:flex;align-items:center;gap:10px">
-          <span id="settings-key-badge" style="font-weight:700"></span>
-          <span id="settings-key-preview" style="color:var(--sub);font-family:monospace"></span>
-          <button onclick="settingsDeleteApiKey()" style="margin-left:auto;background:none;border:none;cursor:pointer;font-size:13px;color:#DC2626;font-weight:700;padding:2px 6px">삭제</button>
-        </div>
-
-        <div class="form-group" style="margin-bottom:12px">
-          <label class="form-label">새 API Key 입력</label>
-          <input class="form-input" type="password" id="settings-api-key" placeholder="sk-ant-...">
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <button class="add-btn a" onclick="settingsSaveApiKey()">저장</button>
-          <button class="add-btn" id="settings-test-btn" style="display:none" onclick="settingsTestApiKey()">연결 테스트</button>
-          <span id="settings-api-msg" style="font-size:14px;font-weight:700"></span>
-        </div>
+        <p style="font-size:14px;color:var(--sub);margin-bottom:16px;line-height:1.6">생각 체크 AI 채점 및 각 웹앱 어드민의 채점하기 기능은 서버 프록시(Cloud Function)를 통해 Anthropic을 호출합니다. 키는 Firebase Secret Manager에서만 관리되며, 여기서 입력·조회할 수 없습니다.</p>
       </div>
     </div>
   </div>
@@ -1297,6 +1280,7 @@ const app  = initializeApp(firebaseConfig);
 const db   = getFirestore(app);
 const rtdb = getDatabase(app);
 const auth = getAuth(app);
+const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
 
 // ── 관리자 로그인 (Firebase Authentication) ──
 function showAdminView() {
@@ -1444,7 +1428,6 @@ function switchNav(nav) {
   if (panelId === 'panel-think-answer' && window.thRenderAnswerLecture) {
     window.thRenderAnswerLecture(); window.thRenderAnswerClass(); window.thRenderPick();
   }
-  if (panelId === 'panel-settings') settingsLoadKeyStatus();
 }
 
 // 사이드바의 미션 체크 서브메뉴에서 특정 웹앱 어드민을 바로 열 때: 카드 목록 패널로
@@ -2229,11 +2212,6 @@ async function resetContent() {
 // hwpx는 zip 안의 Preview/PrvText.txt(한글이 검색 색인용으로 만들어두는 순수 텍스트)를
 // 우선 사용하고, 없으면 Contents/section*.xml에서 태그만 제거해 텍스트를 뽑아낸다.
 // pdf는 텍스트 추출 없이 파일 그대로 Claude에 문서로 전달한다(Claude가 PDF를 직접 읽을 수 있음).
-async function ceGetClaudeApiKey() {
-  const snap = await getDoc(doc(db, 'settings', 'claude'));
-  return snap.exists() ? (snap.data().apiKey || '') : '';
-}
-
 async function ceExtractHwpxText(file) {
   const zip = await JSZip.loadAsync(file);
   // Preview/PrvText.txt는 한글이 미리보기·검색 색인용으로 만드는 요약 텍스트라
@@ -2314,16 +2292,16 @@ ${CE_LESSON_JSON_SCHEMA}
 활동지 내용:
 `;
 
-async function ceRequestLessonJson(claudeKey, content) {
+async function ceRequestLessonJson(content) {
   const messageContent = typeof content === 'string'
     ? [{ type: 'text', text: CE_LESSON_JSON_INSTRUCTION + content }]
     : [
         { type: 'text', text: CE_LESSON_JSON_INSTRUCTION },
         { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: content } }
       ];
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch(CLAUDE_PROXY_URL, {
     method: 'POST',
-    headers: { 'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+    headers: { 'Content-Type':'application/json' },
     body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:8192, messages:[{ role:'user', content: messageContent }] })
   });
   if (!res.ok) {
@@ -2415,9 +2393,6 @@ async function ceHandleFileUpload(file) {
     return;
   }
 
-  const claudeKey = await ceGetClaudeApiKey();
-  if (!claudeKey) { alert('설정에서 Claude API 키를 먼저 등록해주세요.'); inputEl.value = ''; return; }
-
   const num = (prompt('강 번호를 입력하세요 (예: 24)') || '').trim();
   if (!num) { inputEl.value = ''; return; }
   if (ceLessonsCache.find(l => l.num === num)) { alert('이미 있는 강 번호입니다.'); inputEl.value = ''; return; }
@@ -2430,10 +2405,10 @@ async function ceHandleFileUpload(file) {
     if (ext === 'hwpx') {
       const text = await ceExtractHwpxText(file);
       if (!text.trim()) throw new Error('파일에서 텍스트를 찾지 못했습니다.');
-      parsed = await ceRequestLessonJson(claudeKey, text);
+      parsed = await ceRequestLessonJson(text);
     } else {
       const base64 = await ceFileToBase64(file);
-      parsed = await ceRequestLessonJson(claudeKey, base64);
+      parsed = await ceRequestLessonJson(base64);
     }
     if (!ceValidateParsedLesson(parsed)) throw new Error('AI 응답 구조가 올바르지 않습니다.');
 
@@ -4296,7 +4271,6 @@ initAdmin();
   let thGradeCtx = { lecId: '', cls: '1' };
   let thOverrides = {};
   let thAiCache = {};
-  let thClaudeKey = '';
   let thActivityData = { absent: [], short: [], cheat: [] };
 
   function thEsc(str) {
@@ -4342,13 +4316,6 @@ initAdmin();
       thStudents = list;
       thStudentsReady = true;
     }).catch(err => console.warn('[think] students:', err));
-  }
-
-  async function thLoadApiKey() {
-    try {
-      const snap = await getDoc(doc(db, 'settings', 'claude'));
-      if (snap.exists() && snap.data().apiKey) thClaudeKey = snap.data().apiKey;
-    } catch(e) {}
   }
 
   function thPopulateSelects() {
@@ -4729,8 +4696,8 @@ initAdmin();
     } else {
       if (thAiCache[cacheKey] === undefined) {
         body.innerHTML = `<div style="text-align:center;padding:32px 0">
-          <p style="font-size:14px;color:var(--sub);margin-bottom:16px;line-height:1.6">AI가 질문과 무관한 답변을 찾아드립니다.<br>${thClaudeKey?'아래 버튼을 눌러 분석을 시작하세요.':'<span style="color:#DC2626">먼저 설정에서 Claude API 키를 등록해주세요.</span>'}</p>
-          <button class="th-btn-ai" ${thClaudeKey?'':'disabled'} onclick="thRunAiReview()">AI 분석 시작</button>
+          <p style="font-size:14px;color:var(--sub);margin-bottom:16px;line-height:1.6">AI가 질문과 무관한 답변을 찾아드립니다.<br>아래 버튼을 눌러 분석을 시작하세요.</p>
+          <button class="th-btn-ai" onclick="thRunAiReview()">AI 분석 시작</button>
           <div id="th-ai-status" style="font-size:13px;color:var(--sub);font-weight:700;margin-top:8px;min-height:18px"></div>
         </div>`; return;
       }
@@ -4770,7 +4737,6 @@ initAdmin();
   };
 
   window.thRunAiReview = async function() {
-    if (!thClaudeKey) { alert('설정에서 Claude API 키를 먼저 등록해주세요.'); return; }
     const { lecId, cls } = thGradeCtx;
     const lec = thLectures.find(l => l.docId === lecId);
     if (!lec) return;
@@ -4783,9 +4749,9 @@ initAdmin();
     document.querySelectorAll('.th-btn-ai').forEach(b => b.disabled = true);
     const prompt = `다음은 역사 수업의 질문과 학생 답변 목록입니다.\n질문: "${lec.question}"\n${lec.reference?`수업 내용 참고: "${lec.reference.slice(0,300)}"`:''}\n\n각 답변이 질문에 성실하게 답하고 있는지 판단해주세요.\n아래 경우 "이상"으로 분류하세요:\n- 질문과 전혀 관계없는 내용\n- 의미 없는 반복 문자 (ㅋㅋㅋ, ㅎㅎ, aaa 등)\n- 단순 복붙처럼 보이는 무관한 텍스트\n\n답변 목록 (JSON):\n${JSON.stringify(classSubs.map(s=>({subId:s.subId,id:s.id,name:s.name,text:s.text})))}\n\n응답 형식 (JSON 배열만, 다른 텍스트 없이):\n이상한 답변만 포함, 정상이면 빈 배열 []\n[{"subId":"...","id":"...","name":"...","reason":"이상 판단 이유 (한국어, 20자 이내)"}]`;
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch(CLAUDE_PROXY_URL, {
         method: 'POST',
-        headers: { 'Content-Type':'application/json','x-api-key':thClaudeKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+        headers: { 'Content-Type':'application/json' },
         body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:1024, messages:[{role:'user',content:prompt}] })
       });
       if (!res.ok) throw new Error(`API 오류 ${res.status}`);
@@ -4800,103 +4766,10 @@ initAdmin();
     thUpdateGradeSummary(); thRenderGradeBody(); window.thRenderAnswerClass();
   };
 
-  /* ─ 설정: API 키 ─ */
-
-  function settingsRenderStatus(key) {
-    const statusEl = document.getElementById('settings-key-status');
-    const badgeEl = document.getElementById('settings-key-badge');
-    const previewEl = document.getElementById('settings-key-preview');
-    const testBtn = document.getElementById('settings-test-btn');
-    if (!statusEl) return;
-    if (key) {
-      const masked = key.length > 16
-        ? key.slice(0, 14) + '···' + key.slice(-4)
-        : key.slice(0, 6) + '···';
-      statusEl.style.display = 'flex';
-      badgeEl.style.color = 'var(--c3)';
-      badgeEl.textContent = '✓ 등록됨';
-      previewEl.textContent = masked;
-      if (testBtn) testBtn.style.display = '';
-    } else {
-      statusEl.style.display = 'flex';
-      badgeEl.style.color = 'var(--sub)';
-      badgeEl.textContent = '미등록';
-      previewEl.textContent = '';
-      if (testBtn) testBtn.style.display = 'none';
-    }
-  }
-
-  window.settingsLoadKeyStatus = async function() {
-    const msgEl = document.getElementById('settings-api-msg');
-    if (msgEl) msgEl.textContent = '';
-    try {
-      const snap = await getDoc(doc(db, 'settings', 'claude'));
-      const key = snap.exists() ? (snap.data().apiKey || '') : '';
-      settingsRenderStatus(key);
-      if (key) thClaudeKey = key;
-    } catch(e) { settingsRenderStatus(''); }
-  };
-
-  window.settingsSaveApiKey = async function() {
-    const key = (document.getElementById('settings-api-key')?.value||'').trim();
-    const msgEl = document.getElementById('settings-api-msg');
-    if (!msgEl) return;
-    msgEl.textContent = '';
-    if (!key.startsWith('sk-ant-')) { msgEl.style.color='#DC2626'; msgEl.textContent='올바른 API 키 형식이 아닙니다 (sk-ant-...)'; return; }
-    try {
-      await setDoc(doc(db,'settings','claude'), { apiKey: key }, { merge: true });
-      thClaudeKey = key;
-      document.getElementById('settings-api-key').value = '';
-      msgEl.style.color='var(--c3)'; msgEl.textContent='저장되었습니다.';
-      settingsRenderStatus(key);
-    } catch(e) { msgEl.style.color='#DC2626'; msgEl.textContent='저장 실패: '+e.message; }
-  };
-
-  window.settingsDeleteApiKey = async function() {
-    if (!confirm('API 키를 삭제하시겠습니까?')) return;
-    const msgEl = document.getElementById('settings-api-msg');
-    try {
-      await setDoc(doc(db,'settings','claude'), { apiKey: '' }, { merge: true });
-      thClaudeKey = '';
-      settingsRenderStatus('');
-      if (msgEl) { msgEl.style.color='var(--sub)'; msgEl.textContent='삭제되었습니다.'; }
-    } catch(e) { if (msgEl) { msgEl.style.color='#DC2626'; msgEl.textContent='삭제 실패: '+e.message; } }
-  };
-
-  window.settingsTestApiKey = async function() {
-    const msgEl = document.getElementById('settings-api-msg');
-    const btn = document.getElementById('settings-test-btn');
-    if (!thClaudeKey) { if (msgEl) { msgEl.style.color='#DC2626'; msgEl.textContent='저장된 키가 없습니다.'; } return; }
-    if (btn) btn.disabled = true;
-    if (msgEl) { msgEl.style.color='var(--sub)'; msgEl.textContent='테스트 중…'; }
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': thClaudeKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 10, messages: [{ role: 'user', content: 'ping' }] })
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error?.message || `HTTP ${res.status}`);
-      }
-      if (msgEl) { msgEl.style.color='var(--c3)'; msgEl.textContent='✓ 연결 성공'; }
-    } catch(e) {
-      if (msgEl) { msgEl.style.color='#DC2626'; msgEl.textContent='연결 실패: '+e.message; }
-    } finally {
-      if (btn) btn.disabled = false;
-    }
-  };
-
   /* ─ 자동 시작 ─ */
   initThinkEmojiPicker();
   thStartLecListener();
   thLoadStudents();
-  thLoadApiKey();
 }
 </script>
 </body>

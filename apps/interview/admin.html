@@ -256,7 +256,7 @@ let students=[];
 let currentFilter='전체';
 let answerSort='newest';
 let unsub=null;
-let claudeApiKey='';
+const CLAUDE_PROXY_URL='https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
 const isEmbedded=window.self!==window.top;
 
 const DEFAULT_CHARACTERS=[
@@ -266,15 +266,10 @@ const DEFAULT_CHARACTERS=[
   {id:'yuhyangso',name:'유향소 양반',role:'지방 자치 기구',emoji:'🏘️',questions:["나으리, 왕께서 직접 고을에 사또(수령)를 파견하셨는데, 굳이 지역 양반들이 모여 '유향소'라는 기구를 따로 만드신 이유가 무엇입니까?",'사또가 새로 부임하면 지역 사정을 잘 모를 텐데, 유향소에서는 사또를 그저 무조건 도와주기만 하는 건가요? 아니면 다른 역할도 있습니까?',"고을의 실무를 담당하는 '향리(아전)'들을 유향소에서 굉장히 엄격하게 감시한다고 들었습니다. 향리들을 그렇게 견제해야만 하는 특별한 이유가 있습니까?"]}
 ];
 
-/* ─────────── Auth ─────────── */
-async function loadClaudeKey(){
-  try{const snap=await getDoc(doc(db,'settings','claude'));if(snap.exists())claudeApiKey=snap.data().apiKey||'';}catch(e){}
-}
-
 async function initAdmin(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('adminApp').classList.add('show');
-  await Promise.all([loadSettings(),loadRoster(),loadClaudeKey()]);
+  await Promise.all([loadSettings(),loadRoster()]);
   startAnswerListener();
 }
 
@@ -586,7 +581,6 @@ function updateStats(){
 
 /* ─────────── 채점 ─────────── */
 document.getElementById('score-btn').addEventListener('click',async()=>{
-  if(!claudeApiKey){document.getElementById('score-info').textContent='설정에서 Claude API 키를 먼저 등록해주세요.';return;}
   const toScore=filteredStudents().filter(s=>!s.status||s.status==='pending');
   if(!toScore.length){document.getElementById('score-info').textContent='채점할 학생이 없습니다.';return;}
   let customPrompt='';
@@ -609,9 +603,9 @@ document.getElementById('score-btn').addEventListener('click',async()=>{
     if(s.deepQuestion)lines.push(`심화 질문: ${s.deepQuestion.trim()}`);
     const prompt=customPrompt.replace('{content}',lines.join('\n'));
     try{
-      const res=await fetch('https://api.anthropic.com/v1/messages',{
+      const res=await fetch(CLAUDE_PROXY_URL,{
         method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':claudeApiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        headers:{'Content-Type':'application/json'},
         body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:10,messages:[{role:'user',content:prompt}]})
       });
       if(!res.ok)throw new Error(`API ${res.status}`);

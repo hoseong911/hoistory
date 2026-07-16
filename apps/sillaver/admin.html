@@ -188,12 +188,11 @@ const rtdb = getDatabase(app);
 const auth = getAuth(app);
 const studentsRef = ref(rtdb, 'students');
 // ★ Claude API 키는 앱마다 따로 두지 않고, blind_ryeo 어드민에 저장된 값을 그대로 공유해서 쓴다
-const settingsRef = ref(rtdb, 'goryeo_settings');
+const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
 
 const NEWS_CATS = ['정치','중앙제도','지방행정','군사','토지'];
 
 let allDocs = [], studentMap = {}, studentList = [];
-let claudeApiKey = '';
 let classTab = 'all', classSort = 'newest';
 let guidesLoaded = false;
 
@@ -247,7 +246,6 @@ function startListeners() {
     allDocs = []; snap.forEach(d => allDocs.push({ id: d.id, ...d.data() }));
     renderSubmissions();
   });
-  onValue(settingsRef, snap => { claudeApiKey = (snap.val() || {}).claudeApiKey || ''; });
   if (!guidesLoaded) { guidesLoaded = true; loadGuides(); }
 }
 
@@ -349,7 +347,6 @@ window.deleteSubmission = (docId) => {
 };
 
 window.runAiPickNews = async () => {
-  if (!claudeApiKey) { alert('Claude API 키가 설정되지 않았습니다. blind_ryeo 어드민 SETTING에서 설정해주세요.'); return; }
   const items = [];
   allDocs.forEach(d => (d.news||[]).forEach(n => items.push({ docId: d.id, category: n.category, title: n.title })));
   if (!items.length) { alert('픽할 뉴스 헤드라인이 없습니다.'); return; }
@@ -394,7 +391,6 @@ ${postsText}
 };
 
 window.runAiPickAd = async () => {
-  if (!claudeApiKey) { alert('Claude API 키가 설정되지 않았습니다. blind_ryeo 어드민 SETTING에서 설정해주세요.'); return; }
   const items = allDocs.filter(d => d.ad);
   if (!items.length) { alert('픽할 광고 배너가 없습니다.'); return; }
   const btn = document.getElementById('aiPickAdBtn');
@@ -432,9 +428,9 @@ ${postsText}
 };
 
 async function callClaudePick(prompt) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch(CLAUDE_PROXY_URL, {
     method: 'POST',
-    headers: { 'Content-Type':'application/json','x-api-key':claudeApiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+    headers: { 'Content-Type':'application/json' },
     body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:512, messages:[{role:'user',content:prompt}] })
   });
   if (!res.ok) throw new Error(`API ${res.status}`);

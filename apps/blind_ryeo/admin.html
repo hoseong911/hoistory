@@ -218,12 +218,11 @@ const db = getDatabase(app);
 const auth = getAuth(app);
 const postsRef = ref(db, 'goryeo_v2');
 const studentsRef = ref(db, 'students');
-const settingsRef = ref(db, 'goryeo_settings');
 const gradesRef = ref(db, 'goryeo_grades');
 const aiCacheRef = ref(db, 'goryeo_ai_cache');
+const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
 
 let allPosts = [], studentMap = {}, studentList = [], allGrades = {};
-let claudeApiKey = '';
 let feedFilter = 'all', feedSort = 'newest', feedPickOnly = false;
 let classTab = 'all', classSort = 'newest';
 let gradeTabState = 'pass';
@@ -287,11 +286,6 @@ function startListeners() {
     if (document.getElementById('gradeModal').classList.contains('show')) {
       renderGradeModalBody(); updateGradeSummary();
     }
-  });
-  onValue(settingsRef, snap => {
-    const data = snap.val() || {};
-    claudeApiKey = data.claudeApiKey || '';
-    updateApiKeyDisplay();
   });
   onValue(aiCacheRef, snap => {
     const data = snap.val() || {};
@@ -557,36 +551,6 @@ window.exportCSV = () => {
   document.body.removeChild(a); URL.revokeObjectURL(url);
 };
 
-function maskKey(k) { if (!k) return '없음'; if (k.length <= 16) return k.slice(0, 6) + '***'; return k.slice(0, 10) + '...' + k.slice(-4); }
-function updateApiKeyDisplay() { document.getElementById('apiKeyDisplay').textContent = claudeApiKey ? maskKey(claudeApiKey) : '없음'; }
-
-window.saveApiKey = async () => {
-  const newKey = document.getElementById('newApiKey').value.trim();
-  const msgEl = document.getElementById('apiKeyMsg');
-  if (!newKey.startsWith('sk-ant-')) {
-    msgEl.style.color = 'var(--hi-negative)';
-    msgEl.textContent = '❌ 올바른 형식이 아닙니다 (sk-ant-...)';
-    return;
-  }
-  try {
-    await update(settingsRef, { claudeApiKey: newKey });
-    msgEl.style.color = 'var(--hi-positive)';
-    msgEl.textContent = '✅ API 키가 저장되었습니다.';
-    document.getElementById('newApiKey').value = '';
-  } catch(e) {
-    msgEl.style.color = 'var(--hi-negative)';
-    msgEl.textContent = '❌ 저장 실패';
-  }
-};
-window.deleteApiKey = () => {
-  openConfirm('API 키 삭제', '저장된 Claude API 키를 삭제할까요?', async () => {
-    await update(settingsRef, { claudeApiKey: null });
-    const msgEl = document.getElementById('apiKeyMsg');
-    msgEl.style.color = 'var(--hi-positive)';
-    msgEl.textContent = '✅ API 키가 삭제되었습니다.';
-  });
-};
-
 window.openGradeModalWithLoad = (initialTab = 'pass') => {
   gradeTabState = initialTab;
   const tabIndex = { 'pass': 0, 'fail': 1, 'review': 2 }[initialTab] ?? 0;
@@ -652,7 +616,6 @@ function renderReviewTab(body, classPosts) {
     return;
   }
   if (!cached) {
-    const hasKey = !!claudeApiKey;
     const hasPosts = classPosts.length > 0;
     body.innerHTML = `<div style="text-align:center; padding:32px 16px;">
       <p style="font-size:14px; color:var(--hi-text-soft); margin-bottom:16px; line-height:1.7;">
@@ -663,8 +626,8 @@ function renderReviewTab(body, classPosts) {
           · 성의 있게 작성했는지
         </span>
       </p>
-      ${!hasKey ? '<p style="color:var(--hi-negative); font-size:13px; margin-bottom:14px; font-weight:700;">⚠️ 먼저 SETTING에서 Claude API 키를 등록해주세요.</p>' : !hasPosts ? '<p style="color:var(--hi-text-muted); font-size:13px; margin-bottom:14px;">채점할 게시글이 없습니다.</p>' : ''}
-      <button class="btn-ai" ${(hasKey && hasPosts) ? '' : 'disabled'} onclick="runAiReview()">✨ 채점하기</button>
+      ${!hasPosts ? '<p style="color:var(--hi-text-muted); font-size:13px; margin-bottom:14px;">채점할 게시글이 없습니다.</p>' : ''}
+      <button class="btn-ai" ${hasPosts ? '' : 'disabled'} onclick="runAiReview()">✨ 채점하기</button>
     </div>`;
     return;
   }
@@ -709,7 +672,6 @@ window.setGrade = async (postId, value) => {
 };
 
 window.runAiReview = async () => {
-  if (!claudeApiKey) { alert('SETTING에서 Claude API 키를 먼저 등록해주세요.'); return; }
   const classPosts = window._classPosts || [];
   if (!classPosts.length) return;
   aiAnalyzing = true;
@@ -733,9 +695,9 @@ ${postsText}
 응답: JSON 배열만 출력. 미흡으로 판단된 것만 포함. 모두 통과면 [].
 각 항목: {"n": 번호, "selectedOrg": "기관", "reason": "사유 (40자 이내)"}`;
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(CLAUDE_PROXY_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': claudeApiKey, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 2048, messages: [{ role: 'user', content: prompt }] })
     });
     if (!res.ok) throw new Error(`API 오류 ${res.status}`);
@@ -762,7 +724,6 @@ ${postsText}
 };
 
 window.runAiPick = async () => {
-  if (!claudeApiKey) { alert('SETTING에서 Claude API 키를 먼저 등록해주세요.'); return; }
   const posts = allPosts.filter(p => p.studentId !== '00000' && p.content);
   if (!posts.length) { alert('픽할 게시글이 없습니다.'); return; }
   const btn = document.getElementById('aiPickBtn');
@@ -785,9 +746,9 @@ ${postsText}
 응답: JSON 배열만 출력. 예) [1, 3, 7]
 픽할 번호 목록 (없으면 []):`;
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch(CLAUDE_PROXY_URL, {
       method: 'POST',
-      headers: { 'Content-Type':'application/json','x-api-key':claudeApiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+      headers: { 'Content-Type':'application/json' },
       body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:512, messages:[{role:'user',content:prompt}] })
     });
     if (!res.ok) throw new Error(`API ${res.status}`);
@@ -862,7 +823,6 @@ window.saveScoringPrompt = async () => {
 };
 
 window.runScoring = async () => {
-  if (!claudeApiKey) { alert('SETTING에서 Claude API 키를 먼저 등록해주세요.'); return; }
   const classPosts = window._classPosts || [];
   if (!classPosts.length) { alert('채점할 게시글이 없습니다.'); return; }
   let customPrompt = '';
@@ -878,9 +838,9 @@ window.runScoring = async () => {
     const content = `학생이 선택한 기관: ${post.org?.name||'(미지정)'}\n게시글 내용: ${post.content||''}`;
     const prompt = customPrompt.replace('{content}', content);
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch(CLAUDE_PROXY_URL, {
         method: 'POST',
-        headers: { 'Content-Type':'application/json','x-api-key':claudeApiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true' },
+        headers: { 'Content-Type':'application/json' },
         body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:10, messages:[{role:'user',content:prompt}] })
       });
       if (!res.ok) throw new Error(`API ${res.status}`);
