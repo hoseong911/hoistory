@@ -618,9 +618,6 @@
     import {
         getStorage, ref as sRef, uploadBytes, getDownloadURL
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
-    import {
-        getFirestore, doc as fsDoc, onSnapshot as fsOnSnapshot
-    } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     // ── 공통 라이브러리 ──
     import {
@@ -647,14 +644,9 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const storage = getStorage(app);
-    const fdb = getFirestore(app);
 
-    // Claude API 키는 lms/admin의 "설정 > Claude API 키"에서 관리하는 공유 값을 그대로 쓴다
-    // (hismile 자체 어드민의 설정 메뉴는 없앴다 — lms/admin과 연동).
-    let sharedClaudeApiKey = '';
-    fsOnSnapshot(fsDoc(fdb, 'settings', 'claude'), snap => {
-        sharedClaudeApiKey = snap.exists() ? (snap.data().apiKey || '') : '';
-    });
+    // Claude 호출은 서버 프록시(functions/claudeProxy)를 통해서만 한다 — API 키는 클라이언트에 두지 않는다.
+    const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
 
     // 공휴일 (필요 시 admin에서 관리 가능)
     const holidays = []; // 예: ["2026-03-01","2026-05-05"]
@@ -986,16 +978,6 @@
             });
         }
 
-        // API 키
-        const apiKey = sharedClaudeApiKey || globalData.config?.claudeApiKey || '';
-        if (!apiKey) {
-            return showRichToast({
-                icon: '⚙️', title: 'API 키 미설정',
-                message: 'lms/admin > 설정에서 Claude API 키를 등록해야 합니다',
-                kind: 'error'
-            });
-        }
-
         btn.disabled = true; btn.textContent = 'AI 분석 중…';
         document.getElementById('cert-result').style.display = 'none';
 
@@ -1004,13 +986,10 @@
             const mediaType = file.type || 'image/jpeg';
             const todayISO = new Date().toISOString().slice(0,10);
 
-            const response = await fetch('https://api.anthropic.com/v1/messages', {
+            const response = await fetch(CLAUDE_PROXY_URL, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': apiKey,
-                    'anthropic-version': '2023-06-01',
-                    'anthropic-dangerous-direct-browser-access': 'true'
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     model: 'claude-sonnet-4-6',

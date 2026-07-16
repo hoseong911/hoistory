@@ -359,7 +359,7 @@ let deepCharIdx=null;
 let deepDrafts={};
 let peerFilter='전체';
 let pdFilter='전체';
-let claudeApiKey=null;
+const CLAUDE_PROXY_URL='https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
 
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 // 인물 카드/아바타 안에 넣을 내용: 일러스트(imageUrl)가 있으면 이미지, 없으면 이모지로 대체
@@ -387,18 +387,13 @@ async function runAI(){
   const SHORT_FB='조금 더 자세히 써봐요. 생각과 이유를 담아 30자 이상 작성해야 통과할 수 있어요.';
   const lengthOk=answers.map(a=>a.replace(/\s/g,'').length>=30);
 
-  if(!claudeApiKey){
-    const items=answers.map((_,i)=>lengthOk[i]?{ok:true,fb:'충분한 내용의 답변이에요. 인물의 입장을 잘 표현했습니다!'}:{ok:false,fb:SHORT_FB});
-    return{items,overallOk:items.every(i=>i.ok)};
-  }
-
   try{
     const prompt=`다음은 중학교 역사 수업에서 학생이 '${c.name}'의 입장이 되어 작성한 답변입니다.\n\n`
       +c.questions.map((q,i)=>`[Q${i+1}] ${q}\n[A${i+1}] ${answers[i]||'(미작성)'}`).join('\n\n')
       +`\n\n각 답변에 대해 두 가지만 판단하세요:\n1. 이 인물이 어떤 생각을 했는지 학생의 해석이 있는가\n2. 왜 그런 생각을 했는지 이유/근거가 있는가\n\n반드시 JSON 배열만 답하세요 (다른 텍스트 금지):\n[{"hasThought":true/false,"hasReason":true/false},{"hasThought":true/false,"hasReason":true/false},{"hasThought":true/false,"hasReason":true/false}]`;
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    const resp=await fetch(CLAUDE_PROXY_URL,{
       method:'POST',
-      headers:{'x-api-key':claudeApiKey,'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+      headers:{'content-type':'application/json'},
       body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:150,messages:[{role:'user',content:prompt}]})
     });
     const data=await resp.json();
@@ -419,7 +414,6 @@ async function runAI(){
 /* ── 표지 ── */
 async function initCover(){
   try{const snap=await getDoc(doc(db,'settings','interview_content'));if(snap.exists()&&Array.isArray(snap.data().characters)&&snap.data().characters.length)CHARS=snap.data().characters;}catch(e){}
-  try{const snap=await getDoc(doc(db,'settings','claude'));if(snap.exists()&&snap.data().apiKey)claudeApiKey=snap.data().apiKey;}catch(e){}
   student=getStudentFromLMS();
   if(student){
     document.getElementById('cover-chip-text').textContent=`${student.studentId} · ${student.name}`;
