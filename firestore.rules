@@ -1,8 +1,149 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null;
+    }
+
+    // ── 관리자 전용 콘텐츠 (허브/미션 카드, 각종 설정, 강의·성적 관리) ──
+    match /cards/{id}                          { allow read: if true; allow write: if isAdmin(); }
+    match /settings/{id}                       { allow read: if true; allow write: if isAdmin(); }
+    match /lms_items/{id}                      { allow read: if true; allow write: if isAdmin(); }
+    match /class_lessons/{id}                  { allow read: if true; allow write: if isAdmin(); }
+    match /grade_records/{id}                  { allow read: if true; allow write: if isAdmin(); }
+    match /grade_publish_status/{id}           { allow read: if true; allow write: if isAdmin(); }
+    match /grade_lecture_config/{id}           { allow read: if true; allow write: if isAdmin(); }
+    match /grade_settings/{id}                 { allow read: if true; allow write: if isAdmin(); }
+    match /gradeOverrides/{id}                 { allow read: if true; allow write: if isAdmin(); }
+    match /think_lectures/{id}                 { allow read: if true; allow write: if isAdmin(); }
+    match /escape26_2/{id}                     { allow read: if true; allow write: if isAdmin(); }
+    match /escape26_2_settings/{id}            { allow read: if true; allow write: if isAdmin(); }
+    match /silla_settings/{id}                 { allow read: if true; allow write: if isAdmin(); }
+    match /survey_config/{id}                  { allow read: if true; allow write: if isAdmin(); }
+    match /samguk_goods/{id}                   { allow read: if true; allow write: if isAdmin(); }
+    match /ox2606_questions/{id}               { allow read: if true; allow write: if isAdmin(); }
+
+    // ── 학생 자가제출: 생성(및 명시된 항목만 수정)은 공개 허용하되 필드를 검증한다.
+    //    수정/삭제는 이 블록에서 허용하지 않는 한 맨 아래 catch-all(관리자 전용)로 넘어간다.
+    //    학생은 Firebase Auth로 로그인하지 않으므로 "본인 문서"임을 암호학적으로
+    //    증명할 방법이 없다 — 아래 검증은 명백히 잘못된 쓰기(크기 폭주, 관리자 필드
+    //    조작)를 막는 수준이며, 완전한 본인 확인은 규칙만으로는 불가능하다.
+
+    match /think_submissions/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.id is string &&
+        request.resource.data.name is string && request.resource.data.name.size() <= 50 &&
+        request.resource.data.text is string && request.resource.data.text.size() <= 5000 &&
+        request.resource.data.isPicked == false
+      );
+    }
+
+    match /lms_auth/{studentId} {
+      allow read: if true;
+      allow write: if isAdmin() || (
+        request.resource.data.keys().hasOnly(['pw']) &&
+        request.resource.data.pw is string && request.resource.data.pw.size() <= 100
+      );
+    }
+
+    match /lms_consent/{studentId} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.keys().hasOnly(['agreedAt', 'name']) &&
+        request.resource.data.name is string && request.resource.data.name.size() <= 50
+      );
+    }
+
+    match /survey_responses/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.studentId is string &&
+        request.resource.data.studentName is string && request.resource.data.studentName.size() <= 50 &&
+        request.resource.data.answers is map
+      );
+    }
+
+    match /escape26_2_reflections/{studentId} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.studentId == studentId &&
+        request.resource.data.reflection is string && request.resource.data.reflection.size() <= 3000
+      );
+    }
+
+    match /silla_v3/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.studentId is string &&
+        request.resource.data.studentName is string &&
+        request.resource.data.keywords is list && request.resource.data.keywords.size() <= 5 &&
+        request.resource.data.adPick == false &&
+        request.resource.data.newsLikes.size() == 0 &&
+        request.resource.data.adLikes.size() == 0
+      );
+      // 다른 학생의 좋아요 토글(newsLikes/adLikes만 변경) 또는 본인 기사 재작성 허용
+      allow update: if isAdmin() ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['newsLikes']) ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['adLikes']) ||
+        (
+          request.resource.data.studentId == resource.data.studentId &&
+          request.resource.data.keywords is list && request.resource.data.keywords.size() <= 5
+        );
+    }
+
+    match /interview_joseon_answers/{studentId} {
+      allow read: if true;
+      allow create, update: if isAdmin() || (
+        request.resource.data.studentId == studentId &&
+        request.resource.data.answers is map
+      );
+    }
+
+    match /interview_joseon_deep/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.studentId is string &&
+        request.resource.data.question is string && request.resource.data.question.size() <= 2000
+      );
+    }
+
+    match /ox2606_rankings/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.studentId is string &&
+        request.resource.data.score is number && request.resource.data.score <= 1000000 &&
+        request.resource.data.comment == ''
+      );
+      allow update: if isAdmin() || (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comment']) &&
+        request.resource.data.comment is string && request.resource.data.comment.size() <= 200
+      );
+    }
+
+    match /ox2606_sessions/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.studentId is string &&
+        request.resource.data.score is number && request.resource.data.score <= 1000000
+      );
+    }
+
+    match /ox2606_corrections/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.studentId is string &&
+        request.resource.data.text is string && request.resource.data.text.size() <= 1000
+      );
+    }
+
+    // ── 그 외 모든 경로(레거시/미사용 컬렉션 포함): 읽기는 공개, 쓰기는 관리자만.
+    //    위에서 create/update만 허용한 학생 자가제출 컬렉션의 delete도 여기로 떨어져
+    //    관리자 전용이 된다.
     match /{document=**} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }
