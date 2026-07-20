@@ -187,6 +187,9 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .autosave-id{font-size:13px;color:var(--slate);margin-top:2px}
 .autosave-reset-btn{width:100%;padding:10px;background:none;color:var(--slate);border:1.5px solid var(--hairline);border-radius:100px;font-family:inherit;font-size:13px;cursor:pointer;transition:background .15s}
 .autosave-reset-btn:hover{background:var(--surface)}
+.autosave-check-wrap{margin-top:10px;text-align:center}
+.autosave-check-label{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--slate);cursor:pointer;user-select:none}
+.autosave-check-label input[type=checkbox]{accent-color:var(--primary);width:14px;height:14px;cursor:pointer;flex-shrink:0}
 
 /* ── 성적 요약 ── */
 .grade-summary{display:flex;flex-direction:column;gap:4px}
@@ -279,6 +282,12 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
         <input class="login-input" id="pwInput" type="password" placeholder="비밀번호" disabled autocomplete="new-password">
       </div>
       <div class="status-area" id="statusArea"></div>
+      <div class="autosave-check-wrap">
+        <label class="autosave-check-label">
+          <input type="checkbox" id="autosaveCheck" checked>
+          <span>이 기기에서 자동 로그인</span>
+        </label>
+      </div>
       <button class="enter-btn" id="enterBtn" disabled>입장하기</button>
     </div>
   </div>
@@ -596,8 +605,13 @@ enterBtn.addEventListener('click', async () => {
   }
   sessionStorage.setItem('lms_sid',   _pendingId);
   sessionStorage.setItem('lms_sname', _pendingName);
-  localStorage.setItem('lms_autosave_sid',   _pendingId);
-  localStorage.setItem('lms_autosave_sname', _pendingName);
+  if (document.getElementById('autosaveCheck')?.checked) {
+    localStorage.setItem('lms_autosave_sid',   _pendingId);
+    localStorage.setItem('lms_autosave_sname', _pendingName);
+  } else {
+    localStorage.removeItem('lms_autosave_sid');
+    localStorage.removeItem('lms_autosave_sname');
+  }
   currentStudentId   = _pendingId;
   currentStudentName = _pendingName;
   checkConsentThenEnter(_pendingId, _pendingName);
