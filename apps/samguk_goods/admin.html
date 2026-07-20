@@ -119,6 +119,23 @@
           <div class="stat-chip-label">전체 등록</div>
           <div class="stat-chip-val" id="stTotal">-</div>
         </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">통과 / 미흡</div>
+          <div class="stat-dual">
+            <div class="stat-dual-val" id="stPass" style="color:var(--hi-positive)">-</div>
+            <div class="stat-dual-val" id="stFail" style="color:var(--hi-negative)">-</div>
+          </div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">PICK</div>
+          <div class="stat-chip-val" id="stPick">-</div>
+        </div>
+      </div>
+      <div class="adm-action-row">
+        <button class="hi-btn hi-btn-primary hi-btn-sm" id="scoreBtn" onclick="runScoring()">채점하기</button>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" id="aiPickBtn" onclick="runAiPick()">✨ AI 픽</button>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportExcel()">엑셀 내보내기</button>
+        <button class="scoring-prompt-btn" onclick="openSettingsModal()" title="AI 설정">⚙️</button>
       </div>
       <input type="text" class="sg-search" id="searchBox" placeholder="학번 또는 이름으로 검색" oninput="renderStatusList()">
       <div id="statusList">
@@ -144,8 +161,9 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getFirestore, collection, doc, onSnapshot, deleteDoc, writeBatch, serverTimestamp }
+import { getFirestore, collection, doc, onSnapshot, deleteDoc, updateDoc, writeBatch, serverTimestamp }
   from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -159,8 +177,17 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const rtdb = getDatabase(app);
 const auth = getAuth(app);
 const COL = 'samguk_goods';
+const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
+
+const SCORING_PROMPT_PATH = 'adminConfig/samguk_goods/scoringPrompt';
+const AI_PICK_CRITERIA_PATH = 'adminConfig/samguk_goods/aiPickCriteria';
+const DEFAULT_PICK_CRITERIA = `- 삼국시대 문화유산의 특징을 창의적으로 활용한 굿즈
+- 아이디어가 돋보이고 상품성이 있는 굿즈
+- 설명과 제작 이유에 역사적 근거가 잘 드러난 굿즈
+- 전체의 20~30% 내외 선정`;
 
 let parsedRows = [];
 let allDocs = [];
@@ -201,8 +228,21 @@ function startListeners() {
   onSnapshot(collection(db, COL), snap => {
     allDocs = []; snap.forEach(d => allDocs.push({ id: d.id, ...d.data() }));
     document.getElementById('stTotal').textContent = allDocs.length;
+    document.getElementById('stPass').textContent = allDocs.filter(d => d.grade === 'pass').length;
+    document.getElementById('stFail').textContent = allDocs.filter(d => d.grade === 'fail').length;
+    document.getElementById('stPick').textContent = allDocs.filter(d => d.picked).length;
     renderStatusList();
   });
+}
+
+function goodsContent(d) {
+  return `굿즈 이름: ${d.goodsName||''}
+활용 유물: ${d.artifact||''} (${d.culture||''} / ${d.nation||''})
+용도: ${d.usage||''}
+가격: ${d.price||''}
+판매 대상: ${d.target||''}
+설명 및 특징: ${d.desc||''}
+제작 제안 이유: ${d.reason||''}`;
 }
 
 window.showMain = (name, btn) => {
@@ -296,18 +336,150 @@ window.renderStatusList = () => {
   if (q) docs = docs.filter(d => (d.studentId||'').toLowerCase().includes(q) || (d.name||'').toLowerCase().includes(q) || (d.goodsName||'').toLowerCase().includes(q));
   const list = document.getElementById('statusList');
   if (!docs.length) { list.innerHTML = `<div class="empty-state"><div class="icon">📦</div>등록된 굿즈가 없습니다.</div>`; return; }
-  list.innerHTML = docs.map(d => `<div class="sg-card">
+  list.innerHTML = docs.map(d => {
+    const picked = !!d.picked;
+    const gradeBadge = d.grade === 'pass' ? `<span class="grade-badge pass">✓ 통과</span>` : d.grade === 'fail' ? `<span class="grade-badge fail">✕ 미흡</span>` : '';
+    return `<div class="sg-card">
     <img class="sg-thumb" src="goods/${esc(d.studentId||d.id)}.jpg" onerror="this.style.opacity=0.3;this.src='';">
     <div class="sg-card-body">
-      <div class="sg-card-title">${esc(d.goodsName||'(제목 없음)')}</div>
+      <div class="sg-card-title">${esc(d.goodsName||'(제목 없음)')} ${gradeBadge}</div>
       <div class="sg-card-sub">${esc(d.studentId||d.id)} ${esc(d.name||'')} · ${esc(d.nation||'')} ${esc(d.culture||'')}</div>
     </div>
+    <button class="std-pick${picked?' picked':''}" onclick="togglePick('${esc(d.id)}',${picked})">${picked?'⭐':'☆'}</button>
     <button class="sg-card-del" onclick="deleteItem('${esc(d.id)}')">✕</button>
-  </div>`).join('');
+  </div>`;
+  }).join('');
+};
+
+window.togglePick = async (id, isPicked) => {
+  try { await updateDoc(doc(db, COL, id), { picked: !isPicked }); }
+  catch(e) { alert('오류: ' + e.message); }
 };
 
 window.deleteItem = (id) => {
   openConfirm('굿즈 삭제', '이 굿즈 등록 정보를 삭제하시겠습니까? (이미지 파일은 삭제되지 않습니다)', () => deleteDoc(doc(db, COL, id)));
+};
+
+window.exportExcel = () => { alert('엑셀 내보내기 기능은 준비 중입니다.'); };
+
+/* ── 채점 ── */
+window.runScoring = async () => {
+  if (!allDocs.length) { alert('채점할 등록 정보가 없습니다.'); return; }
+  let customPrompt = '';
+  try { const snap = await get(ref(rtdb, SCORING_PROMPT_PATH)); customPrompt = snap.exists() ? snap.val() : ''; } catch(e) {}
+  if (!customPrompt) { alert('채점 프롬프트를 먼저 설정해주세요. (⚙️ 버튼 클릭)'); return; }
+  const btn = document.getElementById('scoreBtn');
+  const origText = btn?.textContent;
+  if (btn) btn.disabled = true;
+  const batch = writeBatch(db);
+  for (let i = 0; i < allDocs.length; i++) {
+    const d = allDocs[i];
+    if (btn) btn.textContent = `채점 중… (${i+1}/${allDocs.length})`;
+    const prompt = customPrompt.replace('{content}', goodsContent(d));
+    try {
+      const res = await fetch(CLAUDE_PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:10, messages:[{role:'user',content:prompt}] })
+      });
+      if (!res.ok) throw new Error(`API ${res.status}`);
+      const data = await res.json();
+      const grade = /^pass/i.test((data.content?.[0]?.text||'').trim()) ? 'pass' : 'fail';
+      batch.update(doc(db, COL, d.id), { grade });
+    } catch(e) { batch.update(doc(db, COL, d.id), { grade: 'fail' }); }
+  }
+  try { await batch.commit(); } catch(e) { alert('저장 오류: ' + e.message); }
+  if (btn) { btn.disabled = false; btn.textContent = origText; }
+};
+
+/* ── AI 픽 ── */
+window.runAiPick = async () => {
+  if (!allDocs.length) { alert('픽할 굿즈가 없습니다.'); return; }
+  const btn = document.getElementById('aiPickBtn');
+  btn.disabled = true; btn.textContent = '✨ 분석 중…';
+  let criteria = DEFAULT_PICK_CRITERIA;
+  try { const snap = await get(ref(rtdb, AI_PICK_CRITERIA_PATH)); if (snap.exists() && snap.val().trim()) criteria = snap.val(); } catch(e) {}
+  const postsText = allDocs.map((d,i) => `[${i+1}] ${goodsContent(d).replace(/\n/g,' / ')}`).join('\n');
+  const prompt = `당신은 중학교 역사 수업 보조 교사입니다.
+아래는 "삼국시대 문화유산 굿즈 온라인 기획전" 활동에서 학생들이 삼국시대 문화유산을 활용해 기획한 굿즈 목록입니다.
+
+다음 기준으로 우수한 굿즈 번호를 선정해주세요:
+${criteria}
+
+굿즈 목록:
+${postsText}
+
+응답: JSON 배열만 출력. 예) [1, 3, 7]
+픽할 번호 목록 (없으면 []):`;
+  try {
+    const res = await fetch(CLAUDE_PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:512, messages:[{role:'user',content:prompt}] })
+    });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    const data = await res.json();
+    let raw = (data.content?.[0]?.text||'[]').replace(/```json|```/g,'').trim();
+    const s = raw.indexOf('['), e = raw.indexOf(']', s);
+    if (s !== -1 && e !== -1) raw = raw.slice(s, e+1);
+    const nums = JSON.parse(raw);
+    if (!Array.isArray(nums) || !nums.length) { alert('AI가 픽할 굿즈를 찾지 못했습니다.'); return; }
+    const batch = writeBatch(db);
+    nums.forEach(n => {
+      const d = allDocs[n - 1];
+      if (d) batch.update(doc(db, COL, d.id), { picked: true });
+    });
+    await batch.commit();
+    alert(`✨ AI가 ${nums.length}개 굿즈를 픽했습니다.`);
+  } catch(e) {
+    alert('AI 픽 실패: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '✨ AI 픽';
+  }
+};
+
+/* ─ AI 설정 모달 (채점 프롬프트 + AI 픽 기준) ─ */
+window.openSettingsModal = async () => {
+  const backdrop = document.getElementById('settings-modal-backdrop');
+  const scoringTa = document.getElementById('scoring-prompt-textarea');
+  const pickTa = document.getElementById('ai-pick-criteria-textarea');
+  const msg = document.getElementById('settings-modal-msg');
+  msg.textContent = '불러오는 중…'; msg.style.color = 'var(--hi-text-muted)';
+  backdrop.classList.add('open');
+  try {
+    const [scoringSnap, pickSnap] = await Promise.all([
+      get(ref(rtdb, SCORING_PROMPT_PATH)),
+      get(ref(rtdb, AI_PICK_CRITERIA_PATH))
+    ]);
+    scoringTa.value = scoringSnap.exists() ? scoringSnap.val() : '';
+    pickTa.value = pickSnap.exists() ? pickSnap.val() : DEFAULT_PICK_CRITERIA;
+    msg.textContent = '';
+  } catch(e) { msg.textContent = '불러오기 실패'; msg.style.color = 'var(--hi-negative)'; }
+};
+window.closeSettingsModal = () => {
+  document.getElementById('settings-modal-backdrop').classList.remove('open');
+  document.getElementById('settings-modal-msg').textContent = '';
+};
+window.switchSettingsTab = (tab, btn) => {
+  document.querySelectorAll('#settings-modal-backdrop .modal-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('settings-panel-scoring').style.display = tab === 'scoring' ? '' : 'none';
+  document.getElementById('settings-panel-pick').style.display = tab === 'pick' ? '' : 'none';
+};
+window.saveSettings = async () => {
+  const scoringPrompt = (document.getElementById('scoring-prompt-textarea').value || '').trim();
+  const pickCriteria = (document.getElementById('ai-pick-criteria-textarea').value || '').trim();
+  const msg = document.getElementById('settings-modal-msg');
+  if (!scoringPrompt) { msg.style.color = 'var(--hi-negative)'; msg.textContent = '채점 프롬프트를 입력해주세요.'; return; }
+  if (!pickCriteria) { msg.style.color = 'var(--hi-negative)'; msg.textContent = 'AI 픽 기준을 입력해주세요.'; return; }
+  try {
+    await Promise.all([
+      set(ref(rtdb, SCORING_PROMPT_PATH), scoringPrompt),
+      set(ref(rtdb, AI_PICK_CRITERIA_PATH), pickCriteria)
+    ]);
+    msg.style.color = 'var(--hi-positive)'; msg.textContent = '저장되었습니다.';
+    setTimeout(closeSettingsModal, 900);
+  } catch(e) { msg.style.color = 'var(--hi-negative)'; msg.textContent = '저장 실패: ' + e.message; }
 };
 
 function openConfirm(title, desc, onOk) {
@@ -321,5 +493,29 @@ window.closeConfirm = closeConfirm;
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s==null?'':String(s); return d.innerHTML; }
 </script>
+
+<!-- AI 설정 모달 -->
+<div class="scoring-modal-backdrop" id="settings-modal-backdrop" onclick="if(event.target===this)closeSettingsModal()">
+  <div class="scoring-modal">
+    <div class="scoring-modal-title">AI 설정</div>
+    <div class="modal-tabs" style="margin-bottom:14px;">
+      <button class="modal-tab active" onclick="switchSettingsTab('scoring', this)">채점 프롬프트</button>
+      <button class="modal-tab" onclick="switchSettingsTab('pick', this)">AI 픽 기준</button>
+    </div>
+    <div id="settings-panel-scoring">
+      <p class="scoring-modal-desc">Claude가 등록된 굿즈를 채점할 때 사용할 지침입니다.<br><code>{content}</code> 위치에 굿즈 이름·용도·설명·제작 이유가 삽입됩니다. 응답은 <code>pass</code> 또는 <code>fail</code>로만 하도록 지시해 주세요.</p>
+      <textarea class="scoring-modal-textarea" id="scoring-prompt-textarea" placeholder="예) 다음 학생이 기획한 굿즈 설명을 읽고, 삼국시대 문화유산을 잘 활용했으면 pass, 아니면 fail로만 답하세요.&#10;&#10;{content}"></textarea>
+    </div>
+    <div id="settings-panel-pick" style="display:none;">
+      <p class="scoring-modal-desc">✨ AI 픽이 우수한 굿즈를 고를 때 사용할 기준입니다. 한 줄에 기준 하나씩 자유롭게 작성하세요.</p>
+      <textarea class="scoring-modal-textarea" id="ai-pick-criteria-textarea" placeholder="예)&#10;- 삼국시대 문화유산의 특징을 창의적으로 활용한 굿즈&#10;- 전체의 20~30% 내외 선정"></textarea>
+    </div>
+    <div class="scoring-modal-msg" id="settings-modal-msg"></div>
+    <div class="scoring-modal-footer">
+      <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="closeSettingsModal()">취소</button>
+      <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="saveSettings()">저장</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>

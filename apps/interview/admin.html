@@ -209,8 +209,9 @@
       </div>
       <div class="adm-action-row">
         <button class="hi-btn hi-btn-primary hi-btn-sm" id="score-btn">채점하기</button>
-        <button class="scoring-prompt-btn" onclick="openScoringModal()" title="채점 프롬프트 설정">⚙️</button>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" id="aiPickBtn" onclick="runAiPick()">✨ AI 픽</button>
         <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportExcel()">엑셀 내보내기</button>
+        <button class="scoring-prompt-btn" onclick="openSettingsModal()" title="AI 설정">⚙️</button>
         <div class="sort-box">
           <button class="sort-btn active" id="sortNewest" onclick="setAnswerSort('newest')">최신순</button>
           <button class="sort-btn" id="sortSid" onclick="setAnswerSort('sid')">학번순</button>
@@ -258,6 +259,13 @@ let answerSort='newest';
 let unsub=null;
 const CLAUDE_PROXY_URL='https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
 const isEmbedded=window.self!==window.top;
+
+const SCORING_PROMPT_PATH='adminConfig/interview/scoringPrompt';
+const AI_PICK_CRITERIA_PATH='adminConfig/interview/aiPickCriteria';
+const DEFAULT_PICK_CRITERIA=`- 역사적 근거가 풍부하고 인물의 입장이 잘 드러난 답변
+- 심화 질문이 인물의 정책 의도를 정확히 짚은 경우
+- 다른 학생들과 공유할 만한 통찰이 있는 답변
+- 전체의 20~30% 내외 선정`;
 
 const DEFAULT_CHARACTERS=[
   {id:'taejong',name:'태종',role:'조선 3대 국왕',emoji:'👑',questions:['전하, 신하들의 최고 기구인 의정부를 거치지 않고 6조의 판서들에게 직접 업무를 보고받으시는(6조 직계제) 진짜 이유가 무엇입니까?','왕족과 공신들이 거느리던 개인 군대(사병)를 전부 없애버리셨습니다. 굳이 군사력을 국가로 집중시키신 이유가 궁금합니다.','모든 국사를 직접 챙기시려면 엄청나게 피곤하실 것 같습니다. 혹시 신하들을 전혀 믿지 못하시는 건가요?']},
@@ -570,7 +578,7 @@ function updateStats(){
   const unsub2=Math.max(0,expected-submitted.length);
   const pass=fs.filter(s=>s.status==='pass').length;
   const insuf=fs.filter(s=>s.status==='insuf'||s.status==='insufficient').length+unsub2;
-  const pick=fs.filter(s=>s.status==='pick').length;
+  const pick=fs.filter(s=>s.picked).length;
   document.getElementById('s-total').textContent=expected||fs.length;
   document.getElementById('s-sub').textContent=submitted.length;
   document.getElementById('s-unsub').textContent=unsub2;
@@ -638,13 +646,11 @@ function autoScore(s){
 function statusBadgeClass(status){
   if(status==='pass')return'sb-pass';
   if(status==='insufficient'||status==='insuf')return'sb-insuf';
-  if(status==='pick')return'sb-pick';
   return'sb-pending';
 }
 function statusLabel(status){
   if(status==='pass')return'통과';
   if(status==='insufficient'||status==='insuf')return'미흡';
-  if(status==='pick')return'PICK';
   return'미채점';
 }
 
@@ -667,6 +673,7 @@ function renderStudentList(){
     const qs=char?.questions||[];
     const answers=s.answers||{};
     const status=s.status||'pending';
+    const picked=!!s.picked;
     const firstAnswer=qs.length>0?(answers[0]||'').trim():'';
     const ansHtml=qs.map((q,qi)=>`
       <div class="ans-block">
@@ -687,11 +694,11 @@ function renderStudentList(){
         </div>
         <div class="std-content">
           <div class="std-content-main">${firstAnswer?escHtml(firstAnswer):'<span style="color:var(--hi-text-muted)">미제출</span>'}</div>
-          <div class="std-content-sub">${statusLabel(status)}</div>
+          <div class="std-content-sub">${statusLabel(status)}${picked?' · PICK':''}</div>
         </div>
         <div class="std-actions" onclick="event.stopPropagation()">
-          <button class="std-pick${status==='pick'?' picked':''}" data-sid="${s.studentId}" onclick="togglePickStatus(this,'${s.studentId}','${status}')">
-            ${status==='pick'?'⭐':'☆'}
+          <button class="std-pick${picked?' picked':''}" data-sid="${s.studentId}" onclick="togglePickStatus(this,'${s.studentId}',${picked})">
+            ${picked?'⭐':'☆'}
           </button>
           <button class="std-edit">✏️</button>
           <button class="std-del" onclick="deleteAnswer('${s.studentId}')">✕</button>
@@ -701,7 +708,7 @@ function renderStudentList(){
         <div class="stu-status-btns">
           <button class="ssb ssb-pass${status==='pass'?' active':''}" data-sid="${s.studentId}" data-st="pass" onclick="event.stopPropagation();setSsb(this)">통과</button>
           <button class="ssb ssb-insuf${status==='insufficient'||status==='insuf'?' active':''}" data-sid="${s.studentId}" data-st="insufficient" onclick="event.stopPropagation();setSsb(this)">미흡</button>
-          <button class="ssb ssb-pick${status==='pick'?' active':''}" data-sid="${s.studentId}" data-st="pick" onclick="event.stopPropagation();setSsb(this)">PICK</button>
+          <button class="ssb ssb-pick${picked?' active':''}" data-sid="${s.studentId}" onclick="event.stopPropagation();togglePickStatus(this,'${s.studentId}',${picked})">PICK</button>
         </div>
         ${s.charId?ansHtml:'<div class="ans-empty">제출된 답변이 없습니다.</div>'}
         ${s.deepQuestion?`<div class="deep-block">
@@ -725,9 +732,8 @@ window.setSsb=async(btn)=>{
   catch(err){alert('오류: '+err.message);}
 };
 
-window.togglePickStatus=async(btn,sid,currentStatus)=>{
-  const newStatus=currentStatus==='pick'?'pending':'pick';
-  try{await updateDoc(doc(db,'interview_joseon_answers',sid),{status:newStatus});}
+window.togglePickStatus=async(btn,sid,currentPicked)=>{
+  try{await updateDoc(doc(db,'interview_joseon_answers',sid),{picked:!currentPicked});}
   catch(e){alert('오류: '+e.message);}
 };
 
@@ -739,33 +745,101 @@ window.deleteAnswer=async(sid)=>{
 
 window.exportExcel=()=>{alert('엑셀 내보내기 기능은 준비 중입니다.');};
 
-/* ─ 채점 프롬프트 모달 ─ */
-const SCORING_PROMPT_PATH='adminConfig/interview/scoringPrompt';
+window.runAiPick=async()=>{
+  const candidates=filteredStudents().filter(s=>s.charId&&s.answers&&Object.values(s.answers).some(v=>v&&v.trim()));
+  if(!candidates.length){alert('픽할 답변이 없습니다.');return;}
+  const btn=document.getElementById('aiPickBtn');
+  btn.disabled=true; btn.textContent='✨ 분석 중…';
+  let criteria=DEFAULT_PICK_CRITERIA;
+  try{const snap=await get(ref(rtdb,AI_PICK_CRITERIA_PATH)); if(snap.exists()&&snap.val().trim())criteria=snap.val();}catch(e){}
+  const postsText=candidates.map((s,i)=>{
+    const char=CONTENT.characters.find(c=>c.id===s.charId);
+    const qs=char?.questions||[];
+    const answers=s.answers||{};
+    const lines=[`역할: ${char?char.name:'(미지정)'} (${char?char.role:''})`];
+    qs.forEach((q,qi)=>{lines.push(`Q${qi+1}. ${q} → 답변: ${(answers[qi]||'').trim()||'(미작성)'}`);});
+    if(s.deepQuestion)lines.push(`심화 질문: ${s.deepQuestion.trim()}`);
+    return `[${i+1}] ${lines.join(' / ')}`;
+  }).join('\n');
+  const prompt=`당신은 중학교 역사 수업 보조 교사입니다.
+아래는 "조선의 기틀을 만든 자들" 활동에서 학생들이 조선 전기 역사 인물을 가상 인터뷰한 답변 목록입니다.
 
-window.openScoringModal=async()=>{
-  const backdrop=document.getElementById('scoring-modal-backdrop');
-  const ta=document.getElementById('scoring-prompt-textarea');
-  const msg=document.getElementById('scoring-modal-msg');
+다음 기준으로 우수한 답변 번호를 선정해주세요:
+${criteria}
+
+답변 목록:
+${postsText}
+
+응답: JSON 배열만 출력. 예) [1, 3, 7]
+픽할 번호 목록 (없으면 []):`;
+  try{
+    const res=await fetch(CLAUDE_PROXY_URL,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:512,messages:[{role:'user',content:prompt}]})
+    });
+    if(!res.ok)throw new Error(`API ${res.status}`);
+    const data=await res.json();
+    let raw=(data.content?.[0]?.text||'[]').replace(/```json|```/g,'').trim();
+    const s=raw.indexOf('['), e=raw.indexOf(']', s);
+    if(s!==-1&&e!==-1)raw=raw.slice(s,e+1);
+    const nums=JSON.parse(raw);
+    if(!Array.isArray(nums)||!nums.length){alert('AI가 픽할 답변을 찾지 못했습니다.');return;}
+    const batch=writeBatch(db);
+    nums.forEach(n=>{
+      const cand=candidates[n-1];
+      if(cand)batch.update(doc(db,'interview_joseon_answers',cand.studentId),{picked:true});
+    });
+    await batch.commit();
+    alert(`✨ AI가 ${nums.length}명의 답변을 픽했습니다.`);
+  }catch(e){
+    alert('AI 픽 실패: '+e.message);
+  }finally{
+    btn.disabled=false; btn.textContent='✨ AI 픽';
+  }
+};
+
+/* ─ AI 설정 모달 (채점 프롬프트 + AI 픽 기준) ─ */
+window.openSettingsModal=async()=>{
+  const backdrop=document.getElementById('settings-modal-backdrop');
+  const scoringTa=document.getElementById('scoring-prompt-textarea');
+  const pickTa=document.getElementById('ai-pick-criteria-textarea');
+  const msg=document.getElementById('settings-modal-msg');
   msg.textContent='불러오는 중…'; msg.style.color='var(--hi-text-muted)';
   backdrop.classList.add('open');
   try{
-    const snap=await get(ref(rtdb,SCORING_PROMPT_PATH));
-    ta.value=snap.exists()?snap.val():'';
+    const [scoringSnap,pickSnap]=await Promise.all([
+      get(ref(rtdb,SCORING_PROMPT_PATH)),
+      get(ref(rtdb,AI_PICK_CRITERIA_PATH))
+    ]);
+    scoringTa.value=scoringSnap.exists()?scoringSnap.val():'';
+    pickTa.value=pickSnap.exists()?pickSnap.val():DEFAULT_PICK_CRITERIA;
     msg.textContent='';
   }catch(e){msg.textContent='불러오기 실패'; msg.style.color='var(--hi-negative)';}
 };
-window.closeScoringModal=()=>{
-  document.getElementById('scoring-modal-backdrop').classList.remove('open');
-  document.getElementById('scoring-modal-msg').textContent='';
+window.closeSettingsModal=()=>{
+  document.getElementById('settings-modal-backdrop').classList.remove('open');
+  document.getElementById('settings-modal-msg').textContent='';
 };
-window.saveScoringPrompt=async()=>{
-  const prompt=(document.getElementById('scoring-prompt-textarea').value||'').trim();
-  const msg=document.getElementById('scoring-modal-msg');
-  if(!prompt){msg.style.color='var(--hi-negative)'; msg.textContent='프롬프트를 입력해주세요.'; return;}
+window.switchSettingsTab=(tab,btn)=>{
+  document.querySelectorAll('#settings-modal-backdrop .modal-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('settings-panel-scoring').style.display=tab==='scoring'?'':'none';
+  document.getElementById('settings-panel-pick').style.display=tab==='pick'?'':'none';
+};
+window.saveSettings=async()=>{
+  const scoringPrompt=(document.getElementById('scoring-prompt-textarea').value||'').trim();
+  const pickCriteria=(document.getElementById('ai-pick-criteria-textarea').value||'').trim();
+  const msg=document.getElementById('settings-modal-msg');
+  if(!scoringPrompt){msg.style.color='var(--hi-negative)'; msg.textContent='채점 프롬프트를 입력해주세요.'; return;}
+  if(!pickCriteria){msg.style.color='var(--hi-negative)'; msg.textContent='AI 픽 기준을 입력해주세요.'; return;}
   try{
-    await set(ref(rtdb,SCORING_PROMPT_PATH),prompt);
+    await Promise.all([
+      set(ref(rtdb,SCORING_PROMPT_PATH),scoringPrompt),
+      set(ref(rtdb,AI_PICK_CRITERIA_PATH),pickCriteria)
+    ]);
     msg.style.color='var(--hi-positive)'; msg.textContent='저장되었습니다.';
-    setTimeout(closeScoringModal,900);
+    setTimeout(closeSettingsModal,900);
   }catch(e){msg.style.color='var(--hi-negative)'; msg.textContent='저장 실패: '+e.message;}
 };
 
@@ -779,16 +853,26 @@ window.setAnswerSort=(s)=>{
 function escHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 </script>
 
-<!-- 채점 프롬프트 모달 -->
-<div class="scoring-modal-backdrop" id="scoring-modal-backdrop" onclick="if(event.target===this)closeScoringModal()">
+<!-- AI 설정 모달 -->
+<div class="scoring-modal-backdrop" id="settings-modal-backdrop" onclick="if(event.target===this)closeSettingsModal()">
   <div class="scoring-modal">
-    <div class="scoring-modal-title">채점 프롬프트 설정</div>
-    <p class="scoring-modal-desc">Claude가 학생 답변을 채점할 때 사용할 지침입니다.<br><code>{content}</code> 위치에 학생의 Q&amp;A 답변이 삽입됩니다. 응답은 <code>pass</code> 또는 <code>fail</code>로만 하도록 지시해 주세요.</p>
-    <textarea class="scoring-modal-textarea" id="scoring-prompt-textarea" placeholder="예) 다음 학생의 인터뷰 답변을 읽고, 역사적 근거가 충분하면 pass, 아니면 fail로만 답하세요.&#10;&#10;{content}"></textarea>
-    <div class="scoring-modal-msg" id="scoring-modal-msg"></div>
+    <div class="scoring-modal-title">AI 설정</div>
+    <div class="modal-tabs" style="margin-bottom:14px;">
+      <button class="modal-tab active" onclick="switchSettingsTab('scoring', this)">채점 프롬프트</button>
+      <button class="modal-tab" onclick="switchSettingsTab('pick', this)">AI 픽 기준</button>
+    </div>
+    <div id="settings-panel-scoring">
+      <p class="scoring-modal-desc">Claude가 학생 답변을 채점할 때 사용할 지침입니다.<br><code>{content}</code> 위치에 학생의 Q&amp;A 답변이 삽입됩니다. 응답은 <code>pass</code> 또는 <code>fail</code>로만 하도록 지시해 주세요.</p>
+      <textarea class="scoring-modal-textarea" id="scoring-prompt-textarea" placeholder="예) 다음 학생의 인터뷰 답변을 읽고, 역사적 근거가 충분하면 pass, 아니면 fail로만 답하세요.&#10;&#10;{content}"></textarea>
+    </div>
+    <div id="settings-panel-pick" style="display:none;">
+      <p class="scoring-modal-desc">✨ AI 픽이 우수한 답변을 고를 때 사용할 기준입니다. 한 줄에 기준 하나씩 자유롭게 작성하세요.</p>
+      <textarea class="scoring-modal-textarea" id="ai-pick-criteria-textarea" placeholder="예)&#10;- 역사적 근거가 풍부한 답변&#10;- 전체의 20~30% 내외 선정"></textarea>
+    </div>
+    <div class="scoring-modal-msg" id="settings-modal-msg"></div>
     <div class="scoring-modal-footer">
-      <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="closeScoringModal()">취소</button>
-      <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="saveScoringPrompt()">저장</button>
+      <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="closeSettingsModal()">취소</button>
+      <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="saveSettings()">저장</button>
     </div>
   </div>
 </div>
