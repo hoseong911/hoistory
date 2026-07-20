@@ -491,8 +491,8 @@
         <div class="sort-box">
           <button class="sort-btn active" id="sortNewest" onclick="setResultSort('newest')">최신순</button>
           <button class="sort-btn" id="sortSid" onclick="setResultSort('sid')">학번순</button>
-          <button class="sort-btn" id="sortPick" onclick="setResultSort('pick')">픽 모아보기</button>
         </div>
+        <button class="filter-toggle" id="resultPickOnlyBtn" onclick="toggleResultPickOnly()">픽 모아보기</button>
       </div>
 
       <!-- 결과 리스트 -->
@@ -576,6 +576,7 @@ let allStudents = [];      // [{studentId, name}]
 let studentMap = {};       // sid → name
 let classTab = 'all';      // 'all' or 1~6
 let resultSort = 'newest'; // 'sid' | 'newest'
+let resultPickOnly = false;
 const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
 
 /* ===== 유틸 ===== */
@@ -681,7 +682,11 @@ window.setResultSort = (sort) => {
   resultSort = sort;
   document.getElementById('sortNewest').classList.toggle('active', sort === 'newest');
   document.getElementById('sortSid').classList.toggle('active', sort === 'sid');
-  document.getElementById('sortPick').classList.toggle('active', sort === 'pick');
+  renderClass();
+};
+window.toggleResultPickOnly = () => {
+  resultPickOnly = !resultPickOnly;
+  document.getElementById('resultPickOnlyBtn').classList.toggle('active', resultPickOnly);
   renderClass();
 };
 
@@ -754,14 +759,14 @@ function renderStats(results) {
 function renderResultList(results) {
   const container = document.getElementById('resultList');
 
-  const pickBase = resultSort === 'pick' ? results.filter(r => r.pick) : results;
+  const pickBase = resultPickOnly ? results.filter(r => r.pick) : results;
 
   if (!pickBase.length) {
-    container.innerHTML = `<div class="empty"><div class="empty-icon">📜</div>${resultSort==='pick' ? '픽한 결과가 없습니다' : (classTab==='all'?'아직 플레이 결과가 없습니다':'이 반의 플레이 결과가 없습니다')}</div>`;
+    container.innerHTML = `<div class="empty"><div class="empty-icon">📜</div>${resultPickOnly ? '픽한 결과가 없습니다' : (classTab==='all'?'아직 플레이 결과가 없습니다':'이 반의 플레이 결과가 없습니다')}</div>`;
     return;
   }
 
-  // 정렬: 최신순 / 학번순 / 픽 모아보기(최신순 기준)
+  // 정렬: 최신순 / 학번순 (픽 모아보기는 별도 토글로 분리)
   let sorted;
   if (resultSort === 'sid') {
     sorted = [...pickBase].sort((a, b) => {

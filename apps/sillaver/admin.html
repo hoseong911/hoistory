@@ -122,8 +122,8 @@
         <div class="sort-box">
           <button class="sort-btn active" id="classSortNewest" onclick="setClassSort('newest', this)">최신순</button>
           <button class="sort-btn" id="classSortId" onclick="setClassSort('id', this)">학번순</button>
-          <button class="sort-btn" id="classSortPick" onclick="setClassSort('pick', this)">픽 모아보기</button>
         </div>
+        <button class="filter-toggle" id="classPickOnlyBtn" onclick="toggleClassPickOnly()">픽 모아보기</button>
       </div>
 
       <div id="submitList">
@@ -198,7 +198,7 @@ const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctio
 const NEWS_CATS = ['정치','중앙제도','지방행정','군사','토지'];
 
 let allDocs = [], studentMap = {}, studentList = [];
-let classTab = 'all', classSort = 'newest';
+let classTab = 'all', classSort = 'newest', classPickOnly = false;
 let guidesLoaded = false;
 
 const SCORING_PROMPT_PATH = 'adminConfig/sillaver/scoringPrompt';
@@ -288,7 +288,11 @@ window.setClassSort = (sort) => {
   classSort = sort;
   document.getElementById('classSortNewest').classList.toggle('active', sort === 'newest');
   document.getElementById('classSortId').classList.toggle('active', sort === 'id');
-  document.getElementById('classSortPick').classList.toggle('active', sort === 'pick');
+  renderSubmissions();
+};
+window.toggleClassPickOnly = () => {
+  classPickOnly = !classPickOnly;
+  document.getElementById('classPickOnlyBtn').classList.toggle('active', classPickOnly);
   renderSubmissions();
 };
 
@@ -314,12 +318,12 @@ function renderSubmissions() {
   document.getElementById('stFail').textContent = total ? fail : '-';
   document.getElementById('stPick').textContent = newsPickCount + adPickCount;
 
-  const pickBase = classSort === 'pick' ? classDocs.filter(docHasPick) : classDocs;
+  const pickBase = classPickOnly ? classDocs.filter(docHasPick) : classDocs;
   const sorted = classSort === 'id'
     ? [...pickBase].sort((a,b) => String(a.studentId).localeCompare(String(b.studentId)))
     : [...pickBase].sort((a,b) => (b.timestamp?.toMillis?.()||0)-(a.timestamp?.toMillis?.()||0));
   const list = document.getElementById('submitList');
-  if (!sorted.length) { list.innerHTML = `<div class="empty-state"><div class="icon">📝</div>${classSort==='pick' ? '픽한 기록이 없습니다.' : '제출된 기록이 없습니다.'}</div>`; return; }
+  if (!sorted.length) { list.innerHTML = `<div class="empty-state"><div class="icon">📝</div>${classPickOnly ? '픽한 기록이 없습니다.' : '제출된 기록이 없습니다.'}</div>`; return; }
   list.innerHTML = sorted.map(buildCard).join('');
 }
 

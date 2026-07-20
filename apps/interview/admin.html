@@ -22,6 +22,13 @@
   --iv-pick: #b18cf2;
   --iv-pick-l: rgba(177,140,242,0.1);
 }
+/* ANSWER 카드의 인물 배지 색상 (인물 목록이 관리자 편집으로 가변이라 순서 기반 순환 팔레트) */
+.std-badge.char-c0 { background:#dbeafe; border-color:#3b82f6; color:#1d4ed8; }
+.std-badge.char-c1 { background:#fee2e2; border-color:#ef4444; color:#b91c1c; }
+.std-badge.char-c2 { background:#dcfce7; border-color:#22c55e; color:#15803d; }
+.std-badge.char-c3 { background:#fef3c7; border-color:#d97706; color:#92400e; }
+.std-badge.char-c4 { background:#ede9fe; border-color:#8b5cf6; color:#5b21b6; }
+.std-badge.char-c5 { background:#cffafe; border-color:#06b6d4; color:#0e7490; }
 /* ── 섹션 카드 ── */
 .section-card { background: var(--hi-bg-surface); border-radius: 14px; padding: 22px; margin-bottom: 16px; border: 1px solid var(--hi-border); }
 .section-title { font-weight: 700; font-size: 15px; color: var(--hi-text); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
@@ -215,8 +222,8 @@
         <div class="sort-box">
           <button class="sort-btn active" id="sortNewest" onclick="setAnswerSort('newest')">최신순</button>
           <button class="sort-btn" id="sortSid" onclick="setAnswerSort('sid')">학번순</button>
-          <button class="sort-btn" id="sortPick" onclick="setAnswerSort('pick')">픽 모아보기</button>
         </div>
+        <button class="filter-toggle" id="answerPickOnlyBtn" onclick="toggleAnswerPickOnly()">픽 모아보기</button>
       </div>
       <div class="loading-bar" id="loading-bar"></div>
       <div class="student-list" id="student-list"></div>
@@ -257,6 +264,7 @@ let roster=[];
 let students=[];
 let currentFilter='전체';
 let answerSort='newest';
+let answerPickOnly=false;
 let unsub=null;
 const CLAUDE_PROXY_URL='https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
 const isEmbedded=window.self!==window.top;
@@ -657,7 +665,7 @@ function statusLabel(status){
 
 function renderStudentList(){
   let list=filteredStudents();
-  if(answerSort==='pick') list=list.filter(s=>s.picked);
+  if(answerPickOnly) list=list.filter(s=>s.picked);
   // sort
   if(answerSort==='sid'){
     list=[...list].sort((a,b)=>String(a.studentId||'').localeCompare(String(b.studentId||'')));
@@ -669,9 +677,10 @@ function renderStudentList(){
     });
   }
   const el=document.getElementById('student-list');
-  if(!list.length){el.innerHTML=`<div class="no-data">${answerSort==='pick'?'픽한 학생이 없습니다.':'아직 제출한 학생이 없습니다.'}</div>`;return;}
+  if(!list.length){el.innerHTML=`<div class="no-data">${answerPickOnly?'픽한 학생이 없습니다.':'아직 제출한 학생이 없습니다.'}</div>`;return;}
   el.innerHTML=list.map((s,i)=>{
-    const char=CONTENT.characters.find(c=>c.id===s.charId);
+    const charIdx=CONTENT.characters.findIndex(c=>c.id===s.charId);
+    const char=charIdx!==-1?CONTENT.characters[charIdx]:undefined;
     const qs=char?.questions||[];
     const answers=s.answers||{};
     const status=s.status||'pending';
@@ -692,7 +701,7 @@ function renderStudentList(){
           <div class="std-name">${escHtml(s.name||'')}</div>
         </div>
         <div class="std-content">
-          ${char?`<div class="std-badge-row"><span class="std-badge">${escHtml(char.emoji||'')} ${escHtml(s.charName||s.charId||'')}</span></div>`:''}
+          ${char?`<div class="std-badge-row"><span class="std-badge char-c${charIdx%6}">${escHtml(char.emoji||'')} ${escHtml(s.charName||s.charId||'')}</span></div>`:''}
           <div class="std-content-main">${firstAnswer?escHtml(firstAnswer):'<span style="color:var(--hi-text-muted)">미제출</span>'}</div>
           <div class="std-content-sub">${statusLabel(status)}${picked?' · PICK':''}${formatSubmitTime(s)?` · ${formatSubmitTime(s)}`:''}</div>
         </div>
@@ -847,7 +856,11 @@ window.setAnswerSort=(s)=>{
   answerSort=s;
   document.getElementById('sortNewest').classList.toggle('active',s==='newest');
   document.getElementById('sortSid').classList.toggle('active',s==='sid');
-  document.getElementById('sortPick').classList.toggle('active',s==='pick');
+  renderStudentList();
+};
+window.toggleAnswerPickOnly=()=>{
+  answerPickOnly=!answerPickOnly;
+  document.getElementById('answerPickOnlyBtn').classList.toggle('active',answerPickOnly);
   renderStudentList();
 };
 
