@@ -102,6 +102,50 @@
     /* display:flex가 hidden 속성의 기본 display:none을 덮어써서, 안 보이는 상태에서도
        화면 전체를 뒤덮은 채 클릭을 다 가로채고 있었다(빈칸 클릭이 안 먹던 원인). */
     #load-error[hidden] { display: none; }
+
+    /* ════ 모바일: 슬라이드 연속 스크롤 ════
+       세로 화면에서 16:9 슬라이드를 폭 기준으로만 줄이면 위쪽에만 작게 나오고
+       아래가 빈 화면으로 남는 문제가 있어, 좁은 화면에서는 한 장씩 미는 방식 대신
+       슬라이드를 세로로 이어붙여 스크롤로 넘기게 한다. */
+    body.mobile-scroll {
+      height: auto;
+      min-height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+    body.mobile-scroll #slides {
+      position: static;
+      width: 100%;
+      height: auto;
+      overflow: visible;
+      transform: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      padding: 14px 10px 90px;
+      box-sizing: border-box;
+    }
+    .mobile-slide-frame {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1920 / 1080;
+      overflow: hidden;
+      border-radius: 14px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.14);
+      flex-shrink: 0;
+    }
+    body.mobile-scroll .slide,
+    body.mobile-scroll .slide-cover {
+      position: absolute;
+      top: 0; left: 0;
+      width: 1920px;
+      height: 1080px;
+      transform: none;
+      transform-origin: top left;
+      transition: none;
+      will-change: auto;
+    }
   </style>
 </head>
 <body>
@@ -219,6 +263,21 @@ async function init() {
   });
   SlideRender.wireLightbox(container);
 
+  /* ── 모바일 판별: 좁은 화면은 push 전환 대신 슬라이드를 세로로 이어붙여
+     스크롤로 넘기는 방식을 쓴다 ── */
+  const isMobileLayout = window.innerWidth <= 820;
+  if (isMobileLayout) {
+    document.body.classList.add('mobile-scroll');
+    /* 각 슬라이드를 16:9 프레임으로 감싸, 프레임 폭에 맞춰 scale만 적용한다
+       (translateY 전환 없이 문서 흐름대로 쌓여 자연스럽게 스크롤된다). */
+    Array.from(container.querySelectorAll('.slide')).forEach(s => {
+      const frame = document.createElement('div');
+      frame.className = 'mobile-slide-frame';
+      s.parentNode.insertBefore(frame, s);
+      frame.appendChild(s);
+    });
+  }
+
   /* ── 슬라이드 제어 ── */
   const slidesEl  = container;
   const backBtn   = document.getElementById('back-btn');
@@ -265,6 +324,14 @@ async function init() {
     modeBadge.hidden = false;
     counterEl.hidden = false;
 
+    if (isMobileLayout) {
+      currentSlideIdx = 0;
+      updateCounter();
+      rescaleMobileSlides();
+      setupMobileScrollTracking();
+      return;
+    }
+
     /* 모든 슬라이드를 아래쪽 대기 위치로 초기화, 첫 슬라이드만 표시 */
     const slides = slidesEl.querySelectorAll('.slide');
     slides.forEach((s, i) => {
@@ -276,7 +343,7 @@ async function init() {
     updateCounter();
   }
 
-  /* ── 밀어내기 전환 (PPT Push 방식) ── */
+  /* ── 밀어내기 전환 (PPT Push 방식, 데스크톱 전용) ── */
   let transitioning = false;
 
   function scrollToSlide(targetIdx) {
@@ -305,32 +372,62 @@ async function init() {
     setTimeout(() => { transitioning = false; }, 580);
   }
 
-  /* ── 키보드·마우스휠 탐색 ── */
-  document.addEventListener('keydown', e => {
-    if (slidesEl.hidden) return;
-    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); scrollToSlide(currentIdx() + 1); }
-    else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); scrollToSlide(currentIdx() - 1); }
-  });
+  /* ── 키보드·마우스휠·터치 탐색 (데스크톱 push 전환 전용, 모바일은 네이티브 스크롤 사용) ── */
+  if (!isMobileLayout) {
+    document.addEventListener('keydown', e => {
+      if (slidesEl.hidden) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); scrollToSlide(currentIdx() + 1); }
+      else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); scrollToSlide(currentIdx() - 1); }
+    });
 
-  slidesEl.addEventListener('wheel', e => {
-    e.preventDefault();
-    scrollToSlide(currentIdx() + (e.deltaY > 0 ? 1 : -1));
-  }, { passive: false });
+    slidesEl.addEventListener('wheel', e => {
+      e.preventDefault();
+      scrollToSlide(currentIdx() + (e.deltaY > 0 ? 1 : -1));
+    }, { passive: false });
 
-  /* ── 터치 스와이프 ── */
-  let touchStartY = 0;
-  slidesEl.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; }, { passive: true });
-  slidesEl.addEventListener('touchend', e => {
-    const diff = touchStartY - e.changedTouches[0].clientY;
-    if (Math.abs(diff) > 40) scrollToSlide(currentIdx() + (diff > 0 ? 1 : -1));
-  }, { passive: true });
+    let touchStartY = 0;
+    slidesEl.addEventListener('touchstart', e => { touchStartY = e.touches[0].clientY; }, { passive: true });
+    slidesEl.addEventListener('touchend', e => {
+      const diff = touchStartY - e.changedTouches[0].clientY;
+      if (Math.abs(diff) > 40) scrollToSlide(currentIdx() + (diff > 0 ? 1 : -1));
+    }, { passive: true });
+  }
 
   /* ── 해상도 대응 scale ── */
   function rescaleSlides() {
     slidesEl.style.transform = `scale(${window.innerWidth / 1920})`;
   }
-  window.addEventListener('resize', rescaleSlides);
-  rescaleSlides();
+
+  /* 모바일: 프레임 폭 기준으로 슬라이드 각각을 개별 scale */
+  function rescaleMobileSlides() {
+    const frames = slidesEl.querySelectorAll('.mobile-slide-frame');
+    if (!frames.length) return;
+    const scale = frames[0].clientWidth / 1920;
+    frames.forEach(f => {
+      const inner = f.firstElementChild;
+      if (inner) inner.style.transform = `scale(${scale})`;
+    });
+  }
+
+  /* 모바일: 화면에 절반 이상 보이는 슬라이드를 기준으로 카운터 갱신 */
+  function setupMobileScrollTracking() {
+    const frames = Array.from(slidesEl.querySelectorAll('.mobile-slide-frame'));
+    if (!frames.length || !('IntersectionObserver' in window)) return;
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(en => {
+        if (!en.isIntersecting) return;
+        const idx = frames.indexOf(en.target);
+        if (idx !== -1) { currentSlideIdx = idx; updateCounter(); }
+      });
+    }, { threshold: 0.5 });
+    frames.forEach(f => io.observe(f));
+  }
+
+  window.addEventListener('resize', () => {
+    if (isMobileLayout) rescaleMobileSlides();
+    else rescaleSlides();
+  });
+  if (!isMobileLayout) rescaleSlides();
 
   /* ── URL ?mode= 파라미터로 시작 (허브에서 항상 전달, 없으면 완성형 기본) ── */
   const modeParam = new URLSearchParams(location.search).get('mode');

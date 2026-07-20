@@ -576,8 +576,15 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
       <div class="nav-item nav-dark" data-nav="students">
         <span class="nav-dot" style="background:var(--charcoal)"></span>학생 관리
       </div>
-      <div class="nav-item nav-dark" data-nav="settings">
+      <div class="nav-item nav-dark has-sub" data-nav="settings">
         <span class="nav-dot" style="background:var(--charcoal)"></span>설정
+        <span class="nav-arrow">›</span>
+      </div>
+      <div class="nav-sub" id="subnav-settings">
+        <div class="nav-sub-item" data-subnav="settings-general">일반</div>
+        <div class="nav-sub-item" data-subnav="settings-student">학생 화면</div>
+        <div class="nav-sub-item" data-subnav="settings-ops">운영</div>
+        <div class="nav-sub-item" data-subnav="settings-data">데이터</div>
       </div>
     </nav>
 
@@ -1143,13 +1150,104 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
     </div>
   </div>
 
-  <!-- 설정 -->
-  <div class="adm-panel" id="panel-settings">
-    <div class="panel-top"><div class="panel-title">설정</div></div>
+  <!-- 설정 · 일반 -->
+  <div class="adm-panel" id="panel-settings-general">
+    <div class="panel-top"><div class="panel-title">설정 · 일반</div></div>
     <div class="stu-card">
       <div class="stu-card-head">Claude API 키</div>
       <div class="stu-card-body">
-        <p style="font-size:14px;color:var(--sub);margin-bottom:16px;line-height:1.6">생각 체크 AI 채점 및 각 웹앱 어드민의 채점하기 기능은 서버 프록시(Cloud Function)를 통해 Anthropic을 호출합니다. 키는 Firebase Secret Manager에서만 관리되며, 여기서 입력·조회할 수 없습니다.</p>
+        <p style="font-size:14px;color:var(--sub);line-height:1.6">생각 체크 AI 채점 및 각 웹앱 어드민의 채점하기 기능은 서버 프록시(Cloud Function)를 통해 Anthropic을 호출합니다. 키는 Firebase Secret Manager에서만 관리되며, 여기서 입력·조회할 수 없습니다.</p>
+      </div>
+    </div>
+    <div class="stu-card">
+      <div class="stu-card-head" style="display:flex;justify-content:space-between;align-items:center">
+        <span>학생 명단 현황</span>
+        <button class="stu-btn" style="background:var(--surface);color:var(--text)" onclick="stSettingsRefreshRoster()">새로고침</button>
+      </div>
+      <div class="stu-card-body">
+        <p style="font-size:14px;color:var(--text);margin-bottom:6px">등록된 학생 <strong id="st-roster-count">-</strong>명</p>
+        <p style="font-size:12px;color:var(--sub);line-height:1.6">학생 화면(LMS)의 명단은 접속할 때마다 이 목록으로 자동 갱신되므로 별도 캐시 초기화가 필요하지 않습니다. 반 편성을 바꾼 뒤 여기서 새로고침해 반영 여부를 바로 확인하세요.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 설정 · 학생 화면 -->
+  <div class="adm-panel" id="panel-settings-student">
+    <div class="panel-top"><div class="panel-title">설정 · 학생 화면</div></div>
+
+    <div class="stu-card">
+      <div class="stu-card-head" style="display:flex;justify-content:space-between;align-items:center">
+        <span>공지사항 배너</span>
+        <div class="toggle-switch" id="st-ann-toggle" onclick="stSettingsToggleAnnouncement()"></div>
+      </div>
+      <div class="stu-card-body">
+        <div class="form-group">
+          <label class="form-label">학생 허브 상단에 표시할 문구</label>
+          <textarea class="form-textarea" id="st-ann-text" style="height:80px" placeholder="예) 7월 21일(화) 역사 수행평가는 개념 체크 3~5강 범위입니다."></textarea>
+        </div>
+        <button class="add-btn" onclick="stSettingsSaveAnnouncement()">저장</button>
+        <p style="font-size:12px;color:var(--sub);margin-top:10px;line-height:1.6">켜두면 학생이 LMS에 로그인할 때마다 허브 화면 상단에 이 문구가 노출됩니다.</p>
+      </div>
+    </div>
+
+    <div class="stu-card">
+      <div class="stu-card-head">사이드바 메뉴 노출</div>
+      <div class="stu-card-body">
+        <div id="st-menu-list" style="display:flex;flex-direction:column;gap:14px"></div>
+        <p style="font-size:12px;color:var(--sub);margin-top:14px;line-height:1.6">끄면 학생 허브 화면에서 해당 메뉴가 통째로 숨겨집니다. 콘텐츠 준비가 안 된 영역을 임시로 가릴 때 사용하세요.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 설정 · 운영 -->
+  <div class="adm-panel" id="panel-settings-ops">
+    <div class="panel-top"><div class="panel-title">설정 · 운영</div></div>
+
+    <div class="stu-card">
+      <div class="stu-card-head" style="display:flex;justify-content:space-between;align-items:center">
+        <span>접속 제한 (점검 모드)</span>
+        <div class="toggle-switch" id="st-lock-toggle" onclick="stSettingsToggleLockdown()"></div>
+      </div>
+      <div class="stu-card-body">
+        <div class="form-group">
+          <label class="form-label">학생에게 보여줄 안내 문구</label>
+          <textarea class="form-textarea" id="st-lock-text" style="height:70px" placeholder="예) 시험 준비로 오늘 오후 3시까지 LMS 접속을 잠시 막아둘게요."></textarea>
+        </div>
+        <button class="add-btn" onclick="stSettingsSaveLockdown()">저장</button>
+        <p style="font-size:12px;color:var(--sub);margin-top:10px;line-height:1.6">켜면 이미 접속 중인 학생을 포함해 모든 학생 화면이 즉시 안내 문구로 가려집니다. 시험 등으로 전체 접속을 잠깐 막아야 할 때만 사용하세요.</p>
+      </div>
+    </div>
+
+    <div class="stu-card">
+      <div class="stu-card-head">학기 초기화 마법사</div>
+      <div class="stu-card-body">
+        <p style="font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:14px">선택한 항목의 기록을 모두 삭제합니다. 강의 콘텐츠·미션 카드·학생 명단은 삭제되지 않습니다. 삭제 전 반드시 문서 수를 먼저 확인하세요.</p>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text)"><input type="checkbox" id="st-reset-grade" checked> 성적 기록 (grade_records)</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text)"><input type="checkbox" id="st-reset-think" checked> 생각 체크 제출 기록 (think_submissions)</label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:14px;color:var(--text)"><input type="checkbox" id="st-reset-publish" checked> 성적 반영 상태 (grade_publish_status)</label>
+        </div>
+        <button class="stu-btn" style="background:var(--surface);color:var(--text);padding:8px 16px;font-size:13px" onclick="stSettingsPreviewReset()">문서 수 확인</button>
+        <p id="st-reset-preview" style="font-size:13px;color:var(--text);margin-top:10px;min-height:18px"></p>
+
+        <div class="form-group" style="margin-top:16px">
+          <label class="form-label">실행하려면 "초기화"를 입력하세요</label>
+          <input type="text" class="form-input" id="st-reset-confirm" placeholder="초기화" oninput="stSettingsCheckResetConfirm()">
+        </div>
+        <button class="stu-btn stu-btn-del" style="padding:10px 20px;font-size:14px" id="st-reset-run-btn" disabled onclick="stSettingsRunReset()">선택한 기록 영구 삭제</button>
+        <p id="st-reset-result" style="font-size:13px;color:var(--sub);margin-top:10px;line-height:1.6"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 설정 · 데이터 -->
+  <div class="adm-panel" id="panel-settings-data">
+    <div class="panel-top"><div class="panel-title">설정 · 데이터</div></div>
+    <div class="stu-card">
+      <div class="stu-card-head">데이터 내보내기</div>
+      <div class="stu-card-body">
+        <p style="font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:14px">전체 강의의 성적 기록(grade_records)을 CSV 파일로 내려받습니다. 엑셀에서 바로 열어볼 수 있습니다.</p>
+        <button class="add-btn" onclick="stSettingsExportGradesCsv()">성적 기록 CSV 다운로드</button>
       </div>
     </div>
   </div>
@@ -1368,7 +1466,8 @@ function initSidebar() {
 const SUBNAV_MAP = {
   concept: ['concept-content', 'concept-design'],
   think: ['think-question', 'think-answer'],
-  grade: ['grade-check', 'grade-grade', 'grade-setting']
+  grade: ['grade-check', 'grade-grade', 'grade-setting'],
+  settings: ['settings-general', 'settings-student', 'settings-ops', 'settings-data']
 };
 
 function switchNav(nav) {
@@ -4255,6 +4354,201 @@ initAdmin();
     stuUpdateCount();
     stuRenderTable();
   });
+}
+
+/* ════ 설정 ════ */
+{
+  let annData  = { enabled: false, text: '' };
+  let lockData = { enabled: false, message: '' };
+  let menuVis  = { concept: true, mission: true, think: true, grade: true, contents: true };
+
+  const MENU_LABELS = [
+    { key: 'concept',  label: '개념 체크' },
+    { key: 'mission',  label: '미션 체크' },
+    { key: 'think',    label: '생각 체크' },
+    { key: 'grade',    label: '성적 확인' },
+    { key: 'contents', label: '각종 콘텐츠' },
+  ];
+
+  function stRenderMenuList() {
+    const wrap = document.getElementById('st-menu-list');
+    if (!wrap) return;
+    wrap.innerHTML = MENU_LABELS.map(m => `
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:14px;color:var(--text);font-weight:600">${m.label}</span>
+        <div class="toggle-switch${menuVis[m.key] !== false ? ' on' : ''}" data-menu="${m.key}"></div>
+      </div>
+    `).join('');
+    wrap.querySelectorAll('.toggle-switch').forEach(sw => {
+      sw.addEventListener('click', () => stToggleMenuVisibility(sw.dataset.menu));
+    });
+  }
+
+  async function stToggleMenuVisibility(key) {
+    menuVis[key] = menuVis[key] === false ? true : false;
+    stRenderMenuList();
+    try { await setDoc(doc(db, 'settings', 'menu_visibility'), menuVis, { merge: true }); } catch(e) {}
+  }
+
+  function stApplyAnnouncementToggleUI() {
+    const tog = document.getElementById('st-ann-toggle');
+    if (tog) tog.classList.toggle('on', !!annData.enabled);
+  }
+  function stApplyLockdownToggleUI() {
+    const tog = document.getElementById('st-lock-toggle');
+    if (tog) tog.classList.toggle('on', !!lockData.enabled);
+  }
+
+  window.stSettingsToggleAnnouncement = async function() {
+    annData.enabled = !annData.enabled;
+    stApplyAnnouncementToggleUI();
+    try { await setDoc(doc(db, 'settings', 'announcement'), { enabled: annData.enabled, text: annData.text || '' }); } catch(e) {}
+  };
+
+  window.stSettingsSaveAnnouncement = async function() {
+    annData.text = document.getElementById('st-ann-text').value.trim();
+    try {
+      await setDoc(doc(db, 'settings', 'announcement'), { enabled: annData.enabled, text: annData.text });
+      alert('저장되었습니다.');
+    } catch(e) { alert('저장에 실패했습니다.'); }
+  };
+
+  window.stSettingsToggleLockdown = async function() {
+    lockData.enabled = !lockData.enabled;
+    stApplyLockdownToggleUI();
+    try { await setDoc(doc(db, 'settings', 'lockdown'), { enabled: lockData.enabled, message: lockData.message || '' }); } catch(e) {}
+  };
+
+  window.stSettingsSaveLockdown = async function() {
+    lockData.message = document.getElementById('st-lock-text').value.trim();
+    try {
+      await setDoc(doc(db, 'settings', 'lockdown'), { enabled: lockData.enabled, message: lockData.message });
+      alert('저장되었습니다.');
+    } catch(e) { alert('저장에 실패했습니다.'); }
+  };
+
+  window.stSettingsRefreshRoster = async function() {
+    const el = document.getElementById('st-roster-count');
+    if (el) el.textContent = '…';
+    try {
+      const snap = await get(ref(rtdb, 'students'));
+      const data = snap.val();
+      const count = data ? Object.keys(data).length : 0;
+      if (el) el.textContent = count;
+    } catch(e) { if (el) el.textContent = '오류'; }
+  };
+
+  // ── 학기 초기화 마법사 (강의 콘텐츠·미션 카드·학생 명단은 건드리지 않는다) ──
+  const RESET_COLLECTIONS = [
+    { id: 'st-reset-grade',   name: 'grade_records' },
+    { id: 'st-reset-think',   name: 'think_submissions' },
+    { id: 'st-reset-publish', name: 'grade_publish_status' },
+  ];
+
+  function stSelectedResetCollections() {
+    return RESET_COLLECTIONS.filter(c => document.getElementById(c.id)?.checked);
+  }
+
+  window.stSettingsPreviewReset = async function() {
+    const target = stSelectedResetCollections();
+    const out = document.getElementById('st-reset-preview');
+    if (!target.length) { out.textContent = '선택된 항목이 없습니다.'; return; }
+    out.textContent = '확인 중…';
+    try {
+      const counts = await Promise.all(target.map(async c => {
+        const snap = await getDocs(collection(db, c.name));
+        return `${c.name} ${snap.size}건`;
+      }));
+      out.textContent = counts.join(' · ');
+    } catch(e) { out.textContent = '확인 중 오류가 발생했습니다.'; }
+  };
+
+  window.stSettingsCheckResetConfirm = function() {
+    const val = document.getElementById('st-reset-confirm').value.trim();
+    document.getElementById('st-reset-run-btn').disabled = (val !== '초기화');
+  };
+
+  // 문서가 많을 경우를 대비해 배치당 400건씩 끊어서 삭제한다(Firestore 배치 한도 500건).
+  window.stSettingsRunReset = async function() {
+    const target = stSelectedResetCollections();
+    const result = document.getElementById('st-reset-result');
+    if (!target.length) { result.textContent = '선택된 항목이 없습니다.'; return; }
+    if (!confirm(`${target.map(c=>c.name).join(', ')}\n위 기록을 영구 삭제합니다. 계속할까요?`)) return;
+
+    const btn = document.getElementById('st-reset-run-btn');
+    btn.disabled = true; btn.textContent = '삭제 중…';
+    let total = 0;
+    try {
+      for (const c of target) {
+        const snap = await getDocs(collection(db, c.name));
+        const docs = snap.docs;
+        for (let i = 0; i < docs.length; i += 400) {
+          const batch = writeBatch(db);
+          docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+          await batch.commit();
+        }
+        total += docs.length;
+      }
+      result.textContent = `완료: 총 ${total}건 삭제되었습니다.`;
+      document.getElementById('st-reset-preview').textContent = '';
+      document.getElementById('st-reset-confirm').value = '';
+    } catch(e) {
+      result.textContent = '삭제 중 오류가 발생했습니다. 일부만 삭제됐을 수 있습니다.';
+    } finally {
+      btn.textContent = '선택한 기록 영구 삭제';
+      btn.disabled = true;
+    }
+  };
+
+  // ── CSV 내보내기 ──
+  function stCsvEscape(v) {
+    const s = String(v ?? '');
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }
+
+  window.stSettingsExportGradesCsv = async function() {
+    try {
+      const snap = await getDocs(collection(db, 'grade_records'));
+      const rows = [['강의','학번','개념체크_달성','개념체크_기한내','미션체크_달성','미션체크_기한내','생각체크_달성','생각체크_기한내','결석','피드백']];
+      snap.docs.forEach(d => {
+        const r = d.data();
+        rows.push([
+          r.lessonKey ?? '', r.studentId ?? '',
+          r.concept?.achieved ? 'Y' : 'N', r.concept?.onTime ? 'Y' : 'N',
+          r.mission?.achieved ? 'Y' : 'N', r.mission?.onTime ? 'Y' : 'N',
+          r.think?.achieved   ? 'Y' : 'N', r.think?.onTime   ? 'Y' : 'N',
+          r.absent ? 'Y' : 'N', r.feedback ?? '',
+        ]);
+      });
+      const csv = '﻿' + rows.map(row => row.map(stCsvEscape).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `grade_records_${new Date().toISOString().slice(0,10)}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch(e) { alert('내보내기에 실패했습니다.'); }
+  };
+
+  // ── 초기 로드 ──
+  (async function stInit() {
+    try {
+      const [annSnap, lockSnap, menuSnap] = await Promise.all([
+        getDoc(doc(db, 'settings', 'announcement')),
+        getDoc(doc(db, 'settings', 'lockdown')),
+        getDoc(doc(db, 'settings', 'menu_visibility')),
+      ]);
+      if (annSnap.exists())  annData  = { enabled: !!annSnap.data().enabled,  text: annSnap.data().text || '' };
+      if (lockSnap.exists()) lockData = { enabled: !!lockSnap.data().enabled, message: lockSnap.data().message || '' };
+      if (menuSnap.exists()) menuVis  = Object.assign({}, menuVis, menuSnap.data());
+    } catch(e) {}
+    document.getElementById('st-ann-text').value  = annData.text || '';
+    document.getElementById('st-lock-text').value = lockData.message || '';
+    stApplyAnnouncementToggleUI();
+    stApplyLockdownToggleUI();
+    stRenderMenuList();
+    window.stSettingsRefreshRoster();
+  })();
 }
 
 /* ════ 생각 체크 어드민 ════ */
