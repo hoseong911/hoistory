@@ -103,6 +103,9 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 - 새 앱 만들 때 어떤 preset이 어울릴지 먼저 제안
 - 컴포넌트는 `.hi-btn` / `.hi-card` / `.hi-input` / `.hi-tab` 등 기존 클래스 사용
 - 새 클래스 만들 때도 `hi-*` 네이밍 컨벤션 따름
+- **웹앱 내 `border-left` 강조박스(왼쪽 선 강조) 사용 금지**
+  - AI가 생성한 티가 나는 대표적인 패턴. 콘텐츠 강조가 필요하면 상하 얇은 선(`border-top + border-bottom`) 또는 배경색 박스로 대체한다.
+  - 예외: 레이아웃 구조용 border(사이드바 경계, 패널 구분선 등)는 허용
 - **버튼·링크·UI 요소에 화살표(←, →, ↑, ↓, ↗, ➡️ 등) 사용 절대 금지**
   - 유일한 예외: 정렬 방향을 명시해야 하는 버튼(예: 학번 ↑ / 학번 ↓), 리스트 순서 이동(↑↓)
   - 게임 콘텐츠 내 스탯 표시(생존↑ 등)는 허용
