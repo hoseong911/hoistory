@@ -134,11 +134,9 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 
 아래 항목은 다음 세션에서 처리. "미뤄놓은 거 해줘"라고 하면 이 목록 기준으로 진행.
 
-### lms/index.html
-- 비밀번호 분실 복구 플로우 (학번+이름 재인증 후 PW 리셋)
-
 ### lms/admin.html
-- 대시보드 탭 추가 (제출률·통과율·미채점 수 한눈에 보기)
+- 대시보드 탭 추가 (제출률·통과율·미채점 수 한눈에 보기) ← 다음 세션 1순위
+- 피드백 템플릿 — 학급 기본 피드백 저장 후 일괄 적용
 - 피드백 템플릿 — 학급 기본 피드백 저장 후 일괄 적용
 
 ## 루트 admin.html — 완전 개편 예정
