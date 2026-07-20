@@ -144,8 +144,19 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 - 피드백 템플릿 — 학급 기본 피드백 저장 후 일괄 적용
 
 ### 루트 index.html
-- 카드 검색 기능 (아카이브 상단 검색 인풋)
 - 버전 태그 Firestore 동적화 (settings/meta에서 읽기)
+
+## 루트 admin.html — 완전 개편 예정
+
+현재 루트 admin.html은 이모지 피커, 대시보드 통계 부족, 허브 카드 관리 등 전반적인 리뉴얼이 필요하다.
+개편 시 건드려야 할 부분:
+- 허브 카드 아이콘 피커 → shared/icon-picker.js 교체
+- 📂 등 이모지 → SVG 교체
+- 대시보드에 LMS 통계 (미션 제출 수, 생각 체크 수 등) 추가
+- 허브 카드 일괄 잠금/해제·삭제 기능
+- LMS 어드민 바로가기 링크 추가
+- 카테고리 순서 drag-and-drop 지원
+개편 시 이 목록 기준으로 시작할 것.
 
 ---
 
