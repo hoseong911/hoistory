@@ -50,6 +50,14 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .enter-btn{width:100%;margin-top:14px;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:100px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;transition:background .2s,opacity .2s;letter-spacing:.2px}
 .enter-btn:hover:not(:disabled){background:var(--primary-deep)}
 .enter-btn:disabled{opacity:.35;cursor:not-allowed}
+.forgot-pw-btn{display:block;width:100%;text-align:center;margin-top:10px;font-size:13px;color:var(--slate);cursor:pointer;background:none;border:none;font-family:inherit;padding:4px}
+.forgot-pw-btn:hover{color:var(--primary)}
+#resetPwForm{display:none;flex-direction:column}
+.reset-pw-title{font-size:15px;font-weight:700;color:var(--ink-deep);text-align:center;margin-bottom:14px}
+.reset-pw-status{min-height:20px;font-size:13px;line-height:1.5;color:var(--slate);text-align:center;margin:6px 0}
+.reset-pw-status.err{color:var(--critical)}.reset-pw-status.ok{color:var(--accent-deep)}
+.reset-back-btn{background:none;border:none;font-family:inherit;font-size:13px;color:var(--slate);cursor:pointer;text-align:center;margin-top:10px;padding:4px}
+.reset-back-btn:hover{color:var(--primary)}
 .emoji-links{display:flex;justify-content:center;gap:28px;margin-top:20px}
 .emoji-links a{text-decoration:none;color:var(--slate);display:inline-flex;align-items:center;transition:opacity .15s}
 .emoji-links a:hover{opacity:.65}
@@ -289,6 +297,21 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
         </label>
       </div>
       <button class="enter-btn" id="enterBtn" disabled>입장하기</button>
+      <button class="forgot-pw-btn" id="forgotPwBtn" type="button">비밀번호를 잊으셨나요?</button>
+    </div>
+
+    <!-- 비밀번호 재설정 폼 -->
+    <div id="resetPwForm">
+      <p class="reset-pw-title">비밀번호 재설정</p>
+      <p class="login-guide" style="margin-bottom:14px">학번과 이름으로 본인을 확인한 후<br>새 비밀번호를 설정할 수 있어요.</p>
+      <div class="login-fields">
+        <input class="login-input" id="resetIdInput" type="text" inputmode="numeric" placeholder="학번" maxlength="5" autocomplete="off">
+        <input class="login-input" id="resetNameInput" type="text" placeholder="이름" autocomplete="name">
+        <input class="login-input" id="resetNewPwInput" type="password" placeholder="새 비밀번호 (4자 이상)" autocomplete="new-password">
+      </div>
+      <div class="reset-pw-status" id="resetPwStatus"></div>
+      <button class="enter-btn" id="resetConfirmBtn" disabled>비밀번호 재설정</button>
+      <button class="reset-back-btn" id="resetBackBtn" type="button">돌아가기</button>
     </div>
   </div>
   <div class="emoji-links">
@@ -422,7 +445,7 @@ import {
   doc, getDoc, setDoc, addDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getDatabase } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { initAuth, mountLoginVerification } from "../shared/auth.js";
+import { initAuth, mountLoginVerification, verifyStudentId, verifyStudentName } from "../shared/auth.js";
 
 const app  = initializeApp({
   apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -615,6 +638,81 @@ enterBtn.addEventListener('click', async () => {
   currentStudentId   = _pendingId;
   currentStudentName = _pendingName;
   checkConsentThenEnter(_pendingId, _pendingName);
+});
+
+// ── 비밀번호 재설정 ──
+const resetPwForm     = document.getElementById('resetPwForm');
+const resetIdInput    = document.getElementById('resetIdInput');
+const resetNameInput  = document.getElementById('resetNameInput');
+const resetNewPwInput = document.getElementById('resetNewPwInput');
+const resetPwStatus   = document.getElementById('resetPwStatus');
+const resetConfirmBtn = document.getElementById('resetConfirmBtn');
+
+function showResetPwForm() {
+  document.getElementById('normalLoginForm').style.display = 'none';
+  document.getElementById('autoSaveCard').style.display    = 'none';
+  resetPwForm.style.display = 'flex';
+  resetIdInput.focus();
+}
+function hideResetPwForm() {
+  resetPwForm.style.display = 'none';
+  resetIdInput.value = ''; resetNameInput.value = ''; resetNewPwInput.value = '';
+  setResetStatus('', '');
+  resetConfirmBtn.disabled = true;
+  if (localStorage.getItem('lms_autosave_sid')) {
+    document.getElementById('autoSaveCard').style.display = 'flex';
+  } else {
+    document.getElementById('normalLoginForm').style.display = 'flex';
+  }
+}
+function setResetStatus(msg, type) {
+  resetPwStatus.textContent = msg;
+  resetPwStatus.className = 'reset-pw-status' + (type ? ' ' + type : '');
+}
+function validateResetForm() {
+  const id   = resetIdInput.value.trim();
+  const name = resetNameInput.value.trim();
+  const pw   = resetNewPwInput.value;
+  const idRes = verifyStudentId(id);
+  if (!idRes.ok) {
+    setResetStatus(id.length === 5 ? (idRes.message || '학번을 확인해 주세요') : '', '');
+    resetConfirmBtn.disabled = true; return;
+  }
+  const nameRes = verifyStudentName(id, name);
+  if (!nameRes.ok) {
+    setResetStatus(name ? '이름이 일치하지 않습니다' : '', '');
+    resetConfirmBtn.disabled = true; return;
+  }
+  if (pw.length < 4) {
+    setResetStatus(pw ? '비밀번호는 4자 이상으로 설정해 주세요' : '', '');
+    resetConfirmBtn.disabled = true; return;
+  }
+  setResetStatus('확인되었습니다. 재설정 버튼을 눌러주세요', 'ok');
+  resetConfirmBtn.disabled = false;
+}
+[resetIdInput, resetNameInput, resetNewPwInput].forEach(el => {
+  el.addEventListener('input', validateResetForm);
+  el.addEventListener('keydown', e => { if (e.key === 'Enter' && !resetConfirmBtn.disabled) resetConfirmBtn.click(); });
+});
+document.getElementById('forgotPwBtn').addEventListener('click', showResetPwForm);
+document.getElementById('resetBackBtn').addEventListener('click', hideResetPwForm);
+resetConfirmBtn.addEventListener('click', async () => {
+  const id = resetIdInput.value.trim();
+  const pw = resetNewPwInput.value;
+  resetConfirmBtn.disabled = true;
+  setResetStatus('재설정 중...', '');
+  try {
+    await setDoc(doc(db, 'lms_auth', id), { pw });
+    setResetStatus('비밀번호가 재설정되었습니다!', 'ok');
+    setTimeout(() => {
+      hideResetPwForm();
+      idInput.value = id;
+      idInput.dispatchEvent(new Event('input'));
+    }, 1500);
+  } catch(_) {
+    setResetStatus('오류가 발생했습니다. 다시 시도해 주세요.', 'err');
+    resetConfirmBtn.disabled = false;
+  }
 });
 
 // ── 개인정보 동의 ──
