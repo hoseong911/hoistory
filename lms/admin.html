@@ -160,18 +160,6 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .stu-field label{font-size:12px;font-weight:700;color:var(--sub);letter-spacing:.5px}
 .stu-field input{padding:10px 16px;border:1.5px solid var(--hairline);border-radius:10px;font-family:inherit;font-size:14px;background:var(--canvas);color:var(--text);outline:none;width:160px;transition:border-color .15s}
 .stu-field input:focus{border-color:var(--navy)}
-.emoji-palette-wrap{position:relative}
-.emoji-display{background:var(--canvas);border:1.5px solid var(--hairline);border-radius:100px;padding:9px 12px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;width:60px;height:40px;box-sizing:border-box;transition:border-color .15s}
-.emoji-display:hover{border-color:var(--navy)}
-.emoji-picker{display:none;position:absolute;top:calc(100% + 6px);left:0;background:var(--canvas);border:1px solid var(--hairline);border-radius:10px;padding:12px;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,.14);width:280px}
-.emoji-picker.open{display:block}
-.emoji-cats{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
-.emoji-cat-btn{background:var(--surface);border:none;border-radius:6px;padding:5px 10px;color:var(--sub);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;transition:.15s}
-.emoji-cat-btn:hover{color:var(--text)}
-.emoji-cat-btn.active{background:var(--navy);color:#fff}
-.emoji-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;max-height:180px;overflow-y:auto}
-.emoji-btn{background:transparent;border:none;font-size:20px;cursor:pointer;padding:5px;border-radius:6px;line-height:1;font-family:inherit}
-.emoji-btn:hover{background:var(--surface)}
 .stu-search-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
 .stu-search{flex:0 0 220px;padding:10px 16px 10px 40px;border:1.5px solid var(--hairline);border-radius:100px;font-family:inherit;font-size:14px;background:var(--canvas);color:var(--text);outline:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='15' height='15' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:14px center;transition:border-color .15s}
 .stu-search:focus{border-color:var(--navy)}
@@ -766,15 +754,10 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
       <div class="stu-card-body">
         <div class="stu-add-row">
           <div class="stu-field">
-            <label>이모지</label>
-            <div class="emoji-palette-wrap" id="missionEmojiWrap">
-              <div class="emoji-display" onclick="toggleMissionEmojiPicker()">
-                <span id="missionSelectedEmoji">📌</span>
-              </div>
-              <div class="emoji-picker" id="missionEmojiPicker">
-                <div class="emoji-cats" id="missionEmojiCats"></div>
-                <div class="emoji-grid" id="missionEmojiGrid"></div>
-              </div>
+            <label>아이콘</label>
+            <div class="icon-picker-wrap">
+              <div class="icon-picker-preview empty" id="missionIconPreview"></div>
+              <button type="button" class="icon-picker-trigger" id="missionIconTrigger">아이콘 선택</button>
             </div>
           </div>
           <div class="stu-field">
@@ -1043,15 +1026,10 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
       <div class="stu-card-body">
         <div class="stu-add-row">
           <div class="stu-field">
-            <label>이모지</label>
-            <div class="emoji-palette-wrap" id="contentsEmojiWrap">
-              <div class="emoji-display" onclick="toggleContentsEmojiPicker()">
-                <span id="contentsSelectedEmoji">🧩</span>
-              </div>
-              <div class="emoji-picker" id="contentsEmojiPicker">
-                <div class="emoji-cats" id="contentsEmojiCats"></div>
-                <div class="emoji-grid" id="contentsEmojiGrid"></div>
-              </div>
+            <label>아이콘</label>
+            <div class="icon-picker-wrap">
+              <div class="icon-picker-preview empty" id="contentsIconPreview"></div>
+              <button type="button" class="icon-picker-trigger" id="contentsIconTrigger">아이콘 선택</button>
             </div>
           </div>
           <div class="stu-field">
@@ -1356,6 +1334,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getDatabase, ref, get, set, remove, update, onValue, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { mountIconPicker } from '../shared/icon-picker.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -2569,104 +2548,8 @@ function ceShowToast(id) {
   ceToastTimers[id] = setTimeout(() => el.classList.remove('show'), 2500);
 }
 
-// ── 미션 체크 탭 (카테고리 선택) ──
-// 카테고리를 직접 고르게 하지 않고, 이미 설정돼 있던 값을 그대로 쓰거나
-// (처음이라 없으면) 고정 카테고리를 하나 만들어서 계속 그 카테고리에만 카드를 쌓는다.
-// hoistory/admin.html의 아이콘 선택 팔레트와 동일한 이모지 목록·구조를 재사용한다.
-const MISSION_EMOJI_DATA = {
-  '교육·역사': ['🏛️','📚','📖','📜','🗺️','🗿','⚔️','🛡️','🏺','🪙','🔭','🔬','✏️','📝','🎓','🏫','🧭','🗓️','📅','🪶','🏰','🛕','⛪','🕌','⚱️','🕰️','🧱','📐','🖋️','📏','🔖','🕯️','📯','🧾'],
-  '게임·활동': ['🎮','🕹️','🎲','🎯','🏆','🥇','🥈','🥉','🎖️','🚪','🔑','🗝️','💡','🧩','🎪','🎠','🎡','🎢','🎭','🎨','🎬','🎤','🃏','♟️','🀄','🎳','🎱','🏓','🏹','🎣','🧗','🔎','🧠'],
-  '자연·장소': ['🌍','🌏','🌎','🏔️','🗻','🌋','⛩️','🏯','🗼','🗽','🌉','🌃','🌄','🌅','🌊','🏖️','🏕️','🌸','🍀','🌿','🍃','🌳','🌲','🏞️','🌌','🌠','☀️','🌙','🌦️','🌧️','⛄'],
-  '사물·기타': ['⭐','🌟','💫','✨','🔥','💎','🛍️','🎁','📦','💌','🔔','📣','💬','🌈','❤️','💙','💚','💛','💜','🩷','🖤','🤍','🧡','⚡','💥','🔮','🧿','🎀','🪄','🧸','🎊','🎉'],
-  '동물': ['🦅','🦁','🐯','🦊','🐺','🦋','🦚','🦜','🐉','🦄','🐘','🦒','🐬','🦈','🐧','🦀','🦑','🐙','🐢','🦉','🐝','🐞','🦖','🦕','🐴','🦔','🐿️'],
-  '표정·사람': ['😀','😄','😆','😊','😉','😎','🤩','🥳','🤔','🧐','😴','🤯','🥺','😭','😡','🤗','🙌','👏','🙏','💪','✌️','👍','👎','🤝','👋','🧑‍🏫','🧑‍🎓','🧑‍🎨','🕵️','🥷','🧙'],
-  '음식·음료': ['🍎','🍊','🍇','🍓','🍰','🍪','🍫','🍬','🍭','🍩','🍕','🍔','🌮','🍜','🍱','🍙','🍡','☕','🍵','🧋','🥤','🍹'],
-};
-let missionSelectedEmoji = '📌';
-let missionEmojiCat = Object.keys(MISSION_EMOJI_DATA)[0];
-
-let thinkSelectedEmoji = '💭';
-let thinkEmojiCat = Object.keys(MISSION_EMOJI_DATA)[0];
-
-function initThinkEmojiPicker() {
-  const cats = document.getElementById('thinkEmojiCats');
-  if (!cats) return;
-  Object.keys(MISSION_EMOJI_DATA).forEach((cat, i) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'emoji-cat-btn' + (i === 0 ? ' active' : '');
-    btn.textContent = cat;
-    btn.onclick = () => {
-      thinkEmojiCat = cat;
-      cats.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderThinkEmojiGrid();
-    };
-    cats.appendChild(btn);
-  });
-  renderThinkEmojiGrid();
-  document.addEventListener('click', e => {
-    if (!e.target.closest('#thinkEmojiWrap')) closeThinkEmojiPicker();
-  });
-}
-function renderThinkEmojiGrid() {
-  const grid = document.getElementById('thinkEmojiGrid');
-  if (!grid) return;
-  grid.innerHTML = '';
-  (MISSION_EMOJI_DATA[thinkEmojiCat] || []).forEach(em => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'emoji-btn';
-    btn.textContent = em;
-    btn.onclick = () => {
-      thinkSelectedEmoji = em;
-      document.getElementById('thinkSelectedEmoji').textContent = em;
-      closeThinkEmojiPicker();
-    };
-    grid.appendChild(btn);
-  });
-}
-function toggleThinkEmojiPicker() { document.getElementById('thinkEmojiPicker').classList.toggle('open'); }
-function closeThinkEmojiPicker() { document.getElementById('thinkEmojiPicker').classList.remove('open'); }
-
-function initMissionEmojiPicker() {
-  const cats = document.getElementById('missionEmojiCats');
-  Object.keys(MISSION_EMOJI_DATA).forEach((cat, i) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'emoji-cat-btn' + (i === 0 ? ' active' : '');
-    btn.textContent = cat;
-    btn.onclick = () => {
-      missionEmojiCat = cat;
-      cats.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderMissionEmojiGrid();
-    };
-    cats.appendChild(btn);
-  });
-  renderMissionEmojiGrid();
-  document.addEventListener('click', e => {
-    if (!e.target.closest('#missionEmojiWrap')) closeMissionEmojiPicker();
-  });
-}
-function renderMissionEmojiGrid() {
-  const grid = document.getElementById('missionEmojiGrid');
-  grid.innerHTML = '';
-  (MISSION_EMOJI_DATA[missionEmojiCat] || []).forEach(em => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'emoji-btn';
-    btn.textContent = em;
-    btn.onclick = () => {
-      missionSelectedEmoji = em;
-      document.getElementById('missionSelectedEmoji').textContent = em;
-      closeMissionEmojiPicker();
-    };
-    grid.appendChild(btn);
-  });
-}
-function toggleMissionEmojiPicker() { document.getElementById('missionEmojiPicker').classList.toggle('open'); }
-function closeMissionEmojiPicker() { document.getElementById('missionEmojiPicker').classList.remove('open'); }
+// ── 미션 체크 탭 ──────────────────────────────────────────────────────
+let missionSelectedSvg = '';
 
 async function initMissionTab() {
   let cat = '';
@@ -2679,12 +2562,15 @@ async function initMissionTab() {
     try { await setDoc(doc(db, 'settings', 'lms_config'), { mission_category: cat }, { merge: true }); } catch(_) {}
   }
 
-  initMissionEmojiPicker();
+  mountIconPicker({
+    triggerEl: document.getElementById('missionIconTrigger'),
+    previewEl:  document.getElementById('missionIconPreview'),
+    onSelect:  (svg) => { missionSelectedSvg = svg; },
+    storeSize: 28,
+  });
 
-  // hoistory/admin.html의 카드 추가와 동일한 데이터 구조(cards 컬렉션의
-  // emoji/title/desc/url/category/locked/order)로 카드를 만든다.
   document.getElementById('missionAddCardBtn').addEventListener('click', async () => {
-    const emoji    = missionSelectedEmoji;
+    const emoji    = missionSelectedSvg;
     const title    = document.getElementById('missionCardTitle').value.trim();
     const url      = document.getElementById('missionCardUrl').value.trim();
     const adminUrl = document.getElementById('missionCardAdminUrl').value.trim();
@@ -2706,8 +2592,9 @@ async function initMissionTab() {
         if (appKey) await set(ref(rtdb, `adminConfig/${appKey}/archive`), { topic, intent });
       }
 
-      missionSelectedEmoji = '📌';
-      document.getElementById('missionSelectedEmoji').textContent = '📌';
+      missionSelectedSvg = '';
+      const prev = document.getElementById('missionIconPreview');
+      if (prev) { prev.innerHTML = ''; prev.classList.add('empty'); }
       document.getElementById('missionCardTitle').value = '';
       document.getElementById('missionCardUrl').value = '';
       document.getElementById('missionCardAdminUrl').value = '';
@@ -2715,7 +2602,7 @@ async function initMissionTab() {
       document.getElementById('missionArchiveIntent').value = '';
       document.getElementById('missionArchivePanel').style.display = 'none';
       document.getElementById('missionArchiveToggleBtn').dataset.open = '';
-      document.getElementById('missionArchiveToggleBtn').textContent = '📚 아카이브 정보 입력';
+      document.getElementById('missionArchiveToggleBtn').textContent = '아카이브 정보 입력';
       document.getElementById('missionArchiveToggleBtn').style.borderColor = '';
       document.getElementById('missionArchiveToggleBtn').style.color = '';
       updateMissionArchiveDot();
@@ -2761,13 +2648,14 @@ async function renderMissionPreview(cat) {
       const row = document.createElement('div');
       row.className = 'item-row';
       row.id = `mission-row-${item.docId}`;
-      const iconStr = String(item.emoji||'📌');
+      const iconStr = String(item.emoji||'');
+      const isSvg = iconStr.startsWith('<svg');
       const isLocked = !!item.locked;
       const adminBtn = item.adminUrl
         ? `<button class="admin-link-btn" onclick="openAppAdmin('${esc(item.adminUrl)}')">어드민</button>`
         : '';
       row.innerHTML = `
-        <div class="item-icon-preview preview-mission" style="font-size:${iconStr.length<=2?'20px':'13px'}">${esc(iconStr)}</div>
+        <div class="item-icon-preview preview-mission">${isSvg ? iconStr : esc(iconStr) || '—'}</div>
         <div class="item-info">
           <div class="item-label">${esc(item.title||'')}</div>
           <div class="item-url">${esc(item.url||'')}${item.adminUrl?` · 어드민: ${esc(item.adminUrl)}`:''}</div>
@@ -2804,10 +2692,14 @@ window.missionStartEdit = async function(docId) {
   // .item-row는 기본 display:flex(가로)라서, 수정 모드는 위(카드 내용)/아래(아카이브 정보)로
   // 세로로 쌓이도록 이 행에서만 block으로 덮어쓴다.
   row.style.display = 'block';
+  const existingSvg = String(item.emoji || '');
   row.innerHTML = `
-    <div style="font-size:11px;font-weight:700;color:var(--sub);letter-spacing:1px;margin-bottom:10px;">📝 카드 내용</div>
+    <div style="font-size:11px;font-weight:700;color:var(--sub);letter-spacing:1px;margin-bottom:10px;">카드 내용</div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%;padding-bottom:14px;margin-bottom:14px;border-bottom:1px dashed var(--border);">
-      <input id="me-emoji-${docId}" class="form-input" value="${esc(String(item.emoji||'📌'))}" placeholder="이모지" style="width:56px;text-align:center">
+      <div class="icon-picker-wrap">
+        <div class="icon-picker-preview${existingSvg ? '' : ' empty'}" id="me-icon-preview-${docId}">${existingSvg.startsWith('<svg') ? existingSvg : ''}</div>
+        <button type="button" class="icon-picker-trigger" id="me-icon-trigger-${docId}">아이콘 선택</button>
+      </div>
       <input id="me-title-${docId}" class="form-input" value="${esc(item.title||'')}" placeholder="제목" style="flex:1;min-width:100px">
       <input id="me-url-${docId}" class="form-input" value="${esc(item.url||'')}" placeholder="웹앱 URL" style="flex:2;min-width:140px">
       <input id="me-adminurl-${docId}" class="form-input" value="${esc(item.adminUrl||'')}" placeholder="어드민 URL (선택)" style="flex:2;min-width:140px">
@@ -2815,7 +2707,7 @@ window.missionStartEdit = async function(docId) {
       <button class="btn-cancel" onclick="renderMissionPreview(window._missionCat)">취소</button>
     </div>
     <div style="padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;display:flex;flex-direction:column;gap:10px;">
-      <div style="font-size:11px;font-weight:700;color:var(--c3);letter-spacing:1px;">📚 아카이브 정보</div>
+      <div style="font-size:11px;font-weight:700;color:var(--c3);letter-spacing:1px;">아카이브 정보</div>
       <div style="display:flex;align-items:flex-start;gap:10px;">
         <label style="font-size:11px;font-weight:600;color:var(--sub);width:60px;flex-shrink:0;padding-top:9px;">수업 주제</label>
         <input id="me-archive-topic-${docId}" class="form-input" value="${esc(existingTopic)}" placeholder="수업 주제를 입력하세요" style="flex:1;">
@@ -2825,10 +2717,23 @@ window.missionStartEdit = async function(docId) {
         <textarea id="me-archive-intent-${docId}" class="form-input" placeholder="활동 의도를 입력하세요" style="flex:1;min-height:60px;height:auto;padding:10px 14px;resize:vertical;">${esc(existingIntent)}</textarea>
       </div>
     </div>`;
+
+  // SVG 피커 마운트 (수정 행 DOM이 붙은 뒤 실행)
+  requestAnimationFrame(() => {
+    mountIconPicker({
+      triggerEl: document.getElementById(`me-icon-trigger-${docId}`),
+      previewEl:  document.getElementById(`me-icon-preview-${docId}`),
+      onSelect:  (svg) => { row.dataset.svgEdit = svg; },
+      storeSize: 28,
+      initialSvg: existingSvg.startsWith('<svg') ? existingSvg : '',
+    });
+    if (existingSvg) row.dataset.svgEdit = existingSvg;
+  });
 };
 
 window.missionSaveEdit = async function(docId) {
-  const emoji    = document.getElementById(`me-emoji-${docId}`)?.value.trim() || '📌';
+  const row   = document.getElementById(`mission-row-${docId}`);
+  const emoji = row?.dataset.svgEdit ?? '';
   const title    = document.getElementById(`me-title-${docId}`)?.value.trim();
   const url      = document.getElementById(`me-url-${docId}`)?.value.trim();
   const adminUrl = document.getElementById(`me-adminurl-${docId}`)?.value.trim() || '';
@@ -2852,7 +2757,7 @@ window.toggleMissionArchive = function() {
   const isOpen = panel.style.display === 'none';
   panel.style.display = isOpen ? 'block' : 'none';
   btn.dataset.open = isOpen ? '1' : '';
-  btn.textContent  = isOpen ? '▲ 닫기' : '📚 아카이브 정보 입력';
+  btn.textContent  = isOpen ? '▲ 닫기' : '아카이브 정보 입력';
   btn.style.borderColor = isOpen ? 'var(--c3)' : '';
   btn.style.color       = isOpen ? 'var(--c3)' : '';
 };
@@ -2921,48 +2826,8 @@ window.missionMoveCard = async function(docId, dir, idx) {
   } catch(e) { alert('순서 변경 실패: ' + e.message); }
 };
 
-// ══════════ 각종 콘텐츠 (미션 체크와 동일한 카드 구조, 다른 카테고리) ══════════
-let contentsSelectedEmoji = '🧩';
-let contentsEmojiCat = Object.keys(MISSION_EMOJI_DATA)[0];
-
-function initContentsEmojiPicker() {
-  const cats = document.getElementById('contentsEmojiCats');
-  Object.keys(MISSION_EMOJI_DATA).forEach((cat, i) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'emoji-cat-btn' + (i === 0 ? ' active' : '');
-    btn.textContent = cat;
-    btn.onclick = () => {
-      contentsEmojiCat = cat;
-      cats.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderContentsEmojiGrid();
-    };
-    cats.appendChild(btn);
-  });
-  renderContentsEmojiGrid();
-  document.addEventListener('click', e => {
-    if (!e.target.closest('#contentsEmojiWrap')) closeContentsEmojiPicker();
-  });
-}
-function renderContentsEmojiGrid() {
-  const grid = document.getElementById('contentsEmojiGrid');
-  grid.innerHTML = '';
-  (MISSION_EMOJI_DATA[contentsEmojiCat] || []).forEach(em => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'emoji-btn';
-    btn.textContent = em;
-    btn.onclick = () => {
-      contentsSelectedEmoji = em;
-      document.getElementById('contentsSelectedEmoji').textContent = em;
-      closeContentsEmojiPicker();
-    };
-    grid.appendChild(btn);
-  });
-}
-function toggleContentsEmojiPicker() { document.getElementById('contentsEmojiPicker').classList.toggle('open'); }
-function closeContentsEmojiPicker() { document.getElementById('contentsEmojiPicker').classList.remove('open'); }
+// ══════════ 각종 콘텐츠 ══════════
+let contentsSelectedSvg = '';
 
 async function initContentsTab() {
   let cat = '';
@@ -2975,10 +2840,15 @@ async function initContentsTab() {
     try { await setDoc(doc(db, 'settings', 'lms_config'), { contents_category: cat }, { merge: true }); } catch(_) {}
   }
 
-  initContentsEmojiPicker();
+  mountIconPicker({
+    triggerEl: document.getElementById('contentsIconTrigger'),
+    previewEl:  document.getElementById('contentsIconPreview'),
+    onSelect:  (svg) => { contentsSelectedSvg = svg; },
+    storeSize: 28,
+  });
 
   document.getElementById('contentsAddCardBtn').addEventListener('click', async () => {
-    const emoji    = contentsSelectedEmoji;
+    const emoji    = contentsSelectedSvg;
     const title    = document.getElementById('contentsCardTitle').value.trim();
     const url      = document.getElementById('contentsCardUrl').value.trim();
     const adminUrl = document.getElementById('contentsCardAdminUrl').value.trim();
@@ -2992,8 +2862,9 @@ async function initContentsTab() {
       const cardData = { emoji, title, desc: '', url, category: cat, locked: false, order, openInModal };
       if (adminUrl) cardData.adminUrl = adminUrl;
       await addDoc(collection(db, 'cards'), cardData);
-      contentsSelectedEmoji = '🧩';
-      document.getElementById('contentsSelectedEmoji').textContent = '🧩';
+      contentsSelectedSvg = '';
+      const prev = document.getElementById('contentsIconPreview');
+      if (prev) { prev.innerHTML = ''; prev.classList.add('empty'); }
       document.getElementById('contentsCardTitle').value = '';
       document.getElementById('contentsCardUrl').value = '';
       document.getElementById('contentsCardAdminUrl').value = '';
@@ -3039,13 +2910,14 @@ async function renderContentsPreview(cat) {
       const row = document.createElement('div');
       row.className = 'item-row';
       row.id = `contents-row-${item.docId}`;
-      const iconStr = String(item.emoji||'🧩');
+      const iconStr = String(item.emoji||'');
+      const isSvg = iconStr.startsWith('<svg');
       const isLocked = !!item.locked;
       const adminBtn = item.adminUrl
         ? `<button class="admin-link-btn" onclick="openAppAdmin('${esc(item.adminUrl)}')">어드민</button>`
         : '';
       row.innerHTML = `
-        <div class="item-icon-preview preview-contents" style="font-size:${iconStr.length<=2?'20px':'13px'}">${esc(iconStr)}</div>
+        <div class="item-icon-preview preview-contents">${isSvg ? iconStr : esc(iconStr) || '—'}</div>
         <div class="item-info">
           <div class="item-label">${esc(item.title||'')}</div>
           <div class="item-url">${esc(item.url||'')}${item.adminUrl?` · 어드민: ${esc(item.adminUrl)}`:''}${item.openInModal?' · 팝업으로 열기':''}</div>
@@ -3068,9 +2940,13 @@ window.contentsStartEdit = function(docId) {
   if (!item) return;
   const row = document.getElementById(`contents-row-${docId}`);
   if (!row) return;
+  const existingSvg = String(item.emoji || '');
   row.innerHTML = `
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%;padding:4px 0">
-      <input id="ce-emoji-${docId}" class="form-input" value="${esc(String(item.emoji||'🧩'))}" placeholder="이모지" style="width:56px;text-align:center">
+      <div class="icon-picker-wrap">
+        <div class="icon-picker-preview${existingSvg ? '' : ' empty'}" id="ce-icon-preview-${docId}">${existingSvg.startsWith('<svg') ? existingSvg : ''}</div>
+        <button type="button" class="icon-picker-trigger" id="ce-icon-trigger-${docId}">아이콘 선택</button>
+      </div>
       <input id="ce-title-${docId}" class="form-input" value="${esc(item.title||'')}" placeholder="제목" style="flex:1;min-width:100px">
       <input id="ce-url-${docId}" class="form-input" value="${esc(item.url||'')}" placeholder="웹앱 URL" style="flex:2;min-width:140px">
       <input id="ce-adminurl-${docId}" class="form-input" value="${esc(item.adminUrl||'')}" placeholder="어드민 URL (선택)" style="flex:2;min-width:140px">
@@ -3078,10 +2954,22 @@ window.contentsStartEdit = function(docId) {
       <button class="btn-save" style="flex:none;padding:7px 16px;background:var(--c3)" onclick="contentsSaveEdit('${docId}')">저장</button>
       <button class="btn-cancel" onclick="renderContentsPreview(window._contentsCat)">취소</button>
     </div>`;
+
+  requestAnimationFrame(() => {
+    mountIconPicker({
+      triggerEl: document.getElementById(`ce-icon-trigger-${docId}`),
+      previewEl:  document.getElementById(`ce-icon-preview-${docId}`),
+      onSelect:  (svg) => { row.dataset.svgEdit = svg; },
+      storeSize: 28,
+      initialSvg: existingSvg.startsWith('<svg') ? existingSvg : '',
+    });
+    if (existingSvg) row.dataset.svgEdit = existingSvg;
+  });
 };
 
 window.contentsSaveEdit = async function(docId) {
-  const emoji    = document.getElementById(`ce-emoji-${docId}`)?.value.trim() || '🧩';
+  const row   = document.getElementById(`contents-row-${docId}`);
+  const emoji = row?.dataset.svgEdit ?? '';
   const title    = document.getElementById(`ce-title-${docId}`)?.value.trim();
   const url      = document.getElementById(`ce-url-${docId}`)?.value.trim();
   const adminUrl = document.getElementById(`ce-adminurl-${docId}`)?.value.trim() || '';
@@ -4156,8 +4044,6 @@ Object.assign(window, {
   onLsSliderInput, onLsNumberInput, onTwSliderInput, onTwNumberInput,
   onColorChange, resetDesign, saveDesign,
   openGradeFeedbackModal, closeGradeFeedbackModal, saveGradeFeedback,
-  toggleMissionEmojiPicker, closeMissionEmojiPicker,
-  toggleContentsEmojiPicker, closeContentsEmojiPicker,
   handleContentKeydown,
 });
 
@@ -5058,7 +4944,6 @@ initAdmin();
   };
 
   /* ─ 자동 시작 ─ */
-  initThinkEmojiPicker();
   thStartLecListener();
   thLoadStudents();
 }

@@ -128,7 +128,7 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .icon-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .icon-item{display:flex;flex-direction:column;align-items:center;gap:7px;text-decoration:none;cursor:pointer;background:none;border:none;font-family:inherit;padding:0}
 .icon-box{width:68px;height:68px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-family:'Paperlogy','Pretendard',sans-serif;font-weight:900;transition:transform .15s,box-shadow .15s;flex-shrink:0}
-.icon-box.size-sm{font-size:26px}.icon-box.size-md{font-size:36px}.icon-box.size-lg{font-size:20px}.icon-box.size-xl{font-size:15px}
+.icon-box.size-sm{font-size:26px}.icon-box.size-md{font-size:36px}.icon-box.size-lg{font-size:20px}.icon-box.size-xl{font-size:15px}.icon-box.size-svg{display:flex;align-items:center;justify-content:center}.icon-box.size-svg svg{width:28px;height:28px}
 .icon-item:hover:not(.locked) .icon-box{transform:translateY(-3px);box-shadow:var(--shadow-hover)}
 .icon-item.locked{opacity:.4;pointer-events:none}
 .icon-label{font-size:14px;font-weight:700;color:var(--ink-deep);text-align:center;line-height:1.35;word-break:keep-all;height:calc(1em * 1.35 * 3);overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}
@@ -874,7 +874,10 @@ function folderPreviewHTML(items, isSummary) {
   if (isSummary) return `<div class="folder-glyph"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>`;
   if (!items.length) return `<div class="folder-glyph"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>`;
   return `<div class="folder-preview-grid">${
-    items.slice(0, 4).map(it => `<div class="folder-mini">${esc(String(it.emoji || it.icon || '?').trim())}</div>`).join('')
+    items.slice(0, 4).map(it => {
+      const ic = String(it.emoji || it.icon || '?').trim();
+      return `<div class="folder-mini">${ic.startsWith('<svg') ? ic : esc(ic)}</div>`;
+    }).join('')
   }</div>`;
 }
 
@@ -925,9 +928,10 @@ function makeIconItem(item) {
   } else {
     if (!item.locked && item.url) { el.href = item.url; el.target = '_blank'; el.rel = 'noopener'; }
   }
-  const iconStr   = String(item.emoji || item.icon || '?').trim();
-  const sizeClass = iconStr.length <= 2 ? 'size-md' : iconStr.length <= 3 ? 'size-sm' : iconStr.length <= 5 ? 'size-lg' : 'size-xl';
-  el.innerHTML = `<div class="icon-box ${sizeClass}">${esc(iconStr)}</div>${item.label?`<div class="icon-label">${esc(item.label)}</div>`:''}`;
+  const iconStr = String(item.emoji || item.icon || '?').trim();
+  const isSvgIcon = iconStr.startsWith('<svg');
+  const sizeClass = isSvgIcon ? 'size-svg' : (iconStr.length <= 2 ? 'size-md' : iconStr.length <= 3 ? 'size-sm' : iconStr.length <= 5 ? 'size-lg' : 'size-xl');
+  el.innerHTML = `<div class="icon-box ${sizeClass}">${isSvgIcon ? iconStr : esc(iconStr)}</div>${item.label?`<div class="icon-label">${esc(item.label)}</div>`:''}`;
   return el;
 }
 
