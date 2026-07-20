@@ -130,6 +130,25 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 - 모바일 우선 (`max-width: 600px` 분기)
 - shared/의 import 경로는 상대경로(`../shared/`)나 절대경로(`/hoistory/shared/`) — 새 앱마다 어떤 걸 쓰는지 확인
 
+## 미뤄둔 개선 작업 (컨텍스트 한도로 분리)
+
+아래 항목은 다음 세션에서 처리. "미뤄놓은 거 해줘"라고 하면 이 목록 기준으로 진행.
+
+### lms/index.html
+- 비밀번호 분실 복구 플로우 (학번+이름 재인증 후 PW 리셋)
+- 자동저장(localStorage) 보안 분리 — sessionStorage 우선, localStorage는 선택 옵션으로
+
+### lms/admin.html
+- 결석 사유 메모 필드 추가 (hover 툴팁으로 표시)
+- 대시보드 탭 추가 (제출률·통과율·미채점 수 한눈에 보기)
+- 피드백 템플릿 — 학급 기본 피드백 저장 후 일괄 적용
+
+### 루트 index.html
+- 카드 검색 기능 (아카이브 상단 검색 인풋)
+- 버전 태그 Firestore 동적화 (settings/meta에서 읽기)
+
+---
+
 ## 현재 진행 중인 작업 — 어드민 통일
 4개 어드민(blind_ryeo, goryeo_choice, s_threads, think)의 디자인을 통일하는 중.
 - **1단계 (완료)**: `shared/admin-base.css` 생성 — 공통 디자인 시스템 (로그인·상단바·메인탭·서브탭·패널·모달·토스트·통계칩 등)
