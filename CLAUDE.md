@@ -111,6 +111,7 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
   - 로그인 화면(login-icon), 상단바 제목, 탭 버튼, 섹션 헤더, 버튼 레이블 전부 이모지 없이
   - 예외: 기능적으로 이모지 자체가 데이터인 경우 (카드 이모지 선택 팝업, 게임 콘텐츠 등)
 - **어드민 탭(main-tabs / sub-tabs) 항상 중앙 정렬** — `justify-content: center` 필수
+- **어드민 사이드바/탭의 영문 메뉴 라벨은 항상 대문자로 표기** (예: `FEED`, `ANSWER`, `QUESTION`, `SETTING`, `SYSTEM`, `STUDENT`). 한글 라벨을 영문으로 바꾸라는 뜻은 아니고, 이미 영문으로 짓기로 한 라벨에 한해 대문자로 통일한다.
 - **어드민 브라우저 `<title>` 형식: `"웹앱 제목 - 관리자 모드"`**
 - **어드민 로그인 화면 구조**: login-icon 없이, login-title = 웹앱 이름(크게), login-sub = "관리자 모드"(작은 텍스트)
 - 버튼은 가급적 중앙정렬
