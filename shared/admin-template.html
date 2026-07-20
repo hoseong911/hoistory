@@ -116,6 +116,7 @@
         <div class="sort-box">
           <button class="sort-btn active" id="classSortNewest" onclick="setClassSort('newest')">최신순</button>
           <button class="sort-btn" id="classSortId" onclick="setClassSort('id')">학번순</button>
+          <button class="sort-btn" id="classSortPick" onclick="setClassSort('pick')">픽 모아보기</button>
         </div>
       </div>
 
@@ -241,6 +242,7 @@ window.setClassSort = (sort) => {
   classSort = sort;
   document.getElementById('classSortNewest').classList.toggle('active', sort === 'newest');
   document.getElementById('classSortId').classList.toggle('active', sort === 'id');
+  document.getElementById('classSortPick').classList.toggle('active', sort === 'pick');
   renderClass();
 };
 
@@ -270,12 +272,13 @@ function renderClass() {
   document.getElementById('stFail').textContent = '-';
   document.getElementById('stPick').textContent = pickCount;
 
-  const sorted = classSort === 'newest'
-    ? [...classPosts].sort((a,b) => (b.timestamp||0)-(a.timestamp||0))
-    : [...classPosts].sort((a,b) => String(a.studentId).localeCompare(String(b.studentId)));
+  const base = classSort === 'pick' ? classPosts.filter(p => p.adminPick) : classPosts;
+  const sorted = classSort === 'id'
+    ? [...base].sort((a,b) => String(a.studentId).localeCompare(String(b.studentId)))
+    : [...base].sort((a,b) => (b.timestamp||0)-(a.timestamp||0));
 
   const container = document.getElementById('classList');
-  if (!sorted.length) { container.innerHTML = '<div class="empty-state">게시글이 없습니다.</div>'; return; }
+  if (!sorted.length) { container.innerHTML = `<div class="empty-state">${classSort==='pick' ? '픽한 게시글이 없습니다.' : '게시글이 없습니다.'}</div>`; return; }
   container.innerHTML = `<div class="std-list">${sorted.map(p => buildStudentCard(p)).join('')}</div>`;
 }
 

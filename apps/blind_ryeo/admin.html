@@ -10,6 +10,9 @@
   <style>
     /* ── blind_ryeo 고유 스타일 ── */
 
+    /* 상단 탭과 반 태그(class-filter) 사이 여백 확보 */
+    .class-filter { margin-top: 18px; }
+
     /* 카테고리 점 색상 */
     .cat-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
     .cat-dot.central  { background: #14b8a6; }
@@ -153,6 +156,7 @@
         <div class="sort-box">
           <button class="sort-btn active" id="classSortNewest" onclick="setClassSort('newest', this)">최신순</button>
           <button class="sort-btn" id="classSortId" onclick="setClassSort('id', this)">학번순</button>
+          <button class="sort-btn" id="classSortPick" onclick="setClassSort('pick', this)">픽 모아보기</button>
         </div>
       </div>
 
@@ -360,6 +364,7 @@ window.setClassSort = (sort) => {
   classSort = sort;
   document.getElementById('classSortNewest').classList.toggle('active', sort === 'newest');
   document.getElementById('classSortId').classList.toggle('active', sort === 'id');
+  document.getElementById('classSortPick').classList.toggle('active', sort === 'pick');
   renderClass();
 };
 
@@ -407,11 +412,12 @@ function renderClass() {
   window._failStudentIds = failStudentIds;
   window._failReasons = failReasons;
   window._postsByStudent = postsByStudent;
-  const sorted = classSort === 'newest'
-    ? [...classPosts].sort((a,b) => (b.timestamp||0)-(a.timestamp||0) || b.id.localeCompare(a.id))
-    : [...classPosts].sort((a,b) => String(a.studentId).localeCompare(String(b.studentId)));
+  const pickBase = classSort === 'pick' ? classPosts.filter(p => p.adminPick) : classPosts;
+  const sorted = classSort === 'id'
+    ? [...pickBase].sort((a,b) => String(a.studentId).localeCompare(String(b.studentId)))
+    : [...pickBase].sort((a,b) => (b.timestamp||0)-(a.timestamp||0) || b.id.localeCompare(a.id));
   const container = document.getElementById('classList');
-  if (!sorted.length) { container.innerHTML = `<div class="empty-state"><div class="icon">📝</div>게시글이 없습니다.</div>`; return; }
+  if (!sorted.length) { container.innerHTML = `<div class="empty-state"><div class="icon">📝</div>${classSort==='pick' ? '픽한 게시글이 없습니다.' : '게시글이 없습니다.'}</div>`; return; }
   container.innerHTML = `<div class="std-list">${sorted.map(p => buildClassCard(p)).join('')}</div>`;
 }
 

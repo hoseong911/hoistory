@@ -68,7 +68,7 @@
     <div class="adm-logo">삼국 굿즈<span class="adm-badge">관리자 모드</span></div>
     <div class="adm-tabs">
       <button class="adm-tab active" onclick="showMain('upload', this)">UPLOAD</button>
-      <button class="adm-tab" onclick="showMain('status', this)">STATUS</button>
+      <button class="adm-tab" onclick="showMain('status', this)">ANSWER</button>
     </div>
     <button class="adm-logout" onclick="logoutAdmin()">로그아웃</button>
     <button class="adm-back" onclick="window.parent.closeAppAdmin&&window.parent.closeAppAdmin()">목록으로</button>
@@ -137,7 +137,10 @@
         <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportExcel()">엑셀 내보내기</button>
         <button class="scoring-prompt-btn" onclick="openSettingsModal()" title="AI 설정">⚙️</button>
       </div>
-      <input type="text" class="sg-search" id="searchBox" placeholder="학번 또는 이름으로 검색" oninput="renderStatusList()">
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input type="text" class="sg-search" id="searchBox" placeholder="학번 또는 이름으로 검색" oninput="renderStatusList()" style="flex:1; margin-bottom:12px;">
+        <button class="filter-toggle" id="pickOnlyBtn" onclick="togglePickOnly()" style="margin-bottom:12px; white-space:nowrap;">픽 모아보기</button>
+      </div>
       <div id="statusList">
         <div class="loading-state"><div class="spinner"></div><span>불러오는 중…</span></div>
       </div>
@@ -191,6 +194,7 @@ const DEFAULT_PICK_CRITERIA = `- 삼국시대 문화유산의 특징을 창의�
 
 let parsedRows = [];
 let allDocs = [];
+let pickOnly = false;
 
 window.tryLogin = async () => {
   const email = document.getElementById('adminEmail').value.trim();
@@ -330,12 +334,19 @@ window.uploadToFirestore = async () => {
 };
 
 /* ── 등록 현황 ── */
+window.togglePickOnly = () => {
+  pickOnly = !pickOnly;
+  document.getElementById('pickOnlyBtn').classList.toggle('active', pickOnly);
+  renderStatusList();
+};
+
 window.renderStatusList = () => {
   const q = (document.getElementById('searchBox').value || '').trim().toLowerCase();
   let docs = [...allDocs].sort((a,b) => String(a.studentId||a.id).localeCompare(String(b.studentId||b.id)));
+  if (pickOnly) docs = docs.filter(d => d.picked);
   if (q) docs = docs.filter(d => (d.studentId||'').toLowerCase().includes(q) || (d.name||'').toLowerCase().includes(q) || (d.goodsName||'').toLowerCase().includes(q));
   const list = document.getElementById('statusList');
-  if (!docs.length) { list.innerHTML = `<div class="empty-state"><div class="icon">📦</div>등록된 굿즈가 없습니다.</div>`; return; }
+  if (!docs.length) { list.innerHTML = `<div class="empty-state"><div class="icon">📦</div>${pickOnly ? '픽한 굿즈가 없습니다.' : '등록된 굿즈가 없습니다.'}</div>`; return; }
   list.innerHTML = docs.map(d => {
     const picked = !!d.picked;
     const gradeBadge = d.grade === 'pass' ? `<span class="grade-badge pass">✓ 통과</span>` : d.grade === 'fail' ? `<span class="grade-badge fail">✕ 미흡</span>` : '';

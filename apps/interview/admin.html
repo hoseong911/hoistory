@@ -215,6 +215,7 @@
         <div class="sort-box">
           <button class="sort-btn active" id="sortNewest" onclick="setAnswerSort('newest')">최신순</button>
           <button class="sort-btn" id="sortSid" onclick="setAnswerSort('sid')">학번순</button>
+          <button class="sort-btn" id="sortPick" onclick="setAnswerSort('pick')">픽 모아보기</button>
         </div>
       </div>
       <div class="loading-bar" id="loading-bar"></div>
@@ -656,6 +657,7 @@ function statusLabel(status){
 
 function renderStudentList(){
   let list=filteredStudents();
+  if(answerSort==='pick') list=list.filter(s=>s.picked);
   // sort
   if(answerSort==='sid'){
     list=[...list].sort((a,b)=>String(a.studentId||'').localeCompare(String(b.studentId||'')));
@@ -667,7 +669,7 @@ function renderStudentList(){
     });
   }
   const el=document.getElementById('student-list');
-  if(!list.length){el.innerHTML='<div class="no-data">아직 제출한 학생이 없습니다.</div>';return;}
+  if(!list.length){el.innerHTML=`<div class="no-data">${answerSort==='pick'?'픽한 학생이 없습니다.':'아직 제출한 학생이 없습니다.'}</div>`;return;}
   el.innerHTML=list.map((s,i)=>{
     const char=CONTENT.characters.find(c=>c.id===s.charId);
     const qs=char?.questions||[];
@@ -847,6 +849,7 @@ window.setAnswerSort=(s)=>{
   answerSort=s;
   document.getElementById('sortNewest').classList.toggle('active',s==='newest');
   document.getElementById('sortSid').classList.toggle('active',s==='sid');
+  document.getElementById('sortPick').classList.toggle('active',s==='pick');
   renderStudentList();
 };
 
