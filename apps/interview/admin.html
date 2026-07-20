@@ -691,12 +691,10 @@ function renderStudentList(){
           <div class="std-sid">${escHtml(String(s.studentId||''))}</div>
           <div class="std-name">${escHtml(s.name||'')}</div>
         </div>
-        <div class="std-badge-col">
-          ${char?`<span class="std-badge">${escHtml(char.emoji||'')} ${escHtml(s.charName||s.charId||'')}</span>`:''}
-        </div>
         <div class="std-content">
+          ${char?`<div class="std-badge-row"><span class="std-badge">${escHtml(char.emoji||'')} ${escHtml(s.charName||s.charId||'')}</span></div>`:''}
           <div class="std-content-main">${firstAnswer?escHtml(firstAnswer):'<span style="color:var(--hi-text-muted)">미제출</span>'}</div>
-          <div class="std-content-sub">${statusLabel(status)}${picked?' · PICK':''}</div>
+          <div class="std-content-sub">${statusLabel(status)}${picked?' · PICK':''}${formatSubmitTime(s)?` · ${formatSubmitTime(s)}`:''}</div>
         </div>
         <div class="std-actions" onclick="event.stopPropagation()">
           <button class="std-pick${picked?' picked':''}" data-sid="${s.studentId}" onclick="togglePickStatus(this,'${s.studentId}',${picked})">
@@ -854,6 +852,12 @@ window.setAnswerSort=(s)=>{
 };
 
 function escHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function formatSubmitTime(s){
+  const ms=s.submittedAt?.seconds?s.submittedAt.seconds*1000:(s.timestamp||0);
+  if(!ms)return'';
+  const d=new Date(ms);
+  return`${d.getMonth()+1}.${d.getDate()}. ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
 </script>
 
 <!-- AI 설정 모달 -->
