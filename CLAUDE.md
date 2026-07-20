@@ -136,15 +136,11 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 
 ### lms/index.html
 - 비밀번호 분실 복구 플로우 (학번+이름 재인증 후 PW 리셋)
-- 자동저장(localStorage) 보안 분리 — sessionStorage 우선, localStorage는 선택 옵션으로
 
 ### lms/admin.html
 - 결석 사유 메모 필드 추가 (hover 툴팁으로 표시)
 - 대시보드 탭 추가 (제출률·통과율·미채점 수 한눈에 보기)
 - 피드백 템플릿 — 학급 기본 피드백 저장 후 일괄 적용
-
-### 루트 index.html
-- 버전 태그 Firestore 동적화 (settings/meta에서 읽기)
 
 ## 루트 admin.html — 완전 개편 예정
 
