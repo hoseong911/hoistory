@@ -152,6 +152,18 @@ body{overflow-x:hidden}
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* ===== Archive Search ===== */
+.archive-search-wrap{padding:14px 22px 4px}
+.archive-search-input{
+  width:100%;padding:9px 16px 9px 36px;
+  border:1.5px solid var(--hairline);border-radius:100px;
+  font-family:inherit;font-size:13px;color:var(--ink-deep);
+  background:var(--canvas) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 13px center;
+  outline:none;transition:border-color .2s;
+}
+.archive-search-input:focus{border-color:var(--primary)}
+.archive-search-no-result{font-size:13px;color:var(--slate);text-align:center;padding:20px 0;opacity:.6}
+
 /* ===== Mobile Responsive ===== */
 @media(max-width:480px){
   .page{padding:36px 14px 60px}
@@ -194,6 +206,9 @@ body{overflow-x:hidden}
       <span class="archive-toggle-icon">+</span>
     </button>
     <div class="archive-collapse">
+      <div class="archive-search-wrap">
+        <input type="text" class="archive-search-input" id="archiveSearch" placeholder="카드 검색...">
+      </div>
       <div class="archive-body" id="archiveBody">
         <div class="loading-wrap">
           <div class="spinner"></div>
@@ -277,6 +292,10 @@ body{overflow-x:hidden}
 document.getElementById('archiveHead').addEventListener('click', () => {
   document.getElementById('archiveBox').classList.toggle('open');
 });
+
+document.getElementById('archiveSearch').addEventListener('input', () => {
+  if (window._cards) renderCards(window._cards);
+});
 </script>
 
 <!-- ===== Firebase ===== -->
@@ -351,6 +370,7 @@ function createIconItem(card) {
 
 /* ===== Render (아카이브 박스 안에 카테고리별 2차 아코디언으로 렌더링) ===== */
 function renderCards(cards) {
+  const q = (document.getElementById('archiveSearch')?.value || '').trim().toLowerCase();
   const cats = window._categoryList || [];
   const body = document.getElementById('archiveBody');
 
@@ -364,16 +384,28 @@ function renderCards(cards) {
     return;
   }
 
+  // 검색 필터 적용
+  const filtered = q
+    ? (cards || []).filter(c => (c.title || '').toLowerCase().includes(q))
+    : (cards || []);
+
   // 그룹핑 (분류 없는 카드는 학생 페이지에서는 표시 안 함)
   const grouped = {};
   cats.forEach(c => { grouped[c.key] = []; });
-  (cards || []).forEach(c => {
+  filtered.forEach(c => {
     if (c.category && grouped[c.category] !== undefined) {
       grouped[c.category].push(c);
     }
   });
 
   body.innerHTML = '';
+
+  // 검색어가 있는데 전체 결과가 없으면
+  if (q && filtered.length === 0) {
+    body.innerHTML = `<div class="archive-search-no-result">"${escapeHtml(q)}" 검색 결과가 없습니다</div>`;
+    return;
+  }
+
   cats.forEach(catObj => {
     const acc = document.createElement('div');
     acc.className = 'cat-acc';
