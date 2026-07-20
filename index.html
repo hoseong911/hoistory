@@ -224,7 +224,7 @@ body{overflow-x:hidden}
   </div>
 
   <div class="footer">
-    <p class="footer-tag">역사는 즐겁다 <span>✦</span> Dive into HISTORY</p>
+    <p class="footer-tag">역사는 즐겁다 <span style="opacity:.4">·</span> Dive into HISTORY</p>
   </div>
 </div>
 
@@ -339,10 +339,12 @@ function createIconItem(card) {
     el.target = '_blank';
     el.rel = 'noopener';
   }
+  const iconStr = String(card.emoji || '📌').trim();
+  const isSvgIcon = iconStr.startsWith('<svg');
   el.innerHTML = `
-    <div class="icon-box">${escapeHtml(card.emoji || '📌')}</div>
+    <div class="icon-box">${isSvgIcon ? iconStr : escapeHtml(iconStr)}</div>
     <div class="icon-label">${escapeHtml(card.title || '')}</div>
-    ${isLocked ? '<div class="icon-sublabel">🔒 준비 중</div>' : ''}
+    ${isLocked ? '<div class="icon-sublabel"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:2px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>준비 중</div>' : ''}
   `;
   return el;
 }
@@ -389,11 +391,8 @@ function renderCards(cards) {
     `;
     const grid = acc.querySelector('.icon-grid');
     const items = grouped[catObj.key];
-    if (items.length === 0) {
-      grid.innerHTML = '<div class="section-empty">아직 비어있어요</div>';
-    } else {
-      items.forEach(c => grid.appendChild(createIconItem(c)));
-    }
+    if (items.length === 0) return; // 빈 카테고리 숨김
+    items.forEach(c => grid.appendChild(createIconItem(c)));
     acc.querySelector('.cat-acc-head').addEventListener('click', () => {
       acc.classList.toggle('open');
     });

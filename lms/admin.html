@@ -23,10 +23,10 @@
   --primary:#1E3A8A;--primary-deep:#172554;
   --navy:#1E3A8A;
   --accent:#2DD4BF;--accent-deep:#0F766E;--accent-l:rgba(45,212,191,0.12);
-  --c1:#1E3A8A;--c1-l:rgba(30,58,138,0.08);--c1-m:rgba(30,58,138,0.15);
-  --c2:#1E3A8A;--c2-l:rgba(30,58,138,0.08);--c2-m:rgba(30,58,138,0.15);
-  --c3:#1E3A8A;--c3-l:rgba(30,58,138,0.08);--c3-m:rgba(30,58,138,0.15);
-  --c4:#1E3A8A;--c4-l:rgba(30,58,138,0.08);--c4-m:rgba(30,58,138,0.15);
+  --c1:#6D28D9;--c1-l:rgba(109,40,217,0.08);--c1-m:rgba(109,40,217,0.15);
+  --c2:#059669;--c2-l:rgba(5,150,105,0.08);--c2-m:rgba(5,150,105,0.15);
+  --c3:#0E7490;--c3-l:rgba(14,116,144,0.08);--c3-m:rgba(14,116,144,0.15);
+  --c4:#D97706;--c4-l:rgba(217,119,6,0.08);--c4-m:rgba(217,119,6,0.15);
   --success:#16A34A;--critical:#DC2626;
   --shadow:rgba(20,22,26,0.25) 0px 1px 4px 0px;
   --shadow-hover:rgba(20,22,26,0.25) 0px 6px 20px 0px;
@@ -956,6 +956,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
         <div class="grade-subtab-bar" id="gradeSubtabBar" style="margin-bottom:0"></div>
         <div class="grade-check-actions" id="gradeCheckActions" style="display:none">
           <button class="add-btn p" id="gradeSaveBtn">임시 저장</button>
+          <button class="add-btn p" id="publishAllBtn" onclick="publishAllClasses()" style="background:var(--accent-deep);border-color:var(--accent-deep)">전체 반 공개</button>
           <span class="grade-publish-status-lbl" id="gradePublishStatusLbl"></span>
           <button class="btn-publish" id="publishActionBtn" style="display:none"></button>
         </div>
@@ -3966,6 +3967,56 @@ async function unpublishClassGrades(classNum) {
   } catch(e) {
     alert('취소 실패: ' + e.message);
   }
+}
+
+async function publishAllClasses() {
+  if (!_gradeLessonKey) return;
+  const bar = document.getElementById('gradeSubtabBar');
+  const classBtns = bar ? [...bar.querySelectorAll('.grade-subtab[data-cls]')] : [];
+  const classNums = classBtns.map(b => parseInt(b.dataset.cls)).filter(n => !isNaN(n));
+  if (!classNums.length) { alert('반 정보가 없습니다.'); return; }
+  const unpublished = classNums.filter(n => !_publishStatus[n]);
+  if (!unpublished.length) { alert('이미 모든 반에 반영되어 있습니다.'); return; }
+  if (!confirm(`${unpublished.join(', ')}반 (총 ${unpublished.length}개 반) 성적을 한꺼번에 반영하시겠습니까?\n학생 성적 조회에 즉시 표시됩니다.`)) return;
+
+  const allBtn = document.getElementById('publishAllBtn');
+  if (allBtn) { allBtn.disabled = true; allBtn.textContent = '반영 중...'; }
+
+  const lesson = _gradeLessons.find(l => l.num === _gradeLessonKey);
+  const lessonTitle = lesson?.title || '';
+
+  for (const classNum of unpublished) {
+    const studentsInClass = _gradeStudents.filter(s => {
+      if (s.id === '00000') return false;
+      return Math.floor((parseInt(s.id) - 30000) / 100) === classNum;
+    });
+    try {
+      await Promise.all(studentsInClass.map(s =>
+        setDoc(doc(db, 'grade_records', `${_gradeLessonKey}_${s.id}`), {
+          lessonKey: _gradeLessonKey, lessonTitle,
+          studentId: s.id, studentName: s.name,
+          concept: _gradeRecords[s.id].concept,
+          mission: _gradeRecords[s.id].mission,
+          think:   _gradeRecords[s.id].think,
+          absent:  _gradeRecords[s.id].absent || false,
+          feedback: _gradeRecords[s.id].feedback || '',
+          published: true, updatedAt: serverTimestamp(),
+        }, { merge: true })
+      ));
+      await setDoc(doc(db, 'grade_publish_status', `${_gradeLessonKey}_${classNum}`), {
+        published: true, publishedAt: serverTimestamp(), lessonKey: _gradeLessonKey, classNum,
+      });
+      _publishStatus[classNum] = true;
+      updateSubtabPublishBadge(classNum, true);
+    } catch(e) {
+      alert(`${classNum}반 반영 실패: ${e.message}`);
+    }
+  }
+
+  if (allBtn) { allBtn.disabled = false; allBtn.textContent = '전체 반 공개'; }
+  const cur = _currentGradeClass && _currentGradeClass !== 'all' ? _currentGradeClass : null;
+  renderGradePublishBar(cur);
+  alert(`전체 ${unpublished.length}개 반 성적 반영 완료!`);
 }
 
 async function saveGradeSettings() {

@@ -86,6 +86,7 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .think-char-count{font-weight:700}
 .think-char-count.ok{color:var(--accent-deep)}
 .think-char-count.short{color:var(--c3)}
+.think-char-count.over{color:var(--critical)}
 .think-submit-btn{width:100%;padding:14px;background:var(--primary);color:#fff;border:none;border-radius:100px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:background .2s,opacity .2s}
 .think-submit-btn:hover:not(:disabled){background:var(--primary-deep)}
 .think-submit-btn:disabled{opacity:.35;cursor:not-allowed}
@@ -108,7 +109,7 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .logout-btn:hover{background:var(--surface)}
 .hub-body{flex:1;padding:36px 32px 80px;max-width:1560px;margin:0 auto;width:100%}
 .hub-welcome{font-family:'Paperlogy',sans-serif;font-weight:600;font-size:14px;color:var(--slate);text-align:center;margin-bottom:32px;letter-spacing:.2px}
-.announce-banner{background:var(--primary-soft);border:1px solid rgba(30,58,138,0.18);border-radius:16px;padding:14px 20px;margin-bottom:24px;font-size:13.5px;color:var(--primary-deep);line-height:1.6;white-space:pre-wrap;word-break:keep-all}
+.announce-banner{background:var(--primary-soft);border:1px solid rgba(30,58,138,0.18);border-radius:16px;padding:14px 20px;margin-bottom:24px;font-size:13.5px;color:var(--primary-deep);line-height:1.6;word-break:keep-all}
 #lockdownScreen{display:none;position:fixed;inset:0;z-index:9999;background:var(--surface);align-items:center;justify-content:center;padding:32px;text-align:center}
 .lockdown-box{max-width:380px}
 .lockdown-title{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:20px;color:var(--primary);margin-bottom:14px;letter-spacing:.3px}
@@ -444,7 +445,10 @@ onSnapshot(doc(db, 'settings', 'announcement'), snap => {
   const d = snap.exists() ? snap.data() : {};
   const banner = document.getElementById('announceBanner');
   if (d.enabled && d.text) {
-    banner.textContent = d.text;
+    const html = esc(d.text)
+      .replace(/\n/g, '<br>')
+      .replace(/https?:\/\/[^\s<&]+/g, url => `<a href="${url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:700">${url}</a>`);
+    banner.innerHTML = html;
     banner.style.display = 'block';
   } else {
     banner.style.display = 'none';
@@ -986,15 +990,17 @@ document.getElementById('thinkViewAnswerBtn').addEventListener('click', () => {
 document.getElementById('thinkModal').addEventListener('click', e => { if (e.target === document.getElementById('thinkModal')) closeThinkModal(); });
 
 const thinkTextarea = document.getElementById('thinkTextarea');
+const THINK_MAX_CHARS = 1000;
 thinkTextarea.addEventListener('input', updateThinkMeta);
 thinkTextarea.addEventListener('paste', e => e.preventDefault());
 
 function updateThinkMeta() {
   const len = thinkTextarea.value.replace(/\s/g, '').length;
   const el  = document.getElementById('thinkCharCount');
-  el.textContent = `${len}자`;
-  el.className   = 'think-char-count ' + (len >= 50 ? 'ok' : 'short');
-  document.getElementById('thinkSubmitBtn').disabled = len === 0;
+  const over = len > THINK_MAX_CHARS;
+  el.textContent = `${len} / ${THINK_MAX_CHARS}자`;
+  el.className   = 'think-char-count ' + (over ? 'over' : len >= 50 ? 'ok' : 'short');
+  document.getElementById('thinkSubmitBtn').disabled = len === 0 || over;
 }
 
 document.addEventListener('visibilitychange', () => { if (_thinkItem && document.hidden) _thinkCheat++; });
@@ -1003,6 +1009,7 @@ document.getElementById('thinkSubmitBtn').addEventListener('click', async () => 
   const text = thinkTextarea.value.trim();
   const textLength = text.replace(/\s/g, '').length;
   if (!_thinkItem) return;
+  if (textLength > THINK_MAX_CHARS) return;
   if (textLength < 50 && !confirm('50자 미만 작성했습니다. 그래도 제출 하시겠습니까?')) return;
   const duration = Math.floor((Date.now() - _thinkStart) / 1000);
   const btn = document.getElementById('thinkSubmitBtn');
