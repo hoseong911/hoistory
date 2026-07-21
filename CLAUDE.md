@@ -140,17 +140,22 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 - s_threads/goryeo_choice/blind_ryeo를 RTDB→Firestore로 이관 + `status` 필드 통일 ← 다음 세션 1순위 (blind_ryeo는 `goryeo_grades` 별도 경로도 문서 필드로 합쳐야 함)
 - (참고) lms/admin.html 대시보드 탭(제출률·통과율·미채점 한눈에 보기)은 각 미션 데이터 스키마가 제각각이라 보류함. 성적확인 탭에서 미션별로 이미 확인 가능하므로 당장 불필요하다고 판단.
 
-## 루트 admin.html — 완전 개편 예정
+## 루트 index.html / admin.html — 개편 방향 (2026-07-21 확정, 다음 세션 진행)
 
-현재 루트 admin.html은 이모지 피커, 대시보드 통계 부족, 허브 카드 관리 등 전반적인 리뉴얼이 필요하다.
-개편 시 건드려야 할 부분:
-- 허브 카드 아이콘 피커 → shared/icon-picker.js 교체
-- 📂 등 이모지 → SVG 교체
-- 대시보드에 LMS 통계 (미션 제출 수, 생각 체크 수 등) 추가
-- 허브 카드 일괄 잠금/해제·삭제 기능
-- LMS 어드민 바로가기 링크 추가
-- 카테고리 순서 drag-and-drop 지원
-개편 시 이 목록 기준으로 시작할 것.
+**배경**: 거의 모든 실사용 기능이 LMS로 이전됐다. 루트는 이제 (a) 학생이 LMS로 들어가는 진입점 + 지난 자료 아카이브 열람, (b) 동료 교사들이 둘러보는 링크트리 역할만 하면 된다. 무겁게 관리할 필요 없음 — 학생 관리 같은 기능은 전부 불필요.
+
+**index.html**: 이미 로그인 없이 보는 링크트리 스타일(LMS 진입 카드 + 카테고리별 아카이브 아코디언, `cards`+`settings/categories` 렌더링)로 개편 완료 상태. 아래 admin.html 신규 기능이 만드는 카드도 그대로 여기 뜨므로 index.html 자체는 추가 변경 불필요로 판단됨 (다음 세션에서 한 번 더 확인).
+
+**admin.html 개편 확정 사항**:
+- **학생관리 페이지 삭제**. 근거: RTDB `students` 경로는 lms/admin.html 자체 "학생 관리" 탭에서도 동일하게 관리하는 SSOT라 완전히 중복임 (데이터 안 날아감, UI만 없어짐).
+- **대시보드 페이지를 허브 페이지에 통합**(사실상 폐지). "반별 학생 수" 같은 학생 통계는 이제 루트에 있을 이유가 없음.
+- 기존 개편 항목 중 유지: 허브 카드 아이콘 피커 → `shared/icon-picker.js` 교체, LMS 어드민 바로가기 링크 추가, 카테고리 순서 drag-and-drop.
+- 기존 개편 항목 중 제외(가벼운 링크트리 방향과 안 맞음, 최종 확정은 다음 세션에 한 번 더 확인): 허브 카드 일괄 잠금/해제·삭제, 대시보드에 LMS 통계 추가.
+- **신규 핵심 기능 — "LMS 연결 앱에서 가져오기" (새 카드 추가 화면에 모드 추가)**:
+  - 데이터 소스: `settings/lms_config`의 `mission_category` 값과 `category`가 일치하는 `cards` 문서들(=LMS 미션 카드 목록)을 목록으로 보여줌.
+  - 각 항목에 제목/아이콘과, LMS 미션 카드 추가 시 이미 입력받아 저장해두고 있지만 현재 아무 데도 안 보여주고 있는 아카이브 정보(`adminConfig/{appKey}/archive`의 `topic`/`intent`)를 같이 표시.
+  - 하나 선택 + 공개할 아카이브 카테고리 지정 → **복사본 생성 방식으로 확정**. 원본 LMS 미션 카드(`mission_category`)는 그대로 두고, `addDoc`으로 title/emoji/url을 그대로 복사한 새 `cards` 문서를 다른 category로 생성함(LMS 미션 목록에서 안 사라짐). `desc`에 topic/intent를 어떻게 반영할지는 다음 세션에 정할 것.
+  - `order`는 기존 "새 카드 추가" 로직과 동일하게 해당 카테고리 내 기존 카드 `order` 중 최댓값 + 1로 계산.
 
 ---
 
