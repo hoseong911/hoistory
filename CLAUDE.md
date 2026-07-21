@@ -148,7 +148,15 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 
 **admin.html 개편 내용**:
 - 학생관리 페이지 삭제(RTDB `students`는 lms/admin.html "학생 관리" 탭이 SSOT라 중복이었음, 데이터는 그대로 유지).
-- 대시보드 페이지를 폐지하고 허브 관리를 유일한 페이지로 통합. 사이드바·상단 통계·반별 학생 수 등 대시보드 전용 UI 전부 제거, 상단바에 "LMS 어드민" 바로가기 링크 추가.
+- 대시보드 페이지를 폐지하고 허브 관리를 유일한 페이지로 통합(CARDS/ADD/CATEGORY 3탭만 남음). 사이드바·상단 통계·반별 학생 수 등 대시보드 전용 UI 전부 제거. "LMS 어드민" 바로가기 링크도 제거(2026-07-21 재논의로 없앰 — 아래 "LMS 미션 카드 공개" 항목 참고).
+- 색상 팔레트를 index.html의 핑크 톤(`--primary:#DB2777` 등)에 맞춤. `admin.html` 자체 `<style>`에서 `.hi-preset-admin`의 `--hi-accent`/`--hi-accent-hover`/`--hi-accent-strong`/`--hi-accent-soft`/`--hi-accent-m`만 오버라이드(원래 네이비 `#1E3A8A` → 핑크). bg/border/text 토큰은 두 프리셋이 이미 거의 같은 값이라 손대지 않음. 컴포넌트 구조·레이아웃은 유지("색상만 통일" 요청).
 - 허브 카드 아이콘 피커를 이모지 그리드에서 `shared/icon-picker.js`(SVG 피커, lms/admin.html과 동일 패턴)로 교체. 카드 문서의 아이콘 필드는 계속 `emoji`(기존 이모지 문자열 데이터와 호환, 값이 `<svg`로 시작하면 SVG로 렌더링).
 - 카테고리 기능은 유지, 범위는 추가/삭제만(순서 변경 없음) — 기존 구현이 이미 이 범위였음.
-- **"LMS에서 가져오기"** — ADD 탭에 "직접 입력"/"LMS에서 가져오기" 모드 토글 추가. `settings/lms_config`의 `mission_category`와 일치하는 `cards` 문서 목록에서 하나를 고르면 제목/아이콘/URL이 폼에 채워지고, `adminConfig/{appKey}/archive`의 topic/intent가 있으면 설명란에 기본값으로 채워짐(사용자가 직접 수정 가능, 자동 채움 실패해도 무시). 카테고리를 골라 저장하면 원본은 그대로 두고 새 `cards` 문서(복사본)를 addDoc으로 생성.
+
+**LMS 미션 카드 공개 (2026-07-21, "가져오기" 수동 모드를 대체함)**:
+LMS에서 미션 카드를 만들고 공개(잠금 해제)하면, 같은 Firestore `cards` 컬렉션에 `category`가 `settings/lms_config.mission_category` 값으로 저장된다(기존과 동일한 데이터 구조). 이걸 루트 아카이브에 노출할지는 별도 단계로 분리했다:
+- 루트 어드민 CARDS 탭에 "LMS 미션 카드" 패널이 자동으로 뜬다 — `category === mission_category && !locked`인 카드를 실시간으로 나열(수동으로 찾아 들어갈 필요 없음).
+- 학생 허브(index.html)에는 이 시점까지 전혀 안 뜬다 — index.html은 `settings/categories`에 등록된 카테고리만 렌더링하는데 `mission_category`는 그 목록에 없기 때문에 자동으로 비공개 상태.
+- 관리자가 "공개" 버튼을 누르면 카테고리 선택 + 설명(desc) 입력 폼이 펼쳐진다. 설명란은 `adminConfig/{appKey}/archive`의 topic/intent가 있으면 자동으로 채워지되(appKey는 `url.split('/')[1]`), 직접 수정 가능. "게시하기"를 누르면 **원본과 무관한 새 `cards` 문서를 addDoc으로 생성**(`sourceMissionId: <원본 docId>` 필드로 출처만 표시)하고 그걸 index.html이 렌더링한다.
+- **컬렉션을 나누지 않기로 함**: 문서 단위로 이미 독립된 사본이 생성되므로(다른 docId), LMS 쪽에서 원본 미션 카드를 나중에 삭제해도(수업에서 더 이상 안 씀) 루트에 이미 공개된 사본은 영향받지 않는다. 컬렉션을 분리하면 index.html 쿼리·firestore.rules를 이중으로 관리해야 해서 오히려 복잡도만 늘어난다고 판단(2026-07-21 결정, 사용자 질문에 대한 답변).
+- 이미 사본이 만들어진 미션 카드는 목록에서 "✓ 공개됨" 배지로 표시되고 버튼이 사라짐(같은 카드를 실수로 중복 게시하는 것 방지, `sourceMissionId` 매칭으로 판별).
