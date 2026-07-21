@@ -6,7 +6,6 @@
 <title>Dive into History - 관리자 콘솔</title>
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <link rel="stylesheet" href="shared/theme.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   html, body { min-height: 100%; font-family: 'Pretendard', sans-serif; background: var(--hi-bg-base); color: var(--hi-text); }
 
@@ -43,65 +42,15 @@
     position: sticky; top: 0; z-index: 100;
   }
   .topbar-left { display: flex; align-items: center; gap: 14px; flex: 1; }
-  .menu-toggle {
-    display: none;
-    background: none; border: none; cursor: pointer;
-    padding: 8px; margin-left: -8px;
-    color: var(--hi-text); font-size: 22px;
-    font-family: inherit;
-  }
   .topbar-title { font-size: 16px; font-weight: 800; color: var(--hi-text); }
   .topbar-title small { font-size: 12px; color: var(--hi-text-muted); font-weight: 500; margin-left: 8px; }
   .topbar-right { display: flex; align-items: center; gap: 12px; }
   .topbar-user { font-size: 13px; color: var(--hi-text-muted); }
 
-  /* 사이드바 + 본문 */
-  .layout {
-    display: grid;
-    grid-template-columns: 240px 1fr;
-    min-height: calc(100vh - 56px);
-  }
-  .sidebar {
-    background: var(--hi-bg-surface);
-    border-right: 1px solid var(--hi-border);
-    padding: 16px 12px;
-    position: sticky; top: 56px;
-    height: calc(100vh - 56px);
-    overflow-y: auto;
-  }
-  .sb-section-label {
-    font-size: 10px; font-weight: 800;
-    color: var(--hi-text-muted);
-    letter-spacing: 1.4px; text-transform: uppercase;
-    padding: 14px 12px 6px;
-  }
-  .sb-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 12px; border-radius: 8px;
-    color: var(--hi-text-soft);
-    font-size: 14px; font-weight: 600;
-    cursor: pointer; background: none; border: none;
-    width: 100%; text-align: left;
-    font-family: inherit;
-    transition: background 0.15s, color 0.15s;
-    margin-bottom: 2px;
-  }
-  .sb-item:hover { background: var(--hi-bg-mid); color: var(--hi-text); }
-  .sb-item.active {
-    background: var(--hi-accent-soft);
-    color: var(--hi-accent);
-  }
-  .sb-item-icon { font-size: 18px; width: 22px; text-align: center; flex-shrink: 0; }
-  .sb-item-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .sb-item-badge {
-    font-size: 10px; padding: 2px 6px;
-    background: var(--hi-bg-mid); color: var(--hi-text-muted);
-    border-radius: 9999px; font-weight: 700;
-  }
-  .sb-divider { height: 1px; background: var(--hi-border); margin: 8px 4px; }
-
   .main {
     padding: 28px 32px;
+    max-width: 960px;
+    margin: 0 auto;
     background: var(--hi-bg-base);
     overflow: hidden;
   }
@@ -129,148 +78,6 @@
   .panel-sub { font-size: 12px; color: var(--hi-text-muted); margin-top: 4px; }
   .panel-hint { font-size: 11px; color: var(--hi-text-muted); letter-spacing: 0.3px; }
 
-  /* 페이지 (탭 콘텐츠) */
-  .page-section { display: none; }
-  .page-section.active { display: block; }
-
-  /* 대시보드 통계 */
-  .stat-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    gap: 12px;
-    margin-bottom: 16px;
-  }
-  .stat-card {
-    background: var(--hi-bg-surface);
-    border: 1px solid var(--hi-border);
-    border-radius: 10px;
-    padding: 16px 18px;
-  }
-  .stat-label {
-    font-size: 11px; font-weight: 700;
-    color: var(--hi-text-muted);
-    text-transform: uppercase; letter-spacing: 1px;
-    margin-bottom: 6px;
-  }
-  .stat-value { font-size: 28px; font-weight: 800; color: var(--hi-text); line-height: 1.1; }
-  .stat-value.muted { font-size: 14px; color: var(--hi-text-muted); font-weight: 600; }
-
-  /* 대시보드 2열 그리드 */
-  .dash-grid {
-    display: grid;
-    grid-template-columns: 1fr 320px;
-    gap: 16px;
-    align-items: start;
-  }
-
-  /* 반별 학생 수 */
-  .class-stat-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
-  }
-  .class-stat-cell {
-    background: var(--hi-bg-mid);
-    border-radius: 8px;
-    padding: 12px 8px;
-    text-align: center;
-  }
-  .class-stat-label {
-    font-size: 11px; font-weight: 700;
-    color: var(--hi-text-muted);
-    margin-bottom: 4px;
-  }
-  .class-stat-value {
-    font-size: 20px; font-weight: 800;
-    color: var(--hi-text);
-  }
-
-  /* 허브 미리보기 */
-  .dash-hub-section { margin-bottom: 14px; }
-  .dash-hub-section:last-child { margin-bottom: 0; }
-  .dash-hub-cat-label {
-    font-size: 10px; font-weight: 800;
-    color: var(--hi-text-muted);
-    text-transform: uppercase; letter-spacing: 1px;
-    margin-bottom: 6px; padding: 0 2px;
-  }
-  .dash-hub-item {
-    display: flex; align-items: center; gap: 8px;
-    padding: 7px 10px; border-radius: 7px;
-    margin-bottom: 4px; background: var(--hi-bg-mid);
-  }
-  .dash-hub-item.locked { opacity: 0.4; }
-  .dash-hub-item-icon { font-size: 14px; flex-shrink: 0; width: 22px; text-align: center; }
-  .dash-hub-item-title {
-    font-size: 12px; font-weight: 600; color: var(--hi-text);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;
-  }
-
-
-  /* 학생 명단 */
-  .upload-zone {
-    border: 2px dashed var(--hi-border-light);
-    border-radius: 10px; padding: 32px 20px;
-    text-align: center; cursor: pointer;
-    position: relative; transition: 0.2s;
-    background: var(--hi-bg-mid);
-  }
-  .upload-zone:hover, .upload-zone.drag {
-    border-color: var(--hi-accent);
-    background: var(--hi-accent-soft);
-  }
-  .upload-zone input {
-    position: absolute; inset: 0;
-    opacity: 0; cursor: pointer;
-  }
-  .upload-icon { font-size: 32px; margin-bottom: 8px; }
-  .upload-title { font-size: 14px; font-weight: 700; color: var(--hi-text); margin-bottom: 4px; }
-  .upload-desc { font-size: 12px; color: var(--hi-text-muted); }
-
-  .add-form { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
-  .add-form .field { display: flex; flex-direction: column; gap: 6px; }
-  .add-form .field label {
-    font-size: 10px; font-weight: 700;
-    color: var(--hi-text-muted);
-    text-transform: uppercase; letter-spacing: 1px;
-  }
-  .add-form .field input { width: 160px; }
-
-  .search-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
-  .search-row input { flex: 1; min-width: 180px; }
-  .search-row select { flex-shrink: 0; min-width: 130px; }
-
-  .table-wrap {
-    border: 1px solid var(--hi-border);
-    border-radius: 10px;
-    overflow: auto;
-    background: var(--hi-bg-surface);
-  }
-  table { width: 100%; border-collapse: collapse; }
-  thead th {
-    background: var(--hi-bg-mid);
-    padding: 11px 14px;
-    text-align: left;
-    font-size: 11px; font-weight: 800;
-    color: var(--hi-text-muted);
-    text-transform: uppercase; letter-spacing: 0.8px;
-    border-bottom: 1px solid var(--hi-border);
-    white-space: nowrap;
-  }
-  tbody td {
-    padding: 11px 14px;
-    border-bottom: 1px solid var(--hi-border-faint);
-    font-size: 14px; color: var(--hi-text);
-    vertical-align: middle;
-  }
-  tbody tr:last-child td { border-bottom: none; }
-  tbody tr:hover td { background: var(--hi-bg-mid); }
-  .td-id { font-weight: 700; color: var(--hi-accent); font-family: 'JetBrains Mono', monospace; }
-  .td-name { font-weight: 700; }
-  .td-meta { font-size: 12px; color: var(--hi-text-muted); }
-  .td-actions { display: flex; gap: 6px; }
-  .row-num { color: var(--hi-text-muted); font-size: 12px; }
-
   .mini-btn {
     padding: 5px 12px; border-radius: 6px;
     font-size: 12px; font-weight: 700;
@@ -285,16 +92,6 @@
   .mini-btn.primary:hover { background: var(--hi-accent-hover); }
   .mini-btn.danger { color: var(--hi-negative); border-color: var(--hi-border); }
   .mini-btn.danger:hover { border-color: var(--hi-negative); background: rgba(220,38,38,0.06); }
-  .edit-input {
-    padding: 6px 10px;
-    border: 1px solid var(--hi-accent);
-    border-radius: 6px;
-    font-family: inherit; font-size: 13px;
-    outline: none;
-    background: var(--hi-bg-surface);
-    color: var(--hi-text);
-    width: 120px;
-  }
 
   .empty {
     text-align: center;
@@ -414,44 +211,25 @@
     text-transform: uppercase; letter-spacing: 1px;
     margin-bottom: 6px;
   }
-  .emoji-display {
-    background: var(--hi-bg-surface);
+  /* 카드 가져오기 (LMS 연동) */
+  .import-list-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 8px;
     border: 1px solid var(--hi-border);
-    border-radius: 10px;
-    padding: 12px 16px;
-    cursor: pointer;
-    display: flex; align-items: center; gap: 12px;
-    font-size: 22px;
-    transition: border-color 0.15s;
-  }
-  .emoji-display:hover { border-color: var(--hi-accent); }
-  .emoji-display .hint { font-size: 11px; color: var(--hi-text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
-  .emoji-palette-wrap { position: relative; }
-  .emoji-picker {
-    display: none;
-    position: absolute; top: calc(100% + 6px); left: 0; right: 0;
     background: var(--hi-bg-surface);
-    border: 1px solid var(--hi-border);
-    border-radius: 10px;
-    padding: 14px; z-index: 100;
-    box-shadow: var(--hi-shadow-dialog);
-  }
-  .emoji-picker.open { display: block; }
-  .emoji-cats { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
-  .emoji-cat-btn {
-    background: var(--hi-bg-mid);
-    border: none; border-radius: 6px;
-    padding: 6px 12px;
-    color: var(--hi-text-muted);
-    font-size: 11px; font-weight: 700;
-    cursor: pointer; font-family: inherit;
+    cursor: pointer; margin-bottom: 8px;
     transition: 0.15s;
   }
-  .emoji-cat-btn:hover { color: var(--hi-text); }
-  .emoji-cat-btn.active { background: var(--hi-accent); color: white; }
-  .emoji-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; max-height: 200px; overflow-y: auto; }
-  .emoji-btn { background: transparent; border: none; font-size: 22px; cursor: pointer; padding: 6px; border-radius: 6px; line-height: 1; }
-  .emoji-btn:hover { background: var(--hi-bg-mid); }
+  .import-list-item:hover { border-color: var(--hi-accent); background: var(--hi-accent-soft); }
+  .import-list-icon {
+    width: 28px; height: 28px; flex-shrink: 0;
+    background: var(--hi-bg-mid); border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .import-list-icon svg { display: block; }
+  .import-list-title { font-size: 13px; font-weight: 700; color: var(--hi-text); }
+  .import-list-title-sub { font-size: 11px; color: var(--hi-text-muted); }
 
   /* 카테고리 편집 */
   .cat-edit-row {
@@ -485,29 +263,10 @@
 
   /* 모바일 */
   @media (max-width: 880px) {
-    .menu-toggle { display: block; }
-    .layout { grid-template-columns: 1fr; }
-    .sidebar {
-      position: fixed; top: 56px; left: -260px;
-      width: 240px; z-index: 90;
-      transition: left 0.25s;
-      box-shadow: rgba(0,0,0,0.1) 4px 0 12px;
-    }
-    .sidebar.open { left: 0; }
-    .sidebar-backdrop {
-      display: none;
-      position: fixed; inset: 56px 0 0 0;
-      background: rgba(0,0,0,0.3);
-      z-index: 80;
-    }
-    .sidebar-backdrop.show { display: block; }
     .main { padding: 20px 16px; }
     .page-title { font-size: 20px; }
     .hub-board { grid-template-columns: 1fr; }
-    .dash-grid { grid-template-columns: 1fr; }
     .form-grid { grid-template-columns: 1fr; }
-    .add-form .field input { width: 100%; }
-    .add-form .field { flex: 1; min-width: 120px; }
   }
 </style>
 </head>
@@ -539,136 +298,64 @@
   <!-- 상단바 -->
   <header class="topbar">
     <div class="topbar-left">
-      <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-      <div class="topbar-title">관리자 콘솔 <small id="pageBreadcrumb">대시보드</small></div>
+      <div class="topbar-title">관리자 콘솔 <small>허브 관리</small></div>
     </div>
     <div class="topbar-right">
+      <a class="mini-btn" href="lms/admin.html">LMS 어드민</a>
       <span class="topbar-user">김호성</span>
       <button class="mini-btn" onclick="logout()">로그아웃</button>
     </div>
   </header>
 
-  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+  <!-- 메인 -->
+  <main class="main">
 
-  <div class="layout">
-    <!-- 사이드바 -->
-    <aside class="sidebar" id="sidebar">
-      <div class="sb-section-label">콘솔</div>
-      <button class="sb-item active" data-page="dashboard" onclick="goPage('dashboard')">
-        <span class="sb-item-text">대시보드</span>
-      </button>
-      <button class="sb-item" data-page="hub" onclick="goPage('hub')">
-        <span class="sb-item-text">허브 관리</span>
-        <span class="sb-item-badge" id="hubCountBadge">0</span>
-      </button>
-      <button class="sb-item" data-page="students" onclick="goPage('students')">
-        <span class="sb-item-text">학생 명단</span>
-        <span class="sb-item-badge" id="studentsCountBadge">0</span>
-      </button>
-    </aside>
+    <div class="page-header">
+      <div class="page-title">허브 관리</div>
+      <div class="page-sub">학생 허브 페이지에 표시되는 카드와 카테고리를 관리합니다 · <a href="index.html" target="_blank" style="color:var(--hi-accent);font-weight:700;text-decoration:none;">학생 허브 열기</a></div>
+    </div>
 
-    <!-- 메인 -->
-    <main class="main">
+    <div class="hub-tabs" id="hubTabsNav">
+      <button class="hub-tab active" data-tab="list" onclick="hubSwitchTab('list')">CARDS</button>
+      <button class="hub-tab" data-tab="add" onclick="hubSwitchTab('add')">ADD</button>
+      <button class="hub-tab" data-tab="cats" onclick="hubSwitchTab('cats')">CATEGORY</button>
+    </div>
 
-      <!-- 대시보드 -->
-      <section class="page-section active" id="page-dashboard">
-        <div class="page-header">
-          <div class="page-title">대시보드</div>
-          <div class="page-sub">Dive into History 관리자 콘솔 · 김호성 선생님</div>
-        </div>
-
-        <!-- 상단 요약 통계 -->
-        <div class="stat-grid" style="margin-bottom:16px;">
-          <div class="stat-card">
-            <div class="stat-label">전체 학생</div>
-            <div class="stat-value" id="dashStatStudents">—</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">허브 카드</div>
-            <div class="stat-value" id="dashStatCards">—</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">마지막 동기화</div>
-            <div class="stat-value muted" id="dashStatSync">방금</div>
-          </div>
-        </div>
-
-        <!-- 2열 레이아웃 -->
-        <div class="dash-grid">
-
-          <!-- 왼쪽: 허브 카드 현황 -->
-          <div class="panel">
-            <div class="panel-header">
-              <div>
-                <div class="panel-title">허브 카드 현황</div>
-                <div class="panel-sub">학생들에게 표시되는 카드 목록</div>
-              </div>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <a href="index.html" target="_blank" style="font-size:11px;color:var(--hi-accent);font-weight:700;text-decoration:none;">학생 허브 열기</a>
-                <button class="mini-btn" onclick="goPage('hub')">편집</button>
-              </div>
-            </div>
-            <div id="dashHubPreview">
-              <div class="empty"><div class="empty-text">로딩 중…</div></div>
-            </div>
-          </div>
-
-          <!-- 오른쪽 -->
+    <!-- 카드 목록 -->
+    <div id="hubTab-list">
+      <div class="panel">
+        <div class="panel-header">
           <div>
-            <!-- 반별 학생 수 -->
-            <div class="panel" style="margin-bottom:16px;">
-              <div class="panel-header">
-                <div>
-                  <div class="panel-title">반별 학생 수</div>
-                </div>
-                <button class="mini-btn" onclick="goPage('students')">명단 관리</button>
-              </div>
-              <div class="class-stat-grid" id="dashClassStats">
-                <div class="class-stat-cell"><div class="class-stat-label">로딩</div><div class="class-stat-value">—</div></div>
-              </div>
-            </div>
+            <div class="panel-title">전체 카드</div>
+            <div class="panel-sub">PC에서는 카드를 다른 섹션으로 드래그, 또는 위/아래로 순서 변경 가능</div>
           </div>
-
         </div>
-      </section>
+        <div class="hub-board" id="hubBoard"></div>
+      </div>
+    </div>
 
-      <!-- 허브 관리 -->
-      <section class="page-section" id="page-hub">
-        <div class="page-header">
-          <div class="page-title">허브 관리</div>
-          <div class="page-sub">학생 허브 페이지에 표시되는 카드와 카테고리를 관리합니다</div>
-        </div>
-
-        <div class="hub-tabs">
-          <button class="hub-tab active" data-tab="list" onclick="hubSwitchTab('list')">CARDS</button>
-          <button class="hub-tab" data-tab="add" onclick="hubSwitchTab('add')">ADD</button>
-          <button class="hub-tab" data-tab="cats" onclick="hubSwitchTab('cats')">CATEGORY</button>
-        </div>
-
-        <!-- 카드 목록 -->
-        <div id="hubTab-list">
-          <div class="panel">
-            <div class="panel-header">
-              <div>
-                <div class="panel-title">전체 카드</div>
-                <div class="panel-sub">PC에서는 카드를 다른 섹션으로 드래그, 또는 위/아래로 순서 변경 가능</div>
-              </div>
-            </div>
-            <div class="hub-board" id="hubBoard"></div>
+    <!-- 카드 추가/수정 -->
+    <div id="hubTab-add" style="display:none;">
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title" id="hubAddTitle">새 카드 추가</div>
+            <div class="panel-sub">학생 허브 페이지에 새 앱·링크를 등록합니다</div>
           </div>
         </div>
 
-        <!-- 카드 추가/수정 -->
-        <div id="hubTab-add" style="display:none;">
-          <div class="panel">
-            <div class="panel-header">
-              <div>
-                <div class="panel-title" id="hubAddTitle">새 카드 추가</div>
-                <div class="panel-sub">학생 허브 페이지에 새 앱·링크를 등록합니다</div>
-              </div>
-            </div>
-            <input type="hidden" id="hubEditingId">
-            <div class="form-grid">
+        <div class="hub-tabs" id="hubAddModeToggle" style="justify-content:flex-start;margin-bottom:16px;">
+          <button type="button" class="hub-tab active" id="addModeManualBtn" onclick="hubSetAddMode('manual')">✏️ 직접 입력</button>
+          <button type="button" class="hub-tab" id="addModeImportBtn" onclick="hubSetAddMode('import')">📥 LMS에서 가져오기</button>
+        </div>
+
+        <div id="hubImportPanel" style="display:none;">
+          <div class="panel-sub" style="margin-bottom:10px;">LMS 미션 카드 중 하나를 선택하면 아래 폼에 자동으로 채워집니다</div>
+          <div id="hubImportList"></div>
+        </div>
+
+        <input type="hidden" id="hubEditingId">
+        <div class="form-grid" id="hubAddFormGrid">
               <div class="full">
                 <label class="form-label">카테고리</label>
                 <select class="hi-select" id="fCategory">
@@ -676,16 +363,10 @@
                 </select>
               </div>
               <div class="full">
-                <label class="form-label">아이콘 이모지</label>
-                <div class="emoji-palette-wrap">
-                  <div class="emoji-display" onclick="toggleEmojiPicker()">
-                    <span id="selectedEmoji">🏛️</span>
-                    <span class="hint">클릭해서 선택</span>
-                  </div>
-                  <div class="emoji-picker" id="emojiPicker">
-                    <div class="emoji-cats" id="emojiCats"></div>
-                    <div class="emoji-grid" id="emojiGrid"></div>
-                  </div>
+                <label class="form-label">아이콘</label>
+                <div class="icon-picker-wrap">
+                  <div class="icon-picker-preview empty" id="fIconPreview"></div>
+                  <button type="button" class="icon-picker-trigger" id="fIconTrigger">아이콘 선택</button>
                 </div>
               </div>
               <div class="full">
@@ -693,8 +374,8 @@
                 <input class="hi-input" type="text" id="fTitle" placeholder="예) 삼국시대 문화유산 맞추기 게임">
               </div>
               <div class="full">
-                <label class="form-label">설명 (짧게)</label>
-                <input class="hi-input" type="text" id="fDesc" placeholder="예) 고구려·백제·신라 유물을 맞춰봐!">
+                <label class="form-label">설명</label>
+                <textarea class="hi-input" id="fDesc" rows="2" style="resize:vertical;min-height:56px;" placeholder="예) 고구려·백제·신라 유물을 맞춰봐!"></textarea>
               </div>
               <div class="full">
                 <label class="form-label">링크 URL</label>
@@ -729,110 +410,18 @@
             </div>
           </div>
         </div>
-      </section>
 
-      <!-- 학생 명단 -->
-      <section class="page-section" id="page-students">
-        <div class="page-header">
-          <div class="page-title">학생 명단</div>
-          <div class="page-sub">모든 앱이 공유하는 학생 명단을 관리합니다 (RTDB <code>students</code>)</div>
-        </div>
-
-        <div class="stat-grid">
-          <div class="stat-card">
-            <div class="stat-label">전체 학생</div>
-            <div class="stat-value" id="stuStatTotal">0</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">학반 수</div>
-            <div class="stat-value" id="stuStatClasses">—</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">마지막 갱신</div>
-            <div class="stat-value muted" id="stuStatLast">—</div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-header">
-            <div>
-              <div class="panel-title">📂 엑셀 업로드</div>
-              <div class="panel-sub">A열: 학번, B열: 이름 · 1행 헤더 자동 건너뜀 · 기존 명단 덮어씀</div>
-            </div>
-            <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportStudentsExcel()">엑셀로 내보내기</button>
-          </div>
-          <div class="upload-zone" id="uploadZone">
-            <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleStuFile(event)">
-            <div class="upload-icon">📂</div>
-            <div class="upload-title">클릭하거나 파일을 드래그하세요</div>
-            <div class="upload-desc">.xlsx / .xls 파일</div>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-header">
-            <div>
-              <div class="panel-title">학생 개별 추가</div>
-            </div>
-          </div>
-          <div class="add-form">
-            <div class="field">
-              <label>학번 (5자리)</label>
-              <input class="hi-input" type="text" id="addId" maxlength="5" inputmode="numeric" placeholder="30401" onkeydown="if(event.key==='Enter') addStudent()">
-            </div>
-            <div class="field">
-              <label>이름</label>
-              <input class="hi-input" type="text" id="addName" placeholder="홍길동" onkeydown="if(event.key==='Enter') addStudent()">
-            </div>
-            <button class="hi-btn hi-btn-primary" onclick="addStudent()">추가</button>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="panel-header">
-            <div>
-              <div class="panel-title">등록된 명단</div>
-            </div>
-            <button class="mini-btn danger" onclick="clearAllStudents()">전체 삭제</button>
-          </div>
-          <div class="search-row">
-            <input class="hi-input" type="text" id="stuSearch" placeholder="학번 또는 이름 검색" oninput="renderStudentsTable()">
-            <select class="hi-select" id="classFilter" onchange="renderStudentsTable()">
-              <option value="">전체 학반</option>
-            </select>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width:36px;">#</th>
-                  <th>학번</th>
-                  <th>이름</th>
-                  <th>학반</th>
-                  <th style="width:160px;">관리</th>
-                </tr>
-              </thead>
-              <tbody id="stuTbody"></tbody>
-            </table>
-            <div class="empty" id="stuEmpty" style="display:none;">
-              <div class="empty-icon"></div>
-              <div class="empty-text">등록된 학생이 없습니다</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-    </main>
-  </div>
+  </main>
 </div>
 
 <div id="toast"></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, collection, getDocs, getDoc, setDoc, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getDatabase, ref, set, get, remove, update, onValue, push } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getFirestore, collection, getDoc, setDoc, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { mountIconPicker } from "./shared/icon-picker.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -863,7 +452,6 @@ onAuthStateChanged(auth, user => {
 
 const COLLECTION = "cards";
 const SETTINGS_DOC = "settings/categories";
-const studentsRef = ref(rdb, 'students');
 
 window._fdb = fdb;
 window._rdb = rdb;
@@ -880,12 +468,24 @@ window._writeBatch = writeBatch;
 window._COLLECTION = COLLECTION;
 
 window._rtdbRef = ref;
-window._rtdbSet = set;
-window._rtdbRemove = remove;
-window._rtdbUpdate = update;
-window._rtdbPush = push;
-window._studentsRef = studentsRef;
-window._onValue = onValue;
+window._rtdbGet = get;
+
+// 카드 아이콘 피커 (shared/icon-picker.js)
+window._hubSelectedIcon = '';
+window._setHubIcon = function(svg) {
+  window._hubSelectedIcon = svg || '';
+  const preview = document.getElementById('fIconPreview');
+  if (preview) {
+    preview.innerHTML = window._hubSelectedIcon;
+    preview.classList.toggle('empty', !window._hubSelectedIcon);
+  }
+};
+mountIconPicker({
+  triggerEl: document.getElementById('fIconTrigger'),
+  previewEl: document.getElementById('fIconPreview'),
+  onSelect: (svg) => window._setHubIcon(svg),
+  storeSize: 28,
+});
 
 // 카테고리 구독 (새 구조: { list: [{key, en, ko}, ...] })
 const catsDocRef = doc(fdb, "settings", "categories");
@@ -901,7 +501,6 @@ onSnapshot(catsDocRef, (snap) => {
     if (typeof renderHub === 'function') renderHub();
     if (typeof updateCategorySelect === 'function') updateCategorySelect();
     if (document.getElementById('hubTab-cats')?.style.display !== 'none' && typeof buildCatEditor === 'function') buildCatEditor();
-    if (typeof renderDashHubPreview === 'function') renderDashHubPreview();
   }
 }, (err) => console.error(err));
 
@@ -911,53 +510,15 @@ onSnapshot(q, (snapshot) => {
   const cards = [];
   snapshot.forEach(d => cards.push({ docId: d.id, ...d.data() }));
   window._cards = cards;
-  document.getElementById('hubCountBadge').textContent = cards.length;
-  document.getElementById('dashStatCards').textContent = cards.length;
   if (document.getElementById('adminApp').style.display !== 'none') {
     renderHub();
-    if (typeof renderDashHubPreview === 'function') renderDashHubPreview();
   }
 }, (err) => console.error(err));
-
-// 학생 명단 구독
-onValue(studentsRef, snap => {
-  const data = snap.val();
-  window._students = [];
-  if (data) {
-    Object.entries(data).forEach(([key, val]) => {
-      const sid = val.studentId || key;
-      const sname = val.name || val.studentName || val.realName || '';
-      if (sid && sname) window._students.push({ studentId: sid, studentName: sname, _key: key });
-    });
-  }
-  window._students.sort((a, b) => a.studentId.localeCompare(b.studentId));
-  document.getElementById('studentsCountBadge').textContent = window._students.length;
-  document.getElementById('dashStatStudents').textContent = window._students.length;
-  if (document.getElementById('adminApp').style.display !== 'none') {
-    renderStudentsStats();
-    renderClassFilter();
-    renderStudentsTable();
-    if (typeof renderDashClassStats === 'function') renderDashClassStats();
-  }
-});
 </script>
 
 <script>
 const MAX_CATEGORIES = 4;
 window._categoryList = window._categoryList || [];
-window._adminLinks = window._adminLinks || [];
-
-const EMOJI_DATA = {
-  '교육·역사': ['🏛️','📚','📖','📜','🗺️','🗿','⚔️','🛡️','🏺','🪙','🔭','🔬','✏️','📝','🎓','🏫','🧭','🗓️','📅','🪶'],
-  '게임·활동': ['🎮','🕹️','🎲','🎯','🏆','🥇','🎖️','🚪','🔑','🗝️','💡','🧩','🎪','🎠','🎡','🎢','🎭','🎨','🎬','🎤'],
-  '자연·장소': ['🌍','🌏','🏔️','🗻','🌋','⛩️','🏯','🗼','🗽','🌉','🌃','🌄','🌅','🌊','🏖️','🏕️','🌸','🍀','🌿','🍃'],
-  '사물·기타': ['⭐','🌟','💫','✨','🔥','💎','🛍️','🎁','📦','💌','🔔','📣','💬','🌈','❤️','💙','💚','💛','💜','🩷'],
-  '동물': ['🦅','🦁','🐯','🦊','🐺','🦋','🦚','🦜','🐉','🦄','🐘','🦒','🐬','🦈','🐧','🦀','🦑','🐙'],
-};
-
-let selectedEmoji = '🏛️';
-let currentEmojiCat = Object.keys(EMOJI_DATA)[0];
-let editingStuId = null;
 
 /* ===== 로그인 (Firebase Authentication, window._authSignIn/_authSignOut은 모듈 스크립트에서 노출) ===== */
 async function tryLogin() {
@@ -985,7 +546,7 @@ window.tryLogin = tryLogin;
 function showAdmin() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('adminApp').style.display = 'block';
-  initEmojiPicker();
+  renderHub();
 }
 window.showAdmin = showAdmin;
 
@@ -994,32 +555,6 @@ function logout() {
   window._authSignOut();
 }
 window.logout = logout;
-
-/* ===== 페이지 네비 ===== */
-function goPage(page) {
-  document.querySelectorAll('.sb-item').forEach(b => b.classList.toggle('active', b.dataset.page === page));
-  document.querySelectorAll('.page-section').forEach(s => s.classList.toggle('active', s.id === `page-${page}`));
-  const titles = {
-    dashboard: '대시보드', hub: '허브 관리', students: '학생 명단'
-  };
-  document.getElementById('pageBreadcrumb').textContent = titles[page] || '';
-  closeSidebar();
-  if (page === 'dashboard') { renderDashHubPreview(); renderDashClassStats(); }
-  if (page === 'hub') renderHub();
-  if (page === 'students') { renderStudentsStats(); renderClassFilter(); renderStudentsTable(); }
-}
-window.goPage = goPage;
-
-function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
-  document.getElementById('sidebarBackdrop').classList.toggle('show');
-}
-function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('sidebarBackdrop').classList.remove('show');
-}
-window.toggleSidebar = toggleSidebar;
-window.closeSidebar = closeSidebar;
 
 /* ===== 토스트 ===== */
 let toastTimer;
@@ -1041,7 +576,7 @@ function esc(s) {
  * 허브 관리
  * ============================================ */
 function hubSwitchTab(tab) {
-  document.querySelectorAll('.hub-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.getElementById('hubTabsNav').querySelectorAll('.hub-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   document.getElementById('hubTab-list').style.display = tab === 'list' ? 'block' : 'none';
   document.getElementById('hubTab-add').style.display = tab === 'add' ? 'block' : 'none';
   document.getElementById('hubTab-cats').style.display = tab === 'cats' ? 'block' : 'none';
@@ -1141,8 +676,10 @@ function createHubCardEl(card) {
   const el = document.createElement('div');
   el.className = 'hub-card' + (card.locked ? ' locked' : '');
   el.draggable = true;
+  const iconStr = String(card.emoji || '📌');
+  const iconHtml = iconStr.startsWith('<svg') ? iconStr : esc(iconStr);
   el.innerHTML = `
-    <div class="hub-card-icon">${esc(card.emoji || '📌')}</div>
+    <div class="hub-card-icon">${iconHtml}</div>
     <div class="hub-card-text">
       <div class="hub-card-title">${esc(card.title || '')}</div>
       <div class="hub-card-url">${esc(card.url || '')}</div>
@@ -1258,10 +795,12 @@ function hubEdit(docId) {
   document.getElementById('fDesc').value = card.desc || '';
   document.getElementById('fUrl').value = card.url || '';
   document.getElementById('fCategory').value = card.category || 'other';
-  selectedEmoji = card.emoji || '📌';
-  document.getElementById('selectedEmoji').textContent = selectedEmoji;
+  window._setHubIcon(card.emoji || '');
   document.getElementById('hubSubmitBtn').textContent = '수정 저장';
   document.getElementById('hubAddTitle').textContent = '카드 수정';
+  document.getElementById('hubAddModeToggle').style.display = 'none';
+  document.getElementById('hubImportPanel').style.display = 'none';
+  document.getElementById('hubAddFormGrid').style.display = 'grid';
   hubSwitchTab('add');
 }
 window.hubEdit = hubEdit;
@@ -1272,19 +811,20 @@ async function hubSubmit() {
   const url = document.getElementById('fUrl').value.trim();
   const category = document.getElementById('fCategory').value || 'other';
   const editId = document.getElementById('hubEditingId').value;
+  const emoji = window._hubSelectedIcon || '';
   if (!title || !url) { toast('제목과 URL은 필수입니다', 'error'); return; }
   const btn = document.getElementById('hubSubmitBtn');
   btn.disabled = true; btn.textContent = '저장 중...';
   try {
     if (editId) {
       await window._updateDoc(window._doc(window._fdb, window._COLLECTION, editId), {
-        emoji: selectedEmoji, title, desc, url, category
+        emoji, title, desc, url, category
       });
       toast('✅ 카드 수정 완료', 'success');
     } else {
       const cards = window._cards || [];
       await window._addDoc(window._collection(window._fdb, window._COLLECTION), {
-        emoji: selectedEmoji, title, desc, url, category, locked: false,
+        emoji, title, desc, url, category, locked: false,
         order: cards.length > 0 ? Math.max(...cards.map(c => c.order || 0)) + 1 : 0
       });
       toast('✅ 카드 추가 완료', 'success');
@@ -1307,12 +847,81 @@ function hubResetForm() {
   const cats = window._categoryList || [];
   const fCat = document.getElementById('fCategory');
   if (fCat && cats.length > 0) fCat.value = cats[0].key;
-  selectedEmoji = '🏛️';
-  document.getElementById('selectedEmoji').textContent = '🏛️';
+  window._setHubIcon('');
   document.getElementById('hubSubmitBtn').textContent = '카드 추가하기';
   document.getElementById('hubAddTitle').textContent = '새 카드 추가';
+  document.getElementById('hubAddModeToggle').style.display = 'flex';
+  hubSetAddMode('manual');
 }
 window.hubResetForm = hubResetForm;
+
+/* ===== 카드 가져오기 (LMS 미션 카드 → 아카이브 복사본) ===== */
+function hubSetAddMode(mode) {
+  document.getElementById('addModeManualBtn').classList.toggle('active', mode === 'manual');
+  document.getElementById('addModeImportBtn').classList.toggle('active', mode === 'import');
+  document.getElementById('hubImportPanel').style.display = mode === 'import' ? 'block' : 'none';
+  document.getElementById('hubAddFormGrid').style.display = mode === 'manual' ? 'grid' : 'none';
+  if (mode === 'import') loadImportList();
+}
+window.hubSetAddMode = hubSetAddMode;
+
+async function loadImportList() {
+  const listEl = document.getElementById('hubImportList');
+  listEl.innerHTML = `<div class="empty"><div class="empty-text">불러오는 중…</div></div>`;
+  try {
+    const cfgSnap = await window._getDoc(window._doc(window._fdb, 'settings', 'lms_config'));
+    const missionCat = cfgSnap.exists() ? (cfgSnap.data().mission_category || '') : '';
+    const items = (window._cards || []).filter(c => missionCat && c.category === missionCat);
+    if (items.length === 0) {
+      listEl.innerHTML = `<div class="empty"><div class="empty-text">가져올 LMS 미션 카드가 없습니다</div></div>`;
+      return;
+    }
+    listEl.innerHTML = '';
+    items.forEach(card => {
+      const iconStr = String(card.emoji || '📌');
+      const isSvg = iconStr.startsWith('<svg');
+      const row = document.createElement('div');
+      row.className = 'import-list-item';
+      row.innerHTML = `
+        <div class="import-list-icon">${isSvg ? iconStr : esc(iconStr)}</div>
+        <div>
+          <div class="import-list-title">${esc(card.title || '')}</div>
+          <div class="import-list-title-sub">${esc(card.url || '')}</div>
+        </div>
+      `;
+      row.addEventListener('click', () => hubImportSelect(card));
+      listEl.appendChild(row);
+    });
+  } catch (e) {
+    listEl.innerHTML = `<div class="empty"><div class="empty-text">불러오기 실패: ${esc(e.message)}</div></div>`;
+  }
+}
+
+async function hubImportSelect(card) {
+  document.getElementById('fTitle').value = card.title || '';
+  document.getElementById('fUrl').value = card.url || '';
+  window._setHubIcon(card.emoji || '');
+  const cats = window._categoryList || [];
+  const fCat = document.getElementById('fCategory');
+  if (fCat && cats.length > 0) fCat.value = cats[0].key;
+
+  let desc = '';
+  try {
+    const appKey = (card.url || '').split('/')[1];
+    if (appKey) {
+      const snap = await window._rtdbGet(window._rtdbRef(window._rdb, `adminConfig/${appKey}/archive`));
+      if (snap.exists()) {
+        const { topic = '', intent = '' } = snap.val() || {};
+        desc = [topic, intent].filter(Boolean).join('\n');
+      }
+    }
+  } catch (e) { /* 조회 실패해도 무시 — 사용자가 직접 입력 */ }
+  document.getElementById('fDesc').value = desc;
+
+  document.getElementById('hubImportPanel').style.display = 'none';
+  document.getElementById('hubAddFormGrid').style.display = 'grid';
+}
+window.hubImportSelect = hubImportSelect;
 
 /* ===== 카테고리 편집 ===== */
 let _tempCategoryList = null; // 편집 중인 임시 리스트
@@ -1429,320 +1038,6 @@ function updateCategorySelect() {
   if (cats.some(c => c.key === cur)) sel.value = cur;
 }
 window.updateCategorySelect = updateCategorySelect;
-
-/* ===== 이모지 피커 ===== */
-function initEmojiPicker() {
-  const cats = document.getElementById('emojiCats');
-  if (!cats || cats.children.length > 0) return;
-  Object.keys(EMOJI_DATA).forEach((cat, i) => {
-    const btn = document.createElement('button');
-    btn.className = 'emoji-cat-btn' + (i === 0 ? ' active' : '');
-    btn.textContent = cat;
-    btn.onclick = () => {
-      currentEmojiCat = cat;
-      document.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      renderEmojiGrid();
-    };
-    cats.appendChild(btn);
-  });
-  renderEmojiGrid();
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.emoji-palette-wrap')) closeEmojiPicker();
-  });
-}
-
-function renderEmojiGrid() {
-  const grid = document.getElementById('emojiGrid');
-  if (!grid) return;
-  grid.innerHTML = '';
-  (EMOJI_DATA[currentEmojiCat] || []).forEach(em => {
-    const btn = document.createElement('button');
-    btn.className = 'emoji-btn';
-    btn.textContent = em;
-    btn.onclick = () => {
-      selectedEmoji = em;
-      document.getElementById('selectedEmoji').textContent = em;
-      closeEmojiPicker();
-    };
-    grid.appendChild(btn);
-  });
-}
-function toggleEmojiPicker() { document.getElementById('emojiPicker').classList.toggle('open'); }
-function closeEmojiPicker() { document.getElementById('emojiPicker').classList.remove('open'); }
-window.toggleEmojiPicker = toggleEmojiPicker;
-
-/* ============================================
- * 학생 명단
- * ============================================ */
-function parseClass(sid) {
-  if (!sid || sid.length < 3) return null;
-  const g = sid[0], c = parseInt(sid.slice(1, 3), 10);
-  return isNaN(c) ? null : `${g}학년 ${c}반`;
-}
-
-function renderStudentsStats() {
-  const students = window._students || [];
-  document.getElementById('stuStatTotal').textContent = students.length;
-  const classes = new Set(students.map(s => parseClass(s.studentId)).filter(Boolean));
-  document.getElementById('stuStatClasses').textContent = classes.size || '—';
-  const now = new Date(), pad = n => String(n).padStart(2,'0');
-  document.getElementById('stuStatLast').textContent = `${pad(now.getMonth()+1)}.${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-}
-
-function renderClassFilter() {
-  const sel = document.getElementById('classFilter');
-  if (!sel) return;
-  const cur = sel.value;
-  const classes = [...new Set((window._students || []).map(s => parseClass(s.studentId)).filter(Boolean))].sort();
-  sel.innerHTML = `<option value="">전체 학반</option>` + classes.map(c => `<option value="${c}">${c}</option>`).join('');
-  if (classes.includes(cur)) sel.value = cur;
-}
-
-function renderStudentsTable() {
-  const students = window._students || [];
-  const q = (document.getElementById('stuSearch').value || '').trim().toLowerCase();
-  const cls = document.getElementById('classFilter').value;
-  const filtered = students.filter(s => {
-    if (cls && parseClass(s.studentId) !== cls) return false;
-    return !q || s.studentId.includes(q) || s.studentName.toLowerCase().includes(q);
-  });
-  const tbody = document.getElementById('stuTbody');
-  const empty = document.getElementById('stuEmpty');
-  if (filtered.length === 0) {
-    tbody.innerHTML = '';
-    empty.style.display = 'block';
-    empty.querySelector('.empty-text').textContent =
-      students.length === 0 ? '아직 등록된 학생이 없습니다' : '검색 결과가 없습니다';
-    return;
-  }
-  empty.style.display = 'none';
-  tbody.innerHTML = filtered.map((s, i) => {
-    if (editingStuId === s.studentId) {
-      return `<tr>
-        <td class="row-num">${i+1}</td>
-        <td><input class="edit-input" id="editIdInput" value="${esc(s.studentId)}" maxlength="5" inputmode="numeric"></td>
-        <td><input class="edit-input" id="editNameInput" value="${esc(s.studentName)}" onkeydown="if(event.key==='Enter') saveStuEdit('${esc(s.studentId)}','${esc(s._key)}')"></td>
-        <td class="td-meta">${parseClass(s.studentId)||'—'}</td>
-        <td><div class="td-actions">
-          <button class="mini-btn primary" onclick="saveStuEdit('${esc(s.studentId)}','${esc(s._key)}')">저장</button>
-          <button class="mini-btn" onclick="cancelStuEdit()">취소</button>
-        </div></td>
-      </tr>`;
-    }
-    return `<tr>
-      <td class="row-num">${i+1}</td>
-      <td class="td-id">${esc(s.studentId)}</td>
-      <td class="td-name">${esc(s.studentName)}</td>
-      <td class="td-meta">${parseClass(s.studentId)||'—'}</td>
-      <td><div class="td-actions">
-        <button class="mini-btn" onclick="startStuEdit('${esc(s.studentId)}')">수정</button>
-        <button class="mini-btn danger" onclick="deleteStudent('${esc(s._key)}','${esc(s.studentName)}')">삭제</button>
-      </div></td>
-    </tr>`;
-  }).join('');
-}
-window.renderStudentsTable = renderStudentsTable;
-
-function startStuEdit(sid) {
-  editingStuId = sid;
-  renderStudentsTable();
-  setTimeout(() => document.getElementById('editNameInput')?.focus(), 50);
-}
-function cancelStuEdit() { editingStuId = null; renderStudentsTable(); }
-window.startStuEdit = startStuEdit;
-window.cancelStuEdit = cancelStuEdit;
-
-async function saveStuEdit(originalId, originalKey) {
-  const newId = (document.getElementById('editIdInput')?.value || '').trim();
-  const newName = (document.getElementById('editNameInput')?.value || '').trim();
-  if (!newId || !newName) { toast('학번과 이름 모두 입력하세요', 'error'); return; }
-  if (!/^\d{5}$/.test(newId)) { toast('학번은 숫자 5자리여야 합니다', 'error'); return; }
-  if (newId !== originalId && (window._students || []).find(s => s.studentId === newId)) {
-    toast(`학번 ${newId}은 이미 존재합니다`, 'error'); return;
-  }
-  try {
-    if (newId !== originalId) {
-      await window._rtdbRemove(window._rtdbRef(window._rdb, `students/${originalKey}`));
-      const newRef = window._rtdbPush(window._studentsRef);
-      await window._rtdbSet(newRef, { studentId: newId, name: newName });
-    } else {
-      await window._rtdbUpdate(window._rtdbRef(window._rdb, `students/${originalKey}`), { studentId: newId, name: newName });
-    }
-    editingStuId = null;
-    toast('수정 완료', 'success');
-  } catch (e) { toast('오류: ' + e.message, 'error'); }
-}
-window.saveStuEdit = saveStuEdit;
-
-async function addStudent() {
-  const sid = document.getElementById('addId').value.trim();
-  const sname = document.getElementById('addName').value.trim();
-  if (!sid || !sname) { toast('학번과 이름을 입력하세요', 'error'); return; }
-  if (!/^\d{5}$/.test(sid)) { toast('학번은 숫자 5자리여야 합니다', 'error'); return; }
-  const existing = (window._students || []).find(s => s.studentId === sid);
-  if (existing) {
-    if (!confirm(`학번 ${sid}(${existing.studentName})이 이미 있습니다. 이름을 "${sname}"으로 바꿀까요?`)) return;
-    await window._rtdbUpdate(window._rtdbRef(window._rdb, `students/${existing._key}`), { studentId: sid, name: sname });
-  } else {
-    const newRef = window._rtdbPush(window._studentsRef);
-    await window._rtdbSet(newRef, { studentId: sid, name: sname });
-  }
-  document.getElementById('addId').value = '';
-  document.getElementById('addName').value = '';
-  document.getElementById('addId').focus();
-  toast('추가 완료', 'success');
-}
-window.addStudent = addStudent;
-
-async function deleteStudent(key, sname) {
-  if (!confirm(`${sname} 학생을 삭제할까요?`)) return;
-  try {
-    await window._rtdbRemove(window._rtdbRef(window._rdb, `students/${key}`));
-    toast('삭제 완료', 'success');
-  } catch (e) { toast('오류: ' + e.message, 'error'); }
-}
-window.deleteStudent = deleteStudent;
-
-async function clearAllStudents() {
-  const count = (window._students || []).length;
-  if (!confirm(`⚠️ 전체 학생 명단(${count}명)을 삭제할까요?\n이 작업은 되돌릴 수 없습니다.`)) return;
-  try {
-    await window._rtdbRemove(window._studentsRef);
-    toast('전체 삭제 완료', 'success');
-  } catch (e) { toast('오류: ' + e.message, 'error'); }
-}
-window.clearAllStudents = clearAllStudents;
-
-function handleStuFile(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
-    const ws = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-    const dataRows = rows.slice(1).filter(r => r[0] !== '' && r[1] !== '');
-    if (dataRows.length === 0) { toast('유효한 데이터가 없습니다', 'error'); return; }
-    const parsed = dataRows.map(r => ({
-      studentId: String(r[0]).trim(),
-      name: String(r[1]).trim()
-    })).filter(s => /^\d{5}$/.test(s.studentId) && s.name);
-    const invalid = dataRows.length - parsed.length;
-    if (parsed.length === 0) { toast('학번이 5자리 숫자인 행이 없습니다', 'error'); return; }
-    if (!confirm(`총 ${parsed.length}명을 업로드할까요?${invalid > 0 ? `\n(형식 오류 ${invalid}행 제외)` : ''}\n\n⚠️ 기존 명단은 모두 삭제됩니다.`)) {
-      document.getElementById('fileInput').value = ''; return;
-    }
-    try {
-      await window._rtdbRemove(window._studentsRef);
-      const updates = {};
-      parsed.forEach((s, i) => {
-        updates[`students/s${String(i).padStart(4,'0')}`] = { studentId: s.studentId, name: s.name };
-      });
-      await window._rtdbUpdate(window._rtdbRef(window._rdb), updates);
-      toast(`${parsed.length}명 업로드 완료`, 'success');
-    } catch(err) { toast('업로드 오류: ' + err.message, 'error'); }
-    document.getElementById('fileInput').value = '';
-  };
-  reader.readAsArrayBuffer(file);
-}
-window.handleStuFile = handleStuFile;
-
-function exportStudentsExcel() {
-  const students = window._students || [];
-  if (students.length === 0) { toast('내보낼 데이터가 없습니다', 'error'); return; }
-  const ws = XLSX.utils.json_to_sheet(students.map(s => ({
-    학번: s.studentId,
-    이름: s.studentName,
-    학반: parseClass(s.studentId) || ''
-  })));
-  ws['!cols'] = [{ wch: 10 }, { wch: 14 }, { wch: 14 }];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, '학생명단');
-  const now = new Date(), pad = n => String(n).padStart(2,'0');
-  XLSX.writeFile(wb, `학생명단_${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}.xlsx`);
-}
-window.exportStudentsExcel = exportStudentsExcel;
-
-// 드래그앤드롭 (업로드 존)
-document.addEventListener('DOMContentLoaded', () => {
-  const zone = document.getElementById('uploadZone');
-  if (!zone) return;
-  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
-  zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
-  zone.addEventListener('drop', e => {
-    e.preventDefault(); zone.classList.remove('drag');
-    const file = e.dataTransfer.files[0];
-    if (file) handleStuFile({ target: { files: [file] } });
-  });
-});
-
-/* ============================================
- * 대시보드 렌더
- * ============================================ */
-function renderDashHubPreview() {
-  const wrap = document.getElementById('dashHubPreview');
-  if (!wrap) return;
-  const cards = window._cards || [];
-  const cats = window._categoryList || [];
-
-  if (cats.length === 0) {
-    wrap.innerHTML = '<div class="empty"><div class="empty-text">카테고리가 없습니다.<br>허브 관리에서 카테고리를 먼저 만들어주세요.</div></div>';
-    return;
-  }
-
-  const grouped = {};
-  cats.forEach(c => { grouped[c.key] = []; });
-  cards.forEach(c => {
-    if (c.category && grouped[c.category] !== undefined) grouped[c.category].push(c);
-  });
-
-  let html = '';
-  cats.forEach(cat => {
-    const items = grouped[cat.key] || [];
-    html += `<div class="dash-hub-section">
-      <div class="dash-hub-cat-label">${esc(cat.en || '')}${cat.ko ? ' · ' + esc(cat.ko) : ''} <span style="font-weight:500;opacity:.7;">(${items.length})</span></div>`;
-    if (items.length === 0) {
-      html += `<div style="font-size:11px;color:var(--hi-text-muted);padding:6px 10px;opacity:.7;">카드 없음</div>`;
-    } else {
-      items.forEach(c => {
-        html += `<div class="dash-hub-item${c.locked ? ' locked' : ''}">
-          <span class="dash-hub-item-icon">${esc(c.emoji || '📌')}</span>
-          <span class="dash-hub-item-title">${esc(c.title || '')}</span>
-          ${c.locked ? '<span style="font-size:10px;color:var(--hi-text-muted);">잠김</span>' : ''}
-        </div>`;
-      });
-    }
-    html += '</div>';
-  });
-  wrap.innerHTML = html || '<div class="empty"><div class="empty-text">카드 없음</div></div>';
-}
-window.renderDashHubPreview = renderDashHubPreview;
-
-function renderDashClassStats() {
-  const wrap = document.getElementById('dashClassStats');
-  if (!wrap) return;
-  const students = window._students || [];
-
-  const classCounts = {};
-  for (let i = 1; i <= 6; i++) classCounts[String(i).padStart(2, '0')] = 0;
-  students.forEach(s => {
-    const sid = s.studentId || '';
-    if (sid.length >= 3) {
-      const cls = sid.slice(1, 3);
-      if (cls in classCounts) classCounts[cls]++;
-    }
-  });
-
-  wrap.innerHTML = Object.entries(classCounts).map(([key, cnt]) => `
-    <div class="class-stat-cell">
-      <div class="class-stat-label">${parseInt(key, 10)}반</div>
-      <div class="class-stat-value">${cnt}</div>
-    </div>
-  `).join('');
-}
-window.renderDashClassStats = renderDashClassStats;
-
 </script>
 </body>
 </html>

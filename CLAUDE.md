@@ -140,32 +140,15 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 - s_threads/goryeo_choice/blind_ryeo를 RTDB→Firestore로 이관 + `status` 필드 통일 ← 다음 세션 1순위 (blind_ryeo는 `goryeo_grades` 별도 경로도 문서 필드로 합쳐야 함)
 - (참고) lms/admin.html 대시보드 탭(제출률·통과율·미채점 한눈에 보기)은 각 미션 데이터 스키마가 제각각이라 보류함. 성적확인 탭에서 미션별로 이미 확인 가능하므로 당장 불필요하다고 판단.
 
-## 루트 index.html / admin.html — 개편 방향 (2026-07-21 확정, 다음 세션 진행)
+## 루트 index.html / admin.html 개편 (2026-07-21 구현 완료)
 
 **배경**: 거의 모든 실사용 기능이 LMS로 이전됐다. 루트는 이제 (a) 학생이 LMS로 들어가는 진입점 + 지난 자료 아카이브 열람, (b) 동료 교사들이 둘러보는 링크트리 역할만 하면 된다. 무겁게 관리할 필요 없음 — 학생 관리 같은 기능은 전부 불필요.
 
-**index.html**: 이미 로그인 없이 보는 링크트리 스타일(LMS 진입 카드 + 카테고리별 아카이브 아코디언, `cards`+`settings/categories` 렌더링)로 개편 완료 상태. 아래 admin.html 신규 기능이 만드는 카드도 그대로 여기 뜨므로 index.html 자체는 추가 변경 불필요로 판단됨 (다음 세션에서 한 번 더 확인).
+**index.html**: 변경 없음(기존 링크트리+아카이브 아코디언 구조 그대로 유지).
 
-**admin.html 개편 확정 사항**:
-- **학생관리 페이지 삭제**. 근거: RTDB `students` 경로는 lms/admin.html 자체 "학생 관리" 탭에서도 동일하게 관리하는 SSOT라 완전히 중복임 (데이터 안 날아감, UI만 없어짐).
-- **대시보드 페이지를 허브 페이지에 통합**(사실상 폐지). "반별 학생 수" 같은 학생 통계는 이제 루트에 있을 이유가 없음.
-- 기존 개편 항목 중 유지: 허브 카드 아이콘 피커 → `shared/icon-picker.js` 교체, LMS 어드민 바로가기 링크 추가.
-- 기존 개편 항목 중 제외(가벼운 링크트리 방향과 안 맞음, 최종 확정은 다음 세션에 한 번 더 확인): 허브 카드 일괄 잠금/해제·삭제, 대시보드에 LMS 통계 추가.
-- **카테고리 기능 범위 — 다음 세션에 결정 필요** (2026-07-21 미리보기 보고 재고함): 아카이브 자체에 카테고리 분류가 아예 필요 없을 수도 있음. 다음 둘 중 하나로 결정할 것.
-  - (A) 카테고리 제거 — 아카이브 카드를 그냥 단일 목록으로만 보여줌 (index.html의 카테고리별 아코디언 구조도 함께 걷어내야 함).
-  - (B) 카테고리는 유지하되 기능은 추가/삭제만 — 기존에 유지하기로 했던 "카테고리 순서 drag-and-drop"은 빼고, 카테고리 만들기/삭제하기 정도만 남김.
-- **신규 핵심 기능 — "LMS 연결 앱에서 가져오기" (새 카드 추가 화면에 모드 추가)**:
-  - 데이터 소스: `settings/lms_config`의 `mission_category` 값과 `category`가 일치하는 `cards` 문서들(=LMS 미션 카드 목록)을 목록으로 보여줌.
-  - 각 항목에 제목/아이콘과, LMS 미션 카드 추가 시 이미 입력받아 저장해두고 있지만 현재 아무 데도 안 보여주고 있는 아카이브 정보(`adminConfig/{appKey}/archive`의 `topic`/`intent`)를 같이 표시.
-  - 하나 선택 + 공개할 아카이브 카테고리 지정 → **복사본 생성 방식으로 확정**. 원본 LMS 미션 카드(`mission_category`)는 그대로 두고, `addDoc`으로 title/emoji/url을 그대로 복사한 새 `cards` 문서를 다른 category로 생성함(LMS 미션 목록에서 안 사라짐). `desc`에 topic/intent를 어떻게 반영할지는 다음 세션에 정할 것.
-  - `order`는 기존 "새 카드 추가" 로직과 동일하게 해당 카테고리 내 기존 카드 `order` 중 최댓값 + 1로 계산.
-
----
-
-## 현재 진행 중인 작업 — 어드민 통일
-4개 어드민(blind_ryeo, goryeo_choice, s_threads, think)의 디자인을 통일하는 중.
-- **1단계 (완료)**: `shared/admin-base.css` 생성 — 공통 디자인 시스템 (로그인·상단바·메인탭·서브탭·패널·모달·토스트·통계칩 등)
-- **2단계**: 라이트 톤 3개(blind_ryeo, goryeo_choice, s_threads) 어드민의 `<style>`에서 공통 부분 제거, `<link rel="stylesheet" href="../shared/admin-base.css">` 추가
-- **3단계**: think/admin.html 다크 → 라이트 마이그레이션 + 통일된 구조로 재작성
-
-각 어드민의 앱 정체성(blind_ryeo의 카테고리 점 색, goryeo_choice의 Noto Serif KR 한자 로고, s_threads의 Jua 폰트 등)은 각 파일 안의 `<style>`에 남긴다.
+**admin.html 개편 내용**:
+- 학생관리 페이지 삭제(RTDB `students`는 lms/admin.html "학생 관리" 탭이 SSOT라 중복이었음, 데이터는 그대로 유지).
+- 대시보드 페이지를 폐지하고 허브 관리를 유일한 페이지로 통합. 사이드바·상단 통계·반별 학생 수 등 대시보드 전용 UI 전부 제거, 상단바에 "LMS 어드민" 바로가기 링크 추가.
+- 허브 카드 아이콘 피커를 이모지 그리드에서 `shared/icon-picker.js`(SVG 피커, lms/admin.html과 동일 패턴)로 교체. 카드 문서의 아이콘 필드는 계속 `emoji`(기존 이모지 문자열 데이터와 호환, 값이 `<svg`로 시작하면 SVG로 렌더링).
+- 카테고리 기능은 유지, 범위는 추가/삭제만(순서 변경 없음) — 기존 구현이 이미 이 범위였음.
+- **"LMS에서 가져오기"** — ADD 탭에 "직접 입력"/"LMS에서 가져오기" 모드 토글 추가. `settings/lms_config`의 `mission_category`와 일치하는 `cards` 문서 목록에서 하나를 고르면 제목/아이콘/URL이 폼에 채워지고, `adminConfig/{appKey}/archive`의 topic/intent가 있으면 설명란에 기본값으로 채워짐(사용자가 직접 수정 가능, 자동 채움 실패해도 무시). 카테고리를 골라 저장하면 원본은 그대로 두고 새 `cards` 문서(복사본)를 addDoc으로 생성.
