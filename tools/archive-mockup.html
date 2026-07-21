@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>아카이브 예시 화면</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, 'Pretendard', sans-serif;
+  background: #f0f0f7;
+  color: #1a1a2e;
+}
+
+/* ── 탭 네비 ── */
+.tab-nav {
+  position: sticky; top: 0; z-index: 100;
+  background: #fff;
+  border-bottom: 1px solid #e0e0f0;
+  display: flex;
+  gap: 0;
+  padding: 0 32px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+.tab-btn {
+  padding: 16px 20px;
+  font-size: 13px; font-weight: 600;
+  color: #999;
+  border: none; background: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all .15s;
+}
+.tab-btn.active { color: #6c63ff; border-bottom-color: #6c63ff; }
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ═══════════════════════════════
+   PANEL 1 — 어드민 폼
+═══════════════════════════════ */
+.admin-wrap { padding: 40px 32px; max-width: 860px; margin: 0 auto; }
+.section-label {
+  font-size: 11px; font-weight: 700; color: #888;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.stu-card {
+  background: #fff;
+  border: 1px solid #e8e8f0;
+  border-radius: 14px;
+  overflow: visible;
+  box-shadow: 0 2px 10px rgba(0,0,0,.05);
+}
+.stu-card-head {
+  background: #f3f3fa; border-bottom: 1px solid #e8e8f0;
+  padding: 12px 20px; font-size: 13px; font-weight: 700; color: #555;
+  border-radius: 14px 14px 0 0;
+}
+.stu-card-body { padding: 18px 20px; }
+.stu-add-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.stu-field { display: flex; flex-direction: column; gap: 5px; }
+.stu-field label { font-size: 11px; font-weight: 600; color: #888; }
+.stu-field input {
+  border: 1px solid #ddd; border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; outline: none;
+}
+.archive-toggle-row {
+  margin-top: 14px; border-top: 1px dashed #e0e0ee; padding-top: 12px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.archive-toggle-label {
+  font-size: 12px; font-weight: 600; color: #888;
+  display: flex; align-items: center; gap: 6px;
+}
+.dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#c0bfcf; }
+.dot.on { background:#6c63ff; }
+.archive-toggle-btn {
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: 1px solid #d0d0e0; border-radius: 8px;
+  padding: 6px 12px; font-size: 12px; font-weight: 600; color: #666;
+  cursor: pointer; transition: all .15s;
+}
+.archive-toggle-btn:hover, .archive-toggle-btn.open {
+  background: #f3f0ff; border-color: #6c63ff; color: #6c63ff;
+}
+.archive-panel {
+  margin-top: 14px; background: #f8f7ff; border: 1px solid #dddaf8;
+  border-radius: 10px; padding: 16px 18px; display: none;
+}
+.archive-panel.open { display: block; }
+.archive-panel-title {
+  font-size: 11px; font-weight: 700; color: #6c63ff;
+  letter-spacing: 1px; margin-bottom: 12px;
+}
+.archive-fields { display: flex; flex-direction: column; gap: 10px; }
+.archive-field { display: flex; flex-direction: column; gap: 5px; }
+.archive-field label { font-size: 11px; font-weight: 600; color: #7a7aaa; }
+.archive-field input, .archive-field textarea {
+  border: 1px solid #d0cef5; border-radius: 8px;
+  padding: 9px 12px; font-size: 13px; font-family: inherit;
+  background: #fff; outline: none; resize: vertical;
+}
+.archive-field textarea { min-height: 68px; }
+.archive-hint { font-size: 11px; color: #a0a0c0; margin-top: 2px; }
+.add-btn {
+  padding: 8px 20px; background: #6c63ff; color: #fff;
+  border: none; border-radius: 8px; font-size: 13px; font-weight: 700;
+  cursor: pointer; white-space: nowrap;
+}
+.btn-row { margin-top: 16px; display: flex; justify-content: flex-end; }
+
+/* ═══════════════════════════════
+   PANEL 2 — 아카이브 뷰
+═══════════════════════════════ */
+
+/* 앱 탭 */
+.app-tab-bar {
+  display: flex; gap: 0;
+  border-bottom: 1px solid #e0e0f0;
+  background: #fff;
+  padding: 0 32px;
+}
+.app-tab {
+  padding: 14px 18px; font-size: 13px; font-weight: 600;
+  color: #999; border: none; background: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer; transition: all .15s;
+}
+.app-tab.active { color: #6c63ff; border-bottom-color: #6c63ff; }
+.app-panel { display: none; }
+.app-panel.active { display: block; }
+
+/* 아카이브 페이지 공통 */
+.arc-page { max-width: 700px; margin: 0 auto; padding: 40px 24px; }
+
+/* 헤더 */
+.arc-header { margin-bottom: 36px; }
+.arc-app-label {
+  font-size: 11px; font-weight: 700; color: #a0a0c0;
+  letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px;
+}
+.arc-title { font-size: 26px; font-weight: 900; color: #1a1a2e; line-height: 1.3; margin-bottom: 10px; }
+.arc-intent {
+  font-size: 14px; color: #555; line-height: 1.8;
+  background: #f8f7ff; border-left: 3px solid #a09ff0;
+  padding: 12px 16px; border-radius: 0 8px 8px 0;
+}
+
+/* 구분선 */
+.arc-divider {
+  display: flex; align-items: center; gap: 12px;
+  margin: 32px 0 20px;
+}
+.arc-divider-label {
+  font-size: 11px; font-weight: 700; color: #6c63ff;
+  letter-spacing: 1.5px; white-space: nowrap;
+}
+.arc-divider-line { flex: 1; height: 1px; background: #e0e0f0; }
+
+/* 답변 카드 공통 */
+.arc-card {
+  background: #fff; border: 1px solid #e8e8f0;
+  border-radius: 12px; padding: 18px 20px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.04);
+}
+.arc-card.is-pick { background: #f8f7ff; border-color: #c9c5f5; }
+.arc-pick-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; font-weight: 700; color: #6c63ff;
+  background: #ede9ff; border-radius: 20px;
+  padding: 3px 9px; margin-bottom: 10px;
+}
+.arc-content { font-size: 14px; line-height: 1.75; color: #2a2a40; }
+.arc-likes { font-size: 12px; color: #b0b0c8; margin-top: 10px; }
+
+/* 블라인드 전용: org 배지 */
+.arc-org-badge {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  color: #6c63ff; background: #ede9ff;
+  border-radius: 6px; padding: 2px 8px;
+  margin-bottom: 8px;
+}
+
+/* 스레드 전용: 역할 태그 */
+.arc-role-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 700;
+  color: #444; background: #f0f0f7;
+  border-radius: 6px; padding: 3px 8px;
+  margin-bottom: 8px;
+}
+
+/* 고려초이스 전용: 선택 흐름 */
+.arc-choice-flow {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-bottom: 12px;
+}
+.arc-choice-item {
+  font-size: 12px; color: #888;
+  padding: 6px 10px;
+  background: #f5f5fb; border-radius: 6px;
+  border-left: 2px solid #c9c5f5;
+  line-height: 1.5;
+}
+.arc-choice-item strong { color: #1a1a2e; font-size: 11px; display: block; margin-bottom: 2px; }
+.arc-ending-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 700;
+  padding: 3px 10px; border-radius: 20px;
+  margin-bottom: 10px;
+}
+.ending-martyr { background: #ffeaec; color: #c0392b; }
+.ending-retreat { background: #e8f5e9; color: #2e7d32; }
+.ending-open   { background: #e3f2fd; color: #1565c0; }
+
+.arc-reflection-label {
+  font-size: 11px; font-weight: 700; color: #a0a0c0;
+  letter-spacing: 1px; margin-bottom: 6px;
+}
+</style>
+</head>
+<body>
+
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('admin')">① 어드민 입력 폼</button>
+  <button class="tab-btn" onclick="switchTab('archive')">② 아카이브 결과 화면</button>
+</div>
+
+<!-- ══════════ ① 어드민 폼 ══════════ -->
+<div class="tab-panel active" id="tab-admin">
+  <div class="admin-wrap">
+    <div class="section-label">미션 체크 — 새 카드 추가</div>
+    <div class="stu-card">
+      <div class="stu-card-head">새 카드 추가</div>
+      <div class="stu-card-body">
+        <div class="stu-add-row">
+          <div class="stu-field">
+            <label>이모지</label>
+            <input type="text" value="🏯" style="width:56px;text-align:center">
+          </div>
+          <div class="stu-field">
+            <label>제목</label>
+            <input type="text" value="고려의 선택" style="width:180px">
+          </div>
+          <div class="stu-field" style="flex:1">
+            <label>웹앱 주소 (URL)</label>
+            <input type="text" value="apps/goryeo_choice/index.html" style="width:100%">
+          </div>
+          <div class="stu-field" style="flex:1">
+            <label>어드민 주소 (선택)</label>
+            <input type="text" value="apps/goryeo_choice/admin.html" style="width:100%">
+          </div>
+        </div>
+
+        <div class="archive-toggle-row">
+          <div class="archive-toggle-label">
+            <span class="dot on" id="archiveDot"></span>
+            아카이브 정보
+          </div>
+          <button class="archive-toggle-btn open" id="archiveToggleBtn" onclick="toggleArchive()">▲ 닫기</button>
+        </div>
+
+        <div class="archive-panel open" id="archivePanel">
+          <div class="archive-panel-title">📚 아카이브 정보</div>
+          <div class="archive-fields">
+            <div class="archive-field">
+              <label>수업 주제</label>
+              <input type="text" value="고려 말, 나라면 어떤 선택을 했을까?">
+              <span class="archive-hint">아카이브 페이지 상단에 표시됩니다.</span>
+            </div>
+            <div class="archive-field">
+              <label>활동 의도</label>
+              <textarea>고려 말 역성혁명의 기로에서 학생들이 역사적 인물의 입장이 되어 선택의 맥락을 직접 체험하게 합니다. 옳고 그름보다 당시의 상황 논리를 이해하는 데 초점을 맞췄습니다.</textarea>
+              <span class="archive-hint">이 활동을 왜 했는지 간단히 적어주세요. 다른 선생님들에게 공유됩니다.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="add-btn">추가</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ ② 아카이브 화면 ══════════ -->
+<div class="tab-panel" id="tab-archive">
+  <div class="app-tab-bar">
+    <button class="app-tab active" onclick="switchApp('blind')">블라인드 여론</button>
+    <button class="app-tab" onclick="switchApp('threads')">스레드</button>
+    <button class="app-tab" onclick="switchApp('choice')">고려의 선택</button>
+  </div>
+
+  <!-- 블라인드 -->
+  <div class="app-panel active" id="app-blind">
+    <div class="arc-page">
+      <div class="arc-header">
+        <div class="arc-app-label">블라인드 여론 · 2025년 5월</div>
+        <div class="arc-title">무신정변, 여론은 어디에 있었나?</div>
+        <div class="arc-intent">
+          무신정변 직후 각 계층의 반응을 익명 SNS 형식으로 표현하게 했습니다. 교과서 서술에서 잘 보이지 않는 하층민·문신의 시선을 상상해 보는 데 초점을 맞췄습니다.
+        </div>
+      </div>
+
+      <div class="arc-divider">
+        <div class="arc-divider-label">⭐ PICK 답변</div>
+        <div class="arc-divider-line"></div>
+      </div>
+
+      <div class="arc-card is-pick">
+        <div class="arc-pick-badge">⭐ PICK</div>
+        <div class="arc-org-badge">농민</div>
+        <div class="arc-content">세금은 예나 지금이나 꼬박꼬박 걷어가는데, 위에서 누가 칼 들었다고 우리 생활이 달라지겠냐. 문신이든 무신이든 배부른 자들 이야기다.</div>
+        <div class="arc-likes">♡ 14</div>
+      </div>
+
+      <div class="arc-card is-pick">
+        <div class="arc-pick-badge">⭐ PICK</div>
+        <div class="arc-org-badge">지방 문신</div>
+        <div class="arc-content">이의방이 감히 왕 앞에서 칼을 빼들었다 하더라. 예법이 무너지면 나라가 무너진다. 그러나 솔직히 말하면, 오랫동안 우리도 무신들에게 너무 거만하게 굴었다.</div>
+        <div class="arc-likes">♡ 9</div>
+      </div>
+
+      <div class="arc-card is-pick">
+        <div class="arc-pick-badge">⭐ PICK</div>
+        <div class="arc-org-badge">무신</div>
+        <div class="arc-content">드디어 우리의 시대다. 문신 눈치 보며 허리 굽히던 세월이 얼마던가. 그런데 기쁨보다 두려움이 먼저 온다. 이것이 오래갈 수 있을까.</div>
+        <div class="arc-likes">♡ 11</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 스레드 -->
+  <div class="app-panel" id="app-threads">
+    <div class="arc-page">
+      <div class="arc-header">
+        <div class="arc-app-label">스레드 · 2025년 4월</div>
+        <div class="arc-title">신라 말, 나는 지금 어디에 서 있는가?</div>
+        <div class="arc-intent">
+          신라 하대 사회의 모순을 각 신분·집단의 목소리로 표현하게 했습니다. 역할을 맡아 글을 쓰면서 당시 사람들의 불만과 기대를 체감하도록 설계했습니다.
+        </div>
+      </div>
+
+      <div class="arc-divider">
+        <div class="arc-divider-label">⭐ PICK 답변</div>
+        <div class="arc-divider-line"></div>
+      </div>
+
+      <div class="arc-card is-pick">
+        <div class="arc-pick-badge">⭐ PICK</div>
+        <div class="arc-role-tag">🌾 농민</div>
+        <div class="arc-content">중앙에서 세금 독촉이 왔다. 작년 흉년이었는데도. 호족 어른께 몸을 의탁하는 게 차라리 낫겠다 싶다. 나라가 나를 지켜줄 것 같지 않다.</div>
+        <div class="arc-likes">♡ 17</div>
+      </div>
+
+      <div class="arc-card is-pick">
+        <div class="arc-pick-badge">⭐ PICK</div>
+        <div class="arc-role-tag">📜 6두품</div>
+        <div class="arc-content">골품제가 없었다면 나는 무엇이 되었을까. 능력이 아니라 핏줄로 모든 게 정해지는 나라. 당나라에서 빈공과에 합격하고도 돌아오니 갈 곳이 없다.</div>
+        <div class="arc-likes">♡ 13</div>
+      </div>
+
+      <div class="arc-card is-pick">
+        <div class="arc-pick-badge">⭐ PICK</div>
+        <div class="arc-role-tag">🏰 호족</div>
+        <div class="arc-content">왕경의 귀족들은 서로 왕을 갈아치우기 바쁘다. 이 틈에 우리가 이 땅의 주인이 되는 것이 역사의 순리 아닐까. 백성들도 이제 진골보다 나를 더 믿는다.</div>
+        <div class="arc-likes">♡ 10</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 고려초이스 -->
+  <div class="app-panel" id="app-choice">
+    <div class="arc-page">
+      <div class="arc-header">
+        <div class="arc-app-label">고려의 선택 · 2025년 6월</div>
+        <div class="arc-title">고려 말, 나라면 어떤 선택을 했을까?</div>
+        <div class="arc-intent">
+          고려 말 역성혁명의 기로에서 학생들이 역사적 인물의 입장이 되어 선택의 맥락을 직접 체험하게 합니다. 옳고 그름보다 당시의 상황 논리를 이해하는 데 초점을 맞췄습니다.
+        </div>
+      </div>
+
+      <div class="arc-divider">
+        <div class="arc-divider-label">⭐ PICK 소감</div>
+        <div class="arc-divider-line"></div>
+      </div>
+
+      <div class="arc-card is-pick">
+        <div class="arc-pick-badge">⭐ PICK</div>
+        <div class="arc-ending-badge ending-martyr">⚔️ 끝까지 저항</div>
+        <div class="arc-reflection-label">소감</div>
+        <div class="arc-content">게임 안에서는 끝까지 싸우다 죽는 선택을 했는데, 실제로 그 시대에 살았다면 그럴 수 있었을지 모르겠다. 정몽주도 죽는 걸 알면서 버텼다고 배웠는데, 그게 신념인지 고집인지 이제는 좀 다르게 보인다.</div>
+      </div>
+
+      <div class="arc-card is-pick">
+        <div class="arc-pick-badge">⭐ PICK</div>
+        <div class="arc-ending-badge ending-open">🌅 조선 합류</div>
+        <div class="arc-reflection-label">소감</div>
+        <div class="arc-content">이성계를 선택한 게 배신인지 현실주의인지 고민됐다. 근데 백성 입장에서 생각하니까 새 나라가 더 나을 수도 있겠다 싶었다. 역사는 결과만 보지 말고 그 사람의 논리를 봐야 한다는 걸 느꼈다.</div>
+      </div>
+
+      <div class="arc-card is-pick">
+        <div class="arc-pick-badge">⭐ PICK</div>
+        <div class="arc-ending-badge ending-retreat">🌿 두문동 은거</div>
+        <div class="arc-reflection-label">소감</div>
+        <div class="arc-content">싸우지도 따르지도 않고 낙향하는 선택을 했다. 제일 비겁한 것 같기도 한데, 어쩌면 가장 솔직한 선택일 수도 있다. 두문동 72현이 생각났다. 역사는 그들을 기억하지 않지만 그들도 선택을 한 사람들이다.</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+function switchApp(name) {
+  document.querySelectorAll('.app-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.app-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('app-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+function toggleArchive() {
+  const panel = document.getElementById('archivePanel');
+  const btn = document.getElementById('archiveToggleBtn');
+  const isOpen = panel.classList.toggle('open');
+  btn.classList.toggle('open', isOpen);
+  btn.textContent = isOpen ? '▲ 닫기' : '📚 아카이브 정보 입력';
+}
+</script>
+</body>
+</html>
