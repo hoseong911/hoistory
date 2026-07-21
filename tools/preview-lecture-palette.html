@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>강의 슬라이드 팔레트 프리뷰</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang&display=swap">
+<style>
+  /* ── 페이지 레이아웃 ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+    background: #f0f0f0;
+    padding: 40px 32px;
+    color: #222;
+  }
+  h1 {
+    font-size: 22px; font-weight: 800; margin-bottom: 6px;
+    color: #1a1a1a;
+  }
+  .page-desc {
+    font-size: 13px; color: #666; margin-bottom: 36px;
+    border-left: 3px solid #b83030; padding-left: 10px; line-height: 1.6;
+  }
+  .page-desc strong { color: #b83030; }
+
+  /* ── 팔레트 그룹 ── */
+  .group-label {
+    font-size: 13px; font-weight: 700; color: #555;
+    text-transform: uppercase; letter-spacing: .08em;
+    margin: 40px 0 14px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .group-label::after {
+    content: ''; flex: 1; height: 1px; background: #d0d0d0;
+  }
+
+  /* ── 팔레트 카드 그리드 ── */
+  .palette-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(600px, 1fr));
+    gap: 28px;
+  }
+
+  /* ── 개별 팔레트 카드 ── */
+  .palette-card {
+    background: #fff;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,.08);
+    border: 1px solid #e0e0e0;
+  }
+  .palette-card.current { border: 2px solid #b83030; }
+  .card-header {
+    padding: 14px 18px 12px;
+    display: flex; align-items: center; gap: 10px;
+    border-bottom: 1px solid #eee;
+  }
+  .card-name {
+    font-size: 14px; font-weight: 800; color: #1a1a1a; flex: 1;
+  }
+  .card-tag {
+    font-size: 11px; font-weight: 700; padding: 3px 9px;
+    border-radius: 20px; letter-spacing: .04em;
+  }
+  .tag-current { background: #fceaea; color: #b83030; }
+  .tag-option  { background: #e8f0fe; color: #1a56db; }
+  .tag-recommended { background: #e6f4ea; color: #1e7e34; }
+
+  /* 색상 스와치 행 */
+  .swatches {
+    display: flex; gap: 0; padding: 12px 18px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .swatch {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 5px; font-size: 10px; color: #888; min-width: 52px;
+  }
+  .swatch-box {
+    width: 40px; height: 28px; border-radius: 6px;
+    border: 1px solid rgba(0,0,0,.08);
+  }
+  .swatch-name { font-weight: 600; font-size: 9px; letter-spacing: .02em; }
+
+  /* ── 미니 슬라이드 미리보기 ── */
+  .slides-wrap {
+    padding: 16px 18px 18px;
+    display: flex;
+    gap: 12px;
+  }
+
+  /* 슬라이드 외곽 (16:9 비율 고정, 600px 기준) */
+  .mini-slide {
+    flex: 1;
+    aspect-ratio: 16/9;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(0,0,0,.1);
+    font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+    position: relative;
+    font-size: 7px; /* 기준 폰트 — 내부 em 계산 기준 */
+  }
+
+  /* 표지 슬라이드 */
+  .cover-slide {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 0 1.4em;
+    position: relative;
+    overflow: hidden;
+    color: #fff;
+  }
+  .cover-slide .bg-num {
+    position: absolute; right: -.05em; bottom: -.1em;
+    font-size: 14em; font-weight: 900; opacity: .1;
+    line-height: 1; letter-spacing: -.05em; user-select: none;
+    color: #fff;
+  }
+  .cover-slide .tag { font-size: .85em; font-family: 'Gowun Batang', serif; opacity: .5; margin-bottom: .2em; }
+  .cover-slide .title { font-size: 2.5em; font-weight: 900; line-height: 1.15; position: relative; z-index: 1; }
+  .cover-slide .meta { font-size: .85em; font-family: 'Gowun Batang', serif; opacity: .5; margin-top: .3em; position: relative; z-index: 1; }
+
+  /* 개념 슬라이드 */
+  .concept-slide {
+    display: flex;
+    flex-direction: column;
+    padding: .9em 1em .7em;
+  }
+  .concept-slide .slide-hd {
+    display: flex; align-items: center; gap: .5em; margin-bottom: .6em;
+  }
+  .concept-slide .badge {
+    font-size: .75em; font-weight: 800; color: #fff;
+    padding: .2em .6em; border-radius: 20px; letter-spacing: .04em;
+  }
+  .concept-slide .stitle {
+    font-size: 1.3em; font-weight: 800;
+  }
+  .rows { display: flex; flex-direction: column; gap: .35em; }
+  .row {
+    display: flex; border-radius: .4em; overflow: hidden;
+    border: 1px solid rgba(0,0,0,.08); min-height: 2em;
+  }
+  .row .lbl {
+    min-width: 2.5em; background: var(--row-navy);
+    color: rgba(255,255,255,.9); font-size: .85em; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    padding: .3em .4em; text-align: center; line-height: 1.2;
+  }
+  .row .body {
+    flex: 1; padding: .3em .5em; font-size: .9em; line-height: 1.4;
+    display: flex; align-items: center;
+  }
+  .row .body .em { color: #b83030; font-weight: 800; } /* 강조색 항상 고정 */
+</style>
+</head>
+<body>
+
+<h1>강의 슬라이드 팔레트 프리뷰</h1>
+<div class="page-desc">
+  <strong>빨간 강조색(#b83030)은 고정</strong>입니다. 바꿀 수 있는 것: 표지/헤더의 진한 색(--navy), 배경(크림/라이트그레이) 두 가지.<br>
+  각 팔레트마다 <strong>크림 배경</strong>(위) · <strong>라이트 그레이 배경</strong>(아래) 슬라이드를 함께 보여줍니다.
+</div>
+
+<!-- ═══════════════════ CURRENT ═══════════════════ -->
+<div class="group-label">현재 사용 중</div>
+<div class="palette-grid">
+
+  <!-- 현재: 네이비 -->
+  <div class="palette-card current">
+    <div class="card-header">
+      <div class="card-name">① 네이비 (현재)</div>
+      <span class="card-tag tag-current">현재</span>
+    </div>
+    <div class="swatches">
+      <div class="swatch">
+        <div class="swatch-box" style="background:#1c3461"></div>
+        <div class="swatch-name">--navy</div>
+        <div>#1c3461</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#b83030"></div>
+        <div class="swatch-name">--red (고정)</div>
+        <div>#b83030</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#e8e0d0; border:1px solid #ccc"></div>
+        <div class="swatch-name">--bg 크림</div>
+        <div>#e8e0d0</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#f7f2e8; border:1px solid #ccc"></div>
+        <div class="swatch-name">--slide-bg</div>
+        <div>#f7f2e8</div>
+      </div>
+    </div>
+    <div class="slides-wrap">
+      <!-- 표지 크림 -->
+      <div class="mini-slide cover-slide" style="background:#1c3461;">
+        <div class="bg-num">1</div>
+        <div class="tag">개념 체크 01</div>
+        <div class="title">고려의<br>건국</div>
+        <div class="meta">22차시 · 한국사</div>
+      </div>
+      <!-- 개념 크림 -->
+      <div class="mini-slide concept-slide" style="background:#f7f2e8;" data-navy="#1c3461">
+        <div class="slide-hd">
+          <div class="badge" style="background:#1c3461">CHECK</div>
+          <div class="stitle" style="color:#1c3461">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <div class="lbl" style="background:#1c3461">배경</div>
+            <div class="body">신라 말기 호족 세력 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#1c3461">과정</div>
+            <div class="body"><span class="em">왕건</span>이 918년 고려 건국 · 936년 통일</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#1c3461">의의</div>
+            <div class="body">민족 재통합, 새로운 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 라이트 그레이 버전 -->
+    <div class="slides-wrap" style="padding-top:0; border-top: 1px dashed #e0e0e0;">
+      <div style="font-size:10px; color:#999; width:100%; padding: 8px 0 4px; font-weight:600;">라이트 그레이 배경</div>
+    </div>
+    <div class="slides-wrap" style="padding-top:0">
+      <div class="mini-slide cover-slide" style="background:#1c3461;">
+        <div class="bg-num">1</div>
+        <div class="tag">개념 체크 01</div>
+        <div class="title">고려의<br>건국</div>
+        <div class="meta">22차시 · 한국사</div>
+      </div>
+      <div class="mini-slide concept-slide" style="background:#f4f4f3;">
+        <div class="slide-hd">
+          <div class="badge" style="background:#1c3461">CHECK</div>
+          <div class="stitle" style="color:#1c3461">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="row" style="background:rgba(0,0,0,.02)">
+            <div class="lbl" style="background:#1c3461">배경</div>
+            <div class="body" style="background:#f0f0ef">신라 말기 호족 세력 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#1c3461">과정</div>
+            <div class="body" style="background:#f0f0ef"><span class="em">왕건</span>이 918년 고려 건국 · 936년 통일</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#1c3461">의의</div>
+            <div class="body" style="background:#f0f0ef">민족 재통합, 새로운 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /palette-grid -->
+
+<!-- ═══════════════════ 초록 계열 (개념체크 c2 연계) ═══════════════════ -->
+<div class="group-label">초록 계열 — 개념체크 c2 색상(#059669) 연계</div>
+<div class="palette-grid">
+
+  <!-- ② 딥 그린 -->
+  <div class="palette-card">
+    <div class="card-header">
+      <div class="card-name">② 딥 그린</div>
+      <span class="card-tag tag-recommended">추천</span>
+    </div>
+    <div class="swatches">
+      <div class="swatch">
+        <div class="swatch-box" style="background:#1a4731"></div>
+        <div class="swatch-name">--navy</div>
+        <div>#1a4731</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#b83030"></div>
+        <div class="swatch-name">--red (고정)</div>
+        <div>#b83030</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#e8e0d0; border:1px solid #ccc"></div>
+        <div class="swatch-name">크림</div>
+        <div>#e8e0d0</div>
+      </div>
+    </div>
+    <div class="slides-wrap">
+      <div class="mini-slide cover-slide" style="background:#1a4731;">
+        <div class="bg-num">1</div>
+        <div class="tag">개념 체크 01</div>
+        <div class="title">고려의<br>건국</div>
+        <div class="meta">22차시 · 한국사</div>
+      </div>
+      <div class="mini-slide concept-slide" style="background:#f7f2e8;">
+        <div class="slide-hd">
+          <div class="badge" style="background:#1a4731">CHECK</div>
+          <div class="stitle" style="color:#1a4731">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <div class="lbl" style="background:#1a4731">배경</div>
+            <div class="body">신라 말기 호족 세력 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#1a4731">과정</div>
+            <div class="body"><span class="em">왕건</span>이 918년 고려 건국 · 936년 통일</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#1a4731">의의</div>
+            <div class="body">민족 재통합, 새로운 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slides-wrap" style="padding-top:0; border-top: 1px dashed #e0e0e0;">
+      <div style="font-size:10px; color:#999; width:100%; padding: 8px 0 4px; font-weight:600;">라이트 그레이 배경</div>
+    </div>
+    <div class="slides-wrap" style="padding-top:0">
+      <div class="mini-slide cover-slide" style="background:#1a4731;">
+        <div class="bg-num">1</div>
+        <div class="tag">개념 체크 01</div>
+        <div class="title">고려의<br>건국</div>
+        <div class="meta">22차시 · 한국사</div>
+      </div>
+      <div class="mini-slide concept-slide" style="background:#f4f4f3;">
+        <div class="slide-hd">
+          <div class="badge" style="background:#1a4731">CHECK</div>
+          <div class="stitle" style="color:#1a4731">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <div class="lbl" style="background:#1a4731">배경</div>
+            <div class="body" style="background:#eeeeee">신라 말기 호족 세력 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#1a4731">과정</div>
+            <div class="body" style="background:#eeeeee"><span class="em">왕건</span>이 918년 고려 건국 · 936년 통일</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#1a4731">의의</div>
+            <div class="body" style="background:#eeeeee">민족 재통합, 새로운 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ 에메랄드 그린 -->
+  <div class="palette-card">
+    <div class="card-header">
+      <div class="card-name">③ 에메랄드 (c2 직계)</div>
+      <span class="card-tag tag-option">옵션</span>
+    </div>
+    <div class="swatches">
+      <div class="swatch">
+        <div class="swatch-box" style="background:#065f46"></div>
+        <div class="swatch-name">--navy</div>
+        <div>#065f46</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#b83030"></div>
+        <div class="swatch-name">--red (고정)</div>
+        <div>#b83030</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#e8e0d0; border:1px solid #ccc"></div>
+        <div class="swatch-name">크림</div>
+        <div>#e8e0d0</div>
+      </div>
+    </div>
+    <div class="slides-wrap">
+      <div class="mini-slide cover-slide" style="background:#065f46;">
+        <div class="bg-num">1</div>
+        <div class="tag">개념 체크 01</div>
+        <div class="title">고려의<br>건국</div>
+        <div class="meta">22차시 · 한국사</div>
+      </div>
+      <div class="mini-slide concept-slide" style="background:#f7f2e8;">
+        <div class="slide-hd">
+          <div class="badge" style="background:#065f46">CHECK</div>
+          <div class="stitle" style="color:#065f46">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <div class="lbl" style="background:#065f46">배경</div>
+            <div class="body">신라 말기 호족 세력 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#065f46">과정</div>
+            <div class="body"><span class="em">왕건</span>이 918년 고려 건국 · 936년 통일</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#065f46">의의</div>
+            <div class="body">민족 재통합, 새로운 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slides-wrap" style="padding-top:0; border-top: 1px dashed #e0e0e0;">
+      <div style="font-size:10px; color:#999; width:100%; padding: 8px 0 4px; font-weight:600;">라이트 그레이 배경</div>
+    </div>
+    <div class="slides-wrap" style="padding-top:0">
+      <div class="mini-slide cover-slide" style="background:#065f46;">
+        <div class="bg-num">1</div>
+        <div class="tag">개념 체크 01</div>
+        <div class="title">고려의<br>건국</div>
+        <div class="meta">22차시 · 한국사</div>
+      </div>
+      <div class="mini-slide concept-slide" style="background:#f4f4f3;">
+        <div class="slide-hd">
+          <div class="badge" style="background:#065f46">CHECK</div>
+          <div class="stitle" style="color:#065f46">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <div class="lbl" style="background:#065f46">배경</div>
+            <div class="body" style="background:#eeeeee">신라 말기 호족 세력 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#065f46">과정</div>
+            <div class="body" style="background:#eeeeee"><span class="em">왕건</span>이 918년 고려 건국 · 936년 통일</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#065f46">의의</div>
+            <div class="body" style="background:#eeeeee">민족 재통합, 새로운 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ④ 올리브 그린 -->
+  <div class="palette-card">
+    <div class="card-header">
+      <div class="card-name">④ 올리브 그린 (따뜻한 느낌)</div>
+      <span class="card-tag tag-option">옵션</span>
+    </div>
+    <div class="swatches">
+      <div class="swatch">
+        <div class="swatch-box" style="background:#3a4a1e"></div>
+        <div class="swatch-name">--navy</div>
+        <div>#3a4a1e</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#b83030"></div>
+        <div class="swatch-name">--red (고정)</div>
+        <div>#b83030</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#e8e0d0; border:1px solid #ccc"></div>
+        <div class="swatch-name">크림</div>
+        <div>#e8e0d0</div>
+      </div>
+    </div>
+    <div class="slides-wrap">
+      <div class="mini-slide cover-slide" style="background:#3a4a1e;">
+        <div class="bg-num">1</div>
+        <div class="tag">개념 체크 01</div>
+        <div class="title">고려의<br>건국</div>
+        <div class="meta">22차시 · 한국사</div>
+      </div>
+      <div class="mini-slide concept-slide" style="background:#f7f2e8;">
+        <div class="slide-hd">
+          <div class="badge" style="background:#3a4a1e">CHECK</div>
+          <div class="stitle" style="color:#3a4a1e">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <div class="lbl" style="background:#3a4a1e">배경</div>
+            <div class="body">신라 말기 호족 세력 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#3a4a1e">과정</div>
+            <div class="body"><span class="em">왕건</span>이 918년 고려 건국 · 936년 통일</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#3a4a1e">의의</div>
+            <div class="body">민족 재통합, 새로운 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slides-wrap" style="padding-top:0; border-top: 1px dashed #e0e0e0;">
+      <div style="font-size:10px; color:#999; width:100%; padding: 8px 0 4px; font-weight:600;">라이트 그레이 배경</div>
+    </div>
+    <div class="slides-wrap" style="padding-top:0">
+      <div class="mini-slide cover-slide" style="background:#3a4a1e;">
+        <div class="bg-num">1</div>
+        <div class="tag">개념 체크 01</div>
+        <div class="title">고려의<br>건국</div>
+        <div class="meta">22차시 · 한국사</div>
+      </div>
+      <div class="mini-slide concept-slide" style="background:#f4f4f3;">
+        <div class="slide-hd">
+          <div class="badge" style="background:#3a4a1e">CHECK</div>
+          <div class="stitle" style="color:#3a4a1e">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <div class="lbl" style="background:#3a4a1e">배경</div>
+            <div class="body" style="background:#eeeeee">신라 말기 호족 세력 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#3a4a1e">과정</div>
+            <div class="body" style="background:#eeeeee"><span class="em">왕건</span>이 918년 고려 건국 · 936년 통일</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#3a4a1e">의의</div>
+            <div class="body" style="background:#eeeeee">민족 재통합, 새로운 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /palette-grid 초록 -->
+
+<!-- ═══════════════════ 중립/대비 계열 ═══════════════════ -->
+<div class="group-label">중립 계열 — 색 연계 없이 깔끔하게</div>
+<div class="palette-grid">
+
+  <!-- ⑤ 차콜 다크 -->
+  <div class="palette-card">
+    <div class="card-header">
+      <div class="card-name">⑤ 차콜 다크</div>
+      <span class="card-tag tag-option">옵션</span>
+    </div>
+    <div class="swatches">
+      <div class="swatch">
+        <div class="swatch-box" style="background:#2b2b2b"></div>
+        <div class="swatch-name">--navy</div>
+        <div>#2b2b2b</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#b83030"></div>
+        <div class="swatch-name">--red (고정)</div>
+        <div>#b83030</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#e8e0d0; border:1px solid #ccc"></div>
+        <div class="swatch-name">크림</div>
+        <div>#e8e0d0</div>
+      </div>
+    </div>
+    <div class="slides-wrap">
+      <div class="mini-slide cover-slide" style="background:#2b2b2b;">
+        <div class="bg-num">1</div>
+        <div class="tag">개념 체크 01</div>
+        <div class="title">고려의<br>건국</div>
+        <div class="meta">22차시 · 한국사</div>
+      </div>
+      <div class="mini-slide concept-slide" style="background:#f7f2e8;">
+        <div class="slide-hd">
+          <div class="badge" style="background:#2b2b2b">CHECK</div>
+          <div class="stitle" style="color:#2b2b2b">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <div class="lbl" style="background:#2b2b2b">배경</div>
+            <div class="body">신라 말기 호족 세력 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#2b2b2b">과정</div>
+            <div class="body"><span class="em">왕건</span>이 918년 고려 건국 · 936년 통일</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#2b2b2b">의의</div>
+            <div class="body">민족 재통합, 새로운 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slides-wrap" style="padding-top:0; border-top: 1px dashed #e0e0e0;">
+      <div style="font-size:10px; color:#999; width:100%; padding: 8px 0 4px; font-weight:600;">라이트 그레이 배경</div>
+    </div>
+    <div class="slides-wrap" style="padding-top:0">
+      <div class="mini-slide cover-slide" style="background:#2b2b2b;">
+        <div class="bg-num">1</div>
+        <div class="tag">개념 체크 01</div>
+        <div class="title">고려의<br>건국</div>
+        <div class="meta">22차시 · 한국사</div>
+      </div>
+      <div class="mini-slide concept-slide" style="background:#f4f4f3;">
+        <div class="slide-hd">
+          <div class="badge" style="background:#2b2b2b">CHECK</div>
+          <div class="stitle" style="color:#2b2b2b">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <div class="lbl" style="background:#2b2b2b">배경</div>
+            <div class="body" style="background:#eeeeee">신라 말기 호족 세력 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#2b2b2b">과정</div>
+            <div class="body" style="background:#eeeeee"><span class="em">왕건</span>이 918년 고려 건국 · 936년 통일</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#2b2b2b">의의</div>
+            <div class="body" style="background:#eeeeee">민족 재통합, 새로운 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑥ 슬레이트 블루그레이 -->
+  <div class="palette-card">
+    <div class="card-header">
+      <div class="card-name">⑥ 슬레이트 블루그레이</div>
+      <span class="card-tag tag-option">옵션</span>
+    </div>
+    <div class="swatches">
+      <div class="swatch">
+        <div class="swatch-box" style="background:#334155"></div>
+        <div class="swatch-name">--navy</div>
+        <div>#334155</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#b83030"></div>
+        <div class="swatch-name">--red (고정)</div>
+        <div>#b83030</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#e8e0d0; border:1px solid #ccc"></div>
+        <div class="swatch-name">크림</div>
+        <div>#e8e0d0</div>
+      </div>
+    </div>
+    <div class="slides-wrap">
+      <div class="mini-slide cover-slide" style="background:#334155;">
+        <div class="bg-num">1</div>
+        <div class="tag">개념 체크 01</div>
+        <div class="title">고려의<br>건국</div>
+        <div class="meta">22차시 · 한국사</div>
+      </div>
+      <div class="mini-slide concept-slide" style="background:#f7f2e8;">
+        <div class="slide-hd">
+          <div class="badge" style="background:#334155">CHECK</div>
+          <div class="stitle" style="color:#334155">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <div class="lbl" style="background:#334155">배경</div>
+            <div class="body">신라 말기 호족 세력 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#334155">과정</div>
+            <div class="body"><span class="em">왕건</span>이 918년 고려 건국 · 936년 통일</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#334155">의의</div>
+            <div class="body">민족 재통합, 새로운 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="slides-wrap" style="padding-top:0; border-top: 1px dashed #e0e0e0;">
+      <div style="font-size:10px; color:#999; width:100%; padding: 8px 0 4px; font-weight:600;">라이트 그레이 배경</div>
+    </div>
+    <div class="slides-wrap" style="padding-top:0">
+      <div class="mini-slide cover-slide" style="background:#334155;">
+        <div class="bg-num">1</div>
+        <div class="tag">개념 체크 01</div>
+        <div class="title">고려의<br>건국</div>
+        <div class="meta">22차시 · 한국사</div>
+      </div>
+      <div class="mini-slide concept-slide" style="background:#f4f4f3;">
+        <div class="slide-hd">
+          <div class="badge" style="background:#334155">CHECK</div>
+          <div class="stitle" style="color:#334155">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="row">
+            <div class="lbl" style="background:#334155">배경</div>
+            <div class="body" style="background:#eeeeee">신라 말기 호족 세력 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#334155">과정</div>
+            <div class="body" style="background:#eeeeee"><span class="em">왕건</span>이 918년 고려 건국 · 936년 통일</div>
+          </div>
+          <div class="row">
+            <div class="lbl" style="background:#334155">의의</div>
+            <div class="body" style="background:#eeeeee">민족 재통합, 새로운 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /palette-grid 중립 -->
+
+<div style="margin-top:48px; padding: 16px 20px; background:#fff; border-radius:10px; border:1px solid #e0e0e0; font-size:12px; color:#666; line-height:1.8;">
+  <strong style="color:#222">선택하면 변경되는 것:</strong> <code>slide-style.css</code>의 <code>--navy</code> 값 한 줄 + <code>--navy-pale</code> (옅은 배경용) 한 줄.<br>
+  <strong style="color:#222">절대 바뀌지 않는 것:</strong> <code>--red: #b83030</code> (핵심 강조어 빨간색) — 모든 강의 공통 고정값.<br>
+  <strong style="color:#222">배경 변경 시:</strong> <code>--bg</code>, <code>--slide-bg</code>, <code>--row-bg</code>, <code>--border</code> 4개 값 조정 필요. 원하는 옵션 고르면 정확한 값 알려드림.
+</div>
+
+</body>
+</html>
