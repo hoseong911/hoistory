@@ -140,9 +140,6 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 - s_threads/goryeo_choice/blind_ryeo를 RTDB→Firestore로 이관 + `status` 필드 통일 ← 다음 세션 1순위 (blind_ryeo는 `goryeo_grades` 별도 경로도 문서 필드로 합쳐야 함)
 - (참고) lms/admin.html 대시보드 탭(제출률·통과율·미채점 한눈에 보기)은 각 미션 데이터 스키마가 제각각이라 보류함. 성적확인 탭에서 미션별로 이미 확인 가능하므로 당장 불필요하다고 판단.
 
-### lms/admin.html
-- 피드백 템플릿 — 학급 기본 피드백 저장 후 일괄 적용
-
 ## 루트 admin.html — 완전 개편 예정
 
 현재 루트 admin.html은 이모지 피커, 대시보드 통계 부족, 허브 카드 관리 등 전반적인 리뉴얼이 필요하다.
