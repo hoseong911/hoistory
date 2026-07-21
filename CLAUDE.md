@@ -68,6 +68,8 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 
 **New sub-app checklist**: Copy an existing sub-app folder, update Firebase listeners, set `<body class="hi-preset-XXX">` for the right visual identity, register the admin URL in `settings/admin_links` via the admin console menu editor.
 
+**Firestore 컬렉션 이름 규칙**: 신규 컬렉션은 반드시 `{앱이름}_{기능}` 형식의 snake_case로 짓는다. 예: `sillaver_posts`, `escape_stages`, `oxquiz_rankings`. 버전·연도·학기 번호를 이름에 절대 포함하지 않는다(`escape26_2`, `ox2606_*`, `silla_v3` 같은 패턴 금지). LMS 공통 인프라(`grade_records`, `class_lessons` 등)와 허브 설정(`cards`, `settings`)은 예외. camelCase 금지(`gradeOverrides` 같은 패턴 금지).
+
 **제출/채점 데이터 표준 스키마 (신규 미션 앱)**: 미션 제출 데이터는 항상 Firestore에 저장한다(RTDB 아님 — `students` 로스터·토스트·간단 설정용으로만 RTDB 사용). 채점 결과는 제출 문서 자신의 필드에 저장하고(별도 경로 아님), 필드명은 `status`, 값은 `'pass' | 'fail'`(필드 없음 = 미채점)로 통일한다. 기존 6개 미션 앱 모두 이 규칙 통일 완료(interview/samguk_goods/sillaver는 이전, s_threads/goryeo_choice/blind_ryeo는 2026-07-21 이관). blind_ryeo의 `goryeo_grades` 별도 경로도 제거하고 post 문서의 `status` 필드로 통합됨. 기존 RTDB 데이터 마이그레이션이 필요하면 `tools/migrate_status_fields.html` 참고.
 
 ## 세션 시작 규칙
