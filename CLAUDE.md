@@ -88,7 +88,7 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 
 ## 공통 스택
 - Firebase Realtime Database + Storage
-- Firebase SDK v10.7.1 (shared/auth.js와 버전 통일 필수)
+- Firebase SDK v10.12.2 (shared/auth.js와 버전 통일 필수)
 - Vanilla HTML/CSS/JS, 빌드 도구 없음
 - Pretendard 폰트
 - 학번 5자리 체계 (앞 1자리=학년, 2~3자리째=반(0n이면 n반), 4~5자리=학번)
@@ -127,6 +127,7 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 - 학생용: `index.html`
 - 선생님용: `lms/admin.html` (루트 아카이브 관리 포함, 2026-07-21부터 — 루트 자체 `admin.html`은 없음)
 - 도구: `/tools/*.html`
+- `apps/` — LMS **미션 체크** 탭에 직접 연결되는 수업 활동 앱만 넣는다. LMS와 연동되더라도 미션 체크 앱이 아닌 것(예: `hismile/`, `survey/`)은 루트에 둔다.
 
 ## 코드 스타일
 - 한글 주석, 사용자 메시지 한국어

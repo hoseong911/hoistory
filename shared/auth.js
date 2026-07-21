@@ -34,7 +34,7 @@
  * ============================================================
  */
 
-import { ref, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { ref, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 // ─── 설정 ───────────────────────────────────────────────────
 const CACHE_KEY       = 'hi_students_cache';
