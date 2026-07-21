@@ -308,7 +308,7 @@ function renderSubmissions() {
   const missing = total ? total - submit : 0;
   const newsPickCount = classDocs.reduce((sum, d) => sum + Object.values(d.newsPicks || {}).filter(p => p && p.picked).length, 0);
   const adPickCount = classDocs.filter(d => d.adPick).length;
-  const gradedFail = classDocs.filter(d => d.grade === 'fail').length;
+  const gradedFail = classDocs.filter(d => d.status === 'fail').length;
   const fail = total ? missing + gradedFail : 0;
   const pass = total ? total - fail : 0;
   document.getElementById('stTotal').textContent = total || '-';
@@ -345,7 +345,7 @@ function buildCard(d) {
       <span class="sv-ad-text">${esc(d.ad)}</span>
       <button class="sv-pick-star${adPicked?' picked':''}" onclick="toggleAdPick('${d.id}',${adPicked})">${adPicked?'⭐':'☆'}</button>
     </div>` : '';
-  const gradeBadge = d.grade === 'pass' ? `<span class="grade-badge pass">✓ 통과</span>` : d.grade === 'fail' ? `<span class="grade-badge fail">✕ 미흡</span>` : '';
+  const gradeBadge = d.status === 'pass' ? `<span class="grade-badge pass">✓ 통과</span>` : d.status === 'fail' ? `<span class="grade-badge fail">✕ 미흡</span>` : '';
   return `<div class="sv-card">
     <div class="sv-card-head">
       <span class="sv-card-id">${esc(d.studentId||'')}</span>
@@ -481,9 +481,9 @@ window.runScoring = async () => {
       });
       if (!res.ok) throw new Error(`API ${res.status}`);
       const data = await res.json();
-      const grade = /^pass/i.test((data.content?.[0]?.text||'').trim()) ? 'pass' : 'fail';
-      batch.update(doc(db,'silla_v3',d.id), { grade });
-    } catch(e) { batch.update(doc(db,'silla_v3',d.id), { grade: 'fail' }); }
+      const status = /^pass/i.test((data.content?.[0]?.text||'').trim()) ? 'pass' : 'fail';
+      batch.update(doc(db,'silla_v3',d.id), { status });
+    } catch(e) { batch.update(doc(db,'silla_v3',d.id), { status: 'fail' }); }
   }
   try { await batch.commit(); } catch(e) { alert('저장 오류: ' + e.message); }
   if (btn) { btn.disabled = false; btn.textContent = origText; }

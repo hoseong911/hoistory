@@ -586,7 +586,7 @@ function updateStats(){
   const expected=expectedCount();
   const unsub2=Math.max(0,expected-submitted.length);
   const pass=fs.filter(s=>s.status==='pass').length;
-  const insuf=fs.filter(s=>s.status==='insuf'||s.status==='insufficient').length+unsub2;
+  const insuf=fs.filter(s=>s.status==='fail').length+unsub2;
   const pick=fs.filter(s=>s.picked).length;
   document.getElementById('s-total').textContent=expected||fs.length;
   document.getElementById('s-sub').textContent=submitted.length;
@@ -627,8 +627,8 @@ document.getElementById('score-btn').addEventListener('click',async()=>{
       });
       if(!res.ok)throw new Error(`API ${res.status}`);
       const data=await res.json();
-      statuses[s.studentId]=/^pass/i.test((data.content?.[0]?.text||'').trim())?'pass':'insufficient';
-    }catch(e){statuses[s.studentId]='insufficient';}
+      statuses[s.studentId]=/^pass/i.test((data.content?.[0]?.text||'').trim())?'pass':'fail';
+    }catch(e){statuses[s.studentId]='fail';}
   }
   try{
     const batch=writeBatch(db);
@@ -648,18 +648,18 @@ function autoScore(s){
   const avgLen=vals.length?vals.reduce((sum,v)=>sum+(v||'').trim().length,0)/vals.length:0;
   const hasDeep=(s.deepQuestion||'').trim().length>=10;
   if(hasChar&&allAnswered&&avgLen>=30&&hasDeep)return'pass';
-  return'insufficient';
+  return'fail';
 }
 
 /* ─────────── 학생 목록 ─────────── */
 function statusBadgeClass(status){
   if(status==='pass')return'sb-pass';
-  if(status==='insufficient'||status==='insuf')return'sb-insuf';
+  if(status==='fail')return'sb-insuf';
   return'sb-pending';
 }
 function statusLabel(status){
   if(status==='pass')return'통과';
-  if(status==='insufficient'||status==='insuf')return'미흡';
+  if(status==='fail')return'미흡';
   return'미채점';
 }
 
@@ -716,7 +716,7 @@ function renderStudentList(){
       <div class="stu-body" style="display:none; padding:0 16px 14px;">
         <div class="stu-status-btns">
           <button class="ssb ssb-pass${status==='pass'?' active':''}" data-sid="${s.studentId}" data-st="pass" onclick="event.stopPropagation();setSsb(this)">통과</button>
-          <button class="ssb ssb-insuf${status==='insufficient'||status==='insuf'?' active':''}" data-sid="${s.studentId}" data-st="insufficient" onclick="event.stopPropagation();setSsb(this)">미흡</button>
+          <button class="ssb ssb-insuf${status==='fail'?' active':''}" data-sid="${s.studentId}" data-st="fail" onclick="event.stopPropagation();setSsb(this)">미흡</button>
           <button class="ssb ssb-pick${picked?' active':''}" data-sid="${s.studentId}" onclick="event.stopPropagation();togglePickStatus(this,'${s.studentId}',${picked})">PICK</button>
         </div>
         ${s.charId?ansHtml:'<div class="ans-empty">제출된 답변이 없습니다.</div>'}

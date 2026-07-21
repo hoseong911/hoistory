@@ -230,8 +230,8 @@ function startListeners() {
   onSnapshot(collection(db, COL), snap => {
     allDocs = []; snap.forEach(d => allDocs.push({ id: d.id, ...d.data() }));
     document.getElementById('stTotal').textContent = allDocs.length;
-    document.getElementById('stPass').textContent = allDocs.filter(d => d.grade === 'pass').length;
-    document.getElementById('stFail').textContent = allDocs.filter(d => d.grade === 'fail').length;
+    document.getElementById('stPass').textContent = allDocs.filter(d => d.status === 'pass').length;
+    document.getElementById('stFail').textContent = allDocs.filter(d => d.status === 'fail').length;
     document.getElementById('stPick').textContent = allDocs.filter(d => d.picked).length;
     renderStatusList();
   });
@@ -347,7 +347,7 @@ window.renderStatusList = () => {
   if (!docs.length) { list.innerHTML = `<div class="empty-state"><div class="icon">📦</div>${pickOnly ? '픽한 굿즈가 없습니다.' : '등록된 굿즈가 없습니다.'}</div>`; return; }
   list.innerHTML = docs.map(d => {
     const picked = !!d.picked;
-    const gradeBadge = d.grade === 'pass' ? `<span class="grade-badge pass">✓ 통과</span>` : d.grade === 'fail' ? `<span class="grade-badge fail">✕ 미흡</span>` : '';
+    const gradeBadge = d.status === 'pass' ? `<span class="grade-badge pass">✓ 통과</span>` : d.status === 'fail' ? `<span class="grade-badge fail">✕ 미흡</span>` : '';
     return `<div class="sg-card">
     <img class="sg-thumb" src="goods/${esc(d.studentId||d.id)}.jpg" onerror="this.style.opacity=0.3;this.src='';">
     <div class="sg-card-body">
@@ -393,9 +393,9 @@ window.runScoring = async () => {
       });
       if (!res.ok) throw new Error(`API ${res.status}`);
       const data = await res.json();
-      const grade = /^pass/i.test((data.content?.[0]?.text||'').trim()) ? 'pass' : 'fail';
-      batch.update(doc(db, COL, d.id), { grade });
-    } catch(e) { batch.update(doc(db, COL, d.id), { grade: 'fail' }); }
+      const status = /^pass/i.test((data.content?.[0]?.text||'').trim()) ? 'pass' : 'fail';
+      batch.update(doc(db, COL, d.id), { status });
+    } catch(e) { batch.update(doc(db, COL, d.id), { status: 'fail' }); }
   }
   try { await batch.commit(); } catch(e) { alert('저장 오류: ' + e.message); }
   if (btn) { btn.disabled = false; btn.textContent = origText; }

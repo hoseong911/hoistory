@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>채점 필드 통일 마이그레이션 - 관리자 모드</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/admin-base.css">
+<style>
+.mig-wrap{max-width:640px;margin:0 auto;padding:32px 20px 80px}
+.mig-card{background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:14px;padding:20px;margin-bottom:16px}
+.mig-title{font-weight:800;font-size:15px;color:var(--hi-text);margin-bottom:4px}
+.mig-desc{font-size:13px;color:var(--hi-text-muted);margin-bottom:14px;line-height:1.6}
+.mig-result{font-size:13px;color:var(--hi-text-soft);margin-top:10px;white-space:pre-line}
+.mig-done .mig-title::after{content:' (완료)';color:var(--hi-positive);font-weight:700}
+</style>
+</head>
+<body class="hi-preset-admin">
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">채점 필드 통일 마이그레이션</div>
+    <div class="login-sub">관리자 모드</div>
+    <input type="email" class="hi-input" id="adminEmail"
+           placeholder="이메일" autocomplete="username"
+           onkeydown="if(event.key==='Enter') document.getElementById('adminPw').focus()"
+           style="margin-bottom:10px;">
+    <input type="password" class="hi-input" id="adminPw"
+           placeholder="비밀번호" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter') tryLogin()"
+           style="text-align:center; letter-spacing:3px;">
+    <div class="login-err" id="loginErr">이메일 또는 비밀번호가 올바르지 않습니다</div>
+    <button class="login-btn" id="loginBtn" onclick="tryLogin()">접속하기</button>
+  </div>
+</div>
+
+<div id="adminApp" style="display:none">
+  <header class="adm-header">
+    <div class="adm-logo">채점 필드 통일 마이그레이션</div>
+    <button class="adm-logout" onclick="logoutAdmin()">로그아웃</button>
+  </header>
+  <div class="mig-wrap">
+    <p style="font-size:13px;color:var(--hi-text-muted);margin-bottom:20px;line-height:1.6">
+      각 앱의 채점 값을 <code>status</code> 필드(<code>'pass' | 'fail'</code>)로 통일합니다.
+      버튼을 누르면 기존 문서를 일괄 변환합니다. 여러 번 눌러도 안전합니다(이미 변환된 문서는 건너뜁니다).
+    </p>
+
+    <div class="mig-card" id="card-interview">
+      <div class="mig-title">조선의 기틀을 만든 자들 (interview_joseon_answers)</div>
+      <div class="mig-desc">status 값 'insufficient' / 'insuf' → 'fail'로 변환</div>
+      <button class="hi-btn hi-btn-primary hi-btn-sm" id="btn-interview" onclick="migrateInterview()">실행</button>
+      <div class="mig-result" id="result-interview"></div>
+    </div>
+
+    <div class="mig-card" id="card-samguk">
+      <div class="mig-title">IDY 삼국시대 문화유산 굿즈 (samguk_goods)</div>
+      <div class="mig-desc">grade 필드 → status 필드로 이동 (grade 필드는 삭제)</div>
+      <button class="hi-btn hi-btn-primary hi-btn-sm" id="btn-samguk" onclick="migrateSamguk()">실행</button>
+      <div class="mig-result" id="result-samguk"></div>
+    </div>
+
+    <div class="mig-card" id="card-sillaver">
+      <div class="mig-title">SILLAVER (silla_v3)</div>
+      <div class="mig-desc">grade 필드 → status 필드로 이동 (grade 필드는 삭제)</div>
+      <button class="hi-btn hi-btn-primary hi-btn-sm" id="btn-sillaver" onclick="migrateSillaver()">실행</button>
+      <div class="mig-result" id="result-sillaver"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getFirestore, collection, getDocs, writeBatch, doc, deleteField }
+  from "https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey:"AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
+  authDomain:"ho0911seong-56638.firebaseapp.com",
+  databaseURL:"https://ho0911seong-56638-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"ho0911seong-56638",
+  storageBucket:"ho0911seong-56638.firebasestorage.app",
+  messagingSenderId:"994509567071",
+  appId:"1:994509567071:web:778c95931e95e9cbf557ea"
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+
+window.tryLogin = async () => {
+  const email = document.getElementById('adminEmail').value.trim();
+  const pw = document.getElementById('adminPw').value;
+  const err = document.getElementById('loginErr');
+  const btn = document.getElementById('loginBtn');
+  err.classList.remove('show');
+  if (!email || !pw) { err.textContent = '이메일과 비밀번호를 입력해주세요'; err.classList.add('show'); return; }
+  btn.disabled = true; btn.textContent = '접속 중...';
+  try {
+    await signInWithEmailAndPassword(auth, email, pw);
+  } catch (e) {
+    err.textContent = '이메일 또는 비밀번호가 올바르지 않습니다';
+    err.classList.add('show');
+  } finally {
+    btn.disabled = false; btn.textContent = '접속하기';
+  }
+};
+window.logoutAdmin = () => signOut(auth);
+
+onAuthStateChanged(auth, user => {
+  document.getElementById('loginScreen').style.display = user ? 'none' : 'flex';
+  document.getElementById('adminApp').style.display = user ? 'block' : 'none';
+});
+
+async function runMigration(btnId, resultId, cardId, coll, convert) {
+  const btn = document.getElementById(btnId);
+  const result = document.getElementById(resultId);
+  btn.disabled = true;
+  const origText = btn.textContent;
+  btn.textContent = '변환 중…';
+  try {
+    const snap = await getDocs(collection(db, coll));
+    let changed = 0, skipped = 0;
+    const batch = writeBatch(db);
+    snap.forEach(d => {
+      const update = convert(d.data());
+      if (update) { batch.update(doc(db, coll, d.id), update); changed++; }
+      else skipped++;
+    });
+    if (changed > 0) await batch.commit();
+    result.textContent = `총 ${snap.size}건 중 ${changed}건 변환, ${skipped}건 건너뜀`;
+    document.getElementById(cardId).classList.add('mig-done');
+  } catch (e) {
+    result.textContent = '오류: ' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = origText;
+  }
+}
+
+window.migrateInterview = () => runMigration('btn-interview', 'result-interview', 'card-interview',
+  'interview_joseon_answers',
+  data => (data.status === 'insufficient' || data.status === 'insuf') ? { status: 'fail' } : null
+);
+
+window.migrateSamguk = () => runMigration('btn-samguk', 'result-samguk', 'card-samguk',
+  'samguk_goods',
+  data => data.grade ? { status: data.grade, grade: deleteField() } : null
+);
+
+window.migrateSillaver = () => runMigration('btn-sillaver', 'result-sillaver', 'card-sillaver',
+  'silla_v3',
+  data => data.grade ? { status: data.grade, grade: deleteField() } : null
+);
+</script>
+</body>
+</html>

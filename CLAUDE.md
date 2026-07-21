@@ -69,6 +69,8 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 
 **New sub-app checklist**: Copy an existing sub-app folder, update Firebase listeners, set `<body class="hi-preset-XXX">` for the right visual identity, register the admin URL in `settings/admin_links` via the admin console menu editor.
 
+**제출/채점 데이터 표준 스키마 (신규 미션 앱)**: 미션 제출 데이터는 항상 Firestore에 저장한다(RTDB 아님 — `students` 로스터·토스트·간단 설정용으로만 RTDB 사용). 채점 결과는 제출 문서 자신의 필드에 저장하고(별도 경로 아님), 필드명은 `status`, 값은 `'pass' | 'fail'`(필드 없음 = 미채점)로 통일한다. 기존 6개 미션 앱(interview, s_threads, goryeo_choice, blind_ryeo, samguk_goods, sillaver) 중 interview/samguk_goods/sillaver는 이 규칙으로 통일 완료. s_threads/goryeo_choice/blind_ryeo는 아직 RTDB 기반이라 백엔드 이관(RTDB→Firestore)이 남아있음 — 다음에 손댈 때 이관과 동시에 `status` 필드로 맞출 것(blind_ryeo는 등급이 `goryeo_grades`라는 별도 경로에 있어 제출 문서 필드로 합치는 구조 변경도 필요). 기존 데이터 마이그레이션이 필요하면 `tools/migrate_status_fields.html`(로그인 후 버튼 클릭으로 실행, 여러 번 실행해도 안전) 참고.
+
 ## 세션 시작 규칙
 - 매 세션 시작 시 반드시 `git pull`을 먼저 실행한다. 사용자가 별도로 요청하지 않아도 항상 자동으로 실행한다.
 
@@ -134,9 +136,11 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 
 아래 항목은 다음 세션에서 처리. "미뤄놓은 거 해줘"라고 하면 이 목록 기준으로 진행.
 
+### 미션 앱 데이터 정리 (interview/samguk_goods/sillaver의 `status` 필드 통일은 완료됨 — 위 "제출/채점 데이터 표준 스키마" 참고)
+- s_threads/goryeo_choice/blind_ryeo를 RTDB→Firestore로 이관 + `status` 필드 통일 ← 다음 세션 1순위 (blind_ryeo는 `goryeo_grades` 별도 경로도 문서 필드로 합쳐야 함)
+- (참고) lms/admin.html 대시보드 탭(제출률·통과율·미채점 한눈에 보기)은 각 미션 데이터 스키마가 제각각이라 보류함. 성적확인 탭에서 미션별로 이미 확인 가능하므로 당장 불필요하다고 판단.
+
 ### lms/admin.html
-- 대시보드 탭 추가 (제출률·통과율·미채점 수 한눈에 보기) ← 다음 세션 1순위
-- 피드백 템플릿 — 학급 기본 피드백 저장 후 일괄 적용
 - 피드백 템플릿 — 학급 기본 피드백 저장 후 일괄 적용
 
 ## 루트 admin.html — 완전 개편 예정
