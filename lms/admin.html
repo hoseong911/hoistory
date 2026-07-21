@@ -199,6 +199,13 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
   max-height:90vh;overflow-y:auto;
 }
 .modal-title{font-size:18px;font-weight:800;color:var(--text);margin-bottom:24px}
+.template-section{margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--hairline-soft)}
+.template-section:last-of-type{border-bottom:none;padding-bottom:0;margin-bottom:16px}
+.template-section-label{font-size:13px;font-weight:700;color:var(--sub);margin-bottom:10px;letter-spacing:.3px}
+.template-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--hairline-soft)}
+.template-row:last-child{border-bottom:none}
+.template-row-label{font-size:13px;font-weight:700;color:var(--text);flex-shrink:0;min-width:64px}
+.template-row-text{flex:1;min-width:0;font-size:13px;color:var(--sub);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .form-group{margin-bottom:16px}
 .form-label{font-size:13px;font-weight:700;color:var(--sub);margin-bottom:6px;display:block;letter-spacing:.3px}
 .form-input,.form-textarea{
@@ -956,6 +963,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
         <div class="grade-subtab-bar" id="gradeSubtabBar" style="margin-bottom:0"></div>
         <div class="grade-check-actions" id="gradeCheckActions" style="display:none">
           <button class="add-btn p" id="gradeSaveBtn">임시 저장</button>
+          <button class="add-btn p" onclick="openFeedbackTemplateModal()" style="background:var(--c2);border-color:var(--c2)">피드백 템플릿</button>
           <button class="add-btn p" id="publishAllBtn" onclick="publishAllClasses()" style="background:var(--accent-deep);border-color:var(--accent-deep)">전체 반 공개</button>
           <span class="grade-publish-status-lbl" id="gradePublishStatusLbl"></span>
           <button class="btn-publish" id="publishActionBtn" style="display:none"></button>
@@ -1318,6 +1326,51 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
     <div class="modal-actions">
       <button class="btn-save" onclick="saveGradeFeedback()">확인</button>
       <button class="btn-cancel" onclick="closeGradeFeedbackModal()">취소</button>
+    </div>
+  </div>
+</div>
+
+<!-- 피드백 템플릿 관리 + 일괄 적용 모달 -->
+<div class="modal-backdrop" id="feedbackTemplateBackdrop" onclick="if(event.target===this)closeFeedbackTemplateModal()">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-title">피드백 템플릿</div>
+
+    <div class="template-section">
+      <div class="template-section-label">템플릿 목록</div>
+      <div id="feedbackTemplateList"></div>
+    </div>
+
+    <div class="template-section">
+      <div class="template-section-label" id="templateFormLabel">새 템플릿 추가</div>
+      <div class="form-group" style="margin-bottom:8px">
+        <input type="text" class="form-input" id="templateLabelInput" placeholder="템플릿 이름 (예: 미제출, 결석, 완료)">
+      </div>
+      <div class="form-group">
+        <textarea class="form-textarea" id="templateTextInput" style="height:80px" placeholder="학생에게 표시될 피드백 문구"></textarea>
+      </div>
+      <div class="modal-actions" style="justify-content:flex-start">
+        <button class="btn-save" onclick="saveFeedbackTemplate()">저장</button>
+        <button class="btn-cancel" onclick="resetTemplateForm()">새로 작성</button>
+      </div>
+    </div>
+
+    <div class="template-section">
+      <div class="template-section-label">일괄 적용</div>
+      <p class="field-hint" style="margin:-4px 0 10px">현재 선택된 반 탭 기준으로, 피드백이 비어있는 학생에게만 적용됩니다.</p>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <select class="grade-config-sel" id="templateApplySel" style="flex:1"></select>
+        <select class="grade-config-sel" id="templateApplyTarget" style="flex:1">
+          <option value="all">전체 학생</option>
+          <option value="missing">미제출자만</option>
+          <option value="absent">결석자만</option>
+          <option value="pass">통과자만</option>
+        </select>
+      </div>
+      <button class="add-btn p" style="width:100%" onclick="applyFeedbackTemplate()">적용</button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeFeedbackTemplateModal()">닫기</button>
     </div>
   </div>
 </div>
@@ -3217,6 +3270,8 @@ async function initGradeTab() {
   document.getElementById('gradeSaveBtn').addEventListener('click', saveGradeRecords);
   document.getElementById('gradeScoreLoadBtn').addEventListener('click', loadScoreData);
   document.getElementById('gradeExportBtn').addEventListener('click', exportScoreCSV);
+
+  await loadFeedbackTemplates();
 }
 
 async function onGradeLessonChange() {
@@ -3395,6 +3450,126 @@ function saveGradeFeedback() {
   if (_gradeRecords[_gradeFeedbackSid]) _gradeRecords[_gradeFeedbackSid].feedback = val;
   closeGradeFeedbackModal();
   renderGradeTable();
+}
+
+// ── 피드백 템플릿 (설정은 즉시 Firestore에 저장, 학생별 적용은 기존 임시 저장/반영하기 흐름을 탄다) ──
+let _feedbackTemplates = [];
+let _editingTemplateId = null;
+
+async function loadFeedbackTemplates() {
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'feedback_templates'));
+    _feedbackTemplates = snap.exists() ? (snap.data().list || []) : [];
+  } catch (e) { _feedbackTemplates = []; }
+}
+
+function openFeedbackTemplateModal() {
+  resetTemplateForm();
+  renderFeedbackTemplateList();
+  renderFeedbackTemplateApplySelect();
+  document.getElementById('feedbackTemplateBackdrop').classList.add('open');
+}
+function closeFeedbackTemplateModal() {
+  document.getElementById('feedbackTemplateBackdrop').classList.remove('open');
+}
+
+function renderFeedbackTemplateList() {
+  const wrap = document.getElementById('feedbackTemplateList');
+  if (!_feedbackTemplates.length) {
+    wrap.innerHTML = '<div class="field-hint">저장된 템플릿이 없습니다.</div>';
+    return;
+  }
+  wrap.innerHTML = _feedbackTemplates.map(t => `
+    <div class="template-row">
+      <div class="template-row-label">${esc(t.label)}</div>
+      <div class="template-row-text" title="${esc(t.text)}">${esc(t.text)}</div>
+      <button class="stu-btn stu-btn-edit" onclick="editFeedbackTemplate('${esc(t.id)}')">수정</button>
+      <button class="stu-btn stu-btn-del" onclick="deleteFeedbackTemplate('${esc(t.id)}')">삭제</button>
+    </div>
+  `).join('');
+}
+
+function editFeedbackTemplate(id) {
+  const t = _feedbackTemplates.find(x => x.id === id);
+  if (!t) return;
+  _editingTemplateId = id;
+  document.getElementById('templateFormLabel').textContent = '템플릿 수정';
+  document.getElementById('templateLabelInput').value = t.label;
+  document.getElementById('templateTextInput').value = t.text;
+}
+function resetTemplateForm() {
+  _editingTemplateId = null;
+  document.getElementById('templateFormLabel').textContent = '새 템플릿 추가';
+  document.getElementById('templateLabelInput').value = '';
+  document.getElementById('templateTextInput').value = '';
+}
+
+async function saveFeedbackTemplate() {
+  const label = document.getElementById('templateLabelInput').value.trim();
+  const text = document.getElementById('templateTextInput').value.trim();
+  if (!label || !text) { alert('템플릿 이름과 문구를 모두 입력해주세요.'); return; }
+  if (_editingTemplateId) {
+    const t = _feedbackTemplates.find(x => x.id === _editingTemplateId);
+    if (t) { t.label = label; t.text = text; }
+  } else {
+    _feedbackTemplates.push({ id: 'tpl_' + Date.now(), label, text });
+  }
+  try {
+    await setDoc(doc(db, 'settings', 'feedback_templates'), { list: _feedbackTemplates });
+  } catch (e) { alert('저장 실패: ' + e.message); return; }
+  resetTemplateForm();
+  renderFeedbackTemplateList();
+  renderFeedbackTemplateApplySelect();
+}
+
+async function deleteFeedbackTemplate(id) {
+  if (!confirm('이 템플릿을 삭제하시겠습니까?')) return;
+  _feedbackTemplates = _feedbackTemplates.filter(x => x.id !== id);
+  try { await setDoc(doc(db, 'settings', 'feedback_templates'), { list: _feedbackTemplates }); } catch (e) {}
+  renderFeedbackTemplateList();
+  renderFeedbackTemplateApplySelect();
+}
+
+function renderFeedbackTemplateApplySelect() {
+  const sel = document.getElementById('templateApplySel');
+  sel.innerHTML = '<option value="">-- 템플릿 선택 --</option>' +
+    _feedbackTemplates.map(t => `<option value="${esc(t.id)}">${esc(t.label)}</option>`).join('');
+}
+
+function applyFeedbackTemplate() {
+  const tplId = document.getElementById('templateApplySel').value;
+  const target = document.getElementById('templateApplyTarget').value;
+  const tpl = _feedbackTemplates.find(t => t.id === tplId);
+  if (!tpl) { alert('적용할 템플릿을 선택해주세요.'); return; }
+
+  const catKeys = [];
+  if (_gradeEnabled.concept) catKeys.push('concept');
+  if (_gradeEnabled.mission) catKeys.push('mission');
+  if (_gradeEnabled.think) catKeys.push('think');
+
+  let targets = _gradeStudents.filter(s => s.id !== '00000');
+  if (_currentGradeClass != null && _currentGradeClass !== 'all') {
+    targets = targets.filter(s => Math.floor((parseInt(s.id) - 30000) / 100) === _currentGradeClass);
+  }
+
+  let count = 0;
+  targets.forEach(s => {
+    const r = _gradeRecords[s.id];
+    if (!r || (r.feedback && r.feedback.trim())) return; // 비어있는 학생만
+    const matches =
+      target === 'all'     ? true :
+      target === 'absent'  ? r.absent :
+      target === 'missing' ? (!r.absent && catKeys.some(k => !r[k].achieved)) :
+      target === 'pass'    ? (!r.absent && catKeys.every(k => r[k].achieved)) :
+      false;
+    if (!matches) return;
+    r.feedback = tpl.text;
+    count++;
+  });
+
+  closeFeedbackTemplateModal();
+  renderGradeTable();
+  alert(`${count}명에게 적용했습니다. (임시 저장 또는 반영하기를 눌러야 학생에게 반영됩니다)`);
 }
 
 function syncGradeAllCb() {
@@ -4096,6 +4271,9 @@ Object.assign(window, {
   onColorChange, resetDesign, saveDesign,
   openGradeFeedbackModal, closeGradeFeedbackModal, saveGradeFeedback,
   handleContentKeydown,
+  openFeedbackTemplateModal, closeFeedbackTemplateModal,
+  editFeedbackTemplate, resetTemplateForm, saveFeedbackTemplate, deleteFeedbackTemplate,
+  applyFeedbackTemplate,
 });
 
 // 스크립트 최상위 const/let 선언이 모두 끝난 뒤에 호출해야 TDZ 에러가 안 난다.
