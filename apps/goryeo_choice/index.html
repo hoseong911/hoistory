@@ -675,7 +675,8 @@ body::before {
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, set, push, get, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // ★ 공유 모듈
 import { initAuth, verifyStudentId, loadStudents } from '../../shared/auth.js';
@@ -693,6 +694,7 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const fsdb = getFirestore(app);
 initAuth(db);  // ★ 학생 명단 백그라운드 로드
 
 const STORAGE_KEY = 'goryeo_state_v2';
@@ -1568,7 +1570,7 @@ window.restartGame = function() {
 async function saveResult(reflectionText) {
   try {
     const now = new Date(), pad = n => String(n).padStart(2,'0');
-    await set(push(ref(db,'goryeo_results')), {
+    await addDoc(collection(fsdb, 'goryeo_choice_results'), {
       studentId, studentName,
       origin: origin==='rural'?'향리 출신':'중소귀족 출신',
       align: align==='reform'?'온건개혁파':'급진혁명파',
@@ -1690,9 +1692,8 @@ window.openArchive = () => {
 
   if (!arcListeningGc) {
     arcListeningGc = true;
-    onValue(ref(db, 'goryeo_results'), snap => {
-      const data = snap.val();
-      arcAllResults = data ? Object.values(data) : [];
+    onSnapshot(query(collection(fsdb, 'goryeo_choice_results'), orderBy('timestamp', 'desc')), snap => {
+      arcAllResults = snap.docs.map(d => ({ ...d.data() }));
       renderArcFeedGc();
     });
   } else renderArcFeedGc();

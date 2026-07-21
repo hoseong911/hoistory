@@ -521,8 +521,10 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getDatabase, ref, set, get, onValue, remove, update
+  getDatabase, ref, set, get, onValue
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getFirestore, collection, doc, onSnapshot, query, orderBy, updateDoc, deleteDoc, deleteField }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
@@ -539,7 +541,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
-const resultsRef = ref(db, 'goryeo_results');
+const fsdb = getFirestore(app);
 
 // lms/admin의 iframe으로 열린 경우인지 여부 (interview/hismile 어드민과 동일한 패턴)
 const isEmbedded = window.self !== window.top;
@@ -659,11 +661,8 @@ function startListening() {
     renderAll();
   });
   // 게임 결과
-  onValue(resultsRef, snap => {
-    const data = snap.val();
-    allResults = data
-      ? Object.entries(data).map(([k, v]) => ({ _key: k, ...v }))
-      : [];
+  onSnapshot(query(collection(fsdb, 'goryeo_choice_results'), orderBy('timestamp', 'desc')), snap => {
+    allResults = snap.docs.map(d => ({ _key: d.id, ...d.data() }));
     renderAll();
   });
 }
@@ -746,12 +745,12 @@ function renderStats(results) {
     : allStudents.filter(s => classNumFromId(s.studentId) === classTab);
   const submittedIds = new Set(results.map(r => r.studentId));
   const pickCount = results.filter(r => r.pick).length;
-  const hasScores = results.some(r => r.score);
+  const hasScores = results.some(r => r.status);
   document.getElementById('stTotal').textContent = classStudents.length || '-';
   document.getElementById('stSubmit').textContent = submittedIds.size;
   document.getElementById('stMissing').textContent = classStudents.length ? classStudents.length - submittedIds.size : '-';
-  document.getElementById('stPass').textContent = hasScores ? results.filter(r => r.score === 'pass').length : '-';
-  document.getElementById('stFail').textContent = hasScores ? results.filter(r => r.score === 'fail').length : '-';
+  document.getElementById('stPass').textContent = hasScores ? results.filter(r => r.status === 'pass').length : '-';
+  document.getElementById('stFail').textContent = hasScores ? results.filter(r => r.status === 'fail').length : '-';
   document.getElementById('stPick').textContent = pickCount;
 }
 
@@ -816,12 +815,12 @@ function buildResultCard(r) {
 
 /* ===== 결과 조작 ===== */
 window.togglePick = async (key, isPicked) => {
-  await update(ref(db, `goryeo_results/${key}`), { pick: isPicked ? null : true });
+  await updateDoc(doc(fsdb, 'goryeo_choice_results', key), { pick: isPicked ? deleteField() : true });
 };
 window.editResult = (key) => { /* stub */ };
 window.deleteResult = (key) => {
-  openConfirm('결과 삭제', '이 플레이 결과를 삭제하시겠습니까?', () => {
-    remove(ref(db, `goryeo_results/${key}`));
+  openConfirm('결과 삭제', '이 플레이 결과를 삭제하시겠습니까?', async () => {
+    await deleteDoc(doc(fsdb, 'goryeo_choice_results', key));
     showToast('삭제 완료');
   });
 };
@@ -898,8 +897,8 @@ window.runScoring = async () => {
       });
       if (!res.ok) throw new Error(`API ${res.status}`);
       const data = await res.json();
-      const score = /^pass/i.test((data.content?.[0]?.text||'').trim()) ? 'pass' : 'fail';
-      await update(ref(db, `goryeo_results/${r._key}`), { score });
+      const status = /^pass/i.test((data.content?.[0]?.text||'').trim()) ? 'pass' : 'fail';
+      await updateDoc(doc(fsdb, 'goryeo_choice_results', r._key), { status });
     } catch(e) { console.warn('채점 실패:', r._key, e.message); }
   }
   if (btn) { btn.disabled = false; btn.textContent = origText; }
@@ -940,12 +939,9 @@ ${postsText}
     if (s !== -1 && e !== -1) raw = raw.slice(s, e+1);
     const nums = JSON.parse(raw);
     if (!Array.isArray(nums) || !nums.length) { alert('AI가 픽할 소감을 찾지 못했습니다.'); return; }
-    const updates = {};
-    nums.forEach(n => {
-      const r = results[n - 1];
-      if (r) updates[`goryeo_results/${r._key}/pick`] = true;
-    });
-    await update(ref(db), updates);
+    await Promise.all(
+      nums.filter(n => results[n-1]).map(n => updateDoc(doc(fsdb, 'goryeo_choice_results', results[n-1]._key), { pick: true }))
+    );
     alert(`✨ AI가 ${nums.length}개 소감을 픽했습니다.`);
   } catch(e) {
     alert('AI 픽 실패: ' + e.message);
