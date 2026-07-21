@@ -201,8 +201,10 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, set, push, onValue, remove, update, get }
+import { getDatabase, ref, set, onValue, remove, update, get }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getFirestore, collection, doc, onSnapshot, query, orderBy, updateDoc, deleteDoc, getDocs, writeBatch, deleteField }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
@@ -218,13 +220,12 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
-const postsRef = ref(db, 'goryeo_v2');
+const fsdb = getFirestore(app);
 const studentsRef = ref(db, 'students');
-const gradesRef = ref(db, 'goryeo_grades');
 const aiCacheRef = ref(db, 'goryeo_ai_cache');
 const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
 
-let allPosts = [], studentMap = {}, studentList = [], allGrades = {};
+let allPosts = [], studentMap = {}, studentList = [];
 let classTab = 'all', classSort = 'newest', classPickOnly = false;
 let gradeTabState = 'pass';
 let aiReviewCache = {}, aiReviewTimestamps = {}, aiAnalyzing = false;
@@ -282,15 +283,10 @@ function startListeners() {
     }
     renderAll();
   });
-  onValue(postsRef, snap => {
-    const data = snap.val();
-    allPosts = data ? Object.values(data).filter(p => p && p.id) : [];
+  onSnapshot(query(collection(fsdb, 'blind_ryeo_posts'), orderBy('timestamp', 'desc')), snap => {
+    allPosts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderAll();
     window.updateExportPreview();
-  });
-  onValue(gradesRef, snap => {
-    allGrades = snap.val() || {};
-    renderAll();
     if (document.getElementById('gradeModal').classList.contains('show')) {
       renderGradeModalBody(); updateGradeSummary();
     }
@@ -362,7 +358,7 @@ function renderClass() {
   classStudents.forEach(s => { if (!submittedIds.has(s.studentId)) { failStudentIds.add(s.studentId); failReasons[s.studentId] = 'absent'; } });
   Object.entries(postsByStudent).forEach(([sid, posts]) => {
     if (failStudentIds.has(sid)) return;
-    const allFail = posts.length > 0 && posts.every(p => allGrades[p.id] === 'fail');
+    const allFail = posts.length > 0 && posts.every(p => p.status === 'fail');
     if (allFail) { failStudentIds.add(sid); failReasons[sid] = 'all_fail'; }
   });
   const failCount = failStudentIds.size;
@@ -423,28 +419,31 @@ function buildClassCard(post) {
 
 window.togglePick = async (postId, isPicked, content, nickname) => {
   const newPick = !isPicked;
-  await update(ref(db), { [`goryeo_v2/${postId}/adminPick`]: newPick ? true : null });
+  await updateDoc(doc(fsdb, 'blind_ryeo_posts', postId), { adminPick: newPick ? true : deleteField() });
   if (newPick) {
     await set(ref(db, 'goryeo_v2_toast'), { key: `${postId}_${Date.now()}`, postId, content: content.slice(0,80), nickname, ts: Date.now() });
   }
 };
 
 window.deletePost = (id) => {
-  openConfirm('게시글 삭제', '이 게시글을 삭제하시겠습니까?', () => {
-    remove(ref(db, `goryeo_v2/${id}`));
-    remove(ref(db, `goryeo_grades/${id}`));
+  openConfirm('게시글 삭제', '이 게시글을 삭제하시겠습니까?', async () => {
+    await deleteDoc(doc(fsdb, 'blind_ryeo_posts', id));
   });
 };
 
 window.resetAll = () => {
   openConfirm('⚠️ 전체 초기화', '전체 게시글을 삭제합니다. 되돌릴 수 없습니다.', () => {
-    openConfirm('정말 삭제하시겠습니까?', '이 작업은 취소할 수 없습니다.', () => {
-      remove(postsRef); remove(gradesRef); remove(aiCacheRef);
+    openConfirm('정말 삭제하시겠습니까?', '이 작업은 취소할 수 없습니다.', async () => {
+      const snap = await getDocs(collection(fsdb, 'blind_ryeo_posts'));
+      const batch = writeBatch(fsdb);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      remove(aiCacheRef);
     });
   });
 };
 
-window.initDummy = () => {
+window.initDummy = async () => {
   const now = new Date();
   const time = `${now.getMonth()+1}.${now.getDate()}. ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   const dummy = [
@@ -459,15 +458,19 @@ window.initDummy = () => {
     { org:{name:'주진군 소속',cat:'military'}, content:"국경에 배치된 인원이 얼마나 부족한지 중추원 형들은 알기나 해?" },
     { org:{name:'국자감',cat:'edu'}, content:"정원 확대 요청 또 기각됐다. 과거제로 인재 뽑겠다면서." },
   ];
+  const batch = writeBatch(fsdb);
   dummy.forEach(d => {
-    const r = push(postsRef);
-    set(r, { ...d, id:r.key, studentId:'00000', realName:'System', nickname:'더미', time, likes:0, likedBy:{init:true}, timestamp: Date.now() });
+    const newRef = doc(collection(fsdb, 'blind_ryeo_posts'));
+    batch.set(newRef, { ...d, id: newRef.id, studentId:'00000', realName:'System', nickname:'더미', time, likes:0, likedBy:{init:true}, timestamp: Date.now() });
   });
+  await batch.commit();
 };
 
 window.deleteDummy = () => {
-  openConfirm('더미 삭제', '더미 게시글을 모두 삭제할까요?', () => {
-    allPosts.filter(p => p.studentId === '00000').forEach(p => remove(ref(db, `goryeo_v2/${p.id}`)));
+  openConfirm('더미 삭제', '더미 게시글을 모두 삭제할까요?', async () => {
+    const batch = writeBatch(fsdb);
+    allPosts.filter(p => p.studentId === '00000').forEach(p => batch.delete(doc(fsdb, 'blind_ryeo_posts', p.id)));
+    await batch.commit();
   });
 };
 
@@ -491,7 +494,7 @@ window.exportCSV = () => {
     const name = studentMap[p.studentId] || p.realName || '';
     const content = (p.content||'').replace(/"/g,'""').replace(/\r?\n/g,' ');
     const cat = CAT_LABEL[p.org?.cat] || '';
-    const grade = allGrades[p.id] === 'pass' ? '통과' : allGrades[p.id] === 'fail' ? '미흡' : '';
+    const grade = p.status === 'pass' ? '통과' : p.status === 'fail' ? '미흡' : '';
     return [p.studentId||'', name, p.nickname||'', p.org?.name||'', cat, `"${content}"`, p.likes||0, p.time||'', p.adminPick?'O':'X', grade].join(',');
   });
   const csv = BOM + headers.join(',') + '\n' + rows.join('\n');
@@ -586,7 +589,10 @@ function renderReviewTab(body, classPosts) {
     </div>`;
     return;
   }
-  const visible = cached.filter(item => allGrades[item.postId] !== 'pass');
+  const visible = cached.filter(item => {
+    const post = classPosts.find(p => p.id === item.postId);
+    return !post || post.status !== 'pass';
+  });
   if (!visible.length) {
     body.innerHTML = `<div style="text-align:center; padding:24px 16px;"><span class="chip-ok">모든 후보가 검토되었습니다!</span><div style="margin-top:14px;"><button class="btn-ai" style="padding:8px 18px; font-size:12px;" onclick="runAiReview()">다시 채점</button></div></div>`;
     return;
@@ -604,7 +610,7 @@ function renderReviewTab(body, classPosts) {
       if (!post) return '';
       const sid = post.studentId;
       const name = studentMap[sid] || post.realName || '';
-      const grade = allGrades[item.postId];
+      const grade = post.status;
       const isPassActive = grade !== 'fail';
       const isFailActive = grade === 'fail';
       return `<div class="review-card">
@@ -622,8 +628,8 @@ function renderReviewTab(body, classPosts) {
 }
 
 window.setGrade = async (postId, value) => {
-  if (allGrades[postId] === value) await update(gradesRef, { [postId]: null });
-  else await update(gradesRef, { [postId]: value });
+  const post = allPosts.find(p => p.id === postId);
+  await updateDoc(doc(fsdb, 'blind_ryeo_posts', postId), { status: post?.status === value ? deleteField() : value });
 };
 
 window.runAiReview = async () => {
@@ -712,12 +718,9 @@ ${postsText}
     if (s !== -1 && e !== -1) raw = raw.slice(s, e+1);
     const nums = JSON.parse(raw);
     if (!Array.isArray(nums) || !nums.length) { alert('AI가 픽할 게시글을 찾지 못했습니다.'); return; }
-    const updates = {};
-    nums.forEach(n => {
-      const p = posts[n - 1];
-      if (p) updates[`goryeo_v2/${p.id}/adminPick`] = true;
-    });
-    await update(ref(db), updates);
+    await Promise.all(
+      nums.filter(n => posts[n-1]).map(n => updateDoc(doc(fsdb, 'blind_ryeo_posts', posts[n-1].id), { adminPick: true }))
+    );
     alert(`✨ AI가 ${nums.length}개 게시글을 픽했습니다.`);
   } catch(e) {
     alert('AI 픽 실패: ' + e.message);
@@ -799,12 +802,13 @@ window.runScoring = async () => {
   const btn = document.querySelector('[onclick="runScoring()"]');
   const origText = btn?.textContent;
   if (btn) btn.disabled = true;
-  const updates = {};
+  const scoringBatch = writeBatch(fsdb);
   for (let i = 0; i < classPosts.length; i++) {
     const post = classPosts[i];
     if (btn) btn.textContent = `채점 중… (${i+1}/${classPosts.length})`;
     const content = `학생이 선택한 기관: ${post.org?.name||'(미지정)'}\n게시글 내용: ${post.content||''}`;
     const prompt = customPrompt.replace('{content}', content);
+    let status = 'fail';
     try {
       const res = await fetch(CLAUDE_PROXY_URL, {
         method: 'POST',
@@ -813,10 +817,11 @@ window.runScoring = async () => {
       });
       if (!res.ok) throw new Error(`API ${res.status}`);
       const data = await res.json();
-      updates[post.id] = /^pass/i.test((data.content?.[0]?.text||'').trim()) ? 'pass' : 'fail';
-    } catch(e) { updates[post.id] = 'fail'; }
+      status = /^pass/i.test((data.content?.[0]?.text||'').trim()) ? 'pass' : 'fail';
+    } catch(e) {}
+    scoringBatch.update(doc(fsdb, 'blind_ryeo_posts', post.id), { status });
   }
-  await update(gradesRef, updates);
+  await scoringBatch.commit();
   if (btn) { btn.disabled = false; btn.textContent = origText; }
 };
 window.exportExcel = () => { alert('엑셀 내보내기 기능은 준비 중입니다.'); };

@@ -444,8 +444,10 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, set, push, onValue, update, get }
+import { getDatabase, ref, get, onValue }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getFirestore, collection, doc, addDoc, onSnapshot, query, orderBy, updateDoc, getDoc, deleteField }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // ★ 공유 모듈 임포트
 import { initAuth, mountLoginVerification, verifyStudentId }
@@ -469,7 +471,7 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db  = getDatabase(app);
-const postsRef = ref(db, 'goryeo_v2');
+const fsdb = getFirestore(app);
 const toastRef = ref(db, 'goryeo_v2_toast');
 
 // ★ 학번 검증 모듈 초기화
@@ -583,11 +585,8 @@ function showApp() {
 
 // ─── 피드 ───────────────────────────────────────────────
 function listenFeed() {
-  onValue(postsRef, snap => {
-    const data = snap.val();
-    allPostsCache = data
-      ? Object.values(data).filter(p => p && p.id)
-      : [];
+  onSnapshot(query(collection(fsdb, 'blind_ryeo_posts'), orderBy('timestamp', 'desc')), snap => {
+    allPostsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderFeed();
   });
 }
@@ -707,11 +706,12 @@ function renderFeed() {
 }
 
 window.toggleLike = async (postId, isLiked) => {
-  const snap = await get(ref(db, `goryeo_v2/${postId}`));
-  const post = snap.val(); if (!post) return;
-  await update(ref(db), {
-    [`goryeo_v2/${postId}/likes`]: Math.max(0, isLiked ? post.likes - 1 : post.likes + 1),
-    [`goryeo_v2/${postId}/likedBy/${currentUser.id}`]: isLiked ? null : true
+  const postRef = doc(fsdb, 'blind_ryeo_posts', postId);
+  const snap = await getDoc(postRef);
+  const post = snap.data(); if (!post) return;
+  await updateDoc(postRef, {
+    likes: Math.max(0, isLiked ? post.likes - 1 : post.likes + 1),
+    [`likedBy.${currentUser.id}`]: isLiked ? deleteField() : true
   });
 };
 
@@ -737,9 +737,7 @@ window.createPost = () => {
 
   const now  = new Date();
   const time = `${now.getMonth()+1}.${now.getDate()}. ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  const r    = push(postsRef);
-  set(r, {
-    id: r.key,
+  await addDoc(collection(fsdb, 'blind_ryeo_posts'), {
     studentId: currentUser.id,
     realName:  currentUser.name,
     nickname:  currentUser.nick,
@@ -797,8 +795,9 @@ window.submitPostEdit = async () => {
     return;
   }
 
-  const snap = await get(ref(db, `goryeo_v2/${editingPostId}`));
-  const post = snap.val(); if (!post) { closeEditPost(); return; }
+  const postRef = doc(fsdb, 'blind_ryeo_posts', editingPostId);
+  const snap = await getDoc(postRef);
+  const post = snap.data(); if (!post) { closeEditPost(); return; }
   if (post.studentId !== currentUser.id ||
       post.realName  !== currentUser.name ||
       post.nickname  !== currentUser.nick) {
@@ -806,10 +805,7 @@ window.submitPostEdit = async () => {
       message: '수정 권한이 없습니다.', kind: 'error' });
     closeEditPost(); return;
   }
-  await update(ref(db), {
-    [`goryeo_v2/${editingPostId}/content`]: content,
-    [`goryeo_v2/${editingPostId}/edited`]:  true
-  });
+  await updateDoc(postRef, { content, edited: true });
   closeEditPost();
 };
 
@@ -874,9 +870,8 @@ window.openArchive = () => {
 
   if (!arcListening) {
     arcListening = true;
-    onValue(postsRef, snap => {
-      const data = snap.val();
-      allPostsCache = data ? Object.values(data).filter(p => p && p.id) : [];
+    onSnapshot(query(collection(fsdb, 'blind_ryeo_posts'), orderBy('timestamp', 'desc')), snap => {
+      allPostsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderArcFeed();
     });
   } else renderArcFeed();
