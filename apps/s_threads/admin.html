@@ -518,11 +518,11 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getDatabase, ref, set, push, onValue, remove, update, get
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, doc, onSnapshot, query, orderBy, updateDoc, deleteDoc, getDocs, writeBatch, deleteField }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -534,10 +534,10 @@ const firebaseConfig = {
   appId: "1:994509567071:web:de99e71c125ec2a3f557ea"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-const auth = getAuth(app);
-const postsRef = ref(db, 'posts');
+const app    = initializeApp(firebaseConfig);
+const db     = getDatabase(app);
+const fsdb   = getFirestore(app);
+const auth   = getAuth(app);
 const toastRef = ref(db, 'silla_toast');
 
 const roleIcons = {
@@ -625,9 +625,8 @@ function startListening() {
     }
     renderAll();
   });
-  onValue(postsRef, snap => {
-    const data = snap.val();
-    allPosts = data ? Object.values(data).filter(p => p && p.id) : [];
+  onSnapshot(query(collection(fsdb, 's_threads_posts'), orderBy('timestamp', 'desc')), snap => {
+    allPosts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderAll();
   });
 }
@@ -672,12 +671,12 @@ function renderClass() {
   const submittedIds = new Set(classPosts.map(p => p.studentId));
   const pickCount = classPosts.filter(p => p.adminPick).length;
 
-  const hasScores = classPosts.some(p => p.score);
+  const hasScores = classPosts.some(p => p.status);
   document.getElementById('stTotal').textContent = classStudents.length || '-';
   document.getElementById('stSubmit').textContent = submittedIds.size;
   document.getElementById('stMissing').textContent = classStudents.length ? classStudents.length - submittedIds.size : '-';
-  document.getElementById('stPass').textContent = hasScores ? classPosts.filter(p => p.score === 'pass').length : '-';
-  document.getElementById('stFail').textContent = hasScores ? classPosts.filter(p => p.score === 'fail').length : '-';
+  document.getElementById('stPass').textContent = hasScores ? classPosts.filter(p => p.status === 'pass').length : '-';
+  document.getElementById('stFail').textContent = hasScores ? classPosts.filter(p => p.status === 'fail').length : '-';
   document.getElementById('stPick').textContent = pickCount;
 
   window._classStudents = classStudents;
@@ -729,9 +728,7 @@ function buildClassCard(post) {
 // PICK
 window.togglePick = async (postId, isPicked, content, nickname) => {
   const newPick = !isPicked;
-  const updates = {};
-  updates[`posts/${postId}/adminPick`] = newPick ? true : null;
-  await update(ref(db), updates);
+  await updateDoc(doc(fsdb, 's_threads_posts', postId), { adminPick: newPick ? true : deleteField() });
   if (newPick) {
     await set(toastRef, { key: `${postId}_${Date.now()}`, postId, content, nickname, ts: Date.now() });
   }
@@ -755,19 +752,15 @@ window.savePostEdit = async () => {
   const content = document.getElementById('editPostContent').value.trim();
   const nickname = document.getElementById('editPostNickname').value.trim();
   if (!content) { showToast('내용을 입력해주세요'); return; }
-  const updates = {};
-  updates[`posts/${editingPostId}/content`] = content;
-  updates[`posts/${editingPostId}/nickname`] = nickname;
-  updates[`posts/${editingPostId}/edited`] = true;
-  await update(ref(db), updates);
+  await updateDoc(doc(fsdb, 's_threads_posts', editingPostId), { content, nickname, edited: true });
   closePostEditModal();
   showToast('수정 완료');
 };
 
 // 삭제
 window.deletePost = (id) => {
-  openConfirm('게시글 삭제', '이 게시글을 삭제하시겠습니까?', () => {
-    remove(ref(db, `posts/${id}`));
+  openConfirm('게시글 삭제', '이 게시글을 삭제하시겠습니까?', async () => {
+    await deleteDoc(doc(fsdb, 's_threads_posts', id));
     showToast('삭제 완료');
   });
 };
@@ -827,29 +820,37 @@ function showToast(msg) {
 // 도구
 window.resetAll = () => {
   openConfirm('⚠️ 전체 초기화', '전체 게시글을 삭제합니다. 되돌릴 수 없습니다.', () => {
-    openConfirm('정말 삭제하시겠습니까?', '이 작업은 취소할 수 없습니다.', () => {
-      remove(postsRef); showToast('전체 게시글 삭제됨');
+    openConfirm('정말 삭제하시겠습니까?', '이 작업은 취소할 수 없습니다.', async () => {
+      const snap = await getDocs(collection(fsdb, 's_threads_posts'));
+      const batch = writeBatch(fsdb);
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+      showToast('전체 게시글 삭제됨');
     });
   });
 };
 window.deleteDummy = () => {
-  openConfirm('더미 삭제', '더미 게시글을 모두 삭제할까요?', () => {
+  openConfirm('더미 삭제', '더미 게시글을 모두 삭제할까요?', async () => {
     const toDelete = allPosts.filter(p => p.studentId === '00000');
-    toDelete.forEach(p => remove(ref(db, `posts/${p.id}`)));
+    const batch = writeBatch(fsdb);
+    toDelete.forEach(p => batch.delete(doc(fsdb, 's_threads_posts', p.id)));
+    await batch.commit();
     showToast(`더미 ${toDelete.length}개 삭제`);
   });
 };
 window.deleteAllByRole = () => {
-  const role = document.getElementById('roleDeleteSelect').value;
+  const role = document.getElementById('roleDeleteSelect')?.value;
   if (!role) { showToast('신분을 선택하세요'); return; }
-  openConfirm('신분 삭제', `"${role}" 신분의 모든 게시글을 삭제합니까?`, () => {
+  openConfirm('신분 삭제', `"${role}" 신분의 모든 게시글을 삭제합니까?`, async () => {
     const toDelete = allPosts.filter(p => p.role === role && p.studentId !== '00000');
-    toDelete.forEach(p => remove(ref(db, `posts/${p.id}`)));
+    const batch = writeBatch(fsdb);
+    toDelete.forEach(p => batch.delete(doc(fsdb, 's_threads_posts', p.id)));
+    await batch.commit();
     showToast(`${toDelete.length}개 삭제`);
   });
 };
 
-window.initDummy = () => {
+window.initDummy = async () => {
   const now = new Date();
   const time = `${now.getMonth()+1}.${now.getDate()}. ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   const dummy = [
@@ -864,10 +865,12 @@ window.initDummy = () => {
     { role:"진골", nickname:"royal_blood", content:"왕위 계승 다툼 또 시작됐음. 이번엔 누가 이길 것 같아? 📊" },
     { role:"호족", nickname:"iron_lord", content:"궁예 세력이 북쪽에서 커지고 있다. 우리도 슬슬 편 정해야 할 때." },
   ];
+  const batch = writeBatch(fsdb);
   dummy.forEach(d => {
-    const r = push(postsRef);
-    set(r, { ...d, id: r.key, studentId: '00000', realName: 'System', time, likes: 0, likedBy: { init: true }, timestamp: Date.now() });
+    const newRef = doc(collection(fsdb, 's_threads_posts'));
+    batch.set(newRef, { ...d, studentId: '00000', realName: 'System', time, likes: 0, likedBy: { init: true }, timestamp: Date.now() });
   });
+  await batch.commit();
   showToast(`더미 ${dummy.length}개 생성`);
 };
 
@@ -947,9 +950,8 @@ window.runScoring = async () => {
       });
       if (!res.ok) throw new Error(`API ${res.status}`);
       const data = await res.json();
-      const score = /^pass/i.test((data.content?.[0]?.text||'').trim()) ? 'pass' : 'fail';
-      const updates = {}; updates[`posts/${post.id}/score`] = score;
-      await update(ref(db), updates);
+      const status = /^pass/i.test((data.content?.[0]?.text||'').trim()) ? 'pass' : 'fail';
+      await updateDoc(doc(fsdb, 's_threads_posts', post.id), { status });
     } catch(e) { console.warn('채점 실패:', post.id, e.message); }
   }
   if (btn) { btn.disabled = false; btn.textContent = origText; }
@@ -988,12 +990,12 @@ ${postsText}
     if (s !== -1 && e !== -1) raw = raw.slice(s, e+1);
     const nums = JSON.parse(raw);
     if (!Array.isArray(nums) || !nums.length) { alert('AI가 픽할 게시글을 찾지 못했습니다.'); return; }
-    const updates = {};
+    const batch = writeBatch(fsdb);
     nums.forEach(n => {
       const p = posts[n - 1];
-      if (p) updates[`posts/${p.id}/adminPick`] = true;
+      if (p) batch.update(doc(fsdb, 's_threads_posts', p.id), { adminPick: true });
     });
-    await update(ref(db), updates);
+    await batch.commit();
     alert(`✨ AI가 ${nums.length}개 게시글을 픽했습니다.`);
   } catch(e) {
     alert('AI 픽 실패: ' + e.message);

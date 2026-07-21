@@ -438,8 +438,9 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getDatabase, ref, set, push, onValue, update, get }
-  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getDatabase, ref, get, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getFirestore, collection, doc, addDoc, onSnapshot, query, orderBy, updateDoc, getDoc, deleteField }
+  from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 // ★ 공유 모듈
 import { initAuth, mountLoginVerification }
@@ -461,9 +462,9 @@ const firebaseConfig = {
   messagingSenderId: "994509567071",
   appId: "1:994509567071:web:de99e71c125ec2a3f557ea"
 };
-const app = initializeApp(firebaseConfig);
-const db  = getDatabase(app);
-const postsRef = ref(db, 'posts');
+const app    = initializeApp(firebaseConfig);
+const db     = getDatabase(app);
+const fsdb   = getFirestore(app);
 const toastRef = ref(db, 'silla_toast');
 
 initAuth(db);
@@ -579,11 +580,9 @@ function updateUI() {
 
 // ─── 피드 구독 ───
 function listenFeed() {
-  onValue(postsRef, snap => {
-    const data = snap.val();
-    allPostsCache = data ? Object.values(data).filter(p => p && p.id) : [];
+  onSnapshot(query(collection(fsdb, 's_threads_posts'), orderBy('timestamp', 'desc')), snap => {
+    allPostsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderFeed();
-    // 아카이브 열려있으면 같이 갱신
     if (document.getElementById('archiveView').style.display !== 'none') {
       renderArcFeed();
     }
@@ -706,12 +705,13 @@ function renderFeed() {
 }
 
 window.toggleLike = async (postId, isLiked) => {
-  const snap = await get(ref(db, `posts/${postId}`));
-  const post = snap.val(); if (!post) return;
-  const updates = {};
-  updates[`posts/${postId}/likes`] = Math.max(0, isLiked ? post.likes - 1 : post.likes + 1);
-  updates[`posts/${postId}/likedBy/${currentUser.id}`] = isLiked ? null : true;
-  update(ref(db), updates);
+  const postRef = doc(fsdb, 's_threads_posts', postId);
+  const snap = await getDoc(postRef);
+  const post = snap.data(); if (!post) return;
+  await updateDoc(postRef, {
+    likes: Math.max(0, isLiked ? post.likes - 1 : post.likes + 1),
+    [`likedBy.${currentUser.id}`]: isLiked ? deleteField() : true
+  });
 };
 
 // ─── 게시글 작성 ───
@@ -729,9 +729,7 @@ window.createPost = () => {
   }
   const now = new Date();
   const time = `${now.getMonth()+1}.${now.getDate()}. ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  const r = push(postsRef);
-  set(r, {
-    id: r.key,
+  addDoc(collection(fsdb, 's_threads_posts'), {
     studentId: currentUser.id, realName: currentUser.name,
     nickname: currentUser.nick, role: currentUser.role,
     content, time, timestamp: Date.now(),
@@ -781,8 +779,9 @@ window.submitPostEdit = async () => {
       message: '부적절한 표현이 포함되어 있어 수정할 수 없습니다.', kind: 'error' });
     return;
   }
-  const snap = await get(ref(db, `posts/${editingPostId}`));
-  const post = snap.val();
+  const postRef = doc(fsdb, 's_threads_posts', editingPostId);
+  const snap = await getDoc(postRef);
+  const post = snap.data();
   if (!post) { closeEditPost(); return; }
   const valid = post.studentId === currentUser.id
              && post.realName === currentUser.name
@@ -792,11 +791,7 @@ window.submitPostEdit = async () => {
       message: '수정 권한이 없습니다.', kind: 'error' });
     closeEditPost(); return;
   }
-  const updates = {};
-  updates[`posts/${editingPostId}/content`] = content;
-  updates[`posts/${editingPostId}/role`] = role;
-  updates[`posts/${editingPostId}/edited`] = true;
-  await update(ref(db), updates);
+  await updateDoc(postRef, { content, role, edited: true });
   closeEditPost();
 };
 
@@ -849,9 +844,8 @@ window.openArchive = () => {
 
   if (!arcListening) {
     arcListening = true;
-    onValue(postsRef, snap => {
-      const data = snap.val();
-      allPostsCache = data ? Object.values(data).filter(p => p && p.id) : [];
+    onSnapshot(query(collection(fsdb, 's_threads_posts'), orderBy('timestamp', 'desc')), snap => {
+      allPostsCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderArcFeed();
     });
   } else renderArcFeed();
