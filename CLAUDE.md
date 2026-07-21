@@ -20,7 +20,8 @@ Each lives in its own folder with a consistent pattern:
 - `<folder>/index.html` — Student view (requires student ID + name login)
 - `<folder>/admin.html` — Teacher view (password-gated)
 
-Current sub-apps: `blind_ryeo/`, `goryeo_choice/`, `hismile/`, `s_threads/`, `sillaver/`, `samguk_goods/`, `think/`, `quiz/`, `trip/`, `mission/`
+Current sub-apps (LMS 미션 체크 연결, `apps/` 하위): `blind_ryeo/`, `escape/`, `goryeo_choice/`, `interview/`, `oxquiz/`, `s_threads/`, `sillaver/`, `samguk_goods/`
+루트 앱 (LMS 연동이지만 미션 체크 앱 아님): `hismile/`, `survey/`
 
 The `mission/` folder contains standalone single-file HTML pages (no sub-folder structure).
 
