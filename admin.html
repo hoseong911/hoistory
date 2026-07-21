@@ -7,6 +7,15 @@
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <link rel="stylesheet" href="shared/theme.css">
 <style>
+  /* 색상 팔레트 통일 — 루트 index.html의 핑크 액센트에 맞춤 (hi-preset-admin 기본 네이비 대체) */
+  .hi-preset-admin {
+    --hi-accent: #DB2777;
+    --hi-accent-hover: #9D174D;
+    --hi-accent-strong: #9D174D;
+    --hi-accent-soft: rgba(219,39,119,0.09);
+    --hi-accent-m: rgba(219,39,119,0.18);
+  }
+
   html, body { min-height: 100%; font-family: 'Pretendard', sans-serif; background: var(--hi-bg-base); color: var(--hi-text); }
 
   /* ── 로그인 오버레이 ── */
@@ -301,7 +310,6 @@
       <div class="topbar-title">관리자 콘솔 <small>허브 관리</small></div>
     </div>
     <div class="topbar-right">
-      <a class="mini-btn" href="lms/admin.html">LMS 어드민</a>
       <span class="topbar-user">김호성</span>
       <button class="mini-btn" onclick="logout()">로그아웃</button>
     </div>
@@ -332,6 +340,16 @@
         </div>
         <div class="hub-board" id="hubBoard"></div>
       </div>
+
+      <div class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">LMS 미션 카드</div>
+            <div class="panel-sub">LMS에서 노출한 미션 카드입니다 · 공개를 누르기 전까지 학생 허브 아카이브에는 보이지 않습니다</div>
+          </div>
+        </div>
+        <div id="lmsPendingList"></div>
+      </div>
     </div>
 
     <!-- 카드 추가/수정 -->
@@ -342,16 +360,6 @@
             <div class="panel-title" id="hubAddTitle">새 카드 추가</div>
             <div class="panel-sub">학생 허브 페이지에 새 앱·링크를 등록합니다</div>
           </div>
-        </div>
-
-        <div class="hub-tabs" id="hubAddModeToggle" style="justify-content:flex-start;margin-bottom:16px;">
-          <button type="button" class="hub-tab active" id="addModeManualBtn" onclick="hubSetAddMode('manual')">✏️ 직접 입력</button>
-          <button type="button" class="hub-tab" id="addModeImportBtn" onclick="hubSetAddMode('import')">📥 LMS에서 가져오기</button>
-        </div>
-
-        <div id="hubImportPanel" style="display:none;">
-          <div class="panel-sub" style="margin-bottom:10px;">LMS 미션 카드 중 하나를 선택하면 아래 폼에 자동으로 채워집니다</div>
-          <div id="hubImportList"></div>
         </div>
 
         <input type="hidden" id="hubEditingId">
@@ -499,6 +507,7 @@ onSnapshot(catsDocRef, (snap) => {
   window._categoryList = list;
   if (document.getElementById('adminApp').style.display !== 'none') {
     if (typeof renderHub === 'function') renderHub();
+    if (typeof renderLmsPending === 'function') renderLmsPending();
     if (typeof updateCategorySelect === 'function') updateCategorySelect();
     if (document.getElementById('hubTab-cats')?.style.display !== 'none' && typeof buildCatEditor === 'function') buildCatEditor();
   }
@@ -512,6 +521,7 @@ onSnapshot(q, (snapshot) => {
   window._cards = cards;
   if (document.getElementById('adminApp').style.display !== 'none') {
     renderHub();
+    if (typeof renderLmsPending === 'function') renderLmsPending();
   }
 }, (err) => console.error(err));
 </script>
@@ -547,6 +557,7 @@ function showAdmin() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('adminApp').style.display = 'block';
   renderHub();
+  renderLmsPending();
 }
 window.showAdmin = showAdmin;
 
@@ -798,9 +809,6 @@ function hubEdit(docId) {
   window._setHubIcon(card.emoji || '');
   document.getElementById('hubSubmitBtn').textContent = '수정 저장';
   document.getElementById('hubAddTitle').textContent = '카드 수정';
-  document.getElementById('hubAddModeToggle').style.display = 'none';
-  document.getElementById('hubImportPanel').style.display = 'none';
-  document.getElementById('hubAddFormGrid').style.display = 'grid';
   hubSwitchTab('add');
 }
 window.hubEdit = hubEdit;
@@ -850,64 +858,84 @@ function hubResetForm() {
   window._setHubIcon('');
   document.getElementById('hubSubmitBtn').textContent = '카드 추가하기';
   document.getElementById('hubAddTitle').textContent = '새 카드 추가';
-  document.getElementById('hubAddModeToggle').style.display = 'flex';
-  hubSetAddMode('manual');
 }
 window.hubResetForm = hubResetForm;
 
-/* ===== 카드 가져오기 (LMS 미션 카드 → 아카이브 복사본) ===== */
-function hubSetAddMode(mode) {
-  document.getElementById('addModeManualBtn').classList.toggle('active', mode === 'manual');
-  document.getElementById('addModeImportBtn').classList.toggle('active', mode === 'import');
-  document.getElementById('hubImportPanel').style.display = mode === 'import' ? 'block' : 'none';
-  document.getElementById('hubAddFormGrid').style.display = mode === 'manual' ? 'grid' : 'none';
-  if (mode === 'import') loadImportList();
-}
-window.hubSetAddMode = hubSetAddMode;
+/* ===== LMS 미션 카드 → 아카이브 공개 (복사본 생성, 원본 삭제와 무관) ===== */
+window._lmsMissionCat = null;
 
-async function loadImportList() {
-  const listEl = document.getElementById('hubImportList');
-  listEl.innerHTML = `<div class="empty"><div class="empty-text">불러오는 중…</div></div>`;
+async function getLmsMissionCategory() {
+  if (window._lmsMissionCat !== null) return window._lmsMissionCat;
   try {
     const cfgSnap = await window._getDoc(window._doc(window._fdb, 'settings', 'lms_config'));
-    const missionCat = cfgSnap.exists() ? (cfgSnap.data().mission_category || '') : '';
-    const items = (window._cards || []).filter(c => missionCat && c.category === missionCat);
-    if (items.length === 0) {
-      listEl.innerHTML = `<div class="empty"><div class="empty-text">가져올 LMS 미션 카드가 없습니다</div></div>`;
-      return;
-    }
-    listEl.innerHTML = '';
-    items.forEach(card => {
-      const iconStr = String(card.emoji || '📌');
-      const isSvg = iconStr.startsWith('<svg');
-      const row = document.createElement('div');
-      row.className = 'import-list-item';
-      row.innerHTML = `
-        <div class="import-list-icon">${isSvg ? iconStr : esc(iconStr)}</div>
-        <div>
-          <div class="import-list-title">${esc(card.title || '')}</div>
-          <div class="import-list-title-sub">${esc(card.url || '')}</div>
-        </div>
-      `;
-      row.addEventListener('click', () => hubImportSelect(card));
-      listEl.appendChild(row);
-    });
+    window._lmsMissionCat = cfgSnap.exists() ? (cfgSnap.data().mission_category || '') : '';
   } catch (e) {
-    listEl.innerHTML = `<div class="empty"><div class="empty-text">불러오기 실패: ${esc(e.message)}</div></div>`;
+    window._lmsMissionCat = '';
   }
+  return window._lmsMissionCat;
 }
 
-async function hubImportSelect(card) {
-  document.getElementById('fTitle').value = card.title || '';
-  document.getElementById('fUrl').value = card.url || '';
-  window._setHubIcon(card.emoji || '');
-  const cats = window._categoryList || [];
-  const fCat = document.getElementById('fCategory');
-  if (fCat && cats.length > 0) fCat.value = cats[0].key;
+async function renderLmsPending() {
+  const listEl = document.getElementById('lmsPendingList');
+  if (!listEl) return;
+  const missionCat = await getLmsMissionCategory();
+  const cards = window._cards || [];
+  const items = cards.filter(c => missionCat && c.category === missionCat && !c.locked);
+  if (items.length === 0) {
+    listEl.innerHTML = `<div class="empty"><div class="empty-text">LMS에 노출된 미션 카드가 없습니다</div></div>`;
+    return;
+  }
+  listEl.innerHTML = items.map(card => {
+    const iconStr = String(card.emoji || '📌');
+    const iconHtml = iconStr.startsWith('<svg') ? iconStr : esc(iconStr);
+    const published = cards.some(c => c.sourceMissionId === card.docId);
+    const cats = window._categoryList || [];
+    return `
+    <div class="import-list-item" style="cursor:default;">
+      <div class="import-list-icon">${iconHtml}</div>
+      <div style="flex:1;min-width:0;">
+        <div class="import-list-title">${esc(card.title || '')}</div>
+        <div class="import-list-title-sub">${esc(card.url || '')}</div>
+      </div>
+      ${published
+        ? `<span class="panel-hint" style="color:var(--hi-positive);font-weight:800;">✓ 공개됨</span>`
+        : `<button type="button" class="mini-btn primary" onclick="hubTogglePublishForm('${card.docId}')">공개</button>`
+      }
+    </div>
+    <div id="lmsPubForm-${card.docId}" style="display:none;padding:12px 14px;margin:-4px 0 10px;background:var(--hi-bg-mid);border-radius:8px;">
+      <div class="form-grid">
+        <div class="full">
+          <label class="form-label">공개할 카테고리</label>
+          <select class="hi-select" id="lmsPubCat-${card.docId}">
+            ${cats.map(c => `<option value="${esc(c.key)}">${esc(c.en)}${c.ko ? ' · ' + esc(c.ko) : ''}</option>`).join('')}
+          </select>
+        </div>
+        <div class="full">
+          <label class="form-label">설명</label>
+          <textarea class="hi-input" id="lmsPubDesc-${card.docId}" rows="2" style="resize:vertical;min-height:56px;" placeholder="불러오는 중…"></textarea>
+        </div>
+        <div class="full" style="display:flex;gap:8px;">
+          <button type="button" class="hi-btn hi-btn-primary hi-btn-sm" onclick="hubConfirmPublish('${card.docId}')">게시하기</button>
+          <button type="button" class="hi-btn hi-btn-outline hi-btn-sm" onclick="hubTogglePublishForm('${card.docId}')">취소</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+window.renderLmsPending = renderLmsPending;
 
+async function hubTogglePublishForm(missionId) {
+  const form = document.getElementById(`lmsPubForm-${missionId}`);
+  if (!form) return;
+  const opening = form.style.display === 'none';
+  form.style.display = opening ? 'block' : 'none';
+  if (!opening) return;
+
+  const card = (window._cards || []).find(c => c.docId === missionId);
+  const descEl = document.getElementById(`lmsPubDesc-${missionId}`);
   let desc = '';
   try {
-    const appKey = (card.url || '').split('/')[1];
+    const appKey = (card?.url || '').split('/')[1];
     if (appKey) {
       const snap = await window._rtdbGet(window._rtdbRef(window._rdb, `adminConfig/${appKey}/archive`));
       if (snap.exists()) {
@@ -916,12 +944,29 @@ async function hubImportSelect(card) {
       }
     }
   } catch (e) { /* 조회 실패해도 무시 — 사용자가 직접 입력 */ }
-  document.getElementById('fDesc').value = desc;
-
-  document.getElementById('hubImportPanel').style.display = 'none';
-  document.getElementById('hubAddFormGrid').style.display = 'grid';
+  if (descEl) descEl.value = desc;
 }
-window.hubImportSelect = hubImportSelect;
+window.hubTogglePublishForm = hubTogglePublishForm;
+
+async function hubConfirmPublish(missionId) {
+  const card = (window._cards || []).find(c => c.docId === missionId);
+  if (!card) return;
+  const category = document.getElementById(`lmsPubCat-${missionId}`)?.value || '';
+  const desc = document.getElementById(`lmsPubDesc-${missionId}`)?.value.trim() || '';
+  if (!category) { toast('카테고리를 먼저 만들어주세요', 'error'); return; }
+  try {
+    const cards = window._cards || [];
+    await window._addDoc(window._collection(window._fdb, window._COLLECTION), {
+      emoji: card.emoji || '', title: card.title || '', url: card.url || '',
+      desc, category, locked: false, sourceMissionId: missionId,
+      order: cards.length > 0 ? Math.max(...cards.map(c => c.order || 0)) + 1 : 0
+    });
+    toast('✅ 아카이브에 공개됨', 'success');
+  } catch (e) {
+    toast('오류: ' + e.message, 'error');
+  }
+}
+window.hubConfirmPublish = hubConfirmPublish;
 
 /* ===== 카테고리 편집 ===== */
 let _tempCategoryList = null; // 편집 중인 임시 리스트
