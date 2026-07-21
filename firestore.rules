@@ -138,6 +138,52 @@ service cloud.firestore {
       );
     }
 
+    // ── 미션 제출 (학생 비로그인 쓰기 허용, 필드 검증 포함) ──────────────────
+
+    match /s_threads_posts/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.studentId is string &&
+        request.resource.data.content is string && request.resource.data.content.size() <= 1000 &&
+        request.resource.data.likes == 0 &&
+        !('adminPick' in request.resource.data) &&
+        !('status' in request.resource.data)
+      );
+      allow update: if isAdmin() ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likedBy']) ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'edited']) &&
+          request.resource.data.content is string && request.resource.data.content.size() <= 1000
+        );
+    }
+
+    match /goryeo_choice_results/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.studentId is string &&
+        request.resource.data.reflection is string && request.resource.data.reflection.size() <= 600 &&
+        !('pick' in request.resource.data) &&
+        !('status' in request.resource.data)
+      );
+    }
+
+    match /blind_ryeo_posts/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.studentId is string &&
+        request.resource.data.content is string && request.resource.data.content.size() <= 300 &&
+        request.resource.data.likes == 0 &&
+        !('adminPick' in request.resource.data) &&
+        !('status' in request.resource.data)
+      );
+      allow update: if isAdmin() ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likedBy']) ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['content', 'edited']) &&
+          request.resource.data.content is string && request.resource.data.content.size() <= 300
+        );
+    }
+
     // ── 그 외 모든 경로(레거시/미사용 컬렉션 포함): 읽기는 공개, 쓰기는 관리자만.
     //    위에서 create/update만 허용한 학생 자가제출 컬렉션의 delete도 여기로 떨어져
     //    관리자 전용이 된다.
