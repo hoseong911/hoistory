@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>레벨 시스템 프리뷰</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+  background: #e4e4e3;
+  min-height: 100vh;
+  padding: 48px 36px 80px;
+  color: #1e293b;
+}
+
+h2 {
+  font-size: 13px; font-weight: 700; color: #888;
+  text-transform: uppercase; letter-spacing: .08em;
+  margin: 44px 0 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+h2::after { content: ''; flex: 1; height: 1px; background: #ccc; }
+h2:first-of-type { margin-top: 0; }
+
+/* ── 글래스 카드 공통 ── */
+.glass {
+  background: rgba(255,255,255,0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.9);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0,0,0,.08);
+}
+
+/* ════════════════════════════════
+   1. 레벨 카드 위젯
+   ════════════════════════════════ */
+.widget-wrap {
+  display: flex; gap: 20px; flex-wrap: wrap;
+}
+
+.level-card {
+  padding: 22px 26px;
+  width: 320px;
+}
+.lc-top {
+  display: flex; align-items: center; gap: 14px; margin-bottom: 18px;
+}
+.lc-avatar {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: linear-gradient(135deg, #1e293b, #334155);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 900; font-size: 18px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(30,41,59,.3);
+}
+.lc-info { flex: 1; min-width: 0; }
+.lc-name {
+  font-size: 15px; font-weight: 800; color: #1e293b;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lc-level {
+  font-size: 12px; font-weight: 600; color: #64748b; margin-top: 2px;
+}
+.lc-level span { font-weight: 800; color: #1e293b; }
+
+/* XP 바 */
+.xp-bar-wrap { margin-bottom: 6px; }
+.xp-bar-label {
+  display: flex; justify-content: space-between;
+  font-size: 11px; font-weight: 600; color: #64748b;
+  margin-bottom: 6px;
+}
+.xp-bar-track {
+  height: 8px; border-radius: 99px;
+  background: rgba(30,41,59,0.10);
+  overflow: hidden;
+}
+.xp-bar-fill {
+  height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, #334155, #1e293b);
+  transition: width .5s cubic-bezier(.4,0,.2,1);
+}
+.xp-next {
+  font-size: 11px; color: #94a3b8; text-align: right; margin-top: 5px;
+}
+
+/* ════════════════════════════════
+   2. 인터랙티브 테스트
+   ════════════════════════════════ */
+.test-panel {
+  padding: 22px 26px; margin-top: 16px;
+}
+.test-title { font-size: 13px; font-weight: 700; color: #1e293b; margin-bottom: 14px; }
+.test-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.xp-btn {
+  padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 700;
+  background: rgba(30,41,59,0.09);
+  color: #1e293b;
+  border: 1px solid rgba(30,41,59,0.15);
+  transition: background .15s, transform .1s;
+}
+.xp-btn:hover { background: rgba(30,41,59,0.16); transform: translateY(-1px); }
+.xp-btn:active { transform: translateY(0); }
+.xp-btn.reset { color: #b83030; border-color: rgba(184,48,48,.2); background: rgba(184,48,48,.07); }
+.xp-btn.reset:hover { background: rgba(184,48,48,.14); }
+
+/* XP 총합 표시 */
+.xp-total-display {
+  margin-top: 14px;
+  font-size: 13px; color: #64748b; font-weight: 600;
+}
+.xp-total-display strong { color: #1e293b; font-size: 20px; font-weight: 900; }
+
+/* ════════════════════════════════
+   3. 레벨표
+   ════════════════════════════════ */
+.level-table-wrap { padding: 4px; overflow: hidden; }
+.level-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.level-table th {
+  padding: 10px 16px; text-align: left;
+  font-size: 11px; font-weight: 700; color: #94a3b8;
+  letter-spacing: .05em; text-transform: uppercase;
+  border-bottom: 1px solid rgba(0,0,0,.07);
+}
+.level-table td {
+  padding: 10px 16px;
+  font-size: 13px; color: #1e293b;
+  border-bottom: 1px solid rgba(0,0,0,.04);
+}
+.level-table tr:last-child td { border-bottom: none; }
+.level-table tr.active-row td {
+  background: rgba(30,41,59,0.05);
+  font-weight: 700;
+}
+.level-table tr.active-row td:first-child {
+  border-left: 3px solid #1e293b;
+}
+.lv-num {
+  font-weight: 800; font-size: 15px;
+}
+.lv-bar-mini {
+  height: 4px; border-radius: 99px;
+  background: rgba(30,41,59,0.10);
+  overflow: hidden; width: 120px;
+}
+.lv-bar-mini-fill {
+  height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, #334155, #1e293b);
+}
+
+/* ════════════════════════════════
+   4. XP 설정 패널 (교사용)
+   ════════════════════════════════ */
+.xp-settings { padding: 22px 26px; }
+.settings-title {
+  font-size: 14px; font-weight: 800; color: #1e293b; margin-bottom: 4px;
+}
+.settings-desc {
+  font-size: 12px; color: #94a3b8; margin-bottom: 18px;
+}
+.settings-table { width: 100%; border-collapse: collapse; }
+.settings-table th {
+  padding: 8px 12px; text-align: left;
+  font-size: 11px; font-weight: 700; color: #94a3b8;
+  letter-spacing: .05em; text-transform: uppercase;
+  border-bottom: 1px solid rgba(0,0,0,.08);
+}
+.settings-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(0,0,0,.04);
+  vertical-align: middle;
+}
+.settings-table tr:last-child td { border-bottom: none; }
+.act-name {
+  font-size: 13px; font-weight: 600; color: #1e293b;
+}
+.xp-input {
+  width: 68px; padding: 5px 8px;
+  border: 1px solid rgba(30,41,59,0.18);
+  border-radius: 6px;
+  font-size: 13px; font-weight: 700; color: #1e293b;
+  background: rgba(255,255,255,0.7);
+  text-align: center;
+}
+.xp-input:focus { outline: none; border-color: #1e293b; }
+.toggle {
+  position: relative; width: 36px; height: 20px; cursor: pointer;
+}
+.toggle input { opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  position: absolute; inset: 0;
+  background: rgba(30,41,59,0.15);
+  border-radius: 99px; transition: background .2s;
+}
+.toggle input:checked + .toggle-track { background: #1e293b; }
+.toggle-thumb {
+  position: absolute; top: 3px; left: 3px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: #fff; transition: transform .2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,.2);
+}
+.toggle input:checked ~ .toggle-thumb { transform: translateX(16px); }
+.del-btn {
+  background: none; border: none; cursor: pointer;
+  color: #cbd5e1; font-size: 16px; line-height: 1;
+  padding: 2px 6px; border-radius: 4px;
+  transition: color .15s, background .15s;
+}
+.del-btn:hover { color: #b83030; background: rgba(184,48,48,.08); }
+.add-row-btn {
+  margin-top: 12px;
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: 1px dashed rgba(30,41,59,.25);
+  border-radius: 8px; padding: 8px 14px; cursor: pointer;
+  font-size: 12px; font-weight: 700; color: #64748b;
+  width: 100%; justify-content: center;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.add-row-btn:hover {
+  border-color: #1e293b; color: #1e293b; background: rgba(30,41,59,.04);
+}
+.save-btn {
+  margin-top: 14px; width: 100%;
+  padding: 11px; border-radius: 8px; border: none; cursor: pointer;
+  background: #1e293b; color: #fff;
+  font-size: 13px; font-weight: 700;
+  transition: background .15s, transform .1s;
+}
+.save-btn:hover { background: #334155; }
+.save-btn:active { transform: scale(.99); }
+
+/* ════════════════════════════════
+   레벨업 모달
+   ════════════════════════════════ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(10,15,25,0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s;
+}
+.modal-overlay.show { opacity: 1; pointer-events: auto; }
+
+.levelup-modal {
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.95);
+  border-radius: 24px;
+  padding: 44px 40px 36px;
+  text-align: center;
+  width: 340px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.18);
+  transform: scale(.88) translateY(20px);
+  transition: transform .3s cubic-bezier(.34,1.56,.64,1);
+}
+.modal-overlay.show .levelup-modal {
+  transform: scale(1) translateY(0);
+}
+.modal-stars {
+  font-size: 36px; margin-bottom: 12px;
+  animation: star-pop .5s ease .1s both;
+}
+@keyframes star-pop {
+  from { transform: scale(0) rotate(-20deg); opacity: 0; }
+  to   { transform: scale(1) rotate(0); opacity: 1; }
+}
+.modal-label {
+  font-size: 12px; font-weight: 700; color: #94a3b8;
+  letter-spacing: .1em; text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.modal-level {
+  font-size: 52px; font-weight: 900; color: #1e293b;
+  line-height: 1;
+  animation: num-bounce .4s cubic-bezier(.34,1.56,.64,1) .15s both;
+}
+@keyframes num-bounce {
+  from { transform: scale(.6); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+.modal-sub {
+  font-size: 14px; color: #64748b; margin-top: 10px; margin-bottom: 28px;
+}
+.modal-close {
+  padding: 11px 32px; border-radius: 10px; border: none; cursor: pointer;
+  background: #1e293b; color: #fff;
+  font-size: 14px; font-weight: 700;
+}
+.modal-close:hover { background: #334155; }
+
+/* XP 플로팅 텍스트 */
+.xp-float {
+  position: fixed;
+  font-size: 15px; font-weight: 800; color: #1e293b;
+  pointer-events: none; z-index: 9998;
+  animation: float-up .9s ease forwards;
+}
+@keyframes float-up {
+  0%   { opacity: 1; transform: translateY(0) scale(1); }
+  60%  { opacity: 1; transform: translateY(-40px) scale(1.1); }
+  100% { opacity: 0; transform: translateY(-70px) scale(.9); }
+}
+</style>
+</head>
+<body>
+
+<!-- 레벨업 모달 -->
+<div class="modal-overlay" id="modal">
+  <div class="levelup-modal">
+    <div class="modal-stars">⭐</div>
+    <div class="modal-label">Level Up!</div>
+    <div class="modal-level" id="modal-lv">5</div>
+    <div class="modal-sub">레벨이 올랐어요!</div>
+    <button class="modal-close" onclick="closeModal()">확인</button>
+  </div>
+</div>
+
+<!-- ① 위젯 -->
+<h2>학생 대시보드 위젯</h2>
+<div class="widget-wrap">
+  <div class="level-card glass" id="card">
+    <div class="lc-top">
+      <div class="lc-avatar" id="avatar">김</div>
+      <div class="lc-info">
+        <div class="lc-name">김호성</div>
+        <div class="lc-level">Lv.<span id="lv-num">1</span></div>
+      </div>
+    </div>
+    <div class="xp-bar-wrap">
+      <div class="xp-bar-label">
+        <span>XP</span>
+        <span><strong id="xp-cur">0</strong> / <span id="xp-max">100</span></span>
+      </div>
+      <div class="xp-bar-track">
+        <div class="xp-bar-fill" id="xp-fill" style="width:0%"></div>
+      </div>
+      <div class="xp-next" id="xp-next">다음 레벨까지 100 XP</div>
+    </div>
+  </div>
+
+  <!-- 테스트 패널 -->
+  <div class="test-panel glass">
+    <div class="test-title">XP 테스트</div>
+    <div class="test-btns">
+      <button class="xp-btn" onclick="addXP(10,this)">개념체크 +10</button>
+      <button class="xp-btn" onclick="addXP(30,this)">미션제출 +30</button>
+      <button class="xp-btn" onclick="addXP(20,this)">미션만점 +20</button>
+      <button class="xp-btn" onclick="addXP(20,this)">생각체크 +20</button>
+      <button class="xp-btn" onclick="addXP(5,this)">OX참여 +5</button>
+      <button class="xp-btn" onclick="addXP(50,this)">탈출클리어 +50</button>
+      <button class="xp-btn" onclick="addXP(15,this)">연속출석 +15</button>
+      <button class="xp-btn reset" onclick="resetXP()">초기화</button>
+    </div>
+    <div class="xp-total-display">
+      누적 XP: <strong id="xp-total">0</strong>
+    </div>
+  </div>
+</div>
+
+<!-- ② 레벨표 -->
+<h2>레벨 기준표</h2>
+<div class="glass level-table-wrap">
+  <table class="level-table" id="level-table">
+    <thead>
+      <tr>
+        <th>레벨</th>
+        <th>필요 XP (누적)</th>
+        <th>구간 XP</th>
+        <th>진행도</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<!-- ③ XP 설정 (교사용) -->
+<h2>XP 설정 — 교사용</h2>
+<div class="glass xp-settings">
+  <div class="settings-title">활동별 XP 설정</div>
+  <div class="settings-desc">활동 추가·삭제·수정 후 저장하면 Firebase에 반영됩니다.</div>
+  <table class="settings-table" id="settings-table">
+    <thead>
+      <tr>
+        <th>활동명</th>
+        <th>XP</th>
+        <th>하루 1회 제한</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="settings-body"></tbody>
+  </table>
+  <button class="add-row-btn" onclick="addSettingRow()">+ 활동 추가</button>
+  <button class="save-btn" onclick="saveSettings()">Firebase에 저장</button>
+</div>
+
+<script>
+/* ── 레벨 정의 ── */
+const LEVELS = [
+  { lv:1,  xp:0    },
+  { lv:2,  xp:100  },
+  { lv:3,  xp:250  },
+  { lv:4,  xp:450  },
+  { lv:5,  xp:700  },
+  { lv:6,  xp:1000 },
+  { lv:7,  xp:1350 },
+  { lv:8,  xp:1750 },
+  { lv:9,  xp:2200 },
+  { lv:10, xp:2700 },
+  { lv:11, xp:3300 },
+  { lv:12, xp:4000 },
+  { lv:13, xp:5000 },
+];
+
+/* ── XP 기본 설정 ── */
+const DEFAULT_SETTINGS = [
+  { name:'개념체크 완독',    xp:10, daily:true  },
+  { name:'미션체크 제출',    xp:30, daily:false },
+  { name:'미션체크 만점',    xp:20, daily:false },
+  { name:'생각체크 답변',    xp:20, daily:false },
+  { name:'OX퀴즈 참여',     xp:5,  daily:true  },
+  { name:'OX퀴즈 정답',     xp:5,  daily:true  },
+  { name:'탈출게임 클리어',  xp:50, daily:false },
+  { name:'연속 출석 3일',   xp:15, daily:false },
+  { name:'서베이 제출',      xp:10, daily:true  },
+];
+
+/* ── 상태 ── */
+let totalXP = 0;
+let currentLevel = 1;
+
+/* ── 레벨 계산 ── */
+function getLevel(xp) {
+  let lv = 1;
+  for (let i = LEVELS.length - 1; i >= 0; i--) {
+    if (xp >= LEVELS[i].xp) { lv = LEVELS[i].lv; break; }
+  }
+  return lv;
+}
+function getLevelInfo(xp) {
+  const lv = getLevel(xp);
+  const cur = LEVELS[lv - 1];
+  const next = LEVELS[lv] || null;
+  const inLevel = xp - cur.xp;
+  const toNext = next ? next.xp - cur.xp : null;
+  const pct = next ? (inLevel / toNext) * 100 : 100;
+  return { lv, inLevel, toNext, pct, nextXP: next ? next.xp : null };
+}
+
+/* ── 위젯 업데이트 ── */
+function updateWidget(xp, animated = true) {
+  const info = getLevelInfo(xp);
+  document.getElementById('lv-num').textContent = info.lv;
+  document.getElementById('xp-cur').textContent = info.inLevel;
+  document.getElementById('xp-max').textContent = info.toNext ?? '—';
+  document.getElementById('xp-next').textContent = info.toNext
+    ? `다음 레벨까지 ${info.toNext - info.inLevel} XP`
+    : '최고 레벨 달성!';
+  document.getElementById('xp-fill').style.width = info.pct.toFixed(1) + '%';
+  document.getElementById('xp-total').textContent = xp;
+  highlightLevelTable(info.lv);
+}
+
+/* ── XP 추가 ── */
+function addXP(amount, btn) {
+  const prevLevel = getLevel(totalXP);
+  totalXP += amount;
+  const newLevel = getLevel(totalXP);
+  updateWidget(totalXP);
+  showFloat(amount, btn);
+  if (newLevel > prevLevel) {
+    currentLevel = newLevel;
+    setTimeout(() => showModal(newLevel), 400);
+  }
+}
+
+function resetXP() {
+  totalXP = 0;
+  currentLevel = 1;
+  updateWidget(0);
+}
+
+/* ── 플로팅 텍스트 ── */
+function showFloat(amount, btn) {
+  const rect = btn.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = 'xp-float';
+  el.textContent = '+' + amount + ' XP';
+  el.style.left = (rect.left + rect.width / 2 - 30) + 'px';
+  el.style.top  = (rect.top - 10) + 'px';
+  document.body.appendChild(el);
+  el.addEventListener('animationend', () => el.remove());
+}
+
+/* ── 모달 ── */
+function showModal(lv) {
+  document.getElementById('modal-lv').textContent = lv;
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('show');
+}
+document.getElementById('modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+/* ── 레벨표 렌더 ── */
+function renderLevelTable() {
+  const tbody = document.querySelector('#level-table tbody');
+  tbody.innerHTML = '';
+  const maxXP = LEVELS[LEVELS.length - 1].xp;
+  LEVELS.forEach((l, i) => {
+    const next = LEVELS[i + 1];
+    const span = next ? next.xp - l.xp : '—';
+    const pct = (l.xp / maxXP * 100).toFixed(0);
+    const tr = document.createElement('tr');
+    tr.id = 'row-lv-' + l.lv;
+    tr.innerHTML = `
+      <td><span class="lv-num">Lv.${l.lv}</span></td>
+      <td>${l.xp.toLocaleString()} XP</td>
+      <td>${typeof span === 'number' ? span + ' XP' : span}</td>
+      <td>
+        <div class="lv-bar-mini">
+          <div class="lv-bar-mini-fill" style="width:${pct}%"></div>
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function highlightLevelTable(lv) {
+  document.querySelectorAll('#level-table tbody tr').forEach(tr => tr.classList.remove('active-row'));
+  const row = document.getElementById('row-lv-' + lv);
+  if (row) row.classList.add('active-row');
+}
+
+/* ── 설정 패널 렌더 ── */
+function renderSettings(data) {
+  const tbody = document.getElementById('settings-body');
+  tbody.innerHTML = '';
+  data.forEach((row, i) => {
+    const tr = document.createElement('tr');
+    tr.dataset.index = i;
+    tr.innerHTML = `
+      <td><input type="text" class="xp-input" style="width:140px;text-align:left" value="${row.name}" data-field="name"></td>
+      <td><input type="number" class="xp-input" value="${row.xp}" min="1" max="999" data-field="xp"></td>
+      <td style="text-align:center">
+        <label class="toggle">
+          <input type="checkbox" ${row.daily ? 'checked' : ''} data-field="daily">
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </td>
+      <td><button class="del-btn" onclick="deleteRow(this)">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function addSettingRow() {
+  const tbody = document.getElementById('settings-body');
+  const i = tbody.rows.length;
+  const tr = document.createElement('tr');
+  tr.dataset.index = i;
+  tr.innerHTML = `
+    <td><input type="text" class="xp-input" style="width:140px;text-align:left" placeholder="활동명" data-field="name"></td>
+    <td><input type="number" class="xp-input" value="10" min="1" max="999" data-field="xp"></td>
+    <td style="text-align:center">
+      <label class="toggle">
+        <input type="checkbox" data-field="daily">
+        <div class="toggle-track"></div>
+        <div class="toggle-thumb"></div>
+      </label>
+    </td>
+    <td><button class="del-btn" onclick="deleteRow(this)">✕</button></td>`;
+  tbody.appendChild(tr);
+  tr.querySelector('input[data-field="name"]').focus();
+}
+
+function deleteRow(btn) {
+  btn.closest('tr').remove();
+}
+
+function saveSettings() {
+  const rows = [...document.querySelectorAll('#settings-body tr')];
+  const data = rows.map(tr => ({
+    name:  tr.querySelector('[data-field="name"]').value.trim(),
+    xp:    parseInt(tr.querySelector('[data-field="xp"]').value) || 0,
+    daily: tr.querySelector('[data-field="daily"]').checked,
+  })).filter(r => r.name);
+  // 실제 구현 시 Firebase 저장
+  console.log('저장할 설정:', data);
+  const btn = document.querySelector('.save-btn');
+  btn.textContent = '저장됨 ✓';
+  btn.style.background = '#059669';
+  setTimeout(() => { btn.textContent = 'Firebase에 저장'; btn.style.background = ''; }, 1800);
+}
+
+/* ── 초기화 ── */
+renderLevelTable();
+renderSettings(DEFAULT_SETTINGS);
+updateWidget(0, false);
+</script>
+</body>
+</html>
