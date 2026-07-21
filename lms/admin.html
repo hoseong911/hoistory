@@ -567,6 +567,15 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
         <span class="nav-arrow">›</span>
       </div>
       <div class="nav-sub" id="subnav-contents"></div>
+      <div class="nav-item nav-dark has-sub" data-nav="archive">
+        <span class="nav-dot" style="background:var(--charcoal)"></span>아카이브
+        <span class="nav-arrow">›</span>
+      </div>
+      <div class="nav-sub" id="subnav-archive">
+        <div class="nav-sub-item" data-subnav="archive-cards">CARDS</div>
+        <div class="nav-sub-item" data-subnav="archive-category">CATEGORY</div>
+        <div class="nav-sub-item" data-subnav="archive-add">ADD</div>
+      </div>
       <div class="nav-divider"></div>
       <div class="nav-item nav-dark" data-nav="students">
         <span class="nav-dot" style="background:var(--charcoal)"></span>학생 관리
@@ -1065,6 +1074,76 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
     <div id="contentsPreviewList" class="item-list"></div>
   </div>
 
+  <!-- 아카이브 · CARDS -->
+  <div class="adm-panel" id="panel-archive-cards">
+    <div class="panel-top"><div class="panel-title">아카이브 · CARDS</div></div>
+    <p style="font-size:14px;color:var(--sub);margin-bottom:20px">여기 공개된 카드가 루트 홈페이지(학생 허브가 아닌 hoseong911.github.io/hoistory) 아카이브에 표시됩니다.</p>
+
+    <div class="stu-card">
+      <div class="stu-card-head">LMS 미션 카드 <span style="font-size:13px;font-weight:400;color:var(--sub)">· 미션 체크에서 공개한 카드 중 아직 아카이브에 게시하지 않은 것</span></div>
+      <div class="stu-card-body">
+        <div id="archivePendingList" class="item-list"></div>
+      </div>
+    </div>
+
+    <div style="height:20px"></div>
+    <div id="archiveCardsList" class="item-list"></div>
+  </div>
+
+  <!-- 아카이브 · CATEGORY -->
+  <div class="adm-panel" id="panel-archive-category">
+    <div class="panel-top"><div class="panel-title">아카이브 · CATEGORY</div></div>
+    <p style="font-size:14px;color:var(--sub);margin-bottom:20px">루트 홈페이지 아카이브에 표시되는 카테고리입니다 · 최대 4개</p>
+    <div class="stu-card">
+      <div class="stu-card-body" id="archiveCatEditList"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="add-btn" onclick="archiveAddCategoryRow()">+ 카테고리 추가</button>
+      <button class="add-btn g" onclick="archiveSaveCategories()">저장</button>
+    </div>
+    <p style="font-size:12px;color:var(--sub);margin-top:14px;line-height:1.6">카테고리를 삭제해도 그 안의 카드는 사라지지 않고 "분류 없음" 상태가 됩니다.<br>변경 사항은 저장 버튼을 눌러야 루트 홈페이지에 반영됩니다.</p>
+  </div>
+
+  <!-- 아카이브 · ADD -->
+  <div class="adm-panel" id="panel-archive-add">
+    <div class="panel-top"><div class="panel-title">아카이브 · ADD</div></div>
+    <p style="font-size:14px;color:var(--sub);margin-bottom:20px">LMS를 거치지 않는 외부 자료(링크·PDF 등)를 아카이브에 직접 추가합니다.</p>
+    <div class="stu-card" style="overflow:visible">
+      <div class="stu-card-body">
+        <div class="stu-add-row">
+          <div class="stu-field">
+            <label>아이콘</label>
+            <div class="icon-picker-wrap">
+              <div class="icon-picker-preview empty" id="archiveAddIconPreview"></div>
+              <button type="button" class="icon-picker-trigger" id="archiveAddIconTrigger">아이콘 선택</button>
+            </div>
+          </div>
+          <div class="stu-field">
+            <label>카테고리</label>
+            <select class="grade-config-sel" id="archiveAddCategory" style="height:44px"></select>
+          </div>
+          <div class="stu-field" style="flex:1">
+            <label>제목</label>
+            <input type="text" id="archiveAddTitle" placeholder="예) 삼국시대 문화유산 맞추기" style="width:100%">
+          </div>
+        </div>
+        <div class="stu-add-row" style="margin-top:12px">
+          <div class="stu-field" style="flex:1">
+            <label>설명</label>
+            <textarea class="form-textarea" id="archiveAddDesc" style="width:100%" placeholder="짧은 설명"></textarea>
+          </div>
+        </div>
+        <div class="stu-add-row" style="margin-top:12px">
+          <div class="stu-field" style="flex:1">
+            <label>링크 URL</label>
+            <input type="text" id="archiveAddUrl" placeholder="https://..." style="width:100%">
+          </div>
+          <button class="add-btn" id="archiveAddBtn" style="margin-top:auto">추가</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- 학생 관리 -->
   <div class="adm-panel" id="panel-students">
     <div class="panel-top"><div class="panel-title">학생 관리</div></div>
@@ -1458,6 +1537,7 @@ function initAdmin() {
   initGradeTab();
   initGradeSettings();
   initContentsTab();
+  initArchiveTab();
 }
 
 // ── 사이드바 ──
@@ -1493,6 +1573,7 @@ const SUBNAV_MAP = {
   concept: ['concept-content', 'concept-design'],
   think: ['think-question', 'think-answer'],
   grade: ['grade-check', 'grade-grade', 'grade-setting'],
+  archive: ['archive-cards', 'archive-category', 'archive-add'],
   settings: ['settings-system', 'settings-student']
 };
 
@@ -1553,6 +1634,8 @@ function switchNav(nav) {
   if (panelId === 'panel-think-answer' && window.thRenderAnswerLecture) {
     window.thRenderAnswerLecture(); window.thRenderAnswerClass(); window.thRenderPick();
   }
+  if (panelId === 'panel-archive-cards' && typeof renderArchiveCards === 'function') renderArchiveCards();
+  if (panelId === 'panel-archive-category' && typeof renderArchiveCategoryEditor === 'function') renderArchiveCategoryEditor();
 }
 
 // 사이드바의 미션 체크 서브메뉴에서 특정 웹앱 어드민을 바로 열 때: 카드 목록 패널로
@@ -3066,6 +3149,343 @@ window.contentsMoveCard = async function(docId, dir, idx) {
     renderContentsPreview(window._contentsCat);
   } catch(e) { alert('순서 변경 실패: ' + e.message); }
 };
+
+/* ============================================
+ * 아카이브 (루트 홈페이지 hoseong911.github.io/hoistory 카드 관리)
+ * cards 컬렉션을 미션 체크(mission_category)·각종 콘텐츠(contents_category)와
+ * 함께 공유하되, settings/categories에 등록된 카테고리 키를 가진 문서만 루트에 노출된다.
+ * ============================================ */
+let archiveAddSvg = '';
+const ARCHIVE_MAX_CATEGORIES = 4;
+window._archiveTempCats = null;
+
+async function getArchiveCategories() {
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'categories'));
+    return snap.exists() && Array.isArray(snap.data().list) ? snap.data().list : [];
+  } catch (e) { return []; }
+}
+
+async function getMissionCategoryKey() {
+  try {
+    const cfg = await getDoc(doc(db, 'settings', 'lms_config'));
+    return cfg.exists() ? (cfg.data().mission_category || '') : '';
+  } catch (e) { return ''; }
+}
+
+async function initArchiveTab() {
+  mountIconPicker({
+    triggerEl: document.getElementById('archiveAddIconTrigger'),
+    previewEl:  document.getElementById('archiveAddIconPreview'),
+    onSelect:  (svg) => { archiveAddSvg = svg; },
+    storeSize: 28,
+  });
+  document.getElementById('archiveAddBtn').addEventListener('click', archiveAddCard);
+  await renderArchiveCards();
+  await renderArchiveCategoryEditor();
+}
+
+async function renderArchiveCards() {
+  const cats = await getArchiveCategories();
+  const missionCat = await getMissionCategoryKey();
+  window._archiveCats = cats;
+
+  const allSnap = await getDocs(collection(db, 'cards'));
+  const allCards = allSnap.docs.map(d => ({ docId: d.id, ...d.data() }));
+  window._archiveAllCards = allCards;
+
+  const catKeys = new Set(cats.map(c => c.key));
+  const published = allCards.filter(c => catKeys.has(c.category)).sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+  const pending = allCards.filter(c => missionCat && c.category === missionCat && !c.locked);
+
+  renderArchivePendingList(pending, published, cats);
+  renderArchiveCardsList(published, cats);
+
+  const addSel = document.getElementById('archiveAddCategory');
+  if (addSel) {
+    addSel.innerHTML = cats.length
+      ? cats.map(c => `<option value="${esc(c.key)}">${esc(c.en)}${c.ko ? ' · ' + esc(c.ko) : ''}</option>`).join('')
+      : '<option value="">카테고리를 먼저 만들어주세요</option>';
+  }
+}
+
+function renderArchivePendingList(pending, published, cats) {
+  const wrap = document.getElementById('archivePendingList');
+  if (!wrap) return;
+  if (pending.length === 0) {
+    wrap.innerHTML = '<div class="empty-panel">LMS에 공개된 미션 카드가 없습니다.</div>';
+    return;
+  }
+  wrap.innerHTML = pending.map(card => {
+    const iconStr = String(card.emoji || '');
+    const isSvg = iconStr.startsWith('<svg');
+    const isPublished = published.some(c => c.sourceMissionId === card.docId);
+    return `
+    <div class="item-row">
+      <div class="item-icon-preview preview-mission">${isSvg ? iconStr : esc(iconStr) || '—'}</div>
+      <div class="item-info">
+        <div class="item-label">${esc(card.title || '')}</div>
+        <div class="item-url">${esc(card.url || '')}</div>
+      </div>
+      <div class="item-meta">
+        ${isPublished
+          ? `<span class="open-badge">✓ 공개됨</span>`
+          : `<button class="edit-btn" onclick="archiveTogglePublishForm('${card.docId}')">아카이브에 공개</button>`
+        }
+      </div>
+    </div>
+    <div id="archivePubForm-${card.docId}" class="stu-card" style="display:none;margin:-4px 0 14px;background:var(--surface)">
+      <div class="stu-card-body">
+        <div class="stu-add-row">
+          <div class="stu-field" style="flex:1">
+            <label>공개할 카테고리</label>
+            <select class="grade-config-sel" id="archivePubCat-${card.docId}" style="height:44px;width:100%">
+              ${cats.map(c => `<option value="${esc(c.key)}">${esc(c.en)}${c.ko ? ' · ' + esc(c.ko) : ''}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="stu-add-row" style="margin-top:10px">
+          <div class="stu-field" style="flex:1">
+            <label>설명</label>
+            <textarea class="form-textarea" id="archivePubDesc-${card.docId}" style="width:100%" placeholder="불러오는 중…"></textarea>
+          </div>
+        </div>
+        <div class="stu-add-row" style="margin-top:10px">
+          <button class="add-btn g" onclick="archiveConfirmPublish('${card.docId}')">게시하기</button>
+          <button class="btn-cancel" onclick="archiveTogglePublishForm('${card.docId}')">취소</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.archiveTogglePublishForm = async function(missionId) {
+  const form = document.getElementById(`archivePubForm-${missionId}`);
+  if (!form) return;
+  const opening = form.style.display === 'none';
+  form.style.display = opening ? 'block' : 'none';
+  if (!opening) return;
+
+  const card = (window._archiveAllCards || []).find(c => c.docId === missionId);
+  const descEl = document.getElementById(`archivePubDesc-${missionId}`);
+  let desc = '';
+  try {
+    const appKey = (card?.url || '').split('/')[1];
+    if (appKey) {
+      const snap = await get(ref(rtdb, `adminConfig/${appKey}/archive`));
+      if (snap.exists()) {
+        const { topic = '', intent = '' } = snap.val() || {};
+        desc = [topic, intent].filter(Boolean).join('\n');
+      }
+    }
+  } catch (e) { /* 조회 실패해도 무시 — 직접 입력 가능 */ }
+  if (descEl) descEl.value = desc;
+};
+
+window.archiveConfirmPublish = async function(missionId) {
+  const card = (window._archiveAllCards || []).find(c => c.docId === missionId);
+  if (!card) return;
+  const category = document.getElementById(`archivePubCat-${missionId}`)?.value || '';
+  const desc = document.getElementById(`archivePubDesc-${missionId}`)?.value.trim() || '';
+  if (!category) { alert('카테고리를 먼저 만들어주세요.'); return; }
+  try {
+    const cats = window._archiveCats || [];
+    const published = (window._archiveAllCards || []).filter(c => cats.some(cat => cat.key === c.category));
+    const order = published.length ? Math.max(...published.map(c => c.order || 0)) + 1 : 0;
+    await addDoc(collection(db, 'cards'), {
+      emoji: card.emoji || '', title: card.title || '', url: card.url || '',
+      desc, category, locked: false, sourceMissionId: missionId, order
+    });
+    alert('아카이브에 공개되었습니다.');
+    renderArchiveCards();
+  } catch (e) { alert('오류: ' + e.message); }
+};
+
+function renderArchiveCardsList(published, cats) {
+  const wrap = document.getElementById('archiveCardsList');
+  if (!wrap) return;
+  if (published.length === 0) {
+    wrap.innerHTML = '<div class="empty-panel">공개된 아카이브 카드가 없습니다.</div>';
+    return;
+  }
+  wrap.innerHTML = '';
+  published.forEach(card => {
+    const row = document.createElement('div');
+    row.className = 'item-row';
+    row.id = `archive-row-${card.docId}`;
+    const iconStr = String(card.emoji || '');
+    const isSvg = iconStr.startsWith('<svg');
+    const isLocked = !!card.locked;
+    const cat = cats.find(c => c.key === card.category);
+    row.innerHTML = `
+      <div class="item-icon-preview preview-contents">${isSvg ? iconStr : esc(iconStr) || '—'}</div>
+      <div class="item-info">
+        <div class="item-label">${esc(card.title || '')}</div>
+        <div class="item-sublabel">${esc(cat?.en || '')}${cat?.ko ? ' · ' + esc(cat.ko) : ''}</div>
+        <div class="item-url">${esc(card.url || '')}</div>
+      </div>
+      <div class="item-meta">
+        <button class="lock-toggle ${isLocked ? 'locked' : 'open'}" onclick="archiveToggleLocked('${card.docId}',${isLocked})">${isLocked ? '비공개' : '공개'}</button>
+        <button class="edit-btn" onclick="archiveStartEdit('${card.docId}')">수정</button>
+        <button class="del-btn" onclick="archiveDeleteCard('${card.docId}')">삭제</button>
+      </div>`;
+    wrap.appendChild(row);
+  });
+}
+
+window.archiveToggleLocked = async function(docId, currentLocked) {
+  try { await updateDoc(doc(db, 'cards', docId), { locked: !currentLocked }); renderArchiveCards(); }
+  catch (e) { alert('변경 실패: ' + e.message); }
+};
+
+window.archiveDeleteCard = async function(docId) {
+  const card = (window._archiveAllCards || []).find(c => c.docId === docId);
+  if (!confirm(`"${card?.title || '이 카드'}"를 삭제하시겠습니까?`)) return;
+  try { await deleteDoc(doc(db, 'cards', docId)); renderArchiveCards(); }
+  catch (e) { alert('삭제 실패: ' + e.message); }
+};
+
+window.archiveStartEdit = function(docId) {
+  const card = (window._archiveAllCards || []).find(c => c.docId === docId);
+  if (!card) return;
+  const row = document.getElementById(`archive-row-${docId}`);
+  if (!row) return;
+  const cats = window._archiveCats || [];
+  const existingSvg = String(card.emoji || '');
+  row.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:8px;width:100%;padding:4px 0">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="icon-picker-wrap">
+          <div class="icon-picker-preview${existingSvg ? '' : ' empty'}" id="ae-icon-preview-${docId}">${existingSvg.startsWith('<svg') ? existingSvg : ''}</div>
+          <button type="button" class="icon-picker-trigger" id="ae-icon-trigger-${docId}">아이콘 선택</button>
+        </div>
+        <select class="grade-config-sel" id="ae-cat-${docId}" style="height:44px">
+          ${cats.map(c => `<option value="${esc(c.key)}" ${c.key === card.category ? 'selected' : ''}>${esc(c.en)}${c.ko ? ' · ' + esc(c.ko) : ''}</option>`).join('')}
+        </select>
+        <input id="ae-title-${docId}" class="form-input" value="${esc(card.title || '')}" placeholder="제목" style="flex:1;min-width:120px">
+      </div>
+      <textarea id="ae-desc-${docId}" class="form-textarea" placeholder="설명" style="width:100%">${esc(card.desc || '')}</textarea>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <input id="ae-url-${docId}" class="form-input" value="${esc(card.url || '')}" placeholder="URL" style="flex:1;min-width:140px">
+        <button class="btn-save" style="flex:none;padding:7px 16px;background:var(--c2)" onclick="archiveSaveEdit('${docId}')">저장</button>
+        <button class="btn-cancel" onclick="renderArchiveCards()">취소</button>
+      </div>
+    </div>`;
+  requestAnimationFrame(() => {
+    mountIconPicker({
+      triggerEl: document.getElementById(`ae-icon-trigger-${docId}`),
+      previewEl:  document.getElementById(`ae-icon-preview-${docId}`),
+      onSelect:  (svg) => { row.dataset.svgEdit = svg; },
+      storeSize: 28,
+      initialSvg: existingSvg.startsWith('<svg') ? existingSvg : '',
+    });
+    if (existingSvg) row.dataset.svgEdit = existingSvg;
+  });
+};
+
+window.archiveSaveEdit = async function(docId) {
+  const row = document.getElementById(`archive-row-${docId}`);
+  const emoji = row?.dataset.svgEdit ?? '';
+  const title = document.getElementById(`ae-title-${docId}`)?.value.trim();
+  const desc = document.getElementById(`ae-desc-${docId}`)?.value.trim() || '';
+  const url = document.getElementById(`ae-url-${docId}`)?.value.trim();
+  const category = document.getElementById(`ae-cat-${docId}`)?.value;
+  if (!title || !url) { alert('제목과 URL을 입력하세요.'); return; }
+  try {
+    await updateDoc(doc(db, 'cards', docId), { emoji, title, desc, url, category });
+    renderArchiveCards();
+  } catch (e) { alert('저장 실패: ' + e.message); }
+};
+
+/* ── 카테고리 관리 ── */
+async function renderArchiveCategoryEditor() {
+  const wrap = document.getElementById('archiveCatEditList');
+  if (!wrap) return;
+  const list = window._archiveTempCats !== null ? window._archiveTempCats : (window._archiveCats || await getArchiveCategories());
+  const countInfo = `${list.length} / ${ARCHIVE_MAX_CATEGORIES}`;
+  if (list.length === 0) {
+    wrap.innerHTML = `<div class="empty-panel">아직 카테고리가 없습니다. "+ 카테고리 추가"로 시작하세요. (${countInfo})</div>`;
+    return;
+  }
+  wrap.innerHTML = `<p style="font-size:12px;color:var(--sub);margin-bottom:10px">${countInfo}</p>` + list.map((cat, idx) => `
+    <div class="stu-add-row" style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--hairline-soft)">
+      <div class="stu-field" style="flex:1">
+        <label>영문 이름 ${idx + 1}</label>
+        <input class="form-input" type="text" value="${esc(cat.en || '')}" placeholder="예: Next Dive" oninput="archiveUpdateTempCat(${idx},'en',this.value)" style="width:100%">
+      </div>
+      <div class="stu-field" style="flex:1">
+        <label>한글 부제</label>
+        <input class="form-input" type="text" value="${esc(cat.ko || '')}" placeholder="예: 곧 만날 이야기" oninput="archiveUpdateTempCat(${idx},'ko',this.value)" style="width:100%">
+      </div>
+      <button class="del-btn" style="margin-top:auto" onclick="archiveRemoveCategoryRow(${idx})">삭제</button>
+    </div>
+  `).join('');
+}
+
+window.archiveUpdateTempCat = function(idx, field, value) {
+  if (window._archiveTempCats === null) window._archiveTempCats = (window._archiveCats || []).map(c => ({...c}));
+  if (window._archiveTempCats[idx]) window._archiveTempCats[idx][field] = value;
+};
+
+window.archiveAddCategoryRow = function() {
+  if (window._archiveTempCats === null) window._archiveTempCats = (window._archiveCats || []).map(c => ({...c}));
+  if (window._archiveTempCats.length >= ARCHIVE_MAX_CATEGORIES) { alert(`최대 ${ARCHIVE_MAX_CATEGORIES}개까지만 가능합니다.`); return; }
+  window._archiveTempCats.push({ key: 'cat_' + Math.random().toString(36).substring(2, 10), en: '', ko: '' });
+  renderArchiveCategoryEditor();
+};
+
+window.archiveRemoveCategoryRow = function(idx) {
+  if (window._archiveTempCats === null) window._archiveTempCats = (window._archiveCats || []).map(c => ({...c}));
+  const cat = window._archiveTempCats[idx];
+  if (!cat) return;
+  const inUse = (window._archiveAllCards || []).filter(c => c.category === cat.key).length;
+  const msg = inUse > 0
+    ? `이 카테고리에 카드 ${inUse}개가 있습니다.\n삭제해도 카드는 사라지지 않고 "분류 없음" 상태가 됩니다. 진행할까요?`
+    : '이 카테고리를 삭제할까요?';
+  if (!confirm(msg)) return;
+  window._archiveTempCats.splice(idx, 1);
+  renderArchiveCategoryEditor();
+};
+
+window.archiveSaveCategories = async function() {
+  const list = window._archiveTempCats !== null ? window._archiveTempCats : (window._archiveCats || []);
+  if (list.some(c => !c.en || !c.en.trim())) { alert('카테고리 영문 이름은 비울 수 없습니다.'); return; }
+  const clean = list.map(c => ({ key: c.key, en: (c.en || '').trim(), ko: (c.ko || '').trim() }));
+  try {
+    await setDoc(doc(db, 'settings', 'categories'), { list: clean });
+    window._archiveTempCats = null;
+    alert('카테고리가 저장되었습니다.');
+    renderArchiveCards();
+    renderArchiveCategoryEditor();
+  } catch (e) { alert('저장 실패: ' + e.message); }
+};
+
+/* ── 직접 추가 ── */
+async function archiveAddCard() {
+  const title = document.getElementById('archiveAddTitle').value.trim();
+  const desc = document.getElementById('archiveAddDesc').value.trim();
+  const url = document.getElementById('archiveAddUrl').value.trim();
+  const category = document.getElementById('archiveAddCategory').value;
+  if (!title || !url) { alert('제목과 URL을 입력해 주세요.'); return; }
+  if (!category) { alert('카테고리를 먼저 만들어주세요.'); return; }
+  const btn = document.getElementById('archiveAddBtn');
+  btn.disabled = true;
+  try {
+    const cats = window._archiveCats || [];
+    const published = (window._archiveAllCards || []).filter(c => cats.some(cat => cat.key === c.category));
+    const order = published.length ? Math.max(...published.map(c => c.order || 0)) + 1 : 0;
+    await addDoc(collection(db, 'cards'), { emoji: archiveAddSvg, title, desc, url, category, locked: false, order });
+    archiveAddSvg = '';
+    const prev = document.getElementById('archiveAddIconPreview');
+    if (prev) { prev.innerHTML = ''; prev.classList.add('empty'); }
+    document.getElementById('archiveAddTitle').value = '';
+    document.getElementById('archiveAddDesc').value = '';
+    document.getElementById('archiveAddUrl').value = '';
+    alert('카드가 추가되었습니다.');
+    renderArchiveCards();
+  } catch (e) { alert('추가 실패: ' + e.message); }
+  finally { btn.disabled = false; }
+}
 
 function renderList(sec, items) {
   const container = document.getElementById(`list-${sec}`);

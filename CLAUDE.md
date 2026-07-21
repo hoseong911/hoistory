@@ -13,8 +13,7 @@ Push to `main` → GitHub Pages auto-deploys. No build step. Open any `.html` fi
 ## Architecture
 
 ### Hub structure
-- `index.html` — Student-facing hub homepage; reads cards/categories from Firestore and renders them
-- `admin.html` — Master admin console (password-gated); manages hub cards, student roster, and sidebar menu items
+- `index.html` — Public-facing hub homepage (no login); reads cards/categories from Firestore and renders them. No standalone root admin — managed from `lms/admin.html`'s "아카이브" tab (2026-07-21, root `admin.html` deleted; see "루트 index.html / 아카이브 관리" below).
 
 ### Sub-apps
 Each lives in its own folder with a consistent pattern:
@@ -124,7 +123,7 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 
 ## 파일 구조
 - 학생용: `index.html`
-- 선생님용: `admin.html`
+- 선생님용: `lms/admin.html` (루트 아카이브 관리 포함, 2026-07-21부터 — 루트 자체 `admin.html`은 없음)
 - 도구: `/tools/*.html`
 
 ## 코드 스타일
@@ -140,23 +139,24 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 - s_threads/goryeo_choice/blind_ryeo를 RTDB→Firestore로 이관 + `status` 필드 통일 ← 다음 세션 1순위 (blind_ryeo는 `goryeo_grades` 별도 경로도 문서 필드로 합쳐야 함)
 - (참고) lms/admin.html 대시보드 탭(제출률·통과율·미채점 한눈에 보기)은 각 미션 데이터 스키마가 제각각이라 보류함. 성적확인 탭에서 미션별로 이미 확인 가능하므로 당장 불필요하다고 판단.
 
-## 루트 index.html / admin.html 개편 (2026-07-21 구현 완료)
+## 루트 index.html / 아카이브 관리 (2026-07-21 구현 완료, 최종 형태)
 
-**배경**: 거의 모든 실사용 기능이 LMS로 이전됐다. 루트는 이제 (a) 학생이 LMS로 들어가는 진입점 + 지난 자료 아카이브 열람, (b) 동료 교사들이 둘러보는 링크트리 역할만 하면 된다. 무겁게 관리할 필요 없음 — 학생 관리 같은 기능은 전부 불필요.
+**배경**: 거의 모든 실사용 기능이 LMS로 이전됐다. 루트는 이제 (a) 학생이 LMS로 들어가는 진입점 + 지난 자료 아카이브 열람, (b) 동료 교사들이 둘러보는 링크트리 역할만 하면 된다. 남은 관리 기능(카드 공개/수정/삭제, 카테고리 CRUD)이 너무 작아져서 로그인 화면·상단바·Firebase 초기화를 통째로 갖춘 별도 `admin.html`을 유지할 이유가 없다고 판단 — **루트 `admin.html`은 삭제**하고 `lms/admin.html`에 "아카이브" 탭으로 흡수함(같은 Firebase Auth 계정을 쓰므로 보안상 분리할 이유도 없었음).
 
-**index.html**: 변경 없음(기존 링크트리+아카이브 아코디언 구조 그대로 유지).
+**index.html**: 변경 없음(기존 링크트리+아카이브 아코디언 구조 그대로 유지). 다만 "ADMIN" 버튼 링크를 `admin.html` → `lms/admin.html`로 변경.
 
-**admin.html 개편 내용**:
-- 학생관리 페이지 삭제(RTDB `students`는 lms/admin.html "학생 관리" 탭이 SSOT라 중복이었음, 데이터는 그대로 유지).
-- 대시보드 페이지를 폐지하고 허브 관리를 유일한 페이지로 통합(CARDS/ADD/CATEGORY 3탭만 남음). 사이드바·상단 통계·반별 학생 수 등 대시보드 전용 UI 전부 제거. "LMS 어드민" 바로가기 링크도 제거(2026-07-21 재논의로 없앰 — 아래 "LMS 미션 카드 공개" 항목 참고).
-- 색상 팔레트를 index.html의 핑크 톤(`--primary:#DB2777` 등)에 맞춤. `admin.html` 자체 `<style>`에서 `.hi-preset-admin`의 `--hi-accent`/`--hi-accent-hover`/`--hi-accent-strong`/`--hi-accent-soft`/`--hi-accent-m`만 오버라이드(원래 네이비 `#1E3A8A` → 핑크). bg/border/text 토큰은 두 프리셋이 이미 거의 같은 값이라 손대지 않음. 컴포넌트 구조·레이아웃은 유지("색상만 통일" 요청).
-- 허브 카드 아이콘 피커를 이모지 그리드에서 `shared/icon-picker.js`(SVG 피커, lms/admin.html과 동일 패턴)로 교체. 카드 문서의 아이콘 필드는 계속 `emoji`(기존 이모지 문자열 데이터와 호환, 값이 `<svg`로 시작하면 SVG로 렌더링).
-- 카테고리 기능은 유지, 범위는 추가/삭제만(순서 변경 없음) — 기존 구현이 이미 이 범위였음.
+**`lms/admin.html`의 "아카이브" 탭** (사이드바 `nav-dark`, "각종 콘텐츠"와 "학생 관리" 사이에 위치, 서브메뉴 CARDS/CATEGORY/ADD):
+- **CARDS**: "LMS 미션 카드" 패널(미션 체크에서 공개·잠금해제한 카드 중 아직 아카이브에 안 올라간 것 자동 나열) + 이미 공개된 아카이브 카드 목록(수정/삭제/공개-비공개 토글). 카드 데이터는 `getDocs`로 매번 새로 불러오는 방식(다른 탭처럼 onSnapshot 구독 안 씀 — lms/admin.html 기존 관례를 따름).
+- **CATEGORY**: `settings/categories`(`{list:[{key,en,ko}]}`) CRUD, 최대 4개, 추가/삭제만(순서 변경 없음).
+- **ADD**: LMS를 거치지 않는 외부 자료(링크 등)를 직접 추가하는 보조 기능 — 아이콘(`shared/icon-picker.js`)/카테고리/제목/설명/URL 입력.
+- 관련 함수는 전부 `renderArchive*`/`archive*` 접두어(`lms/admin.html`, `contentsMoveCard` 함수 직후에 위치). 이 파일은 `<script type="module">` 하나로 전체가 돌아가므로, 인라인 `onclick`이 참조하는 새 함수는 반드시 `window.함수명 = 함수명`으로도 노출해야 한다([[feedback_lms_module_window_expose]] 그대로 적용됨).
 
-**LMS 미션 카드 공개 (2026-07-21, "가져오기" 수동 모드를 대체함)**:
+**LMS 미션 카드 → 아카이브 공개 메커니즘** ("가져오기" 수동 모드를 대체함):
 LMS에서 미션 카드를 만들고 공개(잠금 해제)하면, 같은 Firestore `cards` 컬렉션에 `category`가 `settings/lms_config.mission_category` 값으로 저장된다(기존과 동일한 데이터 구조). 이걸 루트 아카이브에 노출할지는 별도 단계로 분리했다:
-- 루트 어드민 CARDS 탭에 "LMS 미션 카드" 패널이 자동으로 뜬다 — `category === mission_category && !locked`인 카드를 실시간으로 나열(수동으로 찾아 들어갈 필요 없음).
+- 아카이브 CARDS 탭에 "LMS 미션 카드" 패널이 자동으로 뜬다 — `category === mission_category && !locked`인 카드를 나열(수동으로 찾아 들어갈 필요 없음).
 - 학생 허브(index.html)에는 이 시점까지 전혀 안 뜬다 — index.html은 `settings/categories`에 등록된 카테고리만 렌더링하는데 `mission_category`는 그 목록에 없기 때문에 자동으로 비공개 상태.
-- 관리자가 "공개" 버튼을 누르면 카테고리 선택 + 설명(desc) 입력 폼이 펼쳐진다. 설명란은 `adminConfig/{appKey}/archive`의 topic/intent가 있으면 자동으로 채워지되(appKey는 `url.split('/')[1]`), 직접 수정 가능. "게시하기"를 누르면 **원본과 무관한 새 `cards` 문서를 addDoc으로 생성**(`sourceMissionId: <원본 docId>` 필드로 출처만 표시)하고 그걸 index.html이 렌더링한다.
+- 관리자가 "아카이브에 공개" 버튼을 누르면 카테고리 선택 + 설명(desc) 입력 폼이 펼쳐진다. 설명란은 `adminConfig/{appKey}/archive`(RTDB)의 topic/intent가 있으면 자동으로 채워지되(appKey는 `url.split('/')[1]`), 직접 수정 가능. "게시하기"를 누르면 **원본과 무관한 새 `cards` 문서를 addDoc으로 생성**(`sourceMissionId: <원본 docId>` 필드로 출처만 표시)하고 그걸 index.html이 렌더링한다.
 - **컬렉션을 나누지 않기로 함**: 문서 단위로 이미 독립된 사본이 생성되므로(다른 docId), LMS 쪽에서 원본 미션 카드를 나중에 삭제해도(수업에서 더 이상 안 씀) 루트에 이미 공개된 사본은 영향받지 않는다. 컬렉션을 분리하면 index.html 쿼리·firestore.rules를 이중으로 관리해야 해서 오히려 복잡도만 늘어난다고 판단(2026-07-21 결정, 사용자 질문에 대한 답변).
 - 이미 사본이 만들어진 미션 카드는 목록에서 "✓ 공개됨" 배지로 표시되고 버튼이 사라짐(같은 카드를 실수로 중복 게시하는 것 방지, `sourceMissionId` 매칭으로 판별).
+
+**카드 아이콘 필드**: 계속 `emoji` 필드 하나로 통일(기존 이모지 문자열 데이터와 호환, 값이 `<svg`로 시작하면 SVG로 렌더링) — root admin이 있던 시절 이모지 그리드 → `shared/icon-picker.js`(SVG 피커)로 이미 교체됐고, 아카이브 탭도 동일 모듈을 그대로 씀.
