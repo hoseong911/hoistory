@@ -90,7 +90,9 @@
     // 원문자(①~㉿) 및 괄호숫자 (1) (2) 등 앞 번호 제거
     str = str.replace(/^[①-⑳㉑-㊿]\s*/, '').replace(/^\(\d+\)\s*/, '');
     const colonIdx = str.indexOf(' : ');
-    if (colonIdx > -1) {
+    // ` : `가 있어도 문자열 자체가 a./b./c. 마커로 시작하면 item-lead로 쓰지 않는다.
+    // (예: "a. {이성계} : {위화도 회군}..."이 별도 아이템으로 저장된 경우)
+    if (colonIdx > -1 && !/^[a-z]\.\s/.test(str)) {
       const leadRaw = str.slice(0, colonIdx);
       let   rest     = str.slice(colonIdx + 3);
       if (isStackedItem(str)) rest = rest.replace(/^<br\s*\/?>/i, '');
