@@ -80,6 +80,8 @@
      제거한다 — 줄바꿈 자체는 rowHTML이 <p>를 세로 배치로 바꿔서 대신 표현하므로,
      여기 남겨두면 위쪽에 빈 줄이 하나 더 끼어드는 이중 간격이 생긴다. */
   function parseItemText(str) {
+    // 원문자(①~㉿) 및 괄호숫자 (1) (2) 등 앞 번호 제거
+    str = str.replace(/^[①-⑳㉑-㊿]\s*/, '').replace(/^\(\d+\)\s*/, '');
     const colonIdx = str.indexOf(' : ');
     if (colonIdx > -1) {
       const leadRaw = str.slice(0, colonIdx);
