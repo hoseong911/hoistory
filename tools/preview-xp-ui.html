@@ -1,0 +1,828 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>경험치 시스템 UI 프리뷰</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --canvas: #FAFAF9; --surface: #F4F3EE;
+  --hairline: #E5E4DF; --hairline-soft: #ECEAE4;
+  --ink: #0A1317; --charcoal: #4A5568; --slate: #6B7280;
+  --primary: #1E3A8A; --primary-soft: rgba(30,58,138,0.08);
+  --c2: #059669; --c2-l: rgba(5,150,105,0.07);
+  --c5: #E11D48; --c5-l: rgba(225,29,72,0.07);
+  --amber: #F59E0B; --amber-l: rgba(245,158,11,0.10); --amber-d: #D97706;
+  --shadow: 0 1px 4px rgba(20,22,26,0.12);
+  --shadow-md: 0 4px 16px rgba(20,22,26,0.10);
+}
+body {
+  font-family: 'Pretendard', sans-serif;
+  background: #e8e8e6;
+  padding: 48px 32px 80px;
+  color: var(--ink);
+  font-weight: 400;
+}
+h1 { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+.page-desc { font-size: 13px; color: #888; font-weight: 400; margin-bottom: 44px; border-left: 3px solid var(--primary); padding-left: 10px; line-height: 1.7; }
+
+.sec-label {
+  font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: .08em;
+  margin: 0 0 14px; display: flex; align-items: center; gap: 10px;
+}
+.sec-label::after { content: ''; flex: 1; height: 1px; background: #d0d0d0; }
+.section { margin-bottom: 52px; }
+
+.glass {
+  background: rgba(255,255,255,0.78);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255,255,255,0.95);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+}
+
+/* ═══════════════════════════
+   학생 경험치 위젯
+═══════════════════════════ */
+.widget-demo { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+
+.xp-widget {
+  padding: 16px 22px;
+  display: flex; align-items: center; gap: 16px;
+  min-width: 440px; max-width: 600px; flex: 1;
+}
+.xw-identity { flex-shrink: 0; }
+.xw-name { font-size: 15px; font-weight: 700; color: var(--ink); }
+.xw-lv {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11px; font-weight: 600; color: var(--amber-d);
+  background: var(--amber-l); border: 1px solid rgba(245,158,11,.2);
+  border-radius: 99px; padding: 2px 8px; margin-top: 4px;
+}
+.xw-lv-num { font-size: 13px; font-weight: 800; }
+
+.xw-div { width: 1px; height: 32px; background: var(--hairline); flex-shrink: 0; }
+
+.xw-bar-area { flex: 1; min-width: 0; }
+.xw-bar-top {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 11px; color: var(--slate); font-weight: 400; margin-bottom: 6px;
+}
+.xw-bar-top .pts { font-size: 14px; font-weight: 800; color: var(--ink); }
+.xw-track {
+  height: 8px; border-radius: 99px; background: rgba(30,41,59,0.08); overflow: visible; position: relative;
+}
+.xw-fill {
+  height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, #FBBF24, #F59E0B, #D97706);
+  box-shadow: 0 0 8px rgba(245,158,11,.35);
+  position: relative; transition: width .5s cubic-bezier(.4,0,.2,1);
+}
+.xw-fill::after {
+  content: ''; position: absolute; right: -1px; top: 50%; transform: translateY(-50%);
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #F59E0B; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(245,158,11,.5);
+}
+.xw-next { font-size: 10px; font-weight: 400; color: #94a3b8; text-align: right; margin-top: 4px; }
+
+.xw-levelup-state .xw-lv { background: rgba(245,158,11,.2); border-color: rgba(245,158,11,.4); animation: pulse 1.5s ease infinite; }
+@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+
+.widget-state-label { font-size: 11px; font-weight: 400; color: #94a3b8; margin-bottom: 6px; }
+
+/* 레벨업 모달 */
+.modal-demo { padding: 36px 32px; text-align: center; width: 300px; }
+.modal-sparkles { font-size: 22px; margin-bottom: 10px; }
+.modal-label-sm { font-size: 11px; font-weight: 700; color: var(--amber-d); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 4px; }
+.modal-lv-big { font-size: 60px; font-weight: 900; color: var(--ink); line-height: 1; }
+.modal-sub { font-size: 13px; font-weight: 400; color: var(--slate); margin: 6px 0 20px; }
+.modal-confirm {
+  width: 100%; padding: 11px; border-radius: 10px; border: none;
+  background: linear-gradient(135deg, var(--primary), #2D4CC8);
+  color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+}
+
+.float-demo {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--amber); color: #fff;
+  font-size: 13px; font-weight: 700; padding: 5px 12px; border-radius: 99px;
+  box-shadow: 0 2px 8px rgba(245,158,11,.4);
+}
+.float-demo span { font-weight: 400; }
+
+/* ═══════════════════════════
+   어드민 패널
+═══════════════════════════ */
+.admin-frame {
+  background: var(--canvas);
+  border-radius: 16px;
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.admin-tabs {
+  display: flex; border-bottom: 1px solid var(--hairline-soft);
+  background: var(--canvas); padding: 0 20px;
+}
+.admin-tab {
+  padding: 12px 16px; font-size: 13px; font-weight: 400; color: var(--slate);
+  border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap;
+  transition: color .15s;
+}
+.admin-tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+.admin-body { padding: 24px; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* 경험치 현황 */
+.xp-table { width: 100%; border-collapse: collapse; }
+.xp-table th {
+  padding: 8px 12px; text-align: left;
+  font-size: 11px; font-weight: 600; color: var(--slate);
+  text-transform: uppercase; letter-spacing: .04em;
+  border-bottom: 1px solid var(--hairline);
+}
+.xp-table td { padding: 10px 12px; font-size: 13px; font-weight: 400; border-bottom: 1px solid var(--hairline-soft); vertical-align: middle; }
+.xp-table tr:last-child td { border-bottom: none; }
+.xp-table tr:hover td { background: var(--surface); }
+.student-name { font-weight: 600; color: var(--ink); }
+.lv-chip {
+  display: inline-flex; align-items: center;
+  background: var(--amber-l); color: var(--amber-d);
+  border: 1px solid rgba(245,158,11,.2);
+  border-radius: 99px; padding: 2px 8px;
+  font-size: 11px; font-weight: 700;
+}
+.mini-bar-wrap { display: flex; align-items: center; gap: 8px; }
+.mini-bar { width: 80px; height: 5px; border-radius: 99px; background: var(--hairline); overflow: hidden; }
+.mini-bar-fill { height: 100%; border-radius: 99px; background: linear-gradient(90deg, #FBBF24, #D97706); }
+.pts-text { font-size: 12px; font-weight: 600; color: var(--ink); white-space: nowrap; }
+.recent-act { font-size: 11px; font-weight: 400; color: var(--slate); }
+.detail-btn {
+  padding: 4px 10px; border-radius: 6px; border: 1px solid var(--hairline);
+  background: none; font-size: 11px; font-weight: 400; color: var(--charcoal); cursor: pointer; font-family: inherit;
+}
+.detail-btn:hover { background: var(--surface); }
+
+/* 생각체크 채점 */
+.grade-list { display: flex; flex-direction: column; gap: 12px; }
+.grade-item { border: 1px solid var(--hairline-soft); border-radius: 12px; overflow: hidden; }
+.grade-item-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: var(--surface); font-size: 12px;
+}
+.grade-q { font-weight: 600; color: var(--primary); flex: 1; }
+.grade-student { font-weight: 400; color: var(--slate); }
+.grade-item-body { padding: 12px 14px; font-size: 13px; font-weight: 400; color: var(--ink); line-height: 1.6; background: var(--canvas); }
+.grade-item-foot {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px; background: var(--surface); border-top: 1px solid var(--hairline-soft);
+}
+.ai-result { flex: 1; display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 400; color: var(--slate); }
+.ai-score { font-size: 16px; font-weight: 800; color: var(--primary); background: var(--primary-soft); padding: 2px 10px; border-radius: 8px; }
+.ai-reason { font-size: 11px; font-weight: 400; color: var(--slate); flex: 1; }
+.grade-btns { display: flex; gap: 6px; }
+.btn-ai { padding: 6px 12px; border-radius: 8px; border: none; background: var(--primary); color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.btn-save { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--c2); background: none; color: var(--c2); font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.btn-reject { padding: 6px 12px; border-radius: 8px; border: 1px solid var(--hairline); background: none; color: var(--slate); font-size: 12px; font-weight: 400; cursor: pointer; font-family: inherit; }
+.pending-badge {
+  display: inline-block; background: var(--c5-l); color: var(--c5);
+  border: 1px solid rgba(225,29,72,.15); border-radius: 99px;
+  padding: 1px 7px; font-size: 10px; font-weight: 600;
+}
+.done-badge {
+  display: inline-block; background: var(--c2-l); color: var(--c2);
+  border: 1px solid rgba(5,150,105,.15); border-radius: 99px;
+  padding: 1px 7px; font-size: 10px; font-weight: 600;
+}
+
+/* 설정 탭 내 섹션 구분 */
+.settings-section-title {
+  font-size: 12px; font-weight: 600; color: var(--charcoal);
+  margin: 20px 0 10px; padding-bottom: 6px;
+  border-bottom: 1px solid var(--hairline-soft);
+  display: flex; align-items: center; gap: 8px;
+}
+.settings-section-title:first-child { margin-top: 0; }
+.settings-section-title span { font-weight: 400; font-size: 11px; color: var(--slate); }
+
+/* 경험치 설정 */
+.settings-grid { display: flex; flex-direction: column; gap: 6px; }
+.setting-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px; background: var(--surface); border-radius: 10px;
+  border: 1px solid var(--hairline-soft);
+}
+.setting-act { font-size: 13px; font-weight: 400; color: var(--ink); flex: 1; }
+.setting-limit { font-size: 11px; font-weight: 400; color: var(--slate); flex-shrink: 0; min-width: 80px; }
+.setting-unit { font-size: 12px; font-weight: 400; color: var(--slate); }
+.setting-input {
+  width: 60px; padding: 5px 8px;
+  border: 1px solid var(--hairline); border-radius: 6px;
+  font-size: 13px; font-weight: 600; text-align: center;
+  color: var(--ink); background: var(--canvas); font-family: inherit;
+}
+.setting-input:focus { outline: none; border-color: var(--primary); }
+.toggle-wrap { position: relative; width: 34px; height: 18px; flex-shrink: 0; }
+.toggle-wrap input { opacity: 0; width: 0; height: 0; }
+.toggle-track { position: absolute; inset: 0; background: var(--hairline); border-radius: 99px; transition: background .2s; cursor: pointer; }
+.toggle-wrap input:checked + .toggle-track { background: var(--primary); }
+.toggle-thumb { position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .2s; pointer-events: none; }
+.toggle-wrap input:checked ~ .toggle-thumb { transform: translateX(16px); }
+
+/* 레벨 구간 설정 */
+.level-table { width: 100%; border-collapse: collapse; }
+.level-table th {
+  padding: 7px 10px; text-align: left;
+  font-size: 11px; font-weight: 600; color: var(--slate);
+  text-transform: uppercase; letter-spacing: .04em;
+  border-bottom: 1px solid var(--hairline);
+}
+.level-table td {
+  padding: 7px 10px; font-size: 13px; font-weight: 400;
+  border-bottom: 1px solid var(--hairline-soft); vertical-align: middle;
+}
+.level-table tr:last-child td { border-bottom: none; }
+.lv-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 20px; border-radius: 6px;
+  background: var(--primary-soft); color: var(--primary);
+  font-size: 11px; font-weight: 700;
+}
+.lv-input {
+  width: 70px; padding: 4px 8px;
+  border: 1px solid var(--hairline); border-radius: 6px;
+  font-size: 13px; font-weight: 600; text-align: center;
+  color: var(--ink); background: var(--canvas); font-family: inherit;
+}
+.lv-input:focus { outline: none; border-color: var(--primary); }
+.lv-gap { font-size: 11px; font-weight: 400; color: var(--slate); }
+.lv-del-btn {
+  padding: 3px 8px; border-radius: 5px; border: 1px solid var(--hairline);
+  background: none; font-size: 11px; font-weight: 400; color: var(--slate); cursor: pointer; font-family: inherit;
+}
+.lv-del-btn:hover { border-color: var(--c5); color: var(--c5); }
+.lv-formula-row {
+  margin-top: 10px; padding: 12px 14px;
+  background: rgba(30,58,138,0.04); border: 1px dashed rgba(30,58,138,.2);
+  border-radius: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.lv-formula-label { font-size: 12px; font-weight: 400; color: var(--charcoal); flex: 1; min-width: 200px; }
+.lv-formula-label strong { font-weight: 600; color: var(--primary); }
+.lv-formula-input {
+  width: 60px; padding: 5px 8px;
+  border: 1px solid rgba(30,58,138,.2); border-radius: 6px;
+  font-size: 13px; font-weight: 600; text-align: center;
+  color: var(--primary); background: var(--canvas); font-family: inherit;
+}
+
+.add-act-btn {
+  margin-top: 8px; width: 100%; padding: 9px;
+  border: 1px dashed var(--hairline); border-radius: 10px;
+  background: none; font-size: 12px; font-weight: 400; color: var(--slate);
+  cursor: pointer; font-family: inherit; transition: all .12s;
+}
+.add-act-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+.settings-save {
+  margin-top: 14px; width: 100%; padding: 10px; border-radius: 10px; border: none;
+  background: var(--primary); color: #fff; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+}
+
+/* 수동 지급 */
+.manual-form { display: flex; flex-direction: column; gap: 14px; }
+.form-row { display: flex; flex-direction: column; gap: 6px; }
+.form-label { font-size: 11px; font-weight: 600; color: var(--slate); text-transform: uppercase; letter-spacing: .05em; }
+.form-select, .form-input {
+  padding: 9px 12px; border: 1px solid var(--hairline); border-radius: 8px;
+  font-size: 13px; font-weight: 400; color: var(--ink); background: var(--canvas); font-family: inherit;
+}
+.form-select:focus, .form-input:focus { outline: none; border-color: var(--primary); }
+.form-row-h { display: flex; gap: 10px; }
+.form-row-h .form-row { flex: 1; }
+.pt-input-wrap { display: flex; align-items: center; gap: 8px; }
+.pt-input-wrap .form-input { width: 80px; }
+.pt-sign { display: flex; gap: 4px; }
+.pt-btn {
+  padding: 6px 12px; border-radius: 6px; border: 1px solid var(--hairline);
+  font-size: 12px; font-weight: 400; cursor: pointer; font-family: inherit; background: var(--canvas);
+}
+.pt-btn.plus { color: var(--c2); border-color: rgba(5,150,105,.3); }
+.pt-btn.minus { color: var(--c5); border-color: rgba(225,29,72,.3); }
+.pt-btn.active.plus { background: var(--c2); color: #fff; font-weight: 600; }
+.pt-btn.active.minus { background: var(--c5); color: #fff; font-weight: 600; }
+.manual-submit {
+  padding: 11px; border-radius: 10px; border: none;
+  background: var(--primary); color: #fff; font-size: 13px; font-weight: 600;
+  cursor: pointer; font-family: inherit;
+}
+.manual-log { margin-top: 16px; }
+.log-title { font-size: 11px; font-weight: 600; color: var(--slate); margin-bottom: 8px; text-transform: uppercase; letter-spacing: .05em; }
+.log-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 0; border-bottom: 1px solid var(--hairline-soft); font-size: 12px;
+}
+.log-item:last-child { border-bottom: none; }
+.log-student { font-weight: 600; color: var(--ink); min-width: 60px; }
+.log-pt { font-weight: 700; min-width: 52px; }
+.log-pt.plus { color: var(--c2); }
+.log-pt.minus { color: var(--c5); }
+.log-reason { font-weight: 400; color: var(--slate); flex: 1; }
+.log-time { font-weight: 400; color: #94a3b8; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h1>경험치 시스템 UI 프리뷰</h1>
+<div class="page-desc">
+  학생 화면 위젯 + 어드민 패널 (경험치 현황 / 생각체크 채점 / 설정 / 수동 지급)<br>
+  레벨 상한 없음 — 경험치가 쌓이는 만큼 계속 레벨업
+</div>
+
+<!-- ══════════════════════════════════
+     1. 학생 화면 위젯
+══════════════════════════════════ -->
+<div class="section">
+  <div class="sec-label">학생 화면 — 대시보드 위젯</div>
+  <div class="widget-demo">
+
+    <!-- 일반 상태 -->
+    <div>
+      <div class="widget-state-label">일반 상태</div>
+      <div class="xp-widget glass">
+        <div class="xw-identity">
+          <div class="xw-name">김호성</div>
+          <div class="xw-lv">Lv.<span class="xw-lv-num">4</span></div>
+        </div>
+        <div class="xw-div"></div>
+        <div class="xw-bar-area">
+          <div class="xw-bar-top">
+            <span>경험치</span>
+            <span><span class="pts">580</span> / 700 pt</span>
+          </div>
+          <div class="xw-track"><div class="xw-fill" style="width:83%"></div></div>
+          <div class="xw-next">다음 레벨까지 120 pt</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 레벨업 직후 -->
+    <div>
+      <div class="widget-state-label">레벨업 직후</div>
+      <div class="xp-widget glass xw-levelup-state">
+        <div class="xw-identity">
+          <div class="xw-name">김호성</div>
+          <div class="xw-lv">🎉 Lv.<span class="xw-lv-num">5</span> UP!</div>
+        </div>
+        <div class="xw-div"></div>
+        <div class="xw-bar-area">
+          <div class="xw-bar-top">
+            <span>경험치</span>
+            <span><span class="pts">700</span> / 1000 pt</span>
+          </div>
+          <div class="xw-track"><div class="xw-fill" style="width:0%"></div></div>
+          <div class="xw-next">다음 레벨까지 300 pt</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 고레벨 (계속 레벨업 중) -->
+    <div>
+      <div class="widget-state-label">고레벨 (레벨 제한 없음)</div>
+      <div class="xp-widget glass">
+        <div class="xw-identity">
+          <div class="xw-name">박지수</div>
+          <div class="xw-lv">Lv.<span class="xw-lv-num">23</span></div>
+        </div>
+        <div class="xw-div"></div>
+        <div class="xw-bar-area">
+          <div class="xw-bar-top">
+            <span>경험치</span>
+            <span><span class="pts">5240</span> / 5600 pt</span>
+          </div>
+          <div class="xw-track"><div class="xw-fill" style="width:64%"></div></div>
+          <div class="xw-next">다음 레벨까지 360 pt</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 레벨업 모달 + 플로팅 -->
+  <div style="display:flex; gap:20px; margin-top:20px; align-items:flex-start; flex-wrap:wrap;">
+    <div>
+      <div class="widget-state-label">레벨업 모달</div>
+      <div class="modal-demo glass">
+        <div class="modal-sparkles">✦ ★ ✦</div>
+        <div class="modal-label-sm">Level Up!</div>
+        <div class="modal-lv-big">5</div>
+        <div class="modal-sub">경험치가 쌓여 레벨이 올랐어요!</div>
+        <button class="modal-confirm">계속하기</button>
+      </div>
+    </div>
+    <div>
+      <div class="widget-state-label">경험치 획득 효과</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+        <div class="float-demo">+20 pt <span>역사 열공 마일리지</span></div>
+        <div class="float-demo">+5 pt <span>출석체크</span></div>
+        <div class="float-demo">+25 pt <span>생각체크 AI 채점</span></div>
+        <div class="float-demo">+10 pt <span>연속 출석 5일 보너스</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     2. 어드민 패널
+══════════════════════════════════ -->
+<div class="section">
+  <div class="sec-label">어드민 — 경험치 관리</div>
+  <div class="admin-frame">
+    <div class="admin-tabs">
+      <div class="admin-tab active" onclick="switchTab('status',this)">경험치 현황</div>
+      <div class="admin-tab" onclick="switchTab('grade',this)">생각체크 채점</div>
+      <div class="admin-tab" onclick="switchTab('settings',this)">설정</div>
+      <div class="admin-tab" onclick="switchTab('manual',this)">수동 지급</div>
+    </div>
+
+    <div class="admin-body">
+
+      <!-- ① 경험치 현황 -->
+      <div class="tab-content active" id="tab-status">
+        <table class="xp-table">
+          <thead>
+            <tr>
+              <th>학생</th>
+              <th>레벨</th>
+              <th>경험치</th>
+              <th>최근 활동</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="student-name">김호성</span></td>
+              <td><span class="lv-chip">Lv.4</span></td>
+              <td>
+                <div class="mini-bar-wrap">
+                  <div class="mini-bar"><div class="mini-bar-fill" style="width:83%"></div></div>
+                  <span class="pts-text">580 pt</span>
+                </div>
+              </td>
+              <td><span class="recent-act">생각체크 +25pt · 2시간 전</span></td>
+              <td><button class="detail-btn">상세</button></td>
+            </tr>
+            <tr>
+              <td><span class="student-name">이지수</span></td>
+              <td><span class="lv-chip">Lv.6</span></td>
+              <td>
+                <div class="mini-bar-wrap">
+                  <div class="mini-bar"><div class="mini-bar-fill" style="width:55%"></div></div>
+                  <span class="pts-text">1190 pt</span>
+                </div>
+              </td>
+              <td><span class="recent-act">마일리지 +20pt · 어제</span></td>
+              <td><button class="detail-btn">상세</button></td>
+            </tr>
+            <tr>
+              <td><span class="student-name">박지수</span></td>
+              <td><span class="lv-chip">Lv.23</span></td>
+              <td>
+                <div class="mini-bar-wrap">
+                  <div class="mini-bar"><div class="mini-bar-fill" style="width:64%"></div></div>
+                  <span class="pts-text">5240 pt</span>
+                </div>
+              </td>
+              <td><span class="recent-act">출석 +5pt · 오늘</span></td>
+              <td><button class="detail-btn">상세</button></td>
+            </tr>
+            <tr>
+              <td><span class="student-name">최민준</span></td>
+              <td><span class="lv-chip">Lv.2</span></td>
+              <td>
+                <div class="mini-bar-wrap">
+                  <div class="mini-bar"><div class="mini-bar-fill" style="width:30%"></div></div>
+                  <span class="pts-text">145 pt</span>
+                </div>
+              </td>
+              <td><span class="recent-act">OX퀴즈 +8pt · 3일 전</span></td>
+              <td><button class="detail-btn">상세</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- ② 생각체크 채점 -->
+      <div class="tab-content" id="tab-grade">
+        <div class="grade-list">
+
+          <div class="grade-item">
+            <div class="grade-item-head">
+              <span class="grade-q">고려 태조 왕건의 정책 중 가장 효과적이었던 것은?</span>
+              <span class="grade-student">김호성</span>
+              <span class="pending-badge">미채점</span>
+            </div>
+            <div class="grade-item-body">
+              고려 태조 왕건의 정책 중 가장 효과적이었던 것은 호족 포섭 정책이라고 생각합니다.
+              왕건은 혼인 정책을 통해 각 지역 호족들과 결혼 관계를 맺음으로써 그들의 지지를 얻었고,
+              이를 통해 후삼국 통일을 이룰 수 있었습니다.
+            </div>
+            <div class="grade-item-foot">
+              <div class="ai-result">
+                <span style="font-size:11px;color:#94a3b8;">AI 채점 전</span>
+              </div>
+              <div class="grade-btns">
+                <button class="btn-ai">AI 채점</button>
+                <button class="btn-reject">미흡 처리 (0pt)</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grade-item">
+            <div class="grade-item-head">
+              <span class="grade-q">고려 태조 왕건의 정책 중 가장 효과적이었던 것은?</span>
+              <span class="grade-student">이지수</span>
+              <span class="done-badge">채점 완료</span>
+            </div>
+            <div class="grade-item-body">
+              저는 훈요십조가 가장 효과적인 정책이었다고 생각합니다. 후대 왕들이 지켜야 할
+              통치 원칙을 제시함으로써 고려 왕조의 통치 기반을 마련했고, 불교 장려와
+              풍수지리 사상을 통해 왕실의 권위를 높일 수 있었기 때문입니다.
+            </div>
+            <div class="grade-item-foot">
+              <div class="ai-result">
+                <span class="ai-score">24 pt</span>
+                <span class="ai-reason">역사적 사실 정확, 근거 있는 의견 서술. 논리적 흐름 양호. 분량 다소 아쉬움.</span>
+              </div>
+              <div class="grade-btns">
+                <button class="btn-save">저장 완료 ✓</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grade-item" style="opacity:.6">
+            <div class="grade-item-head">
+              <span class="grade-q">고려 태조 왕건의 정책 중 가장 효과적이었던 것은?</span>
+              <span class="grade-student">최민준</span>
+              <span class="pending-badge" style="background:rgba(245,158,11,.1);color:#92400e;border-color:rgba(245,158,11,.3)">0pt 미흡</span>
+            </div>
+            <div class="grade-item-body" style="color:#94a3b8">왕건이 좋은 왕이었습니다.</div>
+            <div class="grade-item-foot">
+              <div class="ai-result">
+                <span class="ai-score" style="background:rgba(245,158,11,.1);color:#92400e;">0 pt</span>
+                <span class="ai-reason">분량 미달 (17자). 역사적 내용 부재, 의견 서술 없음.</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ③ 설정 -->
+      <div class="tab-content" id="tab-settings">
+
+        <!-- 활동별 경험치 -->
+        <div class="settings-section-title">활동별 경험치 <span>활동마다 획득 pt와 활성화 여부를 설정합니다</span></div>
+        <div class="settings-grid">
+          <div class="setting-row">
+            <span class="setting-act">출석체크</span>
+            <span class="setting-limit">1일 1회</span>
+            <input class="setting-input" type="number" value="5">
+            <span class="setting-unit">pt</span>
+            <label class="toggle-wrap"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          </div>
+          <div class="setting-row">
+            <span class="setting-act">역사 열공 마일리지</span>
+            <span class="setting-limit">1일 1회</span>
+            <input class="setting-input" type="number" value="20">
+            <span class="setting-unit">pt</span>
+            <label class="toggle-wrap"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          </div>
+          <div class="setting-row">
+            <span class="setting-act">개념체크 완독</span>
+            <span class="setting-limit">차시당 1회</span>
+            <input class="setting-input" type="number" value="20">
+            <span class="setting-unit">pt</span>
+            <label class="toggle-wrap"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          </div>
+          <div class="setting-row">
+            <span class="setting-act">OX퀴즈 정답</span>
+            <span class="setting-limit">1일 최대 20pt</span>
+            <input class="setting-input" type="number" value="1">
+            <span class="setting-unit">pt/개</span>
+            <label class="toggle-wrap"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          </div>
+          <div class="setting-row">
+            <span class="setting-act">생각체크 AI 채점</span>
+            <span class="setting-limit">질문당 1회</span>
+            <span style="font-size:12px;font-weight:400;color:var(--slate);">10 ~ 30 pt (미흡 0)</span>
+            <label class="toggle-wrap"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          </div>
+          <div class="setting-row">
+            <span class="setting-act">연속 출석 5일 보너스</span>
+            <span class="setting-limit">자동</span>
+            <input class="setting-input" type="number" value="10">
+            <span class="setting-unit">pt</span>
+            <label class="toggle-wrap"><input type="checkbox" checked><div class="toggle-track"></div><div class="toggle-thumb"></div></label>
+          </div>
+        </div>
+        <button class="add-act-btn">+ 활동 추가</button>
+
+        <!-- 레벨 구간 설정 -->
+        <div class="settings-section-title">레벨 구간 설정 <span>각 레벨에 필요한 누적 경험치를 설정합니다</span></div>
+        <table class="level-table">
+          <thead>
+            <tr>
+              <th>레벨</th>
+              <th>필요 누적 경험치</th>
+              <th>이전 대비 증가</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="level-rows">
+            <tr><td><span class="lv-badge">Lv.1</span></td><td><input class="lv-input" type="number" value="0" disabled style="color:#94a3b8"></td><td><span class="lv-gap">시작</span></td><td></td></tr>
+            <tr><td><span class="lv-badge">Lv.2</span></td><td><input class="lv-input" type="number" value="100"></td><td><span class="lv-gap">+100</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.3</span></td><td><input class="lv-input" type="number" value="225"></td><td><span class="lv-gap">+125</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.4</span></td><td><input class="lv-input" type="number" value="375"></td><td><span class="lv-gap">+150</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.5</span></td><td><input class="lv-input" type="number" value="550"></td><td><span class="lv-gap">+175</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.6</span></td><td><input class="lv-input" type="number" value="750"></td><td><span class="lv-gap">+200</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.7</span></td><td><input class="lv-input" type="number" value="975"></td><td><span class="lv-gap">+225</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.8</span></td><td><input class="lv-input" type="number" value="1225"></td><td><span class="lv-gap">+250</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.9</span></td><td><input class="lv-input" type="number" value="1500"></td><td><span class="lv-gap">+275</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.10</span></td><td><input class="lv-input" type="number" value="1800"></td><td><span class="lv-gap">+300</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.11</span></td><td><input class="lv-input" type="number" value="2125"></td><td><span class="lv-gap">+325</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.12</span></td><td><input class="lv-input" type="number" value="2475"></td><td><span class="lv-gap">+350</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.13</span></td><td><input class="lv-input" type="number" value="2850"></td><td><span class="lv-gap">+375</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.14</span></td><td><input class="lv-input" type="number" value="3250"></td><td><span class="lv-gap">+400</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.15</span></td><td><input class="lv-input" type="number" value="3675"></td><td><span class="lv-gap">+425</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.16</span></td><td><input class="lv-input" type="number" value="4125"></td><td><span class="lv-gap">+450</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.17</span></td><td><input class="lv-input" type="number" value="4600"></td><td><span class="lv-gap">+475</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.18</span></td><td><input class="lv-input" type="number" value="5100"></td><td><span class="lv-gap">+500</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.19</span></td><td><input class="lv-input" type="number" value="5625"></td><td><span class="lv-gap">+525</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+            <tr><td><span class="lv-badge">Lv.20</span></td><td><input class="lv-input" type="number" value="6175"></td><td><span class="lv-gap">+550</span></td><td><button class="lv-del-btn">삭제</button></td></tr>
+          </tbody>
+        </table>
+
+        <!-- 이후 레벨 자동 계산 -->
+        <div class="lv-formula-row">
+          <div class="lv-formula-label">
+            <strong>Lv.21 이후</strong> — 매 레벨마다
+            <input class="lv-formula-input" type="number" value="25" id="formula-inc"> pt씩 추가로 더 필요
+            <span style="color:#94a3b8;font-size:11px;margin-left:4px;">(Lv.21 → +575, Lv.22 → +600 …)</span>
+          </div>
+        </div>
+        <button class="add-act-btn" onclick="addLevel()" style="margin-top:10px">+ 레벨 직접 추가</button>
+
+        <button class="settings-save">저장</button>
+      </div>
+
+      <!-- ④ 수동 지급 -->
+      <div class="tab-content" id="tab-manual">
+        <div class="manual-form">
+          <div class="form-row-h">
+            <div class="form-row">
+              <div class="form-label">학생 선택</div>
+              <select class="form-select">
+                <option>김호성</option>
+                <option>이지수</option>
+                <option>박지수</option>
+                <option>최민준</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-label">경험치</div>
+              <div class="pt-input-wrap">
+                <div class="pt-sign">
+                  <button class="pt-btn plus active">+ 지급</button>
+                  <button class="pt-btn minus">− 차감</button>
+                </div>
+                <input class="form-input" type="number" value="10" style="width:70px"> pt
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-label">사유</div>
+            <input class="form-input" type="text" placeholder="예: 수행평가 우수, 특별 참여 등">
+          </div>
+          <button class="manual-submit">경험치 지급</button>
+        </div>
+
+        <div class="manual-log">
+          <div class="log-title">최근 수동 지급 내역</div>
+          <div class="log-item">
+            <span class="log-student">김호성</span>
+            <span class="log-pt plus">+15 pt</span>
+            <span class="log-reason">수행평가 발표 우수</span>
+            <span class="log-time">오늘 14:30</span>
+          </div>
+          <div class="log-item">
+            <span class="log-student">최민준</span>
+            <span class="log-pt minus">−5 pt</span>
+            <span class="log-reason">오입력 수정</span>
+            <span class="log-time">어제 10:12</span>
+          </div>
+          <div class="log-item">
+            <span class="log-student">이지수</span>
+            <span class="log-pt plus">+20 pt</span>
+            <span class="log-reason">역사 탐구 보고서 제출</span>
+            <span class="log-time">3일 전</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(id, el) {
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+}
+
+document.querySelectorAll('.pt-sign').forEach(wrap => {
+  wrap.querySelectorAll('.pt-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      wrap.querySelectorAll('.pt-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+});
+
+// 레벨 삭제
+document.querySelectorAll('.lv-del-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    btn.closest('tr').remove();
+    reindexLevels();
+    updateGaps();
+  });
+});
+
+// 레벨 추가
+function addLevel() {
+  const tbody = document.getElementById('level-rows');
+  const rows = tbody.querySelectorAll('tr');
+  const nextLv = rows.length + 1;
+  const lastInput = rows[rows.length - 1].querySelector('.lv-input');
+  const lastVal = lastInput ? parseInt(lastInput.value) || 0 : 0;
+  const inc = parseInt(document.getElementById('formula-inc').value) || 50;
+  const newVal = lastVal + 300 + (nextLv * 50);
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><span class="lv-badge">Lv.${nextLv}</span></td>
+    <td><input class="lv-input" type="number" value="${newVal}"></td>
+    <td><span class="lv-gap">+${newVal - lastVal}</span></td>
+    <td><button class="lv-del-btn">삭제</button></td>
+  `;
+  tr.querySelector('.lv-del-btn').addEventListener('click', () => { tr.remove(); reindexLevels(); updateGaps(); });
+  tr.querySelector('.lv-input').addEventListener('input', updateGaps);
+  tbody.appendChild(tr);
+  updateGaps();
+}
+
+function reindexLevels() {
+  document.querySelectorAll('#level-rows tr').forEach((tr, i) => {
+    const badge = tr.querySelector('.lv-badge');
+    if (badge) badge.textContent = `Lv.${i + 1}`;
+  });
+}
+
+function updateGaps() {
+  const rows = document.querySelectorAll('#level-rows tr');
+  let prev = 0;
+  rows.forEach((tr, i) => {
+    const input = tr.querySelector('.lv-input');
+    const gap = tr.querySelector('.lv-gap');
+    if (!input || !gap) return;
+    const val = parseInt(input.value) || 0;
+    if (i === 0) { gap.textContent = '시작'; }
+    else { gap.textContent = `+${val - prev}`; }
+    prev = val;
+  });
+}
+
+document.querySelectorAll('.lv-input').forEach(inp => {
+  inp.addEventListener('input', updateGaps);
+});
+
+// 이후 레벨 formula 실시간 미리보기
+document.getElementById('formula-inc').addEventListener('input', function() {
+  const inc = parseInt(this.value) || 0;
+  const rows = document.querySelectorAll('#level-rows tr');
+  const lastRow = rows[rows.length - 1];
+  if (!lastRow) return;
+  const lastLv = rows.length;
+  const lastVal = parseInt(lastRow.querySelector('.lv-input')?.value) || 0;
+  const lastGapEl = lastRow.querySelector('.lv-gap');
+  const lastGap = lastGapEl ? parseInt(lastGapEl.textContent.replace('+','')) || 300 : 300;
+  const next1 = lastGap + inc;
+  const next2 = next1 + inc;
+  document.querySelector('.lv-formula-row span').textContent =
+    `(Lv.${lastLv + 1} → +${next1}, Lv.${lastLv + 2} → +${next2} …)`;
+});
+</script>
+</body>
+</html>

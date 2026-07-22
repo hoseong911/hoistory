@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>레벨 위젯 UI 프리뷰 — PC / 모바일</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Pretendard', sans-serif;
+  background: #e4e4e3;
+  padding: 40px 32px 80px;
+  color: #1e293b;
+}
+h1 { font-size: 20px; font-weight: 800; margin-bottom: 6px; }
+.page-desc { font-size: 13px; color: #666; margin-bottom: 40px; border-left: 3px solid #1e293b; padding-left: 10px; line-height: 1.7; }
+
+.preview-row {
+  display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap;
+}
+.preview-col { display: flex; flex-direction: column; gap: 12px; }
+.preview-label {
+  font-size: 11px; font-weight: 700; color: #888;
+  text-transform: uppercase; letter-spacing: .08em;
+  display: flex; align-items: center; gap: 8px;
+}
+.preview-label::after { content: ''; flex: 1; height: 1px; background: #ccc; max-width: 60px; }
+
+/* ──────────────────────────────────────
+   PC 프레임 (1200px → 스케일다운)
+────────────────────────────────────── */
+.pc-frame-wrap {
+  width: 860px;
+  transform-origin: top left;
+}
+.pc-frame {
+  width: 1200px;
+  transform: scale(0.716);
+  transform-origin: top left;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,.18);
+  background: #F4F3EE;
+  border: 1px solid #ddd;
+  font-family: 'Pretendard', sans-serif;
+  /* 높이는 콘텐츠에 맞게 자동 */
+}
+
+/* ──────────────────────────────────────
+   모바일 프레임 (375px)
+────────────────────────────────────── */
+.mobile-frame-wrap { width: 295px; }
+.mobile-outer {
+  width: 295px;
+  background: #111;
+  border-radius: 40px;
+  padding: 12px 8px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.25);
+}
+.mobile-notch {
+  width: 90px; height: 22px;
+  background: #111; border-radius: 0 0 14px 14px;
+  margin: 0 auto 8px;
+  position: relative; z-index: 10;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.mobile-notch .cam { width: 8px; height: 8px; border-radius: 50%; background: #222; }
+.mobile-screen {
+  width: 279px; height: 580px;
+  border-radius: 30px;
+  overflow: hidden;
+  background: #F4F3EE;
+  font-family: 'Pretendard', sans-serif;
+  overflow-y: auto;
+  -ms-overflow-style: none; scrollbar-width: none;
+}
+.mobile-screen::-webkit-scrollbar { display: none; }
+
+/* ══════════════════════════════════════
+   대시보드 공용 변수 (index.html 동일)
+══════════════════════════════════════ */
+.sim {
+  --canvas: #FAFAF9; --surface: #F4F3EE;
+  --hairline: #E5E4DF; --hairline-soft: #ECEAE4;
+  --ink-deep: #0A1317; --ink: #2C3333; --charcoal: #4A5568; --slate: #6B7280;
+  --primary: #1E3A8A; --primary-deep: #172554; --primary-soft: rgba(30,58,138,0.09);
+  --c1: #6D28D9; --c1-l: rgba(109,40,217,0.07); --c1-m: rgba(109,40,217,0.15);
+  --c2: #059669; --c2-l: rgba(5,150,105,0.07); --c2-m: rgba(5,150,105,0.15);
+  --c3: #0E7490; --c3-l: rgba(14,116,144,0.07); --c3-m: rgba(14,116,144,0.15);
+  --c4: #D97706; --c4-l: rgba(217,119,6,0.07); --c4-m: rgba(217,119,6,0.15);
+  --c5: #E11D48; --c5-l: rgba(225,29,72,0.07); --c5-m: rgba(225,29,72,0.15);
+  --shadow: rgba(20,22,26,0.25) 0px 1px 4px 0px;
+  --shadow-hover: rgba(20,22,26,0.25) 0px 6px 20px 0px;
+  font-family: 'Pretendard', sans-serif;
+  color: var(--ink-deep);
+  background: var(--surface);
+}
+
+/* ── 헤더 ── */
+.sim-header {
+  background: var(--canvas);
+  border-bottom: 1px solid var(--hairline-soft);
+  padding: 14px 32px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.sim-logo { font-weight: 900; font-size: 22px; color: var(--primary); letter-spacing: 1.5px; }
+.sim-chip {
+  background: var(--surface); border: 1px solid var(--hairline-soft);
+  border-radius: 100px; padding: 7px 16px; font-size: 14px; font-weight: 600; color: var(--ink-deep);
+}
+.sim-logout {
+  background: none; border: 1.5px solid var(--hairline); border-radius: 100px;
+  padding: 7px 14px; font-size: 13px; color: var(--charcoal); cursor: pointer;
+}
+
+/* ── 바디 ── */
+.sim-body { padding: 36px 32px 40px; }
+.sim-welcome {
+  font-weight: 600; font-size: 14px; color: var(--slate);
+  text-align: center; margin-bottom: 20px; letter-spacing: .2px;
+}
+
+/* ════════════════════════════
+   ★ 레벨 위젯 (PC — 가로형)
+════════════════════════════ */
+.level-widget-pc {
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.9);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 16px 24px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.lw-avatar {
+  width: 44px; height: 44px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, #1e293b, #334155);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 17px; font-weight: 900;
+  box-shadow: 0 2px 8px rgba(30,41,59,.28);
+}
+.lw-name { font-size: 15px; font-weight: 800; color: var(--ink-deep); }
+.lw-lv { font-size: 12px; color: var(--slate); font-weight: 600; margin-top: 1px; }
+.lw-lv span { font-weight: 800; color: var(--ink-deep); }
+.lw-divider { width: 1px; height: 36px; background: var(--hairline); flex-shrink: 0; }
+.lw-bar-wrap { flex: 1; min-width: 0; }
+.lw-bar-top {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12px; color: var(--slate); font-weight: 600; margin-bottom: 6px;
+}
+.lw-bar-top strong { font-size: 14px; color: var(--ink-deep); font-weight: 800; }
+.lw-track {
+  height: 7px; border-radius: 99px;
+  background: rgba(30,41,59,0.10); overflow: hidden;
+}
+.lw-fill {
+  height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, #334155, #1e293b);
+  width: 64%;
+  transition: width .5s cubic-bezier(.4,0,.2,1);
+}
+.lw-next { font-size: 11px; color: #94a3b8; text-align: right; margin-top: 5px; }
+.lw-total {
+  font-size: 13px; font-weight: 700; color: var(--ink-deep);
+  flex-shrink: 0; white-space: nowrap;
+}
+.lw-total span { font-size: 22px; font-weight: 900; }
+
+/* ── 그리드 카드 (간략) ── */
+.sim-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+.sim-card {
+  border-radius: 24px; overflow: hidden;
+  border: 1px solid var(--hairline-soft);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(4px);
+}
+.sim-card-head { padding: 18px 18px 14px; }
+.sim-card-badge {
+  display: inline-block; font-size: 11px; font-weight: 700;
+  letter-spacing: .6px; text-transform: uppercase;
+  padding: 2px 10px; border-radius: 100px; margin-bottom: 10px;
+}
+.sim-card-name { font-weight: 600; font-size: 18px; line-height: 1.3; }
+.sim-card-divider { border: none; border-top: 1px solid var(--hairline-soft); }
+.sim-card-body { padding: 14px; min-height: 90px; }
+.sim-icon-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sim-icon { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.sim-icon-box {
+  width: 52px; height: 52px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 900;
+}
+.sim-icon-label { font-size: 11px; font-weight: 700; color: var(--ink-deep); text-align: center; line-height: 1.3; }
+
+.card-c2 { background: rgba(237,255,248,0.58); border-color: rgba(5,150,105,0.2); }
+.card-c2 .sim-card-badge { background: var(--c2-m); color: var(--c2); }
+.card-c2 .sim-card-name { color: var(--c2); }
+.card-c2 .sim-icon-box { background: var(--c2-l); color: var(--c2); }
+
+.card-c1 { background: rgba(243,240,255,0.58); border-color: rgba(109,40,217,0.2); }
+.card-c1 .sim-card-badge { background: var(--c1-m); color: var(--c1); }
+.card-c1 .sim-card-name { color: var(--c1); }
+.card-c1 .sim-icon-box { background: var(--c1-l); color: var(--c1); }
+
+.card-c5 { background: rgba(255,240,243,0.58); border-color: rgba(225,29,72,0.2); }
+.card-c5 .sim-card-badge { background: var(--c5-m); color: var(--c5); }
+.card-c5 .sim-card-name { color: var(--c5); }
+.card-c5 .sim-icon-box { background: var(--c5-l); color: var(--c5); }
+
+.card-c4 { background: rgba(255,251,240,0.58); border-color: rgba(217,119,6,0.2); }
+.card-c4 .sim-card-badge { background: var(--c4-m); color: var(--c4); }
+.card-c4 .sim-card-name { color: var(--c4); }
+.card-c4 .sim-icon-box { background: var(--c4-l); color: var(--c4); }
+
+.card-c3 { background: rgba(236,254,255,0.58); border-color: rgba(14,116,144,0.2); }
+.card-c3 .sim-card-badge { background: var(--c3-m); color: var(--c3); }
+.card-c3 .sim-card-name { color: var(--c3); }
+.card-c3 .sim-icon-box { background: var(--c3-l); color: var(--c3); }
+
+/* ════════════════════════════
+   ★ 레벨 위젯 (모바일 — 세로형)
+════════════════════════════ */
+
+/* 모바일 헤더 */
+.sim-header-mo {
+  background: var(--canvas);
+  border-bottom: 1px solid var(--hairline-soft);
+  padding: 11px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.sim-logo-mo { font-weight: 900; font-size: 16px; color: var(--primary); letter-spacing: .8px; }
+.sim-chip-mo {
+  background: var(--surface); border: 1px solid var(--hairline-soft);
+  border-radius: 100px; padding: 5px 10px; font-size: 12px; font-weight: 600;
+}
+.sim-logout-mo {
+  background: none; border: 1px solid var(--hairline); border-radius: 100px;
+  padding: 5px 10px; font-size: 11px; color: var(--charcoal);
+}
+.sim-body-mo { padding: 18px 14px 32px; }
+.sim-welcome-mo {
+  font-weight: 600; font-size: 13px; color: var(--slate);
+  text-align: center; margin-bottom: 14px;
+}
+
+/* 모바일 레벨 위젯 */
+.level-widget-mo {
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.9);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.lw-mo-left { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.lw-mo-avatar {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: linear-gradient(135deg, #1e293b, #334155);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 13px; font-weight: 900;
+}
+.lw-mo-info { }
+.lw-mo-name { font-size: 13px; font-weight: 800; color: var(--ink-deep); }
+.lw-mo-lv { font-size: 11px; color: var(--slate); font-weight: 600; }
+.lw-mo-lv span { font-weight: 800; color: var(--ink-deep); }
+.lw-mo-bar-wrap { flex: 1; min-width: 0; }
+.lw-mo-bar-top {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--slate); font-weight: 600; margin-bottom: 5px;
+}
+.lw-mo-track {
+  height: 6px; border-radius: 99px;
+  background: rgba(30,41,59,0.10); overflow: hidden;
+}
+.lw-mo-fill {
+  height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, #334155, #1e293b);
+  width: 64%;
+}
+.lw-mo-next { font-size: 10px; color: #94a3b8; text-align: right; margin-top: 4px; }
+
+/* 모바일 폴더 런처 */
+.mo-launcher { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px 12px; }
+.mo-folder { display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.mo-folder-box {
+  width: 80px; height: 80px; border-radius: 22px;
+  box-shadow: var(--shadow);
+  display: flex; align-items: center; justify-content: center;
+}
+.mo-folder-grid {
+  display: grid; grid-template-columns: repeat(2,1fr); grid-template-rows: repeat(2,1fr);
+  gap: 4px; width: 56%; height: 56%;
+}
+.mo-mini {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 7px; font-size: 11px; font-weight: 900;
+  background: rgba(255,255,255,.55);
+}
+.mo-folder-label { font-size: 12px; font-weight: 700; color: var(--ink-deep); text-align: center; }
+.mo-folder-count { font-size: 10px; color: var(--slate); }
+
+.mf-c2 .mo-folder-box { background: var(--c2-l); } .mf-c2 .mo-mini { color: var(--c2); }
+.mf-c1 .mo-folder-box { background: var(--c1-l); } .mf-c1 .mo-mini { color: var(--c1); }
+.mf-c5 .mo-folder-box { background: var(--c5-l); } .mf-c5 .mo-mini { color: var(--c5); }
+.mf-c4 .mo-folder-box { background: var(--c4-l); } .mf-c4 .mo-mini { color: var(--c4); }
+.mf-c3 .mo-folder-box { background: var(--c3-l); } .mf-c3 .mo-mini { color: var(--c3); }
+
+/* 레벨업 배너 (레벨업 직후 상태 — 모바일) */
+.levelup-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: rgba(30,41,59,0.08); border: 1px solid rgba(30,41,59,0.15);
+  border-radius: 100px; padding: 3px 8px;
+  font-size: 10px; font-weight: 700; color: #1e293b;
+  margin-left: 4px; vertical-align: middle;
+}
+</style>
+</head>
+<body>
+
+<h1>레벨 위젯 UI 프리뷰</h1>
+<div class="page-desc">
+  레벨 카드는 대시보드 상단 환영 메시지 바로 아래 삽입.<br>
+  PC는 가로형(아바타 + 이름 + XP 바), 모바일은 가로 컴팩트형.
+</div>
+
+<div class="preview-row">
+
+  <!-- ── PC ── -->
+  <div class="preview-col">
+    <div class="preview-label">PC (1200px)</div>
+    <div class="pc-frame-wrap" style="height: 595px; overflow: hidden;">
+      <div class="pc-frame sim">
+        <!-- 헤더 -->
+        <div class="sim-header">
+          <div class="sim-logo">DIVE INTO HISTORY</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="sim-chip">김호성</div>
+            <button class="sim-logout">로그아웃</button>
+          </div>
+        </div>
+        <!-- 바디 -->
+        <div class="sim-body">
+          <div class="sim-welcome">22차시 · 반갑습니다, 김호성 학생!</div>
+
+          <!-- ★ 레벨 위젯 PC -->
+          <div class="level-widget-pc">
+            <div class="lw-avatar">김</div>
+            <div>
+              <div class="lw-name">김호성</div>
+              <div class="lw-lv">Lv.<span>4</span></div>
+            </div>
+            <div class="lw-divider"></div>
+            <div class="lw-bar-wrap">
+              <div class="lw-bar-top">
+                <span>XP</span>
+                <span><strong>580</strong> / 700</span>
+              </div>
+              <div class="lw-track"><div class="lw-fill" style="width:82%"></div></div>
+              <div class="lw-next">다음 레벨까지 120 XP</div>
+            </div>
+            <div class="lw-total">누적 <span>580</span> XP</div>
+          </div>
+
+          <!-- 그리드 -->
+          <div class="sim-grid">
+            <div class="sim-card card-c2">
+              <div class="sim-card-head">
+                <div class="sim-card-badge">Concept</div>
+                <div class="sim-card-name">개념 체크</div>
+              </div>
+              <hr class="sim-card-divider">
+              <div class="sim-card-body">
+                <div class="sim-icon-grid">
+                  <div class="sim-icon"><div class="sim-icon-box">01</div><div class="sim-icon-label">고려 건국</div></div>
+                  <div class="sim-icon"><div class="sim-icon-box">02</div><div class="sim-icon-label">고려 통치</div></div>
+                  <div class="sim-icon"><div class="sim-icon-box">03</div><div class="sim-icon-label">무신정변</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="sim-card card-c1">
+              <div class="sim-card-head">
+                <div class="sim-card-badge">Mission</div>
+                <div class="sim-card-name">미션 체크</div>
+              </div>
+              <hr class="sim-card-divider">
+              <div class="sim-card-body">
+                <div class="sim-icon-grid">
+                  <div class="sim-icon"><div class="sim-icon-box">📝</div><div class="sim-icon-label">서술형 01</div></div>
+                  <div class="sim-icon"><div class="sim-icon-box">📝</div><div class="sim-icon-label">서술형 02</div></div>
+                  <div class="sim-icon"><div class="sim-icon-box">🔒</div><div class="sim-icon-label">미공개</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="sim-card card-c5">
+              <div class="sim-card-head">
+                <div class="sim-card-badge">Think</div>
+                <div class="sim-card-name">생각 체크</div>
+              </div>
+              <hr class="sim-card-divider">
+              <div class="sim-card-body">
+                <div class="sim-icon-grid">
+                  <div class="sim-icon"><div class="sim-icon-box">💭</div><div class="sim-icon-label">토론 01</div></div>
+                  <div class="sim-icon"><div class="sim-icon-box">💭</div><div class="sim-icon-label">토론 02</div></div>
+                </div>
+              </div>
+            </div>
+            <div class="sim-card card-c3">
+              <div class="sim-card-head">
+                <div class="sim-card-badge">Contents</div>
+                <div class="sim-card-name">각종 콘텐츠</div>
+              </div>
+              <hr class="sim-card-divider">
+              <div class="sim-card-body">
+                <div class="sim-icon-grid">
+                  <div class="sim-icon"><div class="sim-icon-box">😊</div><div class="sim-icon-label">히스마일</div></div>
+                  <div class="sim-icon"><div class="sim-icon-box">📋</div><div class="sim-icon-label">서베이</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- 성적 카드 (2번째 줄) -->
+          <div style="margin-top:18px">
+            <div class="sim-card card-c4" style="max-width:300px">
+              <div class="sim-card-head">
+                <div class="sim-card-badge">Grade</div>
+                <div class="sim-card-name">성적 확인</div>
+              </div>
+              <hr class="sim-card-divider">
+              <div class="sim-card-body">
+                <div class="sim-icon-grid">
+                  <div class="sim-icon"><div class="sim-icon-box">📊</div><div class="sim-icon-label">내 성적</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 모바일 ── -->
+  <div class="preview-col">
+    <div class="preview-label">모바일 (375px)</div>
+    <div class="mobile-frame-wrap">
+      <div class="mobile-outer">
+        <div class="mobile-notch"><div class="cam"></div></div>
+        <div class="mobile-screen sim">
+          <!-- 모바일 헤더 -->
+          <div class="sim-header-mo">
+            <div class="sim-logo-mo">DIVE INTO HISTORY</div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div class="sim-chip-mo">김호성</div>
+              <button class="sim-logout-mo">로그아웃</button>
+            </div>
+          </div>
+          <div class="sim-body-mo">
+            <div class="sim-welcome-mo">22차시 · 반갑습니다, 김호성 학생!</div>
+
+            <!-- ★ 레벨 위젯 모바일 -->
+            <div class="level-widget-mo">
+              <div class="lw-mo-left">
+                <div class="lw-mo-avatar">김</div>
+                <div class="lw-mo-info">
+                  <div class="lw-mo-name">김호성</div>
+                  <div class="lw-mo-lv">Lv.<span>4</span></div>
+                </div>
+              </div>
+              <div class="lw-mo-bar-wrap">
+                <div class="lw-mo-bar-top">
+                  <span>XP</span>
+                  <span>580 / 700</span>
+                </div>
+                <div class="lw-mo-track"><div class="lw-mo-fill" style="width:82%"></div></div>
+                <div class="lw-mo-next">다음 레벨까지 120 XP</div>
+              </div>
+            </div>
+
+            <!-- 모바일 런처 -->
+            <div class="mo-launcher">
+              <div class="mo-folder mf-c2">
+                <div class="mo-folder-box">
+                  <div class="mo-folder-grid">
+                    <div class="mo-mini">01</div><div class="mo-mini">02</div>
+                    <div class="mo-mini">03</div><div class="mo-mini">+</div>
+                  </div>
+                </div>
+                <div class="mo-folder-label">개념 체크</div>
+                <div class="mo-folder-count">3개</div>
+              </div>
+              <div class="mo-folder mf-c1">
+                <div class="mo-folder-box">
+                  <div class="mo-folder-grid">
+                    <div class="mo-mini">📝</div><div class="mo-mini">📝</div>
+                    <div class="mo-mini">🔒</div><div class="mo-mini"></div>
+                  </div>
+                </div>
+                <div class="mo-folder-label">미션 체크</div>
+                <div class="mo-folder-count">2개</div>
+              </div>
+              <div class="mo-folder mf-c5">
+                <div class="mo-folder-box">
+                  <div class="mo-folder-grid">
+                    <div class="mo-mini">💭</div><div class="mo-mini">💭</div>
+                    <div class="mo-mini"></div><div class="mo-mini"></div>
+                  </div>
+                </div>
+                <div class="mo-folder-label">생각 체크</div>
+                <div class="mo-folder-count">2개</div>
+              </div>
+              <div class="mo-folder mf-c4">
+                <div class="mo-folder-box">
+                  <div class="mo-folder-grid">
+                    <div class="mo-mini">📊</div><div class="mo-mini"></div>
+                    <div class="mo-mini"></div><div class="mo-mini"></div>
+                  </div>
+                </div>
+                <div class="mo-folder-label">성적 확인</div>
+                <div class="mo-folder-count">1개</div>
+              </div>
+              <div class="mo-folder mf-c3">
+                <div class="mo-folder-box">
+                  <div class="mo-folder-grid">
+                    <div class="mo-mini">😊</div><div class="mo-mini">📋</div>
+                    <div class="mo-mini"></div><div class="mo-mini"></div>
+                  </div>
+                </div>
+                <div class="mo-folder-label">각종 콘텐츠</div>
+                <div class="mo-folder-count">2개</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /preview-row -->
+
+</body>
+</html>

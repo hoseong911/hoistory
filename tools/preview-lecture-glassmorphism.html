@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>강의 슬라이드 팔레트 프리뷰 — 글래스모피즘</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang&display=swap">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+  background: #e4e4e3;
+  padding: 48px 36px 80px;
+  color: #222;
+  min-height: 100vh;
+}
+
+h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; color: #1a1a1a; }
+.page-desc {
+  font-size: 13px; color: #666; margin-bottom: 40px;
+  border-left: 3px solid #b83030; padding-left: 10px; line-height: 1.7;
+}
+.page-desc strong { color: #b83030; }
+
+.group-label {
+  font-size: 12px; font-weight: 700; color: #888;
+  text-transform: uppercase; letter-spacing: .08em;
+  margin: 44px 0 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+.group-label::after { content: ''; flex: 1; height: 1px; background: #ccc; }
+
+.palette-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(580px, 1fr));
+  gap: 28px;
+}
+
+/* 카드 */
+.pcard {
+  background: rgba(255,255,255,0.72);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.9);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,.08), 0 1px 4px rgba(0,0,0,.06);
+}
+.pcard-header {
+  padding: 14px 18px 12px;
+  display: flex; align-items: center; gap: 10px;
+  border-bottom: 1px solid rgba(0,0,0,.06);
+}
+.pcard-name { font-size: 14px; font-weight: 800; color: #1a1a1a; flex: 1; }
+.tag {
+  font-size: 11px; font-weight: 700; padding: 3px 9px;
+  border-radius: 20px; letter-spacing: .04em;
+}
+.tag-rec  { background: #e6f4ea; color: #1e7e34; }
+.tag-opt  { background: #e8f0fe; color: #1a56db; }
+
+/* 스와치 */
+.swatches { display: flex; gap: 0; padding: 10px 18px; border-bottom: 1px solid rgba(0,0,0,.05); }
+.swatch { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 9px; color: #888; min-width: 52px; }
+.swatch-box { width: 36px; height: 24px; border-radius: 5px; border: 1px solid rgba(0,0,0,.1); }
+.swatch-name { font-weight: 700; font-size: 8px; letter-spacing: .02em; color: #555; }
+
+/* 슬라이드 영역 */
+.slides-wrap { padding: 16px 18px 18px; display: flex; gap: 12px; }
+.sub-label {
+  font-size: 10px; color: #999; font-weight: 600;
+  padding: 8px 18px 4px; border-top: 1px dashed rgba(0,0,0,.08);
+}
+
+/* ───── 미니 슬라이드 (16:9) ───── */
+.ms {
+  flex: 1;
+  aspect-ratio: 16/9;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,.08);
+  position: relative;
+  font-size: 7px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.12);
+}
+
+/* ── 표지 슬라이드 ── */
+.ms-cover {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 1.4em;
+  overflow: hidden;
+  color: #fff;
+  position: relative;
+}
+.ms-cover .bg-num {
+  position: absolute; right: -.05em; bottom: -.1em;
+  font-size: 14em; font-weight: 900; opacity: .08;
+  line-height: 1; letter-spacing: -.05em; user-select: none; color: #fff;
+}
+/* 표지 안 글래스 카드 */
+.cover-glass {
+  position: relative; z-index: 1;
+  background: rgba(255,255,255,0.10);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.22);
+  border-radius: .7em;
+  padding: .7em 1em .75em;
+}
+.cover-glass .ctag {
+  font-size: .8em; opacity: .55;
+  font-family: 'Gowun Batang', serif;
+  margin-bottom: .2em;
+}
+.cover-glass .ctitle {
+  font-size: 2.2em; font-weight: 900; line-height: 1.15;
+}
+.cover-glass .cmeta {
+  font-size: .8em; opacity: .5;
+  font-family: 'Gowun Batang', serif;
+  margin-top: .25em;
+}
+
+/* ── 개념 슬라이드 ── */
+.ms-concept {
+  display: flex; flex-direction: column;
+  padding: .85em .9em .7em;
+}
+.ms-concept .shd { display: flex; align-items: center; gap: .45em; margin-bottom: .55em; }
+
+/* 글래스 배지 */
+.glass-badge {
+  font-size: .72em; font-weight: 800; letter-spacing: .05em;
+  padding: .18em .55em; border-radius: 20px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid;
+}
+.ms-concept .stitle { font-size: 1.25em; font-weight: 800; }
+
+.rows { display: flex; flex-direction: column; gap: .32em; }
+
+/* 글래스 행 */
+.grow {
+  display: flex; border-radius: .42em;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.7);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+}
+.grow .lbl {
+  min-width: 2.3em;
+  display: flex; align-items: center; justify-content: center;
+  padding: .28em .38em;
+  font-size: .82em; font-weight: 700;
+  text-align: center; line-height: 1.2;
+  border-right: 1px solid rgba(255,255,255,0.5);
+}
+.grow .body {
+  flex: 1; padding: .28em .48em;
+  font-size: .88em; line-height: 1.4;
+  display: flex; align-items: center;
+  color: #2c2c2c;
+}
+.grow .body .em { color: #b83030; font-weight: 800; }
+
+/* 안내 박스 */
+.info-box {
+  margin-top: 48px;
+  padding: 18px 22px;
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.9);
+  border-radius: 12px;
+  font-size: 12px; color: #555; line-height: 1.9;
+}
+.info-box strong { color: #222; }
+code { background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+</style>
+</head>
+<body>
+
+<h1>강의 슬라이드 팔레트 — 글래스모피즘</h1>
+<div class="page-desc">
+  배경 라이트 그레이 고정 · 표지는 그라디언트 위 <strong>글래스 카드</strong> · 개념 행은 <strong>반투명 블러 패널</strong><br>
+  <strong>빨간 강조(#b83030)는 전 옵션 고정</strong>. 바꾸는 건 accent 색(그라디언트·뱃지·라벨) 한 가지.
+</div>
+
+<!-- ══════ 초록 계열 ══════ -->
+<div class="group-label">초록 계열 — 개념체크 c2(#059669) 연계 추천</div>
+<div class="palette-grid">
+
+  <!-- ① 딥 포레스트 -->
+  <div class="pcard">
+    <div class="pcard-header">
+      <div class="pcard-name">① 딥 포레스트</div>
+      <span class="tag tag-rec">추천</span>
+    </div>
+    <div class="swatches">
+      <div class="swatch">
+        <div class="swatch-box" style="background:linear-gradient(135deg,#1a4731,#065f46)"></div>
+        <div class="swatch-name">커버 그라디언트</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:rgba(26,71,49,0.13); border:1px solid rgba(26,71,49,.3)"></div>
+        <div class="swatch-name">글래스 뱃지</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#b83030"></div>
+        <div class="swatch-name">강조 고정</div>
+        <div>#b83030</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:rgba(255,255,255,0.55); border:1px solid rgba(255,255,255,.8)"></div>
+        <div class="swatch-name">행 글래스</div>
+      </div>
+    </div>
+    <div class="slides-wrap">
+      <!-- 표지 -->
+      <div class="ms ms-cover" style="background:linear-gradient(135deg,#1a4731 0%,#065f46 100%);">
+        <div class="bg-num">1</div>
+        <div class="cover-glass">
+          <div class="ctag">개념 체크 01</div>
+          <div class="ctitle">고려의<br>건국</div>
+          <div class="cmeta">22차시 · 한국사</div>
+        </div>
+      </div>
+      <!-- 개념 -->
+      <div class="ms ms-concept" style="background:linear-gradient(145deg,#f0f0ef 0%,#e6e6e5 100%);">
+        <div class="shd">
+          <div class="glass-badge" style="background:rgba(26,71,49,0.12);color:#1a4731;border-color:rgba(26,71,49,.28)">CHECK</div>
+          <div class="stitle" style="color:#1a4731">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(26,71,49,0.10);color:#1a4731">배경</div>
+            <div class="body">신라 말기 호족 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(26,71,49,0.10);color:#1a4731">과정</div>
+            <div class="body"><span class="em">왕건</span>이 918년 건국 · 936년 통일</div>
+          </div>
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(26,71,49,0.10);color:#1a4731">의의</div>
+            <div class="body">민족 재통합, 새 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ② 민트 세이지 -->
+  <div class="pcard">
+    <div class="pcard-header">
+      <div class="pcard-name">② 민트 세이지 (밝고 부드러움)</div>
+      <span class="tag tag-opt">옵션</span>
+    </div>
+    <div class="swatches">
+      <div class="swatch">
+        <div class="swatch-box" style="background:linear-gradient(135deg,#134e4a,#0f766e)"></div>
+        <div class="swatch-name">커버 그라디언트</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:rgba(13,78,74,0.13); border:1px solid rgba(13,78,74,.3)"></div>
+        <div class="swatch-name">글래스 뱃지</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#b83030"></div>
+        <div class="swatch-name">강조 고정</div>
+        <div>#b83030</div>
+      </div>
+    </div>
+    <div class="slides-wrap">
+      <div class="ms ms-cover" style="background:linear-gradient(135deg,#134e4a 0%,#0f766e 100%);">
+        <div class="bg-num">1</div>
+        <div class="cover-glass">
+          <div class="ctag">개념 체크 01</div>
+          <div class="ctitle">고려의<br>건국</div>
+          <div class="cmeta">22차시 · 한국사</div>
+        </div>
+      </div>
+      <div class="ms ms-concept" style="background:linear-gradient(145deg,#f0f0ef 0%,#e6e6e5 100%);">
+        <div class="shd">
+          <div class="glass-badge" style="background:rgba(13,78,74,0.12);color:#0d4e4a;border-color:rgba(13,78,74,.28)">CHECK</div>
+          <div class="stitle" style="color:#0d4e4a">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(13,78,74,0.10);color:#0d4e4a">배경</div>
+            <div class="body">신라 말기 호족 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(13,78,74,0.10);color:#0d4e4a">과정</div>
+            <div class="body"><span class="em">왕건</span>이 918년 건국 · 936년 통일</div>
+          </div>
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(13,78,74,0.10);color:#0d4e4a">의의</div>
+            <div class="body">민족 재통합, 새 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ③ 올리브 어스 -->
+  <div class="pcard">
+    <div class="pcard-header">
+      <div class="pcard-name">③ 올리브 어스 (따뜻한 느낌)</div>
+      <span class="tag tag-opt">옵션</span>
+    </div>
+    <div class="swatches">
+      <div class="swatch">
+        <div class="swatch-box" style="background:linear-gradient(135deg,#3a4a1e,#4d6127)"></div>
+        <div class="swatch-name">커버 그라디언트</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:rgba(58,74,30,0.13); border:1px solid rgba(58,74,30,.3)"></div>
+        <div class="swatch-name">글래스 뱃지</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#b83030"></div>
+        <div class="swatch-name">강조 고정</div>
+        <div>#b83030</div>
+      </div>
+    </div>
+    <div class="slides-wrap">
+      <div class="ms ms-cover" style="background:linear-gradient(135deg,#3a4a1e 0%,#4d6127 100%);">
+        <div class="bg-num">1</div>
+        <div class="cover-glass">
+          <div class="ctag">개념 체크 01</div>
+          <div class="ctitle">고려의<br>건국</div>
+          <div class="cmeta">22차시 · 한국사</div>
+        </div>
+      </div>
+      <div class="ms ms-concept" style="background:linear-gradient(145deg,#f0f0ef 0%,#e6e6e5 100%);">
+        <div class="shd">
+          <div class="glass-badge" style="background:rgba(58,74,30,0.12);color:#3a4a1e;border-color:rgba(58,74,30,.28)">CHECK</div>
+          <div class="stitle" style="color:#3a4a1e">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(58,74,30,0.10);color:#3a4a1e">배경</div>
+            <div class="body">신라 말기 호족 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(58,74,30,0.10);color:#3a4a1e">과정</div>
+            <div class="body"><span class="em">왕건</span>이 918년 건국 · 936년 통일</div>
+          </div>
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(58,74,30,0.10);color:#3a4a1e">의의</div>
+            <div class="body">민족 재통합, 새 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════ 중립/모던 계열 ══════ -->
+<div class="group-label">중립 계열 — 색 연계 없이 모던하게</div>
+<div class="palette-grid">
+
+  <!-- ④ 슬레이트 (기존 네이비 분위기 유지) -->
+  <div class="pcard">
+    <div class="pcard-header">
+      <div class="pcard-name">④ 슬레이트 (네이비 분위기 유지)</div>
+      <span class="tag tag-opt">옵션</span>
+    </div>
+    <div class="swatches">
+      <div class="swatch">
+        <div class="swatch-box" style="background:linear-gradient(135deg,#1e293b,#334155)"></div>
+        <div class="swatch-name">커버 그라디언트</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:rgba(30,41,59,0.13); border:1px solid rgba(30,41,59,.3)"></div>
+        <div class="swatch-name">글래스 뱃지</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#b83030"></div>
+        <div class="swatch-name">강조 고정</div>
+        <div>#b83030</div>
+      </div>
+    </div>
+    <div class="slides-wrap">
+      <div class="ms ms-cover" style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);">
+        <div class="bg-num">1</div>
+        <div class="cover-glass">
+          <div class="ctag">개념 체크 01</div>
+          <div class="ctitle">고려의<br>건국</div>
+          <div class="cmeta">22차시 · 한국사</div>
+        </div>
+      </div>
+      <div class="ms ms-concept" style="background:linear-gradient(145deg,#f0f0ef 0%,#e6e6e5 100%);">
+        <div class="shd">
+          <div class="glass-badge" style="background:rgba(30,41,59,0.12);color:#1e293b;border-color:rgba(30,41,59,.28)">CHECK</div>
+          <div class="stitle" style="color:#1e293b">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(30,41,59,0.09);color:#1e293b">배경</div>
+            <div class="body">신라 말기 호족 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(30,41,59,0.09);color:#1e293b">과정</div>
+            <div class="body"><span class="em">왕건</span>이 918년 건국 · 936년 통일</div>
+          </div>
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(30,41,59,0.09);color:#1e293b">의의</div>
+            <div class="body">민족 재통합, 새 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑤ 차콜 + 레드 대비 강조 -->
+  <div class="pcard">
+    <div class="pcard-header">
+      <div class="pcard-name">⑤ 차콜 (빨강 대비 극대화)</div>
+      <span class="tag tag-opt">옵션</span>
+    </div>
+    <div class="swatches">
+      <div class="swatch">
+        <div class="swatch-box" style="background:linear-gradient(135deg,#1a1a1a,#2b2b2b)"></div>
+        <div class="swatch-name">커버 그라디언트</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:rgba(20,20,20,0.13); border:1px solid rgba(20,20,20,.3)"></div>
+        <div class="swatch-name">글래스 뱃지</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#b83030"></div>
+        <div class="swatch-name">강조 고정</div>
+        <div>#b83030</div>
+      </div>
+    </div>
+    <div class="slides-wrap">
+      <div class="ms ms-cover" style="background:linear-gradient(135deg,#1a1a1a 0%,#2b2b2b 100%);">
+        <div class="bg-num">1</div>
+        <div class="cover-glass">
+          <div class="ctag">개념 체크 01</div>
+          <div class="ctitle">고려의<br>건국</div>
+          <div class="cmeta">22차시 · 한국사</div>
+        </div>
+      </div>
+      <div class="ms ms-concept" style="background:linear-gradient(145deg,#f0f0ef 0%,#e6e6e5 100%);">
+        <div class="shd">
+          <div class="glass-badge" style="background:rgba(20,20,20,0.10);color:#1a1a1a;border-color:rgba(20,20,20,.25)">CHECK</div>
+          <div class="stitle" style="color:#1a1a1a">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(20,20,20,0.08);color:#1a1a1a">배경</div>
+            <div class="body">신라 말기 호족 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(20,20,20,0.08);color:#1a1a1a">과정</div>
+            <div class="body"><span class="em">왕건</span>이 918년 건국 · 936년 통일</div>
+          </div>
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(20,20,20,0.08);color:#1a1a1a">의의</div>
+            <div class="body">민족 재통합, 새 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ⑥ 와인 레드 (강조색과 동계) -->
+  <div class="pcard">
+    <div class="pcard-header">
+      <div class="pcard-name">⑥ 와인 레드 (강조색 동계)</div>
+      <span class="tag tag-opt">옵션</span>
+    </div>
+    <div class="swatches">
+      <div class="swatch">
+        <div class="swatch-box" style="background:linear-gradient(135deg,#5c1a1a,#7f2323)"></div>
+        <div class="swatch-name">커버 그라디언트</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:rgba(92,26,26,0.13); border:1px solid rgba(92,26,26,.3)"></div>
+        <div class="swatch-name">글래스 뱃지</div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-box" style="background:#b83030"></div>
+        <div class="swatch-name">강조 고정</div>
+        <div>#b83030</div>
+      </div>
+    </div>
+    <div class="slides-wrap">
+      <div class="ms ms-cover" style="background:linear-gradient(135deg,#5c1a1a 0%,#7f2323 100%);">
+        <div class="bg-num">1</div>
+        <div class="cover-glass">
+          <div class="ctag">개념 체크 01</div>
+          <div class="ctitle">고려의<br>건국</div>
+          <div class="cmeta">22차시 · 한국사</div>
+        </div>
+      </div>
+      <div class="ms ms-concept" style="background:linear-gradient(145deg,#f0f0ef 0%,#e6e6e5 100%);">
+        <div class="shd">
+          <div class="glass-badge" style="background:rgba(92,26,26,0.11);color:#5c1a1a;border-color:rgba(92,26,26,.28)">CHECK</div>
+          <div class="stitle" style="color:#5c1a1a">고려 건국 과정</div>
+        </div>
+        <div class="rows">
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(92,26,26,0.09);color:#5c1a1a">배경</div>
+            <div class="body">신라 말기 호족 성장, <span class="em">후삼국</span> 분열</div>
+          </div>
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(92,26,26,0.09);color:#5c1a1a">과정</div>
+            <div class="body"><span class="em">왕건</span>이 918년 건국 · 936년 통일</div>
+          </div>
+          <div class="grow" style="background:rgba(255,255,255,0.58)">
+            <div class="lbl" style="background:rgba(92,26,26,0.09);color:#5c1a1a">의의</div>
+            <div class="body">민족 재통합, 새 지배 세력 등장</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="info-box">
+  <strong>적용 시 변경 항목 (slide-style.css)</strong><br>
+  · <code>--navy</code>: 표지 그라디언트 어두운 색 → 그대로 재사용 (뱃지·제목·라벨 글자색)<br>
+  · <code>--bg / --slide-bg / --row-bg</code>: 라이트 그레이 계열로 교체<br>
+  · <code>.cover-slide</code>: <code>background: linear-gradient(...)</code> 적용<br>
+  · <code>.row-label</code>: <code>background → rgba + backdrop-filter:blur</code>, 글자색 → navy<br>
+  · <code>.check-badge</code>: 동일하게 글래스 스타일<br>
+  · <strong>--red: #b83030 — 절대 변경 없음</strong>
+</div>
+
+</body>
+</html>
