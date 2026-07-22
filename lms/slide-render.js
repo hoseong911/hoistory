@@ -56,6 +56,11 @@
         flushSub();
         subLead = line.slice(0, colonIdx);
         subBodyLines = [line.slice(colonIdx + 3)];
+      } else if (/^[a-z]\.\s/.test(line)) {
+        // a./b./c. 패턴: ` : ` 없어도 새 sub-line 시작. 알파벳+점이 sublead, 나머지가 본문.
+        flushSub();
+        subLead = line.slice(0, 2);
+        subBodyLines = [line.slice(3)];
       } else if (subBodyLines) {
         subBodyLines.push(line);
       } else {
@@ -67,12 +72,14 @@
     return out.join('');
   }
 
-  /* item 문자열이 "소제목 : <br>..." 형태 — 즉 Tab으로 소제목을 구분한 직후 곧바로
-     Shift+Enter를 눌러 본문이 빈 줄로 시작하는 형태인지 판별한다. rowHTML이 이 값을
-     보고 <p>를 가로 배치(기존, 내어쓰기 있음) 대신 세로 배치(내어쓰기 없음)로 바꾼다. */
+  /* item 문자열이 세로 배치(소제목 위, 하위 항목 아래)가 필요한 형태인지 판별한다.
+     1) "소제목 : <br>..." — Shift+Enter로 소제목 바로 뒤에서 줄바꿈한 경우
+     2) "소제목 : a. ..." — a./b./c. 하위 목록으로 시작하는 경우 */
   function isStackedItem(str) {
     const colonIdx = str.indexOf(' : ');
-    return colonIdx > -1 && /^<br\s*\/?>/i.test(str.slice(colonIdx + 3));
+    if (colonIdx === -1) return false;
+    const rest = str.slice(colonIdx + 3);
+    return /^<br\s*\/?>/i.test(rest) || /^[a-z]\.\s/.test(rest);
   }
 
   /* " : " 기준으로 소제목(item-lead)과 본문(item-text) 분리. 콜론은 제거.
