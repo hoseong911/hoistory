@@ -89,15 +89,30 @@
   function parseItemText(str) {
     // 원문자(①~㉿) 및 괄호숫자 (1) (2) 등 앞 번호 제거
     str = str.replace(/^[①-⑳㉑-㊿]\s*/, '').replace(/^\(\d+\)\s*/, '');
+
+    // Case 1: 아이템 자체가 a./b./c. 마커로 시작 → item-lead 없이 전체를 renderWithBreaks에 넘김
+    if (/^[a-z]\.\s/.test(str)) {
+      return `<span class="item-text">${renderWithBreaks(str)}</span>`;
+    }
+
+    // Case 2: "소제목 a. ..." 형태 — 소제목과 a./b./c. 사이에 콜론 없이 공백만 있는 경우
+    // e.g. "건국 과정 a. {이성계} : {위화도 회군}..." → item-lead="건국 과정", rest="a. ..."
+    const subItemMatch = str.match(/^(.+?)\s([a-z]\.\s)/);
+    if (subItemMatch) {
+      const leadRaw = subItemMatch[1];
+      const rest = str.slice(leadRaw.length + 1);
+      return `<span class="item-lead">${parseText(leadRaw)}&nbsp;&nbsp;&nbsp;</span><span class="item-text">${renderWithBreaks(rest)}</span>`;
+    }
+
+    // Case 3: "소제목 : 본문" 형태 (기존 콜론 구분)
     const colonIdx = str.indexOf(' : ');
-    // ` : `가 있어도 문자열 자체가 a./b./c. 마커로 시작하면 item-lead로 쓰지 않는다.
-    // (예: "a. {이성계} : {위화도 회군}..."이 별도 아이템으로 저장된 경우)
-    if (colonIdx > -1 && !/^[a-z]\.\s/.test(str)) {
+    if (colonIdx > -1) {
       const leadRaw = str.slice(0, colonIdx);
       let   rest     = str.slice(colonIdx + 3);
       if (isStackedItem(str)) rest = rest.replace(/^<br\s*\/?>/i, '');
       return `<span class="item-lead">${parseText(leadRaw)}&nbsp;&nbsp;&nbsp;</span><span class="item-text">${renderWithBreaks(rest)}</span>`;
     }
+
     return `<span class="item-text">${renderWithBreaks(str)}</span>`;
   }
 
