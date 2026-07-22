@@ -2658,7 +2658,9 @@ async function ceRequestLessonJson(content) {
     throw new Error('활동지 내용이 길어서 응답이 중간에 잘렸습니다. 활동지를 나눠서 올려주세요.');
   }
   const raw = (data.content?.[0]?.text || '').replace(/```json|```/g,'').trim();
-  return ceSanitizeParsedLesson(JSON.parse(raw));
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error('AI 응답에서 JSON을 찾을 수 없습니다.');
+  return ceSanitizeParsedLesson(JSON.parse(jsonMatch[0]));
 }
 
 // AI가 프롬프트를 어기고 실수하는 것들을 코드에서 한 번 더 바로잡는다:
