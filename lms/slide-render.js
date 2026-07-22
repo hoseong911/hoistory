@@ -45,12 +45,7 @@
     function flushSub() {
       if (subLead === null) return;
       const body = subBodyLines.map(parseText).join('<br>');
-      // sublead가 "a."/"b." 등 알파벳 마커로 시작하면 마커만 뱃지 스팬으로 분리한다.
-      const mMatch = subLead.match(/^([a-z])\.\s*/);
-      const leadHtml = mMatch
-        ? `<span class="sub-marker">${mMatch[1]}.</span>${parseText(subLead.slice(mMatch[0].length))}`
-        : parseText(subLead);
-      out.push(`<span class="sub-line"><span class="item-sublead">${leadHtml}&nbsp;&nbsp;&nbsp;</span><span class="sub-body">${body}</span></span>`);
+      out.push(`<span class="sub-line"><span class="item-sublead">${parseText(subLead)}&nbsp;&nbsp;&nbsp;</span><span class="sub-body">${body}</span></span>`);
       subLead = null;
       subBodyLines = null;
     }
