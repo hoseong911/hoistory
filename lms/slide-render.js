@@ -335,10 +335,45 @@
     `;
   }
 
+  /* 항목 하나가 차지하는 줄 수 추정 (본문 1줄 + <br> 개수) */
+  function estimateItemLines(item) {
+    return 1 + (item.match(/<br\s*\/?>/gi) || []).length;
+  }
+
+  /* 슬라이드 한 장의 항목이 maxLines를 초과하면 원문자(①②③…) 기준으로 분할.
+     format이 rows 이고 행이 1개인 경우에만 적용한다. */
+  const CIRCLED_RE = /^[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮]/;
+  function autoSplitSlide(slide, maxLines) {
+    if (slide.format && slide.format !== 'rows') return [slide];
+    if (!slide.rows || slide.rows.length !== 1) return [slide];
+    const row = slide.rows[0];
+    const items = row.items || [];
+    const total = items.reduce((s, it) => s + estimateItemLines(it), 0);
+    if (total <= maxLines) return [slide];
+    if (!items.some(it => CIRCLED_RE.test(it))) return [slide];
+
+    // 원문자 단위로 그룹화한 뒤, maxLines를 넘는 경계에서 새 슬라이드 생성
+    const result = [];
+    let bucket = [], bucketLines = 0;
+    const flush = () => {
+      if (!bucket.length) return;
+      result.push({ ...slide, rows: [{ ...row, items: [...bucket] }] });
+      bucket = []; bucketLines = 0;
+    };
+    for (const item of items) {
+      const lines = estimateItemLines(item);
+      if (CIRCLED_RE.test(item) && bucketLines > 0 && bucketLines + lines > maxLines) flush();
+      bucket.push(item);
+      bucketLines += lines;
+    }
+    flush();
+    return result.length > 1 ? result : [slide];
+  }
+
   /* contentLines(구분선/행/이미지 배열)를 slide 배열로 변환. 개념 체크·미션 체크가
      같은 구조를 쓰므로 type만 다르게 해서 공유한다. */
   function buildCheckSlides(lines, type) {
-    const slides = [];
+    const raw = [];
     let current = null;
     (lines || []).forEach(line => {
       if (line.type === 'divider') {
@@ -358,19 +393,22 @@
           current.layout = line.imgLayout || 'right';
           current.imgSize = line.imgSize != null ? line.imgSize : 50;
         }
-        slides.push(current);
+        raw.push(current);
       } else if (line.type === 'image') {
-        slides.push({
+        raw.push({
           type: 'image',
           title: line.title || '',
           images: line.images.map(im => ({ img: im.img || 1, caption: im.caption || '' }))
         });
         current = null;
       } else {
-        if (!current) { current = { type, title: '', rows: [] }; slides.push(current); }
+        if (!current) { current = { type, title: '', rows: [] }; raw.push(current); }
         current.rows.push({ label: line.label, items: line.items });
       }
     });
+    // 8줄 초과 시 원문자 기준 자동 분할
+    const slides = [];
+    raw.forEach(s => slides.push(...(s.type === type ? autoSplitSlide(s, 8) : [s])));
     return slides;
   }
 
