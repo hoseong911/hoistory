@@ -51,20 +51,22 @@
     }
 
     lines.forEach(line => {
-      const colonIdx = line.indexOf(' : ');
-      if (colonIdx > -1) {
-        flushSub();
-        subLead = line.slice(0, colonIdx);
-        subBodyLines = [line.slice(colonIdx + 3)];
-      } else if (/^[a-z]\.\s/.test(line)) {
-        // a./b./c. 패턴: ` : ` 없어도 새 sub-line 시작. 알파벳+점이 sublead, 나머지가 본문.
+      if (/^[a-z]\.\s/.test(line)) {
+        // a./b./c. 마커: 콜론 유무와 무관하게 무조건 새 하위항목. "a." 만 sublead, 나머지 전체가 본문.
         flushSub();
         subLead = line.slice(0, 2);
         subBodyLines = [line.slice(3)];
-      } else if (subBodyLines) {
-        subBodyLines.push(line);
       } else {
-        out.push(out.length === 0 ? parseText(line) : `<br><span class="line-cont">${parseText(line)}</span>`);
+        const colonIdx = line.indexOf(' : ');
+        if (colonIdx > -1) {
+          flushSub();
+          subLead = line.slice(0, colonIdx);
+          subBodyLines = [line.slice(colonIdx + 3)];
+        } else if (subBodyLines) {
+          subBodyLines.push(line);
+        } else {
+          out.push(out.length === 0 ? parseText(line) : `<br><span class="line-cont">${parseText(line)}</span>`);
+        }
       }
     });
     flushSub();
