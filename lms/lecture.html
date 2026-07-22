@@ -41,39 +41,43 @@
       will-change: transform;
     }
 
-    /* ════ 오버레이 UI ════ (크기는 이전 대비 80%) */
-    #back-btn {
+    /* ════ 오버레이 UI ════ */
+    #overlay-btns {
       position: fixed;
       top: 18px;
-      left: 22px;
+      right: 22px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      z-index: 200;
+    }
+    #overlay-btns[hidden] { display: none; }
+
+    #back-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 26px;
-      height: 26px;
+      width: 28px;
+      height: 28px;
       background: rgba(28,52,97,0.08);
       border: 1px solid rgba(28,52,97,0.16);
       color: var(--navy);
-      font-size: 0.7rem;
-      line-height: 1;
       padding: 0;
       border-radius: 50%;
       cursor: pointer;
-      z-index: 200;
     }
     #back-btn:hover { background: rgba(28,52,97,0.14); }
 
     /* 완성형/빈칸형 클릭 토글 */
     #mode-badge {
-      position: fixed;
-      top: 18px;
-      right: 22px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
       font-size: 0.62rem;
       font-weight: 700;
-      padding: 4px 11px;
+      padding: 4px 10px 4px 8px;
       border-radius: 16px;
       cursor: pointer;
-      z-index: 200;
       user-select: none;
     }
     body[data-mode="complete"] #mode-badge { background: rgba(28,52,97,0.09); color: var(--navy); }
@@ -154,8 +158,12 @@
 <div id="slides" hidden></div>
 
 <!-- ── 오버레이 UI ── -->
-<button id="back-btn"      hidden onclick="goBack()" title="목록으로" aria-label="목록으로">🏠</button>
-<div    id="mode-badge"    hidden></div>
+<div id="overlay-btns" hidden>
+  <button id="back-btn" onclick="goBack()" title="목록으로" aria-label="목록으로">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V10"/></svg>
+  </button>
+  <div id="mode-badge"></div>
+</div>
 <div    id="slide-counter" hidden></div>
 <div    id="load-error"    hidden></div>
 
@@ -280,8 +288,9 @@ async function init() {
 
   /* ── 슬라이드 제어 ── */
   const slidesEl  = container;
-  const backBtn   = document.getElementById('back-btn');
-  const modeBadge = document.getElementById('mode-badge');
+  const overlayBtns = document.getElementById('overlay-btns');
+  const backBtn     = document.getElementById('back-btn');
+  const modeBadge   = document.getElementById('mode-badge');
   const counterEl = document.getElementById('slide-counter');
 
   let currentSlideIdx = 0;
@@ -294,9 +303,14 @@ async function init() {
 
   // 완성형/빈칸형 모드 전환 + 주소창의 ?mode= 값을 항상 현재 상태와 일치시킨다
   // (새로고침해도, 링크를 복사해서 다시 열어도 마지막 상태 그대로 열리게).
+  const SVG_EYE      = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  const SVG_EYE_OFF  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
   function setMode(mode) {
     document.body.dataset.mode = mode;
-    modeBadge.textContent      = mode === 'complete' ? '완성형' : '빈칸형';
+    modeBadge.innerHTML = mode === 'complete'
+      ? `${SVG_EYE}<span>완성형</span>`
+      : `${SVG_EYE_OFF}<span>빈칸형</span>`;
     const url = new URL(location.href);
     url.searchParams.set('mode', mode);
     history.replaceState(null, '', url);
@@ -319,10 +333,9 @@ async function init() {
 
   function startSlides(mode) {
     setMode(mode);
-    slidesEl.hidden  = false;
-    backBtn.hidden   = false;
-    modeBadge.hidden = false;
-    counterEl.hidden = false;
+    slidesEl.hidden      = false;
+    overlayBtns.hidden   = false;
+    counterEl.hidden     = false;
 
     if (isMobileLayout) {
       currentSlideIdx = 0;
