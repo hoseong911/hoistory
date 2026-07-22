@@ -86,6 +86,8 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 #subnav-mission .nav-sub-item.empty{color:var(--stone);cursor:default}
 #subnav-mission .nav-sub-item.empty:hover{background:none;color:var(--stone)}
 .nav-divider{height:1px;background:var(--hairline-soft);margin:8px 0}
+.xp-sort-btn{border:1.5px solid var(--hairline);border-radius:100px;padding:4px 14px;font-family:inherit;font-size:12px;font-weight:700;color:var(--slate);background:var(--canvas);cursor:pointer;transition:all .15s}
+.xp-sort-btn.active{background:var(--amber-d);color:#fff;border-color:var(--amber-d)}
 
 /* ── 패널 ── */
 .adm-panel{display:none;padding:28px 32px 80px;max-width:1200px;margin:0 auto;width:100%}
@@ -581,19 +583,18 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
         <div class="nav-sub-item" data-subnav="archive-category">CATEGORY</div>
         <div class="nav-sub-item" data-subnav="archive-add">ADD</div>
       </div>
+      <div class="nav-divider"></div>
+      <div class="nav-item nav-dark" data-nav="students">
+        <span class="nav-dot" style="background:var(--charcoal)"></span>학생 관리
+      </div>
       <div class="nav-item nav-amber has-sub" data-nav="xp">
         <span class="nav-dot" style="background:var(--amber)"></span>경험치 관리
         <span class="nav-arrow">›</span>
       </div>
       <div class="nav-sub" id="subnav-xp">
-        <div class="nav-sub-item" data-subnav="xp-status">STATUS</div>
-        <div class="nav-sub-item" data-subnav="xp-grade">GRADE</div>
-        <div class="nav-sub-item" data-subnav="xp-settings">SETTINGS</div>
-        <div class="nav-sub-item" data-subnav="xp-manual">MANUAL</div>
-      </div>
-      <div class="nav-divider"></div>
-      <div class="nav-item nav-dark" data-nav="students">
-        <span class="nav-dot" style="background:var(--charcoal)"></span>학생 관리
+        <div class="nav-sub-item" data-subnav="xp-status">학생 현황</div>
+        <div class="nav-sub-item" data-subnav="xp-award">XP 지급</div>
+        <div class="nav-sub-item" data-subnav="xp-settings">설정</div>
       </div>
       <div class="nav-item nav-dark has-sub" data-nav="settings">
         <span class="nav-dot" style="background:var(--charcoal)"></span>설정
@@ -1329,7 +1330,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
   <!-- ── 경험치 · 현황 ── -->
   <div class="adm-panel" id="panel-xp-status">
     <div class="panel-top">
-      <div class="panel-title">경험치 현황</div>
+      <div class="panel-title">학생 현황</div>
       <div class="panel-actions">
         <select id="xp-filter-class" class="grade-config-sel" onchange="xpRenderStatus()">
           <option value="">전체 반</option>
@@ -1338,22 +1339,28 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
       </div>
     </div>
     <div class="stu-card">
+      <div class="stu-card-head" style="display:flex;gap:8px;align-items:center">
+        <button class="xp-sort-btn active" id="xpSortRank" onclick="xpSetSort('rank')">랭킹순</button>
+        <button class="xp-sort-btn" id="xpSortId" onclick="xpSetSort('id')">학번순</button>
+      </div>
       <div style="overflow-x:auto">
         <table class="gd-table" id="xp-status-table">
-          <thead><tr><th>학번</th><th>이름</th><th>레벨</th><th>총 XP</th><th>최근 활동</th></tr></thead>
-          <tbody id="xp-status-body"><tr><td colspan="5" style="color:var(--slate);padding:24px;font-size:13px">로딩 중...</td></tr></tbody>
+          <thead><tr><th>순위</th><th>학번</th><th>이름</th><th>레벨</th><th>총 XP</th><th>최근 활동</th></tr></thead>
+          <tbody id="xp-status-body"><tr><td colspan="6" style="color:var(--slate);padding:24px;font-size:13px">로딩 중...</td></tr></tbody>
         </table>
       </div>
     </div>
   </div>
 
-  <!-- ── 경험치 · 생각체크 XP 지급 ── -->
-  <div class="adm-panel" id="panel-xp-grade">
+  <!-- ── 경험치 · XP 지급 (생각체크 자동 + 수동) ── -->
+  <div class="adm-panel" id="panel-xp-award">
     <div class="panel-top">
-      <div class="panel-title">생각체크 XP 지급</div>
+      <div class="panel-title">XP 지급</div>
     </div>
+
+    <!-- 생각체크 자동 지급 -->
     <div class="stu-card">
-      <div class="stu-card-head">강의 선택</div>
+      <div class="stu-card-head">생각체크 XP 자동 지급</div>
       <div class="stu-card-body" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <select id="xp-grade-lec" class="grade-config-sel" style="flex:1;min-width:200px" onchange="xpGradeLoadSubs()">
           <option value="">강의를 선택하세요</option>
@@ -1364,12 +1371,48 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
     <div class="stu-card" id="xp-grade-card" style="display:none">
       <div class="stu-card-head" style="display:flex;justify-content:space-between;align-items:center">
         <span id="xp-grade-lec-label">제출 목록</span>
-        <button class="add-btn" id="xp-grade-award-all-btn" onclick="xpGradeAwardAll()">미지급 전체 XP 지급</button>
+        <button class="add-btn" id="xp-grade-award-all-btn" onclick="xpGradeAwardAll()">미지급 전체 지급</button>
       </div>
       <div class="stu-card-body" style="overflow-x:auto">
         <table class="gd-table">
           <thead><tr><th>학번</th><th>이름</th><th>글자수</th><th>XP 상태</th><th>지급</th></tr></thead>
           <tbody id="xp-grade-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 수동 지급 -->
+    <div class="stu-card">
+      <div class="stu-card-head">수동 XP 지급</div>
+      <div class="stu-card-body" style="display:flex;flex-direction:column;gap:14px;max-width:420px">
+        <div class="form-group">
+          <label class="form-label">학생 검색 (학번 또는 이름)</label>
+          <input type="text" class="form-input" id="xp-manual-search" placeholder="학번 또는 이름" oninput="xpManualSearch(this.value)">
+          <div id="xp-manual-dropdown" style="display:none;border:1px solid var(--hairline);border-radius:8px;margin-top:4px;overflow:hidden;background:var(--canvas);max-height:160px;overflow-y:auto"></div>
+        </div>
+        <div id="xp-manual-target" style="display:none;background:var(--amber-l);border:1.5px solid var(--amber-m);border-radius:12px;padding:12px 16px;font-size:14px;font-weight:700;color:var(--amber-d)"></div>
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">XP (음수 = 차감)</label>
+            <input type="number" class="form-input" id="xp-manual-pt" value="10" style="width:110px">
+          </div>
+          <div class="form-group" style="margin:0;flex:1;min-width:160px">
+            <label class="form-label">사유</label>
+            <input type="text" class="form-input" id="xp-manual-note" placeholder="예) 수업 참여 우수">
+          </div>
+          <button class="add-btn" onclick="xpManualAward()">지급</button>
+        </div>
+        <div id="xp-manual-result" style="font-size:13px;min-height:20px"></div>
+      </div>
+    </div>
+
+    <!-- 수동 지급 내역 -->
+    <div class="stu-card">
+      <div class="stu-card-head">최근 수동 지급 내역</div>
+      <div class="stu-card-body" style="overflow-x:auto">
+        <table class="gd-table">
+          <thead><tr><th>일시</th><th>학번</th><th>이름</th><th>XP</th><th>사유</th></tr></thead>
+          <tbody id="xp-manual-log"></tbody>
         </table>
       </div>
     </div>
@@ -1406,40 +1449,6 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
     </div>
   </div>
 
-  <!-- ── 경험치 · 수동 지급 ── -->
-  <div class="adm-panel" id="panel-xp-manual">
-    <div class="panel-top"><div class="panel-title">수동 XP 지급</div></div>
-    <div class="stu-card">
-      <div class="stu-card-body" style="display:flex;flex-direction:column;gap:14px;max-width:420px">
-        <div class="form-group">
-          <label class="form-label">학생 학번 또는 이름 검색</label>
-          <input type="text" class="form-input" id="xp-manual-search" placeholder="학번 또는 이름" oninput="xpManualSearch(this.value)">
-          <div id="xp-manual-dropdown" style="display:none;border:1px solid var(--hairline);border-radius:8px;margin-top:4px;overflow:hidden;background:var(--canvas);max-height:160px;overflow-y:auto"></div>
-        </div>
-        <div id="xp-manual-target" style="display:none;background:var(--amber-l);border:1.5px solid var(--amber-m);border-radius:12px;padding:12px 16px;font-size:14px;font-weight:700;color:var(--amber-d)"></div>
-        <div class="form-group">
-          <label class="form-label">XP 양 (음수 입력 시 차감)</label>
-          <input type="number" class="form-input" id="xp-manual-pt" value="10" style="width:120px">
-        </div>
-        <div class="form-group">
-          <label class="form-label">사유</label>
-          <input type="text" class="form-input" id="xp-manual-note" placeholder="예) 수업 참여 우수">
-        </div>
-        <button class="add-btn" onclick="xpManualAward()">XP 지급</button>
-        <div id="xp-manual-result" style="font-size:13px;min-height:20px"></div>
-      </div>
-    </div>
-
-    <div class="stu-card">
-      <div class="stu-card-head">최근 수동 지급 내역</div>
-      <div class="stu-card-body" style="overflow-x:auto">
-        <table class="gd-table">
-          <thead><tr><th>일시</th><th>학번</th><th>이름</th><th>XP</th><th>사유</th></tr></thead>
-          <tbody id="xp-manual-log"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
 
     </main><!-- /adm-content -->
 
@@ -1696,7 +1705,7 @@ const SUBNAV_MAP = {
   think: ['think-question', 'think-answer'],
   grade: ['grade-check', 'grade-grade', 'grade-setting'],
   archive: ['archive-cards', 'archive-category', 'archive-add'],
-  xp: ['xp-status', 'xp-grade', 'xp-settings', 'xp-manual'],
+  xp: ['xp-status', 'xp-award', 'xp-settings'],
   settings: ['settings-system', 'settings-student']
 };
 
@@ -1760,10 +1769,9 @@ function switchNav(nav) {
   if (panelId === 'panel-archive-cards' && typeof renderArchiveCards === 'function') renderArchiveCards();
   if (panelId === 'panel-archive-category' && typeof renderArchiveCategoryEditor === 'function') renderArchiveCategoryEditor();
   // XP 패널 진입 시 데이터 로드
-  if (panelId === 'panel-xp-status'   && typeof xpLoadStatus      === 'function') xpLoadStatus();
-  if (panelId === 'panel-xp-grade'    && typeof xpGradeLoadLectures === 'function') { xpEnsureConfig(); xpGradeLoadLectures(); }
-  if (panelId === 'panel-xp-settings' && typeof xpLoadSettings     === 'function') xpLoadSettings();
-  if (panelId === 'panel-xp-manual'   && typeof xpManualLoadStudents === 'function') xpManualLoadStudents();
+  if (panelId === 'panel-xp-status'   && typeof xpLoadStatus         === 'function') xpLoadStatus();
+  if (panelId === 'panel-xp-award'    && typeof xpGradeLoadLectures  === 'function') { xpEnsureConfig(); xpGradeLoadLectures(); xpManualLoadStudents(); }
+  if (panelId === 'panel-xp-settings' && typeof xpLoadSettings       === 'function') xpLoadSettings();
 }
 
 // 사이드바의 미션 체크 서브메뉴에서 특정 웹앱 어드민을 바로 열 때: 카드 목록 패널로
@@ -5747,6 +5755,14 @@ async function xpEnsureConfig() {
 // ── STATUS ──
 window.xpRefreshStatus = function() { xpLoadStatus(); };
 
+let _xpSortMode = 'rank';
+window.xpSetSort = function(mode) {
+  _xpSortMode = mode;
+  document.getElementById('xpSortRank').classList.toggle('active', mode === 'rank');
+  document.getElementById('xpSortId').classList.toggle('active', mode === 'id');
+  xpRenderStatus();
+};
+
 async function xpLoadStatus() {
   await xpEnsureConfig();
   const snap = await get(ref(rtdb, `${XP_ROOT}/students`));
@@ -5757,17 +5773,22 @@ async function xpLoadStatus() {
 
 window.xpRenderStatus = function() {
   const filterCls = document.getElementById('xp-filter-class')?.value || '';
-  const rows = Object.entries(_xpStuAll)
-    .filter(([sid]) => !filterCls || sid.startsWith(filterCls))
-    .sort((a, b) => (b[1].total || 0) - (a[1].total || 0));
+  let rows = Object.entries(_xpStuAll)
+    .filter(([sid]) => !filterCls || sid.startsWith(filterCls));
+  if (_xpSortMode === 'id') {
+    rows.sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
+  } else {
+    rows.sort((a, b) => (b[1].total || 0) - (a[1].total || 0));
+  }
   const tbody = document.getElementById('xp-status-body');
   if (!tbody) return;
-  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="5" style="color:var(--slate);padding:24px;font-size:13px">데이터가 없습니다.</td></tr>'; return; }
-  tbody.innerHTML = rows.map(([sid, s]) => {
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" style="color:var(--slate);padding:24px;font-size:13px">데이터가 없습니다.</td></tr>'; return; }
+  tbody.innerHTML = rows.map(([sid, s], i) => {
     const lv      = s.level || calcLevel(s.total || 0, _xpCfg?.levels, _xpCfg?.levelFormula);
     const lastAct = s.lastAttendance || s.lastMileage || '';
+    const rank    = _xpSortMode === 'rank' ? `<span style="font-weight:700;color:var(--slate)">${i+1}</span>` : '-';
     return `<tr>
-      <td>${sid}</td><td>${s.name || ''}</td>
+      <td>${rank}</td><td>${sid}</td><td>${s.name || ''}</td>
       <td><span style="font-weight:700;color:var(--amber-d)">Lv.${lv}</span></td>
       <td style="font-weight:700">${(s.total||0).toLocaleString()} pt</td>
       <td style="font-size:12px;color:var(--slate)">${lastAct}</td>
@@ -5788,7 +5809,7 @@ let _xpGradeSubs = [];
 let _xpGradeLecId = '';
 
 async function xpGradeLoadLectures() {
-  const snap = await getDocs(collection(db, 'think_lectures'));
+  const snap = await getDocs(query(collection(db, 'think_lectures'), orderBy('createdAt', 'desc')));
   const sel = document.getElementById('xp-grade-lec');
   if (!sel) return;
   sel.innerHTML = '<option value="">강의를 선택하세요</option>' +

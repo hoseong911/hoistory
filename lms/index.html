@@ -259,7 +259,8 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .cp-blank:hover{background:var(--primary-soft)}
 
 /* ── XP 위젯 ── */
-.xp-widget{display:none;align-items:center;gap:8px;background:rgba(245,158,11,.08);border:1.5px solid rgba(245,158,11,.25);border-radius:100px;padding:6px 14px 6px 10px;cursor:default;transition:.15s}
+.xp-widget{display:none;align-items:center;gap:8px;background:rgba(245,158,11,.08);border:1.5px solid rgba(245,158,11,.25);border-radius:100px;padding:6px 14px 6px 10px;cursor:pointer;transition:.15s}
+.xp-widget:hover{background:rgba(245,158,11,.15);border-color:rgba(245,158,11,.45)}
 .xp-level-badge{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:13px;color:#D97706;white-space:nowrap;letter-spacing:.3px}
 .xp-bar-wrap{display:flex;flex-direction:column;gap:2px;min-width:72px}
 .xp-bar-label{font-size:10px;color:#92400E;font-weight:400;white-space:nowrap}
@@ -277,6 +278,26 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 /* ── +XP 플로팅 ── */
 .xp-float{position:fixed;font-weight:700;font-size:18px;color:#D97706;pointer-events:none;z-index:9001;animation:xpFloat 1.5s ease forwards}
 @keyframes xpFloat{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-60px)}}
+/* ── XP 내역 모달 ── */
+#xpHistoryModal{display:none;position:fixed;inset:0;z-index:9000;align-items:flex-start;justify-content:center;background:rgba(10,19,23,.55);backdrop-filter:blur(6px);padding:60px 16px 24px}
+#xpHistoryModal.open{display:flex}
+.xp-hist-box{background:#fff;border-radius:20px;width:100%;max-width:400px;max-height:calc(100vh - 84px);display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
+.xp-hist-head{padding:20px 20px 16px;border-bottom:1px solid #F3F4F6;flex-shrink:0}
+.xp-hist-title{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:17px;color:#1F2937}
+.xp-hist-summary{margin-top:10px;display:flex;gap:10px}
+.xp-hist-stat{flex:1;background:#FEF3C7;border-radius:12px;padding:10px 14px;text-align:center}
+.xp-hist-stat-val{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:22px;color:#D97706}
+.xp-hist-stat-label{font-size:11px;color:#92400E;margin-top:2px}
+.xp-hist-list{overflow-y:auto;flex:1;padding:8px 0}
+.xp-hist-item{display:flex;align-items:center;gap:12px;padding:11px 20px;border-bottom:1px solid #F9FAFB}
+.xp-hist-item:last-child{border-bottom:none}
+.xp-hist-icon{width:32px;height:32px;border-radius:50%;background:#FEF3C7;display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.xp-hist-info{flex:1;min-width:0}
+.xp-hist-note{font-size:13px;font-weight:700;color:#1F2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.xp-hist-date{font-size:11px;color:#9CA3AF;margin-top:2px}
+.xp-hist-pt{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:14px;color:#D97706;flex-shrink:0}
+.xp-hist-close{width:100%;padding:14px;background:#F9FAFB;border:none;border-top:1px solid #F3F4F6;font-family:inherit;font-size:14px;font-weight:700;color:#6B7280;cursor:pointer;transition:background .15s;flex-shrink:0}
+.xp-hist-close:hover{background:#F3F4F6}
 </style>
 </head>
 <body>
@@ -808,6 +829,45 @@ function _updateXPWidget(state) {
   document.getElementById('xpLevelText').textContent = `Lv.${lv}`;
   document.getElementById('xpBarLabel').textContent  = `${total} pt`;
   document.getElementById('xpBarFill').style.width   = `${Math.min(pct, 100)}%`;
+  document.getElementById('xpHistTotal').textContent = `${total} pt`;
+  document.getElementById('xpHistLevel').textContent = `Lv.${lv}`;
+}
+
+const ACT_ICONS = { attendance:'📅', mileage:'🏃', conceptCheck:'📖', thinkCheck:'💭', oxQuiz:'❓', manual:'✏️' };
+
+document.getElementById('xpWidget').addEventListener('click', _openXPHistory);
+
+async function _openXPHistory() {
+  const modal = document.getElementById('xpHistoryModal');
+  modal.classList.add('open');
+  const list = document.getElementById('xpHistList');
+  list.innerHTML = '<div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">로딩 중...</div>';
+  try {
+    const snap = await rtdbGet(rtdbRef(rtdb, `xp/students/${currentStudentId}/history`));
+    if (!snap.exists()) { list.innerHTML = '<div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">활동 내역이 없어요.</div>'; return; }
+    const rows = Object.values(snap.val()).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    document.getElementById('xpHistCount').textContent = rows.length;
+    list.innerHTML = rows.map(r => {
+      const d  = new Date(r.ts || 0);
+      const dt = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      const icon = ACT_ICONS[r.type] || '⭐';
+      const sign = r.pt > 0 ? '+' : '';
+      return `<div class="xp-hist-item">
+        <div class="xp-hist-icon">${icon}</div>
+        <div class="xp-hist-info">
+          <div class="xp-hist-note">${r.note || r.type || '활동'}</div>
+          <div class="xp-hist-date">${dt}</div>
+        </div>
+        <div class="xp-hist-pt">${sign}${r.pt} pt</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">내역을 불러올 수 없어요.</div>';
+  }
+}
+
+function _closeXPHistory() {
+  document.getElementById('xpHistoryModal').classList.remove('open');
 }
 
 function _showLevelUpModal(level) {
@@ -1325,6 +1385,30 @@ document.addEventListener('click', e => {
     <div class="xp-modal-lv" id="xpModalLevel">1</div>
     <div class="xp-modal-label">레벨 업!</div>
     <button class="xp-modal-close" onclick="document.getElementById('xpLevelUpModal').classList.remove('open')">확인</button>
+  </div>
+</div>
+
+<div id="xpHistoryModal" onclick="if(event.target===this)_closeXPHistory()">
+  <div class="xp-hist-box">
+    <div class="xp-hist-head">
+      <div class="xp-hist-title">경험치 내역</div>
+      <div class="xp-hist-summary">
+        <div class="xp-hist-stat">
+          <div class="xp-hist-stat-val" id="xpHistTotal">0</div>
+          <div class="xp-hist-stat-label">총 XP</div>
+        </div>
+        <div class="xp-hist-stat">
+          <div class="xp-hist-stat-val" id="xpHistLevel">Lv.1</div>
+          <div class="xp-hist-stat-label">현재 레벨</div>
+        </div>
+        <div class="xp-hist-stat">
+          <div class="xp-hist-stat-val" id="xpHistCount">0</div>
+          <div class="xp-hist-stat-label">활동 수</div>
+        </div>
+      </div>
+    </div>
+    <div class="xp-hist-list" id="xpHistList"></div>
+    <button class="xp-hist-close" onclick="_closeXPHistory()">닫기</button>
   </div>
 </div>
 
