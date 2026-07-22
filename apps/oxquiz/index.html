@@ -769,6 +769,48 @@ const state = {
   sessionSaved: false,
 };
 
+// OX 퀴즈 XP (Firebase v8 인라인)
+const _OX_XP_LEVELS = [0,100,225,375,550,750,975,1225,1500,1800,2125,2475,2850,3250,3675,4125,4600,5100,5625,6175];
+function _oxCalcLevel(total) {
+  for (let i = _OX_XP_LEVELS.length - 1; i >= 0; i--) {
+    if (total >= _OX_XP_LEVELS[i]) {
+      if (i < _OX_XP_LEVELS.length - 1) return i + 1;
+      break;
+    }
+  }
+  let t = _OX_XP_LEVELS[_OX_XP_LEVELS.length - 1], g = 550, lv = _OX_XP_LEVELS.length;
+  while (total >= t + g) { t += g; g += 25; lv++; }
+  return lv;
+}
+function _oxAddXP() {
+  if (!state.student) return;
+  const sid = state.student.sid;
+  const today = new Date().toISOString().slice(0, 10);
+  rtdb.ref(`xp/config/activities/oxQuiz`).once('value').then(cfgSnap => {
+    const cfg = cfgSnap.val() || {};
+    if (cfg.enabled === false) return;
+    const dailyMax = cfg.dailyMax ?? 20;
+    const ptPer    = cfg.ptPer    ?? 1;
+    return rtdb.ref(`xp/students/${sid}/dailyOX/${today}`).once('value').then(s => {
+      const earned = s.val() || 0;
+      if (earned >= dailyMax) return;
+      const actual = Math.min(ptPer, dailyMax - earned);
+      return rtdb.ref(`xp/students/${sid}/total`).once('value').then(ts => {
+        const total    = (ts.val() || 0) + actual;
+        const newLevel = _oxCalcLevel(total);
+        const histKey  = rtdb.ref(`xp/students/${sid}/history`).push().key;
+        const updates  = {};
+        updates[`xp/students/${sid}/dailyOX/${today}`]      = earned + actual;
+        updates[`xp/students/${sid}/total`]                  = total;
+        updates[`xp/students/${sid}/level`]                  = newLevel;
+        updates[`xp/students/${sid}/name`]                   = state.student.name;
+        updates[`xp/students/${sid}/history/${histKey}`]     = { type: 'oxQuiz', pt: actual, note: 'OX 퀴즈 정답', ts: Date.now() };
+        return rtdb.ref('/').update(updates);
+      });
+    });
+  }).catch(() => {});
+}
+
 // lec: 0 = 1회시험(1~11강 전체), lec: 12~21 = 2회시험 각 차시
 const LECTURES = [0, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
 const LECTURES_2 = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21];
@@ -1084,7 +1126,7 @@ function selectAnswer(choice) {
   const timeBonus = Math.round((state.timeLeft / 20) * 800) + 200;
   const points = correct ? timeBonus : 0;
   state.currentAnswer = choice;
-  if (correct) { state.correct++; state.score += points; }
+  if (correct) { state.correct++; state.score += points; _oxAddXP(); }
   else state.wrong++;
   showResultToast(correct, points, q);
 }

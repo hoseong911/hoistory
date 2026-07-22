@@ -28,6 +28,7 @@
   --c3:#0E7490;--c3-l:rgba(14,116,144,0.08);--c3-m:rgba(14,116,144,0.15);
   --c4:#D97706;--c4-l:rgba(217,119,6,0.08);--c4-m:rgba(217,119,6,0.15);
   --c5:#E11D48;--c5-l:rgba(225,29,72,0.07);--c5-m:rgba(225,29,72,0.15);
+  --amber:#F59E0B;--amber-l:rgba(245,158,11,.08);--amber-m:rgba(245,158,11,.18);--amber-d:#D97706;
   --success:#16A34A;--critical:#DC2626;
   --shadow:rgba(20,22,26,0.25) 0px 1px 4px 0px;
   --shadow-hover:rgba(20,22,26,0.25) 0px 6px 20px 0px;
@@ -69,6 +70,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .nav-item.nav-c4.active{color:var(--c4);background:var(--c4-l)}
 .nav-item.nav-c5.active{color:var(--c5);background:var(--c5-l)}
 .nav-item.nav-dark.active{color:var(--charcoal);background:var(--surface)}
+.nav-item.nav-amber.active{color:var(--amber-d);background:var(--amber-l)}
 .nav-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:currentColor}
 .nav-arrow{margin-left:auto;font-size:13px;transition:transform .2s;color:var(--stone);line-height:1}
 .nav-item.has-sub.open .nav-arrow{transform:rotate(90deg)}
@@ -578,6 +580,16 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
         <div class="nav-sub-item" data-subnav="archive-cards">CARDS</div>
         <div class="nav-sub-item" data-subnav="archive-category">CATEGORY</div>
         <div class="nav-sub-item" data-subnav="archive-add">ADD</div>
+      </div>
+      <div class="nav-item nav-amber has-sub" data-nav="xp">
+        <span class="nav-dot" style="background:var(--amber)"></span>경험치 관리
+        <span class="nav-arrow">›</span>
+      </div>
+      <div class="nav-sub" id="subnav-xp">
+        <div class="nav-sub-item" data-subnav="xp-status">STATUS</div>
+        <div class="nav-sub-item" data-subnav="xp-grade">GRADE</div>
+        <div class="nav-sub-item" data-subnav="xp-settings">SETTINGS</div>
+        <div class="nav-sub-item" data-subnav="xp-manual">MANUAL</div>
       </div>
       <div class="nav-divider"></div>
       <div class="nav-item nav-dark" data-nav="students">
@@ -1314,6 +1326,121 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
     </div>
   </div>
 
+  <!-- ── 경험치 · 현황 ── -->
+  <div class="adm-panel" id="panel-xp-status">
+    <div class="panel-top">
+      <div class="panel-title">경험치 현황</div>
+      <div class="panel-actions">
+        <select id="xp-filter-class" class="grade-config-sel" onchange="xpRenderStatus()">
+          <option value="">전체 반</option>
+        </select>
+        <button class="add-btn" onclick="xpRefreshStatus()">새로고침</button>
+      </div>
+    </div>
+    <div class="stu-card">
+      <div style="overflow-x:auto">
+        <table class="gd-table" id="xp-status-table">
+          <thead><tr><th>학번</th><th>이름</th><th>레벨</th><th>총 XP</th><th>최근 활동</th></tr></thead>
+          <tbody id="xp-status-body"><tr><td colspan="5" style="color:var(--slate);padding:24px;font-size:13px">로딩 중...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 경험치 · 생각체크 XP 지급 ── -->
+  <div class="adm-panel" id="panel-xp-grade">
+    <div class="panel-top">
+      <div class="panel-title">생각체크 XP 지급</div>
+    </div>
+    <div class="stu-card">
+      <div class="stu-card-head">강의 선택</div>
+      <div class="stu-card-body" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <select id="xp-grade-lec" class="grade-config-sel" style="flex:1;min-width:200px" onchange="xpGradeLoadSubs()">
+          <option value="">강의를 선택하세요</option>
+        </select>
+        <span id="xp-grade-status" style="font-size:13px;color:var(--slate)"></span>
+      </div>
+    </div>
+    <div class="stu-card" id="xp-grade-card" style="display:none">
+      <div class="stu-card-head" style="display:flex;justify-content:space-between;align-items:center">
+        <span id="xp-grade-lec-label">제출 목록</span>
+        <button class="add-btn" id="xp-grade-award-all-btn" onclick="xpGradeAwardAll()">미지급 전체 XP 지급</button>
+      </div>
+      <div class="stu-card-body" style="overflow-x:auto">
+        <table class="gd-table">
+          <thead><tr><th>학번</th><th>이름</th><th>글자수</th><th>XP 상태</th><th>지급</th></tr></thead>
+          <tbody id="xp-grade-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 경험치 · 설정 ── -->
+  <div class="adm-panel" id="panel-xp-settings">
+    <div class="panel-top"><div class="panel-title">경험치 설정</div></div>
+
+    <div class="stu-card">
+      <div class="stu-card-head">활동별 XP</div>
+      <div class="stu-card-body">
+        <table class="gd-table" id="xp-act-table">
+          <thead><tr><th>활동</th><th>XP</th><th>활성</th></tr></thead>
+          <tbody id="xp-act-body"></tbody>
+        </table>
+        <button class="add-btn" style="margin-top:12px" onclick="xpSaveActivities()">활동 설정 저장</button>
+      </div>
+    </div>
+
+    <div class="stu-card">
+      <div class="stu-card-head">레벨 XP 기준</div>
+      <div class="stu-card-body">
+        <p style="font-size:12px;color:var(--slate);margin-bottom:12px;line-height:1.6">레벨별 누적 XP 기준값을 쉼표로 구분하여 입력하세요. 첫 값은 반드시 0이어야 합니다. 표 이후 레벨은 자동으로 공식이 적용됩니다.</p>
+        <textarea class="form-textarea" id="xp-levels-input" style="height:100px;font-family:monospace;font-size:13px"></textarea>
+        <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+          <span style="font-size:12px;color:var(--slate)">이후 레벨 간격 시작:</span>
+          <input type="number" class="form-input" id="xp-lastgap-input" style="width:80px;text-align:center" value="550">
+          <span style="font-size:12px;color:var(--slate)">증가량:</span>
+          <input type="number" class="form-input" id="xp-increment-input" style="width:70px;text-align:center" value="25">
+        </div>
+        <button class="add-btn" style="margin-top:12px" onclick="xpSaveLevels()">레벨 기준 저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 경험치 · 수동 지급 ── -->
+  <div class="adm-panel" id="panel-xp-manual">
+    <div class="panel-top"><div class="panel-title">수동 XP 지급</div></div>
+    <div class="stu-card">
+      <div class="stu-card-body" style="display:flex;flex-direction:column;gap:14px;max-width:420px">
+        <div class="form-group">
+          <label class="form-label">학생 학번 또는 이름 검색</label>
+          <input type="text" class="form-input" id="xp-manual-search" placeholder="학번 또는 이름" oninput="xpManualSearch(this.value)">
+          <div id="xp-manual-dropdown" style="display:none;border:1px solid var(--hairline);border-radius:8px;margin-top:4px;overflow:hidden;background:var(--canvas);max-height:160px;overflow-y:auto"></div>
+        </div>
+        <div id="xp-manual-target" style="display:none;background:var(--amber-l);border:1.5px solid var(--amber-m);border-radius:12px;padding:12px 16px;font-size:14px;font-weight:700;color:var(--amber-d)"></div>
+        <div class="form-group">
+          <label class="form-label">XP 양 (음수 입력 시 차감)</label>
+          <input type="number" class="form-input" id="xp-manual-pt" value="10" style="width:120px">
+        </div>
+        <div class="form-group">
+          <label class="form-label">사유</label>
+          <input type="text" class="form-input" id="xp-manual-note" placeholder="예) 수업 참여 우수">
+        </div>
+        <button class="add-btn" onclick="xpManualAward()">XP 지급</button>
+        <div id="xp-manual-result" style="font-size:13px;min-height:20px"></div>
+      </div>
+    </div>
+
+    <div class="stu-card">
+      <div class="stu-card-head">최근 수동 지급 내역</div>
+      <div class="stu-card-body" style="overflow-x:auto">
+        <table class="gd-table">
+          <thead><tr><th>일시</th><th>학번</th><th>이름</th><th>XP</th><th>사유</th></tr></thead>
+          <tbody id="xp-manual-log"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
     </main><!-- /adm-content -->
 
     <!-- 앱 어드민 iframe 영역 (사이드바·상단바는 그대로 두고 콘텐츠 영역만 대체) -->
@@ -1569,6 +1696,7 @@ const SUBNAV_MAP = {
   think: ['think-question', 'think-answer'],
   grade: ['grade-check', 'grade-grade', 'grade-setting'],
   archive: ['archive-cards', 'archive-category', 'archive-add'],
+  xp: ['xp-status', 'xp-grade', 'xp-settings', 'xp-manual'],
   settings: ['settings-system', 'settings-student']
 };
 
@@ -1631,6 +1759,11 @@ function switchNav(nav) {
   }
   if (panelId === 'panel-archive-cards' && typeof renderArchiveCards === 'function') renderArchiveCards();
   if (panelId === 'panel-archive-category' && typeof renderArchiveCategoryEditor === 'function') renderArchiveCategoryEditor();
+  // XP 패널 진입 시 데이터 로드
+  if (panelId === 'panel-xp-status'   && typeof xpLoadStatus      === 'function') xpLoadStatus();
+  if (panelId === 'panel-xp-grade'    && typeof xpGradeLoadLectures === 'function') { xpEnsureConfig(); xpGradeLoadLectures(); }
+  if (panelId === 'panel-xp-settings' && typeof xpLoadSettings     === 'function') xpLoadSettings();
+  if (panelId === 'panel-xp-manual'   && typeof xpManualLoadStudents === 'function') xpManualLoadStudents();
 }
 
 // 사이드바의 미션 체크 서브메뉴에서 특정 웹앱 어드민을 바로 열 때: 카드 목록 패널로
@@ -5591,6 +5724,262 @@ initAdmin();
   thStartLecListener();
   thLoadStudents();
 }
+
+// ══════════════════════════════════════════════════════════════
+// 경험치 관리
+// ══════════════════════════════════════════════════════════════
+import { loadXPConfig, saveXPConfig, adminAddXP, DEFAULT_LEVELS, DEFAULT_FORMULA, DEFAULT_ACTIVITIES, calcLevel } from '../shared/xp.js';
+
+const XP_ROOT = 'xp';
+const ACT_LABELS = { attendance:'출석 체크', mileage:'히스토리 마일리지', conceptCheck:'개념 체크', thinkCheck:'생각 체크', oxQuiz:'OX 퀴즈 (일일 최대)' };
+const fbFns = { ref, get, set, push, update, onValue };
+
+let _xpCfg    = null;
+let _xpStuAll = {};       // { sid: { total, level, name, ... } }
+let _xpManSel = null;     // { sid, name }
+
+// ── 공통: 설정 로드 ──
+async function xpEnsureConfig() {
+  if (!_xpCfg) _xpCfg = await loadXPConfig(rtdb, fbFns);
+  return _xpCfg;
+}
+
+// ── STATUS ──
+window.xpRefreshStatus = function() { xpLoadStatus(); };
+
+async function xpLoadStatus() {
+  await xpEnsureConfig();
+  const snap = await get(ref(rtdb, `${XP_ROOT}/students`));
+  _xpStuAll  = snap.exists() ? (snap.val() || {}) : {};
+  xpRenderStatus();
+  xpPopulateClassFilter();
+}
+
+window.xpRenderStatus = function() {
+  const filterCls = document.getElementById('xp-filter-class')?.value || '';
+  const rows = Object.entries(_xpStuAll)
+    .filter(([sid]) => !filterCls || sid.startsWith(filterCls))
+    .sort((a, b) => (b[1].total || 0) - (a[1].total || 0));
+  const tbody = document.getElementById('xp-status-body');
+  if (!tbody) return;
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="5" style="color:var(--slate);padding:24px;font-size:13px">데이터가 없습니다.</td></tr>'; return; }
+  tbody.innerHTML = rows.map(([sid, s]) => {
+    const lv      = s.level || calcLevel(s.total || 0, _xpCfg?.levels, _xpCfg?.levelFormula);
+    const lastAct = s.lastAttendance || s.lastMileage || '';
+    return `<tr>
+      <td>${sid}</td><td>${s.name || ''}</td>
+      <td><span style="font-weight:700;color:var(--amber-d)">Lv.${lv}</span></td>
+      <td style="font-weight:700">${(s.total||0).toLocaleString()} pt</td>
+      <td style="font-size:12px;color:var(--slate)">${lastAct}</td>
+    </tr>`;
+  }).join('');
+};
+
+function xpPopulateClassFilter() {
+  const sel = document.getElementById('xp-filter-class');
+  if (!sel) return;
+  const classes = [...new Set(Object.keys(_xpStuAll).map(s => s.slice(0,4)))].sort();
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">전체 반</option>' + classes.map(c => `<option value="${c}"${c===cur?' selected':''}>${c}</option>`).join('');
+}
+
+// ── GRADE ──
+let _xpGradeSubs = [];
+let _xpGradeLecId = '';
+
+async function xpGradeLoadLectures() {
+  const snap = await getDocs(collection(db, 'think_lectures'));
+  const sel = document.getElementById('xp-grade-lec');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">강의를 선택하세요</option>' +
+    snap.docs.map(d => `<option value="${d.id}">${d.data().title || d.id}</option>`).join('');
+}
+
+window.xpGradeLoadSubs = async function() {
+  const lecId = document.getElementById('xp-grade-lec')?.value;
+  if (!lecId) return;
+  _xpGradeLecId = lecId;
+  document.getElementById('xp-grade-status').textContent = '로딩 중...';
+  const snap = await getDocs(query(collection(db, 'think_submissions'), where('lectureDocId', '==', lecId)));
+  _xpGradeSubs  = snap.docs.map(d => ({ subId: d.id, ...d.data() }));
+  document.getElementById('xp-grade-status').textContent = `총 ${_xpGradeSubs.length}건`;
+  document.getElementById('xp-grade-card').style.display = '';
+  const lecTitle = document.getElementById('xp-grade-lec').options[document.getElementById('xp-grade-lec').selectedIndex]?.text || '';
+  document.getElementById('xp-grade-lec-label').textContent = lecTitle;
+  xpGradeRender();
+};
+
+function xpGradeRender() {
+  const tbody = document.getElementById('xp-grade-body');
+  if (!tbody) return;
+  const cfg = _xpCfg || {};
+  const pt  = cfg.activities?.thinkCheck?.pt ?? 30;
+  tbody.innerHTML = _xpGradeSubs.map(s => {
+    const awarded = s.xpAwarded === true;
+    return `<tr>
+      <td>${s.id||''}</td><td>${s.name||''}</td>
+      <td>${(s.textLength||0).toLocaleString()}</td>
+      <td>${awarded ? '<span style="color:var(--success);font-weight:700">지급됨</span>' : '<span style="color:var(--slate)">미지급</span>'}</td>
+      <td>${awarded ? '' : `<button class="add-btn" style="font-size:12px;padding:4px 10px" onclick="xpGradeAwardOne('${s.subId}','${s.id}','${s.name}',${pt})">+${pt} pt</button>`}</td>
+    </tr>`;
+  }).join('');
+}
+
+window.xpGradeAwardOne = async function(subId, sid, name, pt) {
+  await xpEnsureConfig();
+  await adminAddXP(rtdb, sid, name, pt, `생각 체크 XP (${_xpGradeLecId})`, fbFns, _xpCfg.levels, _xpCfg.levelFormula);
+  await updateDoc(doc(db, 'think_submissions', subId), { xpAwarded: true, xpAwardedAt: serverTimestamp() });
+  const sub = _xpGradeSubs.find(s => s.subId === subId);
+  if (sub) sub.xpAwarded = true;
+  xpGradeRender();
+};
+
+window.xpGradeAwardAll = async function() {
+  await xpEnsureConfig();
+  const pending = _xpGradeSubs.filter(s => !s.xpAwarded);
+  if (!pending.length) { alert('미지급 항목이 없습니다.'); return; }
+  if (!confirm(`${pending.length}명에게 XP를 지급합니다.`)) return;
+  const btn = document.getElementById('xp-grade-award-all-btn');
+  btn.disabled = true; btn.textContent = '지급 중...';
+  const pt = _xpCfg.activities?.thinkCheck?.pt ?? 30;
+  for (const s of pending) {
+    await adminAddXP(rtdb, s.id, s.name, pt, `생각 체크 XP (${_xpGradeLecId})`, fbFns, _xpCfg.levels, _xpCfg.levelFormula);
+    await updateDoc(doc(db, 'think_submissions', s.subId), { xpAwarded: true, xpAwardedAt: serverTimestamp() });
+    s.xpAwarded = true;
+  }
+  xpGradeRender();
+  btn.disabled = false; btn.textContent = '미지급 전체 XP 지급';
+};
+
+// ── SETTINGS ──
+async function xpLoadSettings() {
+  await xpEnsureConfig();
+  // 활동 설정
+  const actBody = document.getElementById('xp-act-body');
+  if (actBody) {
+    const acts = _xpCfg.activities || DEFAULT_ACTIVITIES;
+    actBody.innerHTML = Object.entries(acts).map(([key, v]) => {
+      const label = ACT_LABELS[key] || key;
+      const ptVal = key === 'oxQuiz' ? (v.dailyMax ?? 20) : (v.pt ?? 0);
+      const ptLabel = key === 'oxQuiz' ? `일일 최대 ${ptVal}pt (정답당 ${v.ptPer??1}pt)` : `${ptVal} pt`;
+      return `<tr>
+        <td>${label}</td>
+        <td><input type="number" data-act="${key}" data-field="${key==='oxQuiz'?'dailyMax':'pt'}" value="${ptVal}" style="width:70px;border:1px solid var(--hairline);border-radius:6px;padding:4px 8px;font-family:inherit;font-size:13px;text-align:center"></td>
+        <td><div class="toggle-switch ${v.enabled?'on':''}" data-act="${key}" onclick="xpToggleAct(this)"></div></td>
+      </tr>`;
+    }).join('');
+  }
+  // 레벨 기준
+  const lvInput = document.getElementById('xp-levels-input');
+  if (lvInput) lvInput.value = (_xpCfg.levels || DEFAULT_LEVELS).join(', ');
+  const lgInput = document.getElementById('xp-lastgap-input');
+  if (lgInput) lgInput.value = _xpCfg.levelFormula?.lastGap ?? 550;
+  const incInput = document.getElementById('xp-increment-input');
+  if (incInput) incInput.value = _xpCfg.levelFormula?.increment ?? 25;
+}
+
+window.xpToggleAct = function(el) {
+  el.classList.toggle('on');
+};
+
+window.xpSaveActivities = async function() {
+  await xpEnsureConfig();
+  const rows = document.querySelectorAll('#xp-act-body input[data-act]');
+  rows.forEach(inp => {
+    const act   = inp.dataset.act;
+    const field = inp.dataset.field;
+    if (!_xpCfg.activities[act]) _xpCfg.activities[act] = {};
+    _xpCfg.activities[act][field] = Number(inp.value) || 0;
+  });
+  document.querySelectorAll('#xp-act-body .toggle-switch[data-act]').forEach(el => {
+    const act = el.dataset.act;
+    if (!_xpCfg.activities[act]) _xpCfg.activities[act] = {};
+    _xpCfg.activities[act].enabled = el.classList.contains('on');
+  });
+  await saveXPConfig(rtdb, _xpCfg, fbFns);
+  alert('활동 설정이 저장되었습니다.');
+};
+
+window.xpSaveLevels = async function() {
+  await xpEnsureConfig();
+  const raw = document.getElementById('xp-levels-input')?.value || '';
+  const lvls = raw.split(/[,\s]+/).map(Number).filter(n => !isNaN(n));
+  if (!lvls.length || lvls[0] !== 0) { alert('첫 값은 반드시 0이어야 합니다.'); return; }
+  _xpCfg.levels              = lvls;
+  _xpCfg.levelFormula        = _xpCfg.levelFormula || {};
+  _xpCfg.levelFormula.lastGap     = Number(document.getElementById('xp-lastgap-input')?.value) || 550;
+  _xpCfg.levelFormula.increment   = Number(document.getElementById('xp-increment-input')?.value) || 25;
+  await saveXPConfig(rtdb, _xpCfg, fbFns);
+  alert('레벨 기준이 저장되었습니다.');
+};
+
+// ── MANUAL ──
+let _xpAllStudents = [];
+
+async function xpManualLoadStudents() {
+  const snap = await get(ref(rtdb, 'students'));
+  if (!snap.exists()) return;
+  _xpAllStudents = Object.values(snap.val() || {})
+    .filter(s => s && (s.studentId || s.id))
+    .map(s => ({ sid: String(s.studentId || s.id), name: s.name || '' }))
+    .sort((a, b) => a.sid.localeCompare(b.sid, undefined, { numeric: true }));
+  xpManualLogLoad();
+}
+
+window.xpManualSearch = function(q) {
+  const dd = document.getElementById('xp-manual-dropdown');
+  if (!q.trim()) { dd.style.display = 'none'; return; }
+  const results = _xpAllStudents.filter(s => s.sid.includes(q) || s.name.includes(q)).slice(0, 8);
+  if (!results.length) { dd.style.display = 'none'; return; }
+  dd.style.display = '';
+  dd.innerHTML = results.map(s =>
+    `<div style="padding:10px 14px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--hairline-soft)" onmousedown="xpManualSelect('${s.sid}','${s.name}')">${s.sid} · ${s.name}</div>`
+  ).join('');
+};
+
+window.xpManualSelect = function(sid, name) {
+  _xpManSel = { sid, name };
+  document.getElementById('xp-manual-search').value = `${sid} · ${name}`;
+  document.getElementById('xp-manual-dropdown').style.display = 'none';
+  const tgt = document.getElementById('xp-manual-target');
+  tgt.style.display = '';
+  tgt.textContent   = `선택: ${sid} · ${name}`;
+};
+
+window.xpManualAward = async function() {
+  if (!_xpManSel) { alert('학생을 먼저 선택하세요.'); return; }
+  const pt   = Number(document.getElementById('xp-manual-pt')?.value) || 0;
+  const note = document.getElementById('xp-manual-note')?.value.trim() || '수동 지급';
+  if (!pt) { alert('XP 양을 입력하세요.'); return; }
+  await xpEnsureConfig();
+  const { newTotal, newLevel } = await adminAddXP(rtdb, _xpManSel.sid, _xpManSel.name, pt, note, fbFns, _xpCfg.levels, _xpCfg.levelFormula);
+  const res = document.getElementById('xp-manual-result');
+  res.textContent = `완료: ${_xpManSel.name} → 총 ${newTotal} pt (Lv.${newLevel})`;
+  res.style.color = 'var(--success)';
+  xpManualLogLoad();
+};
+
+async function xpManualLogLoad() {
+  const tbody = document.getElementById('xp-manual-log');
+  if (!tbody) return;
+  const snap = await get(ref(rtdb, `${XP_ROOT}/students`));
+  if (!snap.exists()) return;
+  const rows = [];
+  Object.entries(snap.val() || {}).forEach(([sid, s]) => {
+    if (!s.history) return;
+    Object.values(s.history).forEach(h => {
+      if (h.type === 'manual') rows.push({ sid, name: s.name || '', ...h });
+    });
+  });
+  rows.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  tbody.innerHTML = rows.slice(0, 30).map(r => {
+    const d = new Date(r.ts || 0);
+    const dt = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    const sign = r.pt > 0 ? '+' : '';
+    return `<tr><td style="font-size:12px;color:var(--slate)">${dt}</td><td>${r.sid}</td><td>${r.name}</td><td style="font-weight:700;color:${r.pt>0?'var(--success)':'var(--critical)'}">${sign}${r.pt}</td><td style="font-size:12px">${r.note||''}</td></tr>`;
+  }).join('') || '<tr><td colspan="5" style="color:var(--slate);padding:16px;font-size:13px">내역 없음</td></tr>';
+}
+
 </script>
 </body>
 </html>

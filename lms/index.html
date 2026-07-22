@@ -257,6 +257,26 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 .cp-complete:hover{background:var(--primary-deep)}
 .cp-blank{background:var(--surface);color:var(--primary);border:1.5px solid var(--primary)}
 .cp-blank:hover{background:var(--primary-soft)}
+
+/* ── XP 위젯 ── */
+.xp-widget{display:none;align-items:center;gap:8px;background:rgba(245,158,11,.08);border:1.5px solid rgba(245,158,11,.25);border-radius:100px;padding:6px 14px 6px 10px;cursor:default;transition:.15s}
+.xp-level-badge{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:13px;color:#D97706;white-space:nowrap;letter-spacing:.3px}
+.xp-bar-wrap{display:flex;flex-direction:column;gap:2px;min-width:72px}
+.xp-bar-label{font-size:10px;color:#92400E;font-weight:400;white-space:nowrap}
+.xp-bar-track{width:72px;height:4px;background:rgba(245,158,11,.2);border-radius:100px;overflow:hidden}
+.xp-bar-fill{height:100%;background:linear-gradient(90deg,#F59E0B,#FBBF24);border-radius:100px;transition:width .5s ease}
+/* ── XP 레벨업 모달 ── */
+#xpLevelUpModal{display:none;position:fixed;inset:0;z-index:9000;align-items:center;justify-content:center;background:rgba(10,19,23,.55);backdrop-filter:blur(6px)}
+#xpLevelUpModal.open{display:flex}
+.xp-modal-box{background:#FEF3C7;border-radius:24px;padding:40px 36px;text-align:center;animation:xpPop .4s cubic-bezier(.34,1.56,.64,1);max-width:320px;width:90%;box-shadow:0 20px 60px rgba(245,158,11,.4)}
+@keyframes xpPop{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+.xp-modal-lv{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:64px;color:#D97706;line-height:1}
+.xp-modal-label{font-size:18px;font-weight:700;color:#92400E;margin-top:8px}
+.xp-modal-close{margin-top:24px;background:#D97706;color:#fff;border:none;border-radius:100px;padding:10px 28px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.xp-modal-close:hover{background:#B45309}
+/* ── +XP 플로팅 ── */
+.xp-float{position:fixed;font-weight:700;font-size:18px;color:#D97706;pointer-events:none;z-index:9001;animation:xpFloat 1.5s ease forwards}
+@keyframes xpFloat{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-60px)}}
 </style>
 </head>
 <body>
@@ -376,6 +396,13 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
       <div class="hub-logo-sub">: LMS</div>
     </div>
     <div class="header-right">
+      <div class="xp-widget" id="xpWidget">
+        <span class="xp-level-badge" id="xpLevelText">Lv.1</span>
+        <div class="xp-bar-wrap">
+          <span class="xp-bar-label" id="xpBarLabel">0 pt</span>
+          <div class="xp-bar-track"><div class="xp-bar-fill" id="xpBarFill" style="width:0%"></div></div>
+        </div>
+      </div>
       <span class="student-chip" id="studentChip"></span>
       <button class="logout-btn" id="logoutBtn">나가기</button>
     </div>
@@ -444,10 +471,11 @@ import {
   getFirestore, collection, query, orderBy, where, onSnapshot, getDocs,
   doc, getDoc, setDoc, addDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getDatabase } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref as rtdbRef, get as rtdbGet, set as rtdbSet, push as rtdbPush, update as rtdbUpdate, onValue as rtdbOnValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { initAuth, mountLoginVerification, verifyStudentId, verifyStudentName } from "../shared/auth.js";
 import "../shared/offline.js";
 import { firebaseConfig } from "../shared/firebase-config.js";
+import { initXP, onXPChange, checkAndAddAttendance, calcLevel, calcNextThreshold } from "../shared/xp.js";
 
 const app  = initializeApp(firebaseConfig);
 const db   = getFirestore(app);
@@ -747,6 +775,56 @@ function enterHub(id, name) {
     sessionStorage.removeItem('lms_sid'); sessionStorage.removeItem('lms_sname'); location.reload();
   });
   startListening();
+  _initXPForStudent(id, name);
+}
+
+async function _initXPForStudent(id, name) {
+  const fbFns = { ref: rtdbRef, get: rtdbGet, set: rtdbSet, push: rtdbPush, update: rtdbUpdate, onValue: rtdbOnValue };
+  await initXP(rtdb, id, name, fbFns);
+  onXPChange(_updateXPWidget);
+  document.getElementById('xpWidget').style.display = 'flex';
+  const result = await checkAndAddAttendance();
+  if (result) {
+    _showXPFloat(result.pt);
+    if (result.levelUp) _showLevelUpModal(result.newLevel);
+  }
+}
+
+function _updateXPWidget(state) {
+  const total = state.total || 0;
+  const lv    = state.level || 1;
+  const next  = calcNextThreshold(total);
+  const lvls  = [0,100,225,375,550,750,975,1225,1500,1800,2125,2475,2850,3250,3675,4125,4600,5100,5625,6175];
+  let lvStart;
+  if (lv <= lvls.length) {
+    lvStart = lvls[lv - 1];
+  } else {
+    lvStart = lvls[lvls.length - 1];
+    let gap = 550; let cur = lvls.length;
+    while (cur < lv) { lvStart += gap; gap += 25; cur++; }
+  }
+  const span = next - lvStart;
+  const pct  = span > 0 ? Math.round(((total - lvStart) / span) * 100) : 100;
+  document.getElementById('xpLevelText').textContent = `Lv.${lv}`;
+  document.getElementById('xpBarLabel').textContent  = `${total} pt`;
+  document.getElementById('xpBarFill').style.width   = `${Math.min(pct, 100)}%`;
+}
+
+function _showLevelUpModal(level) {
+  document.getElementById('xpModalLevel').textContent = level;
+  document.getElementById('xpLevelUpModal').classList.add('open');
+}
+
+function _showXPFloat(pt) {
+  const el = document.createElement('div');
+  el.className = 'xp-float';
+  el.textContent = `+${pt} pt`;
+  const widget = document.getElementById('xpWidget');
+  const rect   = widget ? widget.getBoundingClientRect() : { left: window.innerWidth / 2, top: 60 };
+  el.style.left = `${rect.left + 20}px`;
+  el.style.top  = `${rect.top}px`;
+  document.body.appendChild(el);
+  el.addEventListener('animationend', () => el.remove());
 }
 
 // ── 섹션 데이터 ──
@@ -1241,6 +1319,14 @@ document.addEventListener('click', e => {
   if (_cpItem && !_cpEl.contains(e.target)) closeConceptPicker();
 });
 </script>
+
+<div id="xpLevelUpModal">
+  <div class="xp-modal-box">
+    <div class="xp-modal-lv" id="xpModalLevel">1</div>
+    <div class="xp-modal-label">레벨 업!</div>
+    <button class="xp-modal-close" onclick="document.getElementById('xpLevelUpModal').classList.remove('open')">확인</button>
+  </div>
+</div>
 
 <div id="conceptPicker">
   <div class="cp-label">수업 유형 선택</div>

@@ -615,6 +615,7 @@
     import {
         getDatabase, ref, set, push, get, onValue, update
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { initXP, addMileageXP } from '../shared/xp.js';
     import {
         getStorage, ref as sRef, uploadBytes, getDownloadURL
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
@@ -785,6 +786,7 @@ import { firebaseConfig } from "../shared/firebase-config.js";
 
             currentUser = { num: id, name, cls: parseClass(id), grade: parseGrade(id) };
             localStorage.setItem('hi_history_user', JSON.stringify(currentUser));
+            initXP(db, id, name, { ref, get, set, push, update, onValue }).catch(() => {});
             showMain();
             setTimeout(() => showToast(`${name} 학생, 환영해요!`), 100);
         } catch (e) {
@@ -840,6 +842,7 @@ import { firebaseConfig } from "../shared/firebase-config.js";
             if (sid && sname) {
                 currentUser = { num: sid, name: sname, cls: parseClass(sid), grade: parseGrade(sid) };
                 localStorage.setItem('hi_history_user', JSON.stringify(currentUser));
+                initXP(db, sid, sname, { ref, get, set, push, update, onValue }).catch(() => {});
                 document.getElementById('logout-btn').style.display = 'none';
                 showMain();
                 return;
@@ -850,6 +853,7 @@ import { firebaseConfig } from "../shared/firebase-config.js";
             const saved = localStorage.getItem('hi_history_user');
             if (saved) {
                 currentUser = JSON.parse(saved);
+                initXP(db, currentUser.num, currentUser.name, { ref, get, set, push, update, onValue }).catch(() => {});
                 showMain();
             }
         } catch(e) { localStorage.removeItem('hi_history_user'); }
@@ -1096,6 +1100,7 @@ JSON만 반환:
                 newDayCount = before + 1;
                 await set(ref(db, `historyMileage/mileage/${currentUser.num}`), newDayCount);
                 await set(ref(db, `historyMileage/totalEarned/${currentUser.num}`), newDayCount);
+                addMileageXP().catch(() => {});
 
                 // 레벨업 체크
                 const beforeLv = getLevel(before).level;
