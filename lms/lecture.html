@@ -168,7 +168,7 @@
 <div    id="slide-counter" hidden></div>
 <div    id="load-error"    hidden></div>
 
-<script src="slide-render.js?v=20260722g"></script>
+<script src="slide-render.js?v=20260722i"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
@@ -262,8 +262,50 @@ async function init() {
   }
 
   const LESSON = content.lesson;
-  const SLIDES = SlideRender.buildSlidesFromData(content);
   document.title = `${LESSON.num}강 · ${LESSON.title}`;
+
+  // 폰트 로드 완료 후 측정해야 정확한 높이가 나옴
+  await document.fonts.ready;
+
+  const rawSlides = SlideRender.buildSlidesFromData(content);
+
+  // 실제 렌더링 높이 기준 자동 분할: 숨겨진 ruler에서 overflow 여부 측정
+  const ruler = document.createElement('div');
+  ruler.id = 'slide-ruler';
+  ruler.style.cssText = 'position:fixed;top:0;left:0;width:1920px;height:1080px;visibility:hidden;pointer-events:none;overflow:hidden;';
+  document.body.appendChild(ruler);
+  const rulerStyle = document.createElement('style');
+  rulerStyle.textContent = '#slide-ruler .slide,#slide-ruler .slide-cover{transform:none!important}';
+  document.head.appendChild(rulerStyle);
+
+  function checkOverflow(slideData) {
+    ruler.innerHTML = SlideRender.renderSlideHTML(slideData, LESSON);
+    const el = ruler.firstElementChild;
+    el.style.height = 'max-content';
+    const h = el.getBoundingClientRect().height;
+    el.style.height = '';
+    return h > 1080 + 10;
+  }
+
+  const SLIDES = [];
+  for (const slide of rawSlides) {
+    const grp = SlideRender.circledGroups(slide);
+    if (!grp || !checkOverflow(slide)) { SLIDES.push(slide); continue; }
+    let bucket = [];
+    for (const group of grp.groups) {
+      const candidate = [...bucket, ...group];
+      if (bucket.length > 0 && checkOverflow({ ...slide, rows: [{ ...grp.row, items: candidate }] })) {
+        SLIDES.push({ ...slide, rows: [{ ...grp.row, items: [...bucket] }] });
+        bucket = [...group];
+      } else {
+        bucket = candidate;
+      }
+    }
+    if (bucket.length) SLIDES.push({ ...slide, rows: [{ ...grp.row, items: [...bucket] }] });
+  }
+
+  ruler.remove();
+  rulerStyle.remove();
 
   /* ── 렌더링 ── */
   const container = document.getElementById('slides');

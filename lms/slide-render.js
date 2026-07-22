@@ -335,24 +335,16 @@
     `;
   }
 
-  /* 항목 하나가 차지하는 줄 수 추정 (본문 1줄 + <br> 개수) */
-  function estimateItemLines(item) {
-    return 1 + (item.match(/<br\s*\/?>/gi) || []).length;
-  }
-
-  /* 슬라이드 한 장의 항목이 maxLines를 초과하면 원문자(①②③…) 기준으로 분할.
-     format이 rows 이고 행이 1개인 경우에만 적용한다. */
+  /* 슬라이드 항목을 원문자(①②③…) 경계로 그룹 분리.
+     rows가 1개인 rows 형식 슬라이드에만 적용.
+     분리 가능하면 { row, groups } 반환, 아니면 null */
   const CIRCLED_RE = /^[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮]/;
-  function autoSplitSlide(slide, maxLines) {
-    if (slide.format && slide.format !== 'rows') return [slide];
-    if (!slide.rows || slide.rows.length !== 1) return [slide];
+  function circledGroups(slide) {
+    if (slide.format && slide.format !== 'rows') return null;
+    if (!slide.rows || slide.rows.length !== 1) return null;
     const row = slide.rows[0];
     const items = row.items || [];
-    const total = items.reduce((s, it) => s + estimateItemLines(it), 0);
-    if (total <= maxLines) return [slide];
-    if (!items.some(it => CIRCLED_RE.test(it))) return [slide];
-
-    // 1단계: 원문자 경계로 그룹 분리 (①+딸린 a./b./c. 항목들을 하나의 그룹으로)
+    if (!items.some(it => CIRCLED_RE.test(it))) return null;
     const groups = [];
     let cur = [];
     for (const item of items) {
@@ -360,22 +352,7 @@
       cur.push(item);
     }
     if (cur.length) groups.push(cur);
-    if (groups.length <= 1) return [slide];
-
-    // 2단계: 그룹 전체 줄수 기준으로 서브슬라이드에 채워 넣기
-    const result = [];
-    let bucket = [], bucketLines = 0;
-    for (const group of groups) {
-      const gLines = group.reduce((s, it) => s + estimateItemLines(it), 0);
-      if (bucketLines > 0 && bucketLines + gLines > maxLines) {
-        result.push({ ...slide, rows: [{ ...row, items: [...bucket] }] });
-        bucket = []; bucketLines = 0;
-      }
-      bucket.push(...group);
-      bucketLines += gLines;
-    }
-    if (bucket.length) result.push({ ...slide, rows: [{ ...row, items: [...bucket] }] });
-    return result.length > 1 ? result : [slide];
+    return groups.length > 1 ? { row, groups } : null;
   }
 
   /* contentLines(구분선/행/이미지 배열)를 slide 배열로 변환. 개념 체크·미션 체크가
@@ -414,10 +391,7 @@
         current.rows.push({ label: line.label, items: line.items });
       }
     });
-    // 8줄 초과 시 원문자 기준 자동 분할
-    const slides = [];
-    raw.forEach(s => slides.push(...(s.type === type ? autoSplitSlide(s, 8) : [s])));
-    return slides;
+    return raw;
   }
 
   /* 어드민 콘텐츠 편집 데이터({lesson, dive, contentLines, mission, think})를 실제
@@ -508,6 +482,6 @@
     });
   }
 
-  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, buildSlidesFromData };
+  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, buildSlidesFromData, circledGroups };
 
 })(window);
