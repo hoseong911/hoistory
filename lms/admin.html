@@ -10,7 +10,7 @@
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <!-- 개념 체크 미리보기가 학생 화면(class/lesson.html)과 100% 동일하게 렌더링되도록 공용 슬라이드 스타일을 그대로 불러온다.
      이 파일의 :root 변수 중 --text/--border는 아래 이 페이지 자체 :root 선언이 나중에 와서 재정의하므로 전역 충돌은 없다. -->
-<link rel="stylesheet" href="slide-style.css?v=20260722b">
+<link rel="stylesheet" href="slide-style.css?v=20260722c">
 <style>
 @font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2');font-weight:600;font-style:normal;font-display:swap}
 @font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2');font-weight:900;font-style:normal;font-display:swap}
@@ -2482,7 +2482,13 @@ function toggleLabelPos(target, i) {
   const line = ceLinesFor(target)[i];
   if (line.labelPos === 'top') delete line.labelPos;
   else line.labelPos = 'top';
-  ceRenderPreview();
+  const lines = ceLinesFor(target);
+  const nth = lines.slice(0, i).filter(l => l.type === 'divider').length;
+  const type = target === 'mission' ? 'mission' : 'concept';
+  ceRenderPreview(slides => {
+    const typed = slides.filter(s => s.type === type);
+    return typed[nth] || slides.find(s => s.type === 'concept') || slides[0];
+  });
 }
 
 function autoResizeTa(ta) {
@@ -3135,11 +3141,11 @@ async function ceHandleFileUpload(file) {
 // 예시 슬라이드 미리보기 (개념 Check 슬라이드 1개, 없으면 표지)
 // 실제 페이지(lesson.html)와 완전히 동일한 slide-render.js로 그려서 미리보기와
 // 실제 화면이 항상 100% 일치하도록 한다.
-function ceRenderPreview() {
+function ceRenderPreview(pickSample) {
   const inner = document.getElementById('design-pv-inner');
   if (!inner || !ceCd.contentLines) return;
   const slides = SlideRender.buildSlidesFromData(ceCd);
-  const sample = slides.find(s => s.type === 'concept') || slides[0];
+  const sample = pickSample ? pickSample(slides) : (slides.find(s => s.type === 'concept') || slides[0]);
   inner.innerHTML = SlideRender.renderSlideHTML(sample, ceCd.lesson);
   SlideRender.wireLightbox(inner);
   ceApplyDesignPreview();
