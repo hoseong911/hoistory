@@ -352,21 +352,29 @@
     if (total <= maxLines) return [slide];
     if (!items.some(it => CIRCLED_RE.test(it))) return [slide];
 
-    // 원문자 단위로 그룹화한 뒤, maxLines를 넘는 경계에서 새 슬라이드 생성
+    // 1단계: 원문자 경계로 그룹 분리 (①+딸린 a./b./c. 항목들을 하나의 그룹으로)
+    const groups = [];
+    let cur = [];
+    for (const item of items) {
+      if (CIRCLED_RE.test(item) && cur.length > 0) { groups.push(cur); cur = []; }
+      cur.push(item);
+    }
+    if (cur.length) groups.push(cur);
+    if (groups.length <= 1) return [slide];
+
+    // 2단계: 그룹 전체 줄수 기준으로 서브슬라이드에 채워 넣기
     const result = [];
     let bucket = [], bucketLines = 0;
-    const flush = () => {
-      if (!bucket.length) return;
-      result.push({ ...slide, rows: [{ ...row, items: [...bucket] }] });
-      bucket = []; bucketLines = 0;
-    };
-    for (const item of items) {
-      const lines = estimateItemLines(item);
-      if (CIRCLED_RE.test(item) && bucketLines > 0 && bucketLines + lines > maxLines) flush();
-      bucket.push(item);
-      bucketLines += lines;
+    for (const group of groups) {
+      const gLines = group.reduce((s, it) => s + estimateItemLines(it), 0);
+      if (bucketLines > 0 && bucketLines + gLines > maxLines) {
+        result.push({ ...slide, rows: [{ ...row, items: [...bucket] }] });
+        bucket = []; bucketLines = 0;
+      }
+      bucket.push(...group);
+      bucketLines += gLines;
     }
-    flush();
+    if (bucket.length) result.push({ ...slide, rows: [{ ...row, items: [...bucket] }] });
     return result.length > 1 ? result : [slide];
   }
 
