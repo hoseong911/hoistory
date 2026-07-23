@@ -517,11 +517,14 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .concept-embed .cl-group-body{display:flex;flex-direction:column}
 .concept-embed .cl-slide-item{border-bottom:1px solid #eee}
 .concept-embed .cl-page-sep{font-size:11px;color:#aaa;text-align:center;padding:6px 0 2px;letter-spacing:.05em}
-.concept-embed .cl-slide-actions{display:flex;align-items:center;gap:4px;padding:4px 12px 8px}
 .concept-embed .cl-slide-item:last-child{border-bottom:none}
 .concept-embed .cl-slide-item.dragging{opacity:.35}
 .concept-embed .cl-slide-row{display:flex;align-items:flex-start;gap:8px;padding:8px 12px}
 .concept-embed .cl-row-actions{display:flex;flex-direction:column;gap:3px;flex-shrink:0;padding-top:1px}
+.concept-embed .cl-group-header .cl-row-actions{flex-direction:row;padding-top:0;margin-left:auto}
+.concept-embed .cl-page-btn{height:28px;padding:0 10px;border-radius:6px;border:1px solid #ddd;background:#f8f7f5;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font-size:12px;color:#555;white-space:nowrap}
+.concept-embed .cl-page-btn:hover{background:#eeece8}
+.concept-embed .cl-page-btn svg{width:13px;height:13px}
 .concept-embed .cl-icon-btn{width:28px;height:28px;border-radius:6px;border:1px solid #ddd;background:#f8f7f5;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;color:#666;flex-shrink:0;padding:0}
 .concept-embed .cl-icon-btn:hover{background:#eeece8}
 .concept-embed .cl-icon-btn.danger{border-color:rgba(220,38,38,.25);color:#dc2626;background:transparent}
@@ -2622,25 +2625,26 @@ function ceRenderContentLines(target) {
       const slidesHtml = slides.map(({ divIdx, rowIndices }, si) => {
         const div = lines[divIdx];
         const hasImg = div.img != null, fmt = div.format || 'rows';
-        const rowsHtml = rowIndices.map(rowIdx => {
+        const lastRowIdx = rowIndices[rowIndices.length - 1];
+        const rowsHtml = rowIndices.map((rowIdx, ri) => {
           const row = lines[rowIdx];
+          const isLast = ri === rowIndices.length - 1;
           return `
             <div class="cl-slide-row" data-row-idx="${rowIdx}">
               <input type="text" class="cl-label" placeholder="라벨" value="${esc(row.label)}" oninput="updateLine('${target}',${rowIdx},'label',this.value)">
               <textarea class="cl-items" placeholder="{단어}는 빈칸, **굵게**, 엔터로 항목 구분 (a./b./c. 줄은 하위 항목)" oninput="updateLineItems('${target}',${rowIdx},this.value);autoResizeTa(this)" onkeydown="handleContentKeydown(event)">${esc(row.items.map(it => it.replace(/<\/?br\s*\/?>/gi, '\n')).join('\n'))}</textarea>
-              ${rowIndices.length > 1 ? `<button class="cl-icon-btn danger" onclick="deleteRow('${target}',${rowIdx})" title="행 삭제">${ceIconTrash()}</button>` : ''}
+              <div class="cl-row-actions">
+                ${isLast ? `<button class="cl-icon-btn" onclick="addRowToGroup('${target}',${divIdx})" title="행 추가">${ceIconPlus()}</button>` : ''}
+                ${isLast ? `<button class="cl-icon-btn" onclick="toggleDividerImg('${target}',${divIdx})" title="${hasImg?'이미지 제거':'이미지 삽입'}">${ceIconImage()}</button>` : ''}
+                ${isLast ? `<button class="cl-icon-btn${fmt !== 'rows' ? ' active' : ''}" onclick="ceToggleFmt('${target}',${divIdx})" title="형식 · ${CE_FORMAT_LABELS[fmt]}">${ceIconSliders()}</button>` : ''}
+                ${rowIndices.length > 1 ? `<button class="cl-icon-btn danger" onclick="deleteRow('${target}',${rowIdx})" title="행 삭제">${ceIconTrash()}</button>` : (slides.length > 1 ? `<button class="cl-icon-btn danger" onclick="deletePair('${target}',${divIdx})" title="이 페이지 삭제">${ceIconTrash()}</button>` : '')}
+              </div>
             </div>`;
         }).join('');
         return `
           <div class="cl-slide-item" data-div-idx="${divIdx}">
             ${si > 0 ? '<div class="cl-page-sep">── 새 페이지 ──</div>' : ''}
             ${rowsHtml}
-            <div class="cl-slide-actions">
-              <button class="cl-icon-btn" onclick="addRowToGroup('${target}',${divIdx})" title="행 추가">${ceIconPlus()} 행</button>
-              <button class="cl-icon-btn" onclick="toggleDividerImg('${target}',${divIdx})" title="${hasImg?'이미지 제거':'이미지 삽입'}">${ceIconImage()}</button>
-              <button class="cl-icon-btn${fmt !== 'rows' ? ' active' : ''}" onclick="ceToggleFmt('${target}',${divIdx})" title="형식 · ${CE_FORMAT_LABELS[fmt]}">${ceIconSliders()}</button>
-              ${slides.length > 1 ? `<button class="cl-icon-btn danger" onclick="deletePair('${target}',${divIdx})" title="이 페이지 삭제">${ceIconTrash()}</button>` : ''}
-            </div>
             ${hasImg ? `
             <div class="cl-img-row" style="padding:0 12px 8px 12px">
               <span class="cl-img-label">이미지 번호</span>
@@ -2669,7 +2673,7 @@ function ceRenderContentLines(target) {
             <span class="cl-handle">⋮⋮</span>
             <input type="text" class="cl-divider-title" placeholder="슬라이드 제목" value="${esc(title)}" oninput="updateGroupTitle('${target}',[${allDivIds.join(',')}],this.value)">
             <div class="cl-row-actions">
-              <button class="cl-icon-btn" onclick="addPageToGroup('${target}',${lastDivIdx})" title="페이지 추가">${ceIconPlus()} 페이지</button>
+              <button class="cl-page-btn" onclick="addPageToGroup('${target}',${lastDivIdx})" title="페이지 추가">${ceIconPlus()} 페이지</button>
               <button class="cl-icon-btn danger" onclick="deleteGroup('${target}',${slides[0].divIdx})" title="전체 삭제">${ceIconTrash()}</button>
             </div>
           </div>
