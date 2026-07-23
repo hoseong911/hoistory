@@ -20,6 +20,8 @@
       blanks.push(inner);
       return `\x00${blanks.length - 1}\x00`;
     });
+    // **굵게** 문법
+    s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
     // 괄호 안에 빈칸(\x00)이 없는 경우에만 80% 크기 적용
     s = s.replace(/\(([^()\x00]*)\)/g, '<span class="paren-note">($1)</span>');
     // 플레이스홀더를 빈칸 span으로 복원

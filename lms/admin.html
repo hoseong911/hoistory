@@ -2613,27 +2613,35 @@ function ceRenderContentLines(target) {
           <button class="cbtn-sm" onclick="addImageItem('${target}',${i})">+ 이미지 추가 (그리드 배치)</button>
         </div>`;
     }
-    if (group.type === 'slide-group') {
-      const { title, dividerIndices, slides } = group;
-      const slidesHtml = slides.map(({ divIdx, rowIdx }) => {
-        if (rowIdx === null) return '';
-        const row = lines[rowIdx], div = lines[divIdx];
-        const hasImg = div.img != null, fmt = div.format || 'rows';
+    if (group.type === 'slide') {
+      const { divIdx, rowIndices } = group;
+      const div = lines[divIdx];
+      const hasImg = div.img != null, fmt = div.format || 'rows';
+      const rowsHtml = rowIndices.map(rowIdx => {
+        const row = lines[rowIdx];
         return `
-          <div class="cl-slide-item" draggable="true" data-div-idx="${divIdx}" data-row-idx="${rowIdx}">
-            <div class="cl-slide-row">
-              <span class="cl-handle">⋮⋮</span>
-              <input type="text" class="cl-label" placeholder="라벨" value="${esc(row.label)}" oninput="updateLine('${target}',${rowIdx},'label',this.value)">
-              <textarea class="cl-items" placeholder="{단어}는 빈칸, 엔터로 항목 구분 (a./b./c. 줄은 자동으로 하위 항목)" oninput="updateLineItems('${target}',${rowIdx},this.value);autoResizeTa(this)" onkeydown="handleContentKeydown(event)">${esc(row.items.map(it => it.replace(/<\/?br\s*\/?>/gi, '\n')).join('\n'))}</textarea>
-              <div class="cl-row-actions">
-                <button class="cl-icon-btn" onclick="addRowToGroup('${target}',${divIdx})" title="행 추가">${ceIconPlus()}</button>
-                <button class="cl-icon-btn" onclick="toggleDividerImg('${target}',${divIdx})" title="${hasImg?'이미지 제거':'이미지 삽입'}">${ceIconImage()}</button>
-                <button class="cl-icon-btn${fmt !== 'rows' ? ' active' : ''}" onclick="ceToggleFmt('${target}',${divIdx})" title="형식 · ${CE_FORMAT_LABELS[fmt]}">${ceIconSliders()}</button>
-                <button class="cl-icon-btn danger" onclick="deletePair('${target}',${divIdx})" title="삭제">${ceIconTrash()}</button>
-              </div>
+          <div class="cl-slide-row" data-row-idx="${rowIdx}">
+            <input type="text" class="cl-label" placeholder="라벨" value="${esc(row.label)}" oninput="updateLine('${target}',${rowIdx},'label',this.value)">
+            <textarea class="cl-items" placeholder="{단어}는 빈칸, **굵게**, 엔터로 항목 구분 (a./b./c. 줄은 하위 항목)" oninput="updateLineItems('${target}',${rowIdx},this.value);autoResizeTa(this)" onkeydown="handleContentKeydown(event)">${esc(row.items.map(it => it.replace(/<\/?br\s*\/?>/gi, '\n')).join('\n'))}</textarea>
+            ${rowIndices.length > 1 ? `<button class="cl-icon-btn danger" onclick="deleteRow('${target}',${rowIdx})" title="행 삭제">${ceIconTrash()}</button>` : ''}
+          </div>`;
+      }).join('');
+      return `
+        <div class="cl-group" draggable="true" data-div-idx="${divIdx}">
+          <div class="cl-group-header">
+            <span class="cl-handle">⋮⋮</span>
+            <input type="text" class="cl-divider-title" placeholder="슬라이드 제목" value="${esc(div.title)}" oninput="updateLine('${target}',${divIdx},'title',this.value)">
+            <div class="cl-row-actions">
+              ${fmt === 'rows' ? `<button class="cl-icon-btn" onclick="addRowToGroup('${target}',${divIdx})" title="행 추가">${ceIconPlus()}</button>` : ''}
+              <button class="cl-icon-btn" onclick="toggleDividerImg('${target}',${divIdx})" title="${hasImg?'이미지 제거':'이미지 삽입'}">${ceIconImage()}</button>
+              <button class="cl-icon-btn${fmt !== 'rows' ? ' active' : ''}" onclick="ceToggleFmt('${target}',${divIdx})" title="형식 · ${CE_FORMAT_LABELS[fmt]}">${ceIconSliders()}</button>
+              <button class="cl-icon-btn danger" onclick="deletePair('${target}',${divIdx})" title="슬라이드 삭제">${ceIconTrash()}</button>
             </div>
+          </div>
+          <div class="cl-group-body">
+            ${rowsHtml}
             ${hasImg ? `
-            <div class="cl-img-row" style="padding:0 12px 8px 44px">
+            <div class="cl-img-row" style="padding:0 12px 8px 12px">
               <span class="cl-img-label">이미지 번호</span>
               <input type="number" class="cl-img-input" min="1" max="99" value="${div.img}" oninput="updateLine('${target}',${divIdx},'img',+this.value)">
               <span class="cl-img-label">배치</span>
@@ -2652,15 +2660,7 @@ function ceRenderContentLines(target) {
                 ${ceFormatPanelBody(target,divIdx,lines[divIdx])}
               </div>
             </details>
-          </div>`;
-      }).join('');
-      return `
-        <div class="cl-group" data-first-div="${dividerIndices[0]}">
-          <div class="cl-group-header">
-            <span class="cl-handle">⋮⋮</span>
-            <input type="text" class="cl-divider-title" placeholder="슬라이드 제목" value="${esc(title)}" oninput="updateGroupTitle('${target}',[${dividerIndices.join(',')}],this.value)">
           </div>
-          <div class="cl-group-body">${slidesHtml}</div>
         </div>`;
     }
     return '';
@@ -2678,14 +2678,10 @@ function ceBuildGroups(lines) {
     if (line.type === 'image') {
       groups.push({ type: 'image', idx: i++ });
     } else if (line.type === 'divider') {
-      const title = line.title;
-      const dividerIndices = [], slides = [];
-      while (i < lines.length && lines[i].type === 'divider' && lines[i].title === title) {
-        const divIdx = i++;
-        dividerIndices.push(divIdx);
-        slides.push({ divIdx, rowIdx: (i < lines.length && lines[i].type === 'row') ? i++ : null });
-      }
-      groups.push({ type: 'slide-group', title, dividerIndices, slides });
+      const divIdx = i++;
+      const rowIndices = [];
+      while (i < lines.length && lines[i].type === 'row') rowIndices.push(i++);
+      groups.push({ type: 'slide', divIdx, rowIndices });
     } else { i++; }
   }
   return groups;
@@ -2708,20 +2704,22 @@ function updateGroupTitle(target, indices, v) {
 
 function addRowToGroup(target, divIdx) {
   const lines = ceLinesFor(target);
-  const title = lines[divIdx].title;
   let insertAt = divIdx + 1;
   while (insertAt < lines.length && lines[insertAt].type === 'row') insertAt++;
-  lines.splice(insertAt, 0,
-    { type: 'divider', title },
-    { type: 'row', label: '새 라벨', items: ['내용을 입력하세요'] }
-  );
+  lines.splice(insertAt, 0, { type: 'row', label: '새 라벨', items: ['내용을 입력하세요'] });
   ceRenderContentLines(target); ceRenderPreview();
 }
 
 function deletePair(target, divIdx) {
   const lines = ceLinesFor(target);
-  const count = (divIdx + 1 < lines.length && lines[divIdx + 1].type === 'row') ? 2 : 1;
+  let count = 1;
+  while (divIdx + count < lines.length && lines[divIdx + count].type === 'row') count++;
   lines.splice(divIdx, count);
+  ceRenderContentLines(target); ceRenderPreview();
+}
+
+function deleteRow(target, rowIdx) {
+  ceLinesFor(target).splice(rowIdx, 1);
   ceRenderContentLines(target); ceRenderPreview();
 }
 
@@ -2735,7 +2733,7 @@ function addSlide(target) {
 
 function ceToggleFmt(target, divIdx) {
   const container = document.getElementById(ceContainerIdFor(target));
-  const item = container.querySelector(`.cl-slide-item[data-div-idx="${divIdx}"]`);
+  const item = container.querySelector(`.cl-group[data-div-idx="${divIdx}"]`);
   if (!item) return;
   const details = item.querySelector('.cl-fmt-details');
   if (details) details.open = !details.open;
@@ -2782,8 +2780,8 @@ let ceDragSrcIdx = null;
 let ceDragSrcTarget = null;
 function ceWireDragEvents(target) {
   const containerId = ceContainerIdFor(target);
-  // 슬라이드 아이템 드래그 (divider+row 쌍 단위로 이동)
-  document.querySelectorAll(`#${containerId} .cl-slide-item`).forEach(el => {
+  // 슬라이드 카드 드래그 (divider + 모든 row 단위)
+  document.querySelectorAll(`#${containerId} .cl-group[data-div-idx]`).forEach(el => {
     el.addEventListener('dragstart', e => {
       ceDragSrcIdx = +el.dataset.divIdx;
       ceDragSrcTarget = target;
@@ -2800,10 +2798,10 @@ function ceWireDragEvents(target) {
       const srcDiv = ceDragSrcIdx;
       const dstDiv = +el.dataset.divIdx;
       if (srcDiv === null || srcDiv === dstDiv) return;
-      const hasSrcRow = srcDiv + 1 < lines.length && lines[srcDiv + 1].type === 'row';
-      const pairCount = hasSrcRow ? 2 : 1;
-      const pair = lines.splice(srcDiv, pairCount);
-      const adjustedDst = srcDiv < dstDiv ? dstDiv - pairCount : dstDiv;
+      let count = 1;
+      while (srcDiv + count < lines.length && lines[srcDiv + count].type === 'row') count++;
+      const pair = lines.splice(srcDiv, count);
+      const adjustedDst = srcDiv < dstDiv ? dstDiv - count : dstDiv;
       lines.splice(adjustedDst, 0, ...pair);
       ceDragSrcIdx = null;
       ceRenderContentLines(target);
@@ -2970,11 +2968,13 @@ const CE_LESSON_JSON_SCHEMA = `{
   "chosungItems": ["초성 퀴즈 문제/정답 한 줄(번호 없이) (초성 퀴즈가 없으면 빈 배열)", "..."],
   "conceptContentLines": [
     { "type": "divider", "title": "슬라이드 제목" },
-    { "type": "row", "label": "회색 칸(행 라벨) 텍스트", "items": ["원문자(①②③) 단위 항목. 하위 a.b.c. 줄은 <br>로 이어붙임", "..."] }
+    { "type": "row", "label": "회색 칸(행 라벨) 텍스트", "items": ["원문자(①②③) 단위 항목. 하위 a.b.c. 줄은 <br>로 이어붙임", "..."] },
+    { "type": "divider", "title": "슬라이드 제목", "format": "quote", "quoteText": "사료 원문 텍스트 (빈칸은 {정답} 표기)", "quoteSource": "출처 (예: 「삼국사기」)" }
   ],
   "missionContentLines": [
     { "type": "divider", "title": "슬라이드 제목" },
-    { "type": "row", "label": "회색 칸(행 라벨) 텍스트", "items": ["원문자(①②③) 단위 항목. 하위 a.b.c. 줄은 <br>로 이어붙임", "..."] }
+    { "type": "row", "label": "회색 칸(행 라벨) 텍스트", "items": ["원문자(①②③) 단위 항목. 하위 a.b.c. 줄은 <br>로 이어붙임", "..."] },
+    { "type": "divider", "title": "슬라이드 제목", "format": "quote", "quoteText": "사료 원문 텍스트 (빈칸은 {정답} 표기)", "quoteSource": "출처 (예: 「삼국사기」)" }
   ],
   "think": { "question": "오늘의 생각 질문", "guide": "답변 안내 문구" }
 }`;
@@ -2999,6 +2999,7 @@ conceptContentLines·missionContentLines 규칙 (정확히 지켜라. 표 하나
 - 원문자 뒤에 a. b. c. 같은 하위 글자 목록이나 "→"로 이어지는 줄이 붙어 있으면, 그 하위 줄들은 새 item으로 쪼개지 말고 같은 item 문자열 안에 <br>로 이어붙여서 한 줄씩 표시되게 해라. (예: "① 건국 과정 : a. {이성계} : {위화도 회군} 이후 정권 장악<br>b. {과전법} 실시(1391) : 경기 지역의 토지에 한해 관직 복무 대가로 {수조권} 지급<br>c. 국가 통치 이념으로 {성리학}을 내세우고, {온건파} 사대부를 숙청 → {조선} 건국(1392)") <br> 태그는 한 번에 하나씩만 써라(<br><br> 같은 중복 금지).
 - 빈칸(밑줄, 괄호, ○○ 등)에 들어갈 정답을 알고 있으면 그 줄 안에서 정답을 중괄호 한 겹으로 정확히 감싸서 표시해라: {정답}. 중괄호를 두 겹({{정답}})으로 쓰지 마라 — 항상 한 겹만. 정답을 확신할 수 없으면 빈칸 표시 없이 원문 그대로 둬라(추측해서 틀린 답을 넣지 마라).
 - 빈칸을 채우는 것 외에는 원문에 있는 문구를 고치거나 다듬지 말고 그대로 옮겨라.
+- 활동지에 점선 테두리 박스(사료 인용)가 있으면 {"type":"divider","title":"슬라이드 제목","format":"quote","quoteText":"박스 안 원문","quoteSource":"출처(있을 경우)"} 형식으로 표현해라. 이 경우 row를 추가하지 않는다.
 - 표 안의 그림·도식은 텍스트로 옮길 수 없으면 생략해도 된다.
 - 해당하는 내용이 활동지에 없으면 빈 배열 []로 둬라.
 
@@ -3059,7 +3060,7 @@ function ceSanitizeParsedLesson(d) {
     : s;
   const fixLines = lines => (lines || []).map(line => {
     if (line.type === 'row') return { ...line, label: fixBraces(line.label), items: (line.items||[]).map(fixBreaks) };
-    if (line.type === 'divider') return { ...line, title: fixBraces(line.title) };
+    if (line.type === 'divider') return { ...line, title: fixBraces(line.title), quoteText: fixBreaks(line.quoteText), quoteSource: fixBraces(line.quoteSource) };
     return line;
   });
   // 행(row) 하나 = 슬라이드 하나가 기본값이므로, row 앞에 divider가 없으면 자동으로 끼워 넣는다.
