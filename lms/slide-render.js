@@ -83,7 +83,14 @@
     const colonIdx = str.indexOf(' : ');
     if (colonIdx > -1 && /^<br\s*\/?>/i.test(str.slice(colonIdx + 3))) return true;
     const brIdx = str.indexOf('<br>');
-    return brIdx > -1 && /^[a-z]\.\s/.test(str.slice(brIdx + 4));
+    if (brIdx > -1 && /^[a-z]\.\s/.test(str.slice(brIdx + 4))) return true;
+    // Case 2b: "lead a./b./c. ..." — lead 앞부분에 ' : ' 없을 때만
+    const bare = str.replace(/^[①-⑳㉑-㊿]\s*/, '').replace(/^\(\d+\)\s*/, '');
+    if (!/^[a-z]\.\s/.test(bare)) {
+      const m = bare.match(/^(.+?)\s([a-z]\.\s)/);
+      if (m && !m[1].includes(' : ')) return true;
+    }
+    return false;
   }
 
   /* " : " 기준으로 소제목(item-lead)과 본문(item-text) 분리. 콜론은 제거.
@@ -108,12 +115,12 @@
       return `<span class="item-lead">${parseText(heading)}</span><span class="item-text">${renderWithBreaks(subs)}</span>`;
     }
 
-    // Case 2b: "소제목 a. ..." 형태 — 소제목과 a./b./c. 사이에 콜론 없이 공백만 있는 경우
+    // Case 2b: "소제목 a. ..." 형태 — 소제목 앞부분에 ' : ' 없고 a./b./c. 마커가 있는 경우
     const subItemMatch = str.match(/^(.+?)\s([a-z]\.\s)/);
-    if (subItemMatch) {
+    if (subItemMatch && !subItemMatch[1].includes(' : ')) {
       const leadRaw = subItemMatch[1];
       const rest = str.slice(leadRaw.length + 1);
-      return `<span class="item-lead">${parseText(leadRaw)}&nbsp;&nbsp;&nbsp;</span><span class="item-text">${renderWithBreaks(rest)}</span>`;
+      return `<span class="item-lead">${parseText(leadRaw)}</span><span class="item-text">${renderWithBreaks(rest)}</span>`;
     }
 
     // Case 3: "소제목 : 본문" 형태 (기존 콜론 구분)
@@ -122,7 +129,7 @@
       const leadRaw = str.slice(0, colonIdx);
       let   rest     = str.slice(colonIdx + 3);
       if (isStackedItem(str)) rest = rest.replace(/^<br\s*\/?>/i, '');
-      return `<span class="item-lead">${parseText(leadRaw)}&nbsp;&nbsp;&nbsp;</span><span class="item-text">${renderWithBreaks(rest)}</span>`;
+      return `<span class="item-lead">${parseText(leadRaw)}</span><span class="item-text">${renderWithBreaks(rest)}</span>`;
     }
 
     return `<span class="item-text">${renderWithBreaks(str)}</span>`;
