@@ -428,7 +428,7 @@
       extraClass = ' slide-think'; // 생각 체크와 같은 단순 질문형 슬라이드라 배경 스타일을 재사용
       inner = diveHTML(slide, lesson);
     } else if (slide.type === 'chosung') {
-      extraClass = ' slide-objectives'; // 학습 목표와 같은 번호 목록 구성이라 배경 스타일을 재사용
+      extraClass = ' slide-chosung';
       inner = chosungHTML(slide, lesson);
     } else if (slide.type === 'concept') {
       inner = conceptHTML(slide, lesson);
