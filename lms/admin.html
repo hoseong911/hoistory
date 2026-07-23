@@ -2601,7 +2601,7 @@ function ceRenderContentLines(target) {
     if (group.type === 'image') {
       const i = group.idx, line = lines[i];
       return `
-        <div class="cl-image" draggable="true" data-idx="${i}">
+        <div class="cl-image" data-idx="${i}">
           <div class="cl-divider-top">
             <span class="cl-handle">⋮⋮</span>
             <span class="cl-image-label">이미지 슬라이드</span>
@@ -2668,7 +2668,7 @@ function ceRenderContentLines(target) {
           </div>`;
       }).join('');
       return `
-        <div class="cl-group" draggable="true" data-first-div="${slides[0].divIdx}">
+        <div class="cl-group" data-first-div="${slides[0].divIdx}">
           <div class="cl-group-header">
             <span class="cl-handle">⋮⋮</span>
             <input type="text" class="cl-divider-title" placeholder="슬라이드 제목" value="${esc(title)}" oninput="updateGroupTitle('${target}',[${allDivIds.join(',')}],this.value)">
@@ -2826,56 +2826,63 @@ let ceDragSrcIdx = null;
 let ceDragSrcTarget = null;
 function ceWireDragEvents(target) {
   const containerId = ceContainerIdFor(target);
-  // 그룹 드래그 (같은 제목 슬라이드 전체 이동)
-  document.querySelectorAll(`#${containerId} .cl-group[data-first-div]`).forEach(el => {
+
+  function wireGroup(el, getFirstIdx, countLines) {
+    const handle = el.querySelector(':scope > .cl-group-header > .cl-handle, :scope > .cl-divider-top > .cl-handle');
+    if (handle) {
+      handle.style.cursor = 'grab';
+      handle.addEventListener('mousedown', () => el.setAttribute('draggable', 'true'));
+      handle.addEventListener('mouseup',   () => el.setAttribute('draggable', 'false'));
+    }
     el.addEventListener('dragstart', e => {
-      if (!e.target.closest('.cl-handle')) { e.preventDefault(); return; }
-      ceDragSrcIdx = +el.dataset.firstDiv;
+      ceDragSrcIdx = getFirstIdx(el);
       ceDragSrcTarget = target;
       el.classList.add('dragging');
       e.stopPropagation();
     });
-    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+      el.setAttribute('draggable', 'false');
+    });
     el.addEventListener('dragover', e => e.preventDefault());
     el.addEventListener('drop', e => {
       e.preventDefault();
       e.stopPropagation();
       if (ceDragSrcTarget !== target) return;
       const lines = ceLinesFor(target);
-      const srcFirst = ceDragSrcIdx;
-      const dstFirst = +el.dataset.firstDiv;
-      if (srcFirst === null || srcFirst === dstFirst) return;
-      const title = lines[srcFirst].title;
-      let count = 0, j = srcFirst;
-      while (j < lines.length) {
-        if ((lines[j].type === 'divider' && lines[j].title === title) || lines[j].type === 'row') { j++; count++; }
-        else break;
+      const src = ceDragSrcIdx;
+      const dst = getFirstIdx(el);
+      if (src === null || src === dst) return;
+      const count = countLines(lines, src);
+      const moved = lines.splice(src, count);
+      lines.splice(src < dst ? dst - count : dst, 0, ...moved);
+      ceDragSrcIdx = null;
+      ceRenderContentLines(target);
+      ceRenderPreview();
+    });
+  }
+
+  // 그룹 드래그
+  document.querySelectorAll(`#${containerId} .cl-group[data-first-div]`).forEach(el => {
+    wireGroup(
+      el,
+      el => +el.dataset.firstDiv,
+      (lines, src) => {
+        const title = lines[src].title;
+        let c = 0, j = src;
+        while (j < lines.length && ((lines[j].type === 'divider' && lines[j].title === title) || lines[j].type === 'row')) { j++; c++; }
+        return c;
       }
-      const group = lines.splice(srcFirst, count);
-      const adjustedDst = srcFirst < dstFirst ? dstFirst - count : dstFirst;
-      lines.splice(adjustedDst, 0, ...group);
-      ceDragSrcIdx = null;
-      ceRenderContentLines(target);
-      ceRenderPreview();
-    });
+    );
   });
-  // 이미지 슬라이드 드래그 (단일 항목)
+
+  // 이미지 슬라이드 드래그
   document.querySelectorAll(`#${containerId} .cl-image`).forEach(el => {
-    el.addEventListener('dragstart', e => { if (!e.target.closest('.cl-handle')) { e.preventDefault(); return; } ceDragSrcIdx = +el.dataset.idx; ceDragSrcTarget = target; el.classList.add('dragging'); });
-    el.addEventListener('dragend',   () => el.classList.remove('dragging'));
-    el.addEventListener('dragover',  e => e.preventDefault());
-    el.addEventListener('drop', e => {
-      e.preventDefault();
-      if (ceDragSrcTarget !== target) return;
-      const lines = ceLinesFor(target);
-      const targetIdx = +el.dataset.idx;
-      if (ceDragSrcIdx === null || ceDragSrcIdx === targetIdx) return;
-      const [moved] = lines.splice(ceDragSrcIdx, 1);
-      lines.splice(ceDragSrcIdx < targetIdx ? targetIdx - 1 : targetIdx, 0, moved);
-      ceDragSrcIdx = null;
-      ceRenderContentLines(target);
-      ceRenderPreview();
-    });
+    wireGroup(
+      el,
+      el => +el.dataset.idx,
+      (_lines, _src) => 1
+    );
   });
 }
 
