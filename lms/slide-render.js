@@ -120,7 +120,7 @@
     return `
       <span class="cover-tagline">생각하고 활동하고 질문하는 역사 수업</span>
       <h1 class="cover-title">${preserveSpaces(lesson.title).replace(/\n/g, '<br>')}</h1>
-      <p class="cover-meta">${preserveSpaces(lesson.unit)} &nbsp;·&nbsp; ${preserveSpaces(lesson.page)}</p>
+      <p class="cover-meta">${preserveSpaces(lesson.unit)} &nbsp;|&nbsp; ${preserveSpaces(lesson.page)}</p>
       <div class="cover-num-bg">${lesson.num}</div>
     `;
   }
