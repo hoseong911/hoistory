@@ -508,18 +508,6 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .concept-embed .cl-fmt-grow{flex:1;min-width:0;padding:7px 10px;border:1px solid var(--cborder);border-radius:6px;font-family:var(--font);font-size:.82rem;min-height:40px;line-height:1.5;overflow-y:hidden;resize:none}
 .concept-embed .cl-fmt-del{flex-shrink:0;background:transparent;color:var(--cred);border:1px solid rgba(220,38,38,.25);font-size:.72rem;padding:6px 9px;border-radius:6px;cursor:pointer;font-family:var(--font);font-weight:600}
 .concept-embed .cl-labelpos{display:flex;align-items:center;gap:8px;font-size:.82rem;font-weight:600;color:var(--ctext);cursor:pointer}
-.concept-embed .cl-labelpos-demos{display:flex;gap:12px;margin-top:10px}
-.concept-embed .cl-lp-demo{flex:1}
-.concept-embed .cl-lp-demo-label{font-size:.72rem;font-weight:700;color:var(--csub);margin-bottom:5px}
-.concept-embed .cl-lp-demo-slide{background:#fff;border:1px solid var(--cborder);border-radius:6px;overflow:hidden}
-.concept-embed .cl-lp-row{border-bottom:1px solid var(--cborder);display:flex}
-.concept-embed .cl-lp-row:last-child{border-bottom:none}
-.concept-embed .cl-lp-side{flex-direction:row}
-.concept-embed .cl-lp-top{flex-direction:column}
-.concept-embed .cl-lp-tag{background:#e8edf7;font-size:.68rem;font-weight:700;color:var(--cnavy);padding:4px 7px;white-space:nowrap}
-.concept-embed .cl-lp-side .cl-lp-tag{border-right:1px solid var(--cborder);width:36px;flex-shrink:0}
-.concept-embed .cl-lp-top .cl-lp-tag{border-bottom:1px solid var(--cborder);width:100%}
-.concept-embed .cl-lp-content{flex:1;background:repeating-linear-gradient(90deg,#d4d0c8 0,#d4d0c8 5px,transparent 5px,transparent 9px);opacity:.4;min-height:22px}
 
 /* ── 슬라이드 그룹 UI ── */
 .concept-embed .cl-group{border:1.5px solid #c8c4bc;border-radius:10px;margin-bottom:10px;overflow:hidden}
@@ -2034,10 +2022,10 @@ const CE_SD = {
   lineHeights: { body: 1.6, label: 1.6, obj: 2, think: 1.6, thinkGuide: 1.6 },
   letterSpacing: -5,  // -10~10 슬라이더 값, 100분의 1em 단위 (-5 = -0.05em)
   textWidth: 95,      // % (장평, scaleX = 값/100)
-  navy: '#1c3461', red: '#b83030',
-  bg: '#e8e0d0', slideBg: '#f7f2e8', rowBg: '#f2ede0', text: '#2c2823',
-  thinkGuideColor: '#7a6f5e',
-  badgeColor: '#1c3461'
+  navy: '#334155', red: '#dc2626',
+  bg: '#f1f5f9', slideBg: '#ffffff', rowBg: '#e2e8f0', text: '#0f172a',
+  thinkGuideColor: '#64748b',
+  badgeColor: '#334155'
 };
 const CE_LESSON_DEFAULTS = {
   '23': {
@@ -2265,7 +2253,7 @@ function cePopulateLessonSelect() {
   const sel = document.getElementById('lesson-select');
   const cur = sel.value || ceCurrentLessonNum; // 선택 유지 (새 강의 추가/갱신 시)
   sel.innerHTML = '<option value="">— 강의 선택 —</option>' +
-    ceLessonsCache.map(l => `<option value="${esc(l.num)}" ${cur && l.num===cur?'selected':''}>${esc(l.num)}강 · ${esc(l.title)}</option>`).join('');
+    [...ceLessonsCache].reverse().map(l => `<option value="${esc(l.num)}" ${cur && l.num===cur?'selected':''}>${esc(l.num)}강 · ${esc(l.title)}</option>`).join('');
 }
 
 window.ceLessonPreview = function() {
@@ -2487,6 +2475,7 @@ function setLineFormat(target, i, fmt) {
     line.stages = [{ label: '', text: '' }];
   }
   ceRenderContentLines(target);
+  ceToggleFmt(target, i);
   ceRenderPreview();
 }
 
@@ -2528,32 +2517,8 @@ function ceFormatPanelBody(target, i, line) {
   return `
     <label class="cl-labelpos">
       <input type="checkbox" ${line.labelPos === 'top' ? 'checked' : ''} onclick="event.stopPropagation();toggleLabelPos('${target}',${i},this.checked)">
-      라벨을 상단에 배치 (항목 문장이 길 때 가로 폭을 넓게 사용)
-    </label>
-    <div class="cl-labelpos-demos">
-      <div class="cl-lp-demo">
-        <div class="cl-lp-demo-label">OFF (기본)</div>
-        <div class="cl-lp-demo-slide">
-          <div class="cl-lp-row cl-lp-side">
-            <div class="cl-lp-tag">라벨</div><div class="cl-lp-content"></div>
-          </div>
-          <div class="cl-lp-row cl-lp-side">
-            <div class="cl-lp-tag">라벨</div><div class="cl-lp-content"></div>
-          </div>
-        </div>
-      </div>
-      <div class="cl-lp-demo">
-        <div class="cl-lp-demo-label">ON (상단 배치)</div>
-        <div class="cl-lp-demo-slide">
-          <div class="cl-lp-row cl-lp-top">
-            <div class="cl-lp-tag">라벨</div><div class="cl-lp-content"></div>
-          </div>
-          <div class="cl-lp-row cl-lp-top">
-            <div class="cl-lp-tag">라벨</div><div class="cl-lp-content"></div>
-          </div>
-        </div>
-      </div>
-    </div>`;
+      라벨 상단 배치
+    </label>`;
 }
 
 function ceTimelineEditor(target, i, line) {
