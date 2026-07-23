@@ -516,7 +516,9 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .concept-embed .cl-group-header{background:#eceae5;padding:8px 12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #d4d0c8}
 .concept-embed .cl-group-body{display:flex;flex-direction:column}
 .concept-embed .cl-slide-item{border-bottom:1px solid #eee}
-.concept-embed .cl-page-sep{font-size:11px;color:#aaa;text-align:center;padding:6px 0 2px;letter-spacing:.05em}
+.concept-embed .cl-page-sep{font-size:11px;color:#aaa;text-align:center;padding:6px 0 2px;letter-spacing:.05em;display:flex;align-items:center;justify-content:center;gap:6px}
+.concept-embed .cl-page-sep-first{padding:2px 0 0;justify-content:flex-start;padding-left:12px}
+.concept-embed .cl-page-handle{cursor:grab;font-size:12px;color:#bbb;user-select:none}
 .concept-embed .cl-slide-item:last-child{border-bottom:none}
 .concept-embed .cl-slide-item.dragging{opacity:.35}
 .concept-embed .cl-slide-row{display:flex;align-items:flex-start;gap:8px;padding:8px 12px}
@@ -2625,25 +2627,27 @@ function ceRenderContentLines(target) {
       const slidesHtml = slides.map(({ divIdx, rowIndices }, si) => {
         const div = lines[divIdx];
         const hasImg = div.img != null, fmt = div.format || 'rows';
-        const lastRowIdx = rowIndices[rowIndices.length - 1];
-        const rowsHtml = rowIndices.map((rowIdx, ri) => {
+        const rowsHtml = rowIndices.map((rowIdx) => {
           const row = lines[rowIdx];
-          const isLast = ri === rowIndices.length - 1;
+          const deleteBtn = rowIndices.length > 1
+            ? `<button class="cl-icon-btn danger" onclick="deleteRow('${target}',${rowIdx})" title="행 삭제">${ceIconTrash()}</button>`
+            : (slides.length > 1 ? `<button class="cl-icon-btn danger" onclick="deletePair('${target}',${divIdx})" title="이 페이지 삭제">${ceIconTrash()}</button>` : '');
           return `
             <div class="cl-slide-row" data-row-idx="${rowIdx}">
               <textarea class="cl-label" placeholder="라벨" oninput="updateLine('${target}',${rowIdx},'label',this.value);autoResizeTa(this)">${esc(row.label)}</textarea>
               <textarea class="cl-items" placeholder="{단어}는 빈칸, **굵게**, 엔터로 항목 구분 (a./b./c. 줄은 하위 항목)" oninput="updateLineItems('${target}',${rowIdx},this.value);autoResizeTa(this)" onkeydown="handleContentKeydown(event)">${esc(row.items.map(it => it.replace(/<\/?br\s*\/?>/gi, '\n')).join('\n'))}</textarea>
               <div class="cl-row-actions">
-                ${isLast ? `<button class="cl-icon-btn" onclick="addRowToGroup('${target}',${divIdx})" title="행 추가">${ceIconPlus()}</button>` : ''}
-                ${isLast ? `<button class="cl-icon-btn" onclick="toggleDividerImg('${target}',${divIdx})" title="${hasImg?'이미지 제거':'이미지 삽입'}">${ceIconImage()}</button>` : ''}
-                ${isLast ? `<button class="cl-icon-btn${fmt !== 'rows' ? ' active' : ''}" onclick="ceToggleFmt('${target}',${divIdx})" title="형식 · ${CE_FORMAT_LABELS[fmt]}">${ceIconSliders()}</button>` : ''}
-                ${rowIndices.length > 1 ? `<button class="cl-icon-btn danger" onclick="deleteRow('${target}',${rowIdx})" title="행 삭제">${ceIconTrash()}</button>` : (slides.length > 1 ? `<button class="cl-icon-btn danger" onclick="deletePair('${target}',${divIdx})" title="이 페이지 삭제">${ceIconTrash()}</button>` : '')}
+                <button class="cl-icon-btn" onclick="addRowToGroup('${target}',${divIdx})" title="행 추가">${ceIconPlus()}</button>
+                <button class="cl-icon-btn" onclick="toggleDividerImg('${target}',${divIdx})" title="${hasImg?'이미지 제거':'이미지 삽입'}">${ceIconImage()}</button>
+                <button class="cl-icon-btn${fmt !== 'rows' ? ' active' : ''}" onclick="ceToggleFmt('${target}',${divIdx})" title="형식 · ${CE_FORMAT_LABELS[fmt]}">${ceIconSliders()}</button>
+                ${deleteBtn}
               </div>
             </div>`;
         }).join('');
+        const pageHandle = slides.length > 1 ? `<span class="cl-handle cl-page-handle" title="페이지 순서 변경">⋮⋮</span>` : '';
         return `
           <div class="cl-slide-item" data-div-idx="${divIdx}">
-            ${si > 0 ? '<div class="cl-page-sep">── 새 페이지 ──</div>' : ''}
+            ${si > 0 ? `<div class="cl-page-sep">${pageHandle}── 새 페이지 ──</div>` : (slides.length > 1 ? `<div class="cl-page-sep cl-page-sep-first">${pageHandle}</div>` : '')}
             ${rowsHtml}
             ${hasImg ? `
             <div class="cl-img-row" style="padding:6px 12px 8px 12px;border-top:1px solid #eee;margin-top:4px">
@@ -2883,6 +2887,35 @@ function ceWireDragEvents(target) {
       el => +el.dataset.idx,
       (_lines, _src) => 1
     );
+  });
+
+  // 페이지 순서 변경 드래그 (같은 그룹 내)
+  document.querySelectorAll(`#${containerId} .cl-slide-item[data-div-idx]`).forEach(el => {
+    const handle = el.querySelector('.cl-page-handle');
+    if (!handle) return;
+    handle.addEventListener('mousedown', () => el.setAttribute('draggable', 'true'));
+    handle.addEventListener('mouseup',   () => el.setAttribute('draggable', 'false'));
+    el.addEventListener('dragstart', e => {
+      ceDragSrcIdx = +el.dataset.divIdx;
+      ceDragSrcTarget = target;
+      el.classList.add('dragging');
+      e.stopPropagation();
+    });
+    el.addEventListener('dragend', () => { el.classList.remove('dragging'); el.setAttribute('draggable', 'false'); });
+    el.addEventListener('dragover', e => e.preventDefault());
+    el.addEventListener('drop', e => {
+      e.preventDefault(); e.stopPropagation();
+      if (ceDragSrcTarget !== target) return;
+      const lines = ceLinesFor(target);
+      const srcDiv = ceDragSrcIdx, dstDiv = +el.dataset.divIdx;
+      if (srcDiv === null || srcDiv === dstDiv) return;
+      let srcCount = 1;
+      while (srcDiv + srcCount < lines.length && lines[srcDiv + srcCount].type === 'row') srcCount++;
+      const moved = lines.splice(srcDiv, srcCount);
+      lines.splice(srcDiv < dstDiv ? dstDiv - srcCount : dstDiv, 0, ...moved);
+      ceDragSrcIdx = null;
+      ceRenderContentLines(target); ceRenderPreview();
+    });
   });
 }
 

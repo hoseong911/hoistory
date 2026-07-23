@@ -81,7 +81,9 @@
      보고 <p>를 가로 배치(기존, 내어쓰기 있음) 대신 세로 배치(내어쓰기 없음)로 바꾼다. */
   function isStackedItem(str) {
     const colonIdx = str.indexOf(' : ');
-    return colonIdx > -1 && /^<br\s*\/?>/i.test(str.slice(colonIdx + 3));
+    if (colonIdx > -1 && /^<br\s*\/?>/i.test(str.slice(colonIdx + 3))) return true;
+    const brIdx = str.indexOf('<br>');
+    return brIdx > -1 && /^[a-z]\.\s/.test(str.slice(brIdx + 4));
   }
 
   /* " : " 기준으로 소제목(item-lead)과 본문(item-text) 분리. 콜론은 제거.
@@ -97,8 +99,16 @@
       return `<span class="item-text">${renderWithBreaks(str)}</span>`;
     }
 
-    // Case 2: "소제목 a. ..." 형태 — 소제목과 a./b./c. 사이에 콜론 없이 공백만 있는 경우
-    // e.g. "건국 과정 a. {이성계} : {위화도 회군}..." → item-lead="건국 과정", rest="a. ..."
+    // Case 2: "제목<br>a./b./c. 하위항목" 형태 — ① 뗀 후 첫 줄이 제목, <br> 이후 a.b.c. 시작
+    // e.g. "건국 과정<br>a. {이성계} : ...<br>b. ...<br>c. ..."
+    const firstBr = str.indexOf('<br>');
+    if (firstBr > -1 && /^[a-z]\.\s/.test(str.slice(firstBr + 4))) {
+      const heading = str.slice(0, firstBr);
+      const subs    = str.slice(firstBr + 4);
+      return `<span class="item-lead">${parseText(heading)}</span><span class="item-text">${renderWithBreaks(subs)}</span>`;
+    }
+
+    // Case 2b: "소제목 a. ..." 형태 — 소제목과 a./b./c. 사이에 콜론 없이 공백만 있는 경우
     const subItemMatch = str.match(/^(.+?)\s([a-z]\.\s)/);
     if (subItemMatch) {
       const leadRaw = subItemMatch[1];
