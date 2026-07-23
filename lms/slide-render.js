@@ -47,7 +47,7 @@
     function flushSub() {
       if (subLead === null) return;
       const body = subBodyLines.map(parseText).join('<br>');
-      out.push(`<span class="sub-line"><span class="item-sublead">${parseText(subLead)}&nbsp;&nbsp;&nbsp;</span><span class="sub-body">${body}</span></span>`);
+      out.push(`<span class="sub-line"><span class="item-sublead">${parseText(subLead)}</span><span class="sub-body">${body}</span></span>`);
       subLead = null;
       subBodyLines = null;
     }
