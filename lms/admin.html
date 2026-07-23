@@ -488,7 +488,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .concept-embed .cl-img-select{padding:4px 8px;border:1px solid var(--cborder);border-radius:5px;font-family:var(--font);font-size:.82rem;background:var(--cwhite)}
 .concept-embed .cl-image{background:#fdf3e7;border-color:#e8d4b0;flex-direction:column;align-items:stretch;gap:8px}
 .concept-embed .cl-image-label{font-size:.74rem;font-weight:700;color:#9a6a20;flex-shrink:0;white-space:nowrap}
-.concept-embed .cl-label{width:130px;flex-shrink:0;padding:8px 10px;border:1px solid var(--cborder);border-radius:6px;font-family:var(--font);font-size:.85rem}
+.concept-embed .cl-label{width:130px;flex-shrink:0;padding:8px 10px;border:1px solid var(--cborder);border-radius:6px;font-family:var(--font);font-size:.85rem;word-break:keep-all;overflow-wrap:break-word;resize:none;overflow:hidden;line-height:1.5;min-height:36px}
 .concept-embed .cl-items{flex:1;padding:8px 10px;border:1px solid var(--cborder);border-radius:6px;font-family:var(--font);font-size:.85rem;min-height:60px;line-height:1.5;overflow-y:hidden;resize:none}
 
 /* ── 슬라이드 형식 선택(연표/비교표/사료 인용/플로우) — 구분선 카드 아래 접어둔다 ── */
@@ -2631,7 +2631,7 @@ function ceRenderContentLines(target) {
           const isLast = ri === rowIndices.length - 1;
           return `
             <div class="cl-slide-row" data-row-idx="${rowIdx}">
-              <input type="text" class="cl-label" placeholder="라벨" value="${esc(row.label)}" oninput="updateLine('${target}',${rowIdx},'label',this.value)">
+              <textarea class="cl-label" placeholder="라벨" oninput="updateLine('${target}',${rowIdx},'label',this.value);autoResizeTa(this)">${esc(row.label)}</textarea>
               <textarea class="cl-items" placeholder="{단어}는 빈칸, **굵게**, 엔터로 항목 구분 (a./b./c. 줄은 하위 항목)" oninput="updateLineItems('${target}',${rowIdx},this.value);autoResizeTa(this)" onkeydown="handleContentKeydown(event)">${esc(row.items.map(it => it.replace(/<\/?br\s*\/?>/gi, '\n')).join('\n'))}</textarea>
               <div class="cl-row-actions">
                 ${isLast ? `<button class="cl-icon-btn" onclick="addRowToGroup('${target}',${divIdx})" title="행 추가">${ceIconPlus()}</button>` : ''}
@@ -2728,7 +2728,7 @@ function addRowToGroup(target, divIdx) {
   const lines = ceLinesFor(target);
   let insertAt = divIdx + 1;
   while (insertAt < lines.length && lines[insertAt].type === 'row') insertAt++;
-  lines.splice(insertAt, 0, { type: 'row', label: '새 라벨', items: ['내용을 입력하세요'] });
+  lines.splice(insertAt, 0, { type: 'row', label: '', items: [] });
   ceRenderContentLines(target); ceRenderPreview();
 }
 
@@ -2748,7 +2748,7 @@ function deleteRow(target, rowIdx) {
 function addSlide(target) {
   ceLinesFor(target).push(
     { type: 'divider', title: '새 슬라이드' },
-    { type: 'row', label: '새 라벨', items: ['내용을 입력하세요'] }
+    { type: 'row', label: '', items: [] }
   );
   ceRenderContentLines(target); ceRenderPreview();
 }
@@ -2768,7 +2768,7 @@ function addPageToGroup(target, lastDivIdx) {
   while (insertAt < lines.length && lines[insertAt].type === 'row') insertAt++;
   lines.splice(insertAt, 0,
     { type: 'divider', title },
-    { type: 'row', label: '새 라벨', items: ['내용을 입력하세요'] }
+    { type: 'row', label: '', items: [] }
   );
   ceRenderContentLines(target); ceRenderPreview();
 }
