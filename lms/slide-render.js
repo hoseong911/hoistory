@@ -284,34 +284,41 @@
 
   function diveHTML(slide, lesson) {
     const headerTitle = slide.headerTitle || (lesson.num + '강');
-    const imgBase = slide.img != null ? `/hoistory/lms/img/${lesson.num}_${slide.img}` : null;
-    const imgPanel = imgBase ? `
-      <div class="clayout-img" style="flex: 0 0 45%">
-        <img src="${imgBase}.png" alt="${slide.imgCaption || ''}" onerror="SlideRenderImgFallback(this,'${imgBase}',0)">
-        ${slide.imgCaption ? `<p class="clayout-caption">${slide.imgCaption}</p>` : ''}
-      </div>` : '';
+    const imgBase     = slide.img != null ? `/hoistory/lms/img/${lesson.num}_${slide.img}` : null;
+    const layout      = slide.imgLayout || 'right';
 
     const header = `
       <div class="slide-header">
         <span class="check-badge">Dive into HISTORY</span>
         <h2 class="slide-title">${preserveSpaces(headerTitle)}</h2>
       </div>`;
-    const body = `
-      <p class="think-question">${preserveSpaces(slide.title||'').replace(/\n/g, '<br>')}</p>
-      ${slide.guide ? `
-      <div class="think-body">
-        <p class="think-guide">${preserveSpaces(slide.guide).replace(/\n/g, '<br>')}</p>
-      </div>` : ''}`;
 
-    if (imgPanel) {
-      return `
-        ${header}
-        <div class="clayout-right">
-          <div class="clayout-main">${body}</div>
-          ${imgPanel}
-        </div>`;
+    const guideClass = slide.guideBox === false ? 'think-guide no-box' : 'think-guide';
+    const hasText    = slide.title || slide.guide;
+    const textBlock  = `
+      ${slide.title ? `<p class="think-question">${preserveSpaces(slide.title).replace(/\n/g, '<br>')}</p>` : ''}
+      ${slide.guide ? `<div class="think-body"><p class="${guideClass}">${preserveSpaces(slide.guide).replace(/\n/g, '<br>')}</p></div>` : ''}`;
+
+    if (!imgBase) return `${header}${textBlock}`;
+
+    const imgEl     = `<img src="${imgBase}.png" alt="${slide.imgCaption || ''}" onerror="SlideRenderImgFallback(this,'${imgBase}',0)">`;
+    const captionEl = slide.imgCaption ? `<p class="clayout-caption">${slide.imgCaption}</p>` : '';
+    const imgFull   = `<div class="clayout-img" style="flex:1;min-height:0">${imgEl}${captionEl}</div>`;
+    const imgSide   = `<div class="clayout-img" style="flex:0 0 45%">${imgEl}${captionEl}</div>`;
+
+    if (layout === 'full' || !hasText) {
+      return `${header}${imgFull}`;
     }
-    return `${header}${body}`;
+    if (layout === 'top') {
+      return `${header}<div class="clayout-bottom">${imgFull}<div class="clayout-main">${textBlock}</div></div>`;
+    }
+    if (layout === 'bottom') {
+      return `${header}<div class="clayout-bottom"><div class="clayout-main">${textBlock}</div>${imgFull}</div>`;
+    }
+    if (layout === 'left') {
+      return `${header}<div class="clayout-right">${imgSide}<div class="clayout-main">${textBlock}</div></div>`;
+    }
+    return `${header}<div class="clayout-right"><div class="clayout-main">${textBlock}</div>${imgSide}</div>`;
   }
 
   function imageHTML(slide, lesson) {
@@ -420,8 +427,8 @@
     // opening{question,guide}은 dive{title,guide}로 바뀌기 전 필드명. 아직 admin에서
     // 다시 저장하지 않은 예전 강의도 그대로 보이도록 대비한다.
     const dive = d.dive || (d.opening ? { title: d.opening.question, guide: d.opening.guide } : null);
-    if (dive && (dive.title || dive.guide)) {
-      slides.push({ type: 'dive', title: dive.title || '', guide: dive.guide || '', headerTitle: dive.headerTitle || '', img: dive.img != null ? dive.img : null, imgCaption: dive.imgCaption || '' });
+    if (dive && (dive.title || dive.guide || dive.img != null)) {
+      slides.push({ type: 'dive', title: dive.title || '', guide: dive.guide || '', headerTitle: dive.headerTitle || '', img: dive.img != null ? dive.img : null, imgCaption: dive.imgCaption || '', imgLayout: dive.imgLayout || 'right', guideBox: dive.guideBox !== false });
     }
     if (d.dive && d.dive.chosungEnabled && d.dive.chosungItems && d.dive.chosungItems.length) {
       slides.push({ type: 'chosung', items: d.dive.chosungItems });

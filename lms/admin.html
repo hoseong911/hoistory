@@ -2314,7 +2314,7 @@ async function deleteLesson() {
 function ceBlankLessonData(num) {
   return {
     lesson: { num, title: '새 강의', unit: '', page: '', objectives: ['학습 목표를 입력하세요'] },
-    dive: { headerTitle: '', title: '', guide: '', img: null, imgCaption: '', chosungEnabled: false, chosungItems: [] },
+    dive: { headerTitle: '', title: '', guide: '', img: null, imgCaption: '', imgLayout: 'right', guideBox: true, chosungEnabled: false, chosungItems: [] },
     contentLines: [],
     mission: { contentLines: [] },
     think: { question: '', guide: '' }
@@ -2333,6 +2333,8 @@ function ceEnsureNewFields(cd) {
   if (cd.dive.headerTitle === undefined) cd.dive.headerTitle = '';
   if (cd.dive.img === undefined) cd.dive.img = null;
   if (cd.dive.imgCaption === undefined) cd.dive.imgCaption = '';
+  if (cd.dive.imgLayout === undefined) cd.dive.imgLayout = 'right';
+  if (cd.dive.guideBox === undefined) cd.dive.guideBox = true;
   if (cd.dive.chosungEnabled === undefined) cd.dive.chosungEnabled = false;
   if (!Array.isArray(cd.dive.chosungItems)) cd.dive.chosungItems = [];
   delete cd.opening;
@@ -2834,12 +2836,21 @@ function ceWireDragEvents(target) {
 function ceRenderDiveForm() {
   const d = ceCd.dive;
   const el = document.getElementById('dive-form');
+  const layoutOpts = [
+    ['right',  '텍스트 좌 · 이미지 우'],
+    ['left',   '이미지 좌 · 텍스트 우'],
+    ['bottom', '텍스트 위 · 이미지 아래'],
+    ['top',    '이미지 위 · 텍스트 아래'],
+    ['full',   '이미지 전체'],
+  ].map(([v,t]) => `<option value="${v}"${(d.imgLayout||'right')===v?' selected':''}>${t}</option>`).join('');
   el.innerHTML = `
     ${ceFInputInline('배지 옆 제목', d.headerTitle || '', `updateDive('headerTitle',this.value)`)}
     ${ceFInputInline('큰 주제', d.title || '', `updateDive('title',this.value)`)}
     ${ceFTextarea('안내 문구', d.guide || '', `updateDive('guide',this.value)`, 3)}
-    ${ceFInputInline('이미지 번호', d.img != null ? d.img : '', `updateDiveImg(this.value)`)}
-    ${ceFInputInline('이미지 캡션', d.imgCaption || '', `updateDive('imgCaption',this.value)`)}`;
+    <div class="field-inline"><label class="field-inline-label">안내 문구 박스</label><input type="checkbox"${d.guideBox!==false?' checked':''} onclick="updateDive('guideBox',this.checked)"></div>
+    <div class="field-inline"><label class="field-inline-label">이미지 번호</label><input class="field-input" type="text" value="${esc(d.img!=null?d.img:'')}" oninput="updateDiveImg(this.value)" style="width:80px;flex:none"></div>
+    ${ceFInputInline('이미지 캡션', d.imgCaption || '', `updateDive('imgCaption',this.value)`)}
+    <div class="field-inline"><label class="field-inline-label">이미지 레이아웃</label><select class="field-input" style="height:36px" onchange="updateDive('imgLayout',this.value)">${layoutOpts}</select></div>`;
   ceRenderChosungForm();
 }
 function updateDive(f,v){ ceCd.dive[f]=v; ceRenderPreview(); }
