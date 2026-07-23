@@ -130,7 +130,7 @@
     return `
       <div class="slide-header">
         <span class="check-badge">${badgeLabel}</span>
-        <h2 class="slide-title">${lesson.num}강 · ${preserveSpaces(lesson.title)}</h2>
+        <h2 class="slide-title">${lesson.num}강. ${preserveSpaces(lesson.title)}</h2>
       </div>
       <div class="obj-list">
         ${items.map((o, i) => `
@@ -283,17 +283,35 @@
   function missionHTML(slide, lesson) { return checkStyleHTML(slide, lesson, '미션 Check'); }
 
   function diveHTML(slide, lesson) {
-    return `
+    const headerTitle = slide.headerTitle || (lesson.num + '강');
+    const imgBase = slide.img != null ? `/hoistory/lms/img/${lesson.num}_${slide.img}` : null;
+    const imgPanel = imgBase ? `
+      <div class="clayout-img" style="flex: 0 0 45%">
+        <img src="${imgBase}.png" alt="${slide.imgCaption || ''}" onerror="SlideRenderImgFallback(this,'${imgBase}',0)">
+        ${slide.imgCaption ? `<p class="clayout-caption">${slide.imgCaption}</p>` : ''}
+      </div>` : '';
+
+    const header = `
       <div class="slide-header">
         <span class="check-badge">Dive into HISTORY</span>
-        <h2 class="slide-title">${lesson.num}강</h2>
-      </div>
+        <h2 class="slide-title">${preserveSpaces(headerTitle)}</h2>
+      </div>`;
+    const body = `
       <p class="think-question">${preserveSpaces(slide.title||'').replace(/\n/g, '<br>')}</p>
       ${slide.guide ? `
       <div class="think-body">
         <p class="think-guide">${preserveSpaces(slide.guide).replace(/\n/g, '<br>')}</p>
-      </div>` : ''}
-    `;
+      </div>` : ''}`;
+
+    if (imgPanel) {
+      return `
+        ${header}
+        <div class="clayout-right">
+          <div class="clayout-main">${body}</div>
+          ${imgPanel}
+        </div>`;
+    }
+    return `${header}${body}`;
   }
 
   function imageHTML(slide, lesson) {
@@ -403,7 +421,7 @@
     // 다시 저장하지 않은 예전 강의도 그대로 보이도록 대비한다.
     const dive = d.dive || (d.opening ? { title: d.opening.question, guide: d.opening.guide } : null);
     if (dive && (dive.title || dive.guide)) {
-      slides.push({ type: 'dive', title: dive.title || '', guide: dive.guide || '' });
+      slides.push({ type: 'dive', title: dive.title || '', guide: dive.guide || '', headerTitle: dive.headerTitle || '', img: dive.img != null ? dive.img : null, imgCaption: dive.imgCaption || '' });
     }
     if (d.dive && d.dive.chosungEnabled && d.dive.chosungItems && d.dive.chosungItems.length) {
       slides.push({ type: 'chosung', items: d.dive.chosungItems });
