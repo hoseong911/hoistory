@@ -426,6 +426,7 @@ body::before {
 /* ═══ 아카이브 ═══ */
 #archiveView { display:none; position:fixed; inset:0; z-index:900; background:var(--paper); flex-direction:column; overflow-y:auto; }
 .arc-hd { position:sticky; top:0; z-index:10; background:rgba(245,240,228,.96); backdrop-filter:blur(10px); border-bottom:1px solid rgba(60,40,20,.12); padding:14px 16px; }
+.arc-hd-inner { max-width:700px; margin:0 auto; width:100%; box-sizing:border-box; }
 .arc-hd-top { display:flex; align-items:center; margin-bottom:10px; }
 .arc-back { font-size:20px; background:none; border:none; cursor:pointer; color:rgba(60,40,20,.45); padding:0; width:32px; text-align:center; line-height:1; transition:.15s; flex-shrink:0; }
 .arc-back:hover { color:var(--ink); }
@@ -435,7 +436,8 @@ body::before {
 .arc-info { display:none; background:rgba(60,40,20,.04); border:1px solid rgba(60,40,20,.1); border-radius:10px; padding:12px 14px; margin-bottom:10px; }
 .arc-info.on { display:block; }
 .arc-info-topic { font-size:17px; font-weight:800; color:var(--ink); margin-bottom:6px; font-family:'Noto Serif KR',serif; text-align:center; }
-.arc-info-intent { font-size:14px; color:var(--ink2); line-height:1.8; border-top:1px solid rgba(176,140,74,0.35); border-bottom:1px solid rgba(176,140,74,0.35); padding:8px 0; }
+.arc-info-intent { font-size:14px; color:var(--ink2); line-height:1.8; border-top:1px solid rgba(176,140,74,0.35); border-bottom:1px solid rgba(176,140,74,0.35); padding:8px 0; white-space:pre-wrap; word-break:break-word; }
+.arc-info-content { font-size:14px; color:var(--ink2); line-height:1.8; margin-top:8px; white-space:pre-wrap; word-break:break-word; }
 .arc-tabs { display:flex; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; gap:6px; justify-content:center; }
 .arc-tabs::-webkit-scrollbar { display:none; }
 .arc-tab { flex-shrink:0; white-space:nowrap; padding:6px 14px; border-radius:100px; border:1.5px solid rgba(60,40,20,.2); font-size:12px; font-weight:700; color:var(--ink2); cursor:pointer; font-family:inherit; background:none; transition:.15s; }
@@ -507,23 +509,26 @@ body::before {
 <!-- ── 아카이브 뷰 ── -->
 <div id="archiveView">
   <div class="arc-hd">
-    <div class="arc-hd-top">
-      <button class="arc-back" onclick="closeArchive()">←</button>
-      <div class="arc-titles">
-        <div class="arc-title">亂世의 士大夫</div>
-        <div class="arc-subtitle">활동 아카이브</div>
+    <div class="arc-hd-inner">
+      <div class="arc-hd-top">
+        <button class="arc-back" onclick="closeArchive()">←</button>
+        <div class="arc-titles">
+          <div class="arc-title">亂世의 士大夫</div>
+          <div class="arc-subtitle">활동 아카이브</div>
+        </div>
+        <div style="width:32px;flex-shrink:0;"></div>
       </div>
-      <div style="width:32px;flex-shrink:0;"></div>
-    </div>
-    <div id="arcInfoBoxGc" class="arc-info">
-      <div class="arc-info-topic" id="arcTopicGc"></div>
-      <div class="arc-info-intent" id="arcIntentGc"></div>
-    </div>
-    <div class="arc-tabs">
-      <button class="arc-tab active" onclick="arcSetFilterGc('all',this)">전체</button>
-      <button class="arc-tab" onclick="arcSetFilterGc('open',this)">조선합류</button>
-      <button class="arc-tab" onclick="arcSetFilterGc('retreat',this)">두문동은거</button>
-      <button class="arc-tab" onclick="arcSetFilterGc('martyr',this)">충절의순사</button>
+      <div id="arcInfoBoxGc" class="arc-info">
+        <div class="arc-info-topic" id="arcTopicGc"></div>
+        <div class="arc-info-intent" id="arcIntentGc"></div>
+        <div class="arc-info-content" id="arcContentGc"></div>
+      </div>
+      <div class="arc-tabs">
+        <button class="arc-tab active" onclick="arcSetFilterGc('all',this)">전체</button>
+        <button class="arc-tab" onclick="arcSetFilterGc('open',this)">조선합류</button>
+        <button class="arc-tab" onclick="arcSetFilterGc('retreat',this)">두문동은거</button>
+        <button class="arc-tab" onclick="arcSetFilterGc('martyr',this)">충절의순사</button>
+      </div>
     </div>
   </div>
   <div class="arc-body" id="arcFeedGc"></div>
@@ -1606,6 +1611,9 @@ window.addEventListener('DOMContentLoaded', () => {
     history.pushState({ appScreen: currentScreen }, '');
   } catch(e) {}
   loadStudents().then(() => { studentsLoaded = true; }).catch(() => {});
+
+  // ★ 루트 아카이브에서 ?archive=1로 들어오면 로그인 화면 대신 바로 아카이브 뷰 표시
+  if (new URLSearchParams(location.search).get('archive') === '1') openArchive();
 });
 
 // ★ 브라우저 뒤로가기/앞으로가기 처리
@@ -1674,10 +1682,15 @@ window.openArchive = () => {
   // 아카이브 정보 로드
   get(ref(db, 'adminConfig/goryeo_choice/archive')).then(snap => {
     if (snap.exists()) {
-      const { topic, intent } = snap.val();
-      if (topic || intent) {
+      const { topic, intent, content } = snap.val();
+      if (topic || intent || content) {
         document.getElementById('arcTopicGc').textContent = topic || '';
-        document.getElementById('arcIntentGc').textContent = intent || '';
+        const intentEl = document.getElementById('arcIntentGc');
+        intentEl.textContent = intent || '';
+        intentEl.style.display = intent ? '' : 'none';
+        const contentEl = document.getElementById('arcContentGc');
+        contentEl.textContent = content || '';
+        contentEl.style.display = content ? '' : 'none';
         document.getElementById('arcInfoBoxGc').classList.add('on');
       }
     }

@@ -3915,8 +3915,11 @@ window.archiveConfirmPublish = async function(missionId) {
     const cats = window._archiveCats || [];
     const published = (window._archiveAllCards || []).filter(c => cats.some(cat => cat.key === c.category));
     const order = published.length ? Math.max(...published.map(c => c.order || 0)) + 1 : 0;
+    // 앱 자체에 아카이브 뷰가 있으면 ?archive=1로 바로 진입시킨다(없는 앱은 파라미터를 무시하고 평소대로 로그인 화면을 보여줌).
+    const baseUrl = card.url || '';
+    const archiveUrl = baseUrl ? baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'archive=1' : '';
     await addDoc(collection(db, 'cards'), {
-      emoji: card.emoji || '', title: card.title || '', url: card.url || '',
+      emoji: card.emoji || '', title: card.title || '', url: archiveUrl,
       desc, category, locked: false, sourceMissionId: missionId, order
     });
     alert('아카이브에 공개되었습니다.');
