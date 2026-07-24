@@ -92,6 +92,7 @@
      여기 남겨두면 위쪽에 빈 줄이 하나 더 끼어드는 이중 간격이 생긴다. */
   function parseItemText(str) {
     // 원문자(①~㉿) 및 괄호숫자 (1) (2) 등 앞 번호 제거
+    const hasCircled = /^[①-⑳㉑-㊿]/.test(str) || /^\(\d+\)/.test(str);
     str = str.replace(/^[①-⑳㉑-㊿]\s*/, '').replace(/^\(\d+\)\s*/, '');
 
     // Case 1: 아이템 자체가 a./b./c. 마커로 시작 → item-lead 없이 전체를 renderWithBreaks에 넘김
@@ -108,12 +109,14 @@
       return `<span class="item-lead">${parseText(heading)}</span><span class="item-text">${renderWithBreaks(subs)}</span>`;
     }
 
-    // Case 2b: "소제목 a. ..." 형태 — 소제목 앞부분에 ' : ' 없고 a./b./c. 마커가 있는 경우
-    const subItemMatch = str.match(/^(.+?)\s([a-z]\.\s)/);
-    if (subItemMatch && !subItemMatch[1].includes(' : ')) {
-      const leadRaw = subItemMatch[1];
-      const rest = str.slice(leadRaw.length + 1);
-      return `<span class="item-lead">${parseText(leadRaw)}</span><span class="item-text">${renderWithBreaks(rest)}</span>`;
+    // Case 2b: "①소제목 a. ..." 형태 — 원문자가 있었고, 소제목 앞에 ' : ' 없는 경우
+    if (hasCircled) {
+      const subItemMatch = str.match(/^(.+?)\s([a-z]\.\s)/);
+      if (subItemMatch && !subItemMatch[1].includes(' : ')) {
+        const leadRaw = subItemMatch[1];
+        const rest = str.slice(leadRaw.length + 1);
+        return `<span class="item-lead">${parseText(leadRaw)}</span><span class="item-text">${renderWithBreaks(rest)}</span>`;
+      }
     }
 
     // Case 3: "소제목 : 본문" 형태 (기존 콜론 구분)
@@ -164,8 +167,10 @@
       return s.replace(/^[①-⑳㉑-㊿]\s*/, '').replace(/^\(\d+\)\s*/, '');
     }
 
-    // "lead a. body" 패턴인 경우 lead 문자열 반환, 아니면 null
+    // "①lead a. body" 패턴인 경우 lead 문자열 반환, 아니면 null
+    // 원문자(①②...)가 있어야만 lead를 Paperlogy 굵은으로 처리
     function case2bLead(str) {
+      if (!/^[①-⑳㉑-㊿]/.test(str) && !/^\(\d+\)/.test(str)) return null;
       const bare = stripPrefix(str);
       if (/^[a-z]\.\s/.test(bare) || bare.indexOf('<br>') > -1) return null;
       const m = bare.match(/^(.+?)\s(a\.\s)/);
