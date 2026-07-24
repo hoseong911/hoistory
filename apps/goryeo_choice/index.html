@@ -442,13 +442,13 @@ body::before {
 .arc-main-tab { flex-shrink:0; padding:8px 18px; border-radius:100px; border:1.5px solid rgba(60,40,20,.2); font-size:13px; font-weight:800; color:var(--ink2); cursor:pointer; font-family:'Noto Sans KR',sans-serif; background:none; transition:.15s; }
 .arc-main-tab:hover { border-color:rgba(60,40,20,.45); color:var(--ink); }
 .arc-main-tab.active { background:var(--ink); border-color:var(--ink); color:var(--paper); }
-.arc-flow-intro { font-size:13px; color:var(--ink2); line-height:1.8; text-align:center; margin-bottom:22px; word-break:keep-all; }
-.arc-flow-step { margin-bottom:30px; }
+.arc-flow-intro { font-size:15px; color:var(--ink2); line-height:1.8; text-align:center; margin-bottom:22px; word-break:keep-all; }
+.arc-flow-step { margin-bottom:36px; }
 .arc-flow-step-head { display:flex; align-items:baseline; gap:8px; margin-bottom:8px; }
-.arc-flow-step-num { font-size:12px; font-weight:800; color:var(--gold); font-family:'Noto Sans KR',sans-serif; letter-spacing:1px; flex-shrink:0; }
-.arc-flow-step-title { font-size:16px; font-weight:800; color:var(--ink); font-family:'Noto Serif KR',serif; }
-.arc-flow-step-desc { font-size:13px; color:var(--ink2); line-height:1.75; margin-bottom:12px; word-break:keep-all; }
-.arc-flow-step-img { width:100%; display:block; border-radius:10px; border:1px solid rgba(60,40,20,.12); max-height:520px; object-fit:cover; object-position:top center; }
+.arc-flow-step-num { font-size:14px; font-weight:800; color:var(--gold); font-family:'Noto Sans KR',sans-serif; letter-spacing:1px; flex-shrink:0; }
+.arc-flow-step-title { font-size:20px; font-weight:800; color:var(--ink); font-family:'Noto Serif KR',serif; }
+.arc-flow-step-desc { font-size:16px; color:var(--ink2); line-height:1.8; margin-bottom:14px; word-break:keep-all; }
+.arc-flow-step-img { width:100%; display:block; border-radius:10px; border:1px solid rgba(60,40,20,.12); height:auto; }
 .arc-tabs { display:flex; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; gap:6px; justify-content:center; }
 .arc-tabs::-webkit-scrollbar { display:none; }
 .arc-tab { flex-shrink:0; white-space:nowrap; padding:6px 14px; border-radius:100px; border:1.5px solid rgba(60,40,20,.2); font-size:12px; font-weight:700; color:var(--ink2); cursor:pointer; font-family:inherit; background:none; transition:.15s; }
@@ -1736,19 +1736,23 @@ window.openArchive = () => {
   window.scrollTo(0, 0);
   arcSetMainTabGc('flow', document.querySelector('.arc-main-tab'));
 
-  // 아카이브 정보 로드 (탭 전환 시 표시)
+  // 아카이브 정보 로드
   get(ref(db, 'adminConfig/goryeo_choice/archive')).then(snap => {
     if (snap.exists()) {
       const { topic, intent, content } = snap.val();
-      if (topic || intent || content) {
+      if (topic || intent) {
         document.getElementById('arcTopicGc').textContent = topic || '';
         const intentEl = document.getElementById('arcIntentGc');
         intentEl.textContent = intent || '';
         intentEl.style.display = intent ? '' : 'none';
+        // 아카이브 내용은 content 필드에 저장, 탭 전환 시 제어
         const contentEl = document.getElementById('arcContentGc');
         contentEl.textContent = content || '';
-        contentEl.style.display = content ? '' : 'none';
-        document.getElementById('arcInfoBoxGc').dataset.hasContent = '1';
+        contentEl.style.display = 'none'; // 기본 숨김, 아카이브 탭에서만 표시
+        const infoBox = document.getElementById('arcInfoBoxGc');
+        infoBox.dataset.hasContent = '1';
+        infoBox.dataset.archiveContent = content || '';
+        infoBox.style.display = 'block'; // 바로 표시
       }
     }
   }).catch(() => {});
@@ -1774,8 +1778,14 @@ window.arcSetMainTabGc = (tab, btnEl) => {
   document.getElementById('arcFlowGc').style.display = tab === 'flow' ? '' : 'none';
   document.getElementById('arcFeedGc').style.display = tab === 'feed' ? '' : 'none';
   document.getElementById('arcSubTabsGc').style.display = tab === 'feed' ? '' : 'none';
+  // 수업 주제·활동 의도: 두 탭 모두 표시
   const infoBox = document.getElementById('arcInfoBoxGc');
-  if (infoBox) infoBox.style.display = (tab === 'feed' && infoBox.dataset.hasContent === '1') ? 'block' : 'none';
+  if (infoBox && infoBox.dataset.hasContent === '1') {
+    infoBox.style.display = 'block';
+    // 아카이브 내용은 아카이브 탭에서만 표시
+    const contentEl = document.getElementById('arcContentGc');
+    if (contentEl) contentEl.style.display = tab === 'feed' ? '' : 'none';
+  }
 };
 
 window.arcSetFilterGc = (filter, btnEl) => {
