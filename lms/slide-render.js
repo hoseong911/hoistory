@@ -160,46 +160,80 @@
 
   function rowHTML(row, labelPos) {
     const rawItems = row.items || [];
+    const CIRCLE_RE = /^[①-⑳㉑-㊿]\s*/;
 
-    function stripPrefix(s) {
-      return s.replace(/^[①-⑳㉑-㊿]\s*/, '').replace(/^\(\d+\)\s*/, '');
+    // 1. rawItems를 줄 단위로 납작하게 펴기 (<br>도 줄바꿈으로 처리)
+    const lines = [];
+    rawItems.forEach(item => {
+      item.replace(/<\/?br\s*\/?>/gi, '\n').split('\n').forEach(line => {
+        const t = line.trim();
+        if (t) lines.push(t);
+      });
+    });
+
+    // 2. 각 줄 분류
+    function classifyLine(line) {
+      if (CIRCLE_RE.test(line)) {
+        const bare = line.replace(CIRCLE_RE, '');
+        const ci = bare.indexOf(' : ');
+        const m  = bare.match(/^(.+?)\s([a-z]\.\s)/);
+        // a.가 :보다 먼저 나오면 → 제목+인라인소제목
+        if (m && (ci === -1 || ci > m[1].length)) {
+          return { type: 'title-sub', title: m[1], firstSub: bare.slice(m[1].length + 1) };
+        }
+        // 콜론 구분 → 제목+내용
+        if (ci > -1) return { type: 'title-colon', title: bare.slice(0, ci), content: bare.slice(ci + 3) };
+        // 제목만
+        return { type: 'title-alone', title: bare };
+      }
+      if (/^[a-z]\.\s/.test(line)) {
+        return { type: 'sub', marker: line.slice(0, 2), body: line.slice(3) };
+      }
+      return { type: 'text', content: line };
     }
 
-    // "lead a. body" 패턴인 경우 lead 문자열 반환, 아니면 null
-    function case2bLead(str) {
-      const bare = stripPrefix(str);
-      if (/^[a-z]\.\s/.test(bare) || bare.indexOf('<br>') > -1) return null;
-      const m = bare.match(/^(.+?)\s(a\.\s)/);
-      return (m && !m[1].includes(' : ')) ? m[1] : null;
-    }
+    const classified = lines.map(classifyLine);
 
-    // "lead a. body" 아이템과 이어지는 "b./c. body" 아이템들을 하나의 그룹으로 묶기
+    // 3. 그루핑: title-sub + 이어지는 sub, 연속 sub끼리 묶기
     const groups = [];
     let i = 0;
-    while (i < rawItems.length) {
-      const lead = case2bLead(rawItems[i]);
-      if (lead !== null) {
-        const bare0 = stripPrefix(rawItems[i]);
-        const subs = [bare0.slice(lead.length + 1)]; // "a. body"
+    while (i < classified.length) {
+      const cl = classified[i];
+      if (cl.type === 'title-sub') {
+        const subs = [{ marker: cl.firstSub.slice(0, 2), body: cl.firstSub.slice(3) }];
         i++;
-        while (i < rawItems.length) {
-          const nb = stripPrefix(rawItems[i]);
-          if (/^[b-z]\.\s/.test(nb)) { subs.push(nb); i++; }
-          else break;
-        }
-        groups.push({ type: 'group', lead, subs });
+        while (i < classified.length && classified[i].type === 'sub') { subs.push(classified[i]); i++; }
+        groups.push({ type: 'title-with-subs', title: cl.title, subs });
+      } else if (cl.type === 'sub') {
+        const subs = [cl];
+        i++;
+        while (i < classified.length && classified[i].type === 'sub') { subs.push(classified[i]); i++; }
+        groups.push({ type: 'subs-standalone', subs });
       } else {
-        groups.push({ type: 'single', item: rawItems[i] });
+        groups.push(cl);
         i++;
       }
+    }
+
+    // 4. 렌더링
+    function renderSub(sub) {
+      return `<span class="sub-line"><span class="item-sublead">${sub.marker}</span><span class="sub-body">${parseText(sub.body)}</span></span>`;
     }
 
     const itemsHtml = groups.map(g => {
-      if (g.type === 'group') {
-        const subHtml = g.subs.map(s => renderWithBreaks(s)).join('');
-        return `<p class="stack-item"><span class="item-lead">${parseText(g.lead)}</span><span class="item-text">${subHtml}</span></p>`;
+      if (g.type === 'title-with-subs') {
+        return `<p><span class="item-lead">${parseText(g.title)}</span><span class="item-text">${g.subs.map(renderSub).join('')}</span></p>`;
       }
-      return `<p${isStackedItem(g.item) ? ' class="stack-item"' : ''}>${parseItemText(g.item)}</p>`;
+      if (g.type === 'subs-standalone') {
+        return `<p><span class="item-text">${g.subs.map(renderSub).join('')}</span></p>`;
+      }
+      if (g.type === 'title-colon') {
+        return `<p><span class="item-lead">${parseText(g.title)}</span><span class="item-text">${parseText(g.content)}</span></p>`;
+      }
+      if (g.type === 'title-alone') {
+        return `<p class="title-alone"><span class="item-lead">${parseText(g.title)}</span></p>`;
+      }
+      return `<p><span class="item-text">${parseText(g.content)}</span></p>`;
     }).join('');
 
     const posClass = labelPos === 'top' ? ' label-top' : '';
