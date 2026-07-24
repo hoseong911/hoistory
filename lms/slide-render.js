@@ -197,7 +197,7 @@
     const itemsHtml = groups.map(g => {
       if (g.type === 'group') {
         const subHtml = g.subs.map(s => renderWithBreaks(s)).join('');
-        return `<p><span class="item-lead">${parseText(g.lead)}</span><span class="item-text">${subHtml}</span></p>`;
+        return `<p class="stack-item"><span class="item-lead">${parseText(g.lead)}</span><span class="item-text">${subHtml}</span></p>`;
       }
       return `<p${isStackedItem(g.item) ? ' class="stack-item"' : ''}>${parseItemText(g.item)}</p>`;
     }).join('');
