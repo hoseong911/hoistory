@@ -906,7 +906,6 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
                   style="flex:1;padding:8px 10px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;background:var(--bg1);color:var(--text1);outline:none;"
                   oninput="updateMissionArchiveDot()">
               </div>
-              <span style="font-size:11px;color:var(--sub);margin-top:3px;margin-left:70px;display:block;">아카이브 페이지 상단에 표시됩니다.</span>
             </div>
             <div>
               <div style="display:flex;align-items:flex-start;gap:10px;">
@@ -915,7 +914,14 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
                   style="flex:1;min-height:68px;padding:12px 10px 8px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;background:var(--bg1);color:var(--text1);outline:none;resize:vertical;"
                   oninput="updateMissionArchiveDot()"></textarea>
               </div>
-              <span style="font-size:11px;color:var(--sub);margin-top:3px;margin-left:70px;display:block;">이 활동을 왜 했는지 간단히 적어주세요. 다른 선생님들에게 공유됩니다.</span>
+            </div>
+            <div>
+              <div style="display:flex;align-items:flex-start;gap:10px;">
+                <label style="font-size:11px;font-weight:600;color:var(--sub);width:60px;flex-shrink:0;padding-top:9px;">아카이브 내용</label>
+                <textarea id="missionArchiveContent" placeholder="예) 학생들의 반응이 뜨거웠던 활동입니다."
+                  style="flex:1;min-height:68px;padding:12px 10px 8px;border:1px solid var(--border);border-radius:7px;font-size:13px;font-family:inherit;background:var(--bg1);color:var(--text1);outline:none;resize:vertical;"
+                  oninput="updateMissionArchiveDot()"></textarea>
+              </div>
             </div>
           </div>
         </div>
@@ -3329,11 +3335,12 @@ async function initMissionTab() {
       await addDoc(collection(db, 'cards'), cardData);
 
       // 아카이브 정보 저장 (appKey = URL 두 번째 세그먼트)
-      const topic  = document.getElementById('missionArchiveTopic').value.trim();
-      const intent = document.getElementById('missionArchiveIntent').value.trim();
-      if (topic || intent) {
+      const topic   = document.getElementById('missionArchiveTopic').value.trim();
+      const intent  = document.getElementById('missionArchiveIntent').value.trim();
+      const content = document.getElementById('missionArchiveContent').value.trim();
+      if (topic || intent || content) {
         const appKey = url.split('/')[1];
-        if (appKey) await set(ref(rtdb, `adminConfig/${appKey}/archive`), { topic, intent });
+        if (appKey) await set(ref(rtdb, `adminConfig/${appKey}/archive`), { topic, intent, content });
       }
 
       missionSelectedSvg = '';
@@ -3344,6 +3351,7 @@ async function initMissionTab() {
       document.getElementById('missionCardAdminUrl').value = '';
       document.getElementById('missionArchiveTopic').value = '';
       document.getElementById('missionArchiveIntent').value = '';
+      document.getElementById('missionArchiveContent').value = '';
       document.getElementById('missionArchivePanel').style.display = 'none';
       document.getElementById('missionArchiveToggleBtn').dataset.open = '';
       document.getElementById('missionArchiveToggleBtn').textContent = '아카이브 정보 입력';
@@ -3424,12 +3432,14 @@ window.missionStartEdit = async function(docId) {
   if (!row) return;
 
   // 기존 아카이브 정보 로드
-  let existingTopic = '', existingIntent = '';
+  let existingTopic = '', existingIntent = '', existingContent = '';
   const appKey = (item.url||'').split('/')[1];
   if (appKey) {
     try {
       const snap = await get(ref(rtdb, `adminConfig/${appKey}/archive`));
-      if (snap.exists()) { existingTopic = snap.val().topic||''; existingIntent = snap.val().intent||''; }
+      if (snap.exists()) {
+        existingTopic = snap.val().topic||''; existingIntent = snap.val().intent||''; existingContent = snap.val().content||'';
+      }
     } catch(e) {}
   }
 
@@ -3460,6 +3470,10 @@ window.missionStartEdit = async function(docId) {
         <label style="font-size:11px;font-weight:600;color:var(--sub);width:60px;flex-shrink:0;padding-top:9px;">활동 의도</label>
         <textarea id="me-archive-intent-${docId}" class="form-input" placeholder="활동 의도를 입력하세요" style="flex:1;min-height:60px;height:auto;padding:10px 14px;resize:vertical;">${esc(existingIntent)}</textarea>
       </div>
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <label style="font-size:11px;font-weight:600;color:var(--sub);width:60px;flex-shrink:0;padding-top:9px;">아카이브 내용</label>
+        <textarea id="me-archive-content-${docId}" class="form-input" placeholder="아카이브 내용을 입력하세요" style="flex:1;min-height:60px;height:auto;padding:10px 14px;resize:vertical;">${esc(existingContent)}</textarea>
+      </div>
     </div>`;
 
   // SVG 피커 마운트 (수정 행 DOM이 붙은 뒤 실행)
@@ -3486,10 +3500,11 @@ window.missionSaveEdit = async function(docId) {
     await updateDoc(doc(db, 'cards', docId), { emoji, title, url, adminUrl });
 
     // 아카이브 정보 저장
-    const topic  = document.getElementById(`me-archive-topic-${docId}`)?.value.trim() || '';
-    const intent = document.getElementById(`me-archive-intent-${docId}`)?.value.trim() || '';
+    const topic   = document.getElementById(`me-archive-topic-${docId}`)?.value.trim() || '';
+    const intent  = document.getElementById(`me-archive-intent-${docId}`)?.value.trim() || '';
+    const content = document.getElementById(`me-archive-content-${docId}`)?.value.trim() || '';
     const appKey = url.split('/')[1];
-    if (appKey) await set(ref(rtdb, `adminConfig/${appKey}/archive`), { topic, intent });
+    if (appKey) await set(ref(rtdb, `adminConfig/${appKey}/archive`), { topic, intent, content });
 
     renderMissionPreview(window._missionCat);
   } catch(e) { alert('저장 실패: ' + e.message); }
@@ -3507,10 +3522,11 @@ window.toggleMissionArchive = function() {
 };
 
 window.updateMissionArchiveDot = function() {
-  const topic  = document.getElementById('missionArchiveTopic')?.value.trim();
-  const intent = document.getElementById('missionArchiveIntent')?.value.trim();
-  const dot    = document.getElementById('missionArchiveDot');
-  if (dot) dot.style.background = (topic || intent) ? 'var(--c3)' : 'var(--border)';
+  const topic   = document.getElementById('missionArchiveTopic')?.value.trim();
+  const intent  = document.getElementById('missionArchiveIntent')?.value.trim();
+  const content = document.getElementById('missionArchiveContent')?.value.trim();
+  const dot     = document.getElementById('missionArchiveDot');
+  if (dot) dot.style.background = (topic || intent || content) ? 'var(--c3)' : 'var(--border)';
 };
 
 window.missionToggleLocked = async function(docId, currentLocked) {
@@ -3881,8 +3897,8 @@ window.archiveTogglePublishForm = async function(missionId) {
     if (appKey) {
       const snap = await get(ref(rtdb, `adminConfig/${appKey}/archive`));
       if (snap.exists()) {
-        const { topic = '', intent = '' } = snap.val() || {};
-        desc = [topic, intent].filter(Boolean).join('\n');
+        const { topic = '', intent = '', content = '' } = snap.val() || {};
+        desc = [topic, intent, content].filter(Boolean).join('\n');
       }
     }
   } catch (e) { /* 조회 실패해도 무시 — 직접 입력 가능 */ }
