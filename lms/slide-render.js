@@ -83,14 +83,7 @@
     const colonIdx = str.indexOf(' : ');
     if (colonIdx > -1 && /^<br\s*\/?>/i.test(str.slice(colonIdx + 3))) return true;
     const brIdx = str.indexOf('<br>');
-    if (brIdx > -1 && /^[a-z]\.\s/.test(str.slice(brIdx + 4))) return true;
-    // Case 2b: "lead a./b./c. ..." — lead 앞부분에 ' : ' 없을 때만
-    const bare = str.replace(/^[①-⑳㉑-㊿]\s*/, '').replace(/^\(\d+\)\s*/, '');
-    if (!/^[a-z]\.\s/.test(bare)) {
-      const m = bare.match(/^(.+?)\s([a-z]\.\s)/);
-      if (m && !m[1].includes(' : ')) return true;
-    }
-    return false;
+    return brIdx > -1 && /^[a-z]\.\s/.test(str.slice(brIdx + 4));
   }
 
   /* " : " 기준으로 소제목(item-lead)과 본문(item-text) 분리. 콜론은 제거.
@@ -165,12 +158,54 @@
   function chosungHTML(slide, lesson) { return numberedListHTML(slide.items, '초성 퀴즈', lesson); }
 
   function rowHTML(row, labelPos) {
-    const items = row.items.map(item => `<p${isStackedItem(item) ? ' class="stack-item"' : ''}>${parseItemText(item)}</p>`).join('');
+    const rawItems = row.items || [];
+
+    function stripPrefix(s) {
+      return s.replace(/^[①-⑳㉑-㊿]\s*/, '').replace(/^\(\d+\)\s*/, '');
+    }
+
+    // "lead a. body" 패턴인 경우 lead 문자열 반환, 아니면 null
+    function case2bLead(str) {
+      const bare = stripPrefix(str);
+      if (/^[a-z]\.\s/.test(bare) || bare.indexOf('<br>') > -1) return null;
+      const m = bare.match(/^(.+?)\s(a\.\s)/);
+      return (m && !m[1].includes(' : ')) ? m[1] : null;
+    }
+
+    // "lead a. body" 아이템과 이어지는 "b./c. body" 아이템들을 하나의 그룹으로 묶기
+    const groups = [];
+    let i = 0;
+    while (i < rawItems.length) {
+      const lead = case2bLead(rawItems[i]);
+      if (lead !== null) {
+        const bare0 = stripPrefix(rawItems[i]);
+        const subs = [bare0.slice(lead.length + 1)]; // "a. body"
+        i++;
+        while (i < rawItems.length) {
+          const nb = stripPrefix(rawItems[i]);
+          if (/^[b-z]\.\s/.test(nb)) { subs.push(nb); i++; }
+          else break;
+        }
+        groups.push({ type: 'group', lead, subs });
+      } else {
+        groups.push({ type: 'single', item: rawItems[i] });
+        i++;
+      }
+    }
+
+    const itemsHtml = groups.map(g => {
+      if (g.type === 'group') {
+        const subHtml = g.subs.map(s => renderWithBreaks(s)).join('');
+        return `<p><span class="item-lead">${parseText(g.lead)}</span><span class="item-text">${subHtml}</span></p>`;
+      }
+      return `<p${isStackedItem(g.item) ? ' class="stack-item"' : ''}>${parseItemText(g.item)}</p>`;
+    }).join('');
+
     const posClass = labelPos === 'top' ? ' label-top' : '';
     return `
       <div class="concept-row${posClass}">
         <div class="row-label">${preserveSpaces(row.label)}</div>
-        <div class="row-content">${items}</div>
+        <div class="row-content">${itemsHtml}</div>
       </div>`;
   }
 
