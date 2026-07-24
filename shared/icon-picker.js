@@ -114,6 +114,8 @@ async function fetchSvg(name) {
     const r = await fetch(CDN + name + '.svg');
     if (!r.ok) { _cache[name] = null; return null; }
     let txt = await r.text();
+    // 라이선스 주석 제거 (startsWith('<svg') 판별에 필요)
+    txt = txt.replace(/<!--[\s\S]*?-->/g, '').trim();
     // 속성 정규화: width/height/color 제거 후 표준값 주입
     txt = txt.replace(/<svg([^>]*)>/, (_, attrs) => {
       attrs = attrs
