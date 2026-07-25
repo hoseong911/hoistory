@@ -39,8 +39,9 @@
     }
 
     /* ═══ 아카이브 ═══ */
-    #archiveView { display:none; position:fixed; top:0; bottom:0; left:50%; transform:translateX(-50%); z-index:900; width:100%; max-width:600px; background:var(--hi-bg-base); flex-direction:column; overflow-y:auto; border-left:1px solid var(--hi-border); border-right:1px solid var(--hi-border); }
+    #archiveView { display:none; position:fixed; inset:0; z-index:900; background:var(--hi-bg-base); flex-direction:column; overflow-y:auto; }
     .arc-hd { background:rgba(255,255,255,.96); border-bottom:1px solid var(--hi-border); padding:14px 16px; }
+    .arc-hd-inner { max-width:700px; margin:0 auto; width:100%; box-sizing:border-box; }
     .arc-hd-top { display:flex; align-items:center; margin-bottom:10px; }
     .arc-back { font-size:20px; background:none; border:none; cursor:pointer; color:var(--hi-text-muted); padding:0; width:32px; text-align:center; line-height:1; transition:.15s; flex-shrink:0; }
     .arc-back:hover { color:var(--hi-text); }
@@ -60,7 +61,7 @@
     .arc-tab { flex-shrink:0; white-space:nowrap; padding:7px 15px; border-radius:100px; border:1.5px solid var(--hi-border); font-size:13px; font-weight:700; color:var(--hi-text-muted); cursor:pointer; font-family:inherit; background:none; transition:.15s; }
     .arc-tab:hover { border-color:var(--hi-border-light); color:var(--hi-text); }
     .arc-tab.active { background:var(--hi-accent); border-color:var(--hi-accent); color:#fff; }
-    .arc-body { flex:1; padding:16px 16px 60px; }
+    .arc-body { flex:1; max-width:700px; margin:0 auto; padding:16px 16px 60px; width:100%; box-sizing:border-box; }
     /* 슬라이드 */
     .arc-slide-wrap { position:relative; overflow:hidden; }
     .arc-slide-track { display:flex; transition:transform .35s cubic-bezier(.4,0,.2,1); }
@@ -329,31 +330,33 @@
 <!-- ── 아카이브 뷰 ── -->
 <div id="archiveView">
   <div class="arc-hd">
-    <div class="arc-hd-top">
-      <button class="arc-back" onclick="closeArchive()">←</button>
-      <div class="arc-titles">
-        <div class="arc-title">Blind 려</div>
-        <div class="arc-subtitle">고려 관료 익명 커뮤니티 아카이브</div>
+    <div class="arc-hd-inner">
+      <div class="arc-hd-top">
+        <button class="arc-back" onclick="closeArchive()">←</button>
+        <div class="arc-titles">
+          <div class="arc-title">Blind 려</div>
+          <div class="arc-subtitle">활동 아카이브</div>
+        </div>
+        <div style="width:32px;flex-shrink:0;"></div>
       </div>
-      <div style="width:32px;flex-shrink:0;"></div>
-    </div>
-    <div class="arc-main-tabs">
-      <button class="arc-main-tab active" onclick="arcSetMainTab('flow',this)">활동 흐름</button>
-      <button class="arc-main-tab" onclick="arcSetMainTab('feed',this)">아카이브</button>
+      <div class="arc-main-tabs">
+        <button class="arc-main-tab active" onclick="arcSetMainTabBr('flow',this)">활동 흐름</button>
+        <button class="arc-main-tab" onclick="arcSetMainTabBr('feed',this)">아카이브</button>
+      </div>
     </div>
   </div>
   <div class="arc-body">
-    <div id="arcInfoBox" class="arc-info" style="display:none;">
-      <div class="arc-info-topic" id="arcTopic"></div>
-      <div class="arc-info-intent" id="arcIntent"></div>
-      <div class="arc-info-content" id="arcContent"></div>
+    <div id="arcInfoBoxBr" class="arc-info" style="display:none;">
+      <div class="arc-info-topic" id="arcTopicBr"></div>
+      <div class="arc-info-intent" id="arcIntentBr"></div>
+      <div class="arc-info-content" id="arcContentBr"></div>
     </div>
-    <div class="arc-tabs" id="arcSubTabs" style="display:none;margin-bottom:14px;">
-      <button class="arc-tab active" onclick="arcSetFilter('all',this)">전체</button>
-      <button class="arc-tab" onclick="arcSetFilter('central',this)">🏛 중앙</button>
-      <button class="arc-tab" onclick="arcSetFilter('local',this)">🗺 지방</button>
-      <button class="arc-tab" onclick="arcSetFilter('military',this)">군사</button>
-      <button class="arc-tab" onclick="arcSetFilter('edu',this)">교육</button>
+    <div class="arc-tabs" id="arcSubTabsBr" style="display:none;margin-bottom:14px;">
+      <button class="arc-tab active" onclick="arcSetFilterBr('all',this)">전체</button>
+      <button class="arc-tab" onclick="arcSetFilterBr('central',this)">🏛 중앙</button>
+      <button class="arc-tab" onclick="arcSetFilterBr('local',this)">🗺 지방</button>
+      <button class="arc-tab" onclick="arcSetFilterBr('military',this)">군사</button>
+      <button class="arc-tab" onclick="arcSetFilterBr('edu',this)">교육</button>
     </div>
     <!-- 활동 흐름 -->
     <div id="arcFlowBr">
@@ -387,7 +390,7 @@
       </div>
     </div>
     <!-- 픽 피드 -->
-    <div id="arcFeed" style="display:none;"></div>
+    <div id="arcFeedBr" style="display:none;"></div>
   </div>
   <!-- 라이트박스 -->
   <div id="arcImgLightboxBr" onclick="arcCloseLightboxBr()">
@@ -924,21 +927,21 @@ window.openArchive = () => {
 
   // 메인 탭 초기화 (항상 활동 흐름부터)
   const firstTab = document.querySelector('.arc-main-tab');
-  window.arcSetMainTab('flow', firstTab);
+  window.arcSetMainTabBr('flow', firstTab);
 
   // 아카이브 정보 로드
   get(ref(db, 'adminConfig/blind_ryeo/archive')).then(snap => {
     if (snap.exists()) {
       const { topic, intent, content } = snap.val();
       if (topic || intent) {
-        document.getElementById('arcTopic').textContent = topic || '';
-        const intentEl = document.getElementById('arcIntent');
+        document.getElementById('arcTopicBr').textContent = topic || '';
+        const intentEl = document.getElementById('arcIntentBr');
         intentEl.textContent = intent || '';
         intentEl.style.display = intent ? '' : 'none';
-        const contentEl = document.getElementById('arcContent');
+        const contentEl = document.getElementById('arcContentBr');
         contentEl.textContent = content || '';
         contentEl.style.display = 'none';
-        const infoBox = document.getElementById('arcInfoBox');
+        const infoBox = document.getElementById('arcInfoBoxBr');
         infoBox.dataset.hasContent = '1';
         infoBox.style.display = 'block';
       }
@@ -964,29 +967,29 @@ window.closeArchive = () => {
   window.scrollTo(0, 0);
 };
 
-window.arcSetMainTab = (tab, btnEl) => {
+window.arcSetMainTabBr = (tab, btnEl) => {
   document.querySelectorAll('.arc-main-tab').forEach(b => b.classList.remove('active'));
   if (btnEl) btnEl.classList.add('active');
   document.getElementById('arcFlowBr').style.display = tab === 'flow' ? '' : 'none';
-  document.getElementById('arcFeed').style.display = tab === 'feed' ? '' : 'none';
-  document.getElementById('arcSubTabs').style.display = tab === 'feed' ? '' : 'none';
-  const infoBox = document.getElementById('arcInfoBox');
+  document.getElementById('arcFeedBr').style.display = tab === 'feed' ? '' : 'none';
+  document.getElementById('arcSubTabsBr').style.display = tab === 'feed' ? '' : 'none';
+  const infoBox = document.getElementById('arcInfoBoxBr');
   if (infoBox && infoBox.dataset.hasContent === '1') {
     infoBox.style.display = 'block';
-    const contentEl = document.getElementById('arcContent');
+    const contentEl = document.getElementById('arcContentBr');
     if (contentEl) contentEl.style.display = tab === 'feed' ? '' : 'none';
   }
 };
 
-window.arcSetFilter = (filter, btnEl) => {
+window.arcSetFilterBr = (filter, btnEl) => {
   arcFilter = filter; arcPage = 1;
-  document.querySelectorAll('#arcSubTabs .arc-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('#arcSubTabsBr .arc-tab').forEach(b => b.classList.remove('active'));
   if (btnEl) btnEl.classList.add('active');
   renderArcFeed();
 };
 
 function renderArcFeed() {
-  const feed = document.getElementById('arcFeed');
+  const feed = document.getElementById('arcFeedBr');
   if (!feed) return;
   let posts = [...allPostsCache].filter(p => p.studentId !== '00000' && p.adminPick === true);
 

@@ -205,9 +205,14 @@
     }
 
     /* ═════════ 아카이브 ═════════ */
-    #archiveView { display:none; position:fixed; top:0; bottom:0; left:50%; transform:translateX(-50%); z-index:900; width:100%; max-width:600px; background:var(--hi-bg-base); flex-direction:column; overflow-y:auto; border-left:1px solid var(--hi-border); border-right:1px solid var(--hi-border); }
-    .arc-hd { position:sticky; top:0; z-index:100; background:rgba(0,0,0,.92); backdrop-filter:blur(14px); border-bottom:1px solid var(--hi-border); padding:14px 16px; }
+    #archiveView { display:none; position:fixed; inset:0; z-index:900; background:var(--hi-bg-base); flex-direction:column; overflow-y:auto; }
+    .arc-hd { background:rgba(0,0,0,.92); border-bottom:1px solid var(--hi-border); padding:14px 16px; }
+    .arc-hd-inner { max-width:700px; margin:0 auto; width:100%; box-sizing:border-box; }
     .arc-hd-top { display:flex; align-items:center; margin-bottom:10px; }
+    .arc-main-tabs { display:flex; gap:8px; justify-content:center; }
+    .arc-main-tab { flex-shrink:0; padding:8px 20px; border-radius:100px; border:1.5px solid var(--hi-border); font-size:14px; font-weight:800; color:var(--hi-text-muted); cursor:pointer; font-family:inherit; background:none; transition:.15s; }
+    .arc-main-tab:hover { border-color:var(--hi-border-light); color:var(--hi-text); }
+    .arc-main-tab.active { background:var(--hi-text); border-color:var(--hi-text); color:var(--hi-bg-base); }
     .arc-back { font-size:20px; background:none; border:none; cursor:pointer; color:var(--hi-text-muted); padding:0; width:32px; text-align:center; line-height:1; transition:.15s; flex-shrink:0; }
     .arc-back:hover { color:var(--hi-text); }
     .arc-titles { flex:1; text-align:center; }
@@ -222,7 +227,27 @@
     .arc-tab { flex-shrink:0; white-space:nowrap; padding:7px 15px; border-radius:100px; border:1.5px solid var(--hi-border); font-size:13px; font-weight:700; color:var(--hi-text-muted); cursor:pointer; font-family:inherit; background:none; transition:.15s; }
     .arc-tab:hover { border-color:var(--hi-border-light); color:var(--hi-text); }
     .arc-tab.active { background:var(--hi-text); border-color:var(--hi-text); color:var(--hi-bg-base); }
-    .arc-body { flex:1; padding-bottom:40px; }
+    .arc-body { flex:1; max-width:700px; margin:0 auto; width:100%; box-sizing:border-box; padding:16px 16px 60px; }
+    /* 슬라이드 */
+    .arc-slide-wrap { position:relative; overflow:hidden; }
+    .arc-slide-track { display:flex; transition:transform .35s cubic-bezier(.4,0,.2,1); }
+    .arc-slide { min-width:100%; box-sizing:border-box; }
+    .arc-slide-head { display:flex; align-items:baseline; gap:8px; margin-bottom:6px; }
+    .arc-slide-num { font-size:12px; font-weight:800; color:var(--hi-accent); letter-spacing:1px; flex-shrink:0; }
+    .arc-slide-title { font-size:18px; font-weight:800; color:var(--hi-text); }
+    .arc-slide-desc { font-size:14px; color:var(--hi-text-soft); line-height:1.7; margin-bottom:12px; word-break:keep-all; }
+    .arc-slide-img-wrap { position:relative; cursor:pointer; border-radius:10px; overflow:hidden; border:1px solid var(--hi-border); }
+    .arc-slide-img { width:100%; display:block; object-fit:contain; }
+    .arc-slide-nav { display:flex; align-items:center; justify-content:center; margin-top:14px; }
+    .arc-slide-dots { display:flex; gap:7px; align-items:center; }
+    .arc-slide-dot { width:7px; height:7px; border-radius:50%; background:var(--hi-border); transition:.2s; cursor:pointer; }
+    .arc-slide-dot.active { background:var(--hi-accent); transform:scale(1.25); }
+    /* 라이트박스 */
+    #arcImgLightboxSt { display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,.94); flex-direction:column; overflow-y:auto; padding:52px 0 24px; -webkit-overflow-scrolling:touch; }
+    #arcImgLightboxSt.show { display:flex; }
+    #arcLightboxImgSt { width:100%; max-width:560px; margin:0 auto; display:block; }
+    .arc-lightbox-close { position:fixed; top:12px; right:14px; background:rgba(255,255,255,.15); border:none; color:#fff; font-size:18px; width:36px; height:36px; border-radius:50%; cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:2001; transition:.15s; }
+    .arc-lightbox-close:hover { background:rgba(255,255,255,.28); }
     .arc-post { padding:16px; border-bottom:1px solid var(--hi-border); }
     .arc-post:last-child { border-bottom:none; }
     .arc-post-pick { font-size:10px; font-weight:800; color:var(--hi-accent-strong); letter-spacing:.5px; margin-bottom:8px; }
@@ -345,29 +370,74 @@
 <!-- ── 아카이브 뷰 ── -->
 <div id="archiveView">
   <div class="arc-hd">
-    <div class="arc-hd-top">
-      <button class="arc-back" onclick="closeArchive()">←</button>
-      <div class="arc-titles">
-        <div class="arc-title">S_threads</div>
-        <div class="arc-subtitle">신라 하대 활동 아카이브</div>
+    <div class="arc-hd-inner">
+      <div class="arc-hd-top">
+        <button class="arc-back" onclick="closeArchive()">←</button>
+        <div class="arc-titles">
+          <div class="arc-title">S_threads</div>
+          <div class="arc-subtitle">활동 아카이브</div>
+        </div>
+        <div style="width:32px;flex-shrink:0;"></div>
       </div>
-      <div style="width:32px;flex-shrink:0;"></div>
-    </div>
-    <div id="arcInfoBox" class="arc-info">
-      <div class="arc-info-topic" id="arcTopic"></div>
-      <div class="arc-info-intent" id="arcIntent"></div>
-    </div>
-    <div class="arc-tabs">
-      <button class="arc-tab active" onclick="arcSetFilter('all',this)">전체</button>
-      <button class="arc-tab" onclick="arcSetFilter('진골',this)">진골</button>
-      <button class="arc-tab" onclick="arcSetFilter('6두품',this)">6두품</button>
-      <button class="arc-tab" onclick="arcSetFilter('호족',this)">호족</button>
-      <button class="arc-tab" onclick="arcSetFilter('농민',this)">농민</button>
-      <button class="arc-tab" onclick="arcSetFilter('선종 승려',this)">선종</button>
-      <button class="arc-tab" onclick="arcSetFilter('풍수지리사',this)">🧭 풍수</button>
+      <div class="arc-main-tabs">
+        <button class="arc-main-tab active" onclick="arcSetMainTabSt('flow',this)">활동 흐름</button>
+        <button class="arc-main-tab" onclick="arcSetMainTabSt('feed',this)">아카이브</button>
+      </div>
     </div>
   </div>
-  <div class="arc-body" id="arcFeed"></div>
+  <div class="arc-body">
+    <div id="arcInfoBoxSt" class="arc-info">
+      <div class="arc-info-topic" id="arcTopicSt"></div>
+      <div class="arc-info-intent" id="arcIntentSt"></div>
+    </div>
+    <div class="arc-tabs" id="arcSubTabsSt" style="display:none;margin-bottom:14px;">
+      <button class="arc-tab active" onclick="arcSetFilterSt('all',this)">전체</button>
+      <button class="arc-tab" onclick="arcSetFilterSt('진골',this)">진골</button>
+      <button class="arc-tab" onclick="arcSetFilterSt('6두품',this)">6두품</button>
+      <button class="arc-tab" onclick="arcSetFilterSt('호족',this)">호족</button>
+      <button class="arc-tab" onclick="arcSetFilterSt('농민',this)">농민</button>
+      <button class="arc-tab" onclick="arcSetFilterSt('선종 승려',this)">선종</button>
+      <button class="arc-tab" onclick="arcSetFilterSt('풍수지리사',this)">🧭 풍수</button>
+    </div>
+    <!-- 활동 흐름 -->
+    <div id="arcFlowSt">
+      <div class="arc-slide-wrap">
+        <div class="arc-slide-track" id="arcSlideTrackSt">
+          <div class="arc-slide">
+            <div class="arc-slide-head"><span class="arc-slide-num">STEP 1</span><span class="arc-slide-title">접속 화면</span></div>
+            <div class="arc-slide-desc">학번과 이름을 확인한 뒤 닉네임과 신분(진골·6두품·호족·농민·선종 승려·풍수지리사)을 골라 접속합니다.</div>
+            <div class="arc-slide-img-wrap" onclick="arcOpenLightboxSt('flow/01-login.jpg')">
+              <img class="arc-slide-img" src="flow/01-login.jpg" alt="접속 화면" loading="lazy">
+            </div>
+          </div>
+          <div class="arc-slide">
+            <div class="arc-slide-head"><span class="arc-slide-num">STEP 2</span><span class="arc-slide-title">스레드 피드</span></div>
+            <div class="arc-slide-desc">신라 하대 인물들이 남긴 스레드를 신분별(진골·6두품·호족·농민·선종·풍수)로 살펴보고 좋아요를 누릅니다.</div>
+            <div class="arc-slide-img-wrap" onclick="arcOpenLightboxSt('flow/02-feed.jpg')">
+              <img class="arc-slide-img" src="flow/02-feed.jpg" alt="스레드 피드" loading="lazy">
+            </div>
+          </div>
+          <div class="arc-slide">
+            <div class="arc-slide-head"><span class="arc-slide-num">STEP 3</span><span class="arc-slide-title">글 작성</span></div>
+            <div class="arc-slide-desc">선택한 신분이 되어 신라 하대의 혼란 속 자신의 생각을 스레드로 작성해 피드에 올립니다.</div>
+            <div class="arc-slide-img-wrap" onclick="arcOpenLightboxSt('flow/03-compose.jpg')">
+              <img class="arc-slide-img" src="flow/03-compose.jpg" alt="글 작성" loading="lazy">
+            </div>
+          </div>
+        </div>
+        <div class="arc-slide-nav">
+          <div class="arc-slide-dots" id="arcSlideDotsSt"></div>
+        </div>
+      </div>
+    </div>
+    <!-- 픽 피드 -->
+    <div id="arcFeedSt" style="display:none;"></div>
+  </div>
+  <!-- 라이트박스 -->
+  <div id="arcImgLightboxSt" onclick="arcCloseLightboxSt()">
+    <button class="arc-lightbox-close" onclick="event.stopPropagation();arcCloseLightboxSt()">✕</button>
+    <img id="arcLightboxImgSt" src="" alt="" onclick="event.stopPropagation()">
+  </div>
 </div>
 
 <!-- 프로필 모달 (바텀시트) -->
@@ -828,14 +898,18 @@ window.openArchive = () => {
   window.scrollTo(0, 0);
   arcPage = 1;
 
+  // 메인 탭 초기화 (항상 활동 흐름부터)
+  const firstTab = document.querySelector('.arc-main-tab');
+  window.arcSetMainTabSt('flow', firstTab);
+
   // 아카이브 정보 (수업 주제/의도) 로드
   get(ref(db, 'adminConfig/s_threads/archive')).then(snap => {
     if (snap.exists()) {
       const { topic, intent } = snap.val();
       if (topic || intent) {
-        document.getElementById('arcTopic').textContent = topic || '';
-        document.getElementById('arcIntent').textContent = intent || '';
-        document.getElementById('arcInfoBox').classList.add('on');
+        document.getElementById('arcTopicSt').textContent = topic || '';
+        document.getElementById('arcIntentSt').textContent = intent || '';
+        document.getElementById('arcInfoBoxSt').classList.add('on');
       }
     }
   }).catch(() => {});
@@ -859,7 +933,7 @@ window.closeArchive = () => {
   window.scrollTo(0, 0);
 };
 
-window.arcSetFilter = (filter, btnEl) => {
+window.arcSetFilterSt = (filter, btnEl) => {
   arcFilter = filter; arcPage = 1;
   document.querySelectorAll('.arc-tab').forEach(b => b.classList.remove('active'));
   if (btnEl) btnEl.classList.add('active');
@@ -867,7 +941,7 @@ window.arcSetFilter = (filter, btnEl) => {
 };
 
 function renderArcFeed() {
-  const feed = document.getElementById('arcFeed');
+  const feed = document.getElementById('arcFeedSt');
   if (!feed) return;
   let posts = [...allPostsCache].filter(p => p.studentId !== '00000' && p.adminPick === true);
 
@@ -898,6 +972,64 @@ function renderArcFeed() {
     </button>`;
   }
 }
+
+// ── 활동 흐름 / 메인 탭 ──
+window.arcSetMainTabSt = (tab, btnEl) => {
+  document.querySelectorAll('.arc-main-tab').forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  document.getElementById('arcFlowSt').style.display = tab === 'flow' ? '' : 'none';
+  document.getElementById('arcFeedSt').style.display = tab === 'feed' ? '' : 'none';
+  document.getElementById('arcSubTabsSt').style.display = tab === 'feed' ? '' : 'none';
+};
+
+// ── 슬라이드 ──
+let arcSlideStIdx = 0;
+const ARC_SLIDE_ST_TOTAL = 3;
+
+function arcUpdateSlideSt() {
+  const track = document.getElementById('arcSlideTrackSt');
+  if (track) track.style.transform = `translateX(${-arcSlideStIdx * 100}%)`;
+  document.querySelectorAll('#arcSlideDotsSt .arc-slide-dot').forEach((d, i) => d.classList.toggle('active', i === arcSlideStIdx));
+}
+
+window.arcSlideStMove = (dir) => {
+  arcSlideStIdx = Math.max(0, Math.min(ARC_SLIDE_ST_TOTAL - 1, arcSlideStIdx + dir));
+  arcUpdateSlideSt();
+};
+
+const dotsStEl = document.getElementById('arcSlideDotsSt');
+if (dotsStEl) {
+  for (let i = 0; i < ARC_SLIDE_ST_TOTAL; i++) {
+    const d = document.createElement('div');
+    d.className = 'arc-slide-dot' + (i === 0 ? ' active' : '');
+    d.onclick = () => { arcSlideStIdx = i; arcUpdateSlideSt(); };
+    dotsStEl.appendChild(d);
+  }
+}
+arcUpdateSlideSt();
+
+const slideTrackSt = document.getElementById('arcSlideTrackSt');
+if (slideTrackSt) {
+  let touchStartX = 0;
+  slideTrackSt.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  slideTrackSt.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) arcSlideStMove(dx < 0 ? 1 : -1);
+  }, { passive: true });
+}
+
+// 라이트박스
+window.arcOpenLightboxSt = (src) => {
+  const lb = document.getElementById('arcImgLightboxSt');
+  const img = document.getElementById('arcLightboxImgSt');
+  if (!lb || !img) return;
+  img.src = src;
+  lb.classList.add('show');
+  lb.scrollTop = 0;
+};
+window.arcCloseLightboxSt = () => {
+  document.getElementById('arcImgLightboxSt')?.classList.remove('show');
+};
 </script>
 </body>
 </html>
