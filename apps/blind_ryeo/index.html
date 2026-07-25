@@ -7,8 +7,6 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
   <!-- ★ 공유 디자인 시스템 -->
   <link rel="stylesheet" href="../../shared/theme.css">
-  <!-- 아카이브 모드 즉시 감지 — CSS 렌더링 전에 실행되어야 함 -->
-  <script>if(location.search.includes('archive=1'))document.documentElement.classList.add('arc-mode');</script>
   <style>
     /* ─── 이 앱 고유 스타일 (디자인 시스템에 없는 부분만) ─── */
     body {
@@ -25,8 +23,6 @@
       align-items: center; justify-content: center;
       padding: 24px; overflow-y: auto;
     }
-    html.arc-mode #loginOverlay { display: none !important; }
-    html.arc-mode #archiveView  { display: flex !important; }
     .login-wrap { width: 100%; max-width: 380px; }
     .login-logo { text-align: center; margin-bottom: 28px; }
     .logo-text {
@@ -43,25 +39,25 @@
     }
 
     /* ═══ 아카이브 ═══ */
-    #archiveView { display:none; flex-direction:column; width:100%; max-width:600px; min-height:100vh; border-left:1px solid var(--hi-border); border-right:1px solid var(--hi-border); }
+    #archiveView { display:none; position:fixed; top:0; bottom:0; left:50%; transform:translateX(-50%); z-index:900; width:100%; max-width:600px; background:var(--hi-bg-base); flex-direction:column; overflow-y:auto; border-left:1px solid var(--hi-border); border-right:1px solid var(--hi-border); }
     .arc-hd { background:rgba(255,255,255,.96); border-bottom:1px solid var(--hi-border); padding:14px 16px; }
     .arc-hd-top { display:flex; align-items:center; margin-bottom:10px; }
     .arc-back { font-size:20px; background:none; border:none; cursor:pointer; color:var(--hi-text-muted); padding:0; width:32px; text-align:center; line-height:1; transition:.15s; flex-shrink:0; }
     .arc-back:hover { color:var(--hi-text); }
     .arc-titles { flex:1; text-align:center; }
-    .arc-title { font-size:15px; font-weight:800; color:var(--hi-text); }
-    .arc-subtitle { font-size:11px; color:var(--hi-text-muted); margin-top:2px; }
+    .arc-title { font-size:18px; font-weight:800; color:var(--hi-text); }
+    .arc-subtitle { font-size:13px; color:var(--hi-text-muted); margin-top:2px; }
     .arc-main-tabs { display:flex; gap:8px; justify-content:center; }
-    .arc-main-tab { flex-shrink:0; padding:7px 18px; border-radius:100px; border:1.5px solid var(--hi-border); font-size:13px; font-weight:800; color:var(--hi-text-muted); cursor:pointer; font-family:inherit; background:none; transition:.15s; }
+    .arc-main-tab { flex-shrink:0; padding:8px 20px; border-radius:100px; border:1.5px solid var(--hi-border); font-size:14px; font-weight:800; color:var(--hi-text-muted); cursor:pointer; font-family:inherit; background:none; transition:.15s; }
     .arc-main-tab:hover { border-color:var(--hi-accent); color:var(--hi-accent); }
     .arc-main-tab.active { background:var(--hi-accent); border-color:var(--hi-accent); color:#fff; }
     .arc-info { display:none; background:var(--hi-bg-mid); border:1px solid var(--hi-border); border-radius:10px; padding:12px 14px; margin-bottom:12px; }
-    .arc-info-topic { font-size:15px; font-weight:800; color:var(--hi-text); margin-bottom:5px; text-align:center; }
-    .arc-info-intent { font-size:13px; color:var(--hi-text-soft); line-height:1.75; border-top:1px solid rgba(30,58,138,0.2); border-bottom:1px solid rgba(30,58,138,0.2); padding:6px 0; }
-    .arc-info-content { font-size:13px; color:var(--hi-text-soft); line-height:1.75; margin-top:7px; white-space:pre-wrap; word-break:break-word; }
+    .arc-info-topic { font-size:18px; font-weight:800; color:var(--hi-text); margin-bottom:8px; text-align:center; }
+    .arc-info-intent { font-size:15px; color:var(--hi-text-soft); line-height:1.85; border-top:1px solid rgba(30,58,138,0.2); border-bottom:1px solid rgba(30,58,138,0.2); padding:9px 0; }
+    .arc-info-content { font-size:15px; color:var(--hi-text-soft); line-height:1.85; margin-top:9px; white-space:pre-wrap; word-break:break-word; }
     .arc-tabs { display:flex; overflow-x:auto; scrollbar-width:none; -webkit-overflow-scrolling:touch; gap:6px; }
     .arc-tabs::-webkit-scrollbar { display:none; }
-    .arc-tab { flex-shrink:0; white-space:nowrap; padding:6px 14px; border-radius:100px; border:1.5px solid var(--hi-border); font-size:12px; font-weight:700; color:var(--hi-text-muted); cursor:pointer; font-family:inherit; background:none; transition:.15s; }
+    .arc-tab { flex-shrink:0; white-space:nowrap; padding:7px 15px; border-radius:100px; border:1.5px solid var(--hi-border); font-size:13px; font-weight:700; color:var(--hi-text-muted); cursor:pointer; font-family:inherit; background:none; transition:.15s; }
     .arc-tab:hover { border-color:var(--hi-border-light); color:var(--hi-text); }
     .arc-tab.active { background:var(--hi-accent); border-color:var(--hi-accent); color:#fff; }
     .arc-body { flex:1; padding:16px 16px 60px; }
@@ -559,6 +555,10 @@ let loginGuard    = null;
 
 // ─── 로그인 화면 wiring ──────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  // ★ 루트 아카이브에서 ?archive=1로 들어오면 무엇보다 먼저 아카이브 뷰 표시
+  const wantsArchive = location.search.includes('archive=1');
+  if (wantsArchive) window.openArchive();
+
   // ★ 학번/이름 검증을 한 번에 wiring
   loginGuard = mountLoginVerification({
     idInput:      document.getElementById('joinId'),
@@ -586,19 +586,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // 엔터키로 로그인
   document.getElementById('enterBtn').addEventListener('click', enterApp);
 
-  // 저장된 로그인 복원
-  const wantsArchive = location.search.includes('archive=1');
+  // 저장된 로그인 복원 (아카이브 모드가 아닐 때만)
+  if (wantsArchive) return;
   const saved = localStorage.getItem('goryeo_v2_user');
   if (saved) {
     try {
       currentUser = JSON.parse(saved);
-      if (wantsArchive) { window.openArchive(); } else { showApp(); }
+      showApp();
     } catch (e) {
       localStorage.removeItem('goryeo_v2_user');
-      if (wantsArchive) window.openArchive();
     }
-  } else if (wantsArchive) {
-    window.openArchive();
   }
 });
 
