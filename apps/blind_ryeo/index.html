@@ -586,15 +586,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const wantsArchive = location.search.includes('archive=1');
   const saved = localStorage.getItem('goryeo_v2_user');
   if (saved) {
-    try {
-      currentUser = JSON.parse(saved);
-      if (wantsArchive) { window.openArchive(); } else { showApp(); }
-    } catch (e) {
-      localStorage.removeItem('goryeo_v2_user');
-      if (wantsArchive) window.openArchive();
-    }
-  } else if (wantsArchive) {
+    try { currentUser = JSON.parse(saved); } catch(e) { localStorage.removeItem('goryeo_v2_user'); }
+  }
+  if (wantsArchive) {
     window.openArchive();
+  } else if (currentUser) {
+    showApp();
   }
 });
 
@@ -923,7 +920,7 @@ window.openArchive = () => {
 
   // 메인 탭 초기화 (항상 활동 흐름부터)
   const firstTab = document.querySelector('.arc-main-tab');
-  arcSetMainTab('flow', firstTab);
+  window.arcSetMainTab('flow', firstTab);
 
   // 아카이브 정보 로드
   get(ref(db, 'adminConfig/blind_ryeo/archive')).then(snap => {
