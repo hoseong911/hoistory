@@ -403,11 +403,14 @@ function renderCards(cards) {
   const grid = document.createElement('div');
   grid.className = 'app-card-grid';
   grid.style.padding = '16px 22px 20px';
-  const seen = new Set();
+  const seenUrl = new Set();
+  const seenTitle = new Set();
   filtered.forEach(c => {
-    const key = c.url || c.docId;
-    if (seen.has(key)) return;
-    seen.add(key);
+    const urlKey = (c.url || '').replace(/\/+$/, '').replace(/\/index\.html$/, '');
+    const titleKey = (c.title || '').trim();
+    if ((urlKey && seenUrl.has(urlKey)) || (titleKey && seenTitle.has(titleKey))) return;
+    if (urlKey) seenUrl.add(urlKey);
+    if (titleKey) seenTitle.add(titleKey);
     grid.appendChild(createCardItem(c));
   });
   body.appendChild(grid);
