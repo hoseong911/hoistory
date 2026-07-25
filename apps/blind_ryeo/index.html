@@ -7,6 +7,8 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
   <!-- ★ 공유 디자인 시스템 -->
   <link rel="stylesheet" href="../../shared/theme.css">
+  <!-- 아카이브 모드 즉시 감지 — CSS 렌더링 전에 실행되어야 함 -->
+  <script>if(location.search.includes('archive=1'))document.documentElement.classList.add('arc-mode');</script>
   <style>
     /* ─── 이 앱 고유 스타일 (디자인 시스템에 없는 부분만) ─── */
     body {
@@ -23,6 +25,8 @@
       align-items: center; justify-content: center;
       padding: 24px; overflow-y: auto;
     }
+    html.arc-mode #loginOverlay { display: none !important; }
+    html.arc-mode #archiveView  { display: flex !important; }
     .login-wrap { width: 100%; max-width: 380px; }
     .login-logo { text-align: center; margin-bottom: 28px; }
     .logo-text {
@@ -538,13 +542,6 @@ const toastRef = ref(db, 'goryeo_v2_toast');
 // ★ 학번 검증 모듈 초기화
 initAuth(db);
 
-// ── 아카이브 즉시 감지 (모듈은 DOM 파싱 후 실행되므로 바로 접근 가능) ──
-const _wantsArchive = location.search.includes('archive=1');
-if (_wantsArchive) {
-  document.getElementById('loginOverlay').style.display = 'none';
-  document.getElementById('archiveView').style.display = 'flex';
-}
-
 const MIN_LEN = 30;
 
 // ─── 상태 ────────────────────────────────────────────────
@@ -590,14 +587,18 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('enterBtn').addEventListener('click', enterApp);
 
   // 저장된 로그인 복원
+  const wantsArchive = location.search.includes('archive=1');
   const saved = localStorage.getItem('goryeo_v2_user');
   if (saved) {
-    try { currentUser = JSON.parse(saved); } catch(e) { localStorage.removeItem('goryeo_v2_user'); }
-  }
-  if (_wantsArchive) {
+    try {
+      currentUser = JSON.parse(saved);
+      if (wantsArchive) { window.openArchive(); } else { showApp(); }
+    } catch (e) {
+      localStorage.removeItem('goryeo_v2_user');
+      if (wantsArchive) window.openArchive();
+    }
+  } else if (wantsArchive) {
     window.openArchive();
-  } else if (currentUser) {
-    showApp();
   }
 });
 
