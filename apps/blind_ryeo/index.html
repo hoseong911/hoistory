@@ -538,6 +538,13 @@ const toastRef = ref(db, 'goryeo_v2_toast');
 // ★ 학번 검증 모듈 초기화
 initAuth(db);
 
+// ── 아카이브 즉시 감지 (모듈은 DOM 파싱 후 실행되므로 바로 접근 가능) ──
+const _wantsArchive = location.search.includes('archive=1');
+if (_wantsArchive) {
+  document.getElementById('loginOverlay').style.display = 'none';
+  document.getElementById('archiveView').style.display = 'flex';
+}
+
 const MIN_LEN = 30;
 
 // ─── 상태 ────────────────────────────────────────────────
@@ -583,12 +590,11 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('enterBtn').addEventListener('click', enterApp);
 
   // 저장된 로그인 복원
-  const wantsArchive = location.search.includes('archive=1');
   const saved = localStorage.getItem('goryeo_v2_user');
   if (saved) {
     try { currentUser = JSON.parse(saved); } catch(e) { localStorage.removeItem('goryeo_v2_user'); }
   }
-  if (wantsArchive) {
+  if (_wantsArchive) {
     window.openArchive();
   } else if (currentUser) {
     showApp();
