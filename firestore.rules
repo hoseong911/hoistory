@@ -212,6 +212,25 @@ service cloud.firestore {
         );
     }
 
+    // ── 유교로 나라를 다스린다는 것 (j_confucian): 카드 분류 + 서술 ──
+    match /j_confucian_sorts/{studentId} {
+      allow read: if true;
+      allow create, update: if isAdmin() || (
+        request.resource.data.studentId == studentId &&
+        request.resource.data.placements is map
+      );
+    }
+
+    match /j_confucian_essays/{studentId} {
+      allow read: if true;
+      allow create, update: if isAdmin() || (
+        request.resource.data.studentId == studentId &&
+        request.resource.data.text is string && request.resource.data.text.size() <= 2000 &&
+        // score(상/중/하)는 교사(관리자)만 설정 — 학생 쓰기에서 변경 불가
+        (!('score' in request.resource.data) || resource == null || request.resource.data.score == resource.data.score)
+      );
+    }
+
     // ── 그 외 모든 경로(레거시/미사용 컬렉션 포함): 읽기는 공개, 쓰기는 관리자만.
     //    위에서 create/update만 허용한 학생 자가제출 컬렉션의 delete도 여기로 떨어져
     //    관리자 전용이 된다.
