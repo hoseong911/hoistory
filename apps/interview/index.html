@@ -276,21 +276,21 @@ input,textarea,select{font-size:16px;font-family:inherit}
     </div>
     <div class="post-menu">
       <button class="post-menu-btn" id="menu-deep">
-        <div class="post-menu-icon">✏️</div>
+        <div class="post-menu-icon" data-icon="pencil" data-icon-size="24"></div>
         <div>
           <div class="post-menu-title">심화 질문 작성하기</div>
           <div class="post-menu-desc">다른 인물들에게도 내가 직접 질문을 던져보세요</div>
         </div>
       </button>
       <button class="post-menu-btn" id="menu-peer-ans">
-        <div class="post-menu-icon">💬</div>
+        <div class="post-menu-icon" data-icon="message-square" data-icon-size="24"></div>
         <div>
           <div class="post-menu-title">다른 친구들의 답변 보기</div>
           <div class="post-menu-desc">같은 인물을 선택한 친구들은 어떻게 답했을까요?</div>
         </div>
       </button>
       <button class="post-menu-btn" id="menu-peer-deep">
-        <div class="post-menu-icon">❓</div>
+        <div class="post-menu-icon" data-icon="circle-help" data-icon-size="24"></div>
         <div>
           <div class="post-menu-title">다른 친구들의 심화 질문 보기</div>
           <div class="post-menu-desc">친구들의 질문을 보고 나도 답해볼 수 있어요</div>
@@ -311,7 +311,7 @@ input,textarea,select{font-size:16px;font-family:inherit}
     </div>
     <div class="deep-char-tabs" id="deep-char-tabs"></div>
     <div class="deep-section-card">
-      <div class="deep-section-label">✏️ 나만의 심화 질문</div>
+      <div class="deep-section-label"><span data-icon="pencil" data-icon-size="16"></span> 나만의 심화 질문</div>
       <p class="deep-hint">이 인물에게 묻고 싶은 질문을 만들어보세요. 역사적 판단, 가치관, 만약에 상황 등을 자유롭게 떠올려보세요!</p>
       <textarea id="deep-ta" class="qa-ta" style="min-height:90px" placeholder="예) 만약 당시 결정을 다시 내릴 수 있다면 어떻게 하시겠습니까?"></textarea>
       <div class="save-hint" id="deep-save-hint"></div>
@@ -340,15 +340,16 @@ import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-ap
 import{getFirestore,doc,getDoc,setDoc,addDoc,collection,getDocs,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import "../../shared/offline.js";
 import { firebaseConfig } from "../../shared/firebase-config.js";
+import { icon, resolveIcon } from "../../shared/icons.js";
 
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
 
 const DEFAULT_CHARS=[
-  {id:'taejong',name:'태종',role:'조선 3대 국왕',emoji:'👑',questions:['전하, 신하들의 최고 기구인 의정부를 거치지 않고 6조의 판서들에게 직접 업무를 보고받으시는(6조 직계제) 진짜 이유가 무엇입니까?','왕족과 공신들이 거느리던 개인 군대(사병)를 전부 없애버리셨습니다. 굳이 군사력을 국가로 집중시키신 이유가 궁금합니다.','모든 국사를 직접 챙기시려면 엄청나게 피곤하실 것 같습니다. 혹시 신하들을 전혀 믿지 못하시는 건가요?']},
-  {id:'sejong',name:'세종',role:'조선 4대 국왕',emoji:'📖',questions:["아버님(태종)께서 만들어 놓으신 강력한 6조 직계제를 폐지하고, 다시 영의정 등 3정승과 국사를 논의하는 '의정부 서사제'를 실시하신 이유가 무엇입니까?",'집현전을 설치하고 젊은 학자들과 밤낮으로 토론(경연)을 하신다고 들었습니다. 굳이 신하들과 피곤하게 토론하시는 이유가 있나요?','만약 신하들이 전하의 의견에 끝까지 반대한다면, 그때는 어떻게 결정하실 생각이십니까?']},
-  {id:'samsa',name:'3사 관원',role:'사헌부·사간원·홍문관',emoji:'🖋️',questions:["대감께서 속한 '3사'는 조선 최고의 엘리트 직장이라고 들었습니다. 구체적으로 어떤 일을 하시길래 다들 그렇게 우러러보는 것입니까?",'전하의 정책을 대놓고 비판하거나 높은 대신들의 비리를 고발하시는데, 혹시 나중에 보복을 당하거나 왕에게 미움을 받을까 두렵지 않으십니까?',"새로운 관리를 임명할 때 대감들의 동의(서경)를 꼭 받아야 한다고 들었습니다. 동의를 해주고 말고를 결정하는 대감만의 '합격 기준'은 무엇입니까?"]},
-  {id:'yuhyangso',name:'유향소 양반',role:'지방 자치 기구',emoji:'🏘️',questions:["나으리, 왕께서 직접 고을에 사또(수령)를 파견하셨는데, 굳이 지역 양반들이 모여 '유향소'라는 기구를 따로 만드신 이유가 무엇입니까?",'사또가 새로 부임하면 지역 사정을 잘 모를 텐데, 유향소에서는 사또를 그저 무조건 도와주기만 하는 건가요? 아니면 다른 역할도 있습니까?',"고을의 실무를 담당하는 '향리(아전)'들을 유향소에서 굉장히 엄격하게 감시한다고 들었습니다. 향리들을 그렇게 견제해야만 하는 특별한 이유가 있습니까?"]}
+  {id:'taejong',name:'태종',role:'조선 3대 국왕',icon:'crown',questions:['전하, 신하들의 최고 기구인 의정부를 거치지 않고 6조의 판서들에게 직접 업무를 보고받으시는(6조 직계제) 진짜 이유가 무엇입니까?','왕족과 공신들이 거느리던 개인 군대(사병)를 전부 없애버리셨습니다. 굳이 군사력을 국가로 집중시키신 이유가 궁금합니다.','모든 국사를 직접 챙기시려면 엄청나게 피곤하실 것 같습니다. 혹시 신하들을 전혀 믿지 못하시는 건가요?']},
+  {id:'sejong',name:'세종',role:'조선 4대 국왕',icon:'book-open',questions:["아버님(태종)께서 만들어 놓으신 강력한 6조 직계제를 폐지하고, 다시 영의정 등 3정승과 국사를 논의하는 '의정부 서사제'를 실시하신 이유가 무엇입니까?",'집현전을 설치하고 젊은 학자들과 밤낮으로 토론(경연)을 하신다고 들었습니다. 굳이 신하들과 피곤하게 토론하시는 이유가 있나요?','만약 신하들이 전하의 의견에 끝까지 반대한다면, 그때는 어떻게 결정하실 생각이십니까?']},
+  {id:'samsa',name:'3사 관원',role:'사헌부·사간원·홍문관',icon:'feather',questions:["대감께서 속한 '3사'는 조선 최고의 엘리트 직장이라고 들었습니다. 구체적으로 어떤 일을 하시길래 다들 그렇게 우러러보는 것입니까?",'전하의 정책을 대놓고 비판하거나 높은 대신들의 비리를 고발하시는데, 혹시 나중에 보복을 당하거나 왕에게 미움을 받을까 두렵지 않으십니까?',"새로운 관리를 임명할 때 대감들의 동의(서경)를 꼭 받아야 한다고 들었습니다. 동의를 해주고 말고를 결정하는 대감만의 '합격 기준'은 무엇입니까?"]},
+  {id:'yuhyangso',name:'유향소 양반',role:'지방 자치 기구',icon:'castle',questions:["나으리, 왕께서 직접 고을에 사또(수령)를 파견하셨는데, 굳이 지역 양반들이 모여 '유향소'라는 기구를 따로 만드신 이유가 무엇입니까?",'사또가 새로 부임하면 지역 사정을 잘 모를 텐데, 유향소에서는 사또를 그저 무조건 도와주기만 하는 건가요? 아니면 다른 역할도 있습니까?',"고을의 실무를 담당하는 '향리(아전)'들을 유향소에서 굉장히 엄격하게 감시한다고 들었습니다. 향리들을 그렇게 견제해야만 하는 특별한 이유가 있습니까?"]}
 ];
 
 let CHARS=DEFAULT_CHARS;
@@ -365,7 +366,7 @@ const CLAUDE_PROXY_URL='https://asia-northeast3-ho0911seong-56638.cloudfunctions
 
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 // 인물 카드/아바타 안에 넣을 내용: 일러스트(imageUrl)가 있으면 이미지, 없으면 이모지로 대체
-function avatarInner(c){return c&&c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:esc(c&&c.emoji||'👤');}
+function avatarInner(c,size){return c&&c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:`<span class="char-ic">${icon(resolveIcon(c&&(c.icon||c.emoji),'users'),size||26)}</span>`;}
 function showHint(el,t){el.textContent=t;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),1400);}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
 
@@ -438,7 +439,7 @@ function renderCharGrid(){
   charIdx=0;
   document.getElementById('char-slide-track').innerHTML=CHARS.map(c=>`
     <div class="char-slide">
-      <div class="char-illust">${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:`<span class="char-emoji-big">${esc(c.emoji||'🏛️')}</span>`}</div>
+      <div class="char-illust">${c.imageUrl?`<img src="${esc(c.imageUrl)}" alt="">`:`<span class="char-emoji-big">${icon(resolveIcon(c.icon||c.emoji,'users'),88)}</span>`}</div>
     </div>`).join('');
   document.getElementById('char-dots').innerHTML=CHARS.map((_,i)=>`<span class="char-dot" data-i="${i}"></span>`).join('');
   updateCharCarousel();
@@ -534,7 +535,7 @@ document.getElementById('ai-check-btn').addEventListener('click',async()=>{
         <div class="ai-overall-label">${aiResult.overallOk?'전체 통과':'보완이 필요해요'}</div>
         <div class="ai-overall-desc">${aiResult.overallOk?'모든 답변이 충분해요. 제출해 보세요!':'일부 답변을 더 보완하면 더 좋은 인터뷰가 될 거예요.'}</div>
       </div>
-      <div class="ai-overall-icon">${aiResult.overallOk?'✅':'📝'}</div>
+      <div class="ai-overall-icon">${aiResult.overallOk?icon('circle-check',30):icon('pencil',30)}</div>
     </div>
     <div class="ai-action-row">
       <button class="btn btn-ghost" id="rewrite-btn">답변 수정하기</button>
@@ -585,7 +586,7 @@ function renderDeepScreen(){
   document.getElementById('deep-iv-name').textContent=c.name;
   document.getElementById('deep-iv-role').textContent=c.role;
   document.getElementById('deep-char-tabs').innerHTML=CHARS.map((ch,i)=>`
-    <button class="deep-char-tab${i===deepCharIdx?' active':''}" data-i="${i}">${ch.emoji} ${esc(ch.name)}</button>`).join('');
+    <button class="deep-char-tab${i===deepCharIdx?' active':''}" data-i="${i}">${icon(resolveIcon(ch.icon||ch.emoji,'users'),16)} ${esc(ch.name)}</button>`).join('');
   document.querySelectorAll('.deep-char-tab').forEach(btn=>btn.addEventListener('click',()=>{deepCharIdx=+btn.dataset.i;renderDeepScreen();}));
   const ta=document.getElementById('deep-ta');
   ta.value=deepDrafts[c.id]||'';
@@ -597,7 +598,7 @@ document.getElementById('deep-submit-btn').addEventListener('click',async()=>{
   const q=(deepDrafts[c.id]||'').trim();
   if(!q){alert('질문을 작성해 주세요.');return;}
   try{
-    await addDoc(collection(db,'interview_joseon_deep'),{studentId:student.studentId,name:student.name,classNum:student.classNum,charId:c.id,charName:c.name,emoji:c.emoji,question:q,createdAt:serverTimestamp()});
+    await addDoc(collection(db,'interview_joseon_deep'),{studentId:student.studentId,name:student.name,classNum:student.classNum,charId:c.id,charName:c.name,icon:c.icon||c.emoji||'',question:q,createdAt:serverTimestamp()});
     deepDrafts[c.id]='';
     document.getElementById('deep-ta').value='';
     showHint(document.getElementById('deep-save-hint'),'제출 완료!');
@@ -613,7 +614,7 @@ async function loadPeerAnswers(){
 function renderPeerAnswers(){
   const chars=['전체',...new Set(peerAnswers.map(p=>p.charId))];
   const filterEl=document.getElementById('pa-filter');
-  filterEl.innerHTML=chars.map(cid=>{const ch=CHARS.find(c=>c.id===cid);return`<button class="peer-filter-btn${cid===peerFilter?' active':''}" data-c="${cid}">${cid==='전체'?'전체':(ch?`${ch.emoji} ${ch.name}`:cid)}</button>`;}).join('');
+  filterEl.innerHTML=chars.map(cid=>{const ch=CHARS.find(c=>c.id===cid);return`<button class="peer-filter-btn${cid===peerFilter?' active':''}" data-c="${cid}">${cid==='전체'?'전체':(ch?`${icon(resolveIcon(ch.icon||ch.emoji,'users'),15)} ${ch.name}`:cid)}</button>`;}).join('');
   filterEl.querySelectorAll('.peer-filter-btn').forEach(btn=>btn.addEventListener('click',()=>{peerFilter=btn.dataset.c;renderPeerAnswers();}));
   const filtered=peerFilter==='전체'?peerAnswers:peerAnswers.filter(p=>p.charId===peerFilter);
   const listEl=document.getElementById('pa-list');
@@ -661,14 +662,14 @@ async function loadPeerDeep(){
 function renderPeerDeep(){
   const chars=['전체',...new Set(peerDeepList.map(p=>p.charId))];
   const filterEl=document.getElementById('pd-filter');
-  filterEl.innerHTML=chars.map(cid=>{const ch=CHARS.find(c=>c.id===cid);return`<button class="peer-filter-btn${cid===pdFilter?' active':''}" data-c="${cid}">${cid==='전체'?'전체':(ch?`${ch.emoji} ${ch.name}`:cid)}</button>`;}).join('');
+  filterEl.innerHTML=chars.map(cid=>{const ch=CHARS.find(c=>c.id===cid);return`<button class="peer-filter-btn${cid===pdFilter?' active':''}" data-c="${cid}">${cid==='전체'?'전체':(ch?`${icon(resolveIcon(ch.icon||ch.emoji,'users'),15)} ${ch.name}`:cid)}</button>`;}).join('');
   filterEl.querySelectorAll('.peer-filter-btn').forEach(btn=>btn.addEventListener('click',()=>{pdFilter=btn.dataset.c;renderPeerDeep();}));
   const filtered=pdFilter==='전체'?peerDeepList:peerDeepList.filter(p=>p.charId===pdFilter);
   const listEl=document.getElementById('pd-list');
   if(!filtered.length){listEl.innerHTML='<div class="no-data">아직 친구들의 심화 질문이 없어요.</div>';return;}
   listEl.innerHTML=filtered.map((p,i)=>`
     <div class="deep-card" data-i="${i}">
-      <div class="deep-card-meta"><span>${esc(p.emoji||'🏛️')}</span>${esc(p.charName)} · ${esc(p.name)}</div>
+      <div class="deep-card-meta"><span>${icon(resolveIcon(p.icon||p.emoji,'users'),15)}</span>${esc(p.charName)} · ${esc(p.name)}</div>
       <div class="deep-card-q">${esc(p.question)}</div>
       <button class="btn btn-ghost" style="font-size:13px;min-height:42px;padding:8px 18px" onclick="toggleReply(this)">나도 답해보기</button>
       <div class="deep-card-reply">
@@ -681,6 +682,9 @@ window.toggleReply=function(btn){
   const card=btn.closest('.deep-card');
   card.classList.toggle('expanded');
 };
+
+// data-icon 속성이 붙은 정적 요소에 SVG 아이콘 주입
+document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon,el.dataset.iconSize?+el.dataset.iconSize:24));
 
 initCover();
 </script>

@@ -216,9 +216,9 @@
       </div>
       <div class="adm-action-row">
         <button class="hi-btn hi-btn-primary hi-btn-sm" id="score-btn">채점하기</button>
-        <button class="hi-btn hi-btn-outline hi-btn-sm" id="aiPickBtn" onclick="runAiPick()">✨ AI 픽</button>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" id="aiPickBtn" onclick="runAiPick()"><span data-icon="sparkles" data-icon-size="15"></span> AI 픽</button>
         <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportExcel()">엑셀 내보내기</button>
-        <button class="scoring-prompt-btn" onclick="openSettingsModal()" title="AI 설정">⚙️</button>
+        <button class="scoring-prompt-btn" onclick="openSettingsModal()" title="AI 설정"><span data-icon="settings" data-icon-size="18"></span></button>
         <div class="sort-box">
           <button class="sort-btn active" id="sortNewest" onclick="setAnswerSort('newest')">최신순</button>
           <button class="sort-btn" id="sortSid" onclick="setAnswerSort('sid')">학번순</button>
@@ -252,6 +252,7 @@ import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https:
 import{getDatabase,ref,get,set}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import{getStorage,ref as sRef,uploadBytes,getDownloadURL}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { firebaseConfig } from "../../shared/firebase-config.js";
+import { icon, resolveIcon } from "../../shared/icons.js";
 
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
@@ -278,10 +279,10 @@ const DEFAULT_PICK_CRITERIA=`- 역사적 근거가 풍부하고 인물의 입장
 - 전체의 20~30% 내외 선정`;
 
 const DEFAULT_CHARACTERS=[
-  {id:'taejong',name:'태종',role:'조선 3대 국왕',emoji:'👑',questions:['전하, 신하들의 최고 기구인 의정부를 거치지 않고 6조의 판서들에게 직접 업무를 보고받으시는(6조 직계제) 진짜 이유가 무엇입니까?','왕족과 공신들이 거느리던 개인 군대(사병)를 전부 없애버리셨습니다. 굳이 군사력을 국가로 집중시키신 이유가 궁금합니다.','모든 국사를 직접 챙기시려면 엄청나게 피곤하실 것 같습니다. 혹시 신하들을 전혀 믿지 못하시는 건가요?']},
-  {id:'sejong',name:'세종',role:'조선 4대 국왕',emoji:'📖',questions:["아버님(태종)께서 만들어 놓으신 강력한 6조 직계제를 폐지하고, 다시 영의정 등 3정승과 국사를 논의하는 '의정부 서사제'를 실시하신 이유가 무엇입니까?",'집현전을 설치하고 젊은 학자들과 밤낮으로 토론(경연)을 하신다고 들었습니다. 굳이 신하들과 피곤하게 토론하시는 이유가 있나요?','만약 신하들이 전하의 의견에 끝까지 반대한다면, 그때는 어떻게 결정하실 생각이십니까?']},
-  {id:'samsa',name:'3사 관원',role:'사헌부·사간원·홍문관',emoji:'🖋️',questions:["대감께서 속한 '3사'는 조선 최고의 엘리트 직장이라고 들었습니다. 구체적으로 어떤 일을 하시길래 다들 그렇게 우러러보는 것입니까?",'전하의 정책을 대놓고 비판하거나 높은 대신들의 비리를 고발하시는데, 혹시 나중에 보복을 당하거나 왕에게 미움을 받을까 두렵지 않으십니까?',"새로운 관리를 임명할 때 대감들의 동의(서경)를 꼭 받아야 한다고 들었습니다. 동의를 해주고 말고를 결정하는 대감만의 '합격 기준'은 무엇입니까?"]},
-  {id:'yuhyangso',name:'유향소 양반',role:'지방 자치 기구',emoji:'🏘️',questions:["나으리, 왕께서 직접 고을에 사또(수령)를 파견하셨는데, 굳이 지역 양반들이 모여 '유향소'라는 기구를 따로 만드신 이유가 무엇입니까?",'사또가 새로 부임하면 지역 사정을 잘 모를 텐데, 유향소에서는 사또를 그저 무조건 도와주기만 하는 건가요? 아니면 다른 역할도 있습니까?',"고을의 실무를 담당하는 '향리(아전)'들을 유향소에서 굉장히 엄격하게 감시한다고 들었습니다. 향리들을 그렇게 견제해야만 하는 특별한 이유가 있습니까?"]}
+  {id:'taejong',name:'태종',role:'조선 3대 국왕',icon:'crown',questions:['전하, 신하들의 최고 기구인 의정부를 거치지 않고 6조의 판서들에게 직접 업무를 보고받으시는(6조 직계제) 진짜 이유가 무엇입니까?','왕족과 공신들이 거느리던 개인 군대(사병)를 전부 없애버리셨습니다. 굳이 군사력을 국가로 집중시키신 이유가 궁금합니다.','모든 국사를 직접 챙기시려면 엄청나게 피곤하실 것 같습니다. 혹시 신하들을 전혀 믿지 못하시는 건가요?']},
+  {id:'sejong',name:'세종',role:'조선 4대 국왕',icon:'book-open',questions:["아버님(태종)께서 만들어 놓으신 강력한 6조 직계제를 폐지하고, 다시 영의정 등 3정승과 국사를 논의하는 '의정부 서사제'를 실시하신 이유가 무엇입니까?",'집현전을 설치하고 젊은 학자들과 밤낮으로 토론(경연)을 하신다고 들었습니다. 굳이 신하들과 피곤하게 토론하시는 이유가 있나요?','만약 신하들이 전하의 의견에 끝까지 반대한다면, 그때는 어떻게 결정하실 생각이십니까?']},
+  {id:'samsa',name:'3사 관원',role:'사헌부·사간원·홍문관',icon:'feather',questions:["대감께서 속한 '3사'는 조선 최고의 엘리트 직장이라고 들었습니다. 구체적으로 어떤 일을 하시길래 다들 그렇게 우러러보는 것입니까?",'전하의 정책을 대놓고 비판하거나 높은 대신들의 비리를 고발하시는데, 혹시 나중에 보복을 당하거나 왕에게 미움을 받을까 두렵지 않으십니까?',"새로운 관리를 임명할 때 대감들의 동의(서경)를 꼭 받아야 한다고 들었습니다. 동의를 해주고 말고를 결정하는 대감만의 '합격 기준'은 무엇입니까?"]},
+  {id:'yuhyangso',name:'유향소 양반',role:'지방 자치 기구',icon:'castle',questions:["나으리, 왕께서 직접 고을에 사또(수령)를 파견하셨는데, 굳이 지역 양반들이 모여 '유향소'라는 기구를 따로 만드신 이유가 무엇입니까?",'사또가 새로 부임하면 지역 사정을 잘 모를 텐데, 유향소에서는 사또를 그저 무조건 도와주기만 하는 건가요? 아니면 다른 역할도 있습니까?',"고을의 실무를 담당하는 '향리(아전)'들을 유향소에서 굉장히 엄격하게 감시한다고 들었습니다. 향리들을 그렇게 견제해야만 하는 특별한 이유가 있습니까?"]}
 ];
 
 async function initAdmin(){
@@ -379,7 +380,7 @@ function renderCharTabs(){
   const wrap=document.getElementById('char-tabs');
   wrap.innerHTML=CONTENT.characters.map((c,ci)=>`
     <div class="char-tab${ci===activeCharIdx?' active':''}" data-ci="${ci}">
-      ${c.imageUrl?`<img class="char-thumb" src="${escHtml(c.imageUrl)}" alt="">`:`<span class="char-emoji">${c.emoji||'🏛️'}</span>`}
+      ${c.imageUrl?`<img class="char-thumb" src="${escHtml(c.imageUrl)}" alt="">`:`<span class="char-emoji">${icon(resolveIcon(c.icon||c.emoji,'users'),26)}</span>`}
       <span class="char-tab-name">${escHtml(c.name||'(이름 없음)')}</span>
       <span class="char-tab-role">${escHtml(c.role||'')}</span>
     </div>
@@ -416,7 +417,7 @@ function renderCharEditor(){
   editor.dataset.ci=String(activeCharIdx);
   editor.innerHTML=`
     <div class="char-img-row">
-      <div class="char-img-preview" id="char-img-preview">${c.imageUrl?`<img src="${escHtml(c.imageUrl)}" alt="">`:`<span class="char-emoji-lg">${c.emoji||'🏛️'}</span>`}</div>
+      <div class="char-img-preview" id="char-img-preview">${c.imageUrl?`<img src="${escHtml(c.imageUrl)}" alt="">`:`<span class="char-emoji-lg">${icon(resolveIcon(c.icon||c.emoji,'users'),32)}</span>`}</div>
       <div class="char-img-controls">
         <input class="meta-input c-imageurl" value="${escHtml(c.imageUrl||'')}" placeholder="이미지 URL (또는 오른쪽에서 업로드)">
         <label class="btn btn-ghost btn-sm char-upload-label">일러스트 업로드
@@ -434,7 +435,7 @@ function renderCharEditor(){
         <div class="q-item" data-qi="${qi}">
           <span class="q-num">${qi+1}</span>
           <textarea class="q-textarea" rows="2">${escHtml(q)}</textarea>
-          <button class="q-del-btn" title="삭제">✕</button>
+          <button class="q-del-btn" title="삭제">${icon('x',16)}</button>
         </div>
       `).join('')}
     </div>
@@ -447,7 +448,7 @@ function renderCharEditor(){
 
   editor.querySelector('.c-imageurl').addEventListener('input',e=>{
     c.imageUrl=e.target.value.trim();
-    document.getElementById('char-img-preview').innerHTML=c.imageUrl?`<img src="${escHtml(c.imageUrl)}" alt="">`:`<span class="char-emoji-lg">${c.emoji||'🏛️'}</span>`;
+    document.getElementById('char-img-preview').innerHTML=c.imageUrl?`<img src="${escHtml(c.imageUrl)}" alt="">`:`<span class="char-emoji-lg">${icon(resolveIcon(c.icon||c.emoji,'users'),32)}</span>`;
   });
 
   editor.querySelector('#char-upload-input').addEventListener('change',async e=>{
@@ -494,7 +495,7 @@ function renderCharEditor(){
 
 document.getElementById('add-char-btn').addEventListener('click',()=>{
   syncEditorToContent(activeCharIdx);
-  CONTENT.characters.push({id:'char_'+Date.now(),name:'새 인물',role:'역할',emoji:'🏛️',imageUrl:'',questions:['']});
+  CONTENT.characters.push({id:'char_'+Date.now(),name:'새 인물',role:'역할',icon:'users',imageUrl:'',questions:['']});
   activeCharIdx=CONTENT.characters.length-1;
   renderCharSection();
 });
@@ -603,7 +604,7 @@ document.getElementById('score-btn').addEventListener('click',async()=>{
   if(!toScore.length){document.getElementById('score-info').textContent='채점할 학생이 없습니다.';return;}
   let customPrompt='';
   try{const snap=await get(ref(rtdb,SCORING_PROMPT_PATH));customPrompt=snap.exists()?snap.val():'';}catch(e){}
-  if(!customPrompt){document.getElementById('score-info').textContent='채점 프롬프트를 설정해주세요. (⚙️ 버튼)';return;}
+  if(!customPrompt){document.getElementById('score-info').textContent='채점 프롬프트를 설정해주세요. (설정 버튼)';return;}
   const lb=document.getElementById('loading-bar');
   lb.style.display='block';
   const scoreBtn=document.getElementById('score-btn');
@@ -702,16 +703,16 @@ function renderStudentList(){
           <div class="std-name">${escHtml(s.name||'')}</div>
         </div>
         <div class="std-content">
-          ${char?`<div class="std-badge-row"><span class="std-badge char-c${charIdx%6}">${escHtml(char.emoji||'')} ${escHtml(s.charName||s.charId||'')}</span></div>`:''}
+          ${char?`<div class="std-badge-row"><span class="std-badge char-c${charIdx%6}">${icon(resolveIcon(char.icon||char.emoji,'users'),14)} ${escHtml(s.charName||s.charId||'')}</span></div>`:''}
           <div class="std-content-main">${firstAnswer?escHtml(firstAnswer):'<span style="color:var(--hi-text-muted)">미제출</span>'}</div>
           <div class="std-content-sub">${statusLabel(status)}${picked?' · PICK':''}${formatSubmitTime(s)?` · ${formatSubmitTime(s)}`:''}</div>
         </div>
         <div class="std-actions" onclick="event.stopPropagation()">
           <button class="std-pick${picked?' picked':''}" data-sid="${s.studentId}" onclick="togglePickStatus(this,'${s.studentId}',${picked})">
-            ${picked?'⭐':'☆'}
+            <span style="color:${picked?'#eab308':'#cbd5e1'}">${icon('star',18)}</span>
           </button>
-          <button class="std-edit">✏️</button>
-          <button class="std-del" onclick="deleteAnswer('${s.studentId}')">✕</button>
+          <button class="std-edit">${icon('pencil',16)}</button>
+          <button class="std-del" onclick="deleteAnswer('${s.studentId}')">${icon('x',16)}</button>
         </div>
       </div>
       <div class="stu-body" style="display:none; padding:0 16px 14px;">
@@ -759,7 +760,7 @@ window.runAiPick=async()=>{
   const candidates=filteredStudents().filter(s=>s.charId&&s.answers&&Object.values(s.answers).some(v=>v&&v.trim()));
   if(!candidates.length){alert('픽할 답변이 없습니다.');return;}
   const btn=document.getElementById('aiPickBtn');
-  btn.disabled=true; btn.textContent='✨ 분석 중…';
+  btn.disabled=true; btn.innerHTML=icon('sparkles',15)+' 분석 중…';
   let criteria=DEFAULT_PICK_CRITERIA;
   try{const snap=await get(ref(rtdb,AI_PICK_CRITERIA_PATH)); if(snap.exists()&&snap.val().trim())criteria=snap.val();}catch(e){}
   const postsText=candidates.map((s,i)=>{
@@ -801,11 +802,11 @@ ${postsText}
       if(cand)batch.update(doc(db,'interview_joseon_answers',cand.studentId),{picked:true});
     });
     await batch.commit();
-    alert(`✨ AI가 ${nums.length}명의 답변을 픽했습니다.`);
+    alert(`AI가 ${nums.length}명의 답변을 픽했습니다.`);
   }catch(e){
     alert('AI 픽 실패: '+e.message);
   }finally{
-    btn.disabled=false; btn.textContent='✨ AI 픽';
+    btn.disabled=false; btn.innerHTML=icon('sparkles',15)+' AI 픽';
   }
 };
 
@@ -865,6 +866,9 @@ window.toggleAnswerPickOnly=()=>{
   renderStudentList();
 };
 
+// data-icon 속성이 붙은 정적 요소에 SVG 아이콘 주입
+document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon,el.dataset.iconSize?+el.dataset.iconSize:24));
+
 function escHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function formatSubmitTime(s){
   const ms=s.submittedAt?.seconds?s.submittedAt.seconds*1000:(s.timestamp||0);
@@ -887,7 +891,7 @@ function formatSubmitTime(s){
       <textarea class="scoring-modal-textarea" id="scoring-prompt-textarea" placeholder="예) 다음 학생의 인터뷰 답변을 읽고, 역사적 근거가 충분하면 pass, 아니면 fail로만 답하세요.&#10;&#10;{content}"></textarea>
     </div>
     <div id="settings-panel-pick" style="display:none;">
-      <p class="scoring-modal-desc">✨ AI 픽이 우수한 답변을 고를 때 사용할 기준입니다. 한 줄에 기준 하나씩 자유롭게 작성하세요.</p>
+      <p class="scoring-modal-desc"><span data-icon="sparkles" data-icon-size="15"></span> AI 픽이 우수한 답변을 고를 때 사용할 기준입니다. 한 줄에 기준 하나씩 자유롭게 작성하세요.</p>
       <textarea class="scoring-modal-textarea" id="ai-pick-criteria-textarea" placeholder="예)&#10;- 역사적 근거가 풍부한 답변&#10;- 전체의 20~30% 내외 선정"></textarea>
     </div>
     <div class="scoring-modal-msg" id="settings-modal-msg"></div>

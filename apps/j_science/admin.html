@@ -179,6 +179,7 @@ import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https:
 import{getDatabase,ref,get}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import{getStorage,ref as sRef,uploadBytes,getDownloadURL}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { firebaseConfig } from "../../shared/firebase-config.js";
+import { icon, resolveIcon, ICON_NAMES } from "../../shared/icons.js";
 
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
@@ -187,15 +188,16 @@ const rtdb=getDatabase(app);
 const storage=getStorage(app);
 
 const DEFAULT_HERITAGES=[
-  {id:'cheugugi',    name:'측우기',           emoji:'🌧️', image:'', hint:'강수량 측정 기구'},
-  {id:'angbu',       name:'앙부일구',         emoji:'🕒', image:'', hint:'해시계'},
-  {id:'jagyeongnu',  name:'자격루',           emoji:'💧', image:'', hint:'자동 물시계'},
-  {id:'honcheon',    name:'혼천의',           emoji:'🌐', image:'', hint:'천체 관측 기구'},
-  {id:'chiljeongsan',name:'칠정산',           emoji:'📅', image:'', hint:'우리 실정에 맞춘 역법(달력)'},
-  {id:'nongsa',      name:'농사직설',         emoji:'🌾', image:'', hint:'우리 풍토에 맞는 농법서'},
-  {id:'hyangyak',    name:'향약집성방',       emoji:'🌿', image:'', hint:'우리 약재로 만든 의학서'},
-  {id:'cheonsang',   name:'천상열차분야지도', emoji:'✨', image:'', hint:'별자리(천문) 지도'}
+  {id:'cheugugi',    name:'측우기',           icon:'cloud-rain',    image:'', hint:'강수량 측정 기구'},
+  {id:'angbu',       name:'앙부일구',         icon:'clock-3',       image:'', hint:'해시계'},
+  {id:'jagyeongnu',  name:'자격루',           icon:'droplet',       image:'', hint:'자동 물시계'},
+  {id:'honcheon',    name:'혼천의',           icon:'globe',         image:'', hint:'천체 관측 기구'},
+  {id:'chiljeongsan',name:'칠정산',           icon:'calendar-days', image:'', hint:'우리 실정에 맞춘 역법(달력)'},
+  {id:'nongsa',      name:'농사직설',         icon:'wheat',         image:'', hint:'우리 풍토에 맞는 농법서'},
+  {id:'hyangyak',    name:'향약집성방',       icon:'leaf',          image:'', hint:'우리 약재로 만든 의학서'},
+  {id:'cheonsang',   name:'천상열차분야지도', icon:'sparkles',      image:'', hint:'별자리(천문) 지도'}
 ];
+function iconOptions(sel){return ICON_NAMES.map(n=>`<option value="${n}"${n===sel?' selected':''}>${n}</option>`).join('');}
 
 let HERITAGES=[];
 let roster=[];
@@ -207,7 +209,7 @@ const isEmbedded=window.self!==window.top;
 
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function classNumOf(sid){sid=String(sid||'');if(sid.length<3)return null;const c=parseInt(sid.slice(1,3),10);return isNaN(c)?null:c;}
-function relicInner(h){return h&&h.image?`<img src="${esc(h.image)}" alt="">`:`<span>${esc(h&&h.emoji||'🏛️')}</span>`;}
+function relicInner(h){return h&&h.image?`<img src="${esc(h.image)}" alt="">`:`<span class="relic-ic">${icon(resolveIcon(h&&(h.icon||h.emoji)),26)}</span>`;}
 
 /* ── 진입 ── */
 async function initAdmin(){
@@ -279,7 +281,7 @@ function renderRelicList(){
       <div class="relic-fields">
         <div class="relic-row2">
           <input class="meta-input r-name" value="${esc(h.name||'')}" placeholder="유물 이름">
-          <input class="meta-input r-emoji" value="${esc(h.emoji||'')}" placeholder="이모지">
+          <select class="meta-input r-icon" title="아이콘 선택">${iconOptions(resolveIcon(h.icon||h.emoji))}</select>
         </div>
         <input class="meta-input r-hint" value="${esc(h.hint||'')}" placeholder="한 줄 힌트 (예: 강수량 측정 기구)">
         <input class="meta-input r-image" value="${esc(h.image||'')}" placeholder="이미지 URL (또는 업로드)">
@@ -293,7 +295,7 @@ function renderRelicList(){
   wrap.querySelectorAll('.relic-edit').forEach(row=>{
     const i=+row.dataset.i;
     row.querySelector('.r-name').addEventListener('input',e=>{HERITAGES[i].name=e.target.value;});
-    row.querySelector('.r-emoji').addEventListener('input',e=>{HERITAGES[i].emoji=e.target.value;row.querySelector('.relic-thumb').innerHTML=relicInner(HERITAGES[i]);});
+    row.querySelector('.r-icon').addEventListener('change',e=>{HERITAGES[i].icon=e.target.value;delete HERITAGES[i].emoji;row.querySelector('.relic-thumb').innerHTML=relicInner(HERITAGES[i]);});
     row.querySelector('.r-hint').addEventListener('input',e=>{HERITAGES[i].hint=e.target.value;});
     row.querySelector('.r-image').addEventListener('input',e=>{HERITAGES[i].image=e.target.value.trim();row.querySelector('.relic-thumb').innerHTML=relicInner(HERITAGES[i]);});
     row.querySelector('.r-del').addEventListener('click',()=>{
@@ -316,7 +318,7 @@ function renderRelicList(){
   });
 }
 document.getElementById('add-relic-btn').addEventListener('click',()=>{
-  HERITAGES.push({id:'relic_'+Date.now(),name:'',emoji:'🏛️',image:'',hint:''});
+  HERITAGES.push({id:'relic_'+Date.now(),name:'',icon:'landmark',image:'',hint:''});
   renderRelicList();
 });
 document.getElementById('reset-relic-btn').addEventListener('click',()=>{
@@ -410,7 +412,7 @@ function renderCardList(){
           <div class="std-name">${esc(c.name||'')}</div>
         </div>
         <div class="std-content">
-          <div class="std-badge-row"><span class="relic-tag">${esc(c.emoji||'')} ${esc(c.heritageName||'')}</span></div>
+          <div class="std-badge-row"><span class="relic-tag">${icon(resolveIcon(c.icon||c.emoji),15)} ${esc(c.heritageName||'')}</span></div>
           <div class="std-content-main">${esc(c.catch||'')}</div>
         </div>
         ${statusBadge(st)}

@@ -114,9 +114,13 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
   - 유일한 예외: 정렬 방향을 명시해야 하는 버튼(예: 학번 ↑ / 학번 ↓), 리스트 순서 이동(↑↓)
   - 게임 콘텐츠 내 스탯 표시(생존↑ 등)는 허용
   - "뒤로가기", "다음", "콘솔", "열기" 같은 버튼에는 절대 붙이지 않는다
-- **어드민 UI에 이모지 사용 절대 금지**
-  - 로그인 화면(login-icon), 상단바 제목, 탭 버튼, 섹션 헤더, 버튼 레이블 전부 이모지 없이
-  - 예외: 기능적으로 이모지 자체가 데이터인 경우 (카드 이모지 선택 팝업, 게임 콘텐츠 등)
+- **모든 화면(학생 index.html + 어드민 admin.html + preview)에 유니코드 이모지 사용 절대 금지 — 전부 SVG 아이콘으로**
+  - 아이콘은 반드시 공용 헬퍼 `shared/icons.js`로 렌더한다: `import { icon, resolveIcon } from '../../shared/icons.js';` → `icon('crown', 22)`. 필요한 아이콘이 없으면 `icons.js`의 `PATHS`에 Lucide SVG를 추가하고 쓴다(임의로 다른 SVG를 인라인하지 말 것).
+  - 로그인 화면·상단바 제목·탭 버튼·섹션 헤더·버튼 레이블·상태 표시·메뉴 아이콘·정오답 마크 전부 이모지 없이 SVG로.
+  - **콘텐츠 대표 아이콘도 이모지 문자 대신 아이콘 이름을 데이터로 저장한다**: 데이터 필드는 `emoji`가 아니라 `icon`(Lucide 이름)으로 두고, 렌더는 `icon(resolveIcon(item.icon||item.emoji), size)`로 한다. `resolveIcon`이 과거 이모지 문자를 자동 매핑하므로 기존 Firestore 데이터도 그대로 렌더된다. 어드민에서 아이콘을 고르게 하려면 자유 입력 대신 `ICON_NAMES` 기반 select(또는 `shared/icon-picker.js`)를 쓴다.
+  - 정적 HTML에 박힌 아이콘은 `<span data-icon="이름" data-icon-size="24"></span>`로 두고, 스크립트 말미에서 `document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon, el.dataset.iconSize?+el.dataset.iconSize:24));`로 주입한다.
+  - 인라인 SVG 정렬은 공용 `.hi-ic { vertical-align: middle }`(theme.css)로 처리된다.
+  - 유일한 예외: 순서 이동용 ↑↓(리스트 재정렬), Claude에 보내는 프롬프트 문자열 내부의 기호 등 UI 표면이 아닌 곳.
 - **어드민 탭(main-tabs / sub-tabs) 항상 중앙 정렬** — `justify-content: center` 필수
 - **어드민 사이드바/탭의 메뉴 라벨은 (콘텐츠 이름·데이터 항목이 아닌 카테고리 메뉴에 한해) 항상 영문 대문자로 표기** (예: `FEED`, `ANSWER`, `QUESTION`, `SETTING`, `SYSTEM`, `STUDENT`, `CARDS`, `UPLOAD`, `STATUS`). 새 앱을 만들거나 기존 한글 탭을 발견하면 짧고 명확한 영단어로 바꾸고, 이미 쓰인 라벨과 겹치는 개념이면 그 단어를 그대로 재사용해 앱마다 통일한다.
   - 예외: 에피소드 제목·강의 회차처럼 콘텐츠 자체의 이름(고유명사·번호)인 서브탭은 번역하지 않는다(예: escape의 "프롤로그"/"엔딩", 반별 탭의 "1반"~"6반").

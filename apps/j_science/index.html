@@ -172,7 +172,7 @@ textarea.hi-in{min-height:78px;resize:vertical;line-height:1.6}
     </div>
     <div class="menu-list">
       <button class="menu-btn gold" id="menu-make">
-        <div class="menu-icon">🏛️</div>
+        <div class="menu-icon" data-icon="landmark" data-icon-size="30"></div>
         <div>
           <div class="menu-title">유물 전시 카드 만들기</div>
           <div class="menu-desc">대표 유물을 골라 나만의 전시 카드를 제작합니다.</div>
@@ -180,7 +180,7 @@ textarea.hi-in{min-height:78px;resize:vertical;line-height:1.6}
         </div>
       </button>
       <button class="menu-btn" id="menu-gallery">
-        <div class="menu-icon">🖼️</div>
+        <div class="menu-icon" data-icon="image" data-icon-size="30"></div>
         <div>
           <div class="menu-title">전시관 관람 &amp; 투표</div>
           <div class="menu-desc">우리 반 친구들의 카드를 보고 가장 훌륭한 카드에 투표해요.</div>
@@ -271,20 +271,22 @@ import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-ap
 import{getFirestore,doc,getDoc,setDoc,collection,getDocs,onSnapshot,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import "../../shared/offline.js";
 import { firebaseConfig } from "../../shared/firebase-config.js";
+import { icon, resolveIcon } from "../../shared/icons.js";
 
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
 
-/* 기본 유물 목록 (관리자가 settings/j_science_heritage 로 덮어쓸 수 있음) */
+/* 기본 유물 목록 (관리자가 settings/j_science_heritage 로 덮어쓸 수 있음)
+   icon: shared/icons.js 의 Lucide 아이콘 이름 (이모지 대신 SVG로 렌더) */
 const DEFAULT_HERITAGES=[
-  {id:'cheugugi',    name:'측우기',           emoji:'🌧️', image:'', hint:'강수량 측정 기구'},
-  {id:'angbu',       name:'앙부일구',         emoji:'🕒', image:'', hint:'해시계'},
-  {id:'jagyeongnu',  name:'자격루',           emoji:'💧', image:'', hint:'자동 물시계'},
-  {id:'honcheon',    name:'혼천의',           emoji:'🌐', image:'', hint:'천체 관측 기구'},
-  {id:'chiljeongsan',name:'칠정산',           emoji:'📅', image:'', hint:'우리 실정에 맞춘 역법(달력)'},
-  {id:'nongsa',      name:'농사직설',         emoji:'🌾', image:'', hint:'우리 풍토에 맞는 농법서'},
-  {id:'hyangyak',    name:'향약집성방',       emoji:'🌿', image:'', hint:'우리 약재로 만든 의학서'},
-  {id:'cheonsang',   name:'천상열차분야지도', emoji:'✨', image:'', hint:'별자리(천문) 지도'}
+  {id:'cheugugi',    name:'측우기',           icon:'cloud-rain',    image:'', hint:'강수량 측정 기구'},
+  {id:'angbu',       name:'앙부일구',         icon:'clock-3',       image:'', hint:'해시계'},
+  {id:'jagyeongnu',  name:'자격루',           icon:'droplet',       image:'', hint:'자동 물시계'},
+  {id:'honcheon',    name:'혼천의',           icon:'globe',         image:'', hint:'천체 관측 기구'},
+  {id:'chiljeongsan',name:'칠정산',           icon:'calendar-days', image:'', hint:'우리 실정에 맞춘 역법(달력)'},
+  {id:'nongsa',      name:'농사직설',         icon:'wheat',         image:'', hint:'우리 풍토에 맞는 농법서'},
+  {id:'hyangyak',    name:'향약집성방',       icon:'leaf',          image:'', hint:'우리 약재로 만든 의학서'},
+  {id:'cheonsang',   name:'천상열차분야지도', icon:'sparkles',      image:'', hint:'별자리(천문) 지도'}
 ];
 
 let HERITAGES=DEFAULT_HERITAGES;
@@ -298,7 +300,7 @@ let pendingVoteTarget=null;
 let cardsUnsub=null, votesUnsub=null;
 
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function relicInner(h,big){return h&&h.image?`<img src="${esc(h.image)}" alt="">`:`<span>${esc(h&&h.emoji||'🏛️')}</span>`;}
+function relicInner(h,big){return h&&h.image?`<img src="${esc(h.image)}" alt="">`:`<span class="relic-ic">${icon(resolveIcon(h&&(h.icon||h.emoji)),big?42:26)}</span>`;}
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
 function classNumOf(sid){sid=String(sid||'');if(sid.length<3)return null;const c=parseInt(sid.slice(1,3),10);return isNaN(c)?null:c;}
 function findRelic(id){return HERITAGES.find(h=>h.id===id);}
@@ -343,10 +345,10 @@ async function loadMine(){
 
 function updateMenuStatus(){
   const ms=document.getElementById('make-status');
-  if(myCard){ms.textContent='✔ 제출 완료 (눌러서 수정)';ms.className='menu-status done';}
+  if(myCard){ms.innerHTML=icon('check',15)+' 제출 완료 (눌러서 수정)';ms.className='menu-status done';}
   else{ms.textContent='아직 만들지 않았어요';ms.className='menu-status todo';}
   const vs=document.getElementById('vote-status');
-  if(myVote){vs.textContent='✔ 투표 완료 (눌러서 변경)';vs.className='menu-status done';}
+  if(myVote){vs.innerHTML=icon('check',15)+' 투표 완료 (눌러서 변경)';vs.className='menu-status done';}
   else{vs.textContent='아직 투표하지 않았어요';vs.className='menu-status todo';}
 }
 
@@ -409,11 +411,11 @@ document.getElementById('make-submit-btn').addEventListener('click',async()=>{
   try{
     await setDoc(doc(db,'j_science_cards',student.studentId),{
       studentId:student.studentId,name:student.name,classNum:student.classNum,
-      heritageId:relic.id,heritageName:relic.name,emoji:relic.emoji||'',image:relic.image||'',
+      heritageId:relic.id,heritageName:relic.name,icon:relic.icon||relic.emoji||'',image:relic.image||'',
       catch:catchTxt,era,use,apply,reason,
       submittedAt:serverTimestamp()
     },{merge:true});
-    myCard={heritageId:relic.id,heritageName:relic.name,emoji:relic.emoji,image:relic.image,catch:catchTxt,era,use,apply,reason};
+    myCard={heritageId:relic.id,heritageName:relic.name,icon:relic.icon||relic.emoji,image:relic.image,catch:catchTxt,era,use,apply,reason};
     updateMenuStatus();
     openGallery();
   }catch(e){alert('제출 오류: '+e.message);}
@@ -452,13 +454,13 @@ function renderGallery(){
   if(!cards.length){grid.innerHTML='<div class="no-data">아직 우리 반에 제출된 카드가 없어요.</div>';return;}
   const sorted=[...cards].sort((a,b)=>(voteCounts[b.id]||0)-(voteCounts[a.id]||0));
   grid.innerHTML=sorted.map(c=>{
-    const h=findRelic(c.heritageId)||{emoji:c.emoji,image:c.image};
+    const h=findRelic(c.heritageId)||{icon:c.icon||c.emoji,image:c.image};
     const isMine=c.id===student.studentId;
     const voted=myVote&&myVote.targetStudentId===c.id;
     const vc=voteCounts[c.id]||0;
     let btn;
     if(isMine)btn=`<button class="vote-btn mine" disabled>내 카드</button>`;
-    else if(voted)btn=`<button class="vote-btn voted" data-vote="${esc(c.id)}">✔ 내가 뽑은 카드</button>`;
+    else if(voted)btn=`<button class="vote-btn voted" data-vote="${esc(c.id)}">${icon('check',15)} 내가 뽑은 카드</button>`;
     else btn=`<button class="vote-btn" data-vote="${esc(c.id)}">이 카드에 투표</button>`;
     return`<div class="g-item">
       <div class="flip" data-flip>
@@ -485,7 +487,7 @@ function renderGallery(){
         </div>
       </div>
       <div class="g-foot">
-        <span class="vote-count">🗳 ${vc}</span>
+        <span class="vote-count">${icon('vote',15)} ${vc}</span>
         ${btn}
       </div>
     </div>`;
@@ -501,10 +503,10 @@ function renderRankStrip(){
   const ranked=[...cards].map(c=>({c,v:voteCounts[c.id]||0})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v).slice(0,3);
   if(!ranked.length){strip.innerHTML='';strip.style.display='none';return;}
   strip.style.display='flex';
-  const medals=['🥇','🥈','🥉'];
+  const medalColors=['#d4af37','#9aa4ad','#c08457'];
   strip.innerHTML=ranked.map((x,i)=>`
     <div class="rank-chip">
-      <span class="rc-medal">${medals[i]}</span>
+      <span class="rc-medal" style="color:${medalColors[i]||'#d4af37'}">${icon('medal',18)}</span>
       <span class="rc-name">${esc(x.c.heritageName)} (${esc(x.c.name)})</span>
       <span class="rc-votes">${x.v}표</span>
     </div>`).join('');
@@ -538,6 +540,9 @@ document.getElementById('vote-confirm-btn').addEventListener('click',async()=>{
   }catch(e){alert('투표 오류: '+e.message);}
   finally{btn.disabled=false;btn.textContent='투표 완료';}
 });
+
+// data-icon 속성이 붙은 정적 요소에 SVG 아이콘 주입
+document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon,el.dataset.iconSize?+el.dataset.iconSize:24));
 
 init();
 </script>

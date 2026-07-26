@@ -187,7 +187,7 @@ input,textarea,select{font-size:16px;font-family:inherit}
     </div>
     <div class="menu-list">
       <button class="menu-btn accent" id="menu-order">
-        <div class="menu-icon">🁢</div>
+        <div class="menu-icon" data-icon="list-ordered" data-icon-size="30"></div>
         <div>
           <div class="menu-title">1단계. 도미노 세우기 (순서 맞추기)</div>
           <div class="menu-desc">흩어진 사건 카드를 흐름에 맞게 제자리에 세워요.</div>
@@ -195,7 +195,7 @@ input,textarea,select{font-size:16px;font-family:inherit}
         </div>
       </button>
       <button class="menu-btn" id="menu-causal">
-        <div class="menu-icon">🁣</div>
+        <div class="menu-icon" data-icon="git-branch" data-icon-size="30"></div>
         <div>
           <div class="menu-title">2단계. 도미노 넘기기 (인과 잇기)</div>
           <div class="menu-desc">어떤 사건이 다음 사건을 쓰러뜨렸는지 원인을 잇고 이유를 써요.</div>
@@ -256,7 +256,7 @@ input,textarea,select{font-size:16px;font-family:inherit}
   <!-- 완료 -->
   <div class="screen" id="screen-done">
     <div class="result-card">
-      <div class="result-score hi" style="font-size:40px">🎉</div>
+      <div class="result-score hi" data-icon="party-popper" data-icon-size="44"></div>
       <div class="result-sub" style="margin-top:6px">도미노 완성!</div>
       <div class="result-detail" id="done-detail"></div>
       <div class="result-sub" style="margin-top:8px">선생님이 확인 후 채점할 거예요.</div>
@@ -271,6 +271,7 @@ import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-ap
 import{getFirestore,doc,getDoc,setDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import "../../shared/offline.js";
 import { firebaseConfig } from "../../shared/firebase-config.js";
+import { icon } from "../../shared/icons.js";
 
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
@@ -366,10 +367,10 @@ async function loadMine(){
 }
 function updateMenuStatus(){
   const os=document.getElementById('order-status');
-  if(myResult&&myResult.timelineTotal){os.textContent=`✔ 완료 ${myResult.timelineCorrect}/${myResult.timelineTotal} (${myResult.timelinePct}%)`;os.className='menu-status done';}
+  if(myResult&&myResult.timelineTotal){os.innerHTML=icon('check',15)+` 완료 ${myResult.timelineCorrect}/${myResult.timelineTotal} (${myResult.timelinePct}%)`;os.className='menu-status done';}
   else{os.textContent='아직 안 했어요';os.className='menu-status todo';}
   const cs=document.getElementById('causal-status');
-  if(myResult&&myResult.causalTotal){cs.textContent=`✔ 완료 (원인 ${myResult.causalCorrect}/${myResult.causalTotal} 정답)`;cs.className='menu-status done';}
+  if(myResult&&myResult.causalTotal){cs.innerHTML=icon('check',15)+` 완료 (원인 ${myResult.causalCorrect}/${myResult.causalTotal} 정답)`;cs.className='menu-status done';}
   else{cs.textContent='아직 안 했어요';cs.className='menu-status todo';}
 }
 
@@ -448,7 +449,7 @@ function slotHtml(phase,order){
   if(reviewMode&&id){
     const correct=allSlots().find(s=>s.phase===phase&&s.order===order)?.correctId===id;
     cls+=correct?' correct':' wrong';
-    mark=`<span class="mark">${correct?'✓':'✕'}</span>`;
+    mark=`<span class="mark">${correct?icon('check',16):icon('x',16)}</span>`;
   }
   return`<div class="${cls}" data-slot="${esc(key)}">${id?tileHtml(id,true):`<span class="slot-num">${order+1}</span>`}${mark}</div>`;
 }
@@ -644,6 +645,9 @@ document.getElementById('causal-submit').addEventListener('click',async()=>{
   }catch(e){alert('제출 오류: '+e.message);}
   finally{btn.disabled=false;btn.textContent='제출하기';}
 });
+
+// data-icon 속성이 붙은 정적 요소에 SVG 아이콘 주입
+document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon,el.dataset.iconSize?+el.dataset.iconSize:24));
 
 init();
 </script>
