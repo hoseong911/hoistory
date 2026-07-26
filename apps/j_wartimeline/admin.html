@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>역사 도미노 : 관리자 모드</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/theme.css">
+<link rel="stylesheet" href="../../shared/admin-base.css">
+<script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
+<style>
+:root{
+  --jw-primary:#2E3A59;--jw-primary-soft:rgba(46,58,89,.12);
+  --jw-accent:#E0A44B;--jw-accent-deep:#B57C24;--jw-accent-l:rgba(224,164,75,.16);
+  --jw-pass:#16a34a;--jw-pass-l:rgba(22,163,74,.12);
+  --jw-fail:#dc2626;--jw-fail-l:rgba(220,38,38,.1);
+}
+.section-card{background:var(--hi-bg-surface);border-radius:14px;padding:20px;margin-bottom:16px;border:1px solid var(--hi-border)}
+.section-title{font-weight:700;font-size:15px;color:var(--hi-text);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.section-desc{font-size:12.5px;color:var(--hi-text-muted);line-height:1.6;margin-bottom:14px}
+
+.btn{padding:9px 18px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;border:none;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn-primary{background:var(--jw-primary);color:#fff}.btn-primary:hover{background:#212A42}
+.btn-accent{background:var(--jw-accent);color:#fff}.btn-accent:hover{background:var(--jw-accent-deep)}
+.btn-ghost{background:none;border:1.5px solid var(--hi-border);color:var(--hi-text-muted)}.btn-ghost:hover{border-color:var(--hi-border-light);color:var(--hi-text)}
+.btn-danger{background:var(--jw-fail-l);color:var(--jw-fail);border:1.5px solid rgba(220,38,38,.2)}.btn-danger:hover{background:rgba(220,38,38,.16)}
+.btn-sm{padding:5px 12px;font-size:12px;border-radius:7px}
+
+/* 사건 편집 */
+.phase-group{margin-bottom:16px}
+.phase-head{font-size:12px;font-weight:800;color:var(--jw-accent-deep);margin-bottom:8px;letter-spacing:.02em}
+.ev-row{display:flex;gap:8px;align-items:center;background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:10px;padding:8px 10px;margin-bottom:6px}
+.ev-ord{flex-shrink:0;width:24px;height:24px;border-radius:6px;background:var(--jw-primary-soft);color:var(--jw-primary);font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center}
+.meta-input{padding:7px 9px;border:1px solid var(--hi-border);border-radius:7px;font-family:inherit;font-size:13px;color:var(--hi-text);background:var(--hi-bg-mid);outline:none}
+.meta-input:focus{border-color:var(--hi-border-light)}
+.ev-year{width:72px;flex-shrink:0}
+.ev-title{flex:1;min-width:0}
+.ev-phase{flex-shrink:0}
+.ev-ctrl{display:flex;gap:3px;flex-shrink:0}
+.icon-btn{width:28px;height:28px;border-radius:7px;border:1px solid var(--hi-border);background:var(--hi-bg-mid);cursor:pointer;font-size:13px;color:var(--hi-text-muted);display:flex;align-items:center;justify-content:center}
+.icon-btn:hover{color:var(--hi-text);border-color:var(--hi-border-light)}
+
+/* 인과 편집 */
+.causal-row{display:flex;gap:8px;align-items:center;background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:10px;padding:8px 10px;margin-bottom:6px;flex-wrap:wrap}
+.causal-lbl{font-size:11px;font-weight:800;color:var(--hi-text-muted)}
+.causal-sel{flex:1;min-width:130px;padding:7px 9px;border:1px solid var(--hi-border);border-radius:7px;font-family:inherit;font-size:13px;color:var(--hi-text);background:var(--hi-bg-mid);outline:none}
+
+.save-msg{text-align:center;font-size:12px;color:var(--hi-text-muted);min-height:16px;margin-top:10px}
+.save-msg.ok{color:var(--jw-pass);font-weight:700}
+
+/* 통계 */
+.stats-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:16px}
+.stat-chip{background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:14px;padding:12px 18px;text-align:center}
+.stat-chip-label{font-size:12px;font-weight:700;color:var(--hi-text-muted);margin-bottom:6px}
+.stat-chip-val{font-weight:900;font-size:28px;line-height:1;color:var(--hi-text)}
+.stat-dual{display:flex;align-items:center;justify-content:center;gap:14px}
+.stat-dual-val{font-weight:900;font-size:26px;line-height:1}
+.adm-action-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.thr-box{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--hi-text-muted);font-weight:700}
+.thr-in{width:56px;padding:6px 8px;border:1px solid var(--hi-border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--hi-bg-mid);color:var(--hi-text);text-align:center}
+
+/* 학생 카드 */
+.status-badge{flex-shrink:0;padding:4px 10px;border-radius:7px;font-size:11px;font-weight:800}
+.sb-pending{background:var(--hi-bg-mid);color:var(--hi-text-muted);border:1px solid var(--hi-border)}
+.sb-pass{background:var(--jw-pass-l);color:var(--jw-pass)}
+.sb-fail{background:var(--jw-fail-l);color:var(--jw-fail)}
+.score-pill{flex-shrink:0;padding:3px 9px;border-radius:6px;background:var(--jw-primary-soft);color:var(--jw-primary);font-size:11px;font-weight:800}
+.card-body-open{display:none;padding:12px 14px 4px;border-top:1px solid var(--hi-border);margin-top:8px}
+.std-card.open .card-body-open{display:block}
+.score-btns{display:flex;gap:6px;justify-content:center;margin:4px 0 14px}
+.ssb{padding:6px 16px;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;border:1.5px solid transparent;cursor:pointer}
+.ssb-pass{background:var(--jw-pass-l);color:var(--jw-pass);border-color:rgba(22,163,74,.2)}.ssb-pass.active,.ssb-pass:hover{background:var(--jw-pass);color:#fff}
+.ssb-fail{background:var(--jw-fail-l);color:var(--jw-fail);border-color:rgba(220,38,38,.2)}.ssb-fail.active,.ssb-fail:hover{background:var(--jw-fail);color:#fff}
+.cb-block{margin-bottom:14px}
+.cb-h{font-size:12px;font-weight:800;color:var(--jw-accent-deep);margin-bottom:6px}
+.cb-mini{font-size:12px;color:var(--hi-text-muted);margin-bottom:8px}
+.chain-line{display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:8px;flex-wrap:wrap;background:var(--hi-bg-mid);padding:8px 10px;border-radius:8px}
+.chain-line .ok{color:var(--jw-pass);font-weight:800}
+.chain-line .no{color:var(--jw-fail);font-weight:800}
+.chain-cause{font-weight:700}
+.chain-eff{font-weight:700;color:var(--jw-primary)}
+.chain-reason{width:100%;font-size:12.5px;color:var(--hi-text);line-height:1.55;margin-top:4px;padding-left:2px}
+.tl-mini{font-size:12px;color:var(--hi-text-muted);line-height:1.7;background:var(--hi-bg-mid);padding:10px 12px;border-radius:8px}
+.tl-mini .ok{color:var(--jw-pass);font-weight:700}.tl-mini .no{color:var(--jw-fail);font-weight:700}
+
+.no-data{text-align:center;padding:40px 20px;color:var(--hi-text-muted);font-size:14px}
+</style>
+</head>
+<body>
+
+<!-- 로그인 -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">역사 도미노</div>
+    <div class="login-sub">관리자 모드</div>
+    <div class="field-group" style="text-align:left;margin-bottom:14px">
+      <label class="form-label">이메일</label>
+      <input type="email" class="hi-input" id="gate-email" placeholder="이메일">
+    </div>
+    <div class="field-group" style="text-align:left;margin-bottom:14px">
+      <label class="form-label">비밀번호</label>
+      <input type="password" class="hi-input" id="gate-pw" placeholder="비밀번호">
+    </div>
+    <div class="login-err" id="gate-err"></div>
+    <button class="login-btn" id="gate-login-btn">접속하기</button>
+  </div>
+</div>
+
+<!-- 어드민 -->
+<div id="adminApp">
+  <header class="adm-header">
+    <div class="adm-logo">역사 도미노<span class="adm-badge">관리자 모드</span></div>
+    <div class="adm-tabs">
+      <button class="adm-tab active" data-tab="content">CONTENT</button>
+      <button class="adm-tab" data-tab="result">RESULT</button>
+    </div>
+    <button class="adm-logout" id="logout-btn">로그아웃</button>
+    <button class="adm-back" onclick="window.parent.closeAppAdmin&&window.parent.closeAppAdmin()">목록으로</button>
+  </header>
+
+  <div class="sub-tabs" id="content-subtabs" style="display:none">
+    <button class="sub-tab active" data-sub="events">EVENT</button>
+    <button class="sub-tab" data-sub="causal">CAUSE</button>
+  </div>
+
+  <div class="adm-body">
+  <div class="admin-container">
+
+    <!-- CONTENT -->
+    <div class="tab-panel active" id="tab-content">
+      <!-- EVENT -->
+      <div class="panel-section active" id="sub-events">
+        <div class="section-card">
+          <div class="section-title">사건 목록 (순서 맞추기)
+            <button class="btn btn-primary btn-sm" id="save-events-btn" style="margin-left:auto">저장</button>
+          </div>
+          <div class="section-desc">각 사건의 <b>구간</b>과 <b>순서</b>가 곧 정답입니다. 구간 흐름은 왜란(일직선), 대내와 대외(분기), 호란(합류), 호란 이후(분기)입니다. 순서 번호는 구간 안에서의 정답 순서예요.</div>
+          <div id="events-editor"></div>
+          <div style="display:flex;justify-content:center;gap:8px;margin-top:12px;flex-wrap:wrap">
+            <button class="btn btn-ghost" id="add-event-btn">사건 추가</button>
+            <button class="btn btn-ghost" id="reset-events-btn">기본값으로 되돌리기</button>
+          </div>
+          <div class="save-msg" id="events-msg"></div>
+        </div>
+      </div>
+      <!-- CAUSE -->
+      <div class="panel-section" id="sub-causal">
+        <div class="section-card">
+          <div class="section-title">인과 문제 (도미노 넘기기)
+            <button class="btn btn-primary btn-sm" id="save-causal-btn" style="margin-left:auto">저장</button>
+          </div>
+          <div class="section-desc">"결과" 사건마다 정답이 되는 "원인" 사건을 지정합니다. 학생은 원인을 고르고 이유를 서술해요. (원인 선택은 자동 채점, 이유는 아래 RESULT에서 검토)</div>
+          <div id="causal-editor"></div>
+          <div style="display:flex;justify-content:center;gap:8px;margin-top:12px;flex-wrap:wrap">
+            <button class="btn btn-ghost" id="add-causal-btn">인과 문제 추가</button>
+            <button class="btn btn-ghost" id="reset-causal-btn">기본값으로 되돌리기</button>
+          </div>
+          <div class="save-msg" id="causal-msg"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULT -->
+    <div class="tab-panel" id="tab-result">
+      <div class="class-filter" id="class-filter"></div>
+      <div class="stats-row">
+        <div class="stat-chip"><div class="stat-chip-label">전체 인원</div><div class="stat-chip-val" id="s-total">0</div></div>
+        <div class="stat-chip"><div class="stat-chip-label">참여 / 미참여</div><div class="stat-dual"><div class="stat-dual-val" id="s-sub" style="color:var(--jw-accent-deep)">0</div><div class="stat-dual-val" id="s-unsub" style="color:var(--hi-text-muted)">0</div></div></div>
+        <div class="stat-chip"><div class="stat-chip-label">순서 평균</div><div class="stat-chip-val" id="s-avg" style="color:var(--jw-primary)">0%</div></div>
+        <div class="stat-chip"><div class="stat-chip-label">통과 / 미흡</div><div class="stat-dual"><div class="stat-dual-val" id="s-pass" style="color:var(--jw-pass)">0</div><div class="stat-dual-val" id="s-fail" style="color:var(--jw-fail)">0</div></div></div>
+      </div>
+      <div class="adm-action-row">
+        <div class="thr-box">순서 <input type="number" class="thr-in" id="thr-tl" value="70" min="0" max="100">% 이상 &amp; 인과 이유 모두 작성 시 통과</div>
+        <button class="btn btn-accent btn-sm" id="autoscore-btn">자동 채점</button>
+      </div>
+      <div id="result-list"></div>
+    </div>
+
+  </div>
+  </div>
+</div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import{getFirestore,doc,getDoc,setDoc,deleteDoc,collection,onSnapshot,updateDoc,writeBatch}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import{getDatabase,ref,get}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { firebaseConfig } from "../../shared/firebase-config.js";
+
+const app=initializeApp(firebaseConfig);
+const db=getFirestore(app);
+const auth=getAuth(app);
+const rtdb=getDatabase(app);
+
+const DEFAULT_EVENTS=[
+  {id:'w1',phase:'war',order:0,year:'1592',title:'임진왜란 발발'},
+  {id:'w2',phase:'war',order:1,year:'1592',title:'한산도 대첩'},
+  {id:'w3',phase:'war',order:2,year:'1593',title:'명 참전과 평양성 탈환'},
+  {id:'w4',phase:'war',order:3,year:'1593',title:'행주 대첩'},
+  {id:'w5',phase:'war',order:4,year:'1597',title:'정유재란'},
+  {id:'w6',phase:'war',order:5,year:'1598',title:'노량 해전과 왜란 종결'},
+  {id:'d1',phase:'domestic',order:0,year:'1608',title:'광해군의 중립 외교'},
+  {id:'d2',phase:'domestic',order:1,year:'1623',title:'인조반정과 친명배금'},
+  {id:'f1',phase:'foreign',order:0,year:'',title:'명의 쇠퇴'},
+  {id:'f2',phase:'foreign',order:1,year:'1616',title:'여진 성장과 후금 건국'},
+  {id:'h1',phase:'horan',order:0,year:'1627',title:'정묘호란'},
+  {id:'h2',phase:'horan',order:1,year:'1636',title:'병자호란'},
+  {id:'h3',phase:'horan',order:2,year:'1637',title:'삼전도의 항복'},
+  {id:'a1',phase:'after',order:0,year:'효종',title:'북벌 운동'},
+  {id:'a2',phase:'after',order:1,year:'18세기',title:'북학론'}
+];
+const DEFAULT_CAUSAL=[
+  {id:'c1',effectId:'f1',causeId:'w3'},
+  {id:'c2',effectId:'f2',causeId:'f1'},
+  {id:'c3',effectId:'h1',causeId:'d2'},
+  {id:'c4',effectId:'a1',causeId:'h3'}
+];
+const PHASES=[
+  {key:'war',label:'왜란 (일직선)'},
+  {key:'domestic',label:'대내 (국내 정세)'},
+  {key:'foreign',label:'대외 (국제 정세)'},
+  {key:'horan',label:'호란 (합류)'},
+  {key:'after',label:'호란 이후 (분기)'}
+];
+
+let EVENTS=[], CAUSAL=[];
+let roster=[], results=[];
+let currentFilter='전체';
+let resultsUnsub=null;
+const isEmbedded=window.self!==window.top;
+
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function classNumOf(sid){sid=String(sid||'');if(sid.length<3)return null;const c=parseInt(sid.slice(1,3),10);return isNaN(c)?null:c;}
+function evById(id){return EVENTS.find(e=>e.id===id);}
+function evLabel(id){const e=evById(id);return e?((e.year?e.year+' ':'')+e.title):'(삭제됨)';}
+function phaseEvents(p){return EVENTS.filter(e=>e.phase===p).sort((a,b)=>a.order-b.order);}
+
+/* 진입 */
+async function initAdmin(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('adminApp').classList.add('show');
+  await Promise.all([loadConfig(),loadRoster()]);
+  startListener();
+}
+if(isEmbedded){document.documentElement.classList.add('has-own-back');initAdmin();}
+else{
+  onAuthStateChanged(auth,user=>{
+    if(user)initAdmin();
+    else{
+      document.getElementById('loginScreen').style.display='';
+      document.getElementById('adminApp').classList.remove('show');
+      if(resultsUnsub){resultsUnsub();resultsUnsub=null;}
+    }
+  });
+}
+document.getElementById('gate-login-btn').addEventListener('click',async()=>{
+  const email=document.getElementById('gate-email').value.trim();
+  const pw=document.getElementById('gate-pw').value;
+  const errEl=document.getElementById('gate-err');errEl.classList.remove('show');
+  try{await signInWithEmailAndPassword(auth,email,pw);}
+  catch(e){errEl.textContent='이메일 또는 비밀번호를 확인해 주세요.';errEl.classList.add('show');}
+});
+document.getElementById('gate-pw').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('gate-login-btn').click();});
+document.getElementById('logout-btn').addEventListener('click',()=>signOut(auth));
+
+document.querySelectorAll('.adm-tab').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('.adm-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  document.getElementById('content-subtabs').style.display=btn.dataset.tab==='content'?'flex':'none';
+}));
+document.querySelectorAll('.sub-tab').forEach(btn=>btn.addEventListener('click',()=>{
+  document.querySelectorAll('.sub-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.panel-section').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('sub-'+btn.dataset.sub).classList.add('active');
+}));
+
+/* 설정 로드 */
+async function loadConfig(){
+  try{
+    const snap=await getDoc(doc(db,'settings','j_wartimeline_config'));
+    if(snap.exists()){
+      const d=snap.data();
+      EVENTS=Array.isArray(d.events)&&d.events.length?d.events.map(e=>({...e})):DEFAULT_EVENTS.map(e=>({...e}));
+      CAUSAL=Array.isArray(d.causal)&&d.causal.length?d.causal.map(c=>({...c})):DEFAULT_CAUSAL.map(c=>({...c}));
+    }else{EVENTS=DEFAULT_EVENTS.map(e=>({...e}));CAUSAL=DEFAULT_CAUSAL.map(c=>({...c}));}
+  }catch(e){EVENTS=DEFAULT_EVENTS.map(e=>({...e}));CAUSAL=DEFAULT_CAUSAL.map(c=>({...c}));}
+  renderEventsEditor();renderCausalEditor();
+}
+
+/* ── 사건 편집 ── */
+function renderEventsEditor(){
+  const wrap=document.getElementById('events-editor');
+  const phaseOpts=PHASES.map(p=>`<option value="${p.key}">${esc(p.label)}</option>`).join('');
+  let html='';
+  PHASES.forEach(p=>{
+    const evs=phaseEvents(p.key);
+    html+=`<div class="phase-group"><div class="phase-head">${esc(p.label)}</div>`;
+    evs.forEach((e)=>{
+      const gi=EVENTS.indexOf(e);
+      html+=`<div class="ev-row" data-i="${gi}">
+        <span class="ev-ord">${e.order+1}</span>
+        <input class="meta-input ev-year" value="${esc(e.year||'')}" placeholder="연도">
+        <input class="meta-input ev-title" value="${esc(e.title||'')}" placeholder="사건 이름">
+        <select class="meta-input ev-phase">${phaseOpts}</select>
+        <div class="ev-ctrl">
+          <button class="icon-btn ev-up" title="순서 위로">↑</button>
+          <button class="icon-btn ev-down" title="순서 아래로">↓</button>
+          <button class="icon-btn ev-del" title="삭제">✕</button>
+        </div>
+      </div>`;
+    });
+    html+=`</div>`;
+  });
+  wrap.innerHTML=html;
+  wrap.querySelectorAll('.ev-row').forEach(row=>{
+    const i=+row.dataset.i;
+    row.querySelector('.ev-year').addEventListener('input',e=>EVENTS[i].year=e.target.value);
+    row.querySelector('.ev-title').addEventListener('input',e=>EVENTS[i].title=e.target.value);
+    const sel=row.querySelector('.ev-phase');sel.value=EVENTS[i].phase;
+    sel.addEventListener('change',e=>{
+      EVENTS[i].phase=e.target.value;
+      EVENTS[i].order=phaseEvents(e.target.value).filter(x=>x!==EVENTS[i]).length;
+      renderEventsEditor();
+    });
+    row.querySelector('.ev-up').addEventListener('click',()=>moveEvent(i,-1));
+    row.querySelector('.ev-down').addEventListener('click',()=>moveEvent(i,1));
+    row.querySelector('.ev-del').addEventListener('click',()=>{
+      if(!confirm(`'${EVENTS[i].title||'이 사건'}'을(를) 삭제할까요?`))return;
+      EVENTS.splice(i,1);normalizeOrders();renderEventsEditor();
+    });
+  });
+}
+function moveEvent(i,dir){
+  const e=EVENTS[i];
+  const sib=phaseEvents(e.phase);
+  const pos=sib.indexOf(e);
+  const swap=sib[pos+dir];
+  if(!swap)return;
+  const t=e.order;e.order=swap.order;swap.order=t;
+  renderEventsEditor();
+}
+function normalizeOrders(){
+  PHASES.forEach(p=>phaseEvents(p.key).forEach((e,i)=>e.order=i));
+}
+document.getElementById('add-event-btn').addEventListener('click',()=>{
+  EVENTS.push({id:'e_'+Date.now().toString(36),phase:'war',order:phaseEvents('war').length,year:'',title:''});
+  renderEventsEditor();
+});
+document.getElementById('reset-events-btn').addEventListener('click',()=>{
+  if(!confirm('사건을 기본 15개로 되돌릴까요? (저장 전까지 반영 안 됨)'))return;
+  EVENTS=DEFAULT_EVENTS.map(e=>({...e}));renderEventsEditor();
+});
+document.getElementById('save-events-btn').addEventListener('click',async()=>{
+  normalizeOrders();
+  EVENTS.forEach(e=>{if(!e.id)e.id='e_'+Math.random().toString(36).slice(2,8);});
+  const msg=document.getElementById('events-msg');
+  try{await setDoc(doc(db,'settings','j_wartimeline_config'),{events:EVENTS,causal:CAUSAL},{merge:true});
+    msg.textContent='저장되었습니다. 학생 화면에 반영됩니다.';msg.className='save-msg ok';renderCausalEditor();}
+  catch(e){msg.textContent='저장 실패: '+e.message;msg.className='save-msg';}
+});
+
+/* ── 인과 편집 ── */
+function renderCausalEditor(){
+  const wrap=document.getElementById('causal-editor');
+  const opts=EVENTS.map(e=>`<option value="${esc(e.id)}">${esc(evLabel(e.id))}</option>`).join('');
+  wrap.innerHTML=CAUSAL.map((c,i)=>`
+    <div class="causal-row" data-i="${i}">
+      <span class="causal-lbl">원인</span>
+      <select class="causal-sel c-cause">${opts}</select>
+      <span class="causal-lbl" style="color:var(--jw-accent-deep)">결과</span>
+      <select class="causal-sel c-effect">${opts}</select>
+      <button class="icon-btn c-del" title="삭제">✕</button>
+    </div>`).join('')||'<div class="no-data">인과 문제가 없습니다.</div>';
+  wrap.querySelectorAll('.causal-row').forEach(row=>{
+    const i=+row.dataset.i;
+    const cs=row.querySelector('.c-cause');cs.value=CAUSAL[i].causeId||'';
+    const ef=row.querySelector('.c-effect');ef.value=CAUSAL[i].effectId||'';
+    cs.addEventListener('change',e=>CAUSAL[i].causeId=e.target.value);
+    ef.addEventListener('change',e=>CAUSAL[i].effectId=e.target.value);
+    row.querySelector('.c-del').addEventListener('click',()=>{CAUSAL.splice(i,1);renderCausalEditor();});
+  });
+}
+document.getElementById('add-causal-btn').addEventListener('click',()=>{
+  CAUSAL.push({id:'c_'+Date.now().toString(36),effectId:EVENTS[0]?.id||'',causeId:EVENTS[0]?.id||''});
+  renderCausalEditor();
+});
+document.getElementById('reset-causal-btn').addEventListener('click',()=>{
+  if(!confirm('인과 문제를 기본값으로 되돌릴까요?'))return;
+  CAUSAL=DEFAULT_CAUSAL.map(c=>({...c}));renderCausalEditor();
+});
+document.getElementById('save-causal-btn').addEventListener('click',async()=>{
+  CAUSAL.forEach(c=>{if(!c.id)c.id='c_'+Math.random().toString(36).slice(2,8);});
+  const msg=document.getElementById('causal-msg');
+  try{await setDoc(doc(db,'settings','j_wartimeline_config'),{events:EVENTS,causal:CAUSAL},{merge:true});
+    msg.textContent='저장되었습니다.';msg.className='save-msg ok';}
+  catch(e){msg.textContent='저장 실패: '+e.message;msg.className='save-msg';}
+});
+
+/* ── 명단 ── */
+async function loadRoster(){
+  try{
+    const snap=await get(ref(rtdb,'students'));
+    const data=snap.val()||{};
+    roster=Object.values(data).filter(Boolean)
+      .map(s=>({studentId:String(s.studentId||s.id||'').trim(),name:s.name||''}))
+      .filter(s=>s.studentId).map(s=>({...s,classNum:classNumOf(s.studentId)})).filter(s=>s.classNum!==0);
+  }catch(e){roster=[];}
+}
+
+/* ── 결과 리스너 ── */
+function startListener(){
+  if(resultsUnsub)resultsUnsub();
+  resultsUnsub=onSnapshot(collection(db,'j_wartimeline_results'),snap=>{
+    results=[];snap.forEach(d=>{if(classNumOf(d.id)!==0)results.push({id:d.id,...d.data()});});
+    results.sort((a,b)=>(classNumOf(a.id)||0)-(classNumOf(b.id)||0)||String(a.id).localeCompare(String(b.id)));
+    renderClassFilter();updateStats();renderResultList();
+  });
+}
+function renderClassFilter(){
+  const nums=[...new Set([...roster.map(r=>r.classNum),...results.map(r=>classNumOf(r.id))])].filter(n=>n!=null).sort((a,b)=>a-b);
+  const classes=['전체',...nums];
+  document.getElementById('class-filter').innerHTML=classes.map(c=>`<button class="cf-btn${String(c)===currentFilter?' active':''}" data-c="${c}">${c==='전체'?'전체':c+'반'}</button>`).join('');
+  document.querySelectorAll('.cf-btn').forEach(btn=>btn.addEventListener('click',()=>{
+    currentFilter=btn.dataset.c;
+    document.querySelectorAll('.cf-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');
+    updateStats();renderResultList();
+  }));
+}
+function inFilter(sid){return currentFilter==='전체'||String(classNumOf(sid))===currentFilter;}
+function filtered(){return results.filter(r=>inFilter(r.id));}
+
+function updateStats(){
+  const fr=filtered();
+  const expected=roster.length?(currentFilter==='전체'?roster.length:roster.filter(r=>String(r.classNum)===currentFilter).length):fr.length;
+  const withTl=fr.filter(r=>r.timelineTotal);
+  const avg=withTl.length?Math.round(withTl.reduce((s,r)=>s+(r.timelinePct||0),0)/withTl.length):0;
+  const pass=fr.filter(r=>r.status==='pass').length;
+  const fail=fr.filter(r=>r.status==='fail').length;
+  document.getElementById('s-total').textContent=expected||fr.length;
+  document.getElementById('s-sub').textContent=fr.length;
+  document.getElementById('s-unsub').textContent=Math.max(0,expected-fr.length);
+  document.getElementById('s-avg').textContent=avg+'%';
+  document.getElementById('s-pass').textContent=pass;
+  document.getElementById('s-fail').textContent=fail;
+}
+
+function statusBadge(st){
+  if(st==='pass')return'<span class="status-badge sb-pass">통과</span>';
+  if(st==='fail')return'<span class="status-badge sb-fail">미흡</span>';
+  return'<span class="status-badge sb-pending">미채점</span>';
+}
+function renderResultList(){
+  const el=document.getElementById('result-list');
+  const list=filtered();
+  if(!list.length){el.innerHTML='<div class="no-data">아직 참여한 학생이 없습니다.</div>';return;}
+  el.innerHTML=list.map(r=>{
+    const st=r.status||'pending';
+    const tl=r.timelineTotal?`${r.timelinePct}%`:'—';
+    const ca=r.causalTotal?`${r.causalCorrect}/${r.causalTotal}`:'—';
+    return`<div class="std-card">
+      <div class="std-card-row" style="cursor:pointer" onclick="this.closest('.std-card').classList.toggle('open')">
+        <div><div class="std-sid">${esc(String(r.studentId||r.id))}</div><div class="std-name">${esc(r.name||'')}</div></div>
+        <div class="std-content">
+          <div class="std-badge-row"><span class="score-pill">순서 ${tl}</span><span class="score-pill">인과 ${ca}</span></div>
+          <div class="std-content-sub">${statusLabelText(st)}</div>
+        </div>
+        ${statusBadge(st)}
+      </div>
+      <div class="card-body-open">
+        <div class="score-btns">
+          <button class="ssb ssb-pass${st==='pass'?' active':''}" onclick="window.setStatus('${esc(r.id)}','pass')">통과</button>
+          <button class="ssb ssb-fail${st==='fail'?' active':''}" onclick="window.setStatus('${esc(r.id)}','fail')">미흡</button>
+        </div>
+        ${timelineDetail(r)}
+        ${causalDetail(r)}
+      </div>
+    </div>`;
+  }).join('');
+}
+function statusLabelText(st){return st==='pass'?'통과':st==='fail'?'미흡':'미채점';}
+
+function timelineDetail(r){
+  if(!r.timelinePlaced)return'<div class="cb-block"><div class="cb-h">순서 맞추기</div><div class="cb-mini">아직 안 함</div></div>';
+  const placed=r.timelinePlaced;
+  let lines='';
+  PHASES.forEach(p=>{
+    const evs=phaseEvents(p.key);
+    evs.forEach((e,i)=>{
+      const got=placed[p.key+':'+i];
+      const ok=got===e.id;
+      lines+=`<div>${esc(p.label.split(' ')[0])} ${i+1}. 정답 <b>${esc(e.title)}</b>, 학생 <span class="${ok?'ok':'no'}">${ok?'○ '+esc(evById(got)?.title||''):(got?'✕ '+esc(evById(got)?.title||''):'✕ 빈칸')}</span></div>`;
+    });
+  });
+  return`<div class="cb-block"><div class="cb-h">순서 맞추기 ${r.timelineCorrect}/${r.timelineTotal} (${r.timelinePct}%)</div><div class="tl-mini">${lines}</div></div>`;
+}
+function causalDetail(r){
+  if(!Array.isArray(r.causal)||!r.causal.length)return'<div class="cb-block"><div class="cb-h">인과 잇기</div><div class="cb-mini">아직 안 함</div></div>';
+  const rows=r.causal.map(a=>{
+    const conf=CAUSAL.find(c=>c.effectId===a.effectId);
+    const correctCause=conf?evLabel(conf.causeId):'?';
+    return`<div>
+      <div class="chain-line">
+        <span class="chain-cause ${a.correct?'ok':'no'}">${a.correct?'○':'✕'} ${esc(evLabel(a.chosenCauseId))}</span>
+        <span style="color:var(--hi-text-muted)">넘어뜨림</span>
+        <span class="chain-eff">${esc(evLabel(a.effectId))}</span>
+        ${a.correct?'':`<span style="font-size:11px;color:var(--hi-text-muted)">정답: ${esc(correctCause)}</span>`}
+        <div class="chain-reason">이유: ${esc(a.reason||'(미작성)')}</div>
+      </div>
+    </div>`;
+  }).join('');
+  return`<div class="cb-block"><div class="cb-h">인과 잇기 (원인 ${r.causalCorrect}/${r.causalTotal} 정답)</div>${rows}</div>`;
+}
+
+window.setStatus=async(id,st)=>{
+  const cur=results.find(r=>r.id===id);
+  const next=(cur&&cur.status===st)?null:st;
+  try{await updateDoc(doc(db,'j_wartimeline_results',id),{status:next});}
+  catch(e){alert('오류: '+e.message);}
+};
+
+/* 자동 채점: 순서 임계값 이상이고 인과 이유를 전부 작성하면 통과 */
+document.getElementById('autoscore-btn').addEventListener('click',async()=>{
+  const thr=parseInt(document.getElementById('thr-tl').value,10)||0;
+  const list=filtered().filter(r=>r.timelineTotal);
+  if(!list.length){alert('채점할 참여자가 없습니다.');return;}
+  const batch=writeBatch(db);
+  list.forEach(r=>{
+    const tlOk=(r.timelinePct||0)>=thr;
+    const reasonsOk=Array.isArray(r.causal)&&r.causal.length>0&&r.causal.every(a=>(a.reason||'').trim().length>0);
+    batch.update(doc(db,'j_wartimeline_results',r.id),{status:(tlOk&&reasonsOk)?'pass':'fail'});
+  });
+  try{await batch.commit();alert(`${list.length}명 자동 채점 완료 (순서 ${thr}% 이상 & 인과 이유 모두 작성 시 통과)`);}
+  catch(e){alert('오류: '+e.message);}
+});
+</script>
+</body>
+</html>
