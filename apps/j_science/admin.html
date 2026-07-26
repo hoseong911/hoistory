@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>조선 전기 과학 전시관 : 관리자 모드</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/theme.css">
+<link rel="stylesheet" href="../../shared/admin-base.css">
+<script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
+<style>
+:root{
+  --js-primary:#26476E;--js-primary-soft:rgba(38,71,110,.12);
+  --js-accent:#B8893B;--js-accent-deep:#8A6524;--js-accent-l:rgba(184,137,59,.14);
+  --js-pass:#16a34a;--js-pass-l:rgba(22,163,74,.12);
+  --js-fail:#dc2626;--js-fail-l:rgba(220,38,38,.1);
+}
+.section-card{background:var(--hi-bg-surface);border-radius:14px;padding:20px;margin-bottom:16px;border:1px solid var(--hi-border)}
+.section-title{font-weight:700;font-size:15px;color:var(--hi-text);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+.btn{padding:9px 18px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;border:none;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn-primary{background:var(--js-primary);color:#fff}.btn-primary:hover{background:#1B3350}
+.btn-gold{background:var(--js-accent);color:#fff}.btn-gold:hover{background:var(--js-accent-deep)}
+.btn-ghost{background:none;border:1.5px solid var(--hi-border);color:var(--hi-text-muted)}.btn-ghost:hover{border-color:var(--hi-border-light);color:var(--hi-text)}
+.btn-danger{background:var(--js-fail-l);color:var(--js-fail);border:1.5px solid rgba(220,38,38,.2)}.btn-danger:hover{background:rgba(220,38,38,.16)}
+.btn-sm{padding:5px 12px;font-size:12px;border-radius:7px}
+
+/* 유물 편집 */
+.relic-edit{border:1px solid var(--hi-border);border-radius:14px;padding:14px;background:var(--hi-bg-card);margin-bottom:10px;display:flex;gap:14px;align-items:flex-start}
+.relic-thumb{flex-shrink:0;width:64px;height:64px;border-radius:14px;background:var(--hi-bg-mid);border:1.5px solid var(--hi-border);display:flex;align-items:center;justify-content:center;font-size:30px;overflow:hidden}
+.relic-thumb img{width:100%;height:100%;object-fit:contain}
+.relic-fields{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.relic-row2{display:grid;grid-template-columns:1fr 72px;gap:8px}
+.meta-input{width:100%;padding:8px 10px;border:1px solid var(--hi-border);border-radius:8px;font-family:inherit;font-size:13px;color:var(--hi-text);background:var(--hi-bg-mid);outline:none}
+.meta-input:focus{border-color:var(--hi-border-light)}
+.relic-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.upload-status{font-size:11px;color:var(--hi-text-muted)}
+
+/* 통계 칩 */
+.stats-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:18px}
+.stat-chip{background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:14px;padding:12px 18px;text-align:center}
+.stat-chip-label{font-size:12px;font-weight:700;color:var(--hi-text-muted);margin-bottom:6px}
+.stat-chip-val{font-weight:900;font-size:28px;line-height:1;color:var(--hi-text)}
+.stat-dual{display:flex;align-items:center;justify-content:center;gap:14px}
+.stat-dual-val{font-weight:900;font-size:26px;line-height:1}
+
+/* 학생 카드 */
+.card-body-open{display:none;padding:12px 14px 4px;border-top:1px solid var(--hi-border);margin-top:8px}
+.std-card.open .card-body-open{display:block}
+.cb-row{margin-bottom:10px}
+.cb-label{font-size:11px;font-weight:800;color:var(--js-accent-deep);margin-bottom:3px}
+.cb-text{font-size:13px;color:var(--hi-text);line-height:1.6;background:var(--hi-bg-mid);padding:9px 11px;border-radius:8px;white-space:pre-wrap;word-break:break-word}
+.score-btns{display:flex;gap:6px;justify-content:center;margin:4px 0 12px}
+.ssb{padding:6px 16px;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;border:1.5px solid transparent;cursor:pointer;transition:.15s}
+.ssb-pass{background:var(--js-pass-l);color:var(--js-pass);border-color:rgba(22,163,74,.2)}.ssb-pass.active,.ssb-pass:hover{background:var(--js-pass);color:#fff}
+.ssb-fail{background:var(--js-fail-l);color:var(--js-fail);border-color:rgba(220,38,38,.2)}.ssb-fail.active,.ssb-fail:hover{background:var(--js-fail);color:#fff}
+.status-badge{flex-shrink:0;padding:4px 10px;border-radius:7px;font-size:11px;font-weight:800}
+.sb-pending{background:var(--hi-bg-mid);color:var(--hi-text-muted);border:1px solid var(--hi-border)}
+.sb-pass{background:var(--js-pass-l);color:var(--js-pass)}
+.sb-fail{background:var(--js-fail-l);color:var(--js-fail)}
+.relic-tag{flex-shrink:0;padding:3px 9px;border-radius:6px;background:var(--js-primary-soft);color:var(--js-primary);font-size:11px;font-weight:800}
+
+/* 투표 랭킹 */
+.rank-list{display:flex;flex-direction:column;gap:8px;margin-bottom:22px}
+.rank-item{display:flex;align-items:center;gap:12px;background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:12px;padding:11px 14px}
+.rank-pos{flex-shrink:0;width:26px;height:26px;border-radius:50%;background:var(--js-accent-l);color:var(--js-accent-deep);font-weight:900;font-size:13px;display:flex;align-items:center;justify-content:center}
+.rank-info{flex:1;min-width:0}
+.rank-name{font-weight:800;font-size:14px}
+.rank-owner{font-size:12px;color:var(--hi-text-muted)}
+.rank-bar-wrap{flex:1.4;min-width:60px;height:8px;background:var(--hi-bg-mid);border-radius:5px;overflow:hidden}
+.rank-bar{height:100%;background:var(--js-accent);border-radius:5px}
+.rank-votes{flex-shrink:0;font-weight:900;font-size:15px;color:var(--js-accent-deep);min-width:38px;text-align:right}
+
+/* 투표 상세 */
+.vote-item{background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+.vote-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:7px;font-size:13px}
+.vote-voter{font-weight:800}
+.vote-arrow{color:var(--hi-text-muted);font-weight:700}
+.vote-target{font-weight:700;color:var(--js-primary)}
+.vote-reason{font-size:13px;color:var(--hi-text);line-height:1.6;background:var(--hi-bg-mid);padding:9px 11px;border-radius:8px;white-space:pre-wrap;word-break:break-word}
+
+.no-data{text-align:center;padding:40px 20px;color:var(--hi-text-muted);font-size:14px}
+.save-msg{text-align:center;font-size:12px;color:var(--hi-text-muted);min-height:16px;margin-top:8px}
+.save-msg.ok{color:var(--js-pass);font-weight:700}
+</style>
+</head>
+<body>
+
+<!-- 로그인 -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">조선 전기 과학 전시관</div>
+    <div class="login-sub">관리자 모드</div>
+    <div class="field-group" style="text-align:left;margin-bottom:14px">
+      <label class="form-label">이메일</label>
+      <input type="email" class="hi-input" id="gate-email" placeholder="이메일">
+    </div>
+    <div class="field-group" style="text-align:left;margin-bottom:14px">
+      <label class="form-label">비밀번호</label>
+      <input type="password" class="hi-input" id="gate-pw" placeholder="비밀번호">
+    </div>
+    <div class="login-err" id="gate-err"></div>
+    <button class="login-btn" id="gate-login-btn">접속하기</button>
+  </div>
+</div>
+
+<!-- 어드민 -->
+<div id="adminApp">
+  <header class="adm-header">
+    <div class="adm-logo">조선 전기 과학 전시관<span class="adm-badge">관리자 모드</span></div>
+    <div class="adm-tabs">
+      <button class="adm-tab active" data-tab="heritage">HERITAGE</button>
+      <button class="adm-tab" data-tab="status">STATUS</button>
+    </div>
+    <button class="adm-logout" id="logout-btn">로그아웃</button>
+    <button class="adm-back" onclick="window.parent.closeAppAdmin&&window.parent.closeAppAdmin()">목록으로</button>
+  </header>
+
+  <!-- STATUS 서브탭 -->
+  <div class="sub-tabs" id="status-subtabs" style="display:none">
+    <button class="sub-tab active" data-sub="card">CARD</button>
+    <button class="sub-tab" data-sub="vote">VOTE</button>
+  </div>
+
+  <div class="adm-body">
+  <div class="admin-container">
+
+    <!-- HERITAGE -->
+    <div class="tab-panel active" id="tab-heritage">
+      <div class="section-card">
+        <div class="section-title">
+          유물 목록 관리
+          <button class="btn btn-ghost btn-sm" id="add-relic-btn" style="margin-left:auto">+ 유물 추가</button>
+        </div>
+        <div id="relic-list"></div>
+        <div style="display:flex;justify-content:center;gap:8px;margin-top:14px;flex-wrap:wrap">
+          <button class="btn btn-ghost" id="reset-relic-btn">기본 8종으로 되돌리기</button>
+          <button class="btn btn-primary" id="save-relic-btn">저장 (학생 화면 반영)</button>
+        </div>
+        <div class="save-msg" id="relic-save-msg"></div>
+      </div>
+    </div>
+
+    <!-- STATUS -->
+    <div class="tab-panel" id="tab-status">
+      <div class="class-filter" id="class-filter"></div>
+
+      <!-- CARD 서브패널 -->
+      <div class="panel-section active" id="sub-card">
+        <div class="stats-row">
+          <div class="stat-chip"><div class="stat-chip-label">전체 인원</div><div class="stat-chip-val" id="s-total">0</div></div>
+          <div class="stat-chip"><div class="stat-chip-label">제출 / 미제출</div><div class="stat-dual"><div class="stat-dual-val" id="s-sub" style="color:var(--js-accent-deep)">0</div><div class="stat-dual-val" id="s-unsub" style="color:var(--hi-text-muted)">0</div></div></div>
+          <div class="stat-chip"><div class="stat-chip-label">통과 / 미흡</div><div class="stat-dual"><div class="stat-dual-val" id="s-pass" style="color:var(--js-pass)">0</div><div class="stat-dual-val" id="s-fail" style="color:var(--js-fail)">0</div></div></div>
+        </div>
+        <div id="card-list"></div>
+      </div>
+
+      <!-- VOTE 서브패널 -->
+      <div class="panel-section" id="sub-vote">
+        <div class="section-card">
+          <div class="section-title">유물 득표 순위</div>
+          <div class="rank-list" id="rank-list"></div>
+        </div>
+        <div class="section-card">
+          <div class="section-title">학생별 투표 내용</div>
+          <div id="vote-detail"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  </div>
+</div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import{getFirestore,doc,getDoc,setDoc,deleteDoc,collection,onSnapshot,updateDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import{getDatabase,ref,get}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import{getStorage,ref as sRef,uploadBytes,getDownloadURL}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import { firebaseConfig } from "../../shared/firebase-config.js";
+
+const app=initializeApp(firebaseConfig);
+const db=getFirestore(app);
+const auth=getAuth(app);
+const rtdb=getDatabase(app);
+const storage=getStorage(app);
+
+const DEFAULT_HERITAGES=[
+  {id:'cheugugi',    name:'측우기',           emoji:'🌧️', image:'', hint:'강수량 측정 기구'},
+  {id:'angbu',       name:'앙부일구',         emoji:'🕒', image:'', hint:'해시계'},
+  {id:'jagyeongnu',  name:'자격루',           emoji:'💧', image:'', hint:'자동 물시계'},
+  {id:'honcheon',    name:'혼천의',           emoji:'🌐', image:'', hint:'천체 관측 기구'},
+  {id:'chiljeongsan',name:'칠정산',           emoji:'📅', image:'', hint:'우리 실정에 맞춘 역법(달력)'},
+  {id:'nongsa',      name:'농사직설',         emoji:'🌾', image:'', hint:'우리 풍토에 맞는 농법서'},
+  {id:'hyangyak',    name:'향약집성방',       emoji:'🌿', image:'', hint:'우리 약재로 만든 의학서'},
+  {id:'cheonsang',   name:'천상열차분야지도', emoji:'✨', image:'', hint:'별자리(천문) 지도'}
+];
+
+let HERITAGES=[];
+let roster=[];
+let cards=[];
+let votes=[];
+let currentFilter='전체';
+let cardsUnsub=null, votesUnsub=null;
+const isEmbedded=window.self!==window.top;
+
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function classNumOf(sid){sid=String(sid||'');if(sid.length<3)return null;const c=parseInt(sid.slice(1,3),10);return isNaN(c)?null:c;}
+function relicInner(h){return h&&h.image?`<img src="${esc(h.image)}" alt="">`:`<span>${esc(h&&h.emoji||'🏛️')}</span>`;}
+
+/* ── 진입 ── */
+async function initAdmin(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('adminApp').classList.add('show');
+  await Promise.all([loadHeritages(),loadRoster()]);
+  startListeners();
+}
+if(isEmbedded){
+  document.documentElement.classList.add('has-own-back');
+  initAdmin();
+}else{
+  onAuthStateChanged(auth,user=>{
+    if(user){initAdmin();}
+    else{
+      document.getElementById('loginScreen').style.display='';
+      document.getElementById('adminApp').classList.remove('show');
+      if(cardsUnsub){cardsUnsub();cardsUnsub=null;}
+      if(votesUnsub){votesUnsub();votesUnsub=null;}
+    }
+  });
+}
+document.getElementById('gate-login-btn').addEventListener('click',async()=>{
+  const email=document.getElementById('gate-email').value.trim();
+  const pw=document.getElementById('gate-pw').value;
+  const errEl=document.getElementById('gate-err');
+  errEl.classList.remove('show');
+  try{await signInWithEmailAndPassword(auth,email,pw);}
+  catch(e){errEl.textContent='이메일 또는 비밀번호를 확인해 주세요.';errEl.classList.add('show');}
+});
+document.getElementById('gate-pw').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('gate-login-btn').click();});
+document.getElementById('logout-btn').addEventListener('click',()=>signOut(auth));
+
+/* ── 탭 ── */
+document.querySelectorAll('.adm-tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.adm-tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    document.getElementById('status-subtabs').style.display=btn.dataset.tab==='status'?'flex':'none';
+  });
+});
+document.querySelectorAll('.sub-tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.sub-tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel-section').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('sub-'+btn.dataset.sub).classList.add('active');
+  });
+});
+
+/* ── 유물 로드/렌더 ── */
+async function loadHeritages(){
+  try{
+    const snap=await getDoc(doc(db,'settings','j_science_heritage'));
+    HERITAGES=(snap.exists()&&Array.isArray(snap.data().heritages)&&snap.data().heritages.length)
+      ?snap.data().heritages.map(h=>({...h}))
+      :DEFAULT_HERITAGES.map(h=>({...h}));
+  }catch(e){HERITAGES=DEFAULT_HERITAGES.map(h=>({...h}));}
+  renderRelicList();
+}
+function renderRelicList(){
+  const wrap=document.getElementById('relic-list');
+  if(!HERITAGES.length){wrap.innerHTML='<div class="no-data">유물이 없습니다. "+ 유물 추가"로 만들어보세요.</div>';return;}
+  wrap.innerHTML=HERITAGES.map((h,i)=>`
+    <div class="relic-edit" data-i="${i}">
+      <div class="relic-thumb">${relicInner(h)}</div>
+      <div class="relic-fields">
+        <div class="relic-row2">
+          <input class="meta-input r-name" value="${esc(h.name||'')}" placeholder="유물 이름">
+          <input class="meta-input r-emoji" value="${esc(h.emoji||'')}" placeholder="이모지">
+        </div>
+        <input class="meta-input r-hint" value="${esc(h.hint||'')}" placeholder="한 줄 힌트 (예: 강수량 측정 기구)">
+        <input class="meta-input r-image" value="${esc(h.image||'')}" placeholder="이미지 URL (또는 업로드)">
+        <div class="relic-actions">
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer">이미지 업로드<input type="file" accept="image/*" hidden class="r-upload"></label>
+          <span class="upload-status"></span>
+          <button class="btn btn-danger btn-sm r-del" style="margin-left:auto">삭제</button>
+        </div>
+      </div>
+    </div>`).join('');
+  wrap.querySelectorAll('.relic-edit').forEach(row=>{
+    const i=+row.dataset.i;
+    row.querySelector('.r-name').addEventListener('input',e=>{HERITAGES[i].name=e.target.value;});
+    row.querySelector('.r-emoji').addEventListener('input',e=>{HERITAGES[i].emoji=e.target.value;row.querySelector('.relic-thumb').innerHTML=relicInner(HERITAGES[i]);});
+    row.querySelector('.r-hint').addEventListener('input',e=>{HERITAGES[i].hint=e.target.value;});
+    row.querySelector('.r-image').addEventListener('input',e=>{HERITAGES[i].image=e.target.value.trim();row.querySelector('.relic-thumb').innerHTML=relicInner(HERITAGES[i]);});
+    row.querySelector('.r-del').addEventListener('click',()=>{
+      if(!confirm(`'${HERITAGES[i].name||'이 유물'}'을(를) 삭제하시겠습니까?`))return;
+      HERITAGES.splice(i,1);renderRelicList();
+    });
+    row.querySelector('.r-upload').addEventListener('change',async e=>{
+      const file=e.target.files[0];if(!file)return;
+      const st=row.querySelector('.upload-status');st.textContent='업로드 중…';
+      try{
+        const ext=(file.name.split('.').pop()||'jpg').toLowerCase();
+        const fileRef=sRef(storage,`j_science/heritage/${HERITAGES[i].id||'relic'}_${Date.now()}.${ext}`);
+        await uploadBytes(fileRef,file);
+        const url=await getDownloadURL(fileRef);
+        HERITAGES[i].image=url;
+        st.textContent='완료 (저장 버튼을 눌러야 반영)';
+        renderRelicList();
+      }catch(err){st.textContent='실패: '+err.message;}
+    });
+  });
+}
+document.getElementById('add-relic-btn').addEventListener('click',()=>{
+  HERITAGES.push({id:'relic_'+Date.now(),name:'',emoji:'🏛️',image:'',hint:''});
+  renderRelicList();
+});
+document.getElementById('reset-relic-btn').addEventListener('click',()=>{
+  if(!confirm('유물 목록을 기본 8종으로 되돌리시겠습니까? (저장 전까지는 반영되지 않습니다)'))return;
+  HERITAGES=DEFAULT_HERITAGES.map(h=>({...h}));renderRelicList();
+});
+document.getElementById('save-relic-btn').addEventListener('click',async()=>{
+  HERITAGES.forEach(h=>{if(!h.id)h.id='relic_'+Math.random().toString(36).slice(2,8);});
+  const msg=document.getElementById('relic-save-msg');
+  try{
+    await setDoc(doc(db,'settings','j_science_heritage'),{heritages:HERITAGES});
+    msg.textContent='저장되었습니다. 학생 화면에 반영됩니다.';msg.className='save-msg ok';
+  }catch(e){msg.textContent='저장 실패: '+e.message;msg.className='save-msg';}
+});
+
+/* ── 명단 ── */
+async function loadRoster(){
+  try{
+    const snap=await get(ref(rtdb,'students'));
+    const data=snap.val()||{};
+    roster=Object.values(data).filter(Boolean)
+      .map(s=>({studentId:String(s.studentId||s.id||'').trim(),name:s.name||''}))
+      .filter(s=>s.studentId)
+      .map(s=>({...s,classNum:classNumOf(s.studentId)}))
+      .filter(s=>s.classNum!==0);
+  }catch(e){roster=[];}
+}
+
+/* ── 실시간 리스너 ── */
+function startListeners(){
+  if(cardsUnsub)cardsUnsub();
+  if(votesUnsub)votesUnsub();
+  cardsUnsub=onSnapshot(collection(db,'j_science_cards'),snap=>{
+    cards=[];snap.forEach(d=>{if(classNumOf(d.id)!==0)cards.push({id:d.id,...d.data()});});
+    cards.sort((a,b)=>(classNumOf(a.id)||0)-(classNumOf(b.id)||0)||String(a.id).localeCompare(String(b.id)));
+    renderAll();
+  });
+  votesUnsub=onSnapshot(collection(db,'j_science_votes'),snap=>{
+    votes=[];snap.forEach(d=>votes.push({id:d.id,...d.data()}));
+    renderAll();
+  });
+}
+function renderAll(){renderClassFilter();updateStats();renderCardList();renderRank();renderVoteDetail();}
+
+/* ── 반 필터 ── */
+function renderClassFilter(){
+  const nums=[...new Set([...roster.map(r=>r.classNum),...cards.map(c=>classNumOf(c.id))])].filter(n=>n!=null).sort((a,b)=>a-b);
+  const classes=['전체',...nums];
+  document.getElementById('class-filter').innerHTML=classes.map(c=>`<button class="cf-btn${String(c)===currentFilter?' active':''}" data-c="${c}">${c==='전체'?'전체':c+'반'}</button>`).join('');
+  document.querySelectorAll('.cf-btn').forEach(btn=>btn.addEventListener('click',()=>{
+    currentFilter=btn.dataset.c;
+    document.querySelectorAll('.cf-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    updateStats();renderCardList();renderRank();renderVoteDetail();
+  }));
+}
+function inFilter(sid){return currentFilter==='전체'||String(classNumOf(sid))===currentFilter;}
+function filteredCards(){return cards.filter(c=>inFilter(c.id));}
+function filteredVotes(){return votes.filter(v=>inFilter(v.id));}
+
+/* ── 통계 ── */
+function updateStats(){
+  const fc=filteredCards();
+  const expected=roster.length?(currentFilter==='전체'?roster.length:roster.filter(r=>String(r.classNum)===currentFilter).length):fc.length;
+  const pass=fc.filter(c=>c.status==='pass').length;
+  const fail=fc.filter(c=>c.status==='fail').length;
+  const unsub=Math.max(0,expected-fc.length);
+  document.getElementById('s-total').textContent=expected||fc.length;
+  document.getElementById('s-sub').textContent=fc.length;
+  document.getElementById('s-unsub').textContent=unsub;
+  document.getElementById('s-pass').textContent=pass;
+  document.getElementById('s-fail').textContent=fail;
+}
+
+/* ── CARD 목록 ── */
+function statusBadge(st){
+  if(st==='pass')return'<span class="status-badge sb-pass">통과</span>';
+  if(st==='fail')return'<span class="status-badge sb-fail">미흡</span>';
+  return'<span class="status-badge sb-pending">미채점</span>';
+}
+function renderCardList(){
+  const el=document.getElementById('card-list');
+  const list=filteredCards();
+  if(!list.length){el.innerHTML='<div class="no-data">아직 제출된 카드가 없습니다.</div>';return;}
+  el.innerHTML=list.map(c=>{
+    const st=c.status||'pending';
+    return`<div class="std-card">
+      <div class="std-card-row" style="cursor:pointer" onclick="this.closest('.std-card').classList.toggle('open')">
+        <div>
+          <div class="std-sid">${esc(String(c.studentId||c.id))}</div>
+          <div class="std-name">${esc(c.name||'')}</div>
+        </div>
+        <div class="std-content">
+          <div class="std-badge-row"><span class="relic-tag">${esc(c.emoji||'')} ${esc(c.heritageName||'')}</span></div>
+          <div class="std-content-main">${esc(c.catch||'')}</div>
+        </div>
+        ${statusBadge(st)}
+      </div>
+      <div class="card-body-open">
+        <div class="score-btns">
+          <button class="ssb ssb-pass${st==='pass'?' active':''}" onclick="window.setStatus('${esc(c.id)}','pass')">통과</button>
+          <button class="ssb ssb-fail${st==='fail'?' active':''}" onclick="window.setStatus('${esc(c.id)}','fail')">미흡</button>
+          <button class="btn btn-ghost btn-sm" onclick="window.delCard('${esc(c.id)}')">삭제</button>
+        </div>
+        ${c.era?`<div class="cb-row"><div class="cb-label">시대</div><div class="cb-text">${esc(c.era)}</div></div>`:''}
+        ${c.use?`<div class="cb-row"><div class="cb-label">용도</div><div class="cb-text">${esc(c.use)}</div></div>`:''}
+        ${c.apply?`<div class="cb-row"><div class="cb-label">활용</div><div class="cb-text">${esc(c.apply)}</div></div>`:''}
+        ${c.reason?`<div class="cb-row"><div class="cb-label">큐레이터의 한마디 (선택 이유)</div><div class="cb-text">${esc(c.reason)}</div></div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+window.setStatus=async(id,st)=>{
+  const cur=cards.find(c=>c.id===id);
+  const next=(cur&&cur.status===st)?null:st;
+  try{await updateDoc(doc(db,'j_science_cards',id),{status:next});}
+  catch(e){alert('오류: '+e.message);}
+};
+window.delCard=async(id)=>{
+  if(!confirm('이 학생의 카드를 삭제하시겠습니까?'))return;
+  try{await deleteDoc(doc(db,'j_science_cards',id));}
+  catch(e){alert('오류: '+e.message);}
+};
+
+/* ── VOTE 랭킹 ── */
+function renderRank(){
+  const el=document.getElementById('rank-list');
+  const fc=filteredCards();
+  const counts={};
+  filteredVotes().forEach(v=>{if(v.targetStudentId)counts[v.targetStudentId]=(counts[v.targetStudentId]||0)+1;});
+  const ranked=fc.map(c=>({c,v:counts[c.id]||0})).sort((a,b)=>b.v-a.v);
+  if(!ranked.length){el.innerHTML='<div class="no-data">집계할 카드가 없습니다.</div>';return;}
+  const max=Math.max(1,...ranked.map(r=>r.v));
+  el.innerHTML=ranked.map((r,i)=>`
+    <div class="rank-item">
+      <div class="rank-pos">${i+1}</div>
+      <div class="rank-info">
+        <div class="rank-name">${esc(r.c.heritageName||'')}</div>
+        <div class="rank-owner">${esc(r.c.name||'')} · ${esc(String(r.c.studentId||r.c.id))}</div>
+      </div>
+      <div class="rank-bar-wrap"><div class="rank-bar" style="width:${(r.v/max*100)||0}%"></div></div>
+      <div class="rank-votes">${r.v}표</div>
+    </div>`).join('');
+}
+
+/* ── VOTE 상세 ── */
+function renderVoteDetail(){
+  const el=document.getElementById('vote-detail');
+  const cardById={};cards.forEach(c=>cardById[c.id]=c);
+  const list=filteredVotes().slice().sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+  if(!list.length){el.innerHTML='<div class="no-data">아직 투표한 학생이 없습니다.</div>';return;}
+  el.innerHTML=list.map(v=>{
+    const target=cardById[v.targetStudentId];
+    const targetName=target?`${target.heritageName} · ${target.name} 큐레이터`:(v.targetHeritageName||'(삭제된 카드)');
+    return`<div class="vote-item">
+      <div class="vote-head">
+        <span class="vote-voter">${esc(v.voterName||'')} <span style="color:var(--hi-text-muted);font-weight:600">(${esc(String(v.voterId||v.id))})</span></span>
+        <span class="vote-arrow">▶</span>
+        <span class="vote-target">${esc(targetName)}</span>
+      </div>
+      <div class="vote-reason">${esc(v.reason||'(이유 없음)')}</div>
+    </div>`;
+  }).join('');
+}
+</script>
+</body>
+</html>
