@@ -26,7 +26,7 @@ body{overflow-x:hidden}
 
 /* 4사분면 실시간 배치판 — 화면 전체 너비, 한 화면에 맞게 반응형 축소 */
 .hi-board-wrap{width:100vw;position:relative;left:50%;margin-left:-50vw;padding:0 12px}
-.hi-quad-board{--jc-scale:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px}
+.hi-quad-board{--jc-scale:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;height:calc(100vh - 190px);min-height:360px}
 .hi-quad{border:1px solid var(--hi-border);border-radius:var(--hi-r-card);background:color-mix(in srgb,var(--ic) 7%,var(--hi-bg-surface));display:flex;flex-direction:column;overflow:hidden;min-height:0}
 .hi-quad.hb{flex-direction:column-reverse}
 .hi-quad-head{display:flex;align-items:baseline;gap:calc(12px*var(--jc-scale));padding:calc(10px*var(--jc-scale)) 18px;flex-shrink:0}
@@ -114,9 +114,8 @@ body{overflow-x:hidden}
     <div class="adm-logo">유교로 다스린다는 것<span class="adm-badge">관리자 모드</span></div>
     <div class="adm-tabs">
       <button class="adm-tab active" data-tab="board">BOARD</button>
-      <button class="adm-tab" data-tab="answer">ANSWER</button>
-      <button class="adm-tab" data-tab="status">STATUS</button>
       <button class="adm-tab" data-tab="cards">CARDS</button>
+      <button class="adm-tab" data-tab="answer">ANSWER</button>
     </div>
     <button class="adm-logout" id="logout-btn">로그아웃</button>
     <button class="adm-back" onclick="window.parent.closeAppAdmin&&window.parent.closeAppAdmin()">목록으로</button>
@@ -145,16 +144,6 @@ body{overflow-x:hidden}
         <div class="hi-sec-title">학생 답변 (실시간)</div>
         <div class="hi-sec-desc">통과 / 미흡으로 채점할 수 있습니다.</div>
         <div id="essay-list"></div>
-      </div>
-    </div>
-
-    <!-- STATUS -->
-    <div class="tab-panel" id="tab-status">
-      <div class="hi-sec">
-        <div class="hi-sec-title">제출 현황</div>
-        <div class="hi-sec-desc">반별 참여 현황입니다.</div>
-        <div class="hi-stats" id="status-stats"></div>
-        <div id="status-detail"></div>
       </div>
     </div>
 
@@ -292,7 +281,7 @@ function startListeners(){
     renderAll();
   });
 }
-function renderAll(){renderClassFilter();renderBoard();renderIdeoDist();renderEssays();renderStatus();}
+function renderAll(){renderClassFilter();renderBoard();renderIdeoDist();renderEssays();}
 
 function inFilter(sid){return currentFilter==='전체'||String(classNumOf(sid))===currentFilter;}
 function fSorts(){return sorts.filter(s=>inFilter(s.id));}
@@ -403,30 +392,6 @@ window.setStatus=async(id,st)=>{
   try{await updateDoc(doc(db,ESSAY_COL,id),{status:next});}
   catch(e){alert('오류: '+e.message);}
 };
-
-/* ── 현황 ── */
-function renderStatus(){
-  const nums=[...new Set(roster.map(r=>r.classNum))].filter(n=>n!=null).sort((a,b)=>a-b);
-  const scopeRoster=currentFilter==='전체'?roster:roster.filter(r=>String(r.classNum)===currentFilter);
-  const sortN=fSorts().filter(s=>s.placements&&Object.keys(s.placements).length).length;
-  const essayN=fEssays().length;
-  const cmpN=fEssays().filter(e=>e.firstAnswer||e.changed).length;
-  const expected=scopeRoster.length||Math.max(sortN,essayN);
-  document.getElementById('status-stats').innerHTML=
-    `<div class="hi-stat"><div class="hi-stat-l">대상</div><div class="hi-stat-v">${expected}</div></div>`+
-    `<div class="hi-stat"><div class="hi-stat-l">분류</div><div class="hi-stat-v">${sortN}</div></div>`+
-    `<div class="hi-stat"><div class="hi-stat-l">서술</div><div class="hi-stat-v">${essayN}</div></div>`+
-    `<div class="hi-stat"><div class="hi-stat-l">비교</div><div class="hi-stat-v">${cmpN}</div></div>`;
-  if(currentFilter==='전체'&&nums.length){
-    document.getElementById('status-detail').innerHTML='<div class="hi-dist" style="margin-top:6px">'+nums.map(cn=>{
-      const exp=roster.filter(r=>r.classNum===cn).length||1;
-      const eN=essays.filter(e=>classNumOf(e.id)===cn&&e.text).length;
-      return`<div class="hi-dist-i" style="--ic:var(--hi-accent)"><div class="hi-dist-n" style="color:var(--hi-text)">${cn}반</div>
-        <div class="hi-dist-bw"><div class="hi-dist-b" style="width:${Math.round(eN/exp*100)}%"></div></div>
-        <div class="hi-dist-c">${eN}/${exp}</div></div>`;
-    }).join('')+'</div>';
-  }else{document.getElementById('status-detail').innerHTML='';}
-}
 
 /* ── 카드 편집 ── */
 function renderCardEditor(){
