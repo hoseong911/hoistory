@@ -11,9 +11,9 @@
 <script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
 <style>
 .hi-preset-paper{
-  --hi-ideo-minbon:#2E5A8C; --hi-ideo-deokchi:#6B4C9A; --hi-ideo-ye:#B23A3A; --hi-ideo-gyohwa:#3E7C5A;
-  --hi-side-in:#2E5A8C; --hi-side-in-soft:rgba(46,90,140,.14);
-  --hi-side-out:#3E7C5A; --hi-side-out-soft:rgba(62,124,90,.14);
+  /* 색은 대내(나라 안)/대외(나라 밖) 구분에만 쓴다. 이념은 색 없이 이름으로 구분. */
+  --hi-side-in:#2E5A8C; --hi-side-in-soft:rgba(46,90,140,.16);
+  --hi-side-out:#3E7C5A; --hi-side-out-soft:rgba(62,124,90,.16);
 }
 body{overflow-x:hidden}
 .hi-sec{background:var(--hi-bg-surface);border:1px solid var(--hi-border);border-radius:var(--hi-r-card);padding:20px;margin-bottom:16px}
@@ -24,40 +24,54 @@ body{overflow-x:hidden}
 .hi-cf{border:1.5px solid var(--hi-border);background:var(--hi-bg-surface);border-radius:var(--hi-r-pill);padding:6px 15px;font-size:13px;font-weight:700;color:var(--hi-text-muted);cursor:pointer}
 .hi-cf.active{background:var(--hi-text);color:var(--hi-bg-base);border-color:var(--hi-text)}
 
-/* 4사분면 실시간 배치판 — 화면 전체 너비, 한 화면에 맞게 반응형 축소 */
+/* 4사분면 배치판 — 화면 전체 너비, 카드 크기=인원, 누르면 모달 */
 .hi-board-wrap{width:100vw;position:relative;left:50%;margin-left:-50vw;padding:0 12px}
-.hi-quad-board{--jc-scale:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;height:calc(100vh - 190px);min-height:360px}
-.hi-quad{border:1px solid var(--hi-border);border-radius:var(--hi-r-card);background:color-mix(in srgb,var(--ic) 7%,var(--hi-bg-surface));display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.hi-quad-board{--jc-scale:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;height:calc(100vh - 170px);min-height:360px}
+.hi-quad{border:1px solid var(--hi-border);border-radius:var(--hi-r-card);background:var(--hi-bg-surface);display:flex;flex-direction:column;overflow:hidden;min-height:0}
 .hi-quad.hb{flex-direction:column-reverse}
-.hi-quad-head{display:flex;align-items:baseline;gap:calc(12px*var(--jc-scale));padding:calc(10px*var(--jc-scale)) 18px;flex-shrink:0}
-.hi-quad.left .hi-quad-head{justify-content:flex-end;text-align:right}
+.hi-quad-head{display:flex;align-items:baseline;gap:12px;padding:10px 18px;flex-shrink:0}
+.hi-quad.left .hi-quad-head{justify-content:flex-end}
 .hi-quad.right .hi-quad-head{justify-content:flex-start}
-.hi-quad-name{font-family:var(--hi-font);font-weight:900;font-size:calc(26px*var(--jc-scale));color:var(--ic);line-height:1}
-.hi-quad-n{font-family:var(--hi-font);font-weight:900;font-size:calc(22px*var(--jc-scale));color:var(--hi-text-muted);line-height:1}
-.hi-quad-body{padding:calc(9px*var(--jc-scale)) 14px calc(12px*var(--jc-scale));display:flex;flex-wrap:wrap;gap:calc(6px*var(--jc-scale));align-content:flex-start;flex:1;overflow:hidden;min-height:0}
-.hi-tile{display:inline-flex;flex-direction:column;gap:1px;border-radius:8px;padding:calc(4px*var(--jc-scale)) calc(9px*var(--jc-scale));background:var(--hi-bg-card)}
-.hi-tile.in{background:var(--hi-side-in-soft)}
-.hi-tile.out{background:var(--hi-side-out-soft)}
-.hi-tile-t{font-size:calc(13px*var(--jc-scale));font-weight:800;color:var(--hi-text);line-height:1.2}
-.hi-tile-n{font-size:calc(10px*var(--jc-scale));color:var(--hi-text-muted);font-weight:600}
-.hi-quad-empty{font-size:12px;color:var(--hi-text-muted);opacity:.6}
+.hi-quad-name{font-family:var(--hi-font);font-weight:900;font-size:26px;color:var(--hi-text);line-height:1}
+.hi-quad-n{font-family:var(--hi-font);font-weight:900;font-size:22px;color:var(--hi-text-muted);line-height:1}
+.hi-quad-body{padding:10px 14px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;align-content:center;justify-content:center;flex:1;overflow:hidden;min-height:0}
+.hi-tile{display:inline-flex;align-items:baseline;gap:.35em;border-radius:11px;padding:.32em .62em;background:var(--hi-bg-card);border:1px solid var(--hi-border-faint);cursor:pointer;font-family:inherit;line-height:1.1;transition:transform .1s}
+.hi-tile:hover{transform:scale(1.04)}
+.hi-tile.in{background:var(--hi-side-in-soft);border-color:transparent}
+.hi-tile.out{background:var(--hi-side-out-soft);border-color:transparent}
+.hi-tile-t{font-weight:800;color:var(--hi-text)}
+.hi-tile-c{font-size:.52em;font-weight:800;color:var(--hi-text-muted)}
+.hi-quad-empty{font-size:13px;color:var(--hi-text-muted);opacity:.6}
+.hi-board-legend{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;font-size:11.5px;color:var(--hi-text-muted);margin-top:10px}
+.hi-board-legend .k{display:inline-flex;align-items:center;gap:5px}
+.hi-board-legend .sw{width:12px;height:12px;border-radius:3px}
 
-/* 통계 */
-.hi-stats{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-bottom:16px}
-.hi-stat{background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:14px;padding:12px 20px;text-align:center;min-width:92px}
-.hi-stat-l{font-size:12px;font-weight:700;color:var(--hi-text-muted);margin-bottom:6px}
-.hi-stat-v{font-family:var(--hi-font);font-weight:900;font-size:28px;line-height:1;color:var(--hi-text)}
+/* 모달 */
+.hi-modal-back{position:fixed;inset:0;background:rgba(26,18,8,.4);display:none;align-items:center;justify-content:center;padding:20px;z-index:50}
+.hi-modal-back.open{display:flex}
+.hi-modal{background:var(--hi-bg-surface);border-radius:16px;padding:20px;max-width:480px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:var(--hi-shadow-dialog)}
+.hi-modal-head{display:flex;align-items:center;gap:9px;margin-bottom:4px}
+.hi-modal-ideo{font-size:11px;font-weight:800;color:var(--hi-bg-base);background:var(--hi-text);border-radius:6px;padding:2px 9px}
+.hi-modal-title{font-family:var(--hi-font);font-weight:900;font-size:19px;color:var(--hi-text)}
+.hi-modal-sub{font-size:12.5px;color:var(--hi-text-muted);margin-bottom:14px}
+.hi-modal-list{overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.hi-mrow{display:flex;gap:8px;align-items:baseline;background:var(--hi-bg-mid);border-radius:8px;padding:7px 11px}
+.hi-mrow .sid{font-size:11.5px;font-weight:700;color:var(--hi-text-muted);font-variant-numeric:tabular-nums}
+.hi-mrow .nm{font-size:13px;font-weight:700;color:var(--hi-text)}
+.hi-modal-close{margin-top:14px;align-self:center;border:1.5px solid var(--hi-border);background:none;border-radius:var(--hi-r-pill);padding:9px 26px;font-family:inherit;font-size:13px;font-weight:700;color:var(--hi-text-muted);cursor:pointer}
+
+/* 이념 분포 */
 .hi-dist{display:flex;flex-direction:column;gap:7px}
 .hi-dist-i{display:flex;align-items:center;gap:10px}
-.hi-dist-n{width:100px;flex-shrink:0;font-weight:800;font-size:13px;color:var(--ic)}
+.hi-dist-n{width:100px;flex-shrink:0;font-weight:800;font-size:13px;color:var(--hi-text)}
 .hi-dist-bw{flex:1;background:var(--hi-bg-mid);border-radius:7px;height:20px;overflow:hidden}
-.hi-dist-b{height:100%;border-radius:7px;background:var(--ic)}
+.hi-dist-b{height:100%;border-radius:7px;background:var(--hi-accent)}
 .hi-dist-c{width:48px;text-align:right;font-size:12px;font-weight:800;color:var(--hi-text-muted)}
 
 /* 서술 카드 */
 .hi-essay{background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:12px;padding:13px 15px;margin-bottom:9px}
 .hi-essay-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
-.hi-essay-ideo{font-size:11px;font-weight:800;color:#fff;background:var(--ic,var(--hi-accent));border-radius:6px;padding:2px 9px}
+.hi-essay-ideo{font-size:11px;font-weight:800;color:var(--hi-bg-base);background:var(--hi-text);border-radius:6px;padding:2px 9px}
 .hi-essay-who{font-size:12.5px;font-weight:700;color:var(--hi-text)}
 .hi-essay-sid{font-size:11px;color:var(--hi-text-muted);font-weight:600}
 .hi-essay-badge{margin-left:auto;font-size:11px;font-weight:800;padding:3px 9px;border-radius:6px}
@@ -83,7 +97,6 @@ body{overflow-x:hidden}
 .c-side{flex-shrink:0;width:96px}
 .c-title{flex:1;min-width:0;font-weight:700}
 .c-desc{width:100%}
-.c-del{flex-shrink:0}
 .hi-save-msg{text-align:center;font-size:12.5px;color:var(--hi-text-muted);min-height:16px;margin-top:10px;font-weight:700}
 .hi-save-msg.ok{color:var(--hi-positive)}
 
@@ -130,20 +143,11 @@ body{overflow-x:hidden}
     <div class="tab-panel active" id="tab-board">
       <div class="hi-board-wrap">
         <div class="hi-quad-board" id="quad-board"></div>
-      </div>
-    </div>
-
-    <!-- ANSWER -->
-    <div class="tab-panel" id="tab-answer">
-      <div class="hi-sec">
-        <div class="hi-sec-title">고른 이념 분포</div>
-        <div class="hi-sec-desc">학생들이 서술에서 중심으로 고른 이념입니다.</div>
-        <div class="hi-dist" id="ideo-dist"></div>
-      </div>
-      <div class="hi-sec">
-        <div class="hi-sec-title">학생 답변 (실시간)</div>
-        <div class="hi-sec-desc">통과 / 미흡으로 채점할 수 있습니다.</div>
-        <div id="essay-list"></div>
+        <div class="hi-board-legend">
+          <span class="k"><span class="sw" style="background:var(--hi-side-in)"></span>나라 안 (통치)</span>
+          <span class="k"><span class="sw" style="background:var(--hi-side-out)"></span>나라 밖 (대외)</span>
+          <span>카드가 클수록 많이 모인 것. 카드를 누르면 누가 놓았는지 보입니다.</span>
+        </div>
       </div>
     </div>
 
@@ -162,7 +166,31 @@ body{overflow-x:hidden}
       </div>
     </div>
 
+    <!-- ANSWER -->
+    <div class="tab-panel" id="tab-answer">
+      <div class="hi-sec">
+        <div class="hi-sec-title">고른 이념 분포</div>
+        <div class="hi-sec-desc">학생들이 서술에서 중심으로 고른 이념입니다.</div>
+        <div class="hi-dist" id="ideo-dist"></div>
+      </div>
+      <div class="hi-sec">
+        <div class="hi-sec-title">학생 답변 (실시간)</div>
+        <div class="hi-sec-desc">통과 / 미흡으로 채점할 수 있습니다.</div>
+        <div id="essay-list"></div>
+      </div>
+    </div>
+
   </div>
+  </div>
+</div>
+
+<!-- 배치 학생 목록 모달 -->
+<div class="hi-modal-back" id="modal">
+  <div class="hi-modal">
+    <div class="hi-modal-head"><span class="hi-modal-ideo" id="m-ideo"></span><span class="hi-modal-title" id="m-title"></span></div>
+    <div class="hi-modal-sub" id="m-sub"></div>
+    <div class="hi-modal-list" id="m-list"></div>
+    <button class="hi-modal-close" id="m-close">닫기</button>
   </div>
 </div>
 
@@ -179,10 +207,10 @@ const auth=getAuth(app);
 const rtdb=getDatabase(app);
 
 const IDEOLOGIES=[
-  {key:'minbon', name:'민본',       v:'--hi-ideo-minbon',  pos:'left'},
-  {key:'deokchi',name:'덕치와 문치', v:'--hi-ideo-deokchi', pos:'right'},
-  {key:'ye',     name:'예와 명분',   v:'--hi-ideo-ye',      pos:'left'},
-  {key:'gyohwa', name:'교화',       v:'--hi-ideo-gyohwa',  pos:'right'}
+  {key:'minbon', name:'민본',       pos:'left'},
+  {key:'deokchi',name:'덕치와 문치', pos:'right'},
+  {key:'ye',     name:'예와 명분',   pos:'left'},
+  {key:'gyohwa', name:'교화',       pos:'right'}
 ];
 const DEFAULT_CARDS=[
   {id:'c1', side:'in',  title:'과거제',        desc:'유교 경전 시험을 치러 관리를 뽑았다'},
@@ -205,6 +233,7 @@ const ESSAY_COL='j_confucian_essays';
 let roster=[], sorts=[], essays=[];
 let currentFilter='전체';
 let sortsUnsub=null, essaysUnsub=null;
+let BOARD_DATA={};
 const isEmbedded=window.self!==window.top;
 
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -294,33 +323,35 @@ function renderClassFilter(){
   document.querySelectorAll('.hi-cf').forEach(btn=>btn.addEventListener('click',()=>{currentFilter=btn.dataset.c;renderAll();}));
 }
 
-/* ── 4사분면 실시간 배치판 ── */
+/* ── 4사분면 배치판 (카드별 집계, 크기=인원, 클릭=학생 목록) ── */
 function renderBoard(){
   const list=fSorts();
-  const byIdeo={};IDEOLOGIES.forEach(io=>byIdeo[io.key]=[]);
+  const byIdeo={};IDEOLOGIES.forEach(io=>byIdeo[io.key]={});
   list.forEach(s=>{
     const p=s.placements||{};
     Object.keys(p).forEach(cid=>{
-      const card=cardById(cid);const k=p[cid];
-      if(card&&byIdeo[k])byIdeo[k].push({card,name:s.name||String(s.id)});
+      const k=p[cid];const card=cardById(cid);
+      if(!card||!byIdeo[k])return;
+      if(!byIdeo[k][cid])byIdeo[k][cid]={students:[]};
+      byIdeo[k][cid].students.push({sid:String(s.studentId||s.id),name:s.name||String(s.id)});
     });
   });
+  let maxC=1;IDEOLOGIES.forEach(io=>Object.values(byIdeo[io.key]).forEach(v=>{if(v.students.length>maxC)maxC=v.students.length;}));
+  BOARD_DATA={};
   document.getElementById('quad-board').innerHTML=IDEOLOGIES.map((io,idx)=>{
-    // 카드 가나다순, 그다음 학생 이름순 정렬
-    const tiles=byIdeo[io.key].sort((a,b)=>
-      a.card.title.localeCompare(b.card.title,'ko')||String(a.name).localeCompare(String(b.name),'ko'));
-    const isTopRow=idx<2; // 윗줄 사분면은 문구가 아래(중앙 쪽)로
-    const name=`<span class="hi-quad-name">${esc(io.name)}</span>`;
-    const num=`<span class="hi-quad-n">${tiles.length}</span>`;
-    // 왼쪽 열: 숫자 왼쪽 + 오른쪽정렬 / 오른쪽 열: 숫자 오른쪽 + 왼쪽정렬
+    const entries=Object.entries(byIdeo[io.key]).sort((a,b)=>b[1].students.length-a[1].students.length);
+    const isTop=idx<2;
+    const total=entries.reduce((s,[,v])=>s+v.students.length,0);
+    const name=`<span class="hi-quad-name">${esc(io.name)}</span>`,num=`<span class="hi-quad-n">${total}</span>`;
     const head=io.pos==='left'?`${num}${name}`:`${name}${num}`;
-    const body=tiles.length?tiles.map(t=>`
-      <div class="hi-tile ${t.card.side}"><span class="hi-tile-t">${esc(t.card.title)}</span><span class="hi-tile-n">${esc(t.name)}</span></div>`).join('')
-      :'<div class="hi-quad-empty">아직 없음</div>';
-    return`<div class="hi-quad ${io.pos}${isTopRow?' hb':''}" style="--ic:var(${io.v})">
-      <div class="hi-quad-head">${head}</div>
-      <div class="hi-quad-body">${body}</div>
-    </div>`;
+    const body=entries.map(([cid,v])=>{
+      const card=cardById(cid);const cnt=v.students.length;
+      const fs=(14+(cnt/maxC)*30).toFixed(1);
+      const key=io.key+'|'+cid;
+      BOARD_DATA[key]={ideo:io,card,students:v.students};
+      return`<button class="hi-tile ${card.side}" style="font-size:calc(var(--jc-scale)*${fs}px)" data-key="${key}"><span class="hi-tile-t">${esc(card.title)}</span><span class="hi-tile-c">${cnt}</span></button>`;
+    }).join('')||'<span class="hi-quad-empty">아직 없음</span>';
+    return`<div class="hi-quad ${io.pos}${isTop?' hb':''}"><div class="hi-quad-head">${head}</div><div class="hi-quad-body">${body}</div></div>`;
   }).join('');
   requestAnimationFrame(fitBoard);
 }
@@ -328,16 +359,31 @@ function fitBoard(){
   const board=document.getElementById('quad-board');
   if(!board||!board.offsetParent)return;
   const top=board.getBoundingClientRect().top;
-  const h=Math.max(340,window.innerHeight-top-14);
-  board.style.height=h+'px';
+  board.style.height=Math.max(340,window.innerHeight-top-14)+'px';
   board.style.setProperty('--jc-scale','1');
   const bodies=[...board.querySelectorAll('.hi-quad-body')];
-  const overflow=()=>bodies.some(b=>b.scrollHeight>b.clientHeight+1);
-  let scale=1,g=0;
-  while(overflow()&&scale>0.5&&g<26){scale-=0.05;board.style.setProperty('--jc-scale',scale.toFixed(2));g++;}
+  const over=()=>bodies.some(b=>b.scrollHeight>b.clientHeight+1);
+  let s=1,g=0;
+  while(over()&&s>0.4&&g<30){s-=0.05;board.style.setProperty('--jc-scale',s.toFixed(2));g++;}
 }
 let resizeT=null;
 window.addEventListener('resize',()=>{clearTimeout(resizeT);resizeT=setTimeout(fitBoard,150);});
+
+/* 모달 — 카드를 누른 학생 목록 */
+const modal=document.getElementById('modal');
+document.getElementById('quad-board').addEventListener('click',e=>{
+  const btn=e.target.closest('.hi-tile');if(!btn)return;
+  const d=BOARD_DATA[btn.dataset.key];if(!d)return;
+  document.getElementById('m-ideo').textContent=d.ideo.name;
+  document.getElementById('m-title').textContent=d.card.title;
+  document.getElementById('m-sub').textContent=`이 카드를 '${d.ideo.name}'으로 분류한 학생 ${d.students.length}명`;
+  document.getElementById('m-list').innerHTML=d.students.slice()
+    .sort((a,b)=>a.sid.localeCompare(b.sid))
+    .map(s=>`<div class="hi-mrow"><span class="sid">${esc(s.sid)}</span><span class="nm">${esc(s.name)}</span></div>`).join('');
+  modal.classList.add('open');
+});
+document.getElementById('m-close').addEventListener('click',()=>modal.classList.remove('open'));
+modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.remove('open');});
 
 /* ── 이념 분포 ── */
 function renderIdeoDist(){
@@ -346,7 +392,7 @@ function renderIdeoDist(){
   document.getElementById('ideo-dist').innerHTML=IDEOLOGIES.map(io=>{
     const n=list.filter(e=>e.ideology===io.key).length;
     const pct=Math.round(n/total*100);
-    return`<div class="hi-dist-i" style="--ic:var(${io.v})">
+    return`<div class="hi-dist-i">
       <div class="hi-dist-n">${esc(io.name)}</div>
       <div class="hi-dist-bw"><div class="hi-dist-b" style="width:${list.length?pct:0}%"></div></div>
       <div class="hi-dist-c">${n}명</div>
@@ -370,7 +416,7 @@ function renderEssays(){
     const st=e.status||'';
     const evi=(e.inCardId||e.outCardId)?`<div class="hi-essay-evi">근거 — 안: ${esc(cardT(e.inCardId)||'미선택')} / 밖: ${esc(cardT(e.outCardId)||'미선택')}</div>`:'';
     const cmp=(e.firstAnswer||e.changed)?`<div class="hi-essay-cmp"><b>처음:</b> ${esc(e.firstAnswer||'-')}<br><b>달라진 점:</b> ${esc(e.changed||'-')}</div>`:'';
-    return`<div class="hi-essay" style="--ic:var(${io?io.v:'--hi-accent'})">
+    return`<div class="hi-essay">
       <div class="hi-essay-head">
         <span class="hi-essay-ideo">${io?esc(io.name):'이념'}</span>
         <span class="hi-essay-who">${esc(e.name||'')}</span>
