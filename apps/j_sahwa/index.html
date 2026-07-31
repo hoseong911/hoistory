@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사화에서 살아남기 — 27강 선비 생존 게임</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@400;600;800&family=IBM+Plex+Sans+KR:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#DDD8C4;
+    --paper-panel:#E8E4D4;
+    --paper-deep:#CDC7B0;
+    --ink:#23201A;
+    --ink-soft:#5F594B;
+    --ink-faint:#8C8674;
+    --rule:#A8322D;
+    --seal:#B32B21;
+    --dong:#2E4A62;
+    --seo:#7A5C1E;
+    --serif:'Hahmlet','Nanum Myeongjo',Batang,바탕,serif;
+    --sans:'IBM Plex Sans KR','Malgun Gothic',맑은 고딕,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-weight:300;
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* 지본(紙本) 결 */
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:
+      repeating-linear-gradient(90deg, rgba(35,32,26,.035) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at 20% 10%, rgba(120,105,70,.10), transparent 60%),
+      radial-gradient(ellipse at 85% 80%, rgba(90,80,55,.09), transparent 55%);
+  }
+  #app{position:relative;z-index:1;min-height:100%;display:flex;flex-direction:column}
+
+  /* ── 상태 표시줄 ── */
+  .bar{
+    display:flex;align-items:center;gap:1rem;flex-wrap:wrap;
+    padding:.6rem 1.2rem;border-bottom:1.5px solid var(--ink);
+    background:var(--paper-panel);
+  }
+  .bar .yr{font-family:var(--mono);font-size:1.05rem;font-weight:500;letter-spacing:.04em}
+  .bar .gan{font-family:var(--serif);font-size:.95rem;color:var(--ink-soft)}
+  .bar .ho{font-family:var(--serif);font-weight:600;font-size:1rem}
+  .bar .spacer{flex:1}
+  .stat{font-family:var(--mono);font-size:.8rem;letter-spacing:.02em;color:var(--ink-soft)}
+  .stat b{font-family:var(--sans);font-weight:600;color:var(--ink);font-size:.9rem}
+  .tag{
+    font-size:.72rem;font-weight:500;letter-spacing:.08em;
+    border:1px solid var(--ink);padding:.1rem .45rem;
+  }
+  .tag.dead{background:var(--seal);border-color:var(--seal);color:var(--paper-panel)}
+
+  /* ── 본문 배치 ── */
+  main{flex:1;display:flex;align-items:stretch;gap:0}
+  #stage{flex:1;padding:2.4rem 1.5rem 3rem;max-width:46rem;margin:0 auto;width:100%}
+
+  /* ── 사초 세로 기둥 (signature) ── */
+  #chronicle{
+    width:9.5rem;flex:none;border-left:1.5px solid var(--ink);
+    background:
+      repeating-linear-gradient(to left,
+        transparent 0 2.35rem,
+        rgba(168,50,45,.45) 2.35rem 2.4rem);
+    background-color:var(--paper-deep);
+    padding:1rem .5rem;overflow-x:auto;overflow-y:hidden;
+  }
+  #chronicle .head{
+    writing-mode:vertical-rl;font-family:var(--serif);font-weight:800;
+    font-size:1.05rem;letter-spacing:.5em;color:var(--rule);
+    border-bottom:none;margin:0 0 .4rem 0;
+  }
+  .cols{display:flex;flex-direction:row-reverse;justify-content:flex-start;gap:0;height:calc(100% - 3rem)}
+  .col{
+    writing-mode:vertical-rl;font-family:var(--serif);font-size:.86rem;
+    line-height:2.4rem;letter-spacing:.06em;padding:0;width:2.4rem;flex:none;
+    color:var(--ink);animation:bleed .5s ease-out both;
+  }
+  .col .y{font-weight:800;color:var(--rule)}
+  .col.gone{color:var(--ink-faint)}
+  @keyframes bleed{from{opacity:0;filter:blur(3px)}to{opacity:1;filter:none}}
+
+  /* ── 활자 ── */
+  .eyebrow{
+    font-family:var(--mono);font-size:.75rem;letter-spacing:.24em;
+    color:var(--rule);text-transform:uppercase;margin-bottom:.7rem;
+  }
+  h1{
+    font-family:var(--serif);font-weight:800;font-size:clamp(2rem,7vw,3.1rem);
+    line-height:1.2;letter-spacing:-.01em;margin-bottom:.4rem;
+  }
+  h2{
+    font-family:var(--serif);font-weight:800;font-size:clamp(1.5rem,5vw,2.1rem);
+    line-height:1.3;margin-bottom:.9rem;
+  }
+  h3{font-family:var(--serif);font-weight:600;font-size:1.1rem;margin-bottom:.5rem}
+  .lede{font-size:1.02rem;color:var(--ink-soft);margin-bottom:1.8rem;max-width:34rem}
+  .situation{
+    font-size:1.02rem;border-left:3px solid var(--rule);
+    padding:.2rem 0 .2rem 1rem;margin-bottom:1.6rem;max-width:36rem;
+  }
+  .quiet{color:var(--ink-soft);font-size:.92rem}
+
+  /* ── 선택지 ── */
+  .choices{display:flex;flex-direction:column;gap:.7rem;max-width:36rem}
+  button.choice{
+    text-align:left;font-family:var(--sans);font-size:1rem;font-weight:400;
+    background:var(--paper-panel);color:var(--ink);
+    border:1.5px solid var(--ink);border-radius:0;padding:.9rem 1.1rem;
+    cursor:pointer;display:flex;gap:.9rem;align-items:baseline;
+    transition:background .12s, transform .12s;
+  }
+  button.choice .n{font-family:var(--mono);font-size:.8rem;color:var(--rule);flex:none}
+  button.choice:hover{background:var(--ink);color:var(--paper);transform:translateX(3px)}
+  button.choice:hover .n{color:var(--paper-deep)}
+  button.go{
+    font-family:var(--serif);font-weight:600;font-size:1rem;letter-spacing:.06em;
+    background:var(--ink);color:var(--paper);border:1.5px solid var(--ink);
+    padding:.75rem 1.8rem;cursor:pointer;border-radius:0;margin-top:1.6rem;
+    transition:opacity .12s;
+  }
+  button.go:hover{opacity:.82}
+  button.ghost{
+    background:transparent;color:var(--ink);border:1.5px solid var(--ink);
+    font-family:var(--sans);font-size:.88rem;padding:.5rem 1rem;cursor:pointer;
+    border-radius:0;margin-top:1rem;
+  }
+  button.ghost:hover{background:var(--ink);color:var(--paper)}
+  :focus-visible{outline:3px solid var(--rule);outline-offset:2px}
+
+  /* ── 입력 ── */
+  .field{margin-bottom:1.6rem;max-width:36rem}
+  .label{font-size:.82rem;font-weight:600;letter-spacing:.02em;margin-bottom:.5rem;display:block}
+  .label span{font-weight:300;color:var(--ink-faint)}
+  input[type=text]{
+    font-family:var(--serif);font-size:1.4rem;font-weight:600;
+    background:transparent;border:none;border-bottom:1.5px solid var(--ink);
+    padding:.3rem .2rem;width:min(14rem,100%);color:var(--ink);
+  }
+  input[type=text]:focus{outline:none;border-bottom-color:var(--rule)}
+  .pick{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+  .pick button{
+    text-align:left;background:var(--paper-panel);border:1.5px solid var(--ink);
+    padding:.8rem .9rem;cursor:pointer;border-radius:0;font-family:var(--sans);
+    color:var(--ink);transition:background .12s;
+  }
+  .pick button strong{font-family:var(--serif);font-size:1.05rem;display:block;margin-bottom:.2rem}
+  .pick button small{color:var(--ink-soft);font-size:.82rem;line-height:1.5;display:block}
+  .pick button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
+  .pick button[aria-pressed=true] small{color:var(--paper-deep)}
+  .pick button:hover{background:var(--paper-deep)}
+  .pick button[aria-pressed=true]:hover{background:var(--ink)}
+
+  /* ── 제비뽑기 ── */
+  .lots{display:flex;gap:.7rem;margin:1.4rem 0;flex-wrap:wrap}
+  .lot{
+    width:3.4rem;height:9rem;background:var(--paper-deep);
+    border:1.5px solid var(--ink);cursor:pointer;border-radius:0;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--serif);font-size:1.5rem;font-weight:800;
+    color:transparent;transition:transform .15s, background .2s;
+    background-image:repeating-linear-gradient(to bottom,transparent 0 12px,rgba(35,32,26,.06) 12px 13px);
+  }
+  .lot:hover:not(.done){transform:translateY(-8px)}
+  .lot.done{cursor:default}
+  .lot.mine{border-width:3px}
+  .lot.hwa{background:var(--seal);color:var(--paper-panel);background-image:none}
+  .lot.myeon{color:var(--ink-soft)}
+
+  /* ── 결과 / 사관의 주 ── */
+  .verdict{
+    font-family:var(--serif);font-weight:800;font-size:clamp(1.6rem,5vw,2.2rem);
+    margin-bottom:.7rem;
+  }
+  .verdict.bad{color:var(--seal)}
+  .note{
+    background:var(--paper-panel);border:1px solid var(--ink-faint);
+    padding:1rem 1.1rem;margin-top:1.6rem;max-width:36rem;
+  }
+  .note .t{
+    font-family:var(--serif);font-weight:600;font-size:.85rem;letter-spacing:.1em;
+    color:var(--rule);margin-bottom:.4rem;
+  }
+  .note p{font-size:.92rem;color:var(--ink-soft)}
+  .delta{font-family:var(--mono);font-size:.85rem;margin-top:.8rem;color:var(--ink-soft)}
+  .delta b{color:var(--ink)}
+
+  /* ── 인장 ── */
+  .seal{
+    width:6.2rem;height:6.2rem;background:var(--seal);color:var(--paper);
+    font-family:var(--serif);font-weight:800;font-size:1.6rem;
+    writing-mode:vertical-rl;letter-spacing:.1em;
+    display:flex;align-items:center;justify-content:center;
+    transform:rotate(-5deg);float:right;margin:0 0 1rem 1rem;
+    animation:stamp .45s cubic-bezier(.2,1.6,.4,1) both;
+    box-shadow:inset 0 0 0 3px rgba(221,216,196,.35);
+  }
+  @keyframes stamp{
+    0%{transform:rotate(-5deg) scale(2.4);opacity:0}
+    60%{transform:rotate(-5deg) scale(.93);opacity:1}
+    100%{transform:rotate(-5deg) scale(1);opacity:1}
+  }
+
+  /* ── 최종 ── */
+  .party{border:1.5px solid var(--ink);padding:1.2rem;margin:1.4rem 0;max-width:36rem}
+  .party.dong{border-left:10px solid var(--dong)}
+  .party.seo{border-left:10px solid var(--seo)}
+  .party .nm{font-family:var(--serif);font-weight:800;font-size:1.7rem;margin-bottom:.3rem}
+  .party.dong .nm{color:var(--dong)}
+  .party.seo .nm{color:var(--seo)}
+  .scroll{
+    background:var(--paper-panel);border:1px solid var(--ink-faint);
+    padding:1rem;margin:1.4rem 0;max-width:36rem;
+  }
+  .scroll li{font-family:var(--serif);font-size:.95rem;list-style:none;padding:.25rem 0;border-bottom:1px dotted var(--ink-faint)}
+  .scroll li:last-child{border:none}
+  .scroll li .y{color:var(--rule);font-weight:800;margin-right:.5rem}
+  .qs{max-width:36rem;margin-top:1.6rem}
+  .qs li{margin:.5rem 0 .5rem 1.2rem;font-size:.95rem}
+
+  /* ── 교사용 ── */
+  details.teach{
+    border-top:1.5px solid var(--ink);margin-top:2.4rem;padding-top:1rem;max-width:36rem;
+  }
+  details.teach summary{
+    font-family:var(--mono);font-size:.75rem;letter-spacing:.2em;color:var(--ink-soft);
+    cursor:pointer;list-style:none;
+  }
+  details.teach summary::-webkit-details-marker{display:none}
+  details.teach summary::before{content:"▸ ";color:var(--rule)}
+  details.teach[open] summary::before{content:"▾ "}
+  details.teach .body{font-size:.88rem;color:var(--ink-soft);margin-top:.9rem}
+  details.teach .body li{margin:.3rem 0 .3rem 1.2rem}
+  details.teach .body p{margin:.6rem 0}
+
+  @media (max-width:760px){
+    main{flex-direction:column}
+    #chronicle{
+      width:100%;height:6.5rem;border-left:none;border-top:1.5px solid var(--ink);
+      overflow-x:auto;overflow-y:hidden;padding:.5rem;
+      background:
+        repeating-linear-gradient(to left,transparent 0 2.35rem,rgba(168,50,45,.45) 2.35rem 2.4rem),
+        var(--paper-deep);
+    }
+    #chronicle .head{display:none}
+    .cols{height:100%}
+    .col{font-size:.78rem;line-height:2.4rem}
+    #stage{padding:1.6rem 1.1rem 2.4rem}
+    .pick{grid-template-columns:1fr}
+    .lot{width:2.7rem;height:7rem;font-size:1.2rem}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none !important;transition:none !important}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="bar" id="bar"></header>
+  <main>
+    <section id="stage"></section>
+    <aside id="chronicle">
+      <div class="head">史草</div>
+      <div class="cols" id="cols"></div>
+    </aside>
+  </main>
+</div>
+
+<script>
+"use strict";
+
+const GAN = {1498:"무오",1504:"갑자",1506:"병인",1519:"기묘",1545:"을사",1575:"을해"};
+
+let S = {};
+function reset(){
+  S = {
+    screen:"title", ho:"", master:null, base:null,
+    rank:0, fame:0, alive:true, year:1498,
+    causeOfDeath:null, deathYear:null,
+    betrayed:false, seowon:false,
+    log:[], pending:null
+  };
+}
+reset();
+
+const $ = (s)=>document.querySelector(s);
+const esc = (s)=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function record(year, text){ S.log.push({year, text}); }
+
+/* ── 사초 기둥 ── */
+function drawChronicle(){
+  $("#cols").innerHTML = S.log.map(e=>
+    `<div class="col ${S.alive?"":"gone"}"><span class="y">${GAN[e.year]||""}</span> ${esc(e.text)}</div>`
+  ).join("");
+}
+
+/* ── 상태 표시줄 ── */
+function drawBar(){
+  if(S.screen==="title"){ $("#bar").innerHTML =
+    `<span class="gan">史草</span><span class="stat">선비 생존 게임 · 27강</span>`; return; }
+  const g = GAN[S.year] ? GAN[S.year]+"년" : "";
+  $("#bar").innerHTML = `
+    <span class="yr">${S.year}</span>
+    <span class="gan">${g}</span>
+    <span class="ho">${esc(S.ho)}</span>
+    <span class="tag ${S.alive?"":"dead"}">${S.alive?"생존":"졸(卒)"}</span>
+    <span class="spacer"></span>
+    <span class="stat">官 <b>${S.rank}</b></span>
+    <span class="stat">名 <b>${S.fame}</b></span>`;
+}
+
+/* ── 화면 ── */
+function render(){
+  drawBar(); drawChronicle();
+  const st = $("#stage");
+  if(S.screen==="title") st.innerHTML = titleHTML();
+  else if(S.screen==="round") st.innerHTML = S.pending.html();
+  else if(S.screen==="final") st.innerHTML = finalHTML();
+  st.scrollIntoView({block:"start"});
+}
+
+/* ══════════ 시작 화면 ══════════ */
+function titleHTML(){
+  return `
+  <div class="eyebrow">Ⅳ-2 · 27강 · 1498 → 1575</div>
+  <h1>사화에서<br>살아남기</h1>
+  <p class="lede">그대는 1498년 조선의 선비다. 앞으로 77년, 네 차례의 사화가 몰아친다.
+  선택할 때마다 사관이 그대의 일을 사초에 적는다. 그 기록이 그대를 살릴 수도, 죽일 수도 있다.</p>
+
+  <div class="field">
+    <label class="label" for="ho">그대의 호(號) <span>— 스스로 지어 붙이는 이름</span></label>
+    <input type="text" id="ho" maxlength="6" placeholder="예) 퇴헌" autocomplete="off">
+  </div>
+
+  <div class="field">
+    <span class="label">스승을 고르시오 <span>— 지금은 그저 학문의 취향일 뿐이다</span></span>
+    <div class="pick" id="pickMaster">
+      <button data-v="dong" aria-pressed="false"><strong>이황 · 조식</strong><small>경(敬)과 실천을 앞세운다. 영남에서 배웠다.</small></button>
+      <button data-v="seo" aria-pressed="false"><strong>이이 · 성혼</strong><small>현실의 경장(更張)을 말한다. 기호에서 배웠다.</small></button>
+    </div>
+  </div>
+
+  <div class="field">
+    <span class="label">기반을 고르시오</span>
+    <div class="pick" id="pickBase">
+      <button data-v="central" aria-pressed="false"><strong>중앙 관직형</strong><small>한양에 머물며 3사에서 공론을 편다. 오르기 쉽고, 떨어지기도 쉽다.</small></button>
+      <button data-v="local" aria-pressed="false"><strong>향촌 서원형</strong><small>고향에서 학문을 가르치고 향약을 편다. 느리지만 뿌리가 깊다.</small></button>
+    </div>
+  </div>
+
+  <button class="go" id="start">사초를 펼친다</button>
+
+  <details class="teach">
+    <summary>교사용 안내</summary>
+    <div class="body">
+      <p><b>40분 운영</b></p>
+      <ul>
+        <li>5분 — 링크 배포, 호·스승·기반 설정 (호는 칠판에 모아 적으면 좋습니다)</li>
+        <li>25분 — 개인 플레이. 먼저 끝난 학생은 다른 선택으로 재도전</li>
+        <li>5분 — 동인·서인으로 교실 좌우에 실제로 갈라 세우고 인원 확인</li>
+        <li>5분 — 결과 화면의 세 질문을 활동지 [생각 Check]에 옮겨 적기</li>
+      </ul>
+      <p><b>설계 의도</b> — 갑자사화는 선택과 무관한 제비뽑기입니다. 무오년에 침묵해서 살아남은 학생이 여기서 억울하게 죽습니다.
+      중종반정 부활은 향촌 서원형에게만 주어지므로, 학생들은 죽고 나서야 서원의 가치를 체감합니다.
+      마지막에 아무 생각 없이 고른 스승이 동인·서인을 결정합니다.</p>
+      <p><b>채점하지 마세요</b> — 관직 1위와 명예 1위가 서로 다른 사람인 것이 이 단원의 메시지입니다.
+      명예 8점 이상이면 죽어도 서원에 배향됩니다.</p>
+    </div>
+  </details>`;
+}
+
+function bindTitle(){
+  const wire = (sel, key)=>{
+    const box = $(sel); if(!box) return;
+    box.querySelectorAll("button").forEach(b=>{
+      b.onclick = ()=>{
+        box.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed","false"));
+        b.setAttribute("aria-pressed","true");
+        S[key] = b.dataset.v;
+      };
+    });
+  };
+  wire("#pickMaster","master"); wire("#pickBase","base");
+  const go = $("#start"); if(!go) return;
+  go.onclick = ()=>{
+    const ho = $("#ho").value.trim();
+    if(!ho){ $("#ho").focus(); $("#ho").placeholder="호를 지어야 시작한다"; return; }
+    if(!S.master || !S.base){ alert("스승과 기반을 모두 고르시오."); return; }
+    S.ho = ho;
+    S.fame = S.base==="local" ? 2 : 0;
+    S.rank = S.base==="central" ? 2 : 0;
+    if(S.base==="local") S.seowon = true;
+    record(1498, `${ho}, 사림의 길에 들다`);
+    S.log[0].year = 0;
+    go1498();
+  };
+}
+
+/* ── 라운드 헬퍼 ── */
+function scene({year, eyebrow, title, situation, choices, extra=""}){
+  S.year = year; S.screen="round";
+  S.pending = { html: ()=>`
+    <div class="eyebrow">${eyebrow}</div>
+    <h2>${title}</h2>
+    <div class="situation">${situation}</div>
+    ${extra}
+    <div class="choices" id="ch">
+      ${choices.map((c,i)=>`<button class="choice" data-i="${i}"><span class="n">${i+1}</span><span>${c.label}</span></button>`).join("")}
+    </div>` };
+  render();
+  $("#ch").querySelectorAll("button").forEach(b=>{
+    b.onclick = ()=> choices[+b.dataset.i].go();
+  });
+}
+
+function outcome({verdict, bad=false, body, note, delta="", next, seal=null}){
+  S.screen="round";
+  S.pending = { html: ()=>`
+    ${seal?`<div class="seal">${seal}</div>`:""}
+    <div class="verdict ${bad?"bad":""}">${verdict}</div>
+    <p class="lede">${body}</p>
+    ${delta?`<div class="delta">${delta}</div>`:""}
+    <div class="note"><div class="t">사관의 주(註)</div><p>${note}</p></div>
+    <button class="go" id="next">다음</button>` };
+  render();
+  $("#next").onclick = next;
+}
+
+/* 제비뽑기 */
+function lots({year, eyebrow, title, situation, n, bad, onDone}){
+  S.year = year; S.screen="round";
+  const slips = Array.from({length:n},(_,i)=> i<bad ? "禍" : "免");
+  for(let i=slips.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [slips[i],slips[j]]=[slips[j],slips[i]]; }
+  S.pending = { html: ()=>`
+    <div class="eyebrow">${eyebrow}</div>
+    <h2>${title}</h2>
+    <div class="situation">${situation}</div>
+    <p class="quiet">제비를 하나 뽑으시오. 禍는 화를 입고, 免은 화를 면한다.</p>
+    <div class="lots" id="lots">
+      ${slips.map((_,i)=>`<button class="lot" data-i="${i}" aria-label="제비 ${i+1}">?</button>`).join("")}
+    </div>` };
+  render();
+  const box = $("#lots");
+  box.querySelectorAll(".lot").forEach(el=>{
+    el.onclick = ()=>{
+      const mine = slips[+el.dataset.i];
+      box.querySelectorAll(".lot").forEach((x,i)=>{
+        x.classList.add("done");
+        x.textContent = slips[i];
+        x.classList.add(slips[i]==="禍" ? "hwa" : "myeon");
+        x.onclick = null;
+      });
+      el.classList.add("mine");
+      setTimeout(()=> onDone(mine==="禍"), 850);
+    };
+  });
+}
+
+function die(year, cause){
+  S.alive = false; S.deathYear = year; S.causeOfDeath = cause;
+}
+
+/* ══════════ 1498 무오사화 ══════════ */
+function go1498(){
+  scene({
+    year:1498, eyebrow:"제1화 · 무오사화",
+    title:"스승의 글이 사초에 올랐다",
+    situation:`사관 김일손이 스승 김종직의 「조의제문」을 사초에 실었다.
+      항우에게 죽은 초나라 의제를 조문하는 글이라 하나, 조정은 이것이 세조의 왕위 찬탈을 비난한 글이라 읽는다.
+      연산군과 훈구 대신들이 그대를 불러 세운다. <b>이 글을 어찌 보는가?</b>`,
+    choices:[
+      { label:"스승의 글이 옳다고 아뢴다.", go(){
+          S.fame+=5; record(1498,"스승의 글을 옳다 하다"); die(1498,"무오사화에 연루되어 처형되다");
+          outcome({ verdict:"그대는 형장으로 끌려갔다.", bad:true, seal:"卒",
+            body:"끝내 글을 굽히지 않았다. 사림은 그대의 이름을 오래 기억할 것이다.",
+            delta:`名 <b>+5</b> · 사망 1498`,
+            note:"무오사화로 김일손 등은 처형되고 김종직은 부관참시되었습니다. 사초에 실린 글 한 편이 사림 세력을 조정에서 걷어낸 첫 사건입니다.",
+            next: finish });
+        }},
+      { label:"입을 다물고 아무 말도 하지 않는다.", go(){
+          S.fame-=2; record(1498,"입을 다물다");
+          outcome({ verdict:"그대는 살아남았다.",
+            body:"아무 말도 하지 않았다. 조정은 그대를 놓아주었고, 동문들은 그대를 오래 쳐다보았다.",
+            delta:`名 <b>-2</b>`,
+            note:"화를 피한 사림 다수는 지방으로 물러나 학문과 교육에 힘썼습니다. 침묵은 안전해 보이지만, 다음 사화가 그것을 봐주지는 않습니다.",
+            next: go1504 });
+        }},
+      { label:"스승의 글을 문제 삼아 고한다.", go(){
+          S.rank+=3; S.fame-=5; S.betrayed=true; record(1498,"스승의 글을 고하다");
+          outcome({ verdict:"그대는 관직을 얻었다.",
+            body:"훈구 대신들이 그대의 충심을 칭찬했다. 벼슬이 올랐다. 사림은 그대의 이름을 다르게 기억할 것이다.",
+            delta:`官 <b>+3</b> · 名 <b>-5</b> · 훈구에 붙은 자`,
+            note:"실제로 사림 내부에서도 고변한 인물들이 있었습니다. 다만 훈구에 붙었다고 안전한 것은 아니었습니다. 6년 뒤를 보십시오.",
+            next: go1504 });
+        }}
+    ]
+  });
+}
+
+/* ══════════ 1504 갑자사화 ══════════ */
+function go1504(){
+  const bad = S.betrayed ? 3 : 2;
+  lots({
+    year:1504, eyebrow:"제2화 · 갑자사화",
+    title:"제비를 뽑으시오",
+    situation:`연산군이 생모 폐비 윤씨가 사약을 받고 죽은 일을 알아냈다.
+      임금은 그 일에 관계된 자를 모조리 찾아내라 명한다. 폐위를 건의한 훈구도, 그 자리에 있었던 사림도 가리지 않는다.
+      <b>이번에는 그대의 선택이 아무것도 지켜주지 못한다.</b>${S.betrayed?" 게다가 그대는 훈구 편에 이름을 올린 자다.":""}`,
+    n:5, bad,
+    onDone(isBad){
+      if(isBad){
+        S.fame+=1; record(1504,"화를 입다"); die(1504,"갑자사화에 연루되어 화를 입다");
+        outcome({ verdict:"그대는 화를 입었다.", bad:true, seal:"卒",
+          body:"무슨 말을 했는지, 어느 편에 섰는지는 묻지 않았다. 그저 그 자리에 있었을 뿐이다.",
+          delta:`사망 1504`,
+          note:"갑자사화는 훈구와 사림을 가리지 않고 휩쓸었습니다. 몸을 사려 살아남는 전략이 통하지 않는 시기가 있었다는 뜻입니다.",
+          next: go1506 });
+      } else {
+        record(1504,"화를 면하다");
+        outcome({ verdict:"그대는 화를 면했다.",
+          body:"이유는 없다. 옆자리의 동문은 끌려갔고 그대는 남았다.",
+          note:"갑자사화 뒤 조정은 텅 비다시피 했습니다. 이 무자비함이 2년 뒤 훈구가 연산군을 몰아내는 빌미가 됩니다.",
+          next: go1506 });
+      }
+    }
+  });
+}
+
+/* ══════════ 1506 중종반정 ══════════ */
+function go1506(){
+  S.year = 1506;
+  if(!S.alive){
+    if(S.seowon){
+      S.alive = true; S.deathYear=null; S.causeOfDeath=null; S.fame+=1;
+      record(1506,"서원에서 다시 부름을 받다");
+      outcome({ verdict:"그대의 학맥이 그대를 살렸다.",
+        body:`그대가 향촌에 남긴 서원과 제자들이 그대의 이름을 지켰다. 새 임금 중종이 사림을 다시 부른다. ${esc(S.ho)}, 그대는 조정으로 돌아왔다.`,
+        delta:`名 <b>+1</b> · 부활`,
+        note:"사화로 중앙에서 밀려난 사림은 향촌의 서원과 향약을 기반으로 힘을 길러 다시 중앙에 진출했습니다. 서원이 사림의 정치적 기반이었다는 말은 이런 뜻입니다.",
+        next: go1519 });
+    } else {
+      outcome({ verdict:"훈구가 연산군을 몰아냈다.", bad:true,
+        body:"중종이 왕이 되고 사림을 다시 부른다. 그러나 한양에만 기반을 두었던 그대에게는 그대의 이름을 지켜줄 서원도, 제자도 없었다.",
+        note:"중앙 관직만을 기반으로 삼은 사림은 사화 한 번에 뿌리째 사라졌습니다. 서원과 향약을 기반으로 삼은 이들만이 되살아났습니다.",
+        next: finish });
+    }
+    return;
+  }
+  const gain = S.base==="central" ? "官 <b>+2</b>" : "名 <b>+2</b>";
+  if(S.base==="central") S.rank+=2; else S.fame+=2;
+  record(1506,"반정의 조정에 서다");
+  outcome({ verdict:"중종이 왕이 되었다.",
+    body:"갑자사화에 반발한 훈구 세력이 연산군을 쫓아냈다. 새 임금이 그대를 부른다.",
+    delta: gain,
+    note:"반정을 주도한 것은 훈구였습니다. 그래서 중종 초의 조정은 다시 훈구의 것이었고, 중종은 그들을 견제할 사람이 필요했습니다.",
+    next: go1519 });
+}
+
+/* ══════════ 1519 기묘사화 ══════════ */
+function go1519(){
+  scene({
+    year:1519, eyebrow:"제3화 · 기묘사화",
+    title:"조광조가 그대를 부른다",
+    situation:`중종이 훈구를 견제하려 조광조를 불러들였다. 조광조는 밀어붙인다.
+      추천으로 인재를 뽑는 <b>현량과</b>, 거짓 공신의 자격을 빼앗는 <b>위훈 삭제</b>, 도교 행사를 주관하는 <b>소격서 폐지</b>.
+      임금에게조차 높은 도덕을 요구한다. 조광조가 그대에게 함께 서겠느냐 묻는다.`,
+    choices:[
+      { label:"개혁에 몸을 던진다.", go(){
+          S.fame+=6; record(1519,"개혁에 몸을 던지다"); die(1519,"기묘사화로 사사되다");
+          outcome({ verdict:"주초위왕(走肖爲王).", bad:true, seal:"卒",
+            body:"나뭇잎에 벌레가 갉아먹은 네 글자가 임금 앞에 놓였다. 조(趙)씨가 왕이 된다는 뜻이라 했다. 그대는 조광조와 함께 끌려갔다.",
+            delta:`名 <b>+6</b> · 사망 1519`,
+            note:"급진적 개혁, 특히 위훈 삭제에 부담을 느낀 중종이 훈구와 함께 조광조 세력을 제거했습니다. 사림을 불러들인 것도, 죽인 것도 같은 임금이었습니다.",
+            next: finish });
+        }},
+      { label:"조심스럽게 지지만 한다. (제비뽑기)", go(){
+          record(1519,"말을 아끼다");
+          lots({ year:1519, eyebrow:"제3화 · 기묘사화", title:"그대의 이름은 명단에 있는가",
+            situation:"그대는 앞에 나서지 않았다. 그러나 조광조를 지지한 자들의 명단이 작성되고 있다. 그대의 이름이 거기 있는지는 아무도 모른다.",
+            n:2, bad:1,
+            onDone(isBad){
+              if(isBad){ S.fame+=3; die(1519,"기묘사화에 연루되어 유배지에서 죽다");
+                outcome({ verdict:"명단에 그대의 이름이 있었다.", bad:true, seal:"卒",
+                  body:"유배지에서 돌아오지 못했다.", delta:`名 <b>+3</b> · 사망 1519`,
+                  note:"기묘사화로 처벌받은 사림을 기묘명현이라 부릅니다. 나서지 않았어도 명단에 오른 이들이 있었습니다.",
+                  next: finish });
+              } else { S.fame+=1;
+                outcome({ verdict:"명단에 없었다.",
+                  body:"그대는 살아남았다. 조광조는 사약을 받았다.", delta:`名 <b>+1</b>`,
+                  note:"기묘사화 이후 사림은 다시 향촌으로 물러났습니다. 이때 서원과 향약이 본격적으로 퍼집니다.",
+                  next: go1545 });
+              }
+            }});
+        }},
+      { label:"낙향하여 서원을 연다.", go(){
+          S.seowon=true; S.fame+=2; S.rank=0; record(1519,"낙향하여 서원을 열다");
+          outcome({ verdict:"그대는 고향으로 돌아갔다.",
+            body:"벼슬을 버렸다. 선현에게 제사 지내고 제자를 가르치며 향약을 폈다. 한양에서 무슨 일이 벌어졌는지는 나중에 전해 들었다.",
+            delta:`官 <b>0</b>으로 · 名 <b>+2</b> · 서원`,
+            note:"주세붕이 백운동 서원을 세운 것이 1543년, 이것이 명종 대에 소수서원이라는 최초의 사액 서원이 됩니다. 물러난 것이 곧 진 것은 아니었습니다.",
+            next: go1545 });
+        }}
+    ]
+  });
+}
+
+/* ══════════ 1545 을사사화 ══════════ */
+function go1545(){
+  scene({
+    year:1545, eyebrow:"제4화 · 을사사화",
+    title:"외척과 외척이 맞붙었다",
+    situation:`인종이 즉위 8개월 만에 죽고 어린 명종이 왕이 되었다.
+      인종의 외척 <b>대윤</b>과 명종의 외척 <b>소윤</b>이 권력을 두고 맞선다. 이제 훈구와 사림의 싸움이 아니다.
+      외척끼리의 싸움에 사림이 휩쓸린다. 그대는 어디에 서겠는가?`,
+    choices:[
+      { label:"대윤에 선다.", go(){
+          S.fame+=2; record(1545,"대윤과 함께 서다"); die(1545,"을사사화로 화를 입다");
+          outcome({ verdict:"소윤이 대윤을 몰아냈다.", bad:true, seal:"卒",
+            body:"그대는 대윤과 함께 쓸려나갔다.", delta:`名 <b>+2</b> · 사망 1545`,
+            note:"을사사화는 왕실 외척 간의 권력 다툼이었으나, 그 과정에서 많은 사림이 피해를 입었습니다.",
+            next: finish });
+        }},
+      { label:"소윤에 선다.", go(){
+          S.rank+=4; S.fame-=4; record(1545,"소윤에 붙다");
+          outcome({ verdict:"그대는 권력을 얻었다.",
+            body:"소윤이 이겼다. 벼슬이 크게 올랐다. 그러나 사림은 이제 그대를 사림이라 부르지 않는다.",
+            delta:`官 <b>+4</b> · 名 <b>-4</b>`,
+            note:"이긴 쪽에 서면 관직은 얻습니다. 다만 이 시기 이후 사림이 다시 조정을 장악할 때, 그 명단에 이름을 올리는 것은 다른 사람들이었습니다.",
+            next: go1575 });
+        }},
+      { label:"중립을 지킨다. (제비뽑기)", go(){
+          record(1545,"중립을 지키다");
+          lots({ year:1545, eyebrow:"제4화 · 을사사화", title:"중립이 지켜지는가",
+            situation:"어느 편에도 서지 않았다. 그러나 사림을 몰아내려는 자들에게는 편들지 않은 것도 이유가 된다.",
+            n:5, bad:1,
+            onDone(isBad){
+              if(isBad){ S.fame+=1; die(1545,"을사사화에 연루되어 화를 입다");
+                outcome({ verdict:"그대도 연루되었다.", bad:true, seal:"卒",
+                  body:"편들지 않았다는 것이 죄가 되었다.", delta:`名 <b>+1</b> · 사망 1545`,
+                  note:"을사사화의 여파는 이후 몇 년간 계속되어(양재역 벽서 사건 등) 사림을 더 쳐냈습니다.",
+                  next: finish });
+              } else { S.fame+=1;
+                outcome({ verdict:"그대는 살아남았다.",
+                  body:"조정이 조용해질 때까지 기다렸다.", delta:`名 <b>+1</b>`,
+                  note:"명종 말년에 외척 세력이 무너지자, 살아남은 사림이 조정을 채웁니다. 이제 상대할 훈구가 없습니다.",
+                  next: go1575 });
+              }
+            }});
+        }}
+    ]
+  });
+}
+
+/* ══════════ 1575 이조 전랑 ══════════ */
+function go1575(){
+  S.year = 1575;
+  scene({
+    year:1575, eyebrow:"제5화 · 붕당의 형성",
+    title:"자리는 하나뿐이다",
+    situation:`77년이 지났다. 훈구는 사라졌고 조정은 사림의 것이 되었다.
+      이제 <b>이조 전랑</b> 자리가 비었다. 품계는 낮으나 관리 인사를 좌우하고 후임을 스스로 추천하는 자리다.
+      살아남은 사림이 모두 이 자리를 본다. 그대도 손을 들겠는가?`,
+    choices:[
+      { label:"손을 든다. 내가 그 자리에 앉겠다.", go(){
+          S.rank+=2; record(1575,"전랑의 자리를 다투다"); finish();
+        }},
+      { label:"손을 들지 않는다. 다만 누가 앉는지는 지켜본다.", go(){
+          S.fame+=1; record(1575,"전랑의 자리를 지켜보다"); finish();
+        }}
+    ]
+  });
+}
+
+/* ══════════ 결말 ══════════ */
+function finish(){
+  if(S.alive) record(1575,"길이 갈리다");
+  S.screen="final"; render();
+}
+
+function finalHTML(){
+  const dong = S.master==="dong";
+  const enshrined = S.fame >= 8;
+  const seal = enshrined ? "配享" : (S.alive ? "生" : "卒");
+
+  const fate = S.alive
+    ? `${esc(S.ho)}, 그대는 77년을 건너 살아남았다.`
+    : `${esc(S.ho)}, 그대는 ${S.deathYear}년에 멈추었다. ${S.causeOfDeath}.`;
+
+  const heir = S.alive
+    ? "그대는 그 자리에 있었다."
+    : "그러나 그대의 제자들이 학문을 이었고, 그들이 그 자리에 있었다.";
+
+  const party = dong ? {
+    cls:"dong", nm:"동인(東人)",
+    why:"그대의 스승 이황과 조식의 학문을 이은 이들은 김효원을 중심으로 모였다. 김효원의 집이 한양 동쪽 건천동에 있었으므로 사람들은 그들을 동인이라 불렀다.",
+    base:"영남 지역 사림 중심",
+    split:"이후 북인과 남인으로 갈라진다."
+  } : {
+    cls:"seo", nm:"서인(西人)",
+    why:"그대의 스승 이이와 성혼의 학문을 이은 이들은 심의겸을 중심으로 모였다. 심의겸의 집이 한양 서쪽에 있었으므로 사람들은 그들을 서인이라 불렀다.",
+    base:"경기·충청 지역 사림 중심",
+    split:"이후 노론과 소론으로 갈라진다."
+  };
+
+  return `
+  <div class="seal">${seal}</div>
+  <div class="eyebrow">1575 · 을해년 · 사초를 덮다</div>
+  <h2>${S.alive ? "길이 갈렸다" : "그대의 학맥이 남았다"}</h2>
+  <p class="lede">${fate} ${heir}
+  ${enshrined ? "<br><br>고을의 선비들이 그대를 서원에 <b>배향</b>했다. 벼슬이 아니라 이름으로 남은 것이다." : ""}</p>
+
+  <div class="party ${party.cls}">
+    <div class="nm">${party.nm}</div>
+    <p class="quiet">${party.why}</p>
+    <p class="quiet" style="margin-top:.6rem"><b>${party.base}</b> · ${party.split}</p>
+  </div>
+
+  <div class="delta">최종 · 官 <b>${S.rank}</b> &nbsp; 名 <b>${S.fame}</b> &nbsp; ${S.alive?"생존":"졸(卒) "+S.deathYear} ${enshrined?"&nbsp; 서원 배향":""}</div>
+
+  <div class="scroll">
+    <h3>${esc(S.ho)}의 사초</h3>
+    <ul>${S.log.map(e=>`<li><span class="y">${e.year?e.year:"　"}</span>${esc(e.text)}</li>`).join("")}</ul>
+  </div>
+
+  <div class="qs">
+    <h3>활동지 [생각 Check]에 옮겨 적으시오</h3>
+    <ol class="qs">
+      <li>그대가 뽑은 갑자사화의 제비는 선택이 아니었다. 그렇다면 사화를 견딘 사림에게 정말로 필요했던 것은 무엇이었나?</li>
+      <li>중종은 왜 자기가 불러들인 조광조를 죽였는가?</li>
+      <li>훈구가 사라진 뒤에도 사림은 다시 갈라섰다. 이것을 붕당이라 한다. 그대는 자리 하나 때문이라고 생각하는가, 다른 이유가 있다고 보는가?</li>
+    </ol>
+  </div>
+
+  <button class="go" id="again">다시 도전한다</button>
+  <button class="ghost" id="print">결과 인쇄 / PDF 저장</button>`;
+}
+
+/* ── 이벤트 위임 ── */
+document.addEventListener("click", (e)=>{
+  if(e.target.id==="again"){ reset(); render(); bindTitle(); }
+  if(e.target.id==="print"){ window.print(); }
+});
+
+render();
+bindTitle();
+</script>
+</body>
+</html>
