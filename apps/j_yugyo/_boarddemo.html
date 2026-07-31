@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4사분면 보드 예시 (27명, 카드 크기 = 인원)</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#efe9db;--surface:#fffdf7;--mid:#f3eede;--card:#fbf8f0;--line:rgba(100,70,30,.22);--faint:rgba(100,70,30,.1);
+  --ink:#1a1208;--sub:#9a7a50;--serif:'Noto Serif KR',serif;
+  --in:#2E5A8C;--out:#3E7C5A;
+  --in-soft:rgba(46,90,140,.16);--out-soft:rgba(62,124,90,.16);--s:1;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Pretendard',sans-serif;background:var(--bg);color:var(--ink);padding:10px 12px 12px;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.top{display:flex;align-items:baseline;gap:12px;margin-bottom:8px;flex-wrap:wrap;flex-shrink:0}
+.top b{font-family:var(--serif);font-size:17px}
+.top span{font-size:12.5px;color:var(--sub)}
+.legend{margin-left:auto;display:flex;gap:14px;font-size:11.5px;color:var(--sub)}
+.legend .k{display:inline-flex;align-items:center;gap:5px}
+.legend .sw{width:12px;height:12px;border-radius:3px}
+.board{flex:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;min-height:0}
+.quad{border:1px solid var(--line);border-radius:12px;background:var(--surface);display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.quad.hb{flex-direction:column-reverse}
+.quad-head{display:flex;align-items:baseline;gap:12px;padding:9px 18px;flex-shrink:0}
+.quad.left .quad-head{justify-content:flex-end}
+.quad.right .quad-head{justify-content:flex-start}
+.quad-name{font-family:var(--serif);font-weight:900;font-size:26px;color:var(--ink);line-height:1}
+.quad-n{font-family:var(--serif);font-weight:900;font-size:22px;color:var(--sub);line-height:1}
+.quad-body{padding:10px 14px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;align-content:center;justify-content:center;flex:1;overflow:hidden;min-height:0}
+.tile{display:inline-flex;align-items:baseline;gap:.35em;border-radius:11px;padding:.32em .62em;background:var(--card);border:1px solid var(--faint);cursor:pointer;font-family:inherit;line-height:1.1;transition:transform .1s}
+.tile:hover{transform:scale(1.04)}
+.tile.in{background:var(--in-soft);border-color:transparent}
+.tile.out{background:var(--out-soft);border-color:transparent}
+.tile-t{font-weight:800;color:var(--ink)}
+.tile-c{font-size:.52em;font-weight:800;color:var(--sub)}
+
+/* 모달 */
+.modal-back{position:fixed;inset:0;background:rgba(26,18,8,.4);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}
+.modal-back.open{display:flex}
+.modal-box{background:var(--surface);border-radius:16px;padding:20px;max-width:460px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 12px 40px rgba(26,18,8,.25)}
+.modal-head{display:flex;align-items:center;gap:9px;margin-bottom:4px}
+.modal-ideo{font-size:11px;font-weight:800;color:var(--surface);background:var(--ink);border-radius:6px;padding:2px 9px}
+.modal-title{font-family:var(--serif);font-weight:900;font-size:19px}
+.modal-sub{font-size:12.5px;color:var(--sub);margin-bottom:14px}
+.modal-list{overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.mrow{display:flex;gap:8px;align-items:baseline;background:var(--mid);border-radius:8px;padding:7px 11px}
+.mrow .sid{font-size:11.5px;font-weight:700;color:var(--sub);font-variant-numeric:tabular-nums}
+.mrow .nm{font-size:13px;font-weight:700;color:var(--ink)}
+.modal-close{margin-top:14px;align-self:center;border:1.5px solid var(--line);background:none;border-radius:100px;padding:9px 26px;font-family:inherit;font-size:13px;font-weight:700;color:var(--sub);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="top">
+  <b>4사분면 실시간 배치판</b>
+  <span>예시: 1반 27명이 분류했다고 가정. 카드가 클수록 많이 모인 것. 카드를 누르면 누가 놓았는지 보입니다. (실제 데이터 아님)</span>
+  <div class="legend">
+    <span class="k"><span class="sw" style="background:var(--in)"></span>나라 안</span>
+    <span class="k"><span class="sw" style="background:var(--out)"></span>나라 밖</span>
+  </div>
+</div>
+<div class="board" id="board"></div>
+
+<div class="modal-back" id="modal">
+  <div class="modal-box">
+    <div class="modal-head"><span class="modal-ideo" id="m-ideo"></span><span class="modal-title" id="m-title"></span></div>
+    <div class="modal-sub" id="m-sub"></div>
+    <div class="modal-list" id="m-list"></div>
+    <button class="modal-close" id="m-close">닫기</button>
+  </div>
+</div>
+
+<script>
+const IDEO=[
+  {k:'minbon', n:'민본',       c:'#2E5A8C', pos:'left'},
+  {k:'deokchi',n:'덕치와 문치', c:'#6B4C9A', pos:'right'},
+  {k:'ye',     n:'예와 명분',   c:'#B23A3A', pos:'left'},
+  {k:'gyohwa', n:'교화',       c:'#3E7C5A', pos:'right'}
+];
+const CARDS=[
+  {t:'과거제',        side:'in',  w:{deokchi:70,ye:20,gyohwa:10}},
+  {t:'집현전과 경연',  side:'in',  w:{deokchi:85,ye:15}},
+  {t:'3사',          side:'in',  w:{ye:72,minbon:16,deokchi:12}},
+  {t:'신문고',        side:'in',  w:{minbon:90,ye:10}},
+  {t:'수령 파견',     side:'in',  w:{minbon:80,gyohwa:20}},
+  {t:'향교와 성균관',  side:'in',  w:{gyohwa:80,deokchi:20}},
+  {t:'삼강행실도',     side:'in',  w:{gyohwa:85,ye:15}},
+  {t:'사대',          side:'out', w:{ye:80,minbon:12,deokchi:8}},
+  {t:'조공과 책봉',    side:'out', w:{ye:85,minbon:15}},
+  {t:'여진 귀순 장려', side:'out', w:{gyohwa:58,ye:27,minbon:15}},
+  {t:'통신사 파견',    side:'out', w:{deokchi:45,ye:40,gyohwa:15}},
+  {t:'3포 개항',      side:'out', w:{gyohwa:50,ye:35,minbon:15}}
+];
+const NAMES=['김민준','이서연','박도윤','최지우','정하준','강서윤','조예은','윤시우','장하은','임주원','한지호','오유진','서건우','신다은','권현우','황수아','안세훈','문가율','배준서','손나윤','노지훈','류채원','고은우','남시현','하윤재','전소율','구태오'];
+const STUDENTS=NAMES.map((n,i)=>({sid:'301'+String(i+1).padStart(2,'0'),name:n}));
+
+let seed=27;
+function rnd(){seed=(seed*1103515245+12345)&0x7fffffff;return seed/0x7fffffff;}
+function pick(w){const tot=Object.values(w).reduce((a,b)=>a+b,0);let r=rnd()*tot;for(const k in w){r-=w[k];if(r<=0)return k;}return Object.keys(w)[0];}
+
+// byIdeo[ideoKey][cardTitle] = { side, students:[{sid,name}] }
+const byIdeo={};IDEO.forEach(i=>byIdeo[i.k]={});
+STUDENTS.forEach(st=>{
+  CARDS.forEach(c=>{
+    const k=pick(c.w);
+    if(!byIdeo[k][c.t])byIdeo[k][c.t]={side:c.side,students:[]};
+    byIdeo[k][c.t].students.push(st);
+  });
+});
+// 전체 최대 인원(폰트 스케일 기준)
+let maxC=1;
+IDEO.forEach(io=>Object.values(byIdeo[io.k]).forEach(v=>{if(v.students.length>maxC)maxC=v.students.length;}));
+
+const DATA={}; // key -> {ideo, title, side, students}
+const board=document.getElementById('board');
+board.innerHTML=IDEO.map((io,idx)=>{
+  const entries=Object.entries(byIdeo[io.k]).sort((a,b)=>b[1].students.length-a[1].students.length);
+  const isTop=idx<2;
+  const name=`<span class="quad-name">${io.n}</span>`,num=`<span class="quad-n">${entries.reduce((s,[,v])=>s+v.students.length,0)}</span>`;
+  const head=io.pos==='left'?`${num}${name}`:`${name}${num}`;
+  const body=entries.map(([title,v])=>{
+    const cnt=v.students.length;
+    const fs=(14+ (cnt/maxC)*30).toFixed(1); // 14~44px, 인원 비례
+    const key=io.k+'|'+title;
+    DATA[key]={ideo:io,title,side:v.side,students:v.students};
+    return`<button class="tile ${v.side}" style="font-size:calc(var(--s)*${fs}px)" data-key="${key}">
+      <span class="tile-t">${title}</span><span class="tile-c">${cnt}</span>
+    </button>`;
+  }).join('')||'<span style="font-size:13px;color:var(--sub);opacity:.6">아직 없음</span>';
+  return`<div class="quad ${io.pos}${isTop?' hb':''}" style="--ic:${io.c}">
+    <div class="quad-head">${head}</div>
+    <div class="quad-body">${body}</div>
+  </div>`;
+}).join('');
+
+// 한 화면에 맞게 축소
+function fit(){
+  document.documentElement.style.setProperty('--s','1');
+  const bodies=[...board.querySelectorAll('.quad-body')];
+  const over=()=>bodies.some(b=>b.scrollHeight>b.clientHeight+1);
+  let s=1,g=0;
+  while(over()&&s>0.4&&g<30){s-=0.05;document.documentElement.style.setProperty('--s',s.toFixed(2));g++;}
+}
+requestAnimationFrame(fit);
+let rt=null;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(fit,150);});
+
+// 모달
+const modal=document.getElementById('modal');
+board.addEventListener('click',e=>{
+  const btn=e.target.closest('.tile');if(!btn)return;
+  const d=DATA[btn.dataset.key];if(!d)return;
+  document.getElementById('m-ideo').textContent=d.ideo.n;
+  document.getElementById('m-title').textContent=d.title;
+  document.getElementById('m-sub').textContent=`이 카드를 '${d.ideo.n}'으로 분류한 학생 ${d.students.length}명`;
+  document.getElementById('m-list').innerHTML=d.students
+    .slice().sort((a,b)=>a.sid.localeCompare(b.sid))
+    .map(s=>`<div class="mrow"><span class="sid">${s.sid}</span><span class="nm">${s.name}</span></div>`).join('');
+  modal.classList.add('open');
+});
+document.getElementById('m-close').addEventListener('click',()=>modal.classList.remove('open'));
+modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.remove('open');});
+</script>
+</body>
+</html>

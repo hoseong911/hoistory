@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>유교로 나라를 다스린다는 것 : 관리자 모드</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/theme.css">
+<link rel="stylesheet" href="../../shared/admin-base.css">
+<script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
+<style>
+.hi-preset-paper{
+  /* 색은 대내(나라 안)/대외(나라 밖) 구분에만 쓴다. 이념은 색 없이 이름으로 구분. */
+  --hi-side-in:#2E5A8C; --hi-side-in-soft:rgba(46,90,140,.16);
+  --hi-side-out:#3E7C5A; --hi-side-out-soft:rgba(62,124,90,.16);
+}
+body{overflow-x:hidden}
+.hi-sec{background:var(--hi-bg-surface);border:1px solid var(--hi-border);border-radius:var(--hi-r-card);padding:20px;margin-bottom:16px}
+.hi-sec-title{font-family:var(--hi-font);font-weight:900;font-size:16px;color:var(--hi-text);margin-bottom:4px}
+.hi-sec-desc{font-size:12.5px;color:var(--hi-text-muted);line-height:1.6;margin-bottom:14px;word-break:keep-all}
+
+.hi-cf-row{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
+.hi-cf{border:1.5px solid var(--hi-border);background:var(--hi-bg-surface);border-radius:var(--hi-r-pill);padding:6px 15px;font-size:13px;font-weight:700;color:var(--hi-text-muted);cursor:pointer}
+.hi-cf.active{background:var(--hi-text);color:var(--hi-bg-base);border-color:var(--hi-text)}
+
+/* 4사분면 배치판 — 화면 전체 너비, 카드 크기=인원, 누르면 모달 */
+.hi-board-wrap{width:100vw;position:relative;left:50%;margin-left:-50vw;padding:0 12px}
+.hi-quad-board{--jc-scale:1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:10px;height:calc(100vh - 170px);min-height:360px}
+.hi-quad{border:1px solid var(--hi-border);border-radius:var(--hi-r-card);background:var(--hi-bg-surface);display:flex;flex-direction:column;overflow:hidden;min-height:0}
+.hi-quad.hb{flex-direction:column-reverse}
+.hi-quad-head{display:flex;align-items:baseline;gap:12px;padding:10px 18px;flex-shrink:0}
+.hi-quad.left .hi-quad-head{justify-content:flex-end}
+.hi-quad.right .hi-quad-head{justify-content:flex-start}
+.hi-quad-name{font-family:var(--hi-font);font-weight:900;font-size:26px;color:var(--hi-text);line-height:1}
+.hi-quad-n{font-family:var(--hi-font);font-weight:900;font-size:22px;color:var(--hi-text-muted);line-height:1}
+.hi-quad-body{padding:10px 14px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;align-content:center;justify-content:center;flex:1;overflow:hidden;min-height:0}
+.hi-tile{display:inline-flex;align-items:baseline;gap:.35em;border-radius:11px;padding:.32em .62em;background:var(--hi-bg-card);border:1px solid var(--hi-border-faint);cursor:pointer;font-family:inherit;line-height:1.1;transition:transform .1s}
+.hi-tile:hover{transform:scale(1.04)}
+.hi-tile.in{background:var(--hi-side-in-soft);border-color:transparent}
+.hi-tile.out{background:var(--hi-side-out-soft);border-color:transparent}
+.hi-tile-t{font-weight:800;color:var(--hi-text)}
+.hi-tile-c{font-size:.52em;font-weight:800;color:var(--hi-text-muted)}
+.hi-quad-empty{font-size:13px;color:var(--hi-text-muted);opacity:.6}
+.hi-board-legend{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;font-size:11.5px;color:var(--hi-text-muted);margin-top:10px}
+.hi-board-legend .k{display:inline-flex;align-items:center;gap:5px}
+.hi-board-legend .sw{width:12px;height:12px;border-radius:3px}
+
+/* 모달 */
+.hi-modal-back{position:fixed;inset:0;background:rgba(26,18,8,.4);display:none;align-items:center;justify-content:center;padding:20px;z-index:50}
+.hi-modal-back.open{display:flex}
+.hi-modal{background:var(--hi-bg-surface);border-radius:16px;padding:20px;max-width:480px;width:100%;max-height:80vh;display:flex;flex-direction:column;box-shadow:var(--hi-shadow-dialog)}
+.hi-modal-head{display:flex;align-items:center;gap:9px;margin-bottom:4px}
+.hi-modal-ideo{font-size:11px;font-weight:800;color:var(--hi-bg-base);background:var(--hi-text);border-radius:6px;padding:2px 9px}
+.hi-modal-title{font-family:var(--hi-font);font-weight:900;font-size:19px;color:var(--hi-text)}
+.hi-modal-sub{font-size:12.5px;color:var(--hi-text-muted);margin-bottom:14px}
+.hi-modal-list{overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.hi-mrow{display:flex;gap:8px;align-items:baseline;background:var(--hi-bg-mid);border-radius:8px;padding:7px 11px}
+.hi-mrow .sid{font-size:11.5px;font-weight:700;color:var(--hi-text-muted);font-variant-numeric:tabular-nums}
+.hi-mrow .nm{font-size:13px;font-weight:700;color:var(--hi-text)}
+.hi-modal-close{margin-top:14px;align-self:center;border:1.5px solid var(--hi-border);background:none;border-radius:var(--hi-r-pill);padding:9px 26px;font-family:inherit;font-size:13px;font-weight:700;color:var(--hi-text-muted);cursor:pointer}
+
+/* 이념 분포 */
+.hi-dist{display:flex;flex-direction:column;gap:7px}
+.hi-dist-i{display:flex;align-items:center;gap:10px}
+.hi-dist-n{width:100px;flex-shrink:0;font-weight:800;font-size:13px;color:var(--hi-text)}
+.hi-dist-bw{flex:1;background:var(--hi-bg-mid);border-radius:7px;height:20px;overflow:hidden}
+.hi-dist-b{height:100%;border-radius:7px;background:var(--hi-accent)}
+.hi-dist-c{width:48px;text-align:right;font-size:12px;font-weight:800;color:var(--hi-text-muted)}
+
+/* 이념 설명 편집 */
+.hi-irow{display:flex;gap:8px;align-items:flex-start;background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:10px;padding:10px;margin-bottom:8px}
+.hi-irow .hi-cfields{gap:6px}
+.i-name{font-weight:700}
+
+/* 참여 현황 */
+.hi-part{display:flex;gap:10px;flex-wrap:wrap}
+.hi-part-i{flex:1;min-width:120px;background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:12px;padding:14px 16px;text-align:center}
+.hi-part-n{font-family:var(--hi-font);font-weight:900;font-size:26px;color:var(--hi-text);line-height:1}
+.hi-part-l{font-size:12px;font-weight:700;color:var(--hi-text-muted);margin-top:6px}
+
+/* 학생별 분류 */
+.hi-stu{background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:12px;padding:13px 15px;margin-bottom:9px}
+.hi-stu-head{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap}
+.hi-stu-who{font-size:13.5px;font-weight:700;color:var(--hi-text)}
+.hi-stu-sid{font-size:11px;color:var(--hi-text-muted);font-weight:600}
+.hi-stu-badge{margin-left:auto;font-size:11px;font-weight:800;padding:3px 9px;border-radius:6px}
+.hi-sb-done{background:var(--hi-positive-soft);color:var(--hi-positive)}
+.hi-sb-doing{background:var(--hi-bg-mid);color:var(--hi-text-muted)}
+.hi-stu-grid{display:flex;flex-direction:column;gap:5px}
+.hi-stu-row{display:flex;align-items:baseline;gap:8px;font-size:12.5px}
+.hi-stu-card{color:var(--hi-text-muted);flex:1;min-width:0}
+.hi-stu-ideo{font-weight:800;color:var(--hi-text)}
+.hi-stu-ideo.none{font-weight:600;color:var(--hi-text-muted);opacity:.7}
+
+/* 카드 편집 */
+.hi-crow{display:flex;gap:8px;align-items:flex-start;background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:10px;padding:10px;margin-bottom:8px}
+.hi-cnum{flex-shrink:0;width:24px;height:24px;border-radius:6px;background:var(--hi-accent-soft);color:var(--hi-accent-strong);font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center;margin-top:4px}
+.hi-cfields{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.hi-crow-top{display:flex;gap:6px}
+.meta-input{padding:8px 10px;border:1px solid var(--hi-border);border-radius:7px;font-family:inherit;font-size:13px;color:var(--hi-text);background:var(--hi-bg-mid);outline:none}
+.meta-input:focus{border-color:var(--hi-border-light)}
+.c-side{flex-shrink:0;width:96px}
+.c-title{flex:1;min-width:0;font-weight:700}
+.c-desc,.c-src,.c-ref{width:100%}
+textarea.meta-input{resize:vertical;line-height:1.55;min-height:44px}
+.hi-save-msg{text-align:center;font-size:12.5px;color:var(--hi-text-muted);min-height:16px;margin-top:10px;font-weight:700}
+.hi-save-msg.ok{color:var(--hi-positive)}
+
+.hi-nodata{text-align:center;padding:40px 20px;color:var(--hi-text-muted);font-size:14px}
+</style>
+</head>
+<body class="hi-preset-paper">
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">유교로 나라를 다스린다는 것</div>
+    <div class="login-sub">관리자 모드</div>
+    <div class="field-group" style="text-align:left;margin-bottom:14px">
+      <label class="form-label">이메일</label>
+      <input type="email" class="hi-input" id="gate-email" placeholder="이메일">
+    </div>
+    <div class="field-group" style="text-align:left;margin-bottom:14px">
+      <label class="form-label">비밀번호</label>
+      <input type="password" class="hi-input" id="gate-pw" placeholder="비밀번호">
+    </div>
+    <div class="login-err" id="gate-err"></div>
+    <button class="login-btn" id="gate-login-btn">접속하기</button>
+  </div>
+</div>
+
+<div id="adminApp">
+  <header class="adm-header">
+    <div class="adm-logo">유교로 다스린다는 것<span class="adm-badge">관리자 모드</span></div>
+    <div class="adm-tabs">
+      <button class="adm-tab active" data-tab="board">BOARD</button>
+      <button class="adm-tab" data-tab="cards">CARDS</button>
+      <button class="adm-tab" data-tab="answer">ANSWER</button>
+    </div>
+    <button class="adm-logout" id="logout-btn">로그아웃</button>
+    <button class="adm-back" onclick="window.parent.closeAppAdmin&&window.parent.closeAppAdmin()">목록으로</button>
+  </header>
+
+  <div class="adm-body">
+  <div class="admin-container">
+
+    <div class="hi-cf-row" id="class-filter"></div>
+
+    <!-- BOARD -->
+    <div class="tab-panel active" id="tab-board">
+      <div class="hi-board-wrap">
+        <div class="hi-quad-board" id="quad-board"></div>
+        <div class="hi-board-legend">
+          <span class="k"><span class="sw" style="background:var(--hi-side-in)"></span>나라 안 (통치)</span>
+          <span class="k"><span class="sw" style="background:var(--hi-side-out)"></span>나라 밖 (대외)</span>
+          <span>카드가 클수록 많이 모인 것. 카드를 누르면 누가 놓았는지 보입니다.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARDS (카드 편집) -->
+    <div class="tab-panel" id="tab-cards">
+      <div class="hi-sec">
+        <div class="hi-sec-title">안내 문구 편집</div>
+        <div class="hi-sec-desc">학생 분류 화면에서 제목 아래에 보이는 안내 문구입니다. &lt;b&gt;굵게&lt;/b&gt; 태그를 쓸 수 있어요.</div>
+        <textarea class="meta-input" id="guide-input" rows="3" placeholder="분류 화면 안내 문구"></textarea>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+          <button class="hi-btn hi-btn-primary hi-btn-sm" id="save-guide-btn">저장</button>
+        </div>
+        <div class="hi-save-msg" id="guide-save-msg"></div>
+      </div>
+
+      <div class="hi-sec">
+        <div class="hi-sec-title">이념 설명 편집</div>
+        <div class="hi-sec-desc">학생 분류 화면의 이념 설명 표와 이념 버튼에 쓰이는 이름·설명입니다.</div>
+        <div id="ideo-editor"></div>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
+          <button class="hi-btn hi-btn-outline hi-btn-sm" id="reset-ideo-btn">기본값으로</button>
+          <button class="hi-btn hi-btn-primary hi-btn-sm" id="save-ideo-btn">저장</button>
+        </div>
+        <div class="hi-save-msg" id="ideo-save-msg"></div>
+      </div>
+
+      <div class="hi-sec">
+        <div class="hi-sec-title">분류 카드 편집</div>
+        <div class="hi-sec-desc">학생에게 제시할 카드입니다. 나라 안(통치)/나라 밖(대외), 제목(키워드), 풀이, 참고 원문·출처를 고칠 수 있어요. 저장하면 학생 화면에 반영됩니다.</div>
+        <div id="card-editor"></div>
+        <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap">
+          <button class="hi-btn hi-btn-outline hi-btn-sm" id="add-card-btn">+ 카드 추가</button>
+          <button class="hi-btn hi-btn-outline hi-btn-sm" id="reset-card-btn">기본값으로</button>
+          <button class="hi-btn hi-btn-primary hi-btn-sm" id="save-card-btn">저장</button>
+        </div>
+        <div class="hi-save-msg" id="card-save-msg"></div>
+      </div>
+    </div>
+
+    <!-- ANSWER (학생별 분류 현황) -->
+    <div class="tab-panel" id="tab-answer">
+      <div class="hi-sec">
+        <div class="hi-sec-title">분류 참여 현황</div>
+        <div class="hi-sec-desc">이 반 학생들이 정책 분류 활동을 했는지 한눈에 봅니다.</div>
+        <div class="hi-part" id="part-summary"></div>
+      </div>
+      <div class="hi-sec">
+        <div class="hi-sec-title">학생별 분류 (실시간)</div>
+        <div class="hi-sec-desc">각 학생이 정책을 어느 이념으로 분류했는지 보여줍니다. 저장하는 즉시 반영됩니다.</div>
+        <div id="student-list"></div>
+      </div>
+    </div>
+
+  </div>
+  </div>
+</div>
+
+<!-- 배치 학생 목록 모달 -->
+<div class="hi-modal-back" id="modal">
+  <div class="hi-modal">
+    <div class="hi-modal-head"><span class="hi-modal-ideo" id="m-ideo"></span><span class="hi-modal-title" id="m-title"></span></div>
+    <div class="hi-modal-sub" id="m-sub"></div>
+    <div class="hi-modal-list" id="m-list"></div>
+    <button class="hi-modal-close" id="m-close">닫기</button>
+  </div>
+</div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import{getFirestore,doc,getDoc,setDoc,collection,onSnapshot}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import{getDatabase,ref,get}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { firebaseConfig } from "../../shared/firebase-config.js";
+
+const app=initializeApp(firebaseConfig);
+const db=getFirestore(app);
+const auth=getAuth(app);
+const rtdb=getDatabase(app);
+
+const IDEO_POS={minbon:'left',deokchi:'right',ye:'left',gyohwa:'right'};
+const DEFAULT_IDEOLOGIES=[
+  {key:'minbon', name:'민본',
+   desc:'백성을 나라의 근본으로 여기는 생각이다. 정치의 목적은 백성을 편안하고 잘 살게 하는 데 있으며, 백성의 삶과 뜻을 정치의 기준으로 삼는다.'},
+  {key:'deokchi', name:'덕치와 문치',
+   desc:'힘이나 형벌이 아니라 통치자의 덕과 학문으로 다스린다는 생각이다. 무력으로 억누르기보다 학문을 닦고 도덕적 모범을 보여 사람을 이끈다.'},
+  {key:'ye', name:'예와 명분',
+   desc:'사람과 나라 사이에는 저마다 지켜야 할 도리와 지위에 맞는 명분이 있다는 생각이다. 임금과 신하 사이에도, 나라와 나라 사이에도 마땅한 예의와 질서를 지킨다.'},
+  {key:'gyohwa', name:'교화',
+   desc:'백성을 가르쳐 스스로 바르게 되도록 이끈다는 생각이다. 처벌로 다스리기보다 학교와 책, 모범을 통해 사람을 좋은 방향으로 변화시킨다.'}
+];
+const DEFAULT_GUIDE='각 정책 카드를 읽고, 그 정책에 담긴 유교 이념을 아래 <b>네 버튼 중 하나</b>를 눌러 골라 보세요. 아래 표에서 네 이념의 뜻을 확인할 수 있어요. 정답은 없습니다.';
+let IDEOLOGIES=DEFAULT_IDEOLOGIES.map(io=>({...io,pos:IDEO_POS[io.key]}));
+let GUIDE=DEFAULT_GUIDE;
+const DEFAULT_CARDS=[
+  {id:'c1', side:'in',  title:'과거제',
+   desc:'유교 경전(사서오경) 이해도를 시험 쳐 관리를 뽑았다. 집안이나 무력이 아니라 학문으로 사람을 등용한 것이다.'},
+  {id:'c2', side:'in',  title:'집현전과 경연',
+   desc:'세종은 집현전에 학식 뛰어난 문신을 모아 학문을 연구하게 하고, 경연에서 왕이 신하와 경전을 강론하였다. 임금도 늘 공부해야 한다는 뜻이 담겼다.'},
+  {id:'c3', side:'in',  title:'3사',
+   desc:'사헌부, 사간원, 홍문관을 두어 왕과 대신의 잘못을 비판하고 바른말을 하게 하였다. 임금도 옳지 않으면 지적받아야 한다는 간쟁 정신이 담겼다.'},
+  {id:'c4', side:'in',  title:'수령의 파견',
+   desc:'모든 고을에 수령을 보내 백성을 직접 보살피게 하였다. 수령이 힘써야 할 일곱 가지에 농사, 교육, 치안 등이 담겼다.',
+   src:'수령칠사(守令七事): 농사, 교육, 재판, 치안, 군정, 호구, 부역.',
+   ref:'『경국대전』 이전 고과'},
+  {id:'c5', side:'in',  title:'성균관과 향교',
+   desc:'지방 군현마다 향교를, 수도에 성균관을 세워 유교를 가르쳤다. 백성과 양반 자제를 가르쳐 바르게 이끌려는 뜻이 담겼다.'},
+  {id:'c6', side:'out', title:'사대',
+   desc:'큰 나라 명을 예로써 섬기고(사대), 조공을 바치고 책봉을 받아 상하 질서를 지켰다. 힘이 아니라 도리로 국제 질서를 받아들인 것이다.'},
+  {id:'c7', side:'out', title:'여진의 귀순 장려',
+   desc:'여진 사람에게 관직과 토지를 주어 조선의 질서 안으로 받아들이고, 국경에 무역소를 두어 교역을 허락하였다. 힘으로 누르기보다 품어 교화하려는 교린의 뜻이 담겼다.'},
+  {id:'c8', side:'out', title:'3포 개항',
+   desc:'왜에게 부산포, 제포, 염포 세 항구를 열어 정해진 규칙 안에서 교역을 허락하였다(계해약조, 1443). 이웃을 도리로 대하는 교린 정책이었다.'}
+];
+let CARDS=DEFAULT_CARDS.map(c=>({...c}));
+const SORT_COL='j_yugyo_sorts';
+
+let roster=[], sorts=[];
+let currentFilter='전체';
+let sortsUnsub=null;
+let BOARD_DATA={};
+const isEmbedded=window.self!==window.top;
+
+function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function classNumOf(sid){sid=String(sid||'');if(sid.length<3)return null;const c=parseInt(sid.slice(1,3),10);return isNaN(c)?null:c;}
+function cardById(id){return CARDS.find(c=>c.id===id);}
+function ideoById(k){return IDEOLOGIES.find(i=>i.key===k);}
+
+async function initAdmin(){
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('adminApp').classList.add('show');
+  await Promise.all([loadConfig(),loadRoster()]);
+  renderCardEditor();
+  renderGuideEditor();
+  renderIdeoEditor();
+  startListeners();
+}
+if(isEmbedded){document.documentElement.classList.add('has-own-back');initAdmin();}
+else{
+  onAuthStateChanged(auth,user=>{
+    if(user){initAdmin();}
+    else{
+      document.getElementById('loginScreen').style.display='';
+      document.getElementById('adminApp').classList.remove('show');
+      if(sortsUnsub){sortsUnsub();sortsUnsub=null;}
+    }
+  });
+}
+document.getElementById('gate-login-btn').addEventListener('click',async()=>{
+  const email=document.getElementById('gate-email').value.trim();
+  const pw=document.getElementById('gate-pw').value;
+  const errEl=document.getElementById('gate-err');errEl.classList.remove('show');
+  try{await signInWithEmailAndPassword(auth,email,pw);}
+  catch(e){errEl.textContent='이메일 또는 비밀번호를 확인해 주세요.';errEl.classList.add('show');}
+});
+document.getElementById('gate-pw').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('gate-login-btn').click();});
+document.getElementById('logout-btn').addEventListener('click',()=>signOut(auth));
+
+document.querySelectorAll('.adm-tab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.adm-tab').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    document.getElementById('class-filter').style.display=btn.dataset.tab==='cards'?'none':'flex';
+    if(btn.dataset.tab==='board')requestAnimationFrame(fitBoard);
+  });
+});
+
+async function loadConfig(){
+  try{
+    const snap=await getDoc(doc(db,'settings','j_yugyo_config'));
+    if(snap.exists()){
+      const d=snap.data();
+      if(Array.isArray(d.cards)&&d.cards.length)CARDS=d.cards.map(c=>({...c}));
+      if(Array.isArray(d.ideologies)&&d.ideologies.length)
+        IDEOLOGIES=d.ideologies.map(io=>({...io,pos:IDEO_POS[io.key]||'left'}));
+      if(typeof d.sortGuide==='string'&&d.sortGuide.trim())GUIDE=d.sortGuide;
+    }
+  }catch(e){}
+}
+async function loadRoster(){
+  try{
+    const snap=await get(ref(rtdb,'students'));
+    const data=snap.val()||{};
+    roster=Object.values(data).filter(Boolean)
+      .map(s=>({studentId:String(s.studentId||s.id||'').trim(),name:s.name||''}))
+      .filter(s=>s.studentId).map(s=>({...s,classNum:classNumOf(s.studentId)}))
+      .filter(s=>s.classNum!==0);
+  }catch(e){roster=[];}
+}
+
+function startListeners(){
+  if(sortsUnsub)sortsUnsub();
+  sortsUnsub=onSnapshot(collection(db,SORT_COL),snap=>{
+    sorts=[];snap.forEach(d=>{if(classNumOf(d.id)!==0)sorts.push({id:d.id,...d.data()});});
+    renderAll();
+  });
+}
+function renderAll(){renderClassFilter();renderBoard();renderParticipation();renderStudents();}
+
+function inFilter(sid){return currentFilter==='전체'||String(classNumOf(sid))===currentFilter;}
+function fSorts(){return sorts.filter(s=>inFilter(s.id));}
+function placedCount(s){return Object.keys(s.placements||{}).length;}
+
+function renderClassFilter(){
+  const nums=[...new Set([...roster.map(r=>r.classNum),...sorts.map(s=>classNumOf(s.id))])].filter(n=>n!=null).sort((a,b)=>a-b);
+  const classes=['전체',...nums];
+  document.getElementById('class-filter').innerHTML=classes.map(c=>`<button class="hi-cf${String(c)===currentFilter?' active':''}" data-c="${c}">${c==='전체'?'전체':c+'반'}</button>`).join('');
+  document.querySelectorAll('.hi-cf').forEach(btn=>btn.addEventListener('click',()=>{currentFilter=btn.dataset.c;renderAll();}));
+}
+
+/* ── 4사분면 배치판 (카드별 집계, 크기=인원, 클릭=학생 목록) ── */
+function renderBoard(){
+  const list=fSorts();
+  const byIdeo={};IDEOLOGIES.forEach(io=>byIdeo[io.key]={});
+  list.forEach(s=>{
+    const p=s.placements||{};
+    Object.keys(p).forEach(cid=>{
+      const k=p[cid];const card=cardById(cid);
+      if(!card||!byIdeo[k])return;
+      if(!byIdeo[k][cid])byIdeo[k][cid]={students:[]};
+      byIdeo[k][cid].students.push({sid:String(s.studentId||s.id),name:s.name||String(s.id)});
+    });
+  });
+  let maxC=1;IDEOLOGIES.forEach(io=>Object.values(byIdeo[io.key]).forEach(v=>{if(v.students.length>maxC)maxC=v.students.length;}));
+  BOARD_DATA={};
+  document.getElementById('quad-board').innerHTML=IDEOLOGIES.map((io,idx)=>{
+    const entries=Object.entries(byIdeo[io.key]).sort((a,b)=>b[1].students.length-a[1].students.length);
+    const isTop=idx<2;
+    const total=entries.reduce((s,[,v])=>s+v.students.length,0);
+    const name=`<span class="hi-quad-name">${esc(io.name)}</span>`,num=`<span class="hi-quad-n">${total}</span>`;
+    const head=io.pos==='left'?`${num}${name}`:`${name}${num}`;
+    const body=entries.map(([cid,v])=>{
+      const card=cardById(cid);const cnt=v.students.length;
+      const fs=(14+(cnt/maxC)*30).toFixed(1);
+      const key=io.key+'|'+cid;
+      BOARD_DATA[key]={ideo:io,card,students:v.students};
+      return`<button class="hi-tile ${card.side}" style="font-size:calc(var(--jc-scale)*${fs}px)" data-key="${key}"><span class="hi-tile-t">${esc(card.title)}</span><span class="hi-tile-c">${cnt}</span></button>`;
+    }).join('')||'<span class="hi-quad-empty">아직 없음</span>';
+    return`<div class="hi-quad ${io.pos}${isTop?' hb':''}"><div class="hi-quad-head">${head}</div><div class="hi-quad-body">${body}</div></div>`;
+  }).join('');
+  requestAnimationFrame(fitBoard);
+}
+function fitBoard(){
+  const board=document.getElementById('quad-board');
+  if(!board||!board.offsetParent)return;
+  const top=board.getBoundingClientRect().top;
+  board.style.height=Math.max(340,window.innerHeight-top-14)+'px';
+  board.style.setProperty('--jc-scale','1');
+  const bodies=[...board.querySelectorAll('.hi-quad-body')];
+  const over=()=>bodies.some(b=>b.scrollHeight>b.clientHeight+1);
+  let s=1,g=0;
+  while(over()&&s>0.4&&g<30){s-=0.05;board.style.setProperty('--jc-scale',s.toFixed(2));g++;}
+}
+let resizeT=null;
+window.addEventListener('resize',()=>{clearTimeout(resizeT);resizeT=setTimeout(fitBoard,150);});
+
+/* 모달 — 카드를 누른 학생 목록 */
+const modal=document.getElementById('modal');
+document.getElementById('quad-board').addEventListener('click',e=>{
+  const btn=e.target.closest('.hi-tile');if(!btn)return;
+  const d=BOARD_DATA[btn.dataset.key];if(!d)return;
+  document.getElementById('m-ideo').textContent=d.ideo.name;
+  document.getElementById('m-title').textContent=d.card.title;
+  document.getElementById('m-sub').textContent=`이 카드를 '${d.ideo.name}'으로 분류한 학생 ${d.students.length}명`;
+  document.getElementById('m-list').innerHTML=d.students.slice()
+    .sort((a,b)=>a.sid.localeCompare(b.sid))
+    .map(s=>`<div class="hi-mrow"><span class="sid">${esc(s.sid)}</span><span class="nm">${esc(s.name)}</span></div>`).join('');
+  modal.classList.add('open');
+});
+document.getElementById('m-close').addEventListener('click',()=>modal.classList.remove('open'));
+modal.addEventListener('click',e=>{if(e.target===modal)modal.classList.remove('open');});
+
+/* ── 분류 참여 현황 ── */
+function renderParticipation(){
+  const list=fSorts();
+  const done=list.filter(s=>s.submitted).length;
+  const doing=list.filter(s=>!s.submitted&&placedCount(s)>0).length;
+  const active=list.filter(s=>s.submitted||placedCount(s)>0).length;
+  const rosterN=currentFilter==='전체'?roster.length:roster.filter(r=>String(r.classNum)===currentFilter).length;
+  const notyet=Math.max(0,rosterN-active);
+  const stat=(n,l)=>`<div class="hi-part-i"><div class="hi-part-n">${n}</div><div class="hi-part-l">${l}</div></div>`;
+  document.getElementById('part-summary').innerHTML=
+    stat(done,'분류 완료')+stat(doing,'분류 중')+(rosterN?stat(notyet,'미참여'):'');
+}
+
+/* ── 학생별 분류 (누가 무엇을 어디에 분류했는지) ── */
+function renderStudents(){
+  const list=fSorts().slice()
+    .filter(s=>placedCount(s)>0)
+    .sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+  const el=document.getElementById('student-list');
+  if(!list.length){el.innerHTML='<div class="hi-nodata">아직 분류한 학생이 없습니다.</div>';return;}
+  el.innerHTML=list.map(s=>{
+    const p=s.placements||{};
+    const badge=s.submitted
+      ?'<span class="hi-stu-badge hi-sb-done">분류 완료</span>'
+      :`<span class="hi-stu-badge hi-sb-doing">분류 중 ${placedCount(s)}/${CARDS.length}</span>`;
+    const rows=CARDS.map((c,i)=>{
+      const io=ideoById(p[c.id]);
+      const val=io?`<span class="hi-stu-ideo">${esc(io.name)}</span>`:'<span class="hi-stu-ideo none">미분류</span>';
+      return`<div class="hi-stu-row"><span class="hi-stu-card">${i+1}. ${esc(c.title)} (${c.side==='in'?'나라 안':'나라 밖'})</span>${val}</div>`;
+    }).join('');
+    return`<div class="hi-stu">
+      <div class="hi-stu-head">
+        <span class="hi-stu-who">${esc(s.name||'')}</span>
+        <span class="hi-stu-sid">${esc(String(s.studentId||s.id))}</span>
+        ${badge}
+      </div>
+      <div class="hi-stu-grid">${rows}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ── 안내 문구 편집 ── */
+function renderGuideEditor(){
+  document.getElementById('guide-input').value=GUIDE;
+}
+document.getElementById('save-guide-btn').addEventListener('click',async()=>{
+  GUIDE=document.getElementById('guide-input').value;
+  const msg=document.getElementById('guide-save-msg');
+  try{
+    await setDoc(doc(db,'settings','j_yugyo_config'),{sortGuide:GUIDE},{merge:true});
+    msg.textContent='저장되었습니다. 학생 화면에 반영됩니다.';msg.className='hi-save-msg ok';
+  }catch(e){msg.textContent='저장 실패: '+e.message;msg.className='hi-save-msg';}
+});
+
+/* ── 이념 설명 편집 (이름·설명만, 키·개수 고정) ── */
+function renderIdeoEditor(){
+  const wrap=document.getElementById('ideo-editor');
+  wrap.innerHTML=IDEOLOGIES.map((io,i)=>`
+    <div class="hi-irow" data-i="${i}">
+      <div class="hi-cnum">${i+1}</div>
+      <div class="hi-cfields">
+        <input class="meta-input i-name" value="${esc(io.name||'')}" placeholder="이념 이름">
+        <textarea class="meta-input i-desc" placeholder="이념 설명 (학생에게 보이는 뜻풀이)" rows="2">${esc(io.desc||'')}</textarea>
+      </div>
+    </div>`).join('');
+  wrap.querySelectorAll('.hi-irow').forEach(row=>{
+    const i=+row.dataset.i;
+    row.querySelector('.i-name').addEventListener('input',e=>IDEOLOGIES[i].name=e.target.value);
+    row.querySelector('.i-desc').addEventListener('input',e=>IDEOLOGIES[i].desc=e.target.value);
+  });
+}
+document.getElementById('reset-ideo-btn').addEventListener('click',()=>{
+  if(!confirm('이념 이름·설명을 기본값으로 되돌릴까요? (저장 전까지 반영 안 됨)'))return;
+  IDEOLOGIES=DEFAULT_IDEOLOGIES.map(io=>({...io,pos:IDEO_POS[io.key]}));
+  renderIdeoEditor();
+});
+document.getElementById('save-ideo-btn').addEventListener('click',async()=>{
+  const msg=document.getElementById('ideo-save-msg');
+  const payload=IDEOLOGIES.map(io=>({key:io.key,name:io.name,desc:io.desc}));
+  try{
+    await setDoc(doc(db,'settings','j_yugyo_config'),{ideologies:payload},{merge:true});
+    msg.textContent='저장되었습니다. 학생 화면에 반영됩니다.';msg.className='hi-save-msg ok';
+    renderAll();
+  }catch(e){msg.textContent='저장 실패: '+e.message;msg.className='hi-save-msg';}
+});
+
+/* ── 카드 편집 ── */
+function renderCardEditor(){
+  const wrap=document.getElementById('card-editor');
+  wrap.innerHTML=CARDS.map((c,i)=>`
+    <div class="hi-crow" data-i="${i}">
+      <div class="hi-cnum">${i+1}</div>
+      <div class="hi-cfields">
+        <div class="hi-crow-top">
+          <select class="meta-input c-side">
+            <option value="in"${c.side==='in'?' selected':''}>나라 안</option>
+            <option value="out"${c.side==='out'?' selected':''}>나라 밖</option>
+          </select>
+          <input class="meta-input c-title" value="${esc(c.title||'')}" placeholder="카드 제목">
+          <button class="hi-btn hi-btn-outline hi-btn-sm c-del hi-btn-danger">삭제</button>
+        </div>
+        <textarea class="meta-input c-desc" placeholder="풀이 (학생에게 보이는 쉬운 설명)" rows="2">${esc(c.desc||'')}</textarea>
+        <textarea class="meta-input c-src" placeholder="참고 원문 / 근거" rows="2">${esc(c.src||'')}</textarea>
+        <input class="meta-input c-ref" value="${esc(c.ref||'')}" placeholder="출처 (예: 『경국대전』 이전 고과)">
+      </div>
+    </div>`).join('')||'<div class="hi-nodata">카드가 없습니다. "+ 카드 추가"로 만들어 보세요.</div>';
+  wrap.querySelectorAll('.hi-crow').forEach(row=>{
+    const i=+row.dataset.i;
+    row.querySelector('.c-side').addEventListener('change',e=>CARDS[i].side=e.target.value);
+    row.querySelector('.c-title').addEventListener('input',e=>CARDS[i].title=e.target.value);
+    row.querySelector('.c-desc').addEventListener('input',e=>CARDS[i].desc=e.target.value);
+    row.querySelector('.c-src').addEventListener('input',e=>CARDS[i].src=e.target.value);
+    row.querySelector('.c-ref').addEventListener('input',e=>CARDS[i].ref=e.target.value);
+    row.querySelector('.c-del').addEventListener('click',()=>{
+      if(!confirm(`'${CARDS[i].title||'이 카드'}'를 삭제할까요?`))return;
+      CARDS.splice(i,1);renderCardEditor();
+    });
+  });
+}
+document.getElementById('add-card-btn').addEventListener('click',()=>{
+  CARDS.push({id:'c_'+Date.now().toString(36),side:'in',title:'',desc:'',src:'',ref:''});
+  renderCardEditor();
+});
+document.getElementById('reset-card-btn').addEventListener('click',()=>{
+  if(!confirm('카드를 기본값으로 되돌릴까요? (저장 전까지 반영 안 됨)'))return;
+  CARDS=DEFAULT_CARDS.map(c=>({...c}));renderCardEditor();
+});
+document.getElementById('save-card-btn').addEventListener('click',async()=>{
+  CARDS.forEach(c=>{if(!c.id)c.id='c_'+Math.random().toString(36).slice(2,8);});
+  const msg=document.getElementById('card-save-msg');
+  try{
+    await setDoc(doc(db,'settings','j_yugyo_config'),{cards:CARDS},{merge:true});
+    msg.textContent='저장되었습니다. 학생 화면에 반영됩니다.';msg.className='hi-save-msg ok';
+    renderAll();
+  }catch(e){msg.textContent='저장 실패: '+e.message;msg.className='hi-save-msg';}
+});
+</script>
+</body>
+</html>
