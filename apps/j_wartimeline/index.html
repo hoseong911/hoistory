@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko" class="hi-theme-light">
+<html lang="ko" class="hi-theme-dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -10,20 +10,22 @@
 @font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2');font-weight:700;font-display:swap}
 @font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2');font-weight:900;font-display:swap}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+/* ===== 다크모드 보드게임: 딥 차콜 판 위에서 구간 색 타일과 도미노 커넥터가 도드라지게 ===== */
 :root{
-  --canvas:var(--hi-bg-surface);--surface:var(--hi-bg-mid);
-  --hairline:var(--hi-border);--hairline-soft:var(--hi-border-faint);
-  --ink:var(--hi-text);--sub:var(--hi-text-muted);--stone:var(--hi-border-light);
-  --shadow:var(--hi-shadow-card);
-  --primary:#2E3A59;--primary-deep:#212A42;--primary-soft:rgba(46,58,89,.09);
-  --accent:#E0A44B;--accent-deep:#B57C24;--accent-l:rgba(224,164,75,.16);
-  --pass:#16A34A;--pass-l:rgba(22,163,74,.12);
-  --fail:#DC2626;--fail-l:rgba(220,38,38,.1);
-  --war:#B45309;--war-l:rgba(180,83,9,.1);
-  --dom:#1D4ED8;--dom-l:rgba(29,78,216,.1);
-  --for:#7C3AED;--for-l:rgba(124,58,237,.1);
-  --hor:#B91C1C;--hor-l:rgba(185,28,28,.1);
-  --aft:#0F766E;--aft-l:rgba(15,118,110,.1);
+  --surface:#13151B;--canvas:#1F2430;
+  --ink:#EDEDF2;--sub:#9AA0AE;--stone:#6B7280;
+  --hairline:#333A49;--hairline-soft:#262C38;
+  --primary:#6AA0FF;--primary-deep:#4A7FD8;--primary-soft:rgba(106,160,255,.14);
+  --accent:#E6AE55;--accent-deep:#C98F30;--accent-l:rgba(230,174,85,.16);
+  --pass:#4ADE80;--pass-l:rgba(74,222,128,.14);
+  --fail:#F87171;--fail-l:rgba(248,113,113,.14);
+  --war:#FB923C;--war-l:rgba(251,146,60,.16);
+  --dom:#60A5FA;--dom-l:rgba(96,165,250,.16);
+  --for:#A78BFA;--for-l:rgba(167,139,250,.16);
+  --hor:#F87171;--hor-l:rgba(248,113,113,.16);
+  --aft:#2DD4BF;--aft-l:rgba(45,212,191,.16);
+  --shadow:0 4px 16px rgba(0,0,0,.45);
+  --mono:ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
 }
 html{-webkit-text-size-adjust:100%}
 html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--surface);color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased}
@@ -32,44 +34,32 @@ body{padding-bottom:40px;overscroll-behavior:none}
 input,textarea,select{font-size:16px;font-family:inherit}
 
 .btn{min-height:48px;padding:11px 22px;border-radius:12px;font-family:inherit;font-size:14px;font-weight:700;border:none;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;justify-content:center;gap:6px;touch-action:manipulation}
-.btn-primary{background:var(--primary);color:#fff}.btn-primary:active{background:var(--primary-deep)}
-.btn-accent{background:var(--accent);color:#fff}.btn-accent:active{background:var(--accent-deep)}
-.btn-ghost{background:none;border:1.5px solid var(--hairline);color:var(--sub)}
+.btn-primary{background:var(--primary);color:#0B1020}.btn-primary:active{background:var(--primary-deep)}
+.btn-accent{background:var(--accent);color:#20160A}.btn-accent:active{background:var(--accent-deep)}
+.btn-ghost{background:none;border:1.5px solid var(--hairline);color:var(--ink)}
 .btn-full{width:100%}
 .btn:disabled{opacity:.45;cursor:default}
-.btn-back{display:inline-flex;align-items:center;background:none;border:none;font-family:inherit;font-size:13px;font-weight:700;color:var(--sub);cursor:pointer;padding:8px 0;min-height:44px}
+.btn-back{display:inline-flex;align-items:center;background:none;border:none;font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.03em;color:var(--sub);cursor:pointer;padding:8px 0;min-height:44px}
 
 .screen{display:none;flex-direction:column;gap:14px;padding-top:18px}
 .screen.active{display:flex}
+#order-main{display:flex;flex-direction:column;gap:14px}
 
-/* 표지 */
-#screen-cover{align-items:stretch;justify-content:center;min-height:calc(100vh - 30px);padding:0}
-.cover-inner{background:linear-gradient(160deg,var(--primary) 0%,var(--primary-deep) 100%);border-radius:26px;padding:52px 30px;text-align:center;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center}
-.cover-dominoes{display:flex;gap:5px;margin-bottom:22px;position:relative}
-.cover-dominoes span{width:13px;height:34px;border-radius:3px;background:var(--accent);opacity:.9;transform:rotate(-8deg);box-shadow:0 3px 8px rgba(0,0,0,.25)}
+/* 로그인 안내 */
+.wt-gate{margin-top:44px;padding:44px 26px;background:var(--canvas);border:1px solid var(--hairline);border-radius:18px;text-align:center;box-shadow:var(--shadow)}
+.wt-gate-title{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:24px;margin-bottom:10px}
+.wt-gate-desc{font-size:14px;color:var(--sub);line-height:1.7;word-break:keep-all}
+
+/* 앱 헤더 */
+.wt-head{padding-top:6px}
+.cover-dominoes{display:flex;gap:5px;margin-bottom:14px}
+.cover-dominoes span{width:12px;height:30px;border-radius:3px;background:var(--accent);opacity:.9;transform:rotate(-8deg);box-shadow:0 3px 8px rgba(0,0,0,.4)}
 .cover-dominoes span:nth-child(2){opacity:.75}.cover-dominoes span:nth-child(3){opacity:.6}.cover-dominoes span:nth-child(4){opacity:.45}.cover-dominoes span:nth-child(5){opacity:.3}
-.cover-eyebrow{font-size:13px;color:var(--accent);letter-spacing:.06em;font-weight:700;margin-bottom:12px}
-.cover-title{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:34px;color:#fff;line-height:1.2;margin-bottom:12px;letter-spacing:-.01em}
-.cover-sub{font-size:13px;color:rgba(255,255,255,.72);line-height:1.75;word-break:keep-all;margin-bottom:28px}
-.cover-chip{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.14);border-radius:100px;padding:8px 16px;font-size:13px;font-weight:700;color:#fff;margin-bottom:24px}
-.cover-dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
-.cover-start-btn{background:var(--accent);color:#fff;font-family:'Paperlogy',sans-serif;font-weight:700;font-size:15px;border:none;cursor:pointer;padding:14px 46px;border-radius:14px;box-shadow:0 4px 18px rgba(0,0,0,.22);min-height:50px;touch-action:manipulation}
-.cover-no-login{background:rgba(255,255,255,.1);border-radius:12px;padding:14px 18px;font-size:13px;color:rgba(255,255,255,.82);line-height:1.6}
-
-/* 메뉴 */
-.menu-greeting{text-align:center;padding:6px 0}
-.menu-greeting .mg-title{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:20px;margin-bottom:6px}
-.menu-greeting .mg-sub{font-size:13px;color:var(--sub);line-height:1.6;word-break:keep-all}
-.menu-list{display:flex;flex-direction:column;gap:12px}
-.menu-btn{display:flex;align-items:center;gap:16px;background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:20px;padding:20px;cursor:pointer;font-family:inherit;text-align:left;box-shadow:var(--shadow);transition:transform .12s;touch-action:manipulation;min-height:84px}
-.menu-btn:active{transform:scale(.98)}
-.menu-btn.locked{opacity:.55}
-.menu-icon{width:54px;height:54px;border-radius:16px;background:var(--primary-soft);display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
-.menu-btn.accent .menu-icon{background:var(--accent-l)}
-.menu-title{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:16px;margin-bottom:4px}
-.menu-desc{font-size:12.5px;color:var(--sub);line-height:1.5;word-break:keep-all}
-.menu-status{margin-top:3px;font-size:12px;font-weight:800}
-.menu-status.done{color:var(--pass)}.menu-status.todo{color:var(--accent-deep)}
+.wt-eyebrow{font-family:var(--mono);font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+.wt-title{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:32px;line-height:1.15;letter-spacing:-.01em;margin:8px 0 12px}
+.wt-steprow{display:flex;align-items:center;gap:10px}
+.wt-stepnum{font-family:var(--mono);font-size:12px;font-weight:800;letter-spacing:.06em;color:var(--primary)}
+.wt-steplabel{font-size:14px;font-weight:700;color:var(--sub)}
 
 /* 게임 헤더 */
 .play-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:6px}
@@ -79,7 +69,7 @@ input,textarea,select{font-size:16px;font-family:inherit}
 
 /* 카드 풀 (상단 고정) */
 .pool-wrap{position:sticky;top:0;z-index:30;background:var(--surface);padding:8px 0 10px;margin:0 -14px;border-bottom:1px solid var(--hairline-soft)}
-.pool-label{font-size:11px;font-weight:800;color:var(--sub);padding:0 14px 6px}
+.pool-label{font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--sub);padding:0 14px 6px}
 .pool{display:flex;gap:8px;overflow-x:auto;padding:2px 14px 4px;-webkit-overflow-scrolling:touch;scrollbar-width:none;min-height:62px}
 .pool::-webkit-scrollbar{display:none}
 .pool-empty{font-size:12px;color:var(--stone);padding:16px 14px}
@@ -89,9 +79,9 @@ input,textarea,select{font-size:16px;font-family:inherit}
 .tile:active{cursor:grabbing}
 .tile.sel{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-l)}
 .tile.dragging{opacity:.35}
-.tile-year{font-size:10.5px;font-weight:800;color:var(--accent-deep);margin-bottom:2px}
+.tile-year{font-family:var(--mono);font-size:10.5px;font-weight:800;color:var(--accent);margin-bottom:2px}
 .tile-title{font-size:13px;font-weight:700;line-height:1.35;word-break:keep-all}
-.tile.ghost{position:fixed;z-index:999;pointer-events:none;box-shadow:0 12px 28px rgba(0,0,0,.25);opacity:.96;transform:rotate(-2deg)}
+.tile.ghost{position:fixed;z-index:999;pointer-events:none;box-shadow:0 12px 28px rgba(0,0,0,.5);opacity:.96;transform:rotate(-2deg)}
 
 /* 보드 */
 .board{display:flex;flex-direction:column;align-items:center;gap:0;padding:6px 0 20px}
@@ -111,16 +101,14 @@ input,textarea,select{font-size:16px;font-family:inherit}
 .connector.fork::before,.connector.fork::after{content:'';position:absolute;top:0;width:3px;height:16px;background:var(--hairline);border-radius:2px}
 .connector.fork::before{left:22%}.connector.fork::after{right:22%}
 
-.slot{width:100%;min-height:54px;border:2px dashed var(--hairline);border-radius:12px;display:flex;align-items:center;justify-content:center;padding:6px;transition:.12s;background:var(--canvas)}
+.slot{width:100%;min-height:54px;border:2px dashed var(--hairline);border-radius:12px;display:flex;align-items:center;justify-content:center;padding:6px;transition:.12s;background:var(--canvas);position:relative}
 .slot.over{border-color:var(--accent);background:var(--accent-l)}
 .slot.filled{border-style:solid}
-.slot-num{font-size:11px;font-weight:800;color:var(--stone)}
+.slot-num{font-family:var(--mono);font-size:11px;font-weight:800;color:var(--stone)}
 .slot .tile{width:100%;max-width:none;min-width:0;cursor:grab}
 .slot.correct{border-color:var(--pass);background:var(--pass-l)}
 .slot.wrong{border-color:var(--fail);background:var(--fail-l)}
-.slot-mark{position:absolute;font-size:14px}
-.slot{position:relative}
-.slot .mark{position:absolute;top:-9px;right:-6px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff}
+.slot .mark{position:absolute;top:-9px;right:-6px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#0B1020}
 .slot.correct .mark{background:var(--pass)}
 .slot.wrong .mark{background:var(--fail)}
 
@@ -129,26 +117,26 @@ input,textarea,select{font-size:16px;font-family:inherit}
 .pool-count{font-size:12px;font-weight:700;color:var(--sub);align-self:center;white-space:nowrap}
 
 /* 결과 */
-.result-card{background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:20px;padding:26px 22px;text-align:center;box-shadow:var(--shadow)}
+.result-card{background:var(--canvas);border:1px solid var(--hairline);border-radius:20px;padding:26px 22px;text-align:center;box-shadow:var(--shadow)}
 .result-score{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:44px;line-height:1;margin:6px 0}
-.result-score.hi{color:var(--pass)}.result-score.mid{color:var(--accent-deep)}.result-score.lo{color:var(--fail)}
+.result-score.hi{color:var(--pass)}.result-score.mid{color:var(--accent)}.result-score.lo{color:var(--fail)}
 .result-sub{font-size:13.5px;color:var(--sub);line-height:1.6}
 .result-detail{font-size:13px;color:var(--ink);margin-top:12px;font-weight:700}
 
 /* 인과 사슬 */
-.causal-q{background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:18px;padding:16px;box-shadow:var(--shadow)}
+.causal-q{background:var(--canvas);border:1px solid var(--hairline);border-radius:18px;padding:16px;box-shadow:var(--shadow)}
 .causal-chain{display:flex;align-items:stretch;gap:8px;margin-bottom:12px}
 .chain-cause,.chain-effect{flex:1;border-radius:12px;padding:11px;min-width:0}
 .chain-cause{background:var(--surface);border:1.5px dashed var(--hairline)}
-.chain-effect{background:var(--hor-l);border:1.5px solid rgba(185,28,28,.2)}
+.chain-effect{background:var(--hor-l);border:1.5px solid rgba(248,113,113,.3)}
 .chain-role{font-size:10.5px;font-weight:800;margin-bottom:5px;letter-spacing:.03em}
 .chain-cause .chain-role{color:var(--sub)}
 .chain-effect .chain-role{color:var(--hor)}
-.chain-topple{align-self:center;font-family:'Paperlogy',sans-serif;font-weight:900;font-size:11px;color:var(--accent-deep);flex-shrink:0;text-align:center;line-height:1.2}
+.chain-topple{align-self:center;font-family:'Paperlogy',sans-serif;font-weight:900;font-size:11px;color:var(--accent);flex-shrink:0;text-align:center;line-height:1.2}
 .chain-effect-title{font-size:14px;font-weight:800;line-height:1.35}
-.cause-select{width:100%;padding:9px 30px 9px 11px;border:1.5px solid var(--hairline);border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;color:var(--ink);background:var(--canvas);outline:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
+.cause-select{width:100%;padding:9px 30px 9px 11px;border:1.5px solid var(--hairline);border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;color:var(--ink);background:var(--canvas);outline:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%239AA0AE' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center}
 .cause-select:focus{border-color:var(--primary)}
-.reason-label{font-size:12px;font-weight:800;color:var(--accent-deep);margin:12px 0 6px}
+.reason-label{font-size:12px;font-weight:800;color:var(--accent);margin:12px 0 6px}
 .reason-in{width:100%;padding:10px 12px;border:1.5px solid var(--hairline);border-radius:10px;font-family:inherit;font-size:15px;line-height:1.5;color:var(--ink);background:var(--surface);outline:none;resize:vertical;min-height:52px}
 .reason-in:focus{border-color:var(--primary)}
 
@@ -156,9 +144,7 @@ input,textarea,select{font-size:16px;font-family:inherit}
 .no-data{text-align:center;padding:40px 20px;color:var(--stone);font-size:14px}
 
 @media(max-width:480px){
-  .cover-title{font-size:30px}
-  .menu-btn{padding:16px}
-  .menu-icon{width:48px;height:48px;font-size:23px}
+  .wt-title{font-size:28px}
   .chain-topple{font-size:10px}
 }
 </style>
@@ -166,64 +152,36 @@ input,textarea,select{font-size:16px;font-family:inherit}
 <body>
 <div class="wrap">
 
-  <!-- 표지 -->
-  <div class="screen active" id="screen-cover">
-    <div class="cover-inner">
-      <div class="cover-dominoes"><span></span><span></span><span></span><span></span><span></span></div>
-      <div class="cover-eyebrow">왜란에서 호란까지</div>
-      <div class="cover-title">역사 도미노</div>
-      <div class="cover-sub">사건을 순서대로 세우면 하나의 흐름이 되고,<br>하나가 쓰러지면 다음 사건이 이어집니다.<br>흩어진 도미노를 제자리에 세워 보세요.</div>
-      <div id="cover-chip" class="cover-chip" style="display:none"><span class="cover-dot"></span><span id="cover-chip-text"></span></div>
-      <div id="cover-no-login" class="cover-no-login" style="display:none">LMS 허브에서 로그인 후 이 페이지에 접속해 주세요.</div>
-      <button class="cover-start-btn" id="cover-start-btn" style="display:none">시작하기</button>
+  <!-- 순서 맞추기 (첫 화면, 1단계) -->
+  <div class="screen active" id="screen-order">
+    <div id="login-gate" class="wt-gate" style="display:none">
+      <div class="wt-gate-title">로그인이 필요해요</div>
+      <div class="wt-gate-desc">LMS 허브에서 로그인 후 이 페이지에 접속해 주세요.</div>
     </div>
-  </div>
+    <div id="order-main">
+      <header class="wt-head">
+        <div class="cover-dominoes"><span></span><span></span><span></span><span></span><span></span></div>
+        <div class="wt-eyebrow">왜란에서 호란까지</div>
+        <h1 class="wt-title">역사 도미노</h1>
+        <div class="wt-steprow"><span class="wt-stepnum">STEP 1 / 2</span><span class="wt-steplabel">도미노 세우기</span></div>
+      </header>
+      <div class="play-head">
+        <div class="play-title">순서 맞추기</div>
+        <button class="btn-back" id="order-reset" style="color:var(--accent)">다시 섞기</button>
+      </div>
+      <div class="play-hint">위 카드를 <b>끌어서</b> 아래 흐름의 빈칸에 놓으세요. (카드를 <b>탭</b>한 뒤 빈칸을 탭해도 돼요) 세로로 내려오다 <b>국내와 국제 정세로 갈라지고</b>, 호란에서 다시 만나 마지막에 또 갈라집니다.</div>
 
-  <!-- 메뉴 -->
-  <div class="screen" id="screen-menu">
-    <div class="menu-greeting">
-      <div class="mg-title" id="mg-title">도미노 판</div>
-      <div class="mg-sub">두 단계로 진행돼요. 먼저 도미노를 세우고, 그다음 하나씩 넘겨봅니다.</div>
-    </div>
-    <div class="menu-list">
-      <button class="menu-btn accent" id="menu-order">
-        <div class="menu-icon" data-icon="list-ordered" data-icon-size="30"></div>
-        <div>
-          <div class="menu-title">1단계. 도미노 세우기 (순서 맞추기)</div>
-          <div class="menu-desc">흩어진 사건 카드를 흐름에 맞게 제자리에 세워요.</div>
-          <div class="menu-status" id="order-status"></div>
-        </div>
-      </button>
-      <button class="menu-btn" id="menu-causal">
-        <div class="menu-icon" data-icon="git-branch" data-icon-size="30"></div>
-        <div>
-          <div class="menu-title">2단계. 도미노 넘기기 (인과 잇기)</div>
-          <div class="menu-desc">어떤 사건이 다음 사건을 쓰러뜨렸는지 원인을 잇고 이유를 써요.</div>
-          <div class="menu-status" id="causal-status"></div>
-        </div>
-      </button>
-    </div>
-  </div>
+      <div class="pool-wrap">
+        <div class="pool-label">세울 도미노</div>
+        <div class="pool" id="pool"></div>
+      </div>
 
-  <!-- 순서 맞추기 -->
-  <div class="screen" id="screen-order">
-    <div class="play-head">
-      <button class="btn-back" id="order-back">메뉴로</button>
-      <div class="play-title">도미노 세우기</div>
-      <button class="btn-back" id="order-reset" style="color:var(--accent-deep)">다시 섞기</button>
-    </div>
-    <div class="play-hint">위 카드를 <b>끌어서</b> 아래 흐름의 빈칸에 놓으세요. (카드를 <b>탭</b>한 뒤 빈칸을 탭해도 돼요) 세로로 내려오다 <b>국내와 국제 정세로 갈라지고</b>, 호란에서 다시 만나 마지막에 또 갈라집니다.</div>
+      <div class="board" id="board"></div>
 
-    <div class="pool-wrap">
-      <div class="pool-label">세울 도미노</div>
-      <div class="pool" id="pool"></div>
-    </div>
-
-    <div class="board" id="board"></div>
-
-    <div class="play-actions">
-      <span class="pool-count" id="pool-count"></span>
-      <button class="btn btn-accent" id="order-submit">채점하기</button>
+      <div class="play-actions">
+        <span class="pool-count" id="pool-count"></span>
+        <button class="btn btn-accent" id="order-submit">채점하기</button>
+      </div>
     </div>
   </div>
 
@@ -237,14 +195,17 @@ input,textarea,select{font-size:16px;font-family:inherit}
     </div>
     <button class="btn btn-ghost btn-full" id="res-review">틀린 곳 확인 / 다시 맞추기</button>
     <button class="btn btn-accent btn-full" id="res-next">2단계 도미노 넘기기</button>
-    <button class="btn-back" id="res-menu" style="align-self:center">메뉴로</button>
+    <button class="btn-back" id="res-menu" style="align-self:center">1단계 다시 하기</button>
   </div>
 
-  <!-- 인과 사슬 -->
+  <!-- 인과 사슬 (2단계) -->
   <div class="screen" id="screen-causal">
+    <header class="wt-head">
+      <div class="wt-steprow"><span class="wt-stepnum">STEP 2 / 2</span><span class="wt-steplabel">도미노 넘기기</span></div>
+    </header>
     <div class="play-head">
-      <button class="btn-back" id="causal-back">메뉴로</button>
-      <div class="play-title">도미노 넘기기</div>
+      <button class="btn-back" id="causal-back">1단계로</button>
+      <div class="play-title">인과 잇기</div>
       <span style="width:44px"></span>
     </div>
     <div class="play-hint">각 사건(결과)이 일어난 <b>원인</b>을 골라 잇고, <b>왜 그렇게 이어지는지</b> 한 줄로 써 보세요. 앞 도미노가 뒤 도미노를 넘어뜨리는 것처럼요.</div>
@@ -261,7 +222,7 @@ input,textarea,select{font-size:16px;font-family:inherit}
       <div class="result-detail" id="done-detail"></div>
       <div class="result-sub" style="margin-top:8px">선생님이 확인 후 채점할 거예요.</div>
     </div>
-    <button class="btn btn-ghost btn-full" id="done-menu">메뉴로 돌아가기</button>
+    <button class="btn btn-ghost btn-full" id="done-menu">처음으로</button>
   </div>
 
 </div>
@@ -346,12 +307,11 @@ async function init(){
   }catch(e){}
   student=getStudent();
   if(student){
-    document.getElementById('cover-chip-text').textContent=`${student.studentId} ${student.name}`;
-    document.getElementById('cover-chip').style.display='inline-flex';
-    document.getElementById('cover-start-btn').style.display='block';
     await loadMine();
+    openOrder();
   }else{
-    document.getElementById('cover-no-login').style.display='block';
+    document.getElementById('login-gate').style.display='block';
+    document.getElementById('order-main').style.display='none';
   }
 }
 async function loadMine(){
@@ -363,29 +323,13 @@ async function loadMine(){
     if(myResult.timelinePlaced)placed={...myResult.timelinePlaced};
     if(Array.isArray(myResult.causal))myResult.causal.forEach(c=>causalAnswers[c.effectId]={causeId:c.chosenCauseId,reason:c.reason});
   }
-  updateMenuStatus();
-}
-function updateMenuStatus(){
-  const os=document.getElementById('order-status');
-  if(myResult&&myResult.timelineTotal){os.innerHTML=icon('check',15)+` 완료 ${myResult.timelineCorrect}/${myResult.timelineTotal} (${myResult.timelinePct}%)`;os.className='menu-status done';}
-  else{os.textContent='아직 안 했어요';os.className='menu-status todo';}
-  const cs=document.getElementById('causal-status');
-  if(myResult&&myResult.causalTotal){cs.innerHTML=icon('check',15)+` 완료 (원인 ${myResult.causalCorrect}/${myResult.causalTotal} 정답)`;cs.className='menu-status done';}
-  else{cs.textContent='아직 안 했어요';cs.className='menu-status todo';}
 }
 
-document.getElementById('cover-start-btn').addEventListener('click',()=>{
-  document.getElementById('mg-title').textContent=`${student.name} 학생의 도미노 판`;
-  showScreen('screen-menu');
-});
-document.getElementById('menu-order').addEventListener('click',openOrder);
-document.getElementById('menu-causal').addEventListener('click',openCausal);
-document.getElementById('order-back').addEventListener('click',()=>showScreen('screen-menu'));
-document.getElementById('causal-back').addEventListener('click',()=>showScreen('screen-menu'));
-document.getElementById('res-menu').addEventListener('click',()=>showScreen('screen-menu'));
-document.getElementById('done-menu').addEventListener('click',()=>showScreen('screen-menu'));
+document.getElementById('res-menu').addEventListener('click',openOrder);
+document.getElementById('causal-back').addEventListener('click',openOrder);
+document.getElementById('done-menu').addEventListener('click',openOrder);
 
-/* ─────────── 순서 맞추기 ─────────── */
+/* ─────────── 순서 맞추기 (1/2) ─────────── */
 function openOrder(){
   reviewMode=false;selectedId=null;
   renderPool();renderBoard();
@@ -574,13 +518,12 @@ async function saveTimeline(correct,total,pct){
       submittedAt:serverTimestamp()
     },{merge:true});
     myResult={...(myResult||{}),timelinePlaced:placed,timelineCorrect:correct,timelineTotal:total,timelinePct:pct};
-    updateMenuStatus();
   }catch(e){alert('저장 오류: '+e.message);}
 }
 document.getElementById('res-review').addEventListener('click',()=>{reviewMode=true;renderPool();renderBoard();showScreen('screen-order');});
 document.getElementById('res-next').addEventListener('click',openCausal);
 
-/* ─────────── 인과 사슬 ─────────── */
+/* ─────────── 인과 사슬 (2/2) ─────────── */
 function openCausal(){
   renderCausal();showScreen('screen-causal');
 }
@@ -638,7 +581,6 @@ document.getElementById('causal-submit').addEventListener('click',async()=>{
     },{merge:true});
     arr.forEach(a=>causalAnswers[a.effectId]={causeId:a.chosenCauseId,reason:a.reason});
     myResult={...(myResult||{}),causal:arr,causalCorrect,causalTotal:CAUSAL.length};
-    updateMenuStatus();
     document.getElementById('done-detail').textContent=
       `도미노 세우기 ${myResult.timelinePct!=null?myResult.timelinePct+'%':'미완료'} / 인과 원인 ${causalCorrect}/${CAUSAL.length} 정답`;
     showScreen('screen-done');
