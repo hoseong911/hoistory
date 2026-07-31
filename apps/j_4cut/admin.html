@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>사화 네컷 - 관리자 모드</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/theme.css">
+<link rel="stylesheet" href="../../shared/admin-base.css">
+<script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
+<style>
+  .fc-section{max-width:900px;margin:0 auto}
+  .fc-meta{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+  .fc-meta input,.fc-meta textarea{font-family:inherit;font-size:14px;padding:10px 12px;border:1.5px solid var(--hi-border);border-radius:10px;background:var(--hi-bg-card);color:var(--hi-text);width:100%}
+  .fc-meta textarea{resize:vertical;min-height:52px}
+  .fc-label{font-size:12px;font-weight:700;color:var(--hi-text-muted);margin-bottom:4px}
+  .fc-cuts{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:720px){.fc-cuts{grid-template-columns:1fr}}
+  .fc-cut{border:1px solid var(--hi-border);border-radius:14px;padding:14px;background:var(--hi-bg-card)}
+  .fc-cut-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .fc-cut-num{font-family:'Gaegu',cursive;font-weight:700;font-size:20px}
+  .fc-stage{position:relative;width:100%;aspect-ratio:4/3;background:#efece3;border:2px solid #1c1c1c;border-radius:6px;overflow:hidden;touch-action:none;user-select:none}
+  .fc-stage img.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+  .fc-stage .noimg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#b7b2a5;font-size:13px;font-weight:600}
+  .eb{position:absolute;background:#fff;border:2.5px solid #1c1c1c;display:flex;align-items:center;justify-content:center;cursor:move;font-family:'Gaegu',cursive;font-weight:700;font-size:13px;color:#888}
+  .eb.speech{border-radius:14px}
+  .eb.thought{border-radius:50%}
+  .eb.sel{box-shadow:0 0 0 3px rgba(37,99,235,.55)}
+  .eb .rh{position:absolute;right:-9px;bottom:-9px;width:18px;height:18px;background:var(--hi-accent);border:2px solid #fff;border-radius:50%;cursor:nwse-resize}
+  .eb .dh{position:absolute;right:-9px;top:-9px;width:18px;height:18px;background:var(--hi-negative);border:2px solid #fff;border-radius:50%;cursor:pointer;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
+  .fc-cut-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .fc-btn{font-family:inherit;font-size:12px;font-weight:600;padding:7px 11px;border-radius:9px;border:1.5px solid var(--hi-border);background:var(--hi-bg-card);color:var(--hi-text);cursor:pointer}
+  .fc-btn.up{border-color:var(--hi-accent);color:var(--hi-accent)}
+  .fc-upstatus{font-size:11px;color:var(--hi-text-muted);margin-top:6px}
+  .fc-save-row{display:flex;align-items:center;gap:12px;margin:22px 0}
+  .fc-save-msg{font-size:13px;font-weight:600}
+  /* 제출물 */
+  .fc-works{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
+  .fc-work{border:1px solid var(--hi-border);border-radius:12px;overflow:hidden;background:var(--hi-bg-card)}
+  .fc-work img{width:100%;display:block;cursor:zoom-in}
+  .fc-work .wm{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;font-size:13px;font-weight:600}
+  .fc-work .wdel{background:none;border:none;color:var(--hi-negative);cursor:pointer;font-size:15px}
+  .fc-lb{display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.85);align-items:center;justify-content:center;padding:20px}
+  .fc-lb.show{display:flex}
+  .fc-lb img{max-width:100%;max-height:100%}
+</style>
+</head>
+<body class="hi-preset-admin">
+
+<!-- 로그인 -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">사화 네컷</div>
+    <div class="login-sub">관리자 모드</div>
+    <input class="hi-input" type="email" id="adminEmail" placeholder="이메일" autocomplete="username" style="margin-bottom:10px"
+      onkeydown="if(event.key==='Enter')document.getElementById('adminPw').focus()">
+    <input class="hi-input" type="password" id="adminPw" placeholder="비밀번호" autocomplete="current-password" style="text-align:center;letter-spacing:3px"
+      onkeydown="if(event.key==='Enter')tryLogin()">
+    <div class="login-err" id="loginErr">이메일 또는 비밀번호가 올바르지 않습니다.</div>
+    <button class="login-btn" id="loginBtn" onclick="tryLogin()">접속하기</button>
+    <div class="login-foot"><a href="index.html">학생 페이지로</a></div>
+  </div>
+</div>
+
+<!-- 어드민 -->
+<div id="adminApp">
+  <header class="adm-header">
+    <div class="adm-logo">사화 네컷<span class="adm-badge">관리자 모드</span></div>
+    <div class="adm-tabs">
+      <button class="adm-tab active" onclick="showPanel('edit',this)">컷 편집</button>
+      <button class="adm-tab" onclick="showPanel('works',this)">제출물</button>
+    </div>
+    <button class="adm-logout" onclick="logoutAdmin()">로그아웃</button>
+    <button class="adm-back" onclick="window.parent.closeAppAdmin&&window.parent.closeAppAdmin()">목록으로</button>
+  </header>
+
+  <div class="adm-body">
+    <!-- 편집 패널 -->
+    <div id="panel-edit" class="tab-panel active">
+      <div class="admin-container fc-section">
+        <div class="fc-meta">
+          <div><div class="fc-label">활동 제목</div><input id="fcTitle" placeholder="사화 네컷" maxlength="30"></div>
+          <div><div class="fc-label">학생 안내 문구</div><textarea id="fcIntro" placeholder="네 장면의 그림을 보고 말풍선을 채워 네컷 만화를 완성하세요."></textarea></div>
+        </div>
+        <div class="fc-cuts" id="fcCuts"></div>
+        <div class="fc-save-row">
+          <button class="hi-btn hi-btn-primary" onclick="saveContent()">저장하기</button>
+          <span class="fc-save-msg" id="fcSaveMsg"></span>
+        </div>
+        <p style="font-size:12px;color:var(--hi-text-muted);line-height:1.7">
+          · 말풍선 없는 <b>배경 그림</b>만 올려주세요. 말풍선은 이 화면에서 얹습니다.<br>
+          · 말풍선은 드래그로 위치를, 오른쪽 아래 파란 점으로 크기를 조절합니다.<br>
+          · 학생이 입력한 글자는 말풍선 크기에 맞춰 자동으로 조정됩니다.
+        </p>
+      </div>
+    </div>
+
+    <!-- 제출물 패널 -->
+    <div id="panel-works" class="tab-panel">
+      <div class="class-filter" id="worksFilter">
+        <button class="cf-btn active" onclick="setWorksFilter('all',this)">전체</button>
+      </div>
+      <div class="admin-container fc-section">
+        <div id="worksList"><div class="loading-state"><div class="spinner"></div><span>불러오는 중…</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="fc-lb" id="fcLb" onclick="this.classList.remove('show')"><img id="fcLbImg" alt=""></div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import{getFirestore,doc,getDoc,setDoc,deleteDoc,collection,onSnapshot,query,orderBy}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import{firebaseConfig}from"../../shared/firebase-config.js";
+
+const app=initializeApp(firebaseConfig);
+const db=getFirestore(app);
+const auth=getAuth(app);
+const esc=s=>{const d=document.createElement('div');d.textContent=s??"";return d.innerHTML;};
+
+/* ── 상태 ── */
+let CONTENT={title:"",intro:"",cuts:Array.from({length:4},()=>({img:null,bubbles:[{type:"speech",x:12,y:12,w:52,h:30}]}))};
+let selected=null;        // {ci,bi}
+let works=[],worksFilter='all',unsubWorks=null;
+
+/* ── 로그인 ── */
+const isEmbedded=window.self!==window.top;
+window.tryLogin=async()=>{
+  const email=document.getElementById('adminEmail').value.trim();
+  const pw=document.getElementById('adminPw').value;
+  const err=document.getElementById('loginErr');err.classList.remove('show');
+  try{await signInWithEmailAndPassword(auth,email,pw);}
+  catch(e){err.textContent='이메일 또는 비밀번호가 올바르지 않습니다.';err.classList.add('show');}
+};
+window.logoutAdmin=()=>{if(confirm('로그아웃 하시겠습니까?'))signOut(auth);};
+function enterAdmin(){document.getElementById('loginScreen').style.display='none';document.getElementById('adminApp').classList.add('show');loadContent();startWorks();}
+if(isEmbedded){document.documentElement.classList.add('has-own-back');enterAdmin();}
+else onAuthStateChanged(auth,u=>{
+  if(u){enterAdmin();}
+  else{document.getElementById('loginScreen').style.display='flex';document.getElementById('adminApp').classList.remove('show');if(unsubWorks){unsubWorks();unsubWorks=null;}}
+});
+
+window.showPanel=(name,btn)=>{
+  document.querySelectorAll('.tab-panel').forEach(el=>el.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  document.querySelectorAll('.adm-tab').forEach(el=>el.classList.remove('active'));
+  btn.classList.add('active');
+};
+
+/* ── 콘텐츠 로드 ── */
+async function loadContent(){
+  try{
+    const snap=await getDoc(doc(db,'settings','fourcut_content'));
+    if(snap.exists()){
+      const d=snap.data();
+      CONTENT={
+        title:d.title||"",intro:d.intro||"",
+        cuts:(Array.isArray(d.cuts)&&d.cuts.length===4)?d.cuts.map(c=>({img:c.img||null,bubbles:Array.isArray(c.bubbles)?c.bubbles:[]})):CONTENT.cuts
+      };
+    }
+  }catch(e){}
+  document.getElementById('fcTitle').value=CONTENT.title;
+  document.getElementById('fcIntro').value=CONTENT.intro;
+  renderCuts();
+}
+
+/* ── 컷 에디터 렌더 ── */
+function renderCuts(){
+  const wrap=document.getElementById('fcCuts');
+  wrap.innerHTML=CONTENT.cuts.map((c,ci)=>{
+    const bg=c.img?`<img class="bg" src="${c.img}" alt="">`:`<div class="noimg">배경 그림을 올리세요</div>`;
+    const bubbles=(c.bubbles||[]).map((b,bi)=>{
+      const sel=selected&&selected.ci===ci&&selected.bi===bi?' sel':'';
+      const label=b.type==="thought"?"생각":"대사";
+      return `<div class="eb ${b.type}${sel}" data-ci="${ci}" data-bi="${bi}" style="left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%">${label}<div class="dh" data-act="del">×</div><div class="rh" data-act="resize"></div></div>`;
+    }).join("");
+    return `<div class="fc-cut">
+      <div class="fc-cut-head"><span class="fc-cut-num">${ci+1}컷</span></div>
+      <div class="fc-stage" data-ci="${ci}">${bg}${bubbles}</div>
+      <div class="fc-cut-actions">
+        <label class="fc-btn up">그림 올리기<input type="file" accept="image/*" data-ci="${ci}" hidden></label>
+        <button class="fc-btn" data-add="speech" data-ci="${ci}">+ 대사 풍선</button>
+        <button class="fc-btn" data-add="thought" data-ci="${ci}">+ 생각 풍선</button>
+        ${c.img?`<button class="fc-btn" data-clearimg="${ci}">그림 제거</button>`:""}
+      </div>
+      <div class="fc-upstatus" data-status="${ci}"></div>
+    </div>`;
+  }).join("");
+  bindCutEvents();
+}
+
+function bindCutEvents(){
+  // 업로드
+  document.querySelectorAll('#fcCuts input[type=file]').forEach(inp=>{
+    inp.onchange=async e=>{
+      const ci=+inp.dataset.ci,file=e.target.files[0];if(!file)return;
+      const status=document.querySelector(`[data-status="${ci}"]`);status.textContent='불러오는 중…';
+      try{CONTENT.cuts[ci].img=await downscale(file,1000,0.8);status.textContent='';renderCuts();}
+      catch(err){status.textContent='실패: '+err.message;}
+    };
+  });
+  // 풍선 추가
+  document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>{
+    const ci=+b.dataset.ci;CONTENT.cuts[ci].bubbles.push({type:b.dataset.add,x:22,y:22,w:46,h:28});
+    selected={ci,bi:CONTENT.cuts[ci].bubbles.length-1};renderCuts();
+  });
+  // 그림 제거
+  document.querySelectorAll('[data-clearimg]').forEach(b=>b.onclick=()=>{const ci=+b.dataset.clearimg;CONTENT.cuts[ci].img=null;renderCuts();});
+  // 드래그/리사이즈
+  document.querySelectorAll('.eb').forEach(el=>{
+    el.querySelector('.dh').onclick=ev=>{ev.stopPropagation();const ci=+el.dataset.ci,bi=+el.dataset.bi;CONTENT.cuts[ci].bubbles.splice(bi,1);selected=null;renderCuts();};
+    el.addEventListener('pointerdown',ev=>startDrag(ev,el));
+  });
+}
+
+/* ── 드래그 & 리사이즈 ── */
+let drag=null;
+function startDrag(ev,el){
+  const act=ev.target.dataset.act;
+  if(act==='del')return;
+  ev.preventDefault();
+  const ci=+el.dataset.ci,bi=+el.dataset.bi;
+  selected={ci,bi};
+  document.querySelectorAll('.eb').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');
+  const stage=el.parentElement,rect=stage.getBoundingClientRect(),b=CONTENT.cuts[ci].bubbles[bi];
+  drag={mode:act==='resize'?'resize':'move',ci,bi,rect,startX:ev.clientX,startY:ev.clientY,ox:b.x,oy:b.y,ow:b.w,oh:b.h,el};
+  el.setPointerCapture(ev.pointerId);
+  el.addEventListener('pointermove',onDrag);
+  el.addEventListener('pointerup',endDrag);
+}
+function onDrag(ev){
+  if(!drag)return;
+  const dxp=(ev.clientX-drag.startX)/drag.rect.width*100,dyp=(ev.clientY-drag.startY)/drag.rect.height*100;
+  const b=CONTENT.cuts[drag.ci].bubbles[drag.bi];
+  if(drag.mode==='move'){
+    b.x=clamp(drag.ox+dxp,0,100-b.w);b.y=clamp(drag.oy+dyp,0,100-b.h);
+    drag.el.style.left=b.x+'%';drag.el.style.top=b.y+'%';
+  }else{
+    b.w=clamp(drag.ow+dxp,12,100-b.x);b.h=clamp(drag.oh+dyp,10,100-b.y);
+    drag.el.style.width=b.w+'%';drag.el.style.height=b.h+'%';
+  }
+}
+function endDrag(ev){if(!drag)return;drag.el.removeEventListener('pointermove',onDrag);drag.el.removeEventListener('pointerup',endDrag);drag=null;}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+
+/* ── 이미지 축소 ── */
+function downscale(file,maxSize,quality){
+  return new Promise((res,rej)=>{
+    const img=new Image();const url=URL.createObjectURL(file);
+    img.onload=()=>{
+      URL.revokeObjectURL(url);
+      let{width:w,height:h}=img;
+      if(w>maxSize||h>maxSize){const r=Math.min(maxSize/w,maxSize/h);w=Math.round(w*r);h=Math.round(h*r);}
+      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      res(cv.toDataURL('image/jpeg',quality));
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('이미지를 읽을 수 없습니다'));};
+    img.src=url;
+  });
+}
+
+/* ── 저장 ── */
+window.saveContent=async()=>{
+  const msg=document.getElementById('fcSaveMsg');
+  CONTENT.title=document.getElementById('fcTitle').value.trim()||"사화 네컷";
+  CONTENT.intro=document.getElementById('fcIntro').value.trim();
+  msg.textContent='저장 중…';msg.style.color='var(--hi-text-muted)';
+  try{
+    await setDoc(doc(db,'settings','fourcut_content'),CONTENT);
+    msg.textContent='저장되었습니다.';msg.style.color='var(--hi-positive)';
+    setTimeout(()=>msg.textContent='',1800);
+  }catch(e){
+    msg.style.color='var(--hi-negative)';
+    msg.textContent=(String(e).includes('longer than')||String(e).includes('exceeds'))
+      ?'저장 실패: 이미지 용량이 너무 큽니다. 더 작은 그림을 사용하세요.'
+      :'저장 실패: '+(e.message||e);
+  }
+};
+
+/* ── 제출물 ── */
+function startWorks(){
+  if(unsubWorks)unsubWorks();
+  const q=query(collection(db,'fourcut_works'),orderBy('timestamp','desc'));
+  unsubWorks=onSnapshot(q,snap=>{works=[];snap.forEach(d=>works.push({id:d.id,...d.data()}));renderWorksFilter();renderWorks();},
+    ()=>{ // 정렬 인덱스 없을 때 대비
+      onSnapshot(collection(db,'fourcut_works'),s=>{works=[];s.forEach(d=>works.push({id:d.id,...d.data()}));works.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));renderWorksFilter();renderWorks();});
+    });
+}
+window.setWorksFilter=(f,btn)=>{worksFilter=f;document.querySelectorAll('#worksFilter .cf-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderWorks();};
+function renderWorksFilter(){
+  const cls=[...new Set(works.map(w=>w.classNum).filter(n=>n!=null))].sort((a,b)=>a-b);
+  const f=document.getElementById('worksFilter');
+  f.innerHTML=`<button class="cf-btn ${worksFilter==='all'?'active':''}" onclick="setWorksFilter('all',this)">전체 (${works.length})</button>`
+    +cls.map(n=>`<button class="cf-btn ${worksFilter==n?'active':''}" onclick="setWorksFilter(${n},this)">${n}반</button>`).join("");
+}
+function renderWorks(){
+  const list=worksFilter==='all'?works:works.filter(w=>w.classNum===worksFilter);
+  const el=document.getElementById('worksList');
+  if(!list.length){el.innerHTML=`<div class="empty-state">제출된 작품이 없습니다.</div>`;return;}
+  el.innerHTML=`<div class="fc-works">${list.map(w=>`
+    <div class="fc-work">
+      <img src="${w.image}" alt="" onclick="lb('${w.id}')">
+      <div class="wm"><span>${esc(w.studentName)} ${w.classNum?`<span style="color:var(--hi-text-muted);font-size:11px">${w.classNum}반</span>`:''}</span>
+        <button class="wdel" onclick="delWork('${w.id}')">✕</button></div>
+    </div>`).join("")}</div>`;
+}
+window.lb=id=>{const w=works.find(x=>x.id===id);if(!w)return;document.getElementById('fcLbImg').src=w.image;document.getElementById('fcLb').classList.add('show');};
+window.delWork=async id=>{if(!confirm('이 작품을 삭제하시겠습니까?'))return;try{await deleteDoc(doc(db,'fourcut_works',id));}catch(e){alert('삭제 실패: '+(e.message||e));}};
+</script>
+</body>
+</html>

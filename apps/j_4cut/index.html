@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="ko" class="hi-theme-light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>사화 네컷 만들기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/theme.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#1c1c1c;--bubble:#ffffff;--bubble-line:#1c1c1c;
+  --panel-bg:#efece3;--accent:#2563eb;--accent-deep:#1e40af;
+}
+html{-webkit-text-size-adjust:100%}
+body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--hi-bg-mid,#f4f3ee);color:var(--ink);min-height:100vh;-webkit-font-smoothing:antialiased;padding-bottom:40px}
+.screen{display:none}
+.screen.active{display:block}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px}
+
+/* ── 인트로 ── */
+.intro-card{background:#fff;border:1.5px solid var(--hi-border,#e5e4df);border-radius:20px;padding:30px 22px;box-shadow:0 8px 30px rgba(0,0,0,.06);text-align:center;margin-top:24px}
+.intro-title{font-family:'Gaegu',cursive;font-weight:700;font-size:34px;line-height:1.2;margin-bottom:8px}
+.intro-sub{color:var(--hi-text-muted,#6b7280);font-size:15px;line-height:1.7;margin-bottom:22px;white-space:pre-wrap}
+.namebox{margin:18px 0}
+.namebox label{display:block;font-size:13px;font-weight:700;color:var(--hi-text-muted,#6b7280);margin-bottom:8px}
+.namebox input{font-family:inherit;font-size:16px;text-align:center;padding:11px 14px;width:min(240px,100%);border:1.5px solid var(--hi-border,#e5e4df);border-radius:12px;background:#fafafa}
+.who{font-size:15px;font-weight:700;background:var(--hi-bg-mid,#f4f3ee);border-radius:12px;padding:12px;margin:10px 0}
+.btn{font-family:inherit;font-weight:700;font-size:16px;border:none;border-radius:14px;padding:13px 26px;cursor:pointer;transition:transform .1s,opacity .1s;-webkit-tap-highlight-color:transparent}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:disabled{opacity:.45;cursor:not-allowed}
+.btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--hi-border,#d8d7d0)}
+.btn-block{width:100%}
+
+/* ── 상단 바 ── */
+.topbar{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--hi-border,#e5e4df);display:flex;align-items:center;gap:10px;padding:10px 16px}
+.topbar .t{font-family:'Gaegu',cursive;font-weight:700;font-size:20px;flex:1}
+.topbar .who-mini{font-size:12px;color:var(--hi-text-muted,#6b7280)}
+.hint{background:#fff8e1;border:1px solid #f4d160;border-radius:12px;padding:10px 14px;font-size:13px;color:#8a6d00;margin:16px 0;line-height:1.6}
+
+/* ── 4컷 그리드 ── */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+@media(max-width:560px){.grid{grid-template-columns:1fr}}
+.cut{position:relative;width:100%;aspect-ratio:4/3;background:var(--panel-bg);border:2px solid var(--ink);border-radius:6px;overflow:hidden;user-select:none}
+.cut .cut-num{position:absolute;top:6px;left:8px;z-index:5;font-family:'Gaegu',cursive;font-weight:700;font-size:18px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6);pointer-events:none}
+.cut img.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.cut .noimg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#b7b2a5;font-size:13px;text-align:center;padding:14px;font-weight:600}
+
+/* ── 말풍선 ── */
+.bubble{position:absolute;background:var(--bubble);border:2.5px solid var(--bubble-line);display:flex;align-items:center;justify-content:center}
+.bubble.speech{border-radius:16px}
+.bubble.thought{border-radius:50%}
+.bubble .tail{position:absolute;left:26%;bottom:-13px;width:0;height:0}
+.bubble.speech .tail{border-left:10px solid transparent;border-right:10px solid transparent;border-top:16px solid var(--bubble-line)}
+.bubble.speech .tail::after{content:"";position:absolute;left:-7px;top:-16px;border-left:7px solid transparent;border-right:7px solid transparent;border-top:12px solid var(--bubble)}
+.bubble.thought .tail,.bubble.thought .tail2{position:absolute;background:var(--bubble);border:2.5px solid var(--bubble-line);border-radius:50%}
+.bubble.thought .tail{width:14px;height:14px;left:22%;bottom:-16px}
+.bubble.thought .tail2{width:8px;height:8px;left:14%;bottom:-28px}
+.btext{position:absolute;inset:15% 16%;overflow:hidden;text-align:center;line-height:1.25;font-family:'Gaegu',cursive;font-weight:700;color:#1c1c1c;word-break:break-word;overflow-wrap:anywhere;display:flex;align-items:center;justify-content:center;width:auto;outline:none}
+.bubble.thought .btext{inset:20% 20%}
+.btext:empty::before{content:attr(data-ph);color:#b0aca0;font-weight:400}
+.bubble.editing{box-shadow:0 0 0 3px rgba(37,99,235,.5)}
+
+.toolbar{display:flex;gap:10px;margin-top:20px}
+.foot-note{text-align:center;color:var(--hi-text-muted,#6b7280);font-size:12px;margin-top:14px}
+
+/* ── 완성/저장 ── */
+.result-img{width:100%;border:2px solid var(--ink);border-radius:8px;display:block;margin:14px 0}
+.result-actions{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.saving{text-align:center;padding:30px;color:var(--hi-text-muted,#6b7280)}
+.spin{width:26px;height:26px;border:3px solid #ddd;border-top-color:var(--accent);border-radius:50%;animation:sp 1s linear infinite;margin:0 auto 12px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ── 아카이브 ── */
+#archiveView{display:none;position:fixed;inset:0;z-index:900;background:var(--hi-bg-mid,#f4f3ee);flex-direction:column;overflow-y:auto}
+#archiveView.show{display:flex}
+.arc-hd{background:#fff;border-bottom:1.5px solid var(--hi-border,#e5e4df);position:sticky;top:0;z-index:5}
+.arc-hd-inner{max-width:700px;margin:0 auto;padding:14px 16px}
+.arc-hd-top{display:flex;align-items:center;gap:10px}
+.arc-back{background:none;border:none;cursor:pointer;padding:6px;color:var(--ink)}
+.arc-titles{flex:1;text-align:center}
+.arc-title{font-family:'Gaegu',cursive;font-weight:700;font-size:22px}
+.arc-subtitle{font-size:12px;color:var(--hi-text-muted,#6b7280)}
+.arc-body{max-width:700px;margin:0 auto;width:100%;padding:16px}
+.arc-filter{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.arc-fbtn{font-family:inherit;font-size:13px;font-weight:600;padding:7px 13px;border-radius:100px;border:1.5px solid var(--hi-border,#d8d7d0);background:#fff;cursor:pointer;color:var(--ink)}
+.arc-fbtn.active{background:var(--ink);color:#fff;border-color:var(--ink)}
+.arc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:520px){.arc-grid{grid-template-columns:1fr}}
+.work{background:#fff;border:1px solid var(--hi-border,#e5e4df);border-radius:14px;overflow:hidden;box-shadow:0 3px 12px rgba(0,0,0,.05)}
+.work img{width:100%;display:block;cursor:zoom-in}
+.work .meta{padding:9px 12px;font-size:13px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.work .meta .nm{color:var(--ink)}
+.work .meta .cls{color:var(--hi-text-muted,#6b7280);font-size:11px}
+.arc-empty{text-align:center;color:var(--hi-text-muted,#6b7280);padding:50px 20px}
+.lightbox{display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.85);align-items:center;justify-content:center;padding:20px}
+.lightbox.show{display:flex}
+.lightbox img{max-width:100%;max-height:100%;border-radius:8px}
+</style>
+</head>
+<body>
+
+<!-- ── 인트로 ── -->
+<section id="introScreen" class="screen active">
+  <div class="wrap">
+    <div class="intro-card">
+      <div class="intro-title" id="introTitle">사화 네컷</div>
+      <div class="intro-sub" id="introSub">말풍선을 눌러 대사를 쓰면 글자가 풍선에 딱 맞게 들어가요.</div>
+      <div id="whoWrap"></div>
+      <button class="btn btn-primary btn-block" id="startBtn">네컷 만들기 시작</button>
+      <button class="btn btn-ghost btn-block" id="introArcBtn" style="margin-top:10px">친구들 작품 보기</button>
+    </div>
+  </div>
+</section>
+
+<!-- ── 편집 ── -->
+<section id="editScreen" class="screen">
+  <div class="topbar">
+    <div class="t" id="barTitle">사화 네컷</div>
+    <div class="who-mini" id="barWho"></div>
+  </div>
+  <div class="wrap">
+    <div class="hint">💡 말풍선을 누르고 대사를 입력하세요. 글자가 많아지면 자동으로 크기가 줄어 풍선 안에 딱 맞게 들어갑니다.</div>
+    <div class="grid" id="cutGrid"></div>
+    <div class="toolbar">
+      <button class="btn btn-ghost" id="arcBtn">친구 작품</button>
+      <button class="btn btn-primary" style="flex:1" id="doneBtn">완성! 이미지로 저장</button>
+    </div>
+    <div class="foot-note">완성하면 그림으로 저장되고 친구들에게 공유돼요.</div>
+  </div>
+</section>
+
+<!-- ── 완성 ── -->
+<section id="doneScreen" class="screen">
+  <div class="topbar"><div class="t">완성!</div></div>
+  <div class="wrap">
+    <div id="doneBody"></div>
+  </div>
+</section>
+
+<!-- ── 아카이브 ── -->
+<div id="archiveView">
+  <div class="arc-hd">
+    <div class="arc-hd-inner">
+      <div class="arc-hd-top">
+        <button class="arc-back" onclick="closeArchive()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+        <div class="arc-titles">
+          <div class="arc-title" id="arcTitle">사화 네컷</div>
+          <div class="arc-subtitle">활동 아카이브</div>
+        </div>
+        <div style="width:34px;flex-shrink:0"></div>
+      </div>
+    </div>
+  </div>
+  <div class="arc-body">
+    <div class="arc-filter" id="arcFilter"></div>
+    <div id="arcGrid" class="arc-grid"></div>
+  </div>
+</div>
+<div class="lightbox" id="lightbox" onclick="this.classList.remove('show')"><img id="lightboxImg" alt=""></div>
+
+<!-- 오프스크린 내보내기 컨테이너 -->
+<div id="exportHost" style="position:fixed;left:-99999px;top:0;width:1080px;background:#fff"></div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import{getFirestore,doc,getDoc,addDoc,collection,getDocs,query,orderBy,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{firebaseConfig}from"../../shared/firebase-config.js";
+
+const app=initializeApp(firebaseConfig);
+const db=getFirestore(app);
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* 기본 콘텐츠 (어드민 미설정 시) */
+const DEFAULT_CONTENT={
+  title:"사화 네컷",
+  intro:"네 장면의 그림을 보고, 말풍선에 인물의 대사를 채워 넣어 나만의 역사 네컷 만화를 완성해 보세요.",
+  cuts:Array.from({length:4},(_,i)=>({img:null,bubbles:[{type:"speech",x:12,y:12,w:52,h:30}]}))
+};
+
+let CONTENT=DEFAULT_CONTENT;
+let student=null;                 // {studentId, studentName}
+let texts=[];                     // texts[cut][bubble] = string
+let editingEl=null;
+
+/* ── LMS ── */
+function getStudentFromLMS(){
+  const sid=localStorage.getItem('lms_autosave_sid');
+  const sname=localStorage.getItem('lms_autosave_sname');
+  if(!sid||!sname||String(sid).length<3)return null;
+  return{studentId:sid,studentName:sname};
+}
+function classNumOf(sid){const s=String(sid||"");if(s.length<3)return null;const n=parseInt(s.slice(1,3),10);return isNaN(n)?null:n;}
+
+/* ── 초기화 ── */
+async function init(){
+  try{
+    const snap=await getDoc(doc(db,'settings','fourcut_content'));
+    if(snap.exists()){
+      const d=snap.data();
+      CONTENT={
+        title:d.title||DEFAULT_CONTENT.title,
+        intro:d.intro||DEFAULT_CONTENT.intro,
+        cuts:(Array.isArray(d.cuts)&&d.cuts.length)?d.cuts:DEFAULT_CONTENT.cuts
+      };
+    }
+  }catch(e){}
+  texts=CONTENT.cuts.map(c=>(c.bubbles||[]).map(()=>""));
+  $("#introTitle").textContent=CONTENT.title;
+  $("#introSub").textContent=CONTENT.intro;
+  $("#barTitle").textContent=CONTENT.title;
+  $("#arcTitle").textContent=CONTENT.title;
+
+  student=getStudentFromLMS();
+  const whoWrap=$("#whoWrap");
+  if(student){
+    whoWrap.innerHTML=`<div class="who">${esc(student.studentName)} <span style="color:var(--hi-text-muted,#6b7280)">(${esc(student.studentId)})</span></div>`;
+  }else{
+    whoWrap.innerHTML=`<div class="namebox"><label>이름을 입력하세요</label><input id="nameInput" maxlength="10" placeholder="예) 홍길동" autocomplete="off"></div>`;
+  }
+}
+
+/* ── 화면 전환 ── */
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$("#"+id).classList.add('active');window.scrollTo(0,0);}
+
+/* ── 컷 렌더 ── */
+function bubbleHTML(b,ci,bi,val,editable){
+  const st=`left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%`;
+  const tail=b.type==="thought"?`<span class="tail"></span><span class="tail2"></span>`:`<span class="tail"></span>`;
+  const ph=b.type==="thought"?"생각을 써요":"대사를 써요";
+  const ed=editable?`contenteditable="true" data-ci="${ci}" data-bi="${bi}"`:"";
+  return `<div class="bubble ${b.type==="thought"?"thought":"speech"}" style="${st}">
+      <div class="btext" ${ed} data-ph="${ph}">${esc(val)}</div>${tail}</div>`;
+}
+function renderCuts(){
+  const grid=$("#cutGrid");
+  grid.innerHTML=CONTENT.cuts.map((c,ci)=>{
+    const bg=c.img?`<img class="bg" src="${c.img}" alt="">`:`<div class="noimg">그림 준비 중</div>`;
+    const bubbles=(c.bubbles||[]).map((b,bi)=>bubbleHTML(b,ci,bi,texts[ci][bi],true)).join("");
+    return `<div class="cut"><span class="cut-num">${ci+1}</span>${bg}${bubbles}</div>`;
+  }).join("");
+  grid.querySelectorAll('.btext[contenteditable]').forEach(el=>{
+    el.addEventListener('input',()=>{
+      const ci=+el.dataset.ci,bi=+el.dataset.bi;
+      texts[ci][bi]=el.textContent;
+      fitText(el);
+    });
+    el.addEventListener('focus',()=>{editingEl&&editingEl.classList.remove('editing');editingEl=el.parentElement;editingEl.classList.add('editing');});
+    el.addEventListener('blur',()=>{el.parentElement.classList.remove('editing');});
+  });
+  requestAnimationFrame(()=>fitAll());
+}
+
+/* ── 자동 맞춤 ── */
+function fitText(el){
+  const parent=el.parentElement;
+  const maxH=parent.classList.contains('thought')?parent.clientHeight*0.7:parent.clientHeight*0.72;
+  const maxW=parent.classList.contains('thought')?parent.clientWidth*0.68:parent.clientWidth*0.7;
+  let size=Math.max(10,Math.round(parent.clientHeight*0.32));
+  el.style.fontSize=size+'px';
+  let guard=0;
+  while(size>8&&(el.scrollHeight>maxH||el.scrollWidth>maxW)&&guard<60){size--;el.style.fontSize=size+'px';guard++;}
+}
+function fitAll(){document.querySelectorAll('#cutGrid .btext').forEach(fitText);}
+window.addEventListener('resize',()=>requestAnimationFrame(fitAll));
+
+/* ── 시작 ── */
+$("#startBtn").onclick=()=>{
+  if(!student){
+    const v=($("#nameInput")?.value||"").trim();
+    if(!v){$("#nameInput")?.focus();return;}
+    student={studentId:"00000",studentName:v};
+  }
+  $("#barWho").textContent=student.studentId==="00000"?student.studentName:`${student.studentName} · ${student.studentId}`;
+  renderCuts();
+  showScreen('editScreen');
+};
+
+/* ── 완성 → 이미지 합성 ── */
+$("#doneBtn").onclick=async()=>{
+  const filled=texts.some(c=>c.some(t=>t&&t.trim()));
+  if(!filled){alert('말풍선에 대사를 하나 이상 써주세요.');return;}
+  showScreen('doneScreen');
+  $("#doneBody").innerHTML=`<div class="saving"><div class="spin"></div>이미지를 만드는 중이에요…</div>`;
+  try{
+    const dataUrl=await composeImage();
+    renderDone(dataUrl);
+  }catch(e){
+    $("#doneBody").innerHTML=`<div class="saving">이미지 생성에 실패했어요.<br>${esc(e.message||e)}</div><button class="btn btn-ghost btn-block" onclick="location.reload()" style="margin-top:14px">다시 시도</button>`;
+  }
+};
+
+function buildExportDOM(){
+  const host=$("#exportHost");
+  const cw=(1080-24*2-16)/2;            // 컷 너비
+  const ch=cw*3/4;                       // 4:3
+  host.innerHTML=`
+    <div style="padding:24px;background:#fff">
+      <div style="font-family:'Gaegu',cursive;font-weight:700;font-size:38px;text-align:center;margin-bottom:16px">${esc(CONTENT.title)}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        ${CONTENT.cuts.map((c,ci)=>{
+          const bg=c.img?`<img src="${c.img}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">`:`<div style="position:absolute;inset:0;background:#efece3"></div>`;
+          const bubbles=(c.bubbles||[]).map((b,bi)=>{
+            const st=`left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%`;
+            const round=b.type==="thought"?"50%":"16px";
+            const inset=b.type==="thought"?"20% 20%":"15% 16%";
+            return `<div class="xb" style="position:absolute;${st};background:#fff;border:2.5px solid #1c1c1c;border-radius:${round};display:flex;align-items:center;justify-content:center">
+              <div class="xt" style="position:absolute;inset:${inset};overflow:hidden;text-align:center;line-height:1.25;font-family:'Gaegu',cursive;font-weight:700;color:#1c1c1c;word-break:break-word;overflow-wrap:anywhere;display:flex;align-items:center;justify-content:center">${esc(texts[ci][bi])}</div>
+            </div>`;
+          }).join("");
+          return `<div style="position:relative;width:${cw}px;height:${ch}px;border:2px solid #1c1c1c;border-radius:6px;overflow:hidden">
+            <div style="position:absolute;top:6px;left:9px;z-index:5;font-family:'Gaegu',cursive;font-weight:700;font-size:24px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6)">${ci+1}</div>${bg}${bubbles}</div>`;
+        }).join("")}
+      </div>
+      <div style="text-align:right;font-family:'Gaegu',cursive;font-weight:700;font-size:22px;margin-top:12px;color:#333">${esc(student.studentName)}</div>
+    </div>`;
+  // 폰트 맞춤
+  host.querySelectorAll('.xb').forEach(bb=>{
+    const el=bb.querySelector('.xt');const thought=bb.style.borderRadius==="50%";
+    const maxH=bb.clientHeight*(thought?0.7:0.72),maxW=bb.clientWidth*(thought?0.68:0.7);
+    let size=Math.max(12,Math.round(bb.clientHeight*0.32));el.style.fontSize=size+'px';let g=0;
+    while(size>10&&(el.scrollHeight>maxH||el.scrollWidth>maxW)&&g<80){size--;el.style.fontSize=size+'px';g++;}
+  });
+  return host.firstElementChild;
+}
+
+async function composeImage(){
+  if(document.fonts&&document.fonts.ready){try{await document.fonts.ready;}catch(e){}}
+  const node=buildExportDOM();
+  const canvas=await html2canvas(node,{backgroundColor:"#ffffff",scale:1,useCORS:true,logging:false});
+  return canvas.toDataURL('image/jpeg',0.85);
+}
+
+function renderDone(dataUrl){
+  $("#doneBody").innerHTML=`
+    <img class="result-img" src="${dataUrl}" alt="완성한 네컷">
+    <div class="result-actions">
+      <button class="btn btn-primary btn-block" id="dlBtn">그림 저장 (내려받기)</button>
+      <button class="btn btn-primary btn-block" id="submitBtn">친구들에게 공유하기</button>
+      <button class="btn btn-ghost btn-block" id="backEditBtn">다시 고치기</button>
+    </div>
+    <div class="foot-note" id="submitNote"></div>`;
+  $("#dlBtn").onclick=()=>{const a=document.createElement('a');a.href=dataUrl;a.download=`사화네컷_${student.studentName}.jpg`;a.click();};
+  $("#backEditBtn").onclick=()=>showScreen('editScreen');
+  $("#submitBtn").onclick=async()=>{
+    const btn=$("#submitBtn");btn.disabled=true;btn.textContent="공유하는 중…";
+    try{
+      await addDoc(collection(db,'fourcut_works'),{
+        studentId:student.studentId,studentName:student.studentName,
+        classNum:classNumOf(student.studentId),
+        image:dataUrl,title:CONTENT.title,createdAt:serverTimestamp(),timestamp:Date.now()
+      });
+      $("#submitNote").textContent="공유 완료! 아카이브에서 친구들 작품을 볼 수 있어요.";
+      btn.textContent="공유 완료 ✓";
+    }catch(e){btn.disabled=false;btn.textContent="친구들에게 공유하기";$("#submitNote").textContent="공유 실패: "+(e.message||e);}
+  };
+}
+
+/* ── 아카이브 ── */
+let arcWorks=[],arcFilter='all';
+async function openArchive(){
+  $("#archiveView").classList.add('show');
+  $("#arcGrid").innerHTML=`<div class="arc-empty">불러오는 중…</div>`;
+  try{
+    const snap=await getDocs(query(collection(db,'fourcut_works'),orderBy('timestamp','desc')));
+    arcWorks=[];snap.forEach(d=>arcWorks.push({id:d.id,...d.data()}));
+  }catch(e){
+    try{const snap=await getDocs(collection(db,'fourcut_works'));arcWorks=[];snap.forEach(d=>arcWorks.push({id:d.id,...d.data()}));arcWorks.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));}catch(e2){arcWorks=[];}
+  }
+  renderArcFilter();renderArc();
+}
+window.closeArchive=()=>$("#archiveView").classList.remove('show');
+function renderArcFilter(){
+  const cls=[...new Set(arcWorks.map(w=>w.classNum).filter(n=>n!=null))].sort((a,b)=>a-b);
+  const btns=[`<button class="arc-fbtn ${arcFilter==='all'?'active':''}" data-f="all">전체</button>`]
+    .concat(cls.map(n=>`<button class="arc-fbtn ${arcFilter==n?'active':''}" data-f="${n}">${n}반</button>`));
+  const f=$("#arcFilter");f.innerHTML=btns.join("");
+  f.querySelectorAll('.arc-fbtn').forEach(b=>b.onclick=()=>{arcFilter=b.dataset.f==='all'?'all':+b.dataset.f;renderArcFilter();renderArc();});
+}
+function renderArc(){
+  const list=arcFilter==='all'?arcWorks:arcWorks.filter(w=>w.classNum===arcFilter);
+  const grid=$("#arcGrid");
+  if(!list.length){grid.innerHTML=`<div class="arc-empty">아직 공유된 작품이 없어요.</div>`;return;}
+  grid.innerHTML=list.map(w=>`<div class="work">
+      <img src="${w.image}" alt="${esc(w.studentName)}의 네컷" loading="lazy" onclick="showLightbox('${w.id}')">
+      <div class="meta"><span class="nm">${esc(w.studentName)}</span><span class="cls">${w.classNum?w.classNum+'반':''}</span></div>
+    </div>`).join("");
+}
+window.showLightbox=(id)=>{const w=arcWorks.find(x=>x.id===id);if(!w)return;$("#lightboxImg").src=w.image;$("#lightbox").classList.add('show');};
+
+$("#arcBtn").onclick=openArchive;
+$("#introArcBtn").onclick=openArchive;
+
+/* URL ?archive=1 로 바로 아카이브 */
+init().then(()=>{
+  if(new URLSearchParams(location.search).get('archive')==='1')openArchive();
+});
+</script>
+</body>
+</html>
