@@ -12,5 +12,14 @@ service firebase.storage {
                    && request.resource.size < 10 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
     }
+    // LMS 개념 체크 전면 이미지 슬라이드: 학생(비로그인)도 보게 읽기는 공개,
+    // 업로드는 로그인 교사만(이미지 한정). 삭제/교체를 위해 delete도 교사에게 허용.
+    match /lms/slides/{allPaths=**} {
+      allow read: if true;
+      allow create, update: if request.auth != null
+                   && request.resource.size < 15 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+      allow delete: if request.auth != null;
+    }
   }
 }
