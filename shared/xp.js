@@ -14,6 +14,7 @@ export const DEFAULT_ACTIVITIES = {
   mileage:      { pt: 20, enabled: true },
   conceptCheck: { pt: 20, enabled: true },
   thinkCheck:   { pt: 30, enabled: true },
+  typingReview: { pt: 20, enabled: true },
   oxQuiz:       { ptPer: 1, dailyMax: 20, enabled: true },
 };
 
@@ -39,7 +40,8 @@ export async function initXP(rtdb, sid, name, fbFns) {
   } catch { _config = {}; }
   _config.levels       = _config.levels       || DEFAULT_LEVELS;
   _config.levelFormula = _config.levelFormula || DEFAULT_FORMULA;
-  _config.activities   = _config.activities   || DEFAULT_ACTIVITIES;
+  // 기존에 저장된 설정에 새 활동(typingReview 등)이 없을 수 있어 기본값을 채워 넣는다.
+  _config.activities   = { ...DEFAULT_ACTIVITIES, ...(_config.activities || {}) };
 
   // 학생 상태 실시간 구독
   _unsubXP = _fb.onValue(_fb.ref(_rtdb, `${XP_ROOT}/students/${_sid}`), snap => {
@@ -139,6 +141,16 @@ export async function addConceptCheckXP(lectureKey) {
   return addXP('conceptCheck', _config.activities.conceptCheck.pt ?? 20, `개념 체크 (${lectureKey}차시)`);
 }
 
+// 타이핑 복습: 강 무관, 하루 1회. lastTypingReview 날짜 게이트로 중복 지급을 막는다.
+export async function addTypingReviewXP() {
+  if (!_config?.activities?.typingReview?.enabled) return null;
+  const today = _today();
+  const snap  = await _fb.get(_fb.ref(_rtdb, `${XP_ROOT}/students/${_sid}/lastTypingReview`));
+  if (snap.exists() && snap.val() === today) return null;
+  await _fb.set(_fb.ref(_rtdb, `${XP_ROOT}/students/${_sid}/lastTypingReview`), today);
+  return addXP('typingReview', _config.activities.typingReview.pt ?? 20, '타이핑 복습');
+}
+
 // ── 어드민 전용 ──
 
 export async function adminAddXP(rtdb, sid, name, pt, note, fbFns, levels, formula) {
@@ -163,7 +175,7 @@ export async function loadXPConfig(rtdb, fbFns) {
   const cfg  = snap.exists() ? { ...snap.val() } : {};
   cfg.levels       = cfg.levels       || DEFAULT_LEVELS;
   cfg.levelFormula = cfg.levelFormula || DEFAULT_FORMULA;
-  cfg.activities   = cfg.activities   || DEFAULT_ACTIVITIES;
+  cfg.activities   = { ...DEFAULT_ACTIVITIES, ...(cfg.activities || {}) };
   return cfg;
 }
 

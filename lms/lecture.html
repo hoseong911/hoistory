@@ -100,6 +100,28 @@
     }
     #typing-score[hidden] { display: none; }
 
+    /* 타이핑 복습 완료 축하 토스트 */
+    .typing-reward {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translate(-50%, -20px);
+      z-index: 400;
+      background: #1a7f37;
+      color: #fff;
+      padding: 14px 26px;
+      border-radius: 14px;
+      box-shadow: 0 8px 26px rgba(0,0,0,0.22);
+      text-align: center;
+      opacity: 0;
+      transition: opacity 0.35s, transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      pointer-events: none;
+    }
+    .typing-reward.show { opacity: 1; transform: translate(-50%, 0); }
+    .typing-reward .tr-main { font-size: 1.05rem; font-weight: 700; }
+    .typing-reward .tr-main b { font-weight: 800; }
+    .typing-reward .tr-sub { margin-top: 4px; font-size: 0.9rem; font-weight: 700; color: #d6f5df; }
+
     #slide-counter {
       position: fixed;
       bottom: 22px;
@@ -191,6 +213,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebas
 import {
   getFirestore, collection, query, where, getDocs, doc, getDoc
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getDatabase, ref, get, set, push, update, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { initXP, addTypingReviewXP } from '../shared/xp.js';
 
 const app = initializeApp({
   apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -201,6 +225,22 @@ const app = initializeApp({
   appId: "1:994509567071:web:8b33bb03a3d8f3a9f557ea"
 });
 const db = getFirestore(app);
+const rtdb = getDatabase(app);
+
+// 타이핑 복습 XP: index의 "타이핑 복습" 버튼으로 열렸을 때만 sid/sn이 URL로 넘어온다.
+// 이 경우에만 학생 신원을 잡아 XP 대상이 된다(교사 발표·일반 열람은 sid 없음 → 대상 아님).
+const _qs = new URLSearchParams(location.search);
+const XP_SID  = (_qs.get('sid') || '').trim();
+const XP_SNAME = (_qs.get('sn') || '').trim();
+let xpReady = false;
+let typingXpDone = false;   // 이번 세션에서 한 번만 시도(중복 호출 방지). 일일 게이트는 xp.js가 처리.
+async function initTypingXP() {
+  if (!XP_SID) return;
+  try {
+    await initXP(rtdb, XP_SID, XP_SNAME, { ref, get, set, push, update, onValue });
+    xpReady = true;
+  } catch (e) { xpReady = false; }
+}
 
 const SETTING_DEFAULTS = {
   fonts: { title: 40, body: 50, label: 60, cover: 120, coverTagline: 60, coverMeta: 60, think: 60, thinkGuide: 45, obj: 60 },
@@ -258,6 +298,7 @@ window.goBack = goBack;
 async function init() {
   const num = new URLSearchParams(location.search).get('num');
   if (!num) { showError('강의 번호(?num=)가 없습니다.'); return; }
+  initTypingXP(); // sid가 URL에 있으면 타이핑 복습 XP를 준비(없으면 아무것도 안 함)
 
   const [lessonSnap, designSnap] = await Promise.all([
     getDocs(query(collection(db, 'class_lessons'), where('num', '==', num))),
@@ -434,6 +475,28 @@ async function init() {
     const inputs = slidesEl.querySelectorAll('.blank-input');
     const correct = slidesEl.querySelectorAll('.blank-input.correct').length;
     typingScore.textContent = `${correct} / ${inputs.length}`;
+    maybeAwardTypingXP(correct, inputs.length);
+  }
+
+  // 90% 이상 정답이면 그날 1회 XP 적립(강 무관). 신원(sid)이 있을 때만 대상.
+  async function maybeAwardTypingXP(correct, total) {
+    if (typingXpDone || !xpReady || !XP_SID || !total) return;
+    if (correct / total < 0.9) return;
+    typingXpDone = true; // 중복 시도 방지. 이미 오늘 받았으면 addTypingReviewXP가 null 반환.
+    try {
+      const res = await addTypingReviewXP();
+      if (res) showTypingReward(res);
+    } catch (e) { typingXpDone = false; }
+  }
+
+  function showTypingReward(res) {
+    const el = document.createElement('div');
+    el.className = 'typing-reward';
+    el.innerHTML = `<div class="tr-main">🎉 타이핑 복습 완료! <b>+${res.pt} XP</b></div>`
+      + (res.levelUp ? `<div class="tr-sub">레벨 업! Lv.${res.newLevel}</div>` : '');
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('show'));
+    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 3200);
   }
 
   // 빈칸 클릭 시 그 항목만 개별 공개(빈칸형 전용). 타이핑 모드에선 .blank가 숨겨져 입력칸이 대신 잡힌다.
