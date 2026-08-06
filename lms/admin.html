@@ -10,7 +10,7 @@
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <!-- 개념 체크 미리보기가 학생 화면(class/lesson.html)과 100% 동일하게 렌더링되도록 공용 슬라이드 스타일을 그대로 불러온다.
      이 파일의 :root 변수 중 --text/--border는 아래 이 페이지 자체 :root 선언이 나중에 와서 재정의하므로 전역 충돌은 없다. -->
-<link rel="stylesheet" href="slide-style.css?v=20260724i">
+<link rel="stylesheet" href="slide-style.css?v=20260806a">
 <style>
 @font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-6SemiBold.woff2') format('woff2');font-weight:600;font-style:normal;font-display:swap}
 @font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2');font-weight:900;font-style:normal;font-display:swap}
@@ -737,6 +737,8 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
             <div class="btn-row" style="margin-top:10px;gap:6px">
               <button class="cl-add-slide" style="width:auto;padding:7px 18px" onclick="addSlide('concept')">+ 새 슬라이드</button>
               <button class="cbtn-sm" onclick="addImageSlide('concept')">+ 이미지 슬라이드</button>
+              <button class="cbtn-sm" onclick="addFullImageSlide('concept')">+ 전면 이미지</button>
+              <button class="cbtn-sm" onclick="addVideoSlide('concept')">+ 영상</button>
             </div>
           </div>
         </div>
@@ -750,6 +752,8 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
             <div class="btn-row" style="margin-top:10px;gap:6px">
               <button class="cl-add-slide" style="width:auto;padding:7px 18px" onclick="addSlide('mission')">+ 새 슬라이드</button>
               <button class="cbtn-sm" onclick="addImageSlide('mission')">+ 이미지 슬라이드</button>
+              <button class="cbtn-sm" onclick="addFullImageSlide('mission')">+ 전면 이미지</button>
+              <button class="cbtn-sm" onclick="addVideoSlide('mission')">+ 영상</button>
             </div>
           </div>
         </div>
@@ -1679,7 +1683,7 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <!-- hwpx 파일(zip+xml) 압축 해제용: 활동지 업로드로 새 강의 자동 생성 기능에 사용 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="slide-render.js?v=20260724e"></script>
+<script src="slide-render.js?v=20260806a"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
@@ -1688,6 +1692,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getDatabase, ref, get, set, remove, update, onValue, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { mountIconPicker } from '../shared/icon-picker.js';
 
 import { firebaseConfig } from "../shared/firebase-config.js";
@@ -1696,6 +1701,7 @@ const app  = initializeApp(firebaseConfig);
 const db   = getFirestore(app);
 const rtdb = getDatabase(app);
 const auth = getAuth(app);
+const storage = getStorage(app);
 const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
 
 // ── 관리자 로그인 (Firebase Authentication) ──
@@ -2623,6 +2629,37 @@ function ceRenderContentLines(target) {
           <button class="cbtn-sm" onclick="addImageItem('${target}',${i})">+ 이미지 추가 (그리드 배치)</button>
         </div>`;
     }
+    if (group.type === 'fullimage') {
+      const i = group.idx, line = lines[i];
+      return `
+        <div class="cl-image" data-idx="${i}">
+          <div class="cl-divider-top">
+            <span class="cl-handle">⋮⋮</span>
+            <span class="cl-image-label">전면 이미지</span>
+            <span style="flex:1;font-size:12px;color:var(--stone);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${line.url ? '업로드됨' : '(비어 있음)'}</span>
+            <button class="cbtn-sm" onclick="replaceFullImage('${target}',${i})">이미지 교체</button>
+            <button class="cbtn-danger" onclick="deleteFullImage('${target}',${i})">삭제</button>
+          </div>
+          ${line.url
+            ? `<div style="padding:8px 12px"><img src="${esc(line.url)}" style="max-height:120px;max-width:100%;border-radius:6px;border:1px solid var(--cborder)"></div>`
+            : `<div style="padding:10px 12px;color:var(--stone);font-size:13px">"이미지 교체"로 파일을 업로드하세요. 화면을 꽉 채우는 슬라이드가 됩니다.</div>`}
+        </div>`;
+    }
+    if (group.type === 'video') {
+      const i = group.idx, line = lines[i];
+      return `
+        <div class="cl-image" data-idx="${i}">
+          <div class="cl-divider-top">
+            <span class="cl-handle">⋮⋮</span>
+            <span class="cl-image-label">영상</span>
+            <input type="text" class="cl-divider-title" placeholder="유튜브 URL 붙여넣기" value="${esc(line.url||'')}" onchange="updateVideoUrl('${target}',${i},this.value)" style="flex:1;max-width:none">
+            <button class="cbtn-danger" onclick="deleteLine('${target}',${i})">삭제</button>
+          </div>
+          ${line.videoId
+            ? `<div style="padding:8px 12px"><img src="https://img.youtube.com/vi/${line.videoId}/mqdefault.jpg" style="max-height:120px;border-radius:6px;border:1px solid var(--cborder)"></div>`
+            : `<div style="padding:10px 12px;color:var(--stone);font-size:13px">유효한 유튜브 URL을 입력하면 미리보기가 표시됩니다.</div>`}
+        </div>`;
+    }
     if (group.type === 'slide-group') {
       const { title, slides } = group;
       const allDivIds = slides.map(s => s.divIdx);
@@ -2701,6 +2738,10 @@ function ceBuildGroups(lines) {
     const line = lines[i];
     if (line.type === 'image') {
       groups.push({ type: 'image', idx: i++ });
+    } else if (line.type === 'fullimage') {
+      groups.push({ type: 'fullimage', idx: i++ });
+    } else if (line.type === 'video') {
+      groups.push({ type: 'video', idx: i++ });
     } else if (line.type === 'divider') {
       const title = line.title;
       const slides = [];
@@ -2828,6 +2869,76 @@ function addImageSlide(target)      { ceLinesFor(target).push({ type:'image', im
 function updateImageItem(target,li,ii,f,v) { ceLinesFor(target)[li].images[ii][f] = v; ceRenderPreview(); }
 function addImageItem(target,li)     { ceLinesFor(target)[li].images.push({ img:1, caption:'' }); ceRenderContentLines(target); ceRenderPreview(); }
 function removeImageItem(target,li,ii) { ceLinesFor(target)[li].images.splice(ii,1); ceRenderContentLines(target); ceRenderPreview(); }
+
+// ── 전면 이미지 슬라이드 (Firebase Storage 업로드) ──
+// 기존 이미지 슬라이드는 img:숫자(git 파일)를 참조하지만, 전면 이미지는 Storage에
+// 올린 뒤 다운로드 URL을 line.url에 저장한다. line.storagePath는 교체/삭제 시 원본
+// 파일을 지우기 위한 경로.
+function cePickFile(accept) {
+  return new Promise(resolve => {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = accept;
+    inp.onchange = () => resolve(inp.files[0] || null);
+    inp.click();
+  });
+}
+async function ceUploadToStorage(file) {
+  const num  = ceCurrentLessonNum || 'x';
+  const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+  const path = `lms/slides/${num}/${Date.now()}_${safe}`;
+  const r    = sRef(storage, path);
+  await uploadBytes(r, file);
+  const url  = await getDownloadURL(r);
+  return { url, path };
+}
+async function addFullImageSlide(target) {
+  const file = await cePickFile('image/*');
+  if (!file) return;
+  try {
+    const { url, path } = await ceUploadToStorage(file);
+    ceLinesFor(target).push({ type:'fullimage', url, storagePath: path });
+    ceRenderContentLines(target); ceRenderPreview();
+  } catch (e) { alert('업로드 실패: ' + (e?.message || e)); }
+}
+async function replaceFullImage(target, i) {
+  const file = await cePickFile('image/*');
+  if (!file) return;
+  const line = ceLinesFor(target)[i];
+  try {
+    const { url, path } = await ceUploadToStorage(file);
+    if (line.storagePath) deleteObject(sRef(storage, line.storagePath)).catch(() => {});
+    line.url = url; line.storagePath = path;
+    ceRenderContentLines(target); ceRenderPreview();
+  } catch (e) { alert('업로드 실패: ' + (e?.message || e)); }
+}
+function deleteFullImage(target, i) {
+  const line = ceLinesFor(target)[i];
+  if (line.storagePath) deleteObject(sRef(storage, line.storagePath)).catch(() => {});
+  ceLinesFor(target).splice(i, 1);
+  ceRenderContentLines(target); ceRenderPreview();
+}
+
+// ── 영상 슬라이드 (유튜브 임베드) ──
+function ceParseYouTubeId(url) {
+  if (!url) return '';
+  const m = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/|live\/))([A-Za-z0-9_-]{11})/);
+  if (m) return m[1];
+  const m2 = url.match(/[?&]v=([A-Za-z0-9_-]{11})/);
+  if (m2) return m2[1];
+  if (/^[A-Za-z0-9_-]{11}$/.test(url.trim())) return url.trim();
+  return '';
+}
+function addVideoSlide(target) {
+  ceLinesFor(target).push({ type:'video', url:'', videoId:'' });
+  ceRenderContentLines(target); ceRenderPreview();
+}
+function updateVideoUrl(target, i, v) {
+  const line = ceLinesFor(target)[i];
+  line.url = v.trim();
+  line.videoId = ceParseYouTubeId(v);
+  if (v.trim() && !line.videoId) alert('유효한 유튜브 URL을 인식하지 못했습니다. 주소를 확인해 주세요.');
+  ceRenderContentLines(target); ceRenderPreview();
+}
 
 let ceDragSrcIdx = null;
 let ceDragSrcTarget = null;
@@ -3273,6 +3384,8 @@ function ceRenderPreview(pickSample) {
   const slides = SlideRender.buildSlidesFromData(ceCd);
   const sample = pickSample ? pickSample(slides) : (slides.find(s => s.type === 'concept') || slides[0]);
   inner.innerHTML = SlideRender.renderSlideHTML(sample, ceCd.lesson);
+  // 미리보기에서는 영상이 바로 보이도록 iframe src를 채운다(발표 화면은 lecture.html이 관리).
+  inner.querySelectorAll('iframe[data-vsrc]').forEach(f => f.setAttribute('src', f.dataset.vsrc));
   SlideRender.wireLightbox(inner);
   ceApplyDesignPreview();
   requestAnimationFrame(rescalePreview);
@@ -5310,6 +5423,7 @@ Object.assign(window, {
   addSlide, addDivider, addContentRow, addImageSlide, toggleDividerImg, deleteLine, deletePair, moveLine,
   addRowToGroup, addPageToGroup, deleteGroup, deleteRow, updateGroupTitle, ceToggleFmt,
   updateImageItem, addImageItem, removeImageItem,
+  addFullImageSlide, replaceFullImage, deleteFullImage, addVideoSlide, updateVideoUrl,
   updateLesson, updateObjectives, updateLine, updateLineItems, updateThink,
   updateDive, toggleChosungEnabled, updateChosungEnabled, updateChosungItems, ceToggleLessonOpen,
   resetContent, saveContent, ceHandleFileUpload,

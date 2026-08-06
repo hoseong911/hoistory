@@ -500,6 +500,12 @@
           images: line.images.map(im => ({ img: im.img || 1, caption: im.caption || '' }))
         });
         current = null;
+      } else if (line.type === 'fullimage') {
+        raw.push({ type: 'fullimage', url: line.url || '' });
+        current = null;
+      } else if (line.type === 'video') {
+        raw.push({ type: 'video', videoId: line.videoId || '' });
+        current = null;
       } else {
         if (!current) { current = { type, title: '', rows: [] }; raw.push(current); }
         current.rows.push({ label: line.label, items: line.items });
@@ -550,6 +556,16 @@
       inner = missionHTML(slide, lesson);
     } else if (slide.type === 'image') {
       inner = imageHTML(slide, lesson);
+    } else if (slide.type === 'fullimage') {
+      extraClass = ' slide-full';
+      inner = slide.url
+        ? `<img class="full-img" src="${slide.url}" alt="">`
+        : `<div class="slide-media-empty" style="color:#999">이미지 없음</div>`;
+    } else if (slide.type === 'video') {
+      extraClass = ' slide-video';
+      inner = slide.videoId
+        ? `<iframe class="video-frame" data-vsrc="https://www.youtube-nocookie.com/embed/${slide.videoId}?rel=0&modestbranding=1" src="" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`
+        : `<div class="slide-media-empty" style="color:#fff">영상 URL 없음</div>`;
     } else if (slide.type === 'think') {
       extraClass = ' slide-think';
       inner = thinkHTML(slide, lesson);

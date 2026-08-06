@@ -6,7 +6,7 @@
   <title>강의</title>
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="slide-style.css?v=20260724i">
+  <link rel="stylesheet" href="slide-style.css?v=20260806a">
   <style>
     /* ════ 리셋 ════ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -169,7 +169,7 @@
 <div    id="slide-counter" hidden></div>
 <div    id="load-error"    hidden></div>
 
-<script src="slide-render.js?v=20260724e"></script>
+<script src="slide-render.js?v=20260806a"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
@@ -384,6 +384,7 @@ async function init() {
       updateCounter();
       rescaleMobileSlides();
       setupMobileScrollTracking();
+      loadAllVideos();
       return;
     }
 
@@ -396,10 +397,30 @@ async function init() {
     currentSlideIdx = 0;
     transitioning   = false;
     updateCounter();
+    syncActiveVideos(0);
   }
 
   /* ── 밀어내기 전환 (PPT Push 방식, 데스크톱 전용) ── */
   let transitioning = false;
+
+  /* 영상 슬라이드 제어: 모든 슬라이드가 DOM에 상주하므로, 활성 슬라이드의 영상만
+     src를 채우고 나머지는 비워서(정지) 뒤에서 소리가 계속 나는 것을 막는다. */
+  function syncActiveVideos(activeIdx) {
+    const slides = slidesEl.querySelectorAll('.slide');
+    slides.forEach((s, i) => {
+      s.querySelectorAll('iframe[data-vsrc]').forEach(f => {
+        const want = i === activeIdx ? f.dataset.vsrc : '';
+        if (f.getAttribute('src') !== want) f.setAttribute('src', want);
+      });
+    });
+  }
+  /* 모바일은 네이티브 스크롤이라 넘김 개념이 약해, 영상들을 미리 로드해 둔다(자동재생은
+     브라우저 정책상 안 되므로 사용자가 눌러야 재생됨). */
+  function loadAllVideos() {
+    slidesEl.querySelectorAll('iframe[data-vsrc]').forEach(f => {
+      if (!f.getAttribute('src')) f.setAttribute('src', f.dataset.vsrc);
+    });
+  }
 
   function scrollToSlide(targetIdx) {
     const slides = Array.from(slidesEl.querySelectorAll('.slide'));
@@ -424,6 +445,7 @@ async function init() {
 
     currentSlideIdx = targetIdx;
     updateCounter();
+    syncActiveVideos(targetIdx);
     setTimeout(() => { transitioning = false; }, 580);
   }
 
