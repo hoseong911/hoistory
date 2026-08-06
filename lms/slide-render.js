@@ -25,8 +25,12 @@
     s = s.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
     // 괄호 안에 빈칸(\x00)이 없는 경우에만 80% 크기 적용
     s = s.replace(/\(([^()\x00]*)\)/g, '<span class="paren-note">($1)</span>');
-    // 플레이스홀더를 빈칸 span으로 복원
-    s = s.replace(/\x00(\d+)\x00/g, (_, i) => `<span class="blank">${blanks[+i]}</span>`);
+    // 플레이스홀더를 빈칸 span으로 복원. data-answer에 정답 원문을 담아 타이핑 모드 채점에 쓴다.
+    s = s.replace(/\x00(\d+)\x00/g, (_, i) => {
+      const ans = blanks[+i];
+      const attr = ans.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return `<span class="blank" data-answer="${attr}">${ans}</span>`;
+    });
     return s;
   }
 
