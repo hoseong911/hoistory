@@ -189,6 +189,38 @@
       transition: none;
       will-change: auto;
     }
+
+    /* ════ 복습 모드: 세로화면이면 '가로로 돌려주세요' 안내로 덮는다 ════
+       터치 기기(pointer:coarse)에서 세로(portrait)일 때만 표시. 가로로 돌리면
+       미디어쿼리가 자동으로 풀려 안내가 사라지고 복습 화면이 나온다. */
+    #rotate-hint { display: none; }
+    @media (orientation: portrait) and (pointer: coarse) and (max-width: 820px) {
+      body.review-mode #rotate-hint {
+        display: flex;
+        position: fixed;
+        inset: 0;
+        z-index: 500;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        background: var(--bg, #efeadf);
+        color: var(--navy, #1c3461);
+        text-align: center;
+        padding: 32px;
+      }
+      #rotate-hint .rh-icon {
+        width: 92px; height: 92px;
+        transform-origin: center;
+        animation: rh-rotate 2s ease-in-out infinite;
+      }
+      #rotate-hint .rh-title { font-size: 1.45rem; font-weight: 800; }
+      #rotate-hint .rh-sub { font-size: 1.02rem; font-weight: 600; line-height: 1.55; color: var(--text, #4a4238); opacity: 0.8; }
+    }
+    @keyframes rh-rotate {
+      0%, 35%   { transform: rotate(0deg); }
+      65%, 100% { transform: rotate(-90deg); }
+    }
   </style>
 </head>
 <body>
@@ -206,6 +238,13 @@
 </div>
 <div    id="slide-counter" hidden></div>
 <div    id="load-error"    hidden></div>
+
+<!-- ── 복습 모드 세로화면 안내(가로로 돌리면 자동으로 사라짐) ── -->
+<div id="rotate-hint">
+  <svg class="rh-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2.2"/><line x1="10.5" y1="18.5" x2="13.5" y2="18.5"/></svg>
+  <div class="rh-title">가로로 돌려주세요</div>
+  <div class="rh-sub">화면을 가로로 돌리면<br>글자와 빈칸이 크게 잘 보여요</div>
+</div>
 
 <script src="slide-render.js?v=20260807a"></script>
 <script type="module">
@@ -377,7 +416,10 @@ async function init() {
 
   /* ── 모바일 판별: 좁은 화면은 push 전환 대신 슬라이드를 세로로 이어붙여
      스크롤로 넘기는 방식을 쓴다 ── */
-  const isMobileLayout = window.innerWidth <= 820;
+  // 복습 모드는 세로면 '가로로 돌려주세요' 안내를 띄우고 가로에서 진행하므로,
+  // 항상 데스크톱식(한 장 크게 보기) 레이아웃을 써서 가로에서 글자·커서가 크게 보이게 한다.
+  if (reviewMode) document.body.classList.add('review-mode');
+  const isMobileLayout = window.innerWidth <= 820 && !reviewMode;
   if (isMobileLayout) {
     document.body.classList.add('mobile-scroll');
     /* 각 슬라이드를 16:9 프레임으로 감싸, 프레임 폭에 맞춰 scale만 적용한다
