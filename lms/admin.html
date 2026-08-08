@@ -6262,11 +6262,6 @@ initAdmin();
     await thSaveOverrides();
     thUpdateGradeSummary(); thRenderGradeBody(); window.thRenderAnswerClass();
   };
-  window.thConfirmAiReview = async function(subId, value) {
-    thOverrides[subId] = value;
-    await thSaveOverrides();
-    thUpdateGradeSummary(); thRenderGradeBody(); window.thRenderAnswerClass();
-  };
 
   // AI 채점 & 포인트 지급: 아직 채점 안 된 제출만 채점한다(채점된 학생은 고정).
   // 0점=구조적 미흡(50자 미만/이탈 5회↑), 5점=AI 조금 미흡, 10~30=AI 품질 차등.
@@ -6418,84 +6413,6 @@ function xpPopulateClassFilter() {
   const cur = sel.value;
   sel.innerHTML = '<option value="">전체 반</option>' + classes.map(c => `<option value="${c}"${c===cur?' selected':''}>${c}</option>`).join('');
 }
-
-// ── GRADE ──
-let _xpGradeSubs = [];
-let _xpGradeLecId = '';
-
-async function xpGradeLoadLectures() {
-  const snap = await getDocs(query(collection(db, 'think_lectures'), orderBy('createdAt', 'desc')));
-  const sel = document.getElementById('xp-grade-lec');
-  if (!sel) return;
-  sel.innerHTML = '<option value="">강의를 선택하세요</option>' +
-    snap.docs.map(d => `<option value="${d.id}">${d.data().title || d.id}</option>`).join('');
-}
-
-window.xpGradeLoadSubs = async function() {
-  const lecId = document.getElementById('xp-grade-lec')?.value;
-  if (!lecId) return;
-  _xpGradeLecId = lecId;
-  document.getElementById('xp-grade-status').textContent = '로딩 중...';
-  const snap = await getDocs(query(collection(db, 'think_submissions'), where('lectureDocId', '==', lecId)));
-  _xpGradeSubs  = snap.docs.map(d => ({ subId: d.id, ...d.data() }));
-  document.getElementById('xp-grade-status').textContent = `총 ${_xpGradeSubs.length}건`;
-  document.getElementById('xp-grade-card').style.display = '';
-  const lecTitle = document.getElementById('xp-grade-lec').options[document.getElementById('xp-grade-lec').selectedIndex]?.text || '';
-  document.getElementById('xp-grade-lec-label').textContent = lecTitle;
-  xpGradeRender();
-};
-
-function xpGradeRender() {
-  const tbody = document.getElementById('xp-grade-body');
-  if (!tbody) return;
-  const cfg = _xpCfg || {};
-  const maxPt = cfg.activities?.thinkCheck?.pt ?? 30;
-  const vColor = { '우수':'var(--success)', '보통':'var(--slate)', '미흡':'var(--critical)' };
-  tbody.innerHTML = _xpGradeSubs.map(s => {
-    const awarded = s.xpAwarded === true;
-    const scored  = typeof s.aiScore === 'number';
-    const verdict = s.aiVerdict || '';
-    const scoreTxt = scored ? `${s.aiScore}점` : (awarded ? '수동' : '<span style="color:var(--slate)">미채점</span>');
-    const verdictTxt = verdict ? `<span style="color:${vColor[verdict]||'var(--slate)'};font-weight:700">${verdict}</span>` : '-';
-    const ptTxt = awarded ? `<span style="color:var(--success);font-weight:700">+${s.aiPt ?? maxPt}</span>` : '<span style="color:var(--slate)">미지급</span>';
-    // 자동 지급이 안 된(옛) 제출만 수동 지급 버튼 노출
-    const action = awarded ? '' : `<button class="add-btn" style="font-size:12px;padding:4px 10px" onclick="xpGradeAwardOne('${s.subId}','${s.id}','${s.name}',${maxPt})">+${maxPt}</button>`;
-    return `<tr>
-      <td>${s.id||''}</td><td>${s.name||''}</td>
-      <td>${(s.textLength||0).toLocaleString()}</td>
-      <td>${scoreTxt}</td>
-      <td>${verdictTxt}</td>
-      <td>${ptTxt}</td>
-      <td>${action}</td>
-    </tr>`;
-  }).join('');
-}
-
-window.xpGradeAwardOne = async function(subId, sid, name, pt) {
-  await xpEnsureConfig();
-  await adminAddXP(rtdb, sid, name, pt, `생각 체크 XP (${_xpGradeLecId})`, fbFns, _xpCfg.levels, _xpCfg.levelFormula);
-  await updateDoc(doc(db, 'think_submissions', subId), { xpAwarded: true, xpAwardedAt: serverTimestamp() });
-  const sub = _xpGradeSubs.find(s => s.subId === subId);
-  if (sub) sub.xpAwarded = true;
-  xpGradeRender();
-};
-
-window.xpGradeAwardAll = async function() {
-  await xpEnsureConfig();
-  const pending = _xpGradeSubs.filter(s => !s.xpAwarded);
-  if (!pending.length) { alert('미지급 항목이 없습니다.'); return; }
-  if (!confirm(`${pending.length}명에게 XP를 지급합니다.`)) return;
-  const btn = document.getElementById('xp-grade-award-all-btn');
-  btn.disabled = true; btn.textContent = '지급 중...';
-  const pt = _xpCfg.activities?.thinkCheck?.pt ?? 30;
-  for (const s of pending) {
-    await adminAddXP(rtdb, s.id, s.name, pt, `생각 체크 XP (${_xpGradeLecId})`, fbFns, _xpCfg.levels, _xpCfg.levelFormula);
-    await updateDoc(doc(db, 'think_submissions', s.subId), { xpAwarded: true, xpAwardedAt: serverTimestamp() });
-    s.xpAwarded = true;
-  }
-  xpGradeRender();
-  btn.disabled = false; btn.textContent = '미지급 전체 XP 지급';
-};
 
 // ── SETTINGS ──
 async function xpLoadSettings() {
