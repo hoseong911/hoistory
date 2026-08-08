@@ -1844,7 +1844,8 @@ async function dbLoad() {
   const el = document.getElementById('db-content');
   if (el) el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--sub);font-size:14px">불러오는 중...</div>';
   try {
-    const today = new Date().toISOString().slice(0, 10); // xp.js와 동일 기준(UTC 날짜)
+    const kstDate = ms => new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10); // 한국시간 날짜
+    const today = kstDate(Date.now()); // xp.js _today()와 동일(KST)
 
     // 개념 체크 강의 (상위 10)
     const clSnap = await getDocs(query(collection(db, 'class_lessons'), orderBy('order', 'desc')));
@@ -1870,7 +1871,7 @@ async function dbLoad() {
       const s = d.data();
       if (s.thGraded !== true) ungraded[s.lectureDocId] = (ungraded[s.lectureDocId] || 0) + 1;
       const secs = s.createdAt?.seconds;
-      if (secs && new Date(secs * 1000).toISOString().slice(0, 10) === today) thinkSubmit++;
+      if (secs && kstDate(secs * 1000) === today) thinkSubmit++;
     });
     _dbThink.forEach(t => t.ungraded = ungraded[t.docId] || 0);
 
@@ -5763,7 +5764,7 @@ initAdmin();
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = `grade_records_${new Date().toISOString().slice(0,10)}.csv`;
+      a.href = url; a.download = `grade_records_${new Date(Date.now()+9*3600*1000).toISOString().slice(0,10)}.csv`;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
     } catch(e) { alert('내보내기에 실패했습니다.'); }
