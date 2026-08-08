@@ -15,7 +15,7 @@ const db   = getFirestore(app);
 const rtdb = getDatabase(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
-const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
+import { CLAUDE_PROXY_URL, kstDate } from '../shared/util.js';
 
 // ── 관리자 로그인 (Firebase Authentication) ──
 function showAdminView() {
@@ -200,8 +200,7 @@ async function dbLoad() {
   const el = document.getElementById('db-content');
   if (el) el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--sub);font-size:14px">불러오는 중...</div>';
   try {
-    const kstDate = ms => new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10); // 한국시간 날짜
-    const today = kstDate(Date.now()); // xp.js _today()와 동일(KST)
+    const today = kstDate(); // 한국시간 기준 (shared/util.js)
 
     // 개념 체크 강의 (상위 10)
     const clSnap = await getDocs(query(collection(db, 'class_lessons'), orderBy('order', 'desc')));
@@ -4120,7 +4119,7 @@ initAdmin();
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url; a.download = `grade_records_${new Date(Date.now()+9*3600*1000).toISOString().slice(0,10)}.csv`;
+      a.href = url; a.download = `grade_records_${kstDate()}.csv`;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
     } catch(e) { alert('내보내기에 실패했습니다.'); }

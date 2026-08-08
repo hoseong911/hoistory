@@ -2,6 +2,8 @@
 // Usage: import { initXP } from '../shared/xp.js';
 //        await initXP(rtdb, studentId, studentName, { ref, get, set, push, update, onValue });
 
+import { kstDate } from './util.js';
+
 const XP_ROOT = 'xp';
 
 export const DEFAULT_LEVELS = [
@@ -173,5 +175,4 @@ export async function saveXPConfig(rtdb, config, fbFns) {
   await fbFns.set(fbFns.ref(rtdb, `${XP_ROOT}/config`), config);
 }
 
-// 한국시간(KST, UTC+9) 기준 날짜(YYYY-MM-DD). 출석·마일리지·타이핑복습 일일 게이트가 이 값을 쓴다.
-function _today() { return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10); }
+function _today() { return kstDate(); } // KST 기준 (shared/util.js)
