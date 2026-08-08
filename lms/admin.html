@@ -651,7 +651,6 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
         <span class="nav-arrow">›</span>
       </div>
       <div class="nav-sub" id="subnav-xp">
-        <div class="nav-sub-item" data-subnav="xp-status">학생 현황</div>
         <div class="nav-sub-item" data-subnav="xp-award">XP 지급</div>
         <div class="nav-sub-item" data-subnav="xp-settings">설정</div>
       </div>
@@ -1415,30 +1414,6 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
   </div>
 
   <!-- ── 경험치 · 현황 ── -->
-  <div class="adm-panel" id="panel-xp-status">
-    <div class="panel-top">
-      <div class="panel-title">학생 현황</div>
-      <div class="panel-actions">
-        <select id="xp-filter-class" class="grade-config-sel" onchange="xpRenderStatus()">
-          <option value="">전체 반</option>
-        </select>
-        <button class="add-btn" onclick="xpRefreshStatus()">새로고침</button>
-      </div>
-    </div>
-    <div class="stu-card">
-      <div class="stu-card-head" style="display:flex;gap:8px;align-items:center">
-        <button class="xp-sort-btn active" id="xpSortRank" onclick="xpSetSort('rank')">랭킹순</button>
-        <button class="xp-sort-btn" id="xpSortId" onclick="xpSetSort('id')">학번순</button>
-      </div>
-      <div style="overflow-x:auto">
-        <table class="gd-table" id="xp-status-table">
-          <thead><tr><th>순위</th><th>학번</th><th>이름</th><th>레벨</th><th>총 XP</th><th>최근 활동</th></tr></thead>
-          <tbody id="xp-status-body"><tr><td colspan="6" style="color:var(--slate);padding:24px;font-size:13px">로딩 중...</td></tr></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
   <!-- ── 경험치 · XP 지급 (생각체크 자동 + 수동) ── -->
   <div class="adm-panel" id="panel-xp-award">
     <div class="panel-top">
@@ -1795,7 +1770,7 @@ const SUBNAV_MAP = {
   think: ['think-question', 'think-answer'],
   grade: ['grade-check', 'grade-grade', 'grade-setting'],
   archive: ['archive-cards', 'archive-category', 'archive-add'],
-  xp: ['xp-status', 'xp-award', 'xp-settings'],
+  xp: ['xp-award', 'xp-settings'],
   settings: ['settings-system', 'settings-student']
 };
 
@@ -1859,7 +1834,6 @@ function switchNav(nav) {
   if (panelId === 'panel-archive-cards' && typeof renderArchiveCards === 'function') renderArchiveCards();
   if (panelId === 'panel-archive-category' && typeof renderArchiveCategoryEditor === 'function') renderArchiveCategoryEditor();
   // XP 패널 진입 시 데이터 로드
-  if (panelId === 'panel-xp-status'   && typeof xpLoadStatus         === 'function') xpLoadStatus();
   if (panelId === 'panel-xp-award'    && typeof xpGradeLoadLectures  === 'function') { xpEnsureConfig(); xpGradeLoadLectures(); xpManualLoadStudents(); }
   if (panelId === 'panel-xp-settings' && typeof xpLoadSettings       === 'function') xpLoadSettings();
   if (panelId === 'panel-dashboard') dbLoad();
@@ -1884,10 +1858,7 @@ window.openContentsAppAdmin = function(el, adminUrl) {
 // ══════════ 대시보드 ══════════
 let _dbStuList = [];
 let _dbXpData  = {};
-let _dbThinkSubs = new Set();
-let _dbThinkLecTitle = '';
-let _dbOpenLesson = null;
-let _dbClsFilter  = '';
+let _dbSortMode = 'rank';
 
 async function dbLoad() {
   const el = document.getElementById('db-content');
@@ -1910,111 +1881,70 @@ async function dbLoad() {
     const xpSnap = await get(ref(rtdb, `${XP_ROOT}/students`));
     _dbXpData = xpSnap.exists() ? (xpSnap.val() || {}) : {};
 
-    // 3. 현재 공개 강의
-    if (!ceLessonsCache.length) await ceGetLessonsFromFirestore();
-    const openLessons = ceLessonsCache.filter(l => l.isOpen === true);
-    _dbOpenLesson = openLessons.length ? openLessons[openLessons.length - 1] : null;
-
-    // 4. 최근 생각 체크 강의 + 제출 현황
-    _dbThinkSubs = new Set();
-    _dbThinkLecTitle = '';
-    const lecSnap = await getDocs(query(collection(db, 'think_lectures'), orderBy('createdAt', 'desc'), limit(1)));
-    if (!lecSnap.empty) {
-      const lecDoc = lecSnap.docs[0];
-      _dbThinkLecTitle = lecDoc.data().title || lecDoc.id;
-      const subSnap = await getDocs(query(collection(db, 'think_submissions'), where('lectureDocId', '==', lecDoc.id)));
-      subSnap.docs.forEach(d => { const sid = d.data().id; if (sid) _dbThinkSubs.add(sid); });
-    }
-
     dbRender();
   } catch(e) {
     if (el) el.innerHTML = `<div style="padding:32px;color:var(--critical);font-size:14px">로드 실패: ${esc(e.message)}</div>`;
   }
 }
 
-function dbClassNum(sid) {
-  if (!sid || sid.length < 3) return 0;
-  return parseInt(sid.slice(1, 3), 10) || 0;
-}
-
-window.dbSetClassFilter = function(cls) {
-  _dbClsFilter = cls;
-  document.querySelectorAll('.db-cls-tab').forEach(b => b.classList.toggle('active', b.dataset.cls === String(cls)));
+window.dbSetSort = function(mode) {
+  _dbSortMode = mode;
+  document.querySelectorAll('.db-sort-tag').forEach(b => b.classList.toggle('active', b.dataset.sort === mode));
   dbRenderTable();
-};
-
-window.dbToggleAcc = function(btn) {
-  const body = btn.nextElementSibling;
-  const open = body.style.display !== 'none';
-  body.style.display = open ? 'none' : '';
-  btn.classList.toggle('open', !open);
 };
 
 function dbRender() {
   const el = document.getElementById('db-content');
   if (!el) return;
-  const classes = [...new Set(_dbStuList.map(s => dbClassNum(s.sid)))].filter(Boolean).sort((a, b) => a - b);
-  const openText = _dbOpenLesson ? `${_dbOpenLesson.num}강 · ${_dbOpenLesson.title}` : '없음';
-  const thinkText = _dbThinkLecTitle || '없음';
-  const submitCount = _dbStuList.filter(s => _dbThinkSubs.has(s.sid)).length;
   el.innerHTML = `
-    <div class="db-summary-row">
-      <div class="db-summary-card">
-        <div class="db-summary-label">현재 공개 강의</div>
-        <div class="db-summary-val">${esc(openText)}</div>
+    <div class="stu-card">
+      <div class="stu-card-head" style="display:flex;align-items:center;gap:8px">
+        <span>학생 랭킹 <span id="db-count" style="font-size:14px;font-weight:400;color:var(--sub)"></span></span>
+        <div style="margin-left:auto;display:flex;gap:6px">
+          <button class="stu-cls-tag db-sort-tag ${_dbSortMode==='rank'?'active':''}" data-sort="rank" onclick="dbSetSort('rank')">랭킹순</button>
+          <button class="stu-cls-tag db-sort-tag ${_dbSortMode==='id'?'active':''}" data-sort="id" onclick="dbSetSort('id')">학번순</button>
+        </div>
       </div>
-      <div class="db-summary-card">
-        <div class="db-summary-label">최근 생각 체크 강의</div>
-        <div class="db-summary-val">${esc(thinkText)}</div>
+      <div style="padding:0 20px 20px">
+        <div class="stu-table-wrap">
+          <table class="stu-table">
+            <thead><tr>
+              <th style="width:22%">학번</th>
+              <th style="width:34%">이름</th>
+              <th style="width:18%">레벨</th>
+              <th style="width:26%">경험치</th>
+            </tr></thead>
+            <tbody id="db-table-body"></tbody>
+          </table>
+          <div id="db-empty" class="empty-panel" style="display:none">학생이 없습니다</div>
+        </div>
       </div>
-      <div class="db-summary-card">
-        <div class="db-summary-label">생각 체크 제출</div>
-        <div class="db-summary-val">${submitCount} / ${_dbStuList.length}명</div>
-      </div>
-    </div>
-    <div class="db-cls-tabs">
-      <button class="db-cls-tab active" data-cls="" onclick="dbSetClassFilter('')">전체</button>
-      ${classes.map(c => `<button class="db-cls-tab" data-cls="${c}" onclick="dbSetClassFilter(${c})">${c}반</button>`).join('')}
-    </div>
-    <div id="db-table-wrap" class="db-desktop"></div>
-    <div id="db-acc-wrap" class="db-mobile">
-      ${classes.map(c => {
-        const stus = _dbStuList.filter(s => dbClassNum(s.sid) === c);
-        return `<div class="db-acc-item">
-          <button class="db-acc-head open" onclick="dbToggleAcc(this)">${c}반 (${stus.length}명)</button>
-          <div class="db-acc-body">${dbBuildTable(stus)}</div>
-        </div>`;
-      }).join('')}
     </div>`;
   dbRenderTable();
 }
 
-function dbBuildTable(students) {
-  if (!students.length) return '<p style="padding:12px;color:var(--sub);font-size:13px">학생 없음</p>';
-  return `<table class="db-table">
-    <thead><tr><th>학번</th><th>이름</th><th>반</th><th>생각 체크</th><th>레벨</th><th>경험치</th></tr></thead>
-    <tbody>${students.map(s => {
-      const xp  = _dbXpData[s.sid] || {};
-      const lv  = xp.level || calcLevel(xp.total || 0, _xpCfg?.levels, _xpCfg?.levelFormula);
-      const cls = dbClassNum(s.sid);
-      const sub = _dbThinkSubs.has(s.sid);
-      return `<tr>
-        <td>${esc(s.sid)}</td><td>${esc(s.name)}</td><td>${cls ? cls + '반' : '-'}</td>
-        <td><span class="db-badge ${sub ? 'db-badge-ok' : 'db-badge-no'}">${sub ? '제출' : '-'}</span></td>
-        <td><span style="font-weight:700;color:var(--amber-d)">Lv.${lv}</span></td>
-        <td style="font-weight:700">${(xp.total || 0).toLocaleString()} pt</td>
-      </tr>`;
-    }).join('')}</tbody>
-  </table>`;
-}
-
 function dbRenderTable() {
-  const wrap = document.getElementById('db-table-wrap');
-  if (!wrap) return;
-  const filtered = _dbClsFilter
-    ? _dbStuList.filter(s => dbClassNum(s.sid) === +_dbClsFilter)
-    : _dbStuList;
-  wrap.innerHTML = dbBuildTable(filtered);
+  const tbody = document.getElementById('db-table-body');
+  if (!tbody) return;
+  const list = _dbStuList.map(s => {
+    const xp    = _dbXpData[s.sid] || {};
+    const total = xp.total || 0;
+    const lv    = xp.level || calcLevel(total, _xpCfg?.levels, _xpCfg?.levelFormula);
+    return { sid: s.sid, name: s.name, total, lv };
+  });
+  if (_dbSortMode === 'id') list.sort((a, b) => a.sid.localeCompare(b.sid, undefined, { numeric: true }));
+  else                      list.sort((a, b) => b.total - a.total);
+  const cnt = document.getElementById('db-count');
+  if (cnt) cnt.textContent = `${list.length}명`;
+  const empty = document.getElementById('db-empty');
+  if (!list.length) { tbody.innerHTML = ''; if (empty) empty.style.display = 'block'; return; }
+  if (empty) empty.style.display = 'none';
+  tbody.innerHTML = list.map(s => `<tr>
+    <td class="stu-td-id">${esc(s.sid)}</td>
+    <td>${esc(s.name)}</td>
+    <td><span style="font-weight:700;color:var(--amber-d)">Lv.${s.lv}</span></td>
+    <td style="font-weight:700">${s.total.toLocaleString()} pt</td>
+  </tr>`).join('');
 }
 
 // ── Firestore: lms_items (개념·미션·생각 섹션용) ──
