@@ -1420,24 +1420,27 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
       <div class="panel-title">XP 지급</div>
     </div>
 
-    <!-- 생각체크 자동 지급 -->
+    <!-- 생각체크 AI 채점 결과 (제출 시 자동 지급됨) -->
     <div class="stu-card">
-      <div class="stu-card-head">생각체크 XP 자동 지급</div>
+      <div class="stu-card-head">생각체크 AI 채점 결과</div>
       <div class="stu-card-body" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <select id="xp-grade-lec" class="grade-config-sel" style="flex:1;min-width:200px" onchange="xpGradeLoadSubs()">
           <option value="">강의를 선택하세요</option>
         </select>
         <span id="xp-grade-status" style="font-size:13px;color:var(--slate)"></span>
       </div>
+      <div class="stu-card-body" style="padding-top:0;font-size:12px;color:var(--slate);line-height:1.6">
+        학생이 제출하면 AI가 질문 적합도를 채점해 <b>10~30 XP</b>가 자동 지급됩니다. 아래는 확인용이며, 미채점(옛 제출)만 수동 지급할 수 있어요.
+      </div>
     </div>
     <div class="stu-card" id="xp-grade-card" style="display:none">
       <div class="stu-card-head" style="display:flex;justify-content:space-between;align-items:center">
         <span id="xp-grade-lec-label">제출 목록</span>
-        <button class="add-btn" id="xp-grade-award-all-btn" onclick="xpGradeAwardAll()">미지급 전체 지급</button>
+        <button class="add-btn" id="xp-grade-award-all-btn" onclick="xpGradeAwardAll()">미채점분 수동 지급</button>
       </div>
       <div class="stu-card-body" style="overflow-x:auto">
         <table class="gd-table">
-          <thead><tr><th>학번</th><th>이름</th><th>글자수</th><th>XP 상태</th><th>지급</th></tr></thead>
+          <thead><tr><th>학번</th><th>이름</th><th>글자수</th><th>AI 점수</th><th>판정</th><th>지급 XP</th><th>수동</th></tr></thead>
           <tbody id="xp-grade-body"></tbody>
         </table>
       </div>
@@ -6275,7 +6278,7 @@ initAdmin();
 import { loadXPConfig, saveXPConfig, adminAddXP, DEFAULT_LEVELS, DEFAULT_FORMULA, DEFAULT_ACTIVITIES, calcLevel } from '../shared/xp.js';
 
 const XP_ROOT = 'xp';
-const ACT_LABELS = { attendance:'출석 체크', mileage:'히스토리 마일리지', conceptCheck:'개념 체크', thinkCheck:'생각 체크', typingReview:'타이핑 복습 (일일 1회)', oxQuiz:'OX 퀴즈 (일일 최대)' };
+const ACT_LABELS = { attendance:'출석 체크', mileage:'히스토리 마일리지', thinkCheck:'생각 체크', typingReview:'타이핑 복습 (일일 1회)', oxQuiz:'OX 퀴즈 (일일 최대)' };
 const fbFns = { ref, get, set, push, update, onValue };
 
 let _xpCfg    = null;
@@ -6370,14 +6373,24 @@ function xpGradeRender() {
   const tbody = document.getElementById('xp-grade-body');
   if (!tbody) return;
   const cfg = _xpCfg || {};
-  const pt  = cfg.activities?.thinkCheck?.pt ?? 30;
+  const maxPt = cfg.activities?.thinkCheck?.pt ?? 30;
+  const vColor = { '우수':'var(--success)', '보통':'var(--slate)', '미흡':'var(--critical)' };
   tbody.innerHTML = _xpGradeSubs.map(s => {
     const awarded = s.xpAwarded === true;
+    const scored  = typeof s.aiScore === 'number';
+    const verdict = s.aiVerdict || '';
+    const scoreTxt = scored ? `${s.aiScore}점` : (awarded ? '수동' : '<span style="color:var(--slate)">미채점</span>');
+    const verdictTxt = verdict ? `<span style="color:${vColor[verdict]||'var(--slate)'};font-weight:700">${verdict}</span>` : '-';
+    const ptTxt = awarded ? `<span style="color:var(--success);font-weight:700">+${s.aiPt ?? maxPt}</span>` : '<span style="color:var(--slate)">미지급</span>';
+    // 자동 지급이 안 된(옛) 제출만 수동 지급 버튼 노출
+    const action = awarded ? '' : `<button class="add-btn" style="font-size:12px;padding:4px 10px" onclick="xpGradeAwardOne('${s.subId}','${s.id}','${s.name}',${maxPt})">+${maxPt}</button>`;
     return `<tr>
       <td>${s.id||''}</td><td>${s.name||''}</td>
       <td>${(s.textLength||0).toLocaleString()}</td>
-      <td>${awarded ? '<span style="color:var(--success);font-weight:700">지급됨</span>' : '<span style="color:var(--slate)">미지급</span>'}</td>
-      <td>${awarded ? '' : `<button class="add-btn" style="font-size:12px;padding:4px 10px" onclick="xpGradeAwardOne('${s.subId}','${s.id}','${s.name}',${pt})">+${pt} pt</button>`}</td>
+      <td>${scoreTxt}</td>
+      <td>${verdictTxt}</td>
+      <td>${ptTxt}</td>
+      <td>${action}</td>
     </tr>`;
   }).join('');
 }
@@ -6415,8 +6428,8 @@ async function xpLoadSettings() {
   const actBody = document.getElementById('xp-act-body');
   if (actBody) {
     const acts = _xpCfg.activities || DEFAULT_ACTIVITIES;
-    actBody.innerHTML = Object.entries(acts).map(([key, v]) => {
-      const label = ACT_LABELS[key] || key;
+    actBody.innerHTML = Object.entries(acts).filter(([key]) => key !== 'conceptCheck').map(([key, v]) => {
+      const label = key === 'thinkCheck' ? '생각 체크 (제출 시 AI 채점, 10~최대)' : (ACT_LABELS[key] || key);
       const ptVal = key === 'oxQuiz' ? (v.dailyMax ?? 20) : (v.pt ?? 0);
       const ptLabel = key === 'oxQuiz' ? `일일 최대 ${ptVal}pt (정답당 ${v.ptPer??1}pt)` : `${ptVal} pt`;
       return `<tr>

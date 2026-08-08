@@ -12,8 +12,7 @@ export const DEFAULT_FORMULA  = { lastGap: 550, increment: 25 };
 export const DEFAULT_ACTIVITIES = {
   attendance:   { pt: 5,  enabled: true },
   mileage:      { pt: 20, enabled: true },
-  conceptCheck: { pt: 20, enabled: true },
-  thinkCheck:   { pt: 30, enabled: true },
+  thinkCheck:   { pt: 30, enabled: true }, // pt = 최대치. 실제 지급은 제출 AI 채점으로 10~pt 차등.
   typingReview: { pt: 20, enabled: true },
   oxQuiz:       { ptPer: 1, dailyMax: 20, enabled: true },
 };
@@ -132,13 +131,15 @@ export async function addMileageXP() {
   return addXP('mileage', _config.activities.mileage.pt ?? 20, '히스토리 마일리지 완주');
 }
 
-export async function addConceptCheckXP(lectureKey) {
-  if (!_config?.activities?.conceptCheck?.enabled) return null;
-  const path = `${XP_ROOT}/students/${_sid}/conceptCheck/${lectureKey}`;
+// 생각 체크: 제출 시 AI 채점 점수에 따라 pt(10~30)를 강의당 1회 지급한다.
+// pt 계산은 호출부(제출 화면)에서 하고, 여기서는 중복 지급만 막는다(강의당 1회).
+export async function addThinkCheckXP(lectureKey, pt, note) {
+  if (!_config?.activities?.thinkCheck?.enabled) return null;
+  const path = `${XP_ROOT}/students/${_sid}/thinkCheck/${lectureKey}`;
   const snap = await _fb.get(_fb.ref(_rtdb, path));
-  if (snap.exists() && snap.val() === true) return null;
-  await _fb.set(_fb.ref(_rtdb, path), true);
-  return addXP('conceptCheck', _config.activities.conceptCheck.pt ?? 20, `개념 체크 (${lectureKey}차시)`);
+  if (snap.exists() && snap.val()) return null; // 이미 지급됨
+  await _fb.set(_fb.ref(_rtdb, path), pt);
+  return addXP('thinkCheck', pt, note || '생각 체크');
 }
 
 // 타이핑 복습: 강 무관, 하루 1회. lastTypingReview 날짜 게이트로 중복 지급을 막는다.
