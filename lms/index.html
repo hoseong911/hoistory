@@ -493,16 +493,13 @@ html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;b
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   getFirestore, collection, query, orderBy, where, onSnapshot, getDocs,
-  doc, getDoc, setDoc, addDoc, updateDoc, serverTimestamp
+  doc, getDoc, setDoc, addDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getDatabase, ref as rtdbRef, get as rtdbGet, set as rtdbSet, push as rtdbPush, update as rtdbUpdate, onValue as rtdbOnValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { initAuth, mountLoginVerification, verifyStudentId, verifyStudentName } from "../shared/auth.js";
 import "../shared/offline.js";
 import { firebaseConfig } from "../shared/firebase-config.js";
-import { initXP, onXPChange, checkAndAddAttendance, addThinkCheckXP, calcLevel, calcNextThreshold } from "../shared/xp.js";
-
-// 생각 체크 AI 채점용 Claude 프록시(다른 앱과 동일 엔드포인트). 모델은 채점용이라 저렴한 Haiku 사용.
-const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
+import { initXP, onXPChange, checkAndAddAttendance, calcLevel, calcNextThreshold } from "../shared/xp.js";
 
 const app  = initializeApp(firebaseConfig);
 const db   = getFirestore(app);
@@ -1264,99 +1261,22 @@ document.getElementById('thinkSubmitBtn').addEventListener('click', async () => 
   if (textLength > THINK_MAX_CHARS) return;
   if (textLength < 50 && !confirm('50자 미만 작성했습니다. 그래도 제출 하시겠습니까?')) return;
   const duration = Math.floor((Date.now() - _thinkStart) / 1000);
-  const item = _thinkItem;
   const btn = document.getElementById('thinkSubmitBtn');
   btn.disabled = true; btn.textContent = '제출 중...';
   try {
-    const subRef = await addDoc(collection(db, 'think_submissions'), {
-      lectureDocId: item.lectureDocId, lectureTitle: item.lectureTitle,
+    await addDoc(collection(db, 'think_submissions'), {
+      lectureDocId: _thinkItem.lectureDocId, lectureTitle: _thinkItem.lectureTitle,
       id: currentStudentId, name: currentStudentName, verify: currentStudentName,
       text, textLength, duration, cheatCount: _thinkCheat,
       isPicked: false, createdAt: serverTimestamp(), source: 'lms'
     });
-    // 제출은 끝. 완료 화면을 먼저 보여주고, AI 채점·XP 지급은 뒤에서 이어서 처리한다.
     document.getElementById('thinkWriteArea').style.display = 'none';
     document.getElementById('thinkDoneBox').style.display   = 'block';
-    awardThinkCheckXP(subRef, item, text);
   } catch(_) {
     btn.disabled = false; btn.textContent = '제출하기';
     alert('제출 중 오류가 발생했습니다. 다시 시도해 주세요.');
   }
 });
-
-// AI로 답변 품질(질문 적합도)을 채점해 0~100점을 받고, 10~30 XP로 환산해 자동 지급한다.
-// 채점 실패 시에는 기본 10점만 지급해 제출한 학생이 손해 보지 않게 한다.
-async function gradeThinkAnswer(question, answer) {
-  const prompt = `당신은 중학교 역사 수업의 보조 교사입니다. 학생이 아래 "질문"에 대해 자신의 생각을 서술했습니다.
-학생 답변이 그 질문에 얼마나 잘 답했는지를 0~100점으로 평가하세요. 기준: (1) 질문과의 관련성(가장 중요), (2) 자기 생각·근거의 구체성, (3) 성의(분량·진지함).
-질문과 무관하거나 성의 없이 짧으면 낮은 점수와 함께 "미흡"으로 표시하세요.
-
-[질문]
-${question}
-
-[학생 답변]
-${answer}
-
-응답은 JSON 하나만 출력하세요(설명·코드펜스 없이): {"score": 0~100 정수, "verdict": "우수"|"보통"|"미흡", "feedback": "40자 이내 한줄평"}`;
-  const res = await fetch(CLAUDE_PROXY_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 512, messages: [{ role: 'user', content: prompt }] })
-  });
-  if (!res.ok) throw new Error('grade ' + res.status);
-  const data = await res.json();
-  let clean = (data.content?.[0]?.text || '{}').replace(/```json|```/g, '').trim();
-  const s = clean.indexOf('{'), e = clean.lastIndexOf('}');
-  if (s !== -1 && e !== -1) clean = clean.slice(s, e + 1);
-  const r = JSON.parse(clean);
-  let score = Math.round(Number(r.score));
-  if (!isFinite(score)) score = 50;
-  score = Math.max(0, Math.min(100, score));
-  return { score, verdict: r.verdict || '', feedback: r.feedback || '' };
-}
-
-async function awardThinkCheckXP(subRef, item, text) {
-  showThinkResult('pending');
-  let score = null, verdict = '', feedback = '';
-  try {
-    const g = await gradeThinkAnswer(item.question, text);
-    score = g.score; verdict = g.verdict; feedback = g.feedback;
-  } catch (_) { /* 채점 실패 → 기본 10점 */ }
-  // 기본 10점 + 품질 보너스(최대 +20) = 10~30
-  const pt = score == null ? 10 : Math.max(10, Math.min(30, Math.round(10 + score * 0.2)));
-  let awardRes = null;
-  try { awardRes = await addThinkCheckXP(item.lectureDocId, pt, `생각 체크: ${item.lectureTitle}`); } catch (_) {}
-  try {
-    await updateDoc(subRef, {
-      aiScore: score, aiVerdict: verdict, aiFeedback: feedback, aiPt: pt,
-      xpAwarded: awardRes != null, xpAwardedAt: serverTimestamp()
-    });
-  } catch (_) {}
-  showThinkResult(awardRes ? 'awarded' : 'already', pt, awardRes);
-}
-
-function showThinkResult(state, pt, awardRes) {
-  const box = document.getElementById('thinkDoneBox');
-  if (!box) return;
-  let el = document.getElementById('thinkXpResult');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'thinkXpResult';
-    el.style.cssText = 'margin:2px 0 14px;font-size:15px;font-weight:700;line-height:1.6';
-    box.insertBefore(el, box.firstChild);
-  }
-  if (state === 'pending') {
-    el.textContent = 'AI가 채점 중이에요…';
-    el.style.color = 'var(--slate)';
-  } else if (state === 'awarded') {
-    el.innerHTML = `채점 완료! <b>+${pt} XP</b> 지급`
-      + (awardRes && awardRes.levelUp ? ` 🎉 레벨 업! Lv.${awardRes.newLevel}` : '');
-    el.style.color = 'var(--accent-deep)';
-  } else {
-    el.textContent = '이미 경험치를 받은 생각 체크예요.';
-    el.style.color = 'var(--slate)';
-  }
-}
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

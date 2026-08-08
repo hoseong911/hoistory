@@ -1413,36 +1413,14 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
     </div>
   </div>
 
-  <!-- ── 경험치 · 현황 ── -->
-  <!-- ── 경험치 · XP 지급 (생각체크 자동 + 수동) ── -->
+  <!-- ── 경험치 · XP 지급 (수동) ── -->
   <div class="adm-panel" id="panel-xp-award">
     <div class="panel-top">
       <div class="panel-title">XP 지급</div>
     </div>
-
-    <!-- 생각체크 AI 채점 결과 (제출 시 자동 지급됨) -->
     <div class="stu-card">
-      <div class="stu-card-head">생각체크 AI 채점 결과</div>
-      <div class="stu-card-body" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <select id="xp-grade-lec" class="grade-config-sel" style="flex:1;min-width:200px" onchange="xpGradeLoadSubs()">
-          <option value="">강의를 선택하세요</option>
-        </select>
-        <span id="xp-grade-status" style="font-size:13px;color:var(--slate)"></span>
-      </div>
-      <div class="stu-card-body" style="padding-top:0;font-size:12px;color:var(--slate);line-height:1.6">
-        학생이 제출하면 AI가 질문 적합도를 채점해 <b>10~30 XP</b>가 자동 지급됩니다. 아래는 확인용이며, 미채점(옛 제출)만 수동 지급할 수 있어요.
-      </div>
-    </div>
-    <div class="stu-card" id="xp-grade-card" style="display:none">
-      <div class="stu-card-head" style="display:flex;justify-content:space-between;align-items:center">
-        <span id="xp-grade-lec-label">제출 목록</span>
-        <button class="add-btn" id="xp-grade-award-all-btn" onclick="xpGradeAwardAll()">미채점분 수동 지급</button>
-      </div>
-      <div class="stu-card-body" style="overflow-x:auto">
-        <table class="gd-table">
-          <thead><tr><th>학번</th><th>이름</th><th>글자수</th><th>AI 점수</th><th>판정</th><th>지급 XP</th><th>수동</th></tr></thead>
-          <tbody id="xp-grade-body"></tbody>
-        </table>
+      <div class="stu-card-body" style="font-size:12px;color:var(--slate);line-height:1.6">
+        생각 체크 포인트는 <b>생각 체크 &gt; ANSWER &gt; 반별</b>에서 "AI 채점"으로 채점할 때 함께 지급됩니다. 아래는 임의 가감용 수동 지급입니다.
       </div>
     </div>
 
@@ -1837,7 +1815,7 @@ function switchNav(nav) {
   if (panelId === 'panel-archive-cards' && typeof renderArchiveCards === 'function') renderArchiveCards();
   if (panelId === 'panel-archive-category' && typeof renderArchiveCategoryEditor === 'function') renderArchiveCategoryEditor();
   // XP 패널 진입 시 데이터 로드
-  if (panelId === 'panel-xp-award'    && typeof xpGradeLoadLectures  === 'function') { xpEnsureConfig(); xpGradeLoadLectures(); xpManualLoadStudents(); }
+  if (panelId === 'panel-xp-award'    && typeof xpManualLoadStudents === 'function') { xpEnsureConfig(); xpManualLoadStudents(); }
   if (panelId === 'panel-xp-settings' && typeof xpLoadSettings       === 'function') xpLoadSettings();
   if (panelId === 'panel-dashboard') dbLoad();
 }
@@ -6074,7 +6052,7 @@ initAdmin();
     thActivityData = {
       absent: classStu.filter(s => !submittedIds.has(String(s.studentId))),
       short:  classSubs.filter(s => (s.textLength||0) < 50),
-      cheat:  classSubs.filter(s => (s.cheatCount||0) >= 3)
+      cheat:  classSubs.filter(s => (s.cheatCount||0) >= 5)
     };
     const failIds = new Set();
     thActivityData.absent.forEach(s => failIds.add(String(s.studentId)));
@@ -6201,12 +6179,12 @@ initAdmin();
       let html = `<p style="font-size:13px;color:var(--sub);margin-bottom:12px">총 <strong style="color:#DC2626">${totalFail}명</strong> 미흡</p>`;
       if (thActivityData.absent.length) html += `<div style="margin-bottom:14px"><div class="th-reason-hd">미제출 · ${thActivityData.absent.length}명</div><div>${thActivityData.absent.map(s=>`<span class="th-chip th-chip-absent">${s.studentId} ${s.studentName}</span>`).join('')}</div></div>`;
       if (thActivityData.short.length)  html += `<div style="margin-bottom:14px"><div class="th-reason-hd">50자 미만 · ${thActivityData.short.length}명</div><div>${thActivityData.short.map(s=>`<span class="th-chip th-chip-short">${s.id} ${s.name} <small style="opacity:.75">${s.textLength}자</small></span>`).join('')}</div></div>`;
-      if (cheatFail.length)             html += `<div style="margin-bottom:14px"><div class="th-reason-hd">이탈 3회 이상 · ${cheatFail.length}명</div><div>${cheatFail.map(s=>`<span class="th-chip th-chip-cheat">${s.id} ${s.name}</span>`).join('')}</div></div>`;
+      if (cheatFail.length)             html += `<div style="margin-bottom:14px"><div class="th-reason-hd">이탈 5회 이상 · ${cheatFail.length}명</div><div>${cheatFail.map(s=>`<span class="th-chip th-chip-cheat">${s.id} ${s.name}</span>`).join('')}</div></div>`;
       if (aiFail.length)                html += `<div><div class="th-reason-hd">AI 분석 미흡 · ${aiFail.length}명</div><div>${aiFail.map(s=>`<span class="th-chip th-chip-wrong">${s.id} ${s.name}</span>`).join('')}</div></div>`;
       body.innerHTML = html;
     } else if (thGradeTabName === 'cheat') {
       const list = thActivityData.cheat;
-      if (!list.length) { body.innerHTML = '<div style="text-align:center;padding:32px 0;font-weight:700;color:var(--c3)">이탈 3회 이상 없음!</div>'; return; }
+      if (!list.length) { body.innerHTML = '<div style="text-align:center;padding:32px 0;font-weight:700;color:var(--c3)">이탈 5회 이상 없음!</div>'; return; }
       body.innerHTML = `<p style="font-size:13px;color:var(--sub);margin-bottom:12px">이탈 ${list.length}건. 기본적으로 미흡이며, 사정에 따라 통과로 변경할 수 있습니다.</p>` +
         [...list].sort((a,b)=>b.cheatCount-a.cheatCount).map(s => {
           const isPassing = thIsOverridePass(s.subId);
@@ -6223,34 +6201,32 @@ initAdmin();
           </div>`;
         }).join('');
     } else {
-      if (thAiCache[cacheKey] === undefined) {
-        body.innerHTML = `<div style="text-align:center;padding:32px 0">
-          <p style="font-size:14px;color:var(--sub);margin-bottom:16px;line-height:1.6">AI가 질문과 무관한 답변을 찾아드립니다.<br>아래 버튼을 눌러 분석을 시작하세요.</p>
-          <button class="th-btn-ai" onclick="thRunAiReview()">AI 분석 시작</button>
-          <div id="th-ai-status" style="font-size:13px;color:var(--sub);font-weight:700;margin-top:8px;min-height:18px"></div>
-        </div>`; return;
-      }
-      const pending = aiCached.filter(s => !thOverrides[s.subId]);
-      if (!pending.length) {
-        body.innerHTML = `<div style="text-align:center;padding:24px 0">
-          <div style="font-weight:700;color:var(--c3);margin-bottom:14px">${aiCached.length?`${aiCached.length}건 모두 검토 완료!`:'AI가 이상 답변을 발견하지 못했습니다.'}</div>
-          <button class="th-btn-ai" style="padding:8px 16px;font-size:13px" onclick="thRunAiReview()">다시 분석</button>
-        </div>`; return;
-      }
-      body.innerHTML = `<p style="font-size:13px;color:var(--sub);margin-bottom:12px">검토 대기 ${pending.length}건. <strong style="color:var(--c3)">통과</strong> 또는 <strong style="color:#DC2626">미흡</strong>으로 분류하세요.</p>` +
-        pending.map(s => `
-          <div class="th-review-card">
+      // AI 채점 & 포인트 지급 탭 (0점: 구조적 미흡 / 5점: 조금 미흡 / 10~30: 품질 차등)
+      const clsN = parseInt(thGradeCtx.cls, 10);
+      const subs = (thSubs||[]).filter(s => s.lectureDocId === thGradeCtx.lecId && thClassNum(s.id) === clsN)
+        .sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
+      const ungraded = subs.filter(s => !s.thGraded);
+      const vColor = { '통과':'var(--c3)', '조금 미흡':'#B8860B' };
+      let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+          <button class="th-btn-ai" ${ungraded.length?'':'disabled'} onclick="thRunGrading()">AI 채점 &amp; 포인트 지급${ungraded.length?` (미채점 ${ungraded.length})`:''}</button>
+          <span id="th-ai-status" style="font-size:13px;color:var(--sub);font-weight:700;min-height:18px"></span>
+        </div>
+        <p style="font-size:12px;color:var(--slate);margin-bottom:12px;line-height:1.6">한 번 채점되면 점수가 고정됩니다. 지각 제출자만 다시 눌러 채점하세요(미제출자는 제출 후 채점).</p>`;
+      if (!subs.length) { body.innerHTML = html + '<div class="empty-panel">이 반의 제출이 없습니다.</div>'; return; }
+      html += subs.map(s => {
+        const v = s.aiVerdict || '';
+        const chip = s.thGraded
+          ? `<span style="font-weight:800;color:${v.startsWith('미흡')?'#DC2626':(vColor[v]||'var(--sub)')}">${v||'-'} · ${s.aiPt??0}점</span>`
+          : `<span style="color:var(--slate);font-weight:700">미채점</span>`;
+        return `<div class="th-review-card">
             <div class="th-review-card-top">
               <span class="th-review-card-name">${thEsc(s.id)} ${thEsc(s.name)}</span>
-              <span class="th-review-card-reason">AI 의심</span>
-              <div class="th-grade-toggle">
-                <button class="th-grade-btn pass" onclick="thConfirmAiReview('${s.subId}','pass')">통과</button>
-                <button class="th-grade-btn fail" onclick="thConfirmAiReview('${s.subId}','fail')">미흡</button>
-              </div>
+              ${chip}
             </div>
             <div class="th-review-card-text">${thEsc(s.text||'')}</div>
-            <div style="font-size:12px;color:var(--sub)">AI 이유: ${thEsc(s.reason||'')}</div>
-          </div>`).join('');
+          </div>`;
+      }).join('');
+      body.innerHTML = html;
     }
   }
 
@@ -6265,32 +6241,77 @@ initAdmin();
     thUpdateGradeSummary(); thRenderGradeBody(); window.thRenderAnswerClass();
   };
 
-  window.thRunAiReview = async function() {
+  // AI 채점 & 포인트 지급: 아직 채점 안 된 제출만 채점한다(채점된 학생은 고정).
+  // 0점=구조적 미흡(50자 미만/이탈 5회↑), 5점=AI 조금 미흡, 10~30=AI 품질 차등.
+  window.thRunGrading = async function() {
     const { lecId, cls } = thGradeCtx;
     const lec = thLectures.find(l => l.docId === lecId);
     if (!lec) return;
     const clsNum = parseInt(cls, 10);
-    const classSubs = (thSubs||[]).filter(s => s.lectureDocId === lecId && thClassNum(s.id) === clsNum && (s.textLength||0) >= 50);
-    const cacheKey = `${lecId}_${cls}`;
-    if (!classSubs.length) { thAiCache[cacheKey] = []; thRenderGradeBody(); return; }
+    const ungraded = (thSubs||[]).filter(s => s.lectureDocId === lecId && thClassNum(s.id) === clsNum && !s.thGraded);
+    if (!ungraded.length) return;
     const statusEl = document.getElementById('th-ai-status');
-    if (statusEl) statusEl.textContent = `${classSubs.length}개 답변 분석 중…`;
     document.querySelectorAll('.th-btn-ai').forEach(b => b.disabled = true);
-    const prompt = `다음은 역사 수업의 질문과 학생 답변 목록입니다.\n질문: "${lec.question}"\n${lec.reference?`수업 내용 참고: "${lec.reference.slice(0,300)}"`:''}\n\n각 답변이 질문에 성실하게 답하고 있는지 판단해주세요.\n아래 경우 "이상"으로 분류하세요:\n- 질문과 전혀 관계없는 내용\n- 의미 없는 반복 문자 (ㅋㅋㅋ, ㅎㅎ, aaa 등)\n- 단순 복붙처럼 보이는 무관한 텍스트\n\n답변 목록 (JSON):\n${JSON.stringify(classSubs.map(s=>({subId:s.subId,id:s.id,name:s.name,text:s.text})))}\n\n응답 형식 (JSON 배열만, 다른 텍스트 없이):\n이상한 답변만 포함, 정상이면 빈 배열 []\n[{"subId":"...","id":"...","name":"...","reason":"이상 판단 이유 (한국어, 20자 이내)"}]`;
-    try {
-      const res = await fetch(CLAUDE_PROXY_URL, {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:1024, messages:[{role:'user',content:prompt}] })
-      });
-      if (!res.ok) throw new Error(`API 오류 ${res.status}`);
-      const data = await res.json();
-      const result = JSON.parse((data.content?.[0]?.text||'[]').replace(/```json|```/g,'').trim());
-      thAiCache[cacheKey] = result.map(r => { const sub = classSubs.find(s=>s.subId===r.subId); return sub?{...r,text:sub.text,id:sub.id,name:sub.name}:r; });
-      if (statusEl) statusEl.textContent = '';
-    } catch(e) {
-      if (statusEl) statusEl.textContent = `분석 실패: ${e.message}`;
+    await xpEnsureConfig();
+    const maxPt = _xpCfg?.activities?.thinkCheck?.pt ?? 30;
+
+    // 1) 구조적 미흡(0점) vs AI 채점 대상 분리
+    const structFail = [], needAi = [];
+    ungraded.forEach(s => {
+      if ((s.textLength||0) < 50)      structFail.push({ s, verdict: '미흡(50자 미만)' });
+      else if ((s.cheatCount||0) >= 5) structFail.push({ s, verdict: '미흡(이탈)' });
+      else needAi.push(s);
+    });
+
+    // 2) AI 품질 채점(0~100)
+    const quality = {};
+    if (needAi.length) {
+      if (statusEl) statusEl.textContent = `${needAi.length}개 답변 채점 중…`;
+      const prompt = `역사 수업(중학교 3학년)의 질문과 학생 답변입니다. 각 답변이 "질문에 대해 역사적 맥락에 맞추어 제대로 답했는지"를 0~100점으로 평가하세요(중3 수준 기준). 질문과 무관하거나 의미 없는 반복/복붙은 낮은 점수를 주세요.
+질문: "${lec.question}"
+${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
+답변 목록(JSON): ${JSON.stringify(needAi.map(s => ({ subId: s.subId, text: s.text })))}
+응답은 JSON 배열만 출력(다른 텍스트 없이): [{"subId":"...","quality":0~100 정수}]`;
+      try {
+        const res = await fetch(CLAUDE_PROXY_URL, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] })
+        });
+        if (!res.ok) throw new Error(`API ${res.status}`);
+        const data = await res.json();
+        const arr = JSON.parse((data.content?.[0]?.text || '[]').replace(/```json|```/g, '').trim());
+        arr.forEach(r => { const q = Math.round(Number(r.quality)); if (isFinite(q)) quality[r.subId] = Math.max(0, Math.min(100, q)); });
+      } catch (e) {
+        if (statusEl) statusEl.textContent = `채점 실패: ${e.message}`;
+        document.querySelectorAll('.th-btn-ai').forEach(b => b.disabled = false);
+        return;
+      }
     }
+
+    // 3) 점수 환산 + XP 지급 + 제출 문서 기록
+    if (statusEl) statusEl.textContent = '포인트 지급 중…';
+    async function commit(s, pt, verdict, score) {
+      if (pt > 0) {
+        try { await adminAddXP(rtdb, s.id, s.name, pt, `생각 체크: ${lec.title}`, fbFns, _xpCfg.levels, _xpCfg.levelFormula); } catch (e) { console.warn(e); }
+      }
+      try {
+        await updateDoc(doc(db, 'think_submissions', s.subId), {
+          aiScore: score == null ? null : score, aiVerdict: verdict, aiPt: pt,
+          xpAwarded: pt > 0, xpAwardedAt: serverTimestamp(), thGraded: true
+        });
+      } catch (e) {}
+      const local = (thSubs || []).find(x => x.subId === s.subId);
+      if (local) { local.aiScore = score == null ? null : score; local.aiVerdict = verdict; local.aiPt = pt; local.xpAwarded = pt > 0; local.thGraded = true; }
+    }
+    for (const { s, verdict } of structFail) await commit(s, 0, verdict, null);
+    for (const s of needAi) {
+      const q = quality[s.subId];
+      let pt, verdict;
+      if (q == null || q < 40) { pt = 5; verdict = '조금 미흡'; }
+      else { pt = Math.max(10, Math.min(maxPt, Math.round(10 + (q - 40) / 60 * (maxPt - 10)))); verdict = '통과'; }
+      await commit(s, pt, verdict, q == null ? null : q);
+    }
+    if (statusEl) statusEl.textContent = '';
     document.querySelectorAll('.th-btn-ai').forEach(b => b.disabled = false);
     thUpdateGradeSummary(); thRenderGradeBody(); window.thRenderAnswerClass();
   };

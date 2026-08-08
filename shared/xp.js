@@ -131,17 +131,6 @@ export async function addMileageXP() {
   return addXP('mileage', _config.activities.mileage.pt ?? 20, '히스토리 마일리지 완주');
 }
 
-// 생각 체크: 제출 시 AI 채점 점수에 따라 pt(10~30)를 강의당 1회 지급한다.
-// pt 계산은 호출부(제출 화면)에서 하고, 여기서는 중복 지급만 막는다(강의당 1회).
-export async function addThinkCheckXP(lectureKey, pt, note) {
-  if (!_config?.activities?.thinkCheck?.enabled) return null;
-  const path = `${XP_ROOT}/students/${_sid}/thinkCheck/${lectureKey}`;
-  const snap = await _fb.get(_fb.ref(_rtdb, path));
-  if (snap.exists() && snap.val()) return null; // 이미 지급됨
-  await _fb.set(_fb.ref(_rtdb, path), pt);
-  return addXP('thinkCheck', pt, note || '생각 체크');
-}
-
 // 타이핑 복습: 강 무관, 하루 1회. lastTypingReview 날짜 게이트로 중복 지급을 막는다.
 export async function addTypingReviewXP() {
   if (!_config?.activities?.typingReview?.enabled) return null;
