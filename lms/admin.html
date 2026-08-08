@@ -1837,30 +1837,52 @@ window.openContentsAppAdmin = function(el, adminUrl) {
 };
 
 // ══════════ 대시보드 ══════════
-let _dbStuList = [];
-let _dbXpData  = {};
-let _dbSortMode = 'rank';
+let _dbConcept = [], _dbMission = [], _dbThink = [];
+let _dbStuCount = 0, _dbToday = { attend: 0, thinkSubmit: 0, review: 0 };
 
 async function dbLoad() {
   const el = document.getElementById('db-content');
   if (el) el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--sub);font-size:14px">불러오는 중...</div>';
   try {
-    // 1. 학생 목록 (rtdb/students)
+    const today = new Date().toISOString().slice(0, 10); // xp.js와 동일 기준(UTC 날짜)
+
+    // 개념 체크 강의 (상위 10)
+    const clSnap = await getDocs(query(collection(db, 'class_lessons'), orderBy('order', 'desc')));
+    _dbConcept = clSnap.docs.map(d => { const v = d.data(); return { docId: d.id, num: v.num, title: v.title || '', isOpen: v.isOpen !== false }; }).slice(0, 10);
+
+    // 미션 체크 카드 (mission_category)
+    let missionCat = '';
+    try { const cfg = await getDoc(doc(db, 'settings', 'lms_config')); if (cfg.exists()) missionCat = cfg.data().mission_category || ''; } catch (_) {}
+    if (missionCat) {
+      const mSnap = await getDocs(query(collection(db, 'cards'), where('category', '==', missionCat)));
+      _dbMission = mSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || v.label || '', locked: v.locked === true, order: v.order ?? 999 }; }).sort((a, b) => a.order - b.order);
+    } else _dbMission = [];
+
+    // 생각 체크 강의 (상위 10)
+    const tlSnap = await getDocs(query(collection(db, 'think_lectures'), orderBy('createdAt', 'desc')));
+    _dbThink = tlSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', isOpen: v.isOpen === true, ungraded: 0 }; }).slice(0, 10);
+
+    // 제출물: 강의별 미채점 수 + 오늘 제출 수
+    const tsSnap = await getDocs(collection(db, 'think_submissions'));
+    const ungraded = {};
+    let thinkSubmit = 0;
+    tsSnap.docs.forEach(d => {
+      const s = d.data();
+      if (s.thGraded !== true) ungraded[s.lectureDocId] = (ungraded[s.lectureDocId] || 0) + 1;
+      const secs = s.createdAt?.seconds;
+      if (secs && new Date(secs * 1000).toISOString().slice(0, 10) === today) thinkSubmit++;
+    });
+    _dbThink.forEach(t => t.ungraded = ungraded[t.docId] || 0);
+
+    // 학생 수 + 오늘 출석/복습(rtdb/xp)
     const stuSnap = await get(ref(rtdb, 'students'));
     const stuData = stuSnap.exists() ? (stuSnap.val() || {}) : {};
-    _dbStuList = [];
-    Object.values(stuData).forEach(v => {
-      if (!v) return;
-      const sid  = String(v.studentId || '').trim();
-      const name = String(v.name || v.studentName || '').trim();
-      if (sid && name) _dbStuList.push({ sid, name });
-    });
-    _dbStuList.sort((a, b) => a.sid.localeCompare(b.sid));
-
-    // 2. XP 데이터 (rtdb/xp/students)
-    await xpEnsureConfig();
+    _dbStuCount = Object.values(stuData).filter(v => v && v.studentId).length;
     const xpSnap = await get(ref(rtdb, `${XP_ROOT}/students`));
-    _dbXpData = xpSnap.exists() ? (xpSnap.val() || {}) : {};
+    const xp = xpSnap.exists() ? (xpSnap.val() || {}) : {};
+    let attend = 0, review = 0;
+    Object.values(xp).forEach(x => { if (!x) return; if (x.lastAttendance === today) attend++; if (x.lastTypingReview === today) review++; });
+    _dbToday = { attend, thinkSubmit, review };
 
     dbRender();
   } catch(e) {
@@ -1868,65 +1890,69 @@ async function dbLoad() {
   }
 }
 
-window.dbSetSort = function(mode) {
-  _dbSortMode = mode;
-  document.querySelectorAll('.db-sort-tag').forEach(b => b.classList.toggle('active', b.dataset.sort === mode));
-  dbRenderTable();
-};
-
 function dbRender() {
   const el = document.getElementById('db-content');
   if (!el) return;
+  const totalUngraded = _dbThink.reduce((a, t) => a + (t.ungraded || 0), 0);
   el.innerHTML = `
-    <div class="stu-card">
-      <div class="stu-card-head" style="display:flex;align-items:center;gap:8px">
-        <span>학생 랭킹 <span id="db-count" style="font-size:14px;font-weight:400;color:var(--sub)"></span></span>
-        <div style="margin-left:auto;display:flex;gap:6px">
-          <button class="stu-cls-tag db-sort-tag ${_dbSortMode==='rank'?'active':''}" data-sort="rank" onclick="dbSetSort('rank')">랭킹순</button>
-          <button class="stu-cls-tag db-sort-tag ${_dbSortMode==='id'?'active':''}" data-sort="id" onclick="dbSetSort('id')">학번순</button>
-        </div>
-      </div>
-      <div style="padding:0 20px 20px">
-        <div class="stu-table-wrap">
-          <table class="stu-table">
-            <thead><tr>
-              <th style="width:22%">학번</th>
-              <th style="width:34%">이름</th>
-              <th style="width:18%">레벨</th>
-              <th style="width:26%">경험치</th>
-            </tr></thead>
-            <tbody id="db-table-body"></tbody>
-          </table>
-          <div id="db-empty" class="empty-panel" style="display:none">학생이 없습니다</div>
-        </div>
-      </div>
+    <div class="db-summary-row">
+      <div class="db-summary-card"><div class="db-summary-label">오늘 출석</div><div class="db-summary-val">${_dbToday.attend} / ${_dbStuCount}명</div></div>
+      <div class="db-summary-card"><div class="db-summary-label">오늘 생각체크 제출</div><div class="db-summary-val">${_dbToday.thinkSubmit}건</div></div>
+      <div class="db-summary-card"><div class="db-summary-label">오늘 복습 퀴즈</div><div class="db-summary-val">${_dbToday.review}명</div></div>
+      <div class="db-summary-card"><div class="db-summary-label">채점 대기(생각체크)</div><div class="db-summary-val" style="color:${totalUngraded ? 'var(--critical)' : 'var(--text)'}">${totalUngraded}건</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
+      ${dbToggleCard('개념 체크', _dbConcept, 'concept')}
+      ${dbToggleCard('미션 체크', _dbMission, 'mission')}
+      ${dbToggleCard('생각 체크', _dbThink, 'think')}
     </div>`;
-  dbRenderTable();
 }
 
-function dbRenderTable() {
-  const tbody = document.getElementById('db-table-body');
-  if (!tbody) return;
-  const list = _dbStuList.map(s => {
-    const xp    = _dbXpData[s.sid] || {};
-    const total = xp.total || 0;
-    const lv    = xp.level || calcLevel(total, _xpCfg?.levels, _xpCfg?.levelFormula);
-    return { sid: s.sid, name: s.name, total, lv };
-  });
-  if (_dbSortMode === 'id') list.sort((a, b) => a.sid.localeCompare(b.sid, undefined, { numeric: true }));
-  else                      list.sort((a, b) => b.total - a.total);
-  const cnt = document.getElementById('db-count');
-  if (cnt) cnt.textContent = `${list.length}명`;
-  const empty = document.getElementById('db-empty');
-  if (!list.length) { tbody.innerHTML = ''; if (empty) empty.style.display = 'block'; return; }
-  if (empty) empty.style.display = 'none';
-  tbody.innerHTML = list.map(s => `<tr>
-    <td class="stu-td-id">${esc(s.sid)}</td>
-    <td>${esc(s.name)}</td>
-    <td><span style="font-weight:700;color:var(--amber-d)">Lv.${s.lv}</span></td>
-    <td style="font-weight:700">${s.total.toLocaleString()} pt</td>
-  </tr>`).join('');
+function dbToggleCard(title, list, kind) {
+  const rows = !list.length
+    ? '<div class="empty-panel" style="padding:14px;font-size:13px">항목 없음</div>'
+    : list.map(item => {
+        const open = kind === 'mission' ? !item.locked : item.isOpen;
+        const label = kind === 'concept' ? `${item.num}강. ${esc(item.title)}` : esc(item.title);
+        const gradeBtn = kind === 'think'
+          ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbGoGrade('${item.docId}')">채점${item.ungraded ? ` <b>${item.ungraded}</b>` : ''}</button>`
+          : '';
+        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--hairline-soft)">
+            <span style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+              ${gradeBtn}
+              <div class="th-toggle ${open ? 'on' : ''}" onclick="dbToggle('${kind}','${item.docId}',this)"></div>
+              <span style="font-size:12px;font-weight:700;width:34px;color:${open ? 'var(--c3)' : 'var(--sub)'}">${open ? '공개' : '비공개'}</span>
+            </div>
+          </div>`;
+      }).join('');
+  return `<div class="stu-card"><div class="stu-card-head">${title} 공개 관리</div><div style="padding:6px 18px 14px">${rows}</div></div>`;
 }
+
+window.dbToggle = async function(kind, docId, el) {
+  const on = !el.classList.contains('on');
+  el.classList.toggle('on', on);
+  const lbl = el.nextElementSibling;
+  if (lbl) { lbl.textContent = on ? '공개' : '비공개'; lbl.style.color = on ? 'var(--c3)' : 'var(--sub)'; }
+  try {
+    if (kind === 'concept')      { await updateDoc(doc(db, 'class_lessons', docId), { isOpen: on }); const t = _dbConcept.find(x => x.docId === docId); if (t) t.isOpen = on; }
+    else if (kind === 'mission') { await updateDoc(doc(db, 'cards', docId), { locked: !on });        const t = _dbMission.find(x => x.docId === docId); if (t) t.locked = !on; }
+    else                         { await updateDoc(doc(db, 'think_lectures', docId), { isOpen: on }); const t = _dbThink.find(x => x.docId === docId); if (t) t.isOpen = on; }
+  } catch(e) {
+    alert('변경 실패: ' + e.message);
+    el.classList.toggle('on', !on);
+    if (lbl) { lbl.textContent = !on ? '공개' : '비공개'; lbl.style.color = !on ? 'var(--c3)' : 'var(--sub)'; }
+  }
+};
+
+// 대시보드 → 생각 체크 ANSWER 반별 화면으로 이동(해당 강의 선택)해서 바로 채점하게 한다.
+window.dbGoGrade = function(lecId) {
+  switchNav('think-answer');
+  if (window.thAnswerSubTab) window.thAnswerSubTab('class');
+  const sel = document.getElementById('th-sel-cls-lec');
+  if (sel) sel.value = lecId;
+  if (window.thRenderAnswerClass) window.thRenderAnswerClass();
+};
 
 // ── Firestore: lms_items (개념·미션·생각 섹션용) ──
 let _items = [];
