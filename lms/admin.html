@@ -3050,10 +3050,38 @@ async function saveContent() {
   const lesson = ceLessonsCache.find(l => l.num === ceCurrentLessonNum);
   if (!lesson) return;
   await ceSaveContentToFirestore(lesson.docId, ceCd);
+  await ceSyncThinkLecture(ceCd);   // 생각 체크 질문이 있으면 생각 체크 강의를 자동 생성/동기화
   await ceGetLessonsFromFirestore();
   ceCurrentLessonNum = ceCd.lesson.num;
   cePopulateLessonSelect();
   ceShowToast('toast-content');
+}
+
+// 저장 시, 콘텐츠의 생각 체크 질문으로 think_lectures 강의를 자동 생성(강의당 1개, 비공개)하고
+// 성적 설정(grade_lecture_config.thinkLectureDocId)에 연결까지 해둔다. 이미 연결돼 있으면 제목·질문만 갱신.
+async function ceSyncThinkLecture(cd) {
+  const question = (cd?.think?.question || '').trim();
+  const num = cd?.lesson?.num;
+  if (!question || !num) return;
+  const title = `${num}강. ${cd.lesson.title || ''}`.trim();
+  try {
+    const cfgRef = doc(db, 'grade_lecture_config', num);
+    const cfgSnap = await getDoc(cfgRef);
+    let linkId = cfgSnap.exists() ? (cfgSnap.data().thinkLectureDocId || '') : '';
+    if (linkId) {
+      const exist = await getDoc(doc(db, 'think_lectures', linkId));
+      if (!exist.exists()) linkId = ''; // 연결은 있는데 문서가 지워진 경우 새로 만든다
+    }
+    if (linkId) {
+      await updateDoc(doc(db, 'think_lectures', linkId), { title, question });
+    } else {
+      const ref = await addDoc(collection(db, 'think_lectures'), {
+        title, question, reference: '', icon: num,
+        isOpen: false, isArchived: false, createdAt: Date.now()
+      });
+      await setDoc(cfgRef, { thinkLectureDocId: ref.id, lessonTitle: cd.lesson.title || `${num}강` }, { merge: true });
+    }
+  } catch (e) { console.warn('생각 체크 강의 자동 생성 실패', e); }
 }
 async function resetContent() {
   if (!confirm('기본값으로 초기화하시겠습니까?')) return;

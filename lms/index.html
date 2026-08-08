@@ -895,6 +895,8 @@ function _showXPFloat(pt) {
 
 // ── 섹션 데이터 ──
 const sectionData  = { concept:null, mission:null, think:null, grade:null, contents:null };
+// 허브 아이콘은 이미 강 번호를 원 안에 크게 보여주므로, 라벨 앞의 "24강." 같은 중복 번호는 뗀다.
+function stripLecNum(t) { return String(t || '').replace(/^\s*\d+\s*강\.?\s*/, '').trim() || String(t || ''); }
 let _openFolderKey = null; // 모바일: 현재 열려 있는 폴더 (없으면 null)
 
 function startListening() {
@@ -905,7 +907,7 @@ function startListening() {
   onSnapshot(query(collection(db, 'class_lessons'), orderBy('order','desc')), snap => {
     sectionData.concept = snap.docs.map(d => {
       const l = d.data();
-      return { icon: l.num, label: l.title, sublabel: l.unit, num: l.num, isConcept: true, locked: l.isOpen === false };
+      return { icon: l.num, label: stripLecNum(l.title), sublabel: l.unit, num: l.num, isConcept: true, locked: l.isOpen === false };
     });
     renderAll();
   });
@@ -929,7 +931,7 @@ function startListening() {
       .map(d => {
         const l = d.data();
         const n = extractNum(l.title);
-        return { icon: l.icon || (n < 9999 ? String(n) : '?'), label: l.title, locked:false,
+        return { icon: l.icon || (n < 9999 ? String(n) : '?'), label: stripLecNum(l.title), locked:false,
           isThink:true, lectureDocId:d.id, lectureTitle:l.title,
           question:l.question||'', reference:l.reference||'', _n: n };
       })
