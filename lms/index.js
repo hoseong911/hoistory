@@ -42,23 +42,24 @@ onSnapshot(doc(db, 'settings', 'announcement'), snap => {
   }
 }, () => {});
 
-// ── 사이드바 메뉴 노출 설정 ──
+// ── 메뉴 노출 설정 ──
 let _menuVisibility = {};
 onSnapshot(doc(db, 'settings', 'menu_visibility'), snap => {
   _menuVisibility = snap.exists() ? snap.data() : {};
   renderAll();
 }, () => {});
-function visibleSections() {
-  return SECTIONS.filter(s => _menuVisibility[s.key] !== false);
-}
+function menuVisible(key) { return _menuVisibility[key] !== false; }
 
+// 컬럼/3열로 보이는 3개 섹션 (성적·마일리지·각종 콘텐츠는 별도 블록으로 처리)
 const SECTIONS = [
-  { key:'concept',  name:'개념 체크',   sub:'Concept Check', cls:'s-concept',  mob:'ms-concept'  },
-  { key:'mission',  name:'미션 체크',   sub:'Mission Check', cls:'s-mission',  mob:'ms-mission'  },
-  { key:'think',    name:'생각 체크',   sub:'Think Check',   cls:'s-think',    mob:'ms-think'    },
-  { key:'grade',    name:'성적 확인',   sub:'Grade Check',   cls:'s-grade',    mob:'ms-grade'    },
-  { key:'contents', name:'각종 콘텐츠', sub:'Contents',      cls:'s-contents', mob:'ms-contents' },
+  { key:'concept',  name:'개념 체크', cls:'s-concept', nodeId:'secConcept' },
+  { key:'mission',  name:'미션 체크', cls:'s-mission', nodeId:'secMission' },
+  { key:'think',    name:'생각 체크', cls:'s-think',   nodeId:'secThink'   },
 ];
+
+// 모바일 여부 — PC(4단 그리드) / 모바일(세로)에서 섹션 동작이 다르다
+const mqMobile = window.matchMedia('(max-width:960px)');
+mqMobile.addEventListener('change', renderAll);
 
 const idInput    = document.getElementById('idInput');
 const nameInput  = document.getElementById('nameInput');
@@ -302,13 +303,22 @@ function enterHub(id, name) {
   document.getElementById('loginScreen').style.display   = 'none';
   document.getElementById('consentPopup').style.display  = 'none';
   document.getElementById('mainHub').style.cssText = 'display:flex;flex-direction:column';
-  document.getElementById('studentChip').textContent = `${id} · ${name}`;
+  document.getElementById('studentChip').textContent = `${id} ${name}`;
   document.getElementById('welcomeMsg').textContent  = `${name} 학생, 오늘도 즐거운 역사 학습!`;
   document.getElementById('logoutBtn').addEventListener('click', () => {
     sessionStorage.removeItem('lms_sid'); sessionStorage.removeItem('lms_sname'); location.reload();
   });
   startListening();
   _initXPForStudent(id, name);
+  _listenMileage(id);
+}
+
+// ── 역사 열공 마일리지 누적 일수 (hismile 앱과 공유하는 RTDB 경로) ──
+function _listenMileage(id) {
+  rtdbOnValue(rtdbRef(rtdb, `historyMileage/mileage/${id}`), snap => {
+    _mileageDays = snap.exists() ? (snap.val() || 0) : 0;
+    renderMileageBlock();
+  }, () => { _mileageDays = 0; renderMileageBlock(); });
 }
 
 async function _initXPForStudent(id, name) {
@@ -401,12 +411,15 @@ function _showXPFloat(pt) {
 
 // ── 섹션 데이터 ──
 const sectionData  = { concept:null, mission:null, think:null, grade:null, contents:null };
+let _mileageDays = null;   // 역사 열공 마일리지 누적 일수
+let _openListKey = null;   // 모바일: 현재 열려 있는 섹션 목록 모달의 key (실시간 갱신 시 재렌더용)
 // 허브 아이콘은 이미 강 번호를 원 안에 크게 보여주므로, 라벨 앞의 "24강." 같은 중복 번호는 뗀다.
 function stripLecNum(t) { return String(t || '').replace(/^\s*\d+\s*강\.?\s*/, '').trim() || String(t || ''); }
-let _openFolderKey = null; // 모바일: 현재 열려 있는 폴더 (없으면 null)
+// hismile(역사 열공 마일리지)은 전용 마일리지 버튼으로 노출하므로 미션/콘텐츠 카드 목록에서는 제외한다.
+function notHismile(x) { return !/hismile/i.test(x.url || ''); }
 
 function startListening() {
-  Object.keys(sectionData).forEach(k => sectionData[k] = null);
+  ['concept','mission','think','grade','contents'].forEach(k => sectionData[k] = null);
   renderAll();
 
   // 1. 개념 체크 — class_lessons
@@ -425,7 +438,8 @@ function startListening() {
     onSnapshot(query(collection(db, 'cards'), where('category','==', cat)), snap => {
       sectionData.mission = snap.docs
         .map(d => { const data = d.data(); return { docId: d.id, ...data, label: data.title || data.label, url: resolveAppUrl(data.url) }; })
-        .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+        .filter(notHismile)
+        .sort((a, b) => (b.order ?? -1) - (a.order ?? -1)); // 최신(order 큰 것)이 위로
       renderAll();
     });
   }).catch(() => { sectionData.mission = []; renderAll(); });
@@ -455,13 +469,22 @@ function startListening() {
     onSnapshot(query(collection(db, 'cards'), where('category','==', cat)), snap => {
       sectionData.contents = snap.docs
         .map(d => { const data = d.data(); return { docId: d.id, ...data, label: data.title || data.label, url: resolveAppUrl(data.url), openInModal: !!data.openInModal }; })
-        .sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+        .filter(notHismile)
+        .sort((a, b) => (b.order ?? -1) - (a.order ?? -1)); // 최신(order 큰 것)이 위로
       renderAll();
     });
   }).catch(() => { sectionData.contents = []; renderAll(); });
 }
 
-function renderAll() { renderPC(); renderMobile(); }
+// ── 렌더링 (단일 DOM을 CSS 그리드로 PC 4단 / 모바일 세로로 리플로우) ──
+function renderAll() {
+  renderSections();
+  renderGradeBlock();
+  renderMileageBlock();
+  renderContentsBlock();
+  // 모바일 목록 모달이 열린 채 실시간 데이터가 갱신되면 모달 내용도 같이 새로고침
+  if (_openListKey && document.getElementById('sectionListModal').style.display === 'flex') openSectionList(_openListKey);
+}
 
 // ── 성적 체크 계산 ──
 async function loadStudentGrade() {
@@ -586,91 +609,93 @@ function renderGradeSummaryHTML(g) {
   </div>`;
 }
 
-function renderPC() {
-  const grid = document.getElementById('hubGrid');
-  grid.innerHTML = '';
-  visibleSections().forEach(s => {
-    const items = sectionData[s.key];
-    const card  = document.createElement('div');
-    card.className = `sec-card ${s.cls}`;
-    const isSummary = items?._summary !== undefined;
-    const body = items === null
-      ? '<div class="loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>'
-      : isSummary
-        ? renderGradeSummaryHTML(items)
-        : `<div class="icon-grid" id="pc-${s.key}"></div>`;
-    card.innerHTML = `<div class="sec-head"><div class="sec-name">${s.name}</div></div><hr class="sec-divider"><div class="sec-body">${body}</div>`;
-    if (items !== null && !isSummary) fillIconGrid(card.querySelector(`#pc-${s.key}`), items);
-    grid.appendChild(card);
+// ── 렌더 공통 조각 ──
+const LOADING_HTML = '<div class="loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+const CHEVRON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
+const SEC_CLS    = { concept:'s-concept', mission:'s-mission', think:'s-think', contents:'s-contents' };
+const SEC_LABELS = { concept:'개념 체크', mission:'미션 체크', think:'생각 체크', contents:'각종 콘텐츠' };
+const isMobile = () => mqMobile.matches;
+
+// 개념·미션·생각 3개 섹션 카드
+function renderSections() {
+  SECTIONS.forEach(s => {
+    const card = document.getElementById(s.nodeId);
+    if (!card) return;
+    if (!menuVisible(s.key)) { card.style.display = 'none'; return; }
+    card.style.display = '';
+    renderSectionCard(card, s.key, s.name, sectionData[s.key]);
   });
 }
 
-// 모바일: 폰 홈 화면처럼 5개 카테고리를 3열 "폴더" 아이콘으로 띄우고,
-// 탭하면 그 폴더의 내용(icon-grid 또는 성적 요약)이 전체화면 오버레이로 열린다.
-function renderMobile() {
-  const hub = document.getElementById('mobileHub');
-  hub.innerHTML = `<div class="mobile-launcher" id="mobileLauncher"></div>`;
-  const launcher = document.getElementById('mobileLauncher');
-
-  visibleSections().forEach(s => {
-    const items     = sectionData[s.key];
-    const isSummary = items?._summary !== undefined;
-    const count     = items === null ? '불러오는 중' : isSummary ? (items._summary ? `총점 ${items.total}점` : '정보 없음') : `${items.length}개`;
-
-    const btn = document.createElement('button');
-    btn.className = `folder-btn ${s.mob}`;
-    btn.innerHTML = `
-      <div class="folder-box">${folderPreviewHTML(items, isSummary)}</div>
-      <div class="folder-label">${s.name}</div>
-      <div class="folder-count">${count}</div>`;
-    btn.addEventListener('click', () => openFolder(s.key));
-    launcher.appendChild(btn);
-  });
-
-  // 폴더가 열려 있는 상태에서 데이터가 갱신되면(실시간 구독) 오버레이 내용도 같이 새로고침
-  if (_openFolderKey) renderFolderOverlay(_openFolderKey);
-}
-
-function folderPreviewHTML(items, isSummary) {
-  if (items === null) return `<div class="folder-glyph">…</div>`;
-  if (isSummary) return `<div class="folder-glyph"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div>`;
-  if (!items.length) return `<div class="folder-glyph"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>`;
-  return `<div class="folder-preview-grid">${
-    items.slice(0, 4).map(it => {
-      const ic = String(it.emoji || it.icon || '?').trim();
-      return `<div class="folder-mini">${ic.startsWith('<svg') ? ic : esc(ic)}</div>`;
-    }).join('')
-  }</div>`;
-}
-
-function openFolder(key) {
-  _openFolderKey = key;
-  renderFolderOverlay(key);
-  document.getElementById('folderOverlay').classList.add('open');
-}
-
-function closeFolder() {
-  _openFolderKey = null;
-  document.getElementById('folderOverlay').classList.remove('open');
-}
-
-function renderFolderOverlay(key) {
-  const s     = SECTIONS.find(x => x.key === key);
-  const items = sectionData[key];
-  const isSummary = items?._summary !== undefined;
-  document.getElementById('folderOvTitle').textContent = s.name;
-  const body = document.getElementById('folderOvBody');
-  if (items === null) {
-    body.innerHTML = '<div class="loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
-  } else if (isSummary) {
-    body.innerHTML = renderGradeSummaryHTML(items);
-  } else {
-    body.innerHTML = `<div class="folder-icon-grid ${s.mob}" id="folder-grid-${key}"></div>`;
-    fillIconGrid(document.getElementById(`folder-grid-${key}`), items);
+// 공통 카드 골격 — PC는 카드 안에 아이콘 그리드를 펼치고, 모바일은 탭 시 목록 모달을 여는 런처 버튼으로 접는다.
+function renderSectionCard(el, key, name, items) {
+  if (isMobile()) {
+    const count = items === null ? '불러오는 중' : `${items.length}개`;
+    el.innerHTML = `<button class="sec-launch" type="button"><span class="sec-name">${name}</span><span class="sec-launch-count">${count}${CHEVRON}</span></button>`;
+    el.querySelector('.sec-launch').onclick = () => openSectionList(key);
+    return;
   }
+  const body = items === null ? LOADING_HTML : `<div class="icon-grid"></div>`;
+  el.innerHTML = `<div class="sec-head"><div class="sec-name">${name}</div></div><hr class="sec-divider"><div class="sec-body">${body}</div>`;
+  if (items !== null) fillIconGrid(el.querySelector('.icon-grid'), items);
 }
 
-document.getElementById('folderOvBack').addEventListener('click', closeFolder);
+// 성적 확인 블록 (PC/모바일 공통 — 요약이 이미 컴팩트하므로 항상 펼쳐 보여준다)
+function renderGradeBlock() {
+  const el = document.getElementById('gradeBlock');
+  if (!menuVisible('grade')) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  const g = sectionData.grade;
+  const body = g === null ? LOADING_HTML : renderGradeSummaryHTML(g);
+  el.innerHTML = `<div class="sec-head"><div class="sec-name">성적 확인</div></div><hr class="sec-divider"><div class="sec-body">${body}</div>`;
+}
+
+// 역사 열공 마일리지 — 누적 일수를 보여주고, 탭하면 hismile 앱으로 이동해 오늘 학습을 기록한다.
+function renderMileageBlock() {
+  const el = document.getElementById('mileageBlock');
+  if (!menuVisible('mileage')) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  const url = resolveAppUrl('hismile/index.html');
+  const num = _mileageDays === null ? '…' : _mileageDays;
+  el.innerHTML = `<div class="sec-head"><div class="sec-name">역사 열공 마일리지</div></div><hr class="sec-divider">
+    <div class="mileage-body">
+      <div class="mileage-days">${num}<span class="mileage-unit">일</span></div>
+      <div class="mileage-caption">매일 꾸준히 기록해 마일리지를 쌓아요</div>
+    </div>`;
+  el.classList.add('clickable');
+  el.onclick = () => { location.href = url; };
+}
+
+// 각종 콘텐츠 블록 — 섹션 카드와 동일하게 PC는 그리드, 모바일은 런처 버튼
+function renderContentsBlock() {
+  const el = document.getElementById('contentsBlock');
+  if (!menuVisible('contents')) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  renderSectionCard(el, 'contents', '각종 콘텐츠', sectionData.contents);
+}
+
+// ── 모바일 섹션 목록 모달 (개념/미션/생각/콘텐츠 런처 탭 시) ──
+function openSectionList(key) {
+  _openListKey = key;
+  const items = sectionData[key];
+  document.getElementById('sectionListTitle').textContent = SEC_LABELS[key] || '';
+  const body = document.getElementById('sectionListBody');
+  if (items === null) {
+    body.innerHTML = LOADING_HTML;
+  } else {
+    body.innerHTML = `<div class="icon-grid ${SEC_CLS[key] || ''}"></div>`;
+    fillIconGrid(body.querySelector('.icon-grid'), items);
+  }
+  document.getElementById('sectionListModal').style.display = 'flex';
+}
+function closeSectionList() {
+  document.getElementById('sectionListModal').style.display = 'none';
+  _openListKey = null;
+}
+document.getElementById('sectionListClose').addEventListener('click', closeSectionList);
+document.getElementById('sectionListModal').addEventListener('click', e => {
+  if (e.target.id === 'sectionListModal') closeSectionList();
+});
 
 function fillIconGrid(container, items) {
   if (!items.length) { container.innerHTML = '<div class="icon-empty">아직 비어있어요</div>'; return; }
