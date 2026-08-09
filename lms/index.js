@@ -688,7 +688,8 @@ function makeIconItem(item) {
   } else if (useAppModal) {
     if (!item.locked && item.url) el.addEventListener('click', () => openContentAppModal(item));
   } else {
-    if (!item.locked && item.url) { el.href = item.url; el.target = '_blank'; el.rel = 'noopener'; }
+    // 같은 창에서 이동(같은 도메인 앱) → PWA 안에서 열려 상단 URL바(커스텀 탭)가 안 뜬다.
+    if (!item.locked && item.url) { el.href = item.url; }
   }
   const iconStr = String(item.emoji || item.icon || '?').trim();
   const isSvgIcon = iconStr.startsWith('<svg');
