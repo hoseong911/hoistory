@@ -918,13 +918,16 @@ function ceRenderContentLines(target) {
     return;
   }
   const groups = ceBuildGroups(lines);
+  let pageNum = 0; // 섹션 전체에서 몇 번째 페이지인지 누적 카운트
   container.innerHTML = groups.map(group => {
     if (group.type === 'image') {
       const i = group.idx, line = lines[i];
+      const pg = ++pageNum;
       return `
         <div class="cl-image" data-idx="${i}">
           <div class="cl-divider-top">
             <span class="cl-handle">⋮⋮</span>
+            <span class="cl-page-num">${pg}페이지</span>
             <span class="cl-image-label">이미지 슬라이드</span>
             <input type="text" class="cl-divider-title" placeholder="제목 (선택)" value="${esc(line.title||'')}" oninput="updateLine('${target}',${i},'title',this.value)" style="max-width:220px">
             <button class="cbtn-danger" onclick="deleteLine('${target}',${i})">삭제</button>
@@ -941,10 +944,12 @@ function ceRenderContentLines(target) {
     }
     if (group.type === 'fullimage') {
       const i = group.idx, line = lines[i];
+      const pg = ++pageNum;
       return `
         <div class="cl-image" data-idx="${i}">
           <div class="cl-divider-top">
             <span class="cl-handle">⋮⋮</span>
+            <span class="cl-page-num">${pg}페이지</span>
             <span class="cl-image-label">전면 이미지</span>
             <span style="flex:1;font-size:12px;color:var(--stone);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${line.url ? '업로드됨' : '(비어 있음)'}</span>
             <button class="cbtn-sm" onclick="replaceFullImage('${target}',${i})">이미지 교체</button>
@@ -957,10 +962,12 @@ function ceRenderContentLines(target) {
     }
     if (group.type === 'video') {
       const i = group.idx, line = lines[i];
+      const pg = ++pageNum;
       return `
         <div class="cl-image" data-idx="${i}">
           <div class="cl-divider-top">
             <span class="cl-handle">⋮⋮</span>
+            <span class="cl-page-num">${pg}페이지</span>
             <span class="cl-image-label">영상</span>
             <input type="text" class="cl-divider-title" placeholder="유튜브 URL 붙여넣기" value="${esc(line.url||'')}" onchange="updateVideoUrl('${target}',${i},this.value)" style="flex:1;max-width:none">
             <button class="cbtn-danger" onclick="deleteLine('${target}',${i})">삭제</button>
@@ -974,43 +981,40 @@ function ceRenderContentLines(target) {
       const { title, slides } = group;
       const allDivIds = slides.map(s => s.divIdx);
       const lastDivIdx = slides[slides.length - 1].divIdx;
-      const slidesHtml = slides.map(({ divIdx, rowIndices }, si) => {
+      const slidesHtml = slides.map(({ divIdx, rowIndices }) => {
         const div = lines[divIdx];
         const hasImg = div.img != null, fmt = div.format || 'rows';
+        const pg = ++pageNum;
+        // 페이지 단위 공통 액션바(우측 세로) — 모든 형식에서 동일한 모양으로 쓴다.
+        const pageActions = `
+              <div class="cl-row-actions">
+                <button class="cl-icon-btn" onclick="addRowToGroup('${target}',${divIdx})" title="행 추가">${ceIconPlus()}</button>
+                <button class="cl-icon-btn" onclick="toggleDividerImg('${target}',${divIdx})" title="${hasImg?'이미지 제거':'이미지 삽입'}">${ceIconImage()}</button>
+                <button class="cl-icon-btn${fmt !== 'rows' ? ' active' : ''}" onclick="ceToggleFmt('${target}',${divIdx})" title="형식 변경">${ceIconSliders()}</button>
+                <button class="cl-icon-btn danger" onclick="${slides.length > 1 ? `deletePair('${target}',${divIdx})` : `deleteGroup('${target}',${slides[0].divIdx})`}" title="이 페이지 삭제">${ceIconTrash()}</button>
+              </div>`;
         const rowsHtml = rowIndices.map((rowIdx) => {
           const row = lines[rowIdx];
-          const deleteBtn = rowIndices.length > 1
-            ? `<button class="cl-icon-btn danger" onclick="deleteRow('${target}',${rowIdx})" title="행 삭제">${ceIconTrash()}</button>`
-            : (slides.length > 1 ? `<button class="cl-icon-btn danger" onclick="deletePair('${target}',${divIdx})" title="이 페이지 삭제">${ceIconTrash()}</button>` : '');
+          const rowDelete = rowIndices.length > 1
+            ? `<button class="cl-icon-btn danger" onclick="deleteRow('${target}',${rowIdx})" title="행 삭제">${ceIconTrash()}</button>` : '';
           return `
             <div class="cl-slide-row" data-row-idx="${rowIdx}">
               <textarea class="cl-label" placeholder="라벨" oninput="updateLine('${target}',${rowIdx},'label',this.value);autoResizeTa(this)">${esc(row.label)}</textarea>
               <textarea class="cl-items" placeholder="{단어}는 빈칸, **굵게**, 엔터로 항목 구분 (a./b./c. 줄은 하위 항목)" oninput="updateLineItems('${target}',${rowIdx},this.value);autoResizeTa(this)" onkeydown="handleContentKeydown(event)">${esc(row.items.map(it => it.replace(/<\/?br\s*\/?>/gi, '\n')).join('\n'))}</textarea>
               <div class="cl-row-actions">
                 <button class="cl-icon-btn" onclick="addRowToGroup('${target}',${divIdx})" title="행 추가">${ceIconPlus()}</button>
-                <button class="cl-icon-btn" onclick="toggleDividerImg('${target}',${divIdx})" title="${hasImg?'이미지 제거':'이미지 삽입'}">${ceIconImage()}</button>
-                <button class="cl-icon-btn${fmt !== 'rows' ? ' active' : ''}" onclick="ceToggleFmt('${target}',${divIdx})" title="형식 · ${CE_FORMAT_LABELS[fmt]}">${ceIconSliders()}</button>
-                ${deleteBtn}
+                ${rowDelete}
               </div>
             </div>`;
         }).join('');
-        // 행이 없는 슬라이드(사료 등 특수 형식)에도 페이지 단위 액션 버튼을 제공한다.
-        const noRowActions = rowIndices.length === 0 ? `
-            <div class="cl-slide-row cl-slide-norow">
-              <div class="cl-norow-hint">${CE_FORMAT_LABELS[fmt]} 슬라이드</div>
-              <div class="cl-row-actions">
-                <button class="cl-icon-btn" onclick="addRowToGroup('${target}',${divIdx})" title="행 추가">${ceIconPlus()}</button>
-                <button class="cl-icon-btn" onclick="toggleDividerImg('${target}',${divIdx})" title="${hasImg?'이미지 제거':'이미지 삽입'}">${ceIconImage()}</button>
-                <button class="cl-icon-btn${fmt !== 'rows' ? ' active' : ''}" onclick="ceToggleFmt('${target}',${divIdx})" title="형식 · ${CE_FORMAT_LABELS[fmt]}">${ceIconSliders()}</button>
-                <button class="cl-icon-btn danger" onclick="${slides.length > 1 ? `deletePair('${target}',${divIdx})` : `deleteGroup('${target}',${slides[0].divIdx})`}" title="이 페이지 삭제">${ceIconTrash()}</button>
-              </div>
-            </div>` : '';
+        // 본문: 행 나열은 행들, 그 외(사료·연표·비교표·플로우)는 형식 편집기를 본문으로 + 우측 세로 액션바
+        const bodyHtml = fmt !== 'rows'
+          ? `<div class="cl-slide-row cl-slide-special"><div class="cl-special-editor">${ceFormatPanelBody(target,divIdx,div)}</div>${pageActions}</div>`
+          : (rowIndices.length
+              ? rowsHtml
+              : `<div class="cl-slide-row cl-slide-special"><div class="cl-norow-hint">내용이 없는 페이지입니다. 행을 추가하세요.</div>${pageActions}</div>`);
         const pageHandle = slides.length > 1 ? `<span class="cl-handle cl-page-handle" title="페이지 순서 변경">⋮⋮</span>` : '';
-        return `
-          <div class="cl-slide-item" data-div-idx="${divIdx}">
-            ${si > 0 ? `<div class="cl-page-sep">${pageHandle}── 새 페이지 ──</div>` : (slides.length > 1 ? `<div class="cl-page-sep cl-page-sep-first">${pageHandle}</div>` : '')}
-            ${rowsHtml}${noRowActions}
-            ${hasImg ? `
+        const imgRow = hasImg ? `
             <div class="cl-img-row" style="padding:6px 12px 8px 12px;border-top:1px solid #eee;margin-top:4px">
               <span class="cl-img-label">이미지 번호</span>
               <input type="number" class="cl-img-input" min="1" max="99" value="${div.img}" oninput="updateLine('${target}',${divIdx},'img',+this.value)">
@@ -1022,15 +1026,24 @@ function ceRenderContentLines(target) {
               <span class="cl-img-label">비율</span>
               <input type="number" class="cl-img-input" min="20" max="70" value="${div.imgSize!=null?div.imgSize:50}" oninput="updateLine('${target}',${divIdx},'imgSize',+this.value)">
               <span class="cl-img-label">%</span>
-            </div>` : ''}
-            <details class="cl-fmt-details" style="margin:0 12px 8px"${fmt !== 'rows' ? ' open' : ''}>
-              <summary class="cl-fmt-summary">형식 · ${CE_FORMAT_LABELS[fmt]}</summary>
+            </div>` : '';
+        return `
+          <div class="cl-slide-item" data-div-idx="${divIdx}">
+            <div class="cl-slide-head">
+              ${pageHandle}
+              <span class="cl-page-num">${pg}페이지</span>
+              <span class="cl-fmt-badge">${CE_FORMAT_LABELS[fmt]}</span>
+            </div>
+            <details class="cl-fmt-details" style="margin:0 12px 6px">
+              <summary class="cl-fmt-summary">형식 변경 · 페이지 설정</summary>
               <div class="cl-fmt-panel">
                 <div class="cl-fmt-chips">${ceFormatChips(target,divIdx,fmt)}</div>
-                ${ceFormatPanelBody(target,divIdx,lines[divIdx])}
+                ${fmt === 'rows' ? ceFormatPanelBody(target,divIdx,div) : ''}
                 <div class="cl-fmt-fontsize">이 페이지 글자 크기 <input type="number" min="10" max="140" placeholder="기본" value="${div.fontSize != null ? div.fontSize : ''}" oninput="setLineFontSize('${target}',${divIdx},this.value)"> px <span class="cl-fmt-fontsize-hint">비우면 디자인 기본값</span></div>
               </div>
             </details>
+            <div class="cl-slide-body">${bodyHtml}</div>
+            ${imgRow}
           </div>`;
       }).join('');
       return `
