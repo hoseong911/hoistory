@@ -1586,8 +1586,15 @@ function ceSanitizeParsedLesson(d) {
     ? s.replace(/^\s*(?:[0-9]+[.)]|[①-⑳])\s*/, '')
     : s;
   const fixLines = lines => (lines || []).map(line => {
-    if (line.type === 'row') return { ...line, label: fixBraces(line.label), items: (line.items||[]).map(fixBreaks) };
-    if (line.type === 'divider') return { ...line, title: fixBraces(line.title), quoteText: fixBreaks(line.quoteText), quoteSource: fixBraces(line.quoteSource) };
+    if (line.type === 'row') return { ...line, label: fixBraces(line.label) || '', items: (line.items||[]).map(fixBreaks) };
+    if (line.type === 'divider') {
+      const out = { ...line, title: fixBraces(line.title) || '' };
+      // 사료 인용(quote) 슬라이드가 아니면 quoteText/quoteSource 키 자체가 없다.
+      // 없는 값에 fix 함수를 돌리면 undefined가 생겨 Firestore 저장이 실패하므로, 있을 때만 넣는다.
+      if (line.quoteText   !== undefined) out.quoteText   = fixBreaks(line.quoteText);
+      if (line.quoteSource !== undefined) out.quoteSource = fixBraces(line.quoteSource);
+      return out;
+    }
     return line;
   });
   // 행(row) 하나 = 슬라이드 하나가 기본값이므로, row 앞에 divider가 없으면 자동으로 끼워 넣는다.
@@ -1618,6 +1625,17 @@ function ceSanitizeParsedLesson(d) {
   if (d.chosungItems) d.chosungItems = d.chosungItems.map(s => stripLeadingNumber(fixBraces(s)));
   if (d.think) { d.think.question = fixBraces(d.think.question); d.think.guide = fixBraces(d.think.guide); }
   return d;
+}
+
+// Firestore는 undefined 필드를 거부한다. AI 응답에서 넘어온 객체/배열을 재귀적으로 훑어 undefined 값을 제거한다(안전망).
+function ceStripUndefined(v) {
+  if (Array.isArray(v)) return v.map(ceStripUndefined);
+  if (v && typeof v === 'object') {
+    const o = {};
+    for (const k in v) if (v[k] !== undefined) o[k] = ceStripUndefined(v[k]);
+    return o;
+  }
+  return v;
 }
 
 function ceValidateParsedLesson(d) {
@@ -1676,9 +1694,9 @@ async function ceHandleFileUpload(file) {
       mission: { contentLines: parsed.missionContentLines },
       think: { question: parsed.think.question || '', guide: parsed.think.guide || '' }
     };
-    await addDoc(collection(db, 'class_lessons'), {
+    await addDoc(collection(db, 'class_lessons'), ceStripUndefined({
       num, title: content.lesson.title, unit: content.lesson.unit, year: '2026', order, isOpen: false, content
-    });
+    }));
     await ceGetLessonsFromFirestore();
     ceCurrentLessonNum = num;
     cePopulateLessonSelect();
