@@ -993,26 +993,23 @@ function ceRenderContentLines(target) {
                 <button class="cl-icon-btn${fmt !== 'rows' ? ' active' : ''}" onclick="ceToggleFmt('${target}',${divIdx})" title="형식 변경">${ceIconSliders()}</button>
                 <button class="cl-icon-btn danger" onclick="${slides.length > 1 ? `deletePair('${target}',${divIdx})` : `deleteGroup('${target}',${slides[0].divIdx})`}" title="이 페이지 삭제">${ceIconTrash()}</button>
               </div>`;
-        const rowsHtml = rowIndices.map((rowIdx) => {
+        // 한 페이지 안의 행(라벨+내용). 여러 행이면 행별 삭제 버튼만 인라인으로 둔다.
+        const rowInner = (rowIdx) => {
           const row = lines[rowIdx];
           const rowDelete = rowIndices.length > 1
-            ? `<button class="cl-icon-btn danger" onclick="deleteRow('${target}',${rowIdx})" title="행 삭제">${ceIconTrash()}</button>` : '';
+            ? `<button class="cl-icon-btn danger cl-row-del" onclick="deleteRow('${target}',${rowIdx})" title="행 삭제">${ceIconTrash()}</button>` : '';
           return `
-            <div class="cl-slide-row" data-row-idx="${rowIdx}">
-              <textarea class="cl-label" placeholder="라벨" oninput="updateLine('${target}',${rowIdx},'label',this.value);autoResizeTa(this)">${esc(row.label)}</textarea>
-              <textarea class="cl-items" placeholder="{단어}는 빈칸, **굵게**, 엔터로 항목 구분 (a./b./c. 줄은 하위 항목)" oninput="updateLineItems('${target}',${rowIdx},this.value);autoResizeTa(this)" onkeydown="handleContentKeydown(event)">${esc(row.items.map(it => it.replace(/<\/?br\s*\/?>/gi, '\n')).join('\n'))}</textarea>
-              <div class="cl-row-actions">
-                <button class="cl-icon-btn" onclick="addRowToGroup('${target}',${divIdx})" title="행 추가">${ceIconPlus()}</button>
+              <div class="cl-row-inner" data-row-idx="${rowIdx}">
+                <textarea class="cl-label" placeholder="라벨" oninput="updateLine('${target}',${rowIdx},'label',this.value);autoResizeTa(this)">${esc(row.label)}</textarea>
+                <textarea class="cl-items" placeholder="{단어}는 빈칸, **굵게**, 엔터로 항목 구분 (a./b./c. 줄은 하위 항목)" oninput="updateLineItems('${target}',${rowIdx},this.value);autoResizeTa(this)" onkeydown="handleContentKeydown(event)">${esc(row.items.map(it => it.replace(/<\/?br\s*\/?>/gi, '\n')).join('\n'))}</textarea>
                 ${rowDelete}
-              </div>
-            </div>`;
-        }).join('');
-        // 본문: 행 나열은 행들, 그 외(사료·연표·비교표·플로우)는 형식 편집기를 본문으로 + 우측 세로 액션바
-        const bodyHtml = fmt !== 'rows'
-          ? `<div class="cl-slide-row cl-slide-special"><div class="cl-special-editor">${ceFormatPanelBody(target,divIdx,div)}</div>${pageActions}</div>`
-          : (rowIndices.length
-              ? rowsHtml
-              : `<div class="cl-slide-row cl-slide-special"><div class="cl-norow-hint">내용이 없는 페이지입니다. 행을 추가하세요.</div>${pageActions}</div>`);
+              </div>`;
+        };
+        // 본문 내용: 행 나열은 행들, 그 외(사료·연표 등)는 형식 편집기. 어느 형식이든 래퍼+우측 세로 액션바는 동일.
+        const contentInner = fmt !== 'rows'
+          ? ceFormatPanelBody(target, divIdx, div)
+          : (rowIndices.length ? rowIndices.map(rowInner).join('') : `<div class="cl-norow-hint">내용이 없는 페이지입니다. 행을 추가하세요.</div>`);
+        const bodyHtml = `<div class="cl-slide-row cl-slide-special"><div class="cl-special-editor">${contentInner}</div>${pageActions}</div>`;
         const pageHandle = slides.length > 1 ? `<span class="cl-handle cl-page-handle" title="페이지 순서 변경">⋮⋮</span>` : '';
         const imgRow = hasImg ? `
             <div class="cl-img-row" style="padding:6px 12px 8px 12px;border-top:1px solid #eee;margin-top:4px">
