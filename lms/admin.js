@@ -1661,9 +1661,14 @@ async function ceHandleFileUpload(file) {
     return;
   }
 
-  const num = (prompt('강 번호를 입력하세요 (예: 24)') || '').trim();
-  if (!num) { inputEl.value = ''; return; }
-  if (ceLessonsCache.find(l => l.num === num)) { alert('이미 있는 강 번호입니다.'); inputEl.value = ''; return; }
+  // 파일명에 보통 "24강 …"처럼 강 번호가 들어 있으므로 자동으로 뽑아 쓴다. 못 찾을 때만 직접 입력받는다.
+  const m = file.name.match(/(\d+)\s*강/);
+  let num = m ? m[1] : '';
+  if (!num) {
+    num = (prompt('파일명에서 강 번호를 찾지 못했습니다. 강 번호를 입력하세요 (예: 24)') || '').trim();
+    if (!num) { inputEl.value = ''; return; }
+  }
+  if (ceLessonsCache.find(l => l.num === num)) { alert(num + '강은 이미 있습니다.'); inputEl.value = ''; return; }
 
   btnEl.disabled = true;
   if (statusEl) statusEl.textContent = '파일 분석 중… (최대 1분 정도 걸릴 수 있습니다)';
