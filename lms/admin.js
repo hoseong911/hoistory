@@ -1562,7 +1562,7 @@ conceptContentLines·missionContentLines 규칙 (정확히 지켜라. 표 하나
 - row의 label은 회색 칸에 적힌 텍스트를 그대로 옮겨라.
 - row의 items 배열은 원문자(①②③...) 단위로 하나씩 나눠 담아라 — ①로 시작하는 내용 전체가 items의 원소 하나, ②로 시작하는 내용이 다음 원소, 이런 식이다.
 - 원문자 뒤에 a. b. c. 같은 하위 글자 목록이나 "→"로 이어지는 줄이 붙어 있으면, 그 하위 줄들은 새 item으로 쪼개지 말고 같은 item 문자열 안에 <br>로 이어붙여서 한 줄씩 표시되게 해라. (예: "① 건국 과정 : a. {이성계} : {위화도 회군} 이후 정권 장악<br>b. {과전법} 실시(1391) : 경기 지역의 토지에 한해 관직 복무 대가로 {수조권} 지급<br>c. 국가 통치 이념으로 {성리학}을 내세우고, {온건파} 사대부를 숙청 → {조선} 건국(1392)") <br> 태그는 한 번에 하나씩만 써라(<br><br> 같은 중복 금지).
-- 빈칸(밑줄, 괄호, ○○ 등)에 들어갈 정답을 알고 있으면 그 줄 안에서 정답을 중괄호 한 겹으로 정확히 감싸서 표시해라: {정답}. 중괄호를 두 겹({{정답}})으로 쓰지 마라 — 항상 한 겹만. 정답을 확신할 수 없으면 빈칸 표시 없이 원문 그대로 둬라(추측해서 틀린 답을 넣지 마라).
+- 빈칸 처리: 활동지에 실제로 비어 있는 칸(밑줄 ___, 괄호 ( ), ○○, 네모칸 등 학생이 채워 넣도록 비워 둔 자리)에 대해서만 정답을 중괄호 한 겹으로 감싸라: {정답}. 이미 인쇄되어 있는(비어 있지 않은) 단어·문장은 그게 정답에 해당하더라도 절대 {}로 감싸지 마라 — 원문 그대로 둬라. 즉 원래 빈칸이 아닌 것을 빈칸으로 만들면 안 된다. 중괄호를 두 겹({{정답}})으로 쓰지 마라 — 항상 한 겹만. 빈칸의 정답을 확신할 수 없으면 빈칸 표시 없이 원문 그대로 둬라(추측해서 틀린 답을 넣지 마라).
 - 빈칸을 채우는 것 외에는 원문에 있는 문구를 고치거나 다듬지 말고 그대로 옮겨라.
 - 활동지에 점선 테두리 박스(사료 인용)가 있으면 {"type":"divider","title":"슬라이드 제목","format":"quote","quoteText":"박스 안 원문","quoteSource":"출처(있을 경우)"} 형식으로 표현해라. 이 경우 row를 추가하지 않는다.
 - 표 안의 그림·도식은 텍스트로 옮길 수 없으면 생략해도 된다.
@@ -1588,7 +1588,7 @@ async function ceRequestLessonJson(content) {
   const res = await fetch(CLAUDE_PROXY_URL, {
     method: 'POST',
     headers: { 'Content-Type':'application/json' },
-    body: JSON.stringify({ model:'claude-haiku-4-5-20251001', max_tokens:8192, messages:[{ role:'user', content: messageContent }] })
+    body: JSON.stringify({ model:'claude-opus-4-8', max_tokens:16000, messages:[{ role:'user', content: messageContent }] })
   });
   if (!res.ok) {
     let detail = '';
