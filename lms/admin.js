@@ -1618,8 +1618,23 @@ function ceSanitizeParsedLesson(d) {
     }
     return out;
   };
-  if (d.conceptContentLines) d.conceptContentLines = enforceOnePerSlide(d.conceptContentLines);
-  if (d.missionContentLines) d.missionContentLines = enforceOnePerSlide(d.missionContentLines);
+  // enforceOnePerSlide 뒤에 남는 "빈 divider"(뒤에 행도 없고 사료 텍스트·이미지·특수형식 데이터도 없이
+  // 제목만 있는 슬라이드)를 제거한다. AI가 사료 앞에 구역 제목용 빈 divider를 하나 더 만들어
+  // 빈 페이지가 생기던 것을 막는다.
+  const dropEmptyDividers = lines => lines.filter((line, k) => {
+    if (line.type !== 'divider') return true;
+    const next = lines[k + 1];
+    if (next && next.type === 'row') return true;   // 뒤에 행이 있으면 내용 있음
+    if (line.img != null) return true;              // 이미지 있음
+    const fmt = line.format;
+    if (fmt === 'quote') return !!(line.quoteText && line.quoteText.trim());
+    if (fmt === 'timeline-h' || fmt === 'timeline-v') return (line.events || []).length > 0;
+    if (fmt === 'compare') return (((line.left && line.left.items) || []).length + ((line.right && line.right.items) || []).length) > 0;
+    if (fmt === 'flow-h' || fmt === 'flow-v') return (line.stages || []).length > 0;
+    return false;                                   // rows 형식인데 뒤에 행 없음 → 빈 슬라이드, 제거
+  });
+  if (d.conceptContentLines) d.conceptContentLines = dropEmptyDividers(enforceOnePerSlide(d.conceptContentLines));
+  if (d.missionContentLines) d.missionContentLines = dropEmptyDividers(enforceOnePerSlide(d.missionContentLines));
   if (d.dive) { d.dive.title = fixBraces(d.dive.title); d.dive.guide = fixBraces(d.dive.guide); }
   if (d.lesson?.objectives) d.lesson.objectives = d.lesson.objectives.map(stripLeadingNumber);
   if (d.chosungItems) d.chosungItems = d.chosungItems.map(s => stripLeadingNumber(fixBraces(s)));
