@@ -520,7 +520,16 @@
         current.rows.push({ label: line.label, items: line.items });
       }
     });
-    return raw;
+    // 내용이 비어 있는 슬라이드(제목만 있고 본문이 없는 사료·행 등)는 렌더하지 않는다.
+    return raw.filter(s => {
+      if (s.type === 'image' || s.type === 'fullimage' || s.type === 'video') return true;
+      if (s.img != null) return true;
+      if (s.format === 'quote') return !!(s.text && s.text.trim());
+      if (s.format === 'timeline-h' || s.format === 'timeline-v') return (s.events || []).length > 0;
+      if (s.format === 'compare') return (((s.left && s.left.items) || []).length + ((s.right && s.right.items) || []).length) > 0;
+      if (s.format === 'flow-h' || s.format === 'flow-v') return (s.stages || []).length > 0;
+      return (s.rows || []).some(r => (r.label && r.label.trim()) || (r.items || []).some(it => it && String(it).trim()));
+    });
   }
 
   /* 어드민 콘텐츠 편집 데이터({lesson, dive, contentLines, mission, think})를 실제
