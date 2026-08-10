@@ -927,8 +927,7 @@ function ceRenderContentLines(target) {
         <div class="cl-image" data-idx="${i}">
           <div class="cl-divider-top">
             <span class="cl-handle">⋮⋮</span>
-            <span class="cl-page-num">${pg}페이지</span>
-            <span class="cl-image-label">이미지 슬라이드</span>
+            <span class="cl-slide-meta">${pg}페이지 <span class="cl-meta-sep">｜</span> 이미지 슬라이드</span>
             <input type="text" class="cl-divider-title" placeholder="제목 (선택)" value="${esc(line.title||'')}" oninput="updateLine('${target}',${i},'title',this.value)" style="max-width:220px">
             <button class="cbtn-danger" onclick="deleteLine('${target}',${i})">삭제</button>
           </div>
@@ -949,8 +948,7 @@ function ceRenderContentLines(target) {
         <div class="cl-image" data-idx="${i}">
           <div class="cl-divider-top">
             <span class="cl-handle">⋮⋮</span>
-            <span class="cl-page-num">${pg}페이지</span>
-            <span class="cl-image-label">전면 이미지</span>
+            <span class="cl-slide-meta">${pg}페이지 <span class="cl-meta-sep">｜</span> 전면 이미지</span>
             <span style="flex:1;font-size:12px;color:var(--stone);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${line.url ? '업로드됨' : '(비어 있음)'}</span>
             <button class="cbtn-sm" onclick="replaceFullImage('${target}',${i})">이미지 교체</button>
             <button class="cbtn-danger" onclick="deleteFullImage('${target}',${i})">삭제</button>
@@ -967,8 +965,7 @@ function ceRenderContentLines(target) {
         <div class="cl-image" data-idx="${i}">
           <div class="cl-divider-top">
             <span class="cl-handle">⋮⋮</span>
-            <span class="cl-page-num">${pg}페이지</span>
-            <span class="cl-image-label">영상</span>
+            <span class="cl-slide-meta">${pg}페이지 <span class="cl-meta-sep">｜</span> 영상</span>
             <input type="text" class="cl-divider-title" placeholder="유튜브 URL 붙여넣기" value="${esc(line.url||'')}" onchange="updateVideoUrl('${target}',${i},this.value)" style="flex:1;max-width:none">
             <button class="cbtn-danger" onclick="deleteLine('${target}',${i})">삭제</button>
           </div>
@@ -1028,8 +1025,7 @@ function ceRenderContentLines(target) {
           <div class="cl-slide-item" data-div-idx="${divIdx}">
             <div class="cl-slide-head">
               ${pageHandle}
-              <span class="cl-page-num">${pg}페이지</span>
-              <span class="cl-fmt-badge">${CE_FORMAT_LABELS[fmt]}</span>
+              <span class="cl-slide-meta">${pg}페이지 <span class="cl-meta-sep">｜</span> ${CE_FORMAT_LABELS[fmt]}</span>
             </div>
             <details class="cl-fmt-details" style="margin:0 12px 6px">
               <summary class="cl-fmt-summary">형식 변경 · 페이지 설정</summary>
