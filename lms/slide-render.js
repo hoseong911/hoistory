@@ -332,8 +332,8 @@
     const format = slide.format || 'rows';
 
     if (format === 'quote') {
-      // 사료 인용은 슬라이드 제목이 선택 사항이라, 있을 때만 헤더를 붙인다.
-      const header = slide.title ? checkHeaderHTML(badgeLabel, slide.title) : '';
+      // 사료 인용은 슬라이드 제목이 선택 사항. 있을 때만 맨 위 가운데 정렬 제목으로 표시.
+      const header = slide.title ? `<h2 class="qt-title">${preserveSpaces(slide.title)}</h2>` : '';
       return `${header}${quoteBodyHTML(slide)}`;
     }
     if (format === 'timeline-h') return checkHeaderHTML(badgeLabel, slide.title) + timelineHBodyHTML(slide);
