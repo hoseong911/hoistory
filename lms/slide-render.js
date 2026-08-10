@@ -305,11 +305,14 @@
   }
 
   function quoteBodyHTML(slide) {
+    // 출처는 우측 정렬 + 꺽쇠(『』)로 감싼다. 이미 낫표/꺽쇠류로 감싸져 있으면 그대로 둔다.
+    const src = (slide.source || '').trim();
+    const srcWrapped = src ? (/^[『「【《<].*[』」】》>]$/.test(src) ? src : '『' + src + '』') : '';
     return `
       <div class="fmt-quote">
         <span class="qt-mark">&ldquo;</span>
         <p class="qt-text">${renderWithBreaks(slide.text || '')}</p>
-        ${slide.source ? `<p class="qt-src">${preserveSpaces(slide.source)}</p>` : ''}
+        ${srcWrapped ? `<p class="qt-src">${preserveSpaces(srcWrapped)}</p>` : ''}
       </div>`;
   }
 
