@@ -312,8 +312,7 @@
     const srcWrapped = src ? (/^[『「【《<].*[』」】》>]$/.test(src) ? src : '『' + src + '』') : '';
     return `
       <div class="fmt-quote">
-        <span class="qt-mark">&ldquo;</span>
-        <p class="qt-text">${renderWithBreaks(slide.text || '')}</p>
+        <p class="qt-text"><span class="qt-open">&ldquo;</span>${renderWithBreaks(slide.text || '')}<span class="qt-close">&rdquo;</span></p>
         ${srcWrapped ? `<p class="qt-src">${preserveSpaces(srcWrapped)}</p>` : ''}
       </div>`;
   }
@@ -486,6 +485,7 @@
     (lines || []).forEach(line => {
       if (line.type === 'divider') {
         current = { type, title: line.title, rows: [] };
+        if (line.fontSize != null) current.fontSize = line.fontSize; // 페이지별 본문 글자 크기(px) 오버라이드
         const fmt = line.format;
         if (fmt && fmt !== 'rows') {
           current.format = fmt;
@@ -571,6 +571,7 @@
     } else if (slide.type === 'concept') {
       inner = conceptHTML(slide, lesson);
     } else if (slide.type === 'mission') {
+      extraClass = ' slide-mission';
       inner = missionHTML(slide, lesson);
     } else if (slide.type === 'image') {
       inner = imageHTML(slide, lesson);
@@ -588,7 +589,8 @@
       extraClass = ' slide-think';
       inner = thinkHTML(slide, lesson);
     }
-    return `<div class="slide${extraClass}">${inner}</div>`;
+    const fsStyle = slide.fontSize ? ` style="--fs-body:${slide.fontSize}px"` : ''; // 페이지별 본문 글자 크기 오버라이드
+    return `<div class="slide${extraClass}"${fsStyle}>${inner}</div>`;
   }
 
   /* img 번호로 만든 경로는 확장자를 png로 가정하는데, 실제 저장 파일이 jpg인 경우가

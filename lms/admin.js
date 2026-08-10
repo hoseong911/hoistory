@@ -424,6 +424,10 @@ function ceLoadDesignInputs() {
     document.getElementById('fs-' + k).value = f[k];
     document.getElementById('fv-' + k).value = f[k];
   });
+  // 미션 본문: 저장값이 없으면 개념 본문값을 기본으로 따른다(기존 강의는 변화 없음).
+  const bm = f.bodyMission != null ? f.bodyMission : f.body;
+  document.getElementById('fs-bodyMission').value = bm;
+  document.getElementById('fv-bodyMission').value = bm;
   const lh = ceCs.lineHeights || CE_SD.lineHeights;
   CE_LH_KEYS.forEach(k => {
     document.getElementById('lh-' + k).value = lh[k];
@@ -446,6 +450,7 @@ function ceLoadDesignInputs() {
 function ceReadDesignInputs() {
   const fonts = {};
   CE_FONT_KEYS.forEach(k => { fonts[k] = +document.getElementById('fs-' + k).value; });
+  fonts.bodyMission = +document.getElementById('fs-bodyMission').value; // 미션 본문(개념과 별도)
   const lineHeights = {};
   CE_LH_KEYS.forEach(k => { lineHeights[k] = +document.getElementById('lh-' + k).value; });
   ceCs = {
@@ -535,6 +540,8 @@ function ceSetSlideVars(el, cfg) {
   CE_FONT_KEYS.forEach(k => {
     el.style.setProperty(CE_FONT_VAR_MAP[k], (f[k] || CE_SD.fonts[k]) + 'px');
   });
+  // 미션 본문 전용 변수. 저장값 없으면 개념 본문값을 따른다.
+  el.style.setProperty('--fs-body-mission', ((f.bodyMission != null ? f.bodyMission : f.body) || CE_SD.fonts.body) + 'px');
   const lh = c.lineHeights || CE_SD.lineHeights;
   CE_LH_KEYS.forEach(k => {
     el.style.setProperty(CE_LH_VAR_MAP[k], lh[k] || CE_SD.lineHeights[k]);
@@ -809,6 +816,15 @@ function toggleLabelPos(target, i, isChecked) {
   });
 }
 
+// 페이지(슬라이드)별 본문 글자 크기 절대값(px). 비우면 필드를 지워 디자인 기본값을 따른다.
+function setLineFontSize(target, i, v) {
+  const line = ceLinesFor(target)[i];
+  const n = parseInt(v, 10);
+  if (v === '' || isNaN(n)) delete line.fontSize;
+  else line.fontSize = n;
+  ceRenderPreview();
+}
+
 function autoResizeTa(ta) {
   ta.style.height = '1px';
   ta.style.height = ta.scrollHeight + 'px';
@@ -978,11 +994,22 @@ function ceRenderContentLines(target) {
               </div>
             </div>`;
         }).join('');
+        // 행이 없는 슬라이드(사료 등 특수 형식)에도 페이지 단위 액션 버튼을 제공한다.
+        const noRowActions = rowIndices.length === 0 ? `
+            <div class="cl-slide-row cl-slide-norow">
+              <div class="cl-norow-hint">${CE_FORMAT_LABELS[fmt]} 슬라이드</div>
+              <div class="cl-row-actions">
+                <button class="cl-icon-btn" onclick="addRowToGroup('${target}',${divIdx})" title="행 추가">${ceIconPlus()}</button>
+                <button class="cl-icon-btn" onclick="toggleDividerImg('${target}',${divIdx})" title="${hasImg?'이미지 제거':'이미지 삽입'}">${ceIconImage()}</button>
+                <button class="cl-icon-btn${fmt !== 'rows' ? ' active' : ''}" onclick="ceToggleFmt('${target}',${divIdx})" title="형식 · ${CE_FORMAT_LABELS[fmt]}">${ceIconSliders()}</button>
+                <button class="cl-icon-btn danger" onclick="${slides.length > 1 ? `deletePair('${target}',${divIdx})` : `deleteGroup('${target}',${slides[0].divIdx})`}" title="이 페이지 삭제">${ceIconTrash()}</button>
+              </div>
+            </div>` : '';
         const pageHandle = slides.length > 1 ? `<span class="cl-handle cl-page-handle" title="페이지 순서 변경">⋮⋮</span>` : '';
         return `
           <div class="cl-slide-item" data-div-idx="${divIdx}">
             ${si > 0 ? `<div class="cl-page-sep">${pageHandle}── 새 페이지 ──</div>` : (slides.length > 1 ? `<div class="cl-page-sep cl-page-sep-first">${pageHandle}</div>` : '')}
-            ${rowsHtml}
+            ${rowsHtml}${noRowActions}
             ${hasImg ? `
             <div class="cl-img-row" style="padding:6px 12px 8px 12px;border-top:1px solid #eee;margin-top:4px">
               <span class="cl-img-label">이미지 번호</span>
@@ -1001,6 +1028,7 @@ function ceRenderContentLines(target) {
               <div class="cl-fmt-panel">
                 <div class="cl-fmt-chips">${ceFormatChips(target,divIdx,fmt)}</div>
                 ${ceFormatPanelBody(target,divIdx,lines[divIdx])}
+                <div class="cl-fmt-fontsize">이 페이지 글자 크기 <input type="number" min="10" max="140" placeholder="기본" value="${div.fontSize != null ? div.fontSize : ''}" oninput="setLineFontSize('${target}',${divIdx},this.value)"> px <span class="cl-fmt-fontsize-hint">비우면 디자인 기본값</span></div>
               </div>
             </details>
           </div>`;
@@ -3784,7 +3812,7 @@ Object.assign(window, {
   switchSubTab, addLesson, deleteLesson, onLessonChange,
   addSlide, addDivider, addContentRow, addImageSlide, toggleDividerImg, deleteLine, deletePair, moveLine,
   addRowToGroup, addPageToGroup, deleteGroup, deleteRow, updateGroupTitle, ceToggleFmt,
-  setLineFormat, toggleLabelPos,
+  setLineFormat, toggleLabelPos, setLineFontSize,
   updateEventField, updateEventContent, addEvent, removeEvent,
   updateCompareField, updateCompareItems,
   updateStageField, addStage, removeStage,
