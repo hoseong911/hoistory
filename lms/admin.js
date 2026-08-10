@@ -1663,7 +1663,8 @@ async function ceHandleFileUpload(file) {
 
   // 파일명에 보통 "24. 제목" 또는 "24강 …"처럼 강 번호가 들어 있으므로 자동으로 뽑아 쓴다. 못 찾을 때만 직접 입력받는다.
   const base = file.name.replace(/\.[^.]+$/, ''); // 확장자 제거
-  const m = base.match(/^\s*(\d+)\s*[.)]/) || base.match(/(\d+)\s*강/);
+  // "N강" 우선, 없으면 맨 앞 숫자(구분자 . ) 공백 전각마침표 등 무관)를 강 번호로 사용
+  const m = base.match(/(\d+)\s*강/) || base.match(/^\s*(\d+)/);
   let num = m ? m[1] : '';
   if (!num) {
     num = (prompt('파일명에서 강 번호를 찾지 못했습니다. 강 번호를 입력하세요 (예: 24)') || '').trim();
