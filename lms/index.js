@@ -52,9 +52,9 @@ function menuVisible(key) { return _menuVisibility[key] !== false; }
 
 // 컬럼/3열로 보이는 3개 섹션 (성적·마일리지·각종 콘텐츠는 별도 블록으로 처리)
 const SECTIONS = [
-  { key:'concept',  name:'개념 체크', cls:'s-concept', nodeId:'secConcept' },
-  { key:'mission',  name:'미션 체크', cls:'s-mission', nodeId:'secMission' },
-  { key:'think',    name:'생각 체크', cls:'s-think',   nodeId:'secThink'   },
+  { key:'concept',  name:'개념 Check', cls:'s-concept', nodeId:'secConcept' },
+  { key:'mission',  name:'미션 Check', cls:'s-mission', nodeId:'secMission' },
+  { key:'think',    name:'생각 Check', cls:'s-think',   nodeId:'secThink'   },
 ];
 
 // 모바일 여부 — PC(4단 그리드) / 모바일(세로)에서 섹션 동작이 다르다
@@ -625,9 +625,9 @@ function renderGradeSummaryHTML(g) {
   const hasDetail = g.lectureDetails && g.lectureDetails.length > 0;
   return `<div class="grade-summary">
     <div class="grade-cols">
-      ${col('개념 체크', 'c1', g.concept)}
-      ${col('미션 체크', 'c2', g.mission)}
-      ${col('생각 체크', 'c3', g.think)}
+      ${col('개념', 'c1', g.concept)}
+      ${col('미션', 'c2', g.mission)}
+      ${col('생각', 'c3', g.think)}
     </div>
     <div class="grade-sum-total">
       <span>총점</span>
@@ -645,7 +645,7 @@ const LOADING_HTML = '<div class="loading-dots"><div class="dot"></div><div clas
 const CHEVRON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
 const CARET   = '<svg class="acc-caret" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
 const SEC_CLS    = { concept:'s-concept', mission:'s-mission', think:'s-think', contents:'s-contents' };
-const SEC_LABELS = { concept:'개념 체크', mission:'미션 체크', think:'생각 체크', contents:'각종 콘텐츠' };
+const SEC_LABELS = { concept:'개념 Check', mission:'미션 Check', think:'생각 Check', contents:'각종 콘텐츠' };
 const GRADE_CAPTION = '채점 기준에 따른 실시간 점수를 제공합니다. 최종 점수는 학기말에 별도로 안내됩니다.';
 const isMobile = () => mqMobile.matches;
 
@@ -665,8 +665,7 @@ function renderSections() {
     card.style.display = '';
     const items = sectionData[s.key];
     if (isMobile()) {
-      const count = items === null ? '…' : `${items.length}개`;
-      card.innerHTML = `<button class="sec-chip" type="button"><span class="chip-name">${s.name}</span><span class="chip-count">${count}</span></button>`;
+      card.innerHTML = `<button class="sec-chip" type="button"><span class="chip-name">${s.name}</span></button>`;
       card.querySelector('.sec-chip').onclick = () => openSectionList(s.key);
     } else {
       renderGridCard(card, s.name, items);
@@ -730,8 +729,7 @@ function renderContentsBlock() {
   el.style.display = '';
   const items = sectionData.contents;
   if (isMobile()) {
-    const count = items === null ? '…' : `${items.length}개`;
-    el.innerHTML = `<button class="sec-launch" type="button"><span class="sec-name">각종 콘텐츠</span><span class="sec-launch-count">${count}${CHEVRON}</span></button>`;
+    el.innerHTML = `<button class="sec-launch" type="button"><span class="sec-name">각종 콘텐츠</span><span class="sec-launch-count">${CHEVRON}</span></button>`;
     el.querySelector('.sec-launch').onclick = () => openSectionList('contents');
   } else {
     renderGridCard(el, '각종 콘텐츠', items);
@@ -926,9 +924,9 @@ window.openGradeDetail = function() {
       <thead>
         <tr>
           <th>강의</th>
-          <th style="background:var(--c1-l);color:var(--c1)">개념체크</th>
-          <th style="background:var(--c2-l);color:var(--c2)">미션체크</th>
-          <th style="background:var(--c1-l);color:var(--c1)">생각체크</th>
+          <th>개념</th>
+          <th>미션</th>
+          <th>생각</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
