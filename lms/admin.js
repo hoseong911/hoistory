@@ -996,7 +996,7 @@ function ceRenderContentLines(target) {
               <input type="number" class="cl-img-input" min="20" max="70" value="${div.imgSize!=null?div.imgSize:50}" oninput="updateLine('${target}',${divIdx},'imgSize',+this.value)">
               <span class="cl-img-label">%</span>
             </div>` : ''}
-            <details class="cl-fmt-details" style="margin:0 12px 8px">
+            <details class="cl-fmt-details" style="margin:0 12px 8px"${fmt !== 'rows' ? ' open' : ''}>
               <summary class="cl-fmt-summary">형식 · ${CE_FORMAT_LABELS[fmt]}</summary>
               <div class="cl-fmt-panel">
                 <div class="cl-fmt-chips">${ceFormatChips(target,divIdx,fmt)}</div>
