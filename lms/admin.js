@@ -892,6 +892,7 @@ function updateCompareItems(target,i,side,v)  { ceLinesFor(target)[i][side].item
 function ceQuoteEditor(target, i, line) {
   return `
     <div class="cl-fmt-fields">
+      <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="슬라이드 제목 (선택, 예: (가) 조선의 통치제도)" value="${esc(line.title||'')}" oninput="updateLine('${target}',${i},'title',this.value)">
       <textarea class="cl-fmt-grow" placeholder="원문 텍스트, {단어}는 빈칸" oninput="updateLine('${target}',${i},'quoteText',this.value);autoResizeTa(this)" onkeydown="handleContentKeydown(event)">${esc(line.quoteText||'')}</textarea>
       <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="출처" value="${esc(line.quoteSource||'')}" oninput="updateLine('${target}',${i},'quoteSource',this.value)">
     </div>`;
