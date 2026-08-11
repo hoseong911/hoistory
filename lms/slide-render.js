@@ -144,12 +144,13 @@
     `;
   }
 
-  /* 번호가 매겨진 목록 형태의 슬라이드(학습 목표, 초성 퀴즈가 이 구성을 공유한다) */
-  function numberedListHTML(items, badgeLabel, lesson) {
+  /* 번호가 매겨진 목록 형태의 슬라이드(학습 목표, 초성 퀴즈가 이 구성을 공유한다).
+     둘 다 Dive into History 묶음이라 배지는 "Dive into History", 제목만 다르게 표시한다. */
+  function numberedListHTML(items, badgeLabel, headerTitle) {
     return `
       <div class="slide-header">
         <span class="check-badge">${badgeLabel}</span>
-        <h2 class="slide-title">${lesson.num}강. ${preserveSpaces(lesson.title)}</h2>
+        <h2 class="slide-title">${preserveSpaces(headerTitle)}</h2>
       </div>
       <div class="obj-list">
         ${items.map((o, i) => `
@@ -161,8 +162,8 @@
       </div>
     `;
   }
-  function objectivesHTML(lesson) { return numberedListHTML(lesson.objectives, '학습 목표', lesson); }
-  function chosungHTML(slide, lesson) { return numberedListHTML(slide.items, '초성 퀴즈', lesson); }
+  function objectivesHTML(lesson) { return numberedListHTML(lesson.objectives, 'Dive into History', '학습 목표'); }
+  function chosungHTML(slide, lesson) { return numberedListHTML(slide.items, 'Dive into History', '지난 수업 시간에는?'); }
 
   function rowHTML(row, labelPos) {
     const rawItems = row.items || [];
@@ -386,14 +387,13 @@
   function missionHTML(slide, lesson) { return checkStyleHTML(slide, lesson, '미션 Check'); }
 
   function diveHTML(slide, lesson) {
-    const headerTitle = slide.headerTitle || (lesson.num + '강');
     const imgBase     = slide.img != null ? `/hoistory/lms/img/${lesson.num}_${slide.img}` : null;
     const layout      = slide.imgLayout || 'right';
 
     const header = `
       <div class="slide-header">
-        <span class="check-badge">Dive into HISTORY</span>
-        <h2 class="slide-title">${preserveSpaces(headerTitle)}</h2>
+        <span class="check-badge">Dive into History</span>
+        <h2 class="slide-title">Opening Question</h2>
       </div>`;
 
     const guideClass = slide.guideBox === false ? 'think-guide no-box' : 'think-guide';
@@ -542,16 +542,20 @@
      화면이 쓰는 slides 배열 형태로 변환한다. 어드민 미리보기와 실제 학생 페이지
      (lesson.html)가 동일한 이 함수를 써서 두 화면이 항상 일치하도록 한다. */
   function buildSlidesFromData(d) {
-    const slides = [{ type: 'cover' }, { type: 'objectives' }];
-    // opening{question,guide}은 dive{title,guide}로 바뀌기 전 필드명. 아직 admin에서
-    // 다시 저장하지 않은 예전 강의도 그대로 보이도록 대비한다.
+    // 표지 → [Dive into History: 초성 퀴즈 → Opening Question → 학습 목표] → 개념 → 미션 → 생각
+    const slides = [{ type: 'cover' }];
+    // opening{question,guide}은 dive{title,guide}로 바뀌기 전 필드명. 예전 강의도 보이게 대비.
     const dive = d.dive || (d.opening ? { title: d.opening.question, guide: d.opening.guide } : null);
-    if (dive && (dive.title || dive.guide || dive.img != null)) {
-      slides.push({ type: 'dive', title: dive.title || '', guide: dive.guide || '', headerTitle: dive.headerTitle || '', img: dive.img != null ? dive.img : null, imgCaption: dive.imgCaption || '', imgLayout: dive.imgLayout || 'right', guideBox: dive.guideBox !== false });
-    }
+    // 1. 초성 퀴즈 — 토글 ON + 항목 있을 때만
     if (d.dive && d.dive.chosungEnabled && d.dive.chosungItems && d.dive.chosungItems.length) {
       slides.push({ type: 'chosung', items: d.dive.chosungItems });
     }
+    // 2. Opening Question — 내용 있고 토글 ON일 때만(openingEnabled 없으면 기본 ON)
+    if (dive && (dive.title || dive.guide || dive.img != null) && dive.openingEnabled !== false) {
+      slides.push({ type: 'dive', title: dive.title || '', guide: dive.guide || '', headerTitle: dive.headerTitle || '', img: dive.img != null ? dive.img : null, imgCaption: dive.imgCaption || '', imgLayout: dive.imgLayout || 'right', guideBox: dive.guideBox !== false });
+    }
+    // 3. 학습 목표 — 항상
+    slides.push({ type: 'objectives' });
     slides.push(...buildCheckSlides(d.contentLines, 'concept'));
     if (d.mission) slides.push(...buildCheckSlides(d.mission.contentLines, 'mission'));
     slides.push({ type: 'think', question: d.think.question, guide: d.think.guide });

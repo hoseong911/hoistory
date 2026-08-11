@@ -634,7 +634,7 @@ async function deleteLesson() {
 function ceBlankLessonData(num) {
   return {
     lesson: { num, title: '새 강의', unit: '', page: '', objectives: ['학습 목표를 입력하세요'] },
-    dive: { headerTitle: '', title: '', guide: '', img: null, imgCaption: '', imgLayout: 'right', guideBox: true, chosungEnabled: false, chosungItems: [] },
+    dive: { headerTitle: '', title: '', guide: '', img: null, imgCaption: '', imgLayout: 'right', guideBox: true, openingEnabled: true, chosungEnabled: false, chosungItems: [] },
     contentLines: [],
     mission: { contentLines: [] },
     think: { question: '', guide: '' }
@@ -656,6 +656,7 @@ function ceEnsureNewFields(cd) {
   if (cd.dive.imgLayout === undefined) cd.dive.imgLayout = 'right';
   if (cd.dive.guideBox === undefined) cd.dive.guideBox = true;
   if (cd.dive.chosungEnabled === undefined) cd.dive.chosungEnabled = false;
+  if (cd.dive.openingEnabled === undefined) cd.dive.openingEnabled = true;
   if (!Array.isArray(cd.dive.chosungItems)) cd.dive.chosungItems = [];
   delete cd.opening;
   if (!cd.mission || !Array.isArray(cd.mission.contentLines)) cd.mission = { contentLines: [] };
@@ -694,13 +695,14 @@ function ceLoadLessonData(num) {
   ceRenderCoverForm();
   ceRenderOpenToggle();
   ceRenderDiveForm();
+  ceRenderObjectivesForm();
   ceRenderContentLines('concept');
   ceRenderContentLines('mission');
   ceRenderThinkForm();
   ceRenderPreview();
 }
 
-// ── 표지 폼 (수업 정보 + 학습 목표) ──
+// ── 표지 폼 (수업 정보) — 학습 목표는 Dive 메뉴로 이동 ──
 function ceRenderCoverForm() {
   const l = ceCd.lesson;
   const el = document.getElementById('cover-form');
@@ -708,11 +710,15 @@ function ceRenderCoverForm() {
     ${ceFInputInline('강 번호', l.num, `updateLesson('num',this.value)`)}
     ${ceFInputInline('수업 제목', l.title, `updateLesson('title',this.value)`)}
     ${ceFInputInline('학습 단원', l.unit, `updateLesson('unit',this.value)`)}
-    ${ceFInputInline('교과서 페이지', l.page, `updateLesson('page',this.value)`)}
-    <div class="field-group">
-      <div class="field-label">학습 목표 <span class="field-hint">한 줄 = 목표 하나</span></div>
-      <textarea class="field-input" rows="4" oninput="updateObjectives(this.value);autoResizeTa(this)">${esc(l.objectives.join('\n'))}</textarea>
-    </div>`;
+    ${ceFInputInline('교과서 페이지', l.page, `updateLesson('page',this.value)`)}`;
+}
+
+// ── 학습 목표 폼 (Dive 메뉴 안, 항상 표시되는 슬라이드) ──
+function ceRenderObjectivesForm() {
+  const l = ceCd.lesson;
+  const el = document.getElementById('objectives-form');
+  if (!el) return;
+  el.innerHTML = `<textarea class="field-input" rows="4" placeholder="한 줄 = 목표 하나" oninput="updateObjectives(this.value);autoResizeTa(this)">${esc(l.objectives.join('\n'))}</textarea>`;
 }
 
 function updateLesson(f,v){ ceCd.lesson[f]=v; ceRenderPreview(); }
@@ -1394,6 +1400,13 @@ function ceWireDragEvents(target) {
 function ceRenderDiveForm() {
   const d = ceCd.dive;
   const el = document.getElementById('dive-form');
+  // Opening Question 토글: 내용(주제/안내문구/이미지)이 있을 때만 활성. 없으면 비활성 표시.
+  const hasContent = !!(d.title || d.guide || d.img != null);
+  const tog = document.getElementById('opening-toggle');
+  if (tog) {
+    tog.classList.toggle('on', d.openingEnabled !== false && hasContent);
+    tog.classList.toggle('disabled', !hasContent);
+  }
   const layoutOpts = [
     ['right',  '텍스트 좌 · 이미지 우'],
     ['left',   '이미지 좌 · 텍스트 우'],
@@ -1402,7 +1415,6 @@ function ceRenderDiveForm() {
     ['full',   '이미지 전체'],
   ].map(([v,t]) => `<option value="${v}"${(d.imgLayout||'right')===v?' selected':''}>${t}</option>`).join('');
   el.innerHTML = `
-    ${ceFInputInline('배지 옆 제목', d.headerTitle || '', `updateDive('headerTitle',this.value)`)}
     ${ceFInputInline('큰 주제', d.title || '', `updateDive('title',this.value)`)}
     ${ceFTextarea('안내 문구', d.guide || '', `updateDive('guide',this.value)`, 3)}
     <div class="field-inline"><label class="field-inline-label">안내 문구 박스</label><input type="checkbox"${d.guideBox!==false?' checked':''} onclick="updateDive('guideBox',this.checked)"></div>
@@ -1413,6 +1425,12 @@ function ceRenderDiveForm() {
 }
 function updateDive(f,v){ ceCd.dive[f]=v; ceRenderPreview(); }
 function updateDiveImg(v){ ceCd.dive.img = v.trim()==='' ? null : +v; ceRenderPreview(); }
+function toggleOpeningEnabled() {
+  const d = ceCd.dive;
+  if (!(d.title || d.guide || d.img != null)) return; // 내용 없으면 토글 비활성
+  updateOpeningEnabled(!(d.openingEnabled !== false));
+}
+function updateOpeningEnabled(v) { ceCd.dive.openingEnabled = v; ceRenderDiveForm(); ceRenderPreview(); }
 
 function ceRenderChosungForm() {
   const d = ceCd.dive;
@@ -3854,7 +3872,7 @@ Object.assign(window, {
   updateImageItem, addImageItem, removeImageItem,
   addFullImageSlide, replaceFullImage, deleteFullImage, addVideoSlide, updateVideoUrl,
   updateLesson, updateObjectives, updateLine, updateLineItems, updateThink,
-  updateDive, toggleChosungEnabled, updateChosungEnabled, updateChosungItems, ceToggleLessonOpen,
+  updateDive, updateDiveImg, toggleOpeningEnabled, toggleChosungEnabled, updateChosungEnabled, updateChosungItems, ceToggleLessonOpen,
   resetContent, saveContent, ceHandleFileUpload,
   onFsSliderInput, onFsNumberInput, onLhSliderInput, onLhNumberInput,
   onLsSliderInput, onLsNumberInput, onTwSliderInput, onTwNumberInput,
