@@ -313,8 +313,9 @@
     // 출처는 우측 정렬 + 꺽쇠(『』)로 감싼다. 이미 낫표/꺽쇠류로 감싸져 있으면 그대로 둔다.
     const src = (slide.source || '').trim();
     const srcWrapped = src ? (/^[『「【《<].*[』」】》>]$/.test(src) ? src : '『' + src + '』') : '';
+    // 소제목이 없으면 화면 세로 중앙에, 있으면 소제목 아래에 그대로 따라붙는다.
     return `
-      <div class="fmt-quote">
+      <div class="fmt-quote${slide.quoteLabel ? '' : ' qt-centered'}">
         <p class="qt-text"><span class="qt-open">&ldquo;</span>${renderWithBreaks(slide.text || '')}<span class="qt-close">&rdquo;</span></p>
         ${srcWrapped ? `<p class="qt-src">${preserveSpaces(srcWrapped)}</p>` : ''}
       </div>`;
