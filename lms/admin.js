@@ -1394,33 +1394,19 @@ function ceWireDragEvents(target) {
   });
 }
 
-// ── Dive into HISTORY(수업 전 활동) 폼 ──
-// 활동 종류가 다양해서(영상, 게임, 이야기 등) 구조를 강제하지 않고 제목·안내 문구
-// 자유 서식만 제공한다. 초성 퀴즈처럼 별도 슬라이드 구성이 필요한 활동은 체크박스로 켠다.
+// ── Opening Question 폼 (안내 문구 = 질문 하나만) ──
+// 사료처럼 양끝 따옴표 + Paperlogy 굵게로 질문만 크게 띄우므로, 질문 한 칸만 받는다.
 function ceRenderDiveForm() {
   const d = ceCd.dive;
   const el = document.getElementById('dive-form');
-  // Opening Question 토글: 내용(주제/안내문구/이미지)이 있을 때만 활성. 없으면 비활성 표시.
-  const hasContent = !!(d.title || d.guide || d.img != null);
+  // 토글: 질문 내용이 있을 때만 활성. 없으면 비활성 표시.
+  const hasContent = !!(d.guide || d.title || d.img != null);
   const tog = document.getElementById('opening-toggle');
   if (tog) {
     tog.classList.toggle('on', d.openingEnabled !== false && hasContent);
     tog.classList.toggle('disabled', !hasContent);
   }
-  const layoutOpts = [
-    ['right',  '텍스트 좌 · 이미지 우'],
-    ['left',   '이미지 좌 · 텍스트 우'],
-    ['bottom', '텍스트 위 · 이미지 아래'],
-    ['top',    '이미지 위 · 텍스트 아래'],
-    ['full',   '이미지 전체'],
-  ].map(([v,t]) => `<option value="${v}"${(d.imgLayout||'right')===v?' selected':''}>${t}</option>`).join('');
-  el.innerHTML = `
-    ${ceFInputInline('큰 주제', d.title || '', `updateDive('title',this.value)`)}
-    ${ceFTextarea('안내 문구', d.guide || '', `updateDive('guide',this.value)`, 3)}
-    <div class="field-inline"><label class="field-inline-label">안내 문구 박스</label><input type="checkbox"${d.guideBox!==false?' checked':''} onclick="updateDive('guideBox',this.checked)"></div>
-    <div class="field-inline"><label class="field-inline-label">이미지 번호</label><input class="field-input" type="text" value="${esc(d.img!=null?d.img:'')}" oninput="updateDiveImg(this.value)" style="width:80px;flex:none"></div>
-    ${ceFInputInline('이미지 캡션', d.imgCaption || '', `updateDive('imgCaption',this.value)`)}
-    <div class="field-inline"><label class="field-inline-label">이미지 레이아웃</label><select class="field-input" style="height:36px" onchange="updateDive('imgLayout',this.value)">${layoutOpts}</select></div>`;
+  el.innerHTML = ceFTextarea('질문', d.guide || d.title || '', `updateDive('guide',this.value)`, 3, '사료처럼 큰 따옴표와 함께 크게 표시됩니다.');
   ceRenderChosungForm();
 }
 function updateDive(f,v){ ceCd.dive[f]=v; ceRenderPreview(); }
@@ -1570,7 +1556,7 @@ function ceFileToBase64(file) {
 
 const CE_LESSON_JSON_SCHEMA = `{
   "lesson": { "title": "수업 제목", "unit": "학습 단원 (예: Ⅲ-4. 고려의 생활과 문화)", "page": "교과서 페이지", "objectives": ["학습 목표 문장(번호 없이)", "..."] },
-  "dive": { "title": "수업 전 활동 제목 (없으면 빈 문자열)", "guide": "안내 문구 (없으면 빈 문자열)" },
+  "dive": { "title": "", "guide": "수업 여는 질문(Opening Question) 문장 하나 (없으면 빈 문자열)" },
   "chosungItems": ["초성 퀴즈 문제/정답 한 줄(번호 없이) (초성 퀴즈가 없으면 빈 배열)", "..."],
   "conceptContentLines": [
     { "type": "divider", "title": "슬라이드 제목" },
@@ -1590,7 +1576,7 @@ const CE_LESSON_JSON_INSTRUCTION = `다음은 중학교 역사 수업 활동지 
 가장 중요한 원칙: 이건 활동지를 그대로 옮기는 "전사" 작업이다. 활동지에 없는 문장·설명·예시·학습 목표를 새로 만들어서 추가하지 마라. 활동지에 적힌 텍스트만 그대로 옮겨라. 아래 "빈칸 채우기"만 유일한 예외다(빈칸에 들어갈 정답을 채워 넣는 것).
 
 활동지 내용은 성격에 따라 나눠 담아야 한다:
-- dive: 표지와 개념 체크 사이, 수업을 시작하기 전에 하는 활동("Dive into HISTORY"). 형태가 자유로우니 구조화하지 말고 활동지에 적힌 문구를 그대로 title/guide에 옮겨라. 이런 활동이 없으면 title/guide를 빈 문자열로 둬라.
+- dive(Opening Question): 수업을 여는 질문. 활동지에 "오프닝 퀘스천" 또는 수업 시작 질문이 있으면 그 질문 문장을 guide에 담아라(질문 하나만, 따옴표 없이). title은 빈 문자열("")로 둔다. 이런 질문이 없으면 guide도 빈 문자열로 둔다.
 - chosungItems: 활동지에 초성 퀴즈(예: ㄱㄴㄷ으로 단어 맞히기)가 있으면 문제를 한 줄씩 배열로 그대로 옮겨라. 없으면 빈 배열로 둬라.
 - conceptContentLines: 개념 설명, 빈칸 채우기, 용어 정리 등 "배우는" 내용.
 - missionContentLines: 학생이 직접 해보는 활동·과제·퀘스트·게임형 미션 내용.

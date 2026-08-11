@@ -387,41 +387,18 @@
   function missionHTML(slide, lesson) { return checkStyleHTML(slide, lesson, '미션 Check'); }
 
   function diveHTML(slide, lesson) {
-    const imgBase     = slide.img != null ? `/hoistory/lms/img/${lesson.num}_${slide.img}` : null;
-    const layout      = slide.imgLayout || 'right';
-
     const header = `
       <div class="slide-header">
         <span class="check-badge">Dive into History</span>
         <h2 class="slide-title">Opening Question</h2>
       </div>`;
-
-    const guideClass = slide.guideBox === false ? 'think-guide no-box' : 'think-guide';
-    const hasText    = slide.title || slide.guide;
-    const textBlock  = `
-      ${slide.title ? `<p class="think-question">${preserveSpaces(slide.title).replace(/\n/g, '<br>')}</p>` : ''}
-      ${slide.guide ? `<div class="think-body"><p class="${guideClass}">${preserveSpaces(slide.guide).replace(/\n/g, '<br>')}</p></div>` : ''}`;
-
-    if (!imgBase) return `${header}${textBlock}`;
-
-    const imgEl     = `<img src="${imgBase}.png" alt="${slide.imgCaption || ''}" onerror="SlideRenderImgFallback(this,'${imgBase}',0)">`;
-    const captionEl = slide.imgCaption ? `<p class="clayout-caption">${slide.imgCaption}</p>` : '';
-    const imgFull   = `<div class="clayout-img" style="flex:1;min-height:0">${imgEl}${captionEl}</div>`;
-    const imgSide   = `<div class="clayout-img" style="flex:0 0 45%">${imgEl}${captionEl}</div>`;
-
-    if (layout === 'full' || !hasText) {
-      return `${header}${imgFull}`;
-    }
-    if (layout === 'top') {
-      return `${header}<div class="clayout-bottom">${imgFull}<div class="clayout-main">${textBlock}</div></div>`;
-    }
-    if (layout === 'bottom') {
-      return `${header}<div class="clayout-bottom"><div class="clayout-main">${textBlock}</div>${imgFull}</div>`;
-    }
-    if (layout === 'left') {
-      return `${header}<div class="clayout-right">${imgSide}<div class="clayout-main">${textBlock}</div></div>`;
-    }
-    return `${header}<div class="clayout-right"><div class="clayout-main">${textBlock}</div>${imgSide}</div>`;
+    // 안내 문구가 곧 질문. 사료처럼 양끝에 큰 따옴표를 주고 Paperlogy 굵게로 질문만 크게 띄운다.
+    const q = slide.guide || slide.title || '';
+    const body = `
+      <div class="fmt-quote qt-centered oq-quote">
+        <p class="qt-text"><span class="qt-open">&ldquo;</span>${renderWithBreaks(q)}<span class="qt-close">&rdquo;</span></p>
+      </div>`;
+    return `${header}${body}`;
   }
 
   function imageHTML(slide, lesson) {
