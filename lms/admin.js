@@ -794,6 +794,7 @@ function setLineFormat(target, i, fmt) {
   if (fmt === 'quote') {
     if (line.quoteText == null)   line.quoteText = '';
     if (line.quoteSource == null) line.quoteSource = '';
+    if (line.quoteLabel == null)  line.quoteLabel = '';
   }
   if ((fmt === 'flow-h' || fmt === 'flow-v') && !line.stages) {
     line.stages = [{ label: '', text: '' }];
@@ -892,7 +893,7 @@ function updateCompareItems(target,i,side,v)  { ceLinesFor(target)[i][side].item
 function ceQuoteEditor(target, i, line) {
   return `
     <div class="cl-fmt-fields">
-      <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="슬라이드 제목 (선택, 예: (가) 조선의 통치제도)" value="${esc(line.title||'')}" oninput="updateLine('${target}',${i},'title',this.value)">
+      <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="사료 소제목 (선택, 예: (가) 조선의 통치제도) — 전체 제목은 위 그룹 제목칸에서 편집" value="${esc(line.quoteLabel||'')}" oninput="updateLine('${target}',${i},'quoteLabel',this.value)">
       <textarea class="cl-fmt-grow" placeholder="원문 텍스트, {단어}는 빈칸" oninput="updateLine('${target}',${i},'quoteText',this.value);autoResizeTa(this)" onkeydown="handleContentKeydown(event)">${esc(line.quoteText||'')}</textarea>
       <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="출처" value="${esc(line.quoteSource||'')}" oninput="updateLine('${target}',${i},'quoteSource',this.value)">
     </div>`;
@@ -1556,12 +1557,12 @@ const CE_LESSON_JSON_SCHEMA = `{
   "conceptContentLines": [
     { "type": "divider", "title": "슬라이드 제목" },
     { "type": "row", "label": "회색 칸(행 라벨) 텍스트", "items": ["원문자(①②③) 단위 항목. 하위 a.b.c. 줄은 <br>로 이어붙임", "..."] },
-    { "type": "divider", "title": "슬라이드 제목", "format": "quote", "quoteText": "사료 원문 텍스트 (빈칸은 {정답} 표기)", "quoteSource": "출처 (예: 「삼국사기」)" }
+    { "type": "divider", "title": "전체 슬라이드 제목", "format": "quote", "quoteLabel": "사료 소제목((가)/① 등, 없으면 빈 문자열)", "quoteText": "사료 원문 텍스트 (빈칸은 {정답} 표기)", "quoteSource": "출처 (예: 「삼국사기」)" }
   ],
   "missionContentLines": [
     { "type": "divider", "title": "슬라이드 제목" },
     { "type": "row", "label": "회색 칸(행 라벨) 텍스트", "items": ["원문자(①②③) 단위 항목. 하위 a.b.c. 줄은 <br>로 이어붙임", "..."] },
-    { "type": "divider", "title": "슬라이드 제목", "format": "quote", "quoteText": "사료 원문 텍스트 (빈칸은 {정답} 표기)", "quoteSource": "출처 (예: 「삼국사기」)" }
+    { "type": "divider", "title": "전체 슬라이드 제목", "format": "quote", "quoteLabel": "사료 소제목((가)/① 등, 없으면 빈 문자열)", "quoteText": "사료 원문 텍스트 (빈칸은 {정답} 표기)", "quoteSource": "출처 (예: 「삼국사기」)" }
   ],
   "think": { "question": "오늘의 생각 질문", "guide": "답변 안내 문구" }
 }`;
@@ -1587,7 +1588,7 @@ conceptContentLines·missionContentLines 규칙 (정확히 지켜라. 표 하나
 - 빈칸 처리: 활동지에 실제로 비어 있는 칸(밑줄 ___, 괄호 ( ), ○○, 네모칸 등 학생이 채워 넣도록 비워 둔 자리)에 대해서만 정답을 중괄호 한 겹으로 감싸라: {정답}. 이미 인쇄되어 있는(비어 있지 않은) 단어·문장은 그게 정답에 해당하더라도 절대 {}로 감싸지 마라 — 원문 그대로 둬라. 즉 원래 빈칸이 아닌 것을 빈칸으로 만들면 안 된다. 중괄호를 두 겹({{정답}})으로 쓰지 마라 — 항상 한 겹만. 빈칸의 정답을 확신할 수 없으면 빈칸 표시 없이 원문 그대로 둬라(추측해서 틀린 답을 넣지 마라).
 - 빈칸을 채우는 것 외에는 원문에 있는 문구를 고치거나 다듬지 말고 그대로 옮겨라.
 - 활동지에 점선 테두리 박스(사료 인용)가 있으면 {"type":"divider","title":"슬라이드 제목","format":"quote","quoteText":"박스 안 원문","quoteSource":"출처(있을 경우)"} 형식으로 표현해라. 이 경우 row를 추가하지 않는다.
-  - 사료의 title 규칙: 사료 앞에 (가)/(나)/(다) 또는 ①/②/③ 같은 글머리 기호(그리고 그 뒤에 소제목이 붙어 있으면 소제목까지)가 있으면 그 글머리 기호(+소제목)를 title에 넣고, quoteText에는 그 부분을 뺀 사료 본문만 담아라. 예: "(가) 조선의 통치제도\n의정부의 여러 일을..." → title은 "(가) 조선의 통치제도", quoteText는 "의정부의 여러 일을...". 글머리 기호가 전혀 없으면 title은 빈 문자열("")로 두고 quoteText에 사료 전체를 담아라.
+  - 사료 title/quoteLabel 규칙: title에는 그 사료가 속한 "전체 슬라이드 제목"(활동지의 구역·소단원 제목, 예: "사료를 통해 바라본 조선 초기 국왕들의 모습")을 넣어라. 같은 구역에 속한 여러 사료는 title을 똑같이 맞춰라(그래야 한 묶음으로 표시된다). 사료 앞에 (가)/(나)/(다) 또는 ①/②/③ 같은 글머리 기호(그 뒤에 소제목이 붙어 있으면 소제목까지)가 있으면 그 부분을 quoteLabel에 넣고 quoteText에서는 뺀다. 예: 구역 제목 "…국왕들의 모습" 아래 "(가) 조선의 통치제도\n의정부의 여러 일을…" → title="…국왕들의 모습", quoteLabel="(가) 조선의 통치제도", quoteText="의정부의 여러 일을…". 글머리 기호가 없으면 quoteLabel은 빈 문자열("")로 둔다.
 - 표 안의 그림·도식은 텍스트로 옮길 수 없으면 생략해도 된다.
 - 해당하는 내용이 활동지에 없으면 빈 배열 []로 둬라.
 
@@ -1654,6 +1655,7 @@ function ceSanitizeParsedLesson(d) {
       // 없는 값에 fix 함수를 돌리면 undefined가 생겨 Firestore 저장이 실패하므로, 있을 때만 넣는다.
       if (line.quoteText   !== undefined) out.quoteText   = fixBreaks(line.quoteText);
       if (line.quoteSource !== undefined) out.quoteSource = fixBraces(line.quoteSource);
+      if (line.quoteLabel  !== undefined) out.quoteLabel  = fixBraces(line.quoteLabel);
       return out;
     }
     return line;

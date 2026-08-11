@@ -169,11 +169,14 @@
     const CIRCLE_RE = /^[①-⑳㉑-㊿]\s*/;
 
     // 1. rawItems를 줄 단위로 납작하게 펴기 (<br>도 줄바꿈으로 처리)
+    //    단, "→"로 시작하는 줄은 화살표에서 줄을 바꾸지 않고 바로 앞 줄에 이어 붙인다.
     const lines = [];
     rawItems.forEach(item => {
       item.replace(/<\/?br\s*\/?>/gi, '\n').split('\n').forEach(line => {
         const t = line.trim();
-        if (t) lines.push(t);
+        if (!t) return;
+        if (/^→/.test(t) && lines.length) lines[lines.length - 1] += ' ' + t;
+        else lines.push(t);
       });
     });
 
@@ -332,9 +335,11 @@
     const format = slide.format || 'rows';
 
     if (format === 'quote') {
-      // 사료 인용은 슬라이드 제목이 선택 사항. 있을 때만 맨 위 가운데 정렬 제목으로 표시.
-      const header = slide.title ? `<h2 class="qt-title">${preserveSpaces(slide.title)}</h2>` : '';
-      return `${header}${quoteBodyHTML(slide)}`;
+      // 전체 슬라이드 제목은 다른 슬라이드와 똑같이 좌상단 헤더로 고정.
+      const header = slide.title ? checkHeaderHTML(badgeLabel, slide.title) : '';
+      // 사료 소제목((가) 등)만 사료 본문 위에 가운데 정렬로 한 번 더 표시.
+      const sub = slide.quoteLabel ? `<div class="qt-subtitle">${preserveSpaces(slide.quoteLabel)}</div>` : '';
+      return `${header}${sub}${quoteBodyHTML(slide)}`;
     }
     if (format === 'timeline-h') return checkHeaderHTML(badgeLabel, slide.title) + timelineHBodyHTML(slide);
     if (format === 'timeline-v') return checkHeaderHTML(badgeLabel, slide.title) + timelineVBodyHTML(slide);
@@ -491,7 +496,7 @@
           current.format = fmt;
           if (fmt === 'timeline-h' || fmt === 'timeline-v') current.events = line.events || [];
           else if (fmt === 'compare') { current.left = line.left || { label: '', items: [] }; current.right = line.right || { label: '', items: [] }; }
-          else if (fmt === 'quote') { current.text = line.quoteText || ''; current.source = line.quoteSource || ''; }
+          else if (fmt === 'quote') { current.text = line.quoteText || ''; current.source = line.quoteSource || ''; current.quoteLabel = line.quoteLabel || ''; }
           else if (fmt === 'flow-h' || fmt === 'flow-v') current.stages = line.stages || [];
         } else if (line.labelPos === 'top') {
           current.labelPos = 'top';
