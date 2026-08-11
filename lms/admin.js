@@ -322,11 +322,15 @@ function startListening() {
 // ══════════ 개념 체크 (class/admin.html 이식) ══════════
 // slide-render.js(classic script, 전역 SlideRender)와 slide-style.css를 그대로 이어받아
 // 학생 화면(class/lesson.html)과 미리보기가 항상 100% 동일하게 렌더링되도록 한다.
-const CE_FONT_KEYS = ['title','body','label','obj','cover','coverTagline','coverMeta','think','thinkGuide'];
+const CE_FONT_KEYS = ['title','body','label','obj','cover','coverTagline','coverMeta','think','thinkGuide',
+  'coverScript','coverNum','diveQ','diveGuide','diveKicker','badge','qtSub','qtText','qtSrc'];
 const CE_FONT_VAR_MAP = {
   title: '--fs-slide-title', body: '--fs-body', label: '--fs-label', obj: '--fs-obj',
   cover: '--fs-cover-title', coverTagline: '--fs-cover-tagline', coverMeta: '--fs-cover-meta',
   think: '--fs-question', thinkGuide: '--fs-think-guide',
+  coverScript: '--fs-cover-script', coverNum: '--fs-cover-num',
+  diveQ: '--fs-dive-q', diveGuide: '--fs-dive-guide', diveKicker: '--fs-dive-kicker',
+  badge: '--fs-badge', qtSub: '--fs-qt-sub', qtText: '--fs-qt-text', qtSrc: '--fs-qt-src',
 };
 const CE_LH_KEYS = ['body','label','obj','think','thinkGuide'];
 const CE_LH_VAR_MAP = {
@@ -334,10 +338,12 @@ const CE_LH_VAR_MAP = {
   think: '--lh-question', thinkGuide: '--lh-think-guide',
 };
 const CE_SD = {
-  fonts: { title: 40, body: 50, label: 60, obj: 60, cover: 150, coverTagline: 44, coverMeta: 40, think: 60, thinkGuide: 45 },
-  lineHeights: { body: 1.6, label: 1.6, obj: 2, think: 1.6, thinkGuide: 1.6 },
-  letterSpacing: -5,  // -10~10 슬라이더 값, 100분의 1em 단위 (-5 = -0.05em)
+  fonts: { title: 40, body: 60, label: 70, obj: 70, cover: 200, coverTagline: 40, coverMeta: 40, think: 80, thinkGuide: 50,
+    coverScript: 680, coverNum: 100, diveQ: 80, diveGuide: 50, diveKicker: 40, badge: 30, qtSub: 40, qtText: 60, qtSrc: 40 },
+  lineHeights: { body: 1.6, label: 1.6, obj: 1.6, think: 1.6, thinkGuide: 1.6 },
+  letterSpacing: -15, // -20~10 슬라이더 값, 100분의 1em 단위 (-15 = -0.15em)
   textWidth: 95,      // % (장평, scaleX = 값/100)
+  fontFamily: "'Pretendard', 'Apple SD Gothic Neo', sans-serif",
   navy: '#27384F', red: '#FF6B3D',
   bg: '#F0F0EF', slideBg: '#F0F0EF', rowBg: '#FFFFFF', text: '#1E293B',
   thinkGuideColor: '#6b675e',
@@ -445,6 +451,7 @@ function ceLoadDesignInputs() {
   document.getElementById('c-text').value    = ceCs.text;
   document.getElementById('c-thinkGuide').value = ceCs.thinkGuideColor || CE_SD.thinkGuideColor;
   document.getElementById('c-badge').value      = ceCs.badgeColor      || CE_SD.badgeColor;
+  document.getElementById('ff-family').value    = ceCs.fontFamily       || CE_SD.fontFamily;
 }
 
 function ceReadDesignInputs() {
@@ -458,6 +465,7 @@ function ceReadDesignInputs() {
     lineHeights,
     letterSpacing: +document.getElementById('ls-global').value,
     textWidth:     +document.getElementById('tw-global').value,
+    fontFamily:    document.getElementById('ff-family').value,
     navy:    document.getElementById('c-navy').value,
     red:     document.getElementById('c-red').value,
     bg:      document.getElementById('c-bg').value,
@@ -541,6 +549,7 @@ function ceSetSlideVars(el, cfg) {
   el.style.setProperty('--border',   '#e2ddd2');
   el.style.setProperty('--think-guide-color', c.thinkGuideColor || CE_SD.thinkGuideColor);
   el.style.setProperty('--badge-color',       c.badgeColor      || CE_SD.badgeColor);
+  el.style.setProperty('--font',              c.fontFamily      || CE_SD.fontFamily);
   CE_FONT_KEYS.forEach(k => {
     el.style.setProperty(CE_FONT_VAR_MAP[k], (f[k] || CE_SD.fonts[k]) + 'px');
   });
