@@ -334,14 +334,14 @@ const CE_LH_VAR_MAP = {
   think: '--lh-question', thinkGuide: '--lh-think-guide',
 };
 const CE_SD = {
-  fonts: { title: 40, body: 50, label: 60, obj: 60, cover: 120, coverTagline: 60, coverMeta: 60, think: 60, thinkGuide: 45 },
+  fonts: { title: 40, body: 50, label: 60, obj: 60, cover: 150, coverTagline: 44, coverMeta: 40, think: 60, thinkGuide: 45 },
   lineHeights: { body: 1.6, label: 1.6, obj: 2, think: 1.6, thinkGuide: 1.6 },
   letterSpacing: -5,  // -10~10 슬라이더 값, 100분의 1em 단위 (-5 = -0.05em)
   textWidth: 95,      // % (장평, scaleX = 값/100)
-  navy: '#334155', red: '#dc2626',
-  bg: '#f1f5f9', slideBg: '#ffffff', rowBg: '#e2e8f0', text: '#0f172a',
-  thinkGuideColor: '#64748b',
-  badgeColor: '#334155'
+  navy: '#27384F', red: '#FF6B3D',
+  bg: '#F0F0EF', slideBg: '#F0F0EF', rowBg: '#FFFFFF', text: '#1E293B',
+  thinkGuideColor: '#6b675e',
+  badgeColor: '#27384F'
 };
 const CE_LESSON_DEFAULTS = {
   '23': {
@@ -534,7 +534,11 @@ function ceSetSlideVars(el, cfg) {
   el.style.setProperty('--slide-bg', c.slideBg || CE_SD.slideBg);
   el.style.setProperty('--row-bg',   c.rowBg   || CE_SD.rowBg);
   el.style.setProperty('--text',     c.text    || CE_SD.text);
-  el.style.setProperty('--border',   '#cfc6b0');
+  // 재디자인 색 역할 매핑: 라벨/구조=navy, 강조=red, 본문 글자=text
+  el.style.setProperty('--label',    c.navy    || CE_SD.navy);
+  el.style.setProperty('--accent',   c.red     || CE_SD.red);
+  el.style.setProperty('--ink',      c.text    || CE_SD.text);
+  el.style.setProperty('--border',   '#e2ddd2');
   el.style.setProperty('--think-guide-color', c.thinkGuideColor || CE_SD.thinkGuideColor);
   el.style.setProperty('--badge-color',       c.badgeColor      || CE_SD.badgeColor);
   CE_FONT_KEYS.forEach(k => {

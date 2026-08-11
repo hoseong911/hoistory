@@ -3,7 +3,7 @@
    똑같이 이 파일을 불러써서, 슬라이드 HTML 생성 로직이 항상 일치하도록 한다.
    ════════════════════════════════════════════════════════ */
 (function (global) {
-  console.log('[SlideRender] v20260724b loaded');
+  console.log('[SlideRender] v20260811redesign loaded');
 
   // 스페이스를 2칸 이상 연달아 쓰면 브라우저가 하나로 줄여버리므로, 짝수 번째
   // 스페이스를 &nbsp;로 바꿔 타이핑한 칸 수 그대로 보이게 한다(홀수 번째는 일반
@@ -135,12 +135,23 @@
     return `<span class="item-text">${renderWithBreaks(str)}</span>`;
   }
 
+  /* 표지 제목의 **핵심어**를 강조(오렌지)로. 빈칸/괄호 축소는 표지에선 쓰지 않는다. */
+  function coverParse(str) {
+    return preserveSpaces(str).replace(/\*\*([^*\n]+)\*\*/g, '<em>$1</em>');
+  }
   function coverHTML(lesson) {
+    // 제목은 \n 기준으로 줄을 나눠 각 줄이 좌·우에서 번갈아 밀려들어오는 스플릿 진입을 쓴다.
+    const lines = String(lesson.title || '').split('\n');
+    const titleLines = lines.map(l => `<span class="cline">${coverParse(l)}</span>`).join('');
     return `
-      <span class="cover-tagline">생각하고 활동하고 질문하는 역사 수업</span>
-      <h1 class="cover-title">${preserveSpaces(lesson.title).replace(/\n/g, '<br>')}</h1>
-      <p class="cover-meta">${preserveSpaces(lesson.unit)} &nbsp;|&nbsp; ${preserveSpaces(lesson.page)}</p>
-      <div class="cover-num-bg">${lesson.num}</div>
+      <div class="cover-script">Dive into<br>History</div>
+      <div class="intro-sweep"></div>
+      <div class="cover-num">${lesson.num}강</div>
+      <div class="cover-fg">
+        <div class="cover-tagline">생각하고 활동하고 질문하는 역사 수업</div>
+        <h1 class="cover-title">${titleLines}</h1>
+        <div class="cover-meta">${preserveSpaces(lesson.unit)} &nbsp;|&nbsp; ${preserveSpaces(lesson.page)}</div>
+      </div>
     `;
   }
 
@@ -148,6 +159,7 @@
      둘 다 Dive into History 묶음이라 배지는 "Dive into History", 제목만 다르게 표시한다. */
   function numberedListHTML(items, badgeLabel, headerTitle) {
     return `
+      <div class="intro-sweep"></div>
       <div class="slide-header">
         <span class="check-badge">${badgeLabel}</span>
         <h2 class="slide-title">${preserveSpaces(headerTitle)}</h2>
@@ -387,18 +399,19 @@
   function missionHTML(slide, lesson) { return checkStyleHTML(slide, lesson, '미션 Check'); }
 
   function diveHTML(slide, lesson) {
-    const header = `
-      <div class="slide-header">
-        <span class="check-badge">Dive into History</span>
-        <h2 class="slide-title">Opening Question</h2>
-      </div>`;
-    // 안내 문구가 곧 질문. 사료처럼 양끝에 큰 따옴표를 주고 Paperlogy 굵게로 질문만 크게 띄운다.
+    // 질문 앞뒤를 따옴표로 감싸 사료 인용처럼. 질문 아래 고정 안내 문구를 붙인다.
     const q = slide.guide || slide.title || '';
-    const body = `
-      <div class="fmt-quote qt-centered oq-quote">
-        <p class="qt-text"><span class="qt-open">&ldquo;</span>${renderWithBreaks(q)}<span class="qt-close">&rdquo;</span></p>
-      </div>`;
-    return `${header}${body}`;
+    return `
+      <div class="intro-sweep"></div>
+      <div class="dive-head">
+        <span class="check-badge">Dive into History</span>
+        <span class="dive-kicker">Opening Question</span>
+      </div>
+      <div class="dive-body">
+        <p class="dive-q"><span class="qt-open">&ldquo;</span>${renderWithBreaks(q)}<span class="qt-close">&rdquo;</span></p>
+        <p class="dive-guide">질문에 대한 본인의 답변을 자유롭게 생각해 보고 활동지에 작성해 보세요.</p>
+      </div>
+    `;
   }
 
   function imageHTML(slide, lesson) {
@@ -550,7 +563,7 @@
       extraClass = ' slide-objectives';
       inner = objectivesHTML(lesson);
     } else if (slide.type === 'dive') {
-      extraClass = ' slide-think'; // 생각 체크와 같은 단순 질문형 슬라이드라 배경 스타일을 재사용
+      extraClass = ' slide-dive'; // 다크 무빙 포스터 톤(인트로 4연작)
       inner = diveHTML(slide, lesson);
     } else if (slide.type === 'chosung') {
       extraClass = ' slide-chosung';
