@@ -4830,11 +4830,13 @@ initAdmin();
         .sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
       const ungraded = subs.filter(s => !s.thGraded);
       const vColor = { '통과':'var(--c3)', '조금 미흡':'#B8860B' };
+      const gradedN = subs.length - ungraded.length;
       let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
           <button class="th-btn-ai" ${ungraded.length?'':'disabled'} onclick="thRunGrading()">AI 채점 &amp; 포인트 지급${ungraded.length?` (미채점 ${ungraded.length})`:''}</button>
+          ${gradedN ? `<button class="th-btn-ai" style="background:none;border:1.5px solid var(--hairline);color:var(--charcoal)" onclick="thRegrade()">재채점 (${gradedN}명)</button>` : ''}
           <span id="th-ai-status" style="font-size:13px;color:var(--sub);font-weight:700;min-height:18px"></span>
         </div>
-        <p style="font-size:12px;color:var(--slate);margin-bottom:12px;line-height:1.6">한 번 채점되면 점수가 고정됩니다. 지각 제출자만 다시 눌러 채점하세요(미제출자는 제출 후 채점).</p>`;
+        <p style="font-size:12px;color:var(--slate);margin-bottom:12px;line-height:1.6">채점하면 점수가 고정됩니다. 기준·모델을 바꿔 다시 매기려면 <b>재채점</b>을 누르세요(이전 포인트는 회수 후 재지급).</p>`;
       if (!subs.length) { body.innerHTML = html + '<div class="empty-panel">이 반의 제출이 없습니다.</div>'; return; }
       html += subs.map(s => {
         const v = s.aiVerdict || '';
@@ -4936,6 +4938,35 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
     if (statusEl) statusEl.textContent = '';
     document.querySelectorAll('.th-btn-ai').forEach(b => b.disabled = false);
     thUpdateGradeSummary(); thRenderGradeBody(); window.thRenderAnswerClass();
+  };
+
+  // 재채점: 이미 채점된 제출의 점수를 초기화하고(지급된 포인트는 회수) 다시 채점한다.
+  window.thRegrade = async function() {
+    const { lecId, cls } = thGradeCtx;
+    const lec = thLectures.find(l => l.docId === lecId);
+    if (!lec) return;
+    const clsNum = parseInt(cls, 10);
+    const graded = (thSubs||[]).filter(s => s.lectureDocId === lecId && thClassNum(s.id) === clsNum && s.thGraded);
+    if (!graded.length) return;
+    if (!confirm(`${cls}반 ${graded.length}명의 채점을 초기화하고 다시 채점합니다.\n이미 지급된 포인트는 회수한 뒤 새 기준으로 재지급됩니다. 진행할까요?`)) return;
+
+    const statusEl = document.getElementById('th-ai-status');
+    document.querySelectorAll('.th-btn-ai').forEach(b => b.disabled = true);
+    if (statusEl) statusEl.textContent = '이전 채점 초기화 중…';
+    await xpEnsureConfig();
+
+    for (const s of graded) {
+      if (s.aiPt > 0) {
+        try { await adminAddXP(rtdb, s.id, s.name, -s.aiPt, `생각 체크 재채점(이전 점수 회수): ${lec.title}`, fbFns, _xpCfg.levels, _xpCfg.levelFormula); } catch (e) { console.warn(e); }
+      }
+      try {
+        await updateDoc(doc(db, 'think_submissions', s.subId), { thGraded: false, aiPt: null, aiScore: null, aiVerdict: null, xpAwarded: false });
+      } catch (e) {}
+      const local = (thSubs || []).find(x => x.subId === s.subId);
+      if (local) { local.thGraded = false; local.aiPt = null; local.aiScore = null; local.aiVerdict = null; local.xpAwarded = false; }
+    }
+    // 초기화 후 곧바로 재채점(미채점 상태가 된 제출을 다시 매긴다).
+    await thRunGrading();
   };
 
   /* ─ 자동 시작 ─ */
