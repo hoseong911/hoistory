@@ -825,7 +825,7 @@ function resetThinkAid() {
   const hintBtn = document.getElementById('thinkHintBtn');
   hintBtn.style.display = 'inline-flex';
   hintBtn.disabled = false;
-  hintBtn.innerHTML = `${icon('circle-help', 16)}생각이 안 떠올라요`;
+  hintBtn.textContent = '도움질문';
   document.getElementById('thinkHintPanel').style.display  = 'none';
   document.getElementById('thinkHintList').innerHTML       = '';
   hideThinkCheck();
@@ -948,7 +948,7 @@ document.getElementById('thinkHintBtn').addEventListener('click', async () => {
   if (!_thinkItem || _thinkHintUsed) return;
   const btn = document.getElementById('thinkHintBtn');
   btn.disabled = true;
-  btn.innerHTML = `${icon('circle-help', 16)}생각하는 중...`;
+  btn.textContent = '생각하는 중...';
 
   try {
     const lessonCtx = await fetchLessonContext(_thinkItem._n);
@@ -993,8 +993,8 @@ ${lessonCtx ? `오늘 배운 내용:\n${lessonCtx}` : ''}
   } catch(_) {
     // 실패해도 학생 발목을 잡지 않는다 — 버튼을 되살려 다시 눌러볼 수 있게 한다.
     btn.disabled = false;
-    btn.innerHTML = `${icon('circle-help', 16)}다시 시도해 주세요`;
-    setTimeout(() => { if (!_thinkHintUsed) btn.innerHTML = `${icon('circle-help', 16)}도움 질문 보기`; }, 2500);
+    btn.textContent = '다시 시도해 주세요';
+    setTimeout(() => { if (!_thinkHintUsed) btn.textContent = '도움질문'; }, 2500);
   }
 });
 
