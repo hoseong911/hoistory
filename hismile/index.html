@@ -429,9 +429,9 @@
         </div>
 
         <div style="display:flex;justify-content:center;gap:28px;margin-top:24px;">
-            <a href="admin.html" style="text-decoration:none;"><span style="font-size:20px;">🔑</span></a>
-            <a href="../index.html" style="text-decoration:none;"><span style="font-size:20px;">🏠</span></a>
-            <a href="https://open.kakao.com/o/smm3ixqi" target="_blank" rel="noopener" style="text-decoration:none;"><span style="font-size:20px;">💬</span></a>
+            <a href="admin.html" style="text-decoration:none;color:var(--hi-text-muted)"><span data-hi-ic="key" data-hi-size="20"></span></a>
+            <a href="../index.html" style="text-decoration:none;color:var(--hi-text-muted)"><span data-hi-ic="home" data-hi-size="20"></span></a>
+            <a href="https://open.kakao.com/o/smm3ixqi" target="_blank" rel="noopener" style="text-decoration:none;color:var(--hi-text-muted)"><span data-hi-ic="message-square" data-hi-size="20"></span></a>
         </div>
         <footer class="hi-footer">
             <p class="hi-footer-tag">역사는 즐겁다 <span>✦</span> Dive into HISTORY</p>
@@ -470,7 +470,7 @@
         <div class="hi-card">
             <div class="upload-area" onclick="document.getElementById('cert-file').click()">
                 <div class="upload-placeholder" id="cert-placeholder">
-                    <div class="ic">🖼️</div>
+                    <div class="ic" data-hi-ic="image" data-hi-size="24"></div>
                     <div>
                         <div class="t">사진을 탭하여 선택</div>
                         <div class="d">타임스탬프 앱으로 찍은 사진</div>
@@ -482,15 +482,15 @@
                    onchange="window.previewPhoto(this)">
 
             <div class="upload-actions">
-                <button class="hi-btn hi-btn-outline" style="flex:1;"
-                        onclick="window.triggerGallery()">🖼️ 갤러리에서 사진 선택</button>
+                <button class="hi-btn hi-btn-outline" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;"
+                        onclick="window.triggerGallery()"><span data-hi-ic="image" data-hi-size="18"></span>갤러리에서 사진 선택</button>
             </div>
 
             <div class="hi-form-group">
                 <label class="hi-label">오늘 공부한 내용</label>
                 <textarea class="hi-textarea" id="cert-content" rows="2"
                           style="min-height:56px;"
-                          placeholder="✏️ 문장의 형태로 작성해주세요!
+                          placeholder="문장의 형태로 작성해주세요!
 예) 오늘은 조선 후기 정치 변동을 정리했어요. 노론과 소론이 어떻게 갈라졌는지 이해했어요."></textarea>
                 <div class="char-count" id="cert-content-count"></div>
             </div>
@@ -499,7 +499,7 @@
                 <label class="hi-label">공부하면서 느낀 점</label>
                 <textarea class="hi-textarea" id="cert-feeling" rows="2"
                           style="min-height:56px;"
-                          placeholder="💭 공부하면서 든 생각, 어려웠던 점, 새로 알게 된 점을 자유롭게 적어주세요!
+                          placeholder="공부하면서 든 생각, 어려웠던 점, 새로 알게 된 점을 자유롭게 적어주세요!
 예) 노론과 소론의 갈등이 결국 학문적 차이에서 시작된 게 흥미로웠어요."></textarea>
                 <div class="char-count" id="cert-feeling-count"></div>
             </div>
@@ -522,8 +522,8 @@
 
         <!-- 최근 내 인증 내역 / 사용 안내 — 버튼 가로 배치, 내용은 아래 전체 너비로 -->
         <div class="section-toggle-row">
-            <button class="hi-btn hi-btn-outline" onclick="window.togglePanel('history')">📋 최근 내 인증 내역</button>
-            <button class="hi-btn hi-btn-outline" onclick="window.togglePanel('guide')">📖 참여 방법 보기</button>
+            <button class="hi-btn hi-btn-outline" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;" onclick="window.togglePanel('history')"><span data-hi-ic="clipboard-list" data-hi-size="18"></span>최근 내 인증 내역</button>
+            <button class="hi-btn hi-btn-outline" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;" onclick="window.togglePanel('guide')"><span data-hi-ic="book-open" data-hi-size="18"></span>참여 방법 보기</button>
         </div>
 
         <div id="history-panel" class="section-panel hi-hidden">
@@ -562,7 +562,7 @@
                 </div>
             </div>
             <div class="guide-step">
-                <div class="guide-num">⏰</div>
+                <div class="guide-num" data-hi-ic="clock-3" data-hi-size="20"></div>
                 <div class="guide-body">
                     <div class="guide-title">인증 가능 시간</div>
                     <div class="guide-desc">
@@ -639,6 +639,14 @@
     // ────────────────────────────────────────────────────────
     import "../shared/offline.js";
 import { firebaseConfig } from "../shared/firebase-config.js";
+    import { icon, resolveIcon } from "../shared/icons.js";
+
+    // 정적 마크업의 data-hi-ic 요소를 SVG 아이콘으로 채운다(이모지 대체).
+    function fillStaticIcons(root = document) {
+        root.querySelectorAll('[data-hi-ic]').forEach(el => {
+            el.innerHTML = icon(el.dataset.hiIc, +el.dataset.hiSize || 20);
+        });
+    }
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
@@ -775,7 +783,7 @@ import { firebaseConfig } from "../shared/firebase-config.js";
                 if (storedPw !== pw) {
                     btn.disabled = false; btn.textContent = '접속하기';
                     return showRichToast({
-                        icon: '🔒', title: '비밀번호가 달라요',
+                        icon: icon('lock', 30), title: '비밀번호가 달라요',
                         message: '처음 접속할 때 정한 비밀번호로만 들어올 수 있어요. 잊어버렸다면 호성쌤에게 문의하세요.',
                         kind: 'error'
                     });
@@ -784,7 +792,7 @@ import { firebaseConfig } from "../shared/firebase-config.js";
                 // 첫 로그인 — 비밀번호 저장
                 await set(ref(db, `historyMileage/studentPw/${id}`), pw);
                 showRichToast({
-                    icon: '🔐', title: '비밀번호 등록 완료',
+                    icon: icon('lock', 30), title: '비밀번호 등록 완료',
                     message: '다음부터 같은 비밀번호로만 들어올 수 있어요. 꼭 기억하세요!'
                 });
             }
@@ -821,6 +829,7 @@ import { firebaseConfig } from "../shared/firebase-config.js";
 
     // 세션 복원
     window.addEventListener('DOMContentLoaded', () => {
+        fillStaticIcons();
         // 글자수 카운터 부착 (최대 제한 없음, 최소 10자 안내)
         mountCharCounter({
             input: document.getElementById('cert-content'),
@@ -948,7 +957,7 @@ import { firebaseConfig } from "../shared/firebase-config.js";
         // 비속어
         if (containsBadWord(content) || containsBadWord(feeling)) {
             return showRichToast({
-                icon: '🚫', title: '입력 차단',
+                icon: icon('ban', 30), title: '입력 차단',
                 message: '부적절한 표현이 포함되어 있어요',
                 kind: 'error'
             });
@@ -957,7 +966,7 @@ import { firebaseConfig } from "../shared/firebase-config.js";
         // 하루 1회 제한
         if (getTodayCheckCount(currentUser.num) >= 1) {
             return showRichToast({
-                icon: '😊', title: '오늘은 이미 체크 완료',
+                icon: icon('smile', 30), title: '오늘은 이미 체크 완료',
                 message: '내일 또 만나요!'
             });
         }
@@ -970,12 +979,12 @@ import { firebaseConfig } from "../shared/firebase-config.js";
         const isHolidayOrWeekend = holidays.includes(dateStr) || dow === 0 || dow === 6;
         if (isHolidayOrWeekend) {
             if (hour < 6) return showRichToast({
-                icon: '🌙', title: '아직 인증 시간이 아니에요',
+                icon: icon('moon', 30), title: '아직 인증 시간이 아니에요',
                 message: '주말·공휴일은 오전 6시부터 자정까지 가능해요 (수면 보장)', kind: 'error'
             });
         } else {
             if (hour < 15) return showRichToast({
-                icon: '📚', title: '아직 인증 시간이 아니에요',
+                icon: icon('book', 30), title: '아직 인증 시간이 아니에요',
                 message: '평일은 오후 3시부터 자정까지 가능해요 (수면 보장)', kind: 'error'
             });
         }
@@ -1025,7 +1034,7 @@ import { firebaseConfig } from "../shared/firebase-config.js";
 - 손글씨 노트인데 무슨 과목인지 단정 어려움
 
 JSON만 반환:
-{"pass":bool,"pending":bool,"date_match":bool,"is_history":bool,"content_match":bool,"photo_date":"읽은날짜","reason":"이유 30자이내","emoji":"이모지1개"}`
+{"pass":bool,"pending":bool,"date_match":bool,"is_history":bool,"content_match":bool,"photo_date":"읽은날짜","reason":"이유 30자이내"}`
                             }
                         ]
                     }]
@@ -1112,12 +1121,12 @@ JSON만 반환:
                 const afterLv = getLevel(newDayCount).level;
                 if (afterLv > beforeLv) {
                     setTimeout(() => showCelebration({
-                        icon: '🎉', title: `Lv.${afterLv} 달성!`,
+                        icon: icon('party-popper', 56), title: `Lv.${afterLv} 달성!`,
                         message: `${currentUser.name} · ${newDayCount}일째 열공 중`
                     }), 1000);
                 } else if ([7, 14, 30, 50, 100].includes(newDayCount)) {
                     setTimeout(() => showCelebration({
-                        icon: '🏆', title: `${newDayCount}일 달성!`,
+                        icon: icon('trophy', 56), title: `${newDayCount}일 달성!`,
                         message: '꾸준함이 최고의 무기입니다'
                     }), 1000);
                 }
@@ -1144,7 +1153,7 @@ JSON만 반환:
         } catch(err) {
             console.error(err);
             showRichToast({
-                icon: '⚠️', title: '오류 발생',
+                icon: icon('triangle-alert', 30), title: '오류 발생',
                 message: '잠시 후 다시 시도해주세요', kind: 'error'
             });
         } finally {
@@ -1158,8 +1167,8 @@ JSON만 반환:
         const kind = result.pass ? 'pass' : (result.pending ? 'pending' : 'fail');
         box.className = 'cert-result ' + kind;
 
-        document.getElementById('cert-result-icon').textContent =
-            result.emoji || (result.pass ? '🎉' : (result.pending ? '⏳' : '😢'));
+        document.getElementById('cert-result-icon').innerHTML =
+            icon(resolveIcon(result.emoji || (result.pass ? '🎉' : (result.pending ? '⏳' : '😢')), 'circle-help'), 48);
         document.getElementById('cert-result-title').textContent =
             result.pass ? '체크 완료!' :
             result.pending ? '선생님 검토 중' : '체크 실패';
@@ -1167,8 +1176,8 @@ JSON만 반환:
             result.pass ? '오늘도 역사 공부 인증 완료'
             : result.pending ? (result.reason || '판단이 어려워 선생님이 직접 확인해요')
             : (result.reason || '재시도해 주세요');
-        document.getElementById('cert-result-meta').textContent =
-            result.pass ? `누적 ${totalDays}일째 열공 🔥`
+        document.getElementById('cert-result-meta').innerHTML =
+            result.pass ? `누적 ${totalDays}일째 열공 <span style="display:inline-flex;vertical-align:-3px">${icon('flame', 16)}</span>`
             : result.pending ? '더 또렷한 사진으로 다시 제출하면 통과할 수 있어요. 검토되면 자동 반영됩니다.'
             : '오늘 날짜 + 역사 자료 사진을 다시 올려주세요';
     }
@@ -1305,9 +1314,9 @@ JSON만 반환:
                             : rankSort === 'days' && rank === 3 ? 'top3' : '';
             let rankDisplay;
             if (rankSort === 'days') {
-                if (rank === 1) rankDisplay = '🥇';
-                else if (rank === 2) rankDisplay = '🥈';
-                else if (rank === 3) rankDisplay = '🥉';
+                if (rank === 1) rankDisplay = `<span style="color:#E6A700;display:inline-flex">${icon('medal', 24)}</span>`;
+                else if (rank === 2) rankDisplay = `<span style="color:#9AA3AD;display:inline-flex">${icon('medal', 24)}</span>`;
+                else if (rank === 3) rankDisplay = `<span style="color:#C08457;display:inline-flex">${icon('medal', 24)}</span>`;
                 else rankDisplay = rank;
             } else {
                 rankDisplay = parseInt(parseNumber(r.studentIdStr), 10); // 학번순일 때는 번호만

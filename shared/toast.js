@@ -112,7 +112,8 @@ export function showRichToast(opts) {
 
   const iconEl = document.createElement('div');
   iconEl.className = 'hi-toast-icon';
-  iconEl.textContent = icon;
+  // 아이콘은 이모지 문자열 또는 인라인 SVG 문자열(앱 제공, 사용자 입력 아님)을 받는다.
+  iconEl.innerHTML = icon;
 
   const body = document.createElement('div');
   body.className = 'hi-toast-body';
@@ -179,7 +180,7 @@ export function showCelebration(opts) {
 
   const emoji = document.createElement('span');
   emoji.className = 'hi-celebration-emoji';
-  emoji.textContent = icon;
+  emoji.innerHTML = icon; // 이모지 문자열 또는 인라인 SVG(앱 제공)
   box.appendChild(emoji);
 
   box.appendChild(document.createTextNode(title || ''));
