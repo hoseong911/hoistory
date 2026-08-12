@@ -3697,8 +3697,9 @@ async function initGradeSettings() {
 
   renderGradeSettings();
   document.getElementById('gradeSettingsSaveBtn').addEventListener('click', saveGradeSettings);
-  document.getElementById('gradeSettingsAddBtn').addEventListener('click', () => {
-    const key = document.getElementById('gradeSettingsAddSel').value;
+  // 드롭다운에서 강의를 고르면 '추가' 버튼 없이 바로 목록에 담는다.
+  document.getElementById('gradeSettingsAddSel').addEventListener('change', (e) => {
+    const key = e.target.value;
     if (!key) return;
     if (!_gradeSettings.selectedLectures) _gradeSettings.selectedLectures = [];
     if (!_gradeSettings.selectedLectures.includes(key)) _gradeSettings.selectedLectures.push(key);
@@ -3728,7 +3729,7 @@ function renderGradeSettings() {
 
   const addSel = document.getElementById('gradeSettingsAddSel');
   const available = _allGradedLectures.filter(l => !selected.includes(l.key));
-  addSel.innerHTML = `<option value="">${available.length ? '추가할 강의 선택' : '추가할 강의 없음'}</option>` +
+  addSel.innerHTML = `<option value="">${available.length ? '강의를 선택하면 바로 추가됩니다' : '추가할 강의 없음'}</option>` +
     available.map(l => `<option value="${esc(l.key)}">${esc(l.title)}</option>`).join('');
 
   const bands = _gradeSettings.bands || DEFAULT_BANDS;
