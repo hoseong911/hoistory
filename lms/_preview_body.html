@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>본문 전 포맷 밝은 톤 프리뷰</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  @font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-8ExtraBold.woff2') format('woff2');font-weight:800;font-style:normal;}
+  @font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2');font-weight:900;font-style:normal;}
+  @font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2');font-weight:700;font-style:normal;}
+
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#F0F0EF; --card:#FFFFFF; --ink:#1E293B; --ink-sub:#6b675e;
+    --label:#1E293B; --labelfg:#FFFFFF; --accent:#FF4A1C; --line:#e0ddd4;
+  }
+  html,body{font-family:'Pretendard',-apple-system,sans-serif;background:#0c0c0f;color:#eee;-webkit-font-smoothing:antialiased}
+
+  .ctrl{position:sticky;top:0;z-index:50;background:#111;color:#fff;padding:12px 18px;box-shadow:0 2px 14px rgba(0,0,0,.5)}
+  .ctrl h1{font-size:14px;font-weight:800;margin-bottom:10px;letter-spacing:.3px}
+  .ctrl h1 span{color:#FF6B3D}
+  .row{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-bottom:8px}
+  .row .rlabel{font-size:12px;color:#bbb;width:56px;flex-shrink:0;font-weight:700}
+  .pick{width:24px;height:24px;border-radius:50%;cursor:pointer;position:relative;border:2px solid #222;transition:transform .1s}
+  .pick:hover{transform:scale(1.14)}
+  .pick.sel{border-color:#fff;box-shadow:0 0 0 2px #111 inset,0 0 0 3px #fff}
+  .pick.sel::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:900;text-shadow:0 0 3px rgba(0,0,0,.9)}
+  .sbtn{background:#1e1e1e;border:1px solid #333;border-radius:8px;padding:6px 11px;font-size:12px;color:#eee;font-family:inherit;cursor:pointer;transition:.15s}
+  .sbtn:hover{background:#2a2a2a}
+  .sbtn.active{background:#fff;color:#111;font-weight:700}
+  .opts{display:flex;gap:16px;align-items:center;font-size:12px;color:#ccc;margin-top:4px;flex-wrap:wrap}
+  .cur{font-size:11px;color:#888;margin-left:auto}
+
+  .stage{max-width:1180px;margin:0 auto;padding:24px 20px 90px}
+  .variant{margin-bottom:30px}
+  .vhead{font-size:14px;color:#cfcfcf;font-weight:700;margin-bottom:10px}
+
+  /* ══════════ 슬라이드 (밝은 톤) ══════════ */
+  .slide{
+    position:relative;container-type:inline-size;aspect-ratio:16/9;width:100%;overflow:hidden;
+    border-radius:14px;background:var(--bg);color:var(--ink);box-shadow:0 14px 44px rgba(0,0,0,.45);
+    padding:3.6cqw 4.6cqw;display:flex;flex-direction:column;
+  }
+  .slide-header{display:flex;align-items:center;gap:1.4cqw;margin-bottom:2.6cqw;flex-shrink:0}
+  .check-badge{font-family:'Paperlogy';font-weight:700;font-size:1.7cqw;padding:.4cqw 1.1cqw;border-radius:100px;
+    background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);
+    border:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
+  .slide-title{font-family:'Paperlogy';font-weight:800;font-size:3cqw;color:var(--ink);letter-spacing:-.02em}
+
+  /* ── 개념 rows ── */
+  .concept-rows{display:flex;flex-direction:column;gap:1.5cqw;flex:1;justify-content:center}
+  .concept-row{display:flex;border-radius:1cqw;overflow:hidden;border:1px solid var(--line);background:var(--card)}
+  .row-label{flex-shrink:0;min-width:11cqw;max-width:18cqw;padding:1.5cqw 1.6cqw;display:flex;align-items:center;justify-content:center;
+    text-align:center;font-family:'Paperlogy';font-weight:700;font-size:1.9cqw;line-height:1.4;word-break:keep-all;background:var(--label);color:var(--labelfg)}
+  .row-content{flex:1;padding:1.5cqw 2cqw;display:flex;flex-direction:column;gap:.9cqw;justify-content:center;background:var(--card)}
+  .row-content p{font-size:2cqw;line-height:1.5;color:var(--ink);display:flex;align-items:baseline;gap:.5em;word-break:keep-all}
+  .item-lead{white-space:nowrap;flex-shrink:0;font-family:'Paperlogy';font-weight:900;color:var(--accent)}
+  .blank{font-family:'Paperlogy';font-weight:800;color:var(--accent)}
+  .num-lead{color:var(--accent);font-weight:900;margin-right:.3em}
+  .lab-top .concept-row{flex-direction:column}
+  .lab-top .row-label{min-width:0;max-width:none;width:100%;justify-content:flex-start;text-align:left;padding:.9cqw 1.6cqw}
+
+  /* ── 연표 가로 ── */
+  .fmt-th{flex:1;position:relative;padding-top:5cqw;display:flex;flex-direction:column;justify-content:flex-start}
+  .tl-line{position:absolute;left:0;right:0;top:5cqw;height:2px;background:var(--label);opacity:.45}
+  .tl-events{position:relative;display:flex;justify-content:space-between}
+  .tl-ev{flex:1;display:flex;flex-direction:column;align-items:center;padding:0 1cqw;min-width:0}
+  .tl-dot{width:1.4cqw;height:1.4cqw;border-radius:50%;background:var(--label);margin-top:-.7cqw;flex-shrink:0}
+  .tl-card{display:flex;flex-direction:column;align-items:center;gap:.5cqw;margin-top:2cqw}
+  .tl-year{font-family:'Paperlogy';font-weight:800;font-size:1.9cqw;color:var(--accent)}
+  .tl-text{font-size:1.7cqw;line-height:1.4;text-align:center;color:var(--ink);word-break:keep-all}
+
+  /* ── 연표 세로 ── */
+  .fmt-tv{flex:1;position:relative;padding-left:4cqw;display:flex;flex-direction:column;justify-content:center}
+  .tv-line{position:absolute;top:1cqw;bottom:1cqw;left:1.2cqw;width:2px;background:var(--label);opacity:.45}
+  .tv-events{display:flex;flex-direction:column;justify-content:center;gap:2.4cqw}
+  .tv-ev{position:relative;display:flex;align-items:flex-start;gap:2.4cqw}
+  .tv-dot{position:absolute;left:-3.4cqw;top:.5cqw;width:1.4cqw;height:1.4cqw;border-radius:50%;background:var(--label)}
+  .tv-memo{flex:0 0 auto;min-width:7cqw;font-family:'Paperlogy';font-weight:800;font-size:2cqw;color:var(--accent)}
+  .tv-content p{font-size:1.9cqw;color:var(--ink);line-height:1.45;word-break:keep-all}
+  .tv-content .blank{color:var(--accent)}
+
+  /* ── 비교표 ── */
+  .fmt-cmp{flex:1;display:flex;gap:3cqw;position:relative;align-items:stretch}
+  .cmp-col{flex:1;display:flex;flex-direction:column;border-radius:1cqw;overflow:hidden;border:1px solid var(--line)}
+  .cmp-head{padding:1.3cqw 1.8cqw;font-family:'Paperlogy';font-weight:800;font-size:2cqw;color:#fff}
+  .cmp-col.l .cmp-head,.cmp-col.r .cmp-head{background:var(--label)}
+  .cmp-body{flex:1;background:var(--card);padding:1.6cqw 1.9cqw;display:flex;flex-direction:column;gap:.9cqw;justify-content:center}
+  .cmp-body p{font-size:1.9cqw;color:var(--ink);line-height:1.45;word-break:keep-all}
+  .cmp-vs{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:4.6cqw;height:4.6cqw;border-radius:50%;
+    background:var(--bg);border:2px solid var(--label);display:flex;align-items:center;justify-content:center;
+    font-family:'Paperlogy';font-weight:900;font-size:1.6cqw;color:var(--label);z-index:2}
+
+  /* ── 사료 인용 ── */
+  .fmt-q{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:flex-start}
+  .q-sub{font-family:'Paperlogy';font-weight:700;font-size:2.2cqw;color:var(--ink);margin-bottom:2cqw}
+  .q-text{font-family:'Gowun Batang',serif;font-size:2.9cqw;line-height:1.65;color:var(--ink);text-align:justify;width:100%}
+  .q-open,.q-close{font-family:'Gowun Batang',serif;color:var(--accent);opacity:.55;font-size:1.4em;line-height:0}
+  .q-open{margin-right:.05em;vertical-align:-.3em}.q-close{margin-left:.05em;vertical-align:-.4em}
+  .q-src{align-self:flex-end;margin-top:2.4cqw;font-size:2cqw;color:var(--ink-sub);font-weight:600}
+
+  /* ── 플로우 가로/세로 ── */
+  .fmt-fh{flex:1;display:flex;align-items:stretch}
+  .fmt-fv{flex:1;display:flex;flex-direction:column}
+  .fl-stage{flex:1;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:1cqw;padding:1.7cqw 1.9cqw;justify-content:center;min-height:0}
+  .fl-label{font-family:'Paperlogy';font-weight:800;font-size:1.9cqw;color:var(--accent);margin-bottom:.9cqw}
+  .fl-text{font-size:1.8cqw;color:var(--ink);line-height:1.45;word-break:keep-all}
+  .fmt-fv .fl-stage{flex-direction:row;align-items:center;gap:2cqw}
+  .fmt-fv .fl-label{margin-bottom:0;flex:0 0 auto}
+  .fmt-fv .fl-text{flex:1}
+  .fl-chev-h{flex:0 0 3cqw;display:flex;align-items:center;justify-content:center}
+  .fl-chev-h::before{content:'';width:0;height:0;border-top:1.5cqw solid transparent;border-bottom:1.5cqw solid transparent;border-left:1.9cqw solid var(--label);opacity:.7}
+  .fl-chev-v{flex:0 0 2cqw;display:flex;align-items:center;justify-content:center}
+  .fl-chev-v::before{content:'';width:0;height:0;border-left:1.3cqw solid transparent;border-right:1.3cqw solid transparent;border-top:1.7cqw solid var(--label);opacity:.7}
+
+  /* ── 이미지 ── */
+  .fmt-img{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:2cqw}
+  .img-cell{display:flex;flex-direction:column;gap:.8cqw;min-height:0}
+  .img-box{flex:1;border-radius:1cqw;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;
+    color:#9a9a9a;font-size:1.5cqw;font-weight:600;background:
+    repeating-linear-gradient(45deg,#ececec 0 8px,#f4f4f4 8px 16px)}
+  .img-cap{font-size:1.5cqw;color:var(--ink-sub);text-align:center;font-weight:500}
+
+  /* ── 생각 Check ── */
+  .slide-think{justify-content:flex-start}
+  .think-q{font-family:'Paperlogy';font-weight:900;font-size:3.3cqw;line-height:1.4;text-align:center;color:var(--ink);margin:2.6cqw 0 2.4cqw;word-break:keep-all}
+  .think-q em{font-style:normal;color:var(--accent)}
+  .think-guide{font-family:'Gowun Batang',serif;font-size:1.9cqw;line-height:1.7;color:var(--ink-sub);border:1px solid var(--line);border-radius:1cqw;padding:1.6cqw 2cqw;text-align:justify;background:var(--card)}
+  .think-guide strong{color:var(--accent)}
+
+  /* ── 질감 (카드형 표면 공통) ── */
+  .tex-shadow .concept-row,.tex-shadow .cmp-col,.tex-shadow .fl-stage,.tex-shadow .think-guide,.tex-shadow .img-box{border-color:transparent;box-shadow:0 1px 2px rgba(20,18,14,.05),0 8px 20px rgba(20,18,14,.09)}
+  .tex-tint .row-content,.tex-tint .cmp-body,.tex-tint .fl-stage{background:color-mix(in srgb,var(--accent) 6%,var(--card))}
+</style>
+</head>
+<body>
+
+<div class="ctrl">
+  <h1><span>본문 전 포맷</span> — 밝은 톤. 각 부분 색을 <b style="color:#fff">따로</b> 지정 · 모든 형식 예시</h1>
+  <div class="row" id="rowBg"><span class="rlabel">배경</span></div>
+  <div class="row" id="rowCard"><span class="rlabel">카드</span></div>
+  <div class="row" id="rowInk"><span class="rlabel">글자</span></div>
+  <div class="row" id="rowLabel"><span class="rlabel">라벨</span></div>
+  <div class="row" id="rowAccent"><span class="rlabel">강조</span></div>
+  <div class="row" id="rowLay"><span class="rlabel">라벨배치</span>
+    <button class="sbtn" data-l="lab-side">좌측 칩</button>
+    <button class="sbtn" data-l="lab-top">상단</button>
+  </div>
+  <div class="row" id="rowTex"><span class="rlabel">질감</span>
+    <button class="sbtn" data-t="tex-flat">플랫</button>
+    <button class="sbtn" data-t="tex-shadow">소프트 섀도우</button>
+    <button class="sbtn" data-t="tex-tint">컬러 틴트</button>
+  </div>
+  <div class="opts"><span class="cur" id="cur"></span></div>
+</div>
+
+<div class="stage" id="stage"></div>
+
+<script>
+  const PALETTE = [
+    {name:'오프화이트', hex:'#F4F1E8'},{name:'크림',       hex:'#EFE7D6'},
+    {name:'페이퍼',     hex:'#FAF7F0'},{name:'라이트그레이',hex:'#F0F0EF'},
+    {name:'화이트',     hex:'#FFFFFF'},{name:'잉크블랙',   hex:'#1B1A17'},
+    {name:'슬레이트',   hex:'#1E293B'},{name:'네이비슬레이트',hex:'#27384F'},
+    {name:'딥네이비',   hex:'#1E3A5F'},{name:'슬레이트그레이',hex:'#64748B'},
+    {name:'연슬레이트', hex:'#94A3B8'},{name:'차콜',       hex:'#33302A'},
+    {name:'버밀리온',   hex:'#FF4A1C'},{name:'오렌지',     hex:'#FF6B3D'},
+    {name:'앰버',       hex:'#E6AE55'},{name:'로즈',       hex:'#E11D48'},
+    {name:'틸',         hex:'#2F8F83'},{name:'딥그린',     hex:'#0F7A5A'},
+    {name:'뮤지엄블루', hex:'#234B6E'},{name:'인디고',     hex:'#4C5FD5'},
+  ];
+
+  const FORMATS = [
+    { name:'① 개념 Check (rows) — 워크호스', html:`
+      <div class="slide-header"><span class="check-badge">개념 Check</span><span class="slide-title">붕당 정치의 전개</span></div>
+      <div class="concept-rows">
+        <div class="concept-row"><div class="row-label">배경</div><div class="row-content">
+          <p><span class="item-lead">사림의 성장</span><span>선조 때 <span class="blank">사림</span>이 중앙 정계를 장악</span></p>
+          <p><span>이후 <span class="blank">동인</span>과 <span class="blank">서인</span>으로 분열</span></p></div></div>
+        <div class="concept-row"><div class="row-label">전개</div><div class="row-content">
+          <p><span class="num-lead">①</span><span>동인이 <span class="blank">남인·북인</span>으로 분화</span></p>
+          <p><span class="num-lead">②</span><span>서인 집권 후 <span class="blank">예송</span> 논쟁으로 대립 심화</span></p></div></div>
+        <div class="concept-row"><div class="row-label">결과</div><div class="row-content">
+          <p><span class="item-lead">일당 전제화</span><span><span class="blank">환국</span>으로 특정 붕당이 권력 독점</span></p></div></div>
+      </div>` },
+
+    { name:'② 연표 (가로)', html:`
+      <div class="slide-header"><span class="check-badge">개념 Check</span><span class="slide-title">붕당 정치의 흐름</span></div>
+      <div class="fmt-th"><div class="tl-line"></div><div class="tl-events">
+        ${[['1575','동서 분당'],['1623','인조반정'],['1659','기해예송'],['1680','경신환국'],['1728','이인좌의 난']]
+          .map(([y,t])=>`<div class="tl-ev"><div class="tl-dot"></div><div class="tl-card"><span class="tl-year">${y}</span><span class="tl-text">${t}</span></div></div>`).join('')}
+      </div></div>` },
+
+    { name:'③ 연표 (세로)', html:`
+      <div class="slide-header"><span class="check-badge">개념 Check</span><span class="slide-title">주요 환국</span></div>
+      <div class="fmt-tv"><div class="tv-line"></div><div class="tv-events">
+        <div class="tv-ev"><div class="tv-dot"></div><span class="tv-memo">1680</span><div class="tv-content"><p><span class="blank">경신환국</span> — 서인이 남인을 몰아내고 집권</p></div></div>
+        <div class="tv-ev"><div class="tv-dot"></div><span class="tv-memo">1689</span><div class="tv-content"><p><span class="blank">기사환국</span> — 남인 재집권, 인현왕후 폐위</p></div></div>
+        <div class="tv-ev"><div class="tv-dot"></div><span class="tv-memo">1694</span><div class="tv-content"><p><span class="blank">갑술환국</span> — 서인(노론·소론) 다시 집권</p></div></div>
+      </div></div>` },
+
+    { name:'④ 비교표 (2단 비교)', html:`
+      <div class="slide-header"><span class="check-badge">개념 Check</span><span class="slide-title">노론과 소론</span></div>
+      <div class="fmt-cmp">
+        <div class="cmp-col l"><div class="cmp-head">노론</div><div class="cmp-body">
+          <p>송시열 중심, <span class="blank">대의명분</span> 강조</p><p>왕권보다 신권, 강경 노선</p></div></div>
+        <div class="cmp-vs">VS</div>
+        <div class="cmp-col r"><div class="cmp-head">소론</div><div class="cmp-body">
+          <p>윤증 중심, <span class="blank">실리</span>와 온건 노선</p><p>소장파 중심의 유연한 입장</p></div></div>
+      </div>` },
+
+    { name:'⑤ 사료 인용', html:`
+      <div class="slide-header"><span class="check-badge">개념 Check</span><span class="slide-title">사료 읽기</span></div>
+      <div class="fmt-q">
+        <div class="q-sub">(가) 탕평의 뜻</div>
+        <p class="q-text"><span class="q-open">&ldquo;</span>붕당의 폐해가 요즘보다 심한 적이 없었다. 처음에는 학문의 옳고 그름을 다투더니, 이제는 다른 편을 모조리 배척하기에 이르렀다.<span class="q-close">&rdquo;</span></p>
+        <p class="q-src">『영조실록』</p>
+      </div>` },
+
+    { name:'⑥ 플로우 (가로)', html:`
+      <div class="slide-header"><span class="check-badge">개념 Check</span><span class="slide-title">붕당의 변질 과정</span></div>
+      <div class="fmt-fh">
+        <div class="fl-stage"><div class="fl-label">1. 공존</div><div class="fl-text">상호 비판과 견제로 <span class="blank">공론</span> 정치 운영</div></div>
+        <div class="fl-chev-h"></div>
+        <div class="fl-stage"><div class="fl-label">2. 대립</div><div class="fl-text">예송·환국으로 <span class="blank">보복</span>의 악순환</div></div>
+        <div class="fl-chev-h"></div>
+        <div class="fl-stage"><div class="fl-label">3. 변질</div><div class="fl-text">일당 전제화, <span class="blank">탕평책</span> 등장 배경</div></div>
+      </div>` },
+
+    { name:'⑦ 플로우 (세로)', html:`
+      <div class="slide-header"><span class="check-badge">개념 Check</span><span class="slide-title">탕평책 추진</span></div>
+      <div class="fmt-fv">
+        <div class="fl-stage"><div class="fl-label">배경</div><div class="fl-text">붕당 간 대립 심화로 왕권 약화</div></div>
+        <div class="fl-chev-v"></div>
+        <div class="fl-stage"><div class="fl-label">시행</div><div class="fl-text">영조·정조의 <span class="blank">탕평책</span> 추진</div></div>
+        <div class="fl-chev-v"></div>
+        <div class="fl-stage"><div class="fl-label">결과</div><div class="fl-text">왕권 강화, 그러나 근본 해결은 한계</div></div>
+      </div>` },
+
+    { name:'⑧ 이미지 (그리드)', html:`
+      <div class="slide-header"><span class="check-badge">자료</span><span class="slide-title">관련 그림 자료</span></div>
+      <div class="fmt-img">
+        <div class="img-cell"><div class="img-box">이미지 1</div><span class="img-cap">탕평비</span></div>
+        <div class="img-cell"><div class="img-box">이미지 2</div><span class="img-cap">영조 어진</span></div>
+        <div class="img-cell"><div class="img-box">이미지 3</div><span class="img-cap">규장각</span></div>
+      </div>` },
+
+    { name:'⑨ 생각 Check (질문형)', cls:'slide-think', html:`
+      <div class="slide-header"><span class="check-badge">생각 Check</span><span class="slide-title">29강</span></div>
+      <p class="think-q">붕당 정치는 조선을 <em>망친 당쟁</em>이었을까, 서로를 견제한 <em>정치의 균형추</em>였을까?</p>
+      <div class="think-guide">자신의 생각을 <strong>50자</strong> 이상으로 자유롭게 작성해 보세요. 근거가 되는 역사적 사실을 함께 들면 더 좋습니다.</div>` },
+  ];
+
+  const stage=document.getElementById('stage');
+  let lay='lab-side', tex='tex-shadow';
+  function render(){
+    const layCls = lay==='lab-top' ? 'lab-top' : '';
+    stage.innerHTML = FORMATS.map(f=>`
+      <div class="variant"><div class="vhead">${f.name}</div>
+        <div class="slide ${f.cls||''} ${layCls} ${tex}">${f.html}</div></div>`).join('');
+  }
+
+  function lum(hex){ const h=hex.replace('#',''); const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
+    return (0.299*r+0.587*g+0.114*b)/255; }
+
+  const root=document.documentElement;
+  const state={ '--bg':'#F0F0EF','--card':'#FFFFFF','--ink':'#1E293B','--label':'#27384F','--accent':'#FF6B3D' };
+  const rows={ '--bg':'rowBg','--card':'rowCard','--ink':'rowInk','--label':'rowLabel','--accent':'rowAccent' };
+  const cur=document.getElementById('cur');
+  function nameOf(hex){const m=PALETTE.find(c=>c.hex.toLowerCase()===hex.toLowerCase());return m?m.name:hex}
+  function apply(){
+    for(const k in state) root.style.setProperty(k,state[k]);
+    root.style.setProperty('--labelfg', lum(state['--label'])>0.62 ? '#1B1A17' : '#FFFFFF');
+    cur.textContent=`배경 ${nameOf(state['--bg'])} · 카드 ${nameOf(state['--card'])} · 글자 ${nameOf(state['--ink'])} · 라벨 ${nameOf(state['--label'])} · 강조 ${nameOf(state['--accent'])}`;
+  }
+  function buildRow(v){ const row=document.getElementById(rows[v]);
+    PALETTE.forEach(c=>{ const d=document.createElement('div'); d.className='pick'; d.style.background=c.hex; d.title=c.name+' '+c.hex; d.dataset.hex=c.hex;
+      d.addEventListener('click',()=>{state[v]=c.hex;markSel();apply();}); row.appendChild(d); }); }
+  function markSel(){ for(const k in rows) document.querySelectorAll('#'+rows[k]+' .pick').forEach(p=>p.classList.toggle('sel', p.dataset.hex.toLowerCase()===state[k].toLowerCase())); }
+  Object.keys(rows).forEach(buildRow); markSel(); apply();
+
+  const lbtns=document.querySelectorAll('#rowLay .sbtn');
+  lbtns.forEach(b=>b.addEventListener('click',()=>{ lay=b.dataset.l; lbtns.forEach(x=>x.classList.toggle('active',x===b)); render(); }));
+  lbtns[0].classList.add('active');
+  const tbtns=document.querySelectorAll('#rowTex .sbtn');
+  tbtns.forEach(b=>b.addEventListener('click',()=>{ tex=b.dataset.t; tbtns.forEach(x=>x.classList.toggle('active',x===b)); render(); }));
+  tbtns[1].classList.add('active');
+
+  render();
+</script>
+</body>
+</html>

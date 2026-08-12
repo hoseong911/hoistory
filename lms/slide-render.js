@@ -259,9 +259,12 @@
     }).join('');
 
     const posClass = labelPos === 'top' ? ' label-top' : '';
+    // 라벨이 비어 있으면 라벨 칸(네이비 박스) 자체를 렌더하지 않고 내용이 폭을 다 쓰게 한다.
+    const hasLabel = !!(row.label && String(row.label).trim());
+    const labelHtml = hasLabel ? `<div class="row-label">${preserveSpaces(row.label)}</div>` : '';
     return `
-      <div class="concept-row${posClass}">
-        <div class="row-label">${preserveSpaces(row.label)}</div>
+      <div class="concept-row${posClass}${hasLabel ? '' : ' no-label'}">
+        ${labelHtml}
         <div class="row-content">${itemsHtml}</div>
       </div>`;
   }

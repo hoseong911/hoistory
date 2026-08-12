@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LMS 미니멀 프리뷰</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  /* ── 미니멀 토큰: 무채색 바탕 + 포인트색 1개(--accent), 필요시 보조(--accent-2) ── */
+  :root{
+    --bg:#FAFAFA; --card:#FFFFFF;
+    --ink:#1A1A1A; --ink-soft:#5A5A5A; --ink-faint:#9A9A9A;
+    --line:#E6E6E6; --line-strong:#D4D4D4;
+    --accent:#E11D48; --accent-2:#0E9F6E;
+    --radius:10px;
+  }
+  /* ── 통일 규격: 제목·수치값 모두 18px, 색으로만 구분 (제목=먹색, 수치=포인트색) ── */
+  .xp-title,.acc-title,.chip-name,.contents .t{font-size:18px !important;font-weight:700;color:var(--ink) !important}
+  .xp-lv,.mile-days{font-size:18px !important;font-weight:800;color:var(--accent)}
+  /* ── 색 규칙: 성취 계열(경험치·성적·마일리지) 블록은 내부 포인트색을 보조색(에메랄드)으로 전환 ── */
+  .twocolor .achieve{--accent:var(--accent-2)}
+  html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased}
+
+  /* ── 프리뷰 컨트롤 바 ── */
+  .ctrl{position:sticky;top:0;z-index:50;background:#111;color:#fff;padding:12px 16px}
+  .ctrl h1{font-size:14px;font-weight:700;margin-bottom:8px;letter-spacing:.3px}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+  .row .rlabel{font-size:12px;color:#bbb;width:42px;flex-shrink:0}
+  .pick{width:26px;height:26px;border-radius:50%;cursor:pointer;position:relative;border:2px solid transparent;transition:transform .1s}
+  .pick:hover{transform:scale(1.12)}
+  .pick.sel{border-color:#fff;box-shadow:0 0 0 2px #111 inset}
+  .pick.sel::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:900;text-shadow:0 0 2px rgba(0,0,0,.6)}
+  .sbtn{background:#1e1e1e;border:1px solid #333;border-radius:8px;padding:6px 12px;font-size:12px;color:#eee;font-family:inherit;cursor:pointer;transition:.15s}
+  .sbtn:hover{background:#2a2a2a}
+  .sbtn.active{background:#fff;color:#111;font-weight:700}
+  .opts{display:flex;gap:12px;align-items:center;font-size:12px;color:#ccc;margin-top:2px}
+  .opts label{display:flex;gap:6px;align-items:center;cursor:pointer}
+  .cur{font-size:11px;color:#888;margin-left:auto}
+
+  /* ── 헤더 ── */
+  .hub-header{background:var(--card);border-bottom:1px solid var(--line);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .logo{font-weight:800;font-size:18px;letter-spacing:.5px;color:var(--ink)}
+  .logo b{color:var(--accent)}
+  .header-right{display:flex;align-items:center;gap:8px}
+  .student-chip{border:1px solid var(--line-strong);border-radius:6px;padding:6px 12px;font-size:14px;font-weight:600}
+  .logout{border:1px solid var(--line-strong);background:none;border-radius:6px;padding:6px 12px;font-size:12px;color:var(--ink-soft);font-family:inherit;cursor:pointer}
+
+  /* ── 본문 ── */
+  .wrap{max-width:520px;margin:0 auto;padding:22px 16px 60px}
+  .welcome{font-size:14px;color:var(--ink-soft);text-align:center;margin-bottom:12px}
+  /* 공지: 네일팁(가장자리 색 띠) 없이 평면 카드 + 텍스트 라벨로만 구분 */
+  .announce{border:1px solid var(--line);border-radius:var(--radius);padding:12px 16px;font-size:14px;color:var(--ink);line-height:1.6;margin-bottom:8px;background:var(--card)}
+  .announce .tag{font-size:12px;font-weight:700;color:var(--accent);margin-right:8px}
+
+  .stack{display:flex;flex-direction:column;gap:6px}
+  .block{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);transition:box-shadow .18s,background .18s,transform .12s}
+
+  /* ═══ 스타일 변형(포인트 질감) — body 클래스로 전환 ═══ */
+  /* A. 플랫 (기본): 얇은 실선만 */
+  /* B. 소프트 섀도우: 테두리 제거 + 은은한 그림자로 카드 띄우기 */
+  body.shadow .block,body.shadow .chip{border-color:transparent;box-shadow:0 1px 2px rgba(20,22,26,.05),0 6px 16px rgba(20,22,26,.07)}
+  /* C. 글래스모피즘: 배경에 옅은 색 번짐 + 반투명 유리 카드 */
+  body.glass{background:radial-gradient(circle at 15% 8%, #ffe1e8 0%, transparent 42%),radial-gradient(circle at 92% 22%, #d7f3e8 0%, transparent 46%),#FAFAFA;background-attachment:fixed}
+  body.glass .block,body.glass .chip,body.glass .announce{background:rgba(255,255,255,.5);backdrop-filter:blur(16px) saturate(150%);-webkit-backdrop-filter:blur(16px) saturate(150%);border:1px solid rgba(255,255,255,.75);box-shadow:0 8px 26px rgba(20,22,26,.08)}
+  /* D. 컬러 틴트: 각 블록의 포인트색으로 옅게 물들임 → 성취=에메랄드, 활동=로즈 (색 체계가 한눈에) */
+  body.tint .block,body.tint .chip{background:color-mix(in srgb, var(--accent) 8%, #fff);border-color:color-mix(in srgb, var(--accent) 22%, var(--line))}
+  /* E. 틴트 + 섀도우 조합 */
+  body.tintshadow .block,body.tintshadow .chip{background:color-mix(in srgb, var(--accent) 8%, #fff);border-color:transparent;box-shadow:0 1px 2px rgba(20,22,26,.05),0 6px 16px rgba(20,22,26,.07)}
+  /* 눌림 마이크로 인터랙션(모든 변형 공통) */
+  .block.hover:active,.chip:active{transform:scale(.992)}
+
+  /* 경험치 */
+  .xp{padding:16px 18px;cursor:pointer}
+  .xp-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .xp-title{font-size:18px;font-weight:700;color:var(--ink)}
+  .xp-right{display:flex;align-items:center;gap:8px}
+  .xp-lv{font-size:18px;font-weight:800;color:var(--accent)}
+  .caret{color:var(--ink-faint)}
+  .xp-bar{height:6px;background:var(--line);border-radius:100px;overflow:hidden}
+  .xp-fill{height:100%;width:62%;background:var(--accent);border-radius:100px}
+  .xp-label{font-size:12px;color:var(--ink-faint);margin-top:6px;text-align:right}
+
+  /* 아코디언(성적) */
+  .acc-head{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;cursor:pointer}
+  .acc-title{font-size:18px;font-weight:700;color:var(--ink)}
+  .acc-total{font-size:16px;font-weight:700;color:var(--accent)}
+  .acc-body{padding:14px 18px 16px;border-top:1px solid var(--line)}
+  .grade-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+  .gc{border:1px solid var(--line);border-radius:8px;padding:10px 4px;text-align:center}
+  .gc-l{font-size:12px;font-weight:700;color:var(--ink-soft)}
+  .gc-s{font-size:18px;font-weight:800;margin-top:4px;color:var(--accent)}
+  .gc-u{font-size:12px;color:var(--ink-faint)}
+  .grade-total{display:flex;justify-content:space-between;border:1px solid var(--line);border-radius:8px;padding:10px 14px;font-size:14px;color:var(--ink-soft)}
+  .grade-total b{color:var(--accent);font-size:16px}
+  .grade-caption{margin-top:10px;font-size:12px;color:var(--ink-faint);line-height:1.6;text-align:center}
+  .grade-btns{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+  .gbtn{border:1px solid var(--accent);color:var(--accent);background:none;border-radius:6px;padding:9px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer}
+
+  /* 마일리지 버튼 */
+  .mile{display:flex;justify-content:space-between;align-items:center;padding:16px 18px;cursor:pointer}
+  .mile-days{font-size:18px;font-weight:800;color:var(--accent)}
+
+  /* 개념/미션/생각 3열 칩 */
+  .chips{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .chip{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);min-height:78px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer}
+  .chip-name{font-size:18px;font-weight:700;color:var(--ink)}
+  .chip-count{font-size:12px;font-weight:700;color:var(--accent)}
+
+  /* 콘텐츠 버튼 */
+  .contents{display:flex;justify-content:space-between;align-items:center;padding:18px;cursor:pointer}
+  .contents .t{font-size:18px;font-weight:700;color:var(--ink)}
+  .contents .c{font-size:12px;font-weight:700;color:var(--accent)}
+
+  .hover:hover{border-color:var(--line-strong)}
+  .desktop-note{max-width:520px;margin:26px auto 0;padding:0 16px;font-size:12px;color:var(--ink-faint);text-align:center;line-height:1.7}
+</style>
+</head>
+<body>
+
+<div class="ctrl">
+  <h1>LMS 미니멀 프리뷰 — 메인·보조색을 각각 골라 모든 조합 확인</h1>
+  <div class="row" id="mainRow"><span class="rlabel">메인</span></div>
+  <div class="row" id="subRow"><span class="rlabel">보조</span></div>
+  <div class="row" id="styleRow"><span class="rlabel">질감</span>
+    <button class="sbtn" data-s="flat">A. 플랫</button>
+    <button class="sbtn" data-s="shadow">B. 소프트 섀도우</button>
+    <button class="sbtn" data-s="glass">C. 글래스모피즘</button>
+    <button class="sbtn" data-s="tint">D. 컬러 틴트</button>
+    <button class="sbtn" data-s="tintshadow">E. 틴트+섀도우</button>
+  </div>
+  <div class="opts">
+    <label><input type="checkbox" id="useB" checked> 성취 계열에 보조색(에메랄드) 적용 — 끄면 로즈 단일색</label>
+    <span class="cur" id="curLabel"></span>
+  </div>
+</div>
+
+<div class="hub-header">
+  <div class="logo">DIVE INTO HISTORY <b>: LMS</b></div>
+  <div class="header-right">
+    <span class="student-chip">30115 김호이</span>
+    <button class="logout">나가기</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="welcome">김호이 학생, 오늘도 즐거운 역사 학습!</div>
+  <div class="announce"><span class="tag">공지</span>이번 주 금요일까지 27강 개념 체크 완료해 주세요. 미제출자는 별도 안내합니다.</div>
+
+  <div class="stack">
+    <div class="block xp hover achieve">
+      <div class="xp-top">
+        <span class="xp-title">내 경험치</span>
+        <span class="xp-right"><span class="xp-lv">Lv.5</span><svg class="caret" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="xp-bar"><div class="xp-fill"></div></div>
+      <div class="xp-label">620 pt</div>
+    </div>
+
+    <div class="block acc achieve">
+      <div class="acc-head">
+        <span class="acc-title">성적 Check (포트폴리오)</span>
+        <span class="xp-right"><span class="acc-total accent-b">총점 24점</span><svg class="caret" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(180deg)"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </div>
+      <div class="acc-body">
+        <div class="grade-cols">
+          <div class="gc"><div class="gc-l">개념</div><div class="gc-s">8<span class="gc-u">점</span></div></div>
+          <div class="gc"><div class="gc-l">미션</div><div class="gc-s">9<span class="gc-u">점</span></div></div>
+          <div class="gc"><div class="gc-l">생각</div><div class="gc-s">7<span class="gc-u">점</span></div></div>
+        </div>
+        <div class="grade-total"><span>총점</span><span><b>24</b> / 30점</span></div>
+        <div class="grade-btns"><button class="gbtn">세부 채점 내역</button><button class="gbtn">선생님 피드백</button></div>
+        <div class="grade-caption">채점 기준에 따른 실시간 점수를 제공합니다. 최종 점수는 학기말에 별도로 안내됩니다.</div>
+      </div>
+    </div>
+
+    <div class="block mile hover achieve">
+      <span class="acc-title">역사 열공 마일리지</span>
+      <span class="mile-days accent-b">17일째</span>
+    </div>
+
+    <div class="chips">
+      <div class="chip hover"><span class="chip-name">개념 Check</span></div>
+      <div class="chip hover"><span class="chip-name">미션 Check</span></div>
+      <div class="chip hover"><span class="chip-name">생각 Check</span></div>
+    </div>
+
+    <div class="block contents hover">
+      <span class="t">각종 콘텐츠</span>
+      <span class="c">›</span>
+    </div>
+  </div>
+
+  <div class="desktop-note">※ 모바일 화면 기준 프리뷰. 데스크톱은 3단 카드 그리드로 같은 색·플랫 톤이 적용됩니다.</div>
+</div>
+
+<script>
+  // 팔레트: 그린 계열 + 핑크 계열 + 무채색. 메인/보조 각각 독립 선택 → 모든 조합 확인.
+  const PALETTE = [
+    { name:'포레스트그린', hex:'#1B5E3F' },
+    { name:'잉크그린',     hex:'#0F4C3A' },
+    { name:'세이지',       hex:'#5B6E4F' },
+    { name:'에메랄드',     hex:'#0E9F6E' },
+    { name:'더스티로즈',   hex:'#C1666B' },
+    { name:'플럼',         hex:'#9D4E6C' },
+    { name:'코랄',         hex:'#E5737B' },
+    { name:'로즈',         hex:'#E11D48' },
+    { name:'먹블랙',       hex:'#1A1A2E' },
+    { name:'차콜',         hex:'#3A3A3A' },
+  ];
+  const root = document.documentElement;
+  const useB = document.getElementById('useB');
+  const curLabel = document.getElementById('curLabel');
+  let mainHex = '#E11D48', subHex = '#0E9F6E';
+
+  function buildRow(rowId, isMain){
+    const row = document.getElementById(rowId);
+    PALETTE.forEach(c=>{
+      const d = document.createElement('div');
+      d.className = 'pick';
+      d.style.background = c.hex;
+      d.title = c.name + ' ' + c.hex;
+      d.dataset.hex = c.hex;
+      d.addEventListener('click', ()=>{
+        if(isMain) mainHex = c.hex; else subHex = c.hex;
+        markSel();
+        apply();
+      });
+      row.appendChild(d);
+    });
+  }
+  function markSel(){
+    document.querySelectorAll('#mainRow .pick').forEach(p=>p.classList.toggle('sel', p.dataset.hex===mainHex));
+    document.querySelectorAll('#subRow .pick').forEach(p=>p.classList.toggle('sel', p.dataset.hex===subHex));
+  }
+  function nameOf(hex){ const m = PALETTE.find(c=>c.hex===hex); return m ? m.name : hex; }
+  function apply(){
+    root.style.setProperty('--accent', mainHex);
+    root.style.setProperty('--accent-2', subHex);
+    document.body.classList.toggle('twocolor', useB.checked);
+    curLabel.textContent = `활동 ${nameOf(mainHex)} ${mainHex}` + (useB.checked ? ` · 성취 ${nameOf(subHex)} ${subHex}` : ' · 단일색');
+  }
+  buildRow('mainRow', true);
+  buildRow('subRow', false);
+  useB.addEventListener('change', apply);
+
+  // 질감 스타일 전환 (twocolor 색규칙 클래스와 독립적으로 관리)
+  const STYLES = ['flat','shadow','glass','tint','tintshadow'];
+  const sbtns = document.querySelectorAll('.sbtn');
+  function setStyle(s){
+    STYLES.forEach(x=>document.body.classList.remove(x));
+    document.body.classList.add(s);
+    sbtns.forEach(b=>b.classList.toggle('active', b.dataset.s===s));
+  }
+  sbtns.forEach(b=>b.addEventListener('click', ()=>setStyle(b.dataset.s)));
+
+  markSel();
+  apply();
+  setStyle('glass'); // 확정: 글래스모피즘
+</script>
+</body>
+</html>
