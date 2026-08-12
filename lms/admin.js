@@ -469,6 +469,10 @@ const CE_LESSON_DEFAULTS = {
   }
 };
 
+// 생각 Check 표준 안내문구 — 활동지에는 없는 정형 문구라 업로드 시 질문만 채워지고 비는데,
+// 질문이 있으면 이 기본 안내문구를 자동으로 넣어준다.
+const THINK_GUIDE_DEFAULT = '핸드폰 등 모바일 기기로 QR 코드 접속 후\n오늘의 질문에 대한 본인의 생각을\n50자 이상 작성해 주세요.';
+
 let ceCs = {}, ceCd = {};
 let ceCurrentLessonNum = '';
 
@@ -1877,7 +1881,8 @@ async function ceHandleFileUpload(file) {
       },
       contentLines: parsed.conceptContentLines,
       mission: { contentLines: parsed.missionContentLines },
-      think: { question: parsed.think.question || '', guide: parsed.think.guide || '' }
+      // 안내문구(guide)는 활동지에 없어 AI가 못 채우므로, 질문이 있으면 표준 안내문구를 자동으로 넣는다.
+      think: { question: parsed.think.question || '', guide: (parsed.think.guide || '').trim() || (parsed.think.question ? THINK_GUIDE_DEFAULT : '') }
     };
     await addDoc(collection(db, 'class_lessons'), ceStripUndefined({
       num, title: content.lesson.title, unit: content.lesson.unit, year: '2026', order, isOpen: false, content
