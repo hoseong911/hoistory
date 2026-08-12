@@ -261,7 +261,14 @@
     const posClass = labelPos === 'top' ? ' label-top' : '';
     // 라벨이 비어 있으면 라벨 칸(네이비 박스) 자체를 렌더하지 않고 내용이 폭을 다 쓰게 한다.
     const hasLabel = !!(row.label && String(row.label).trim());
-    const labelHtml = hasLabel ? `<div class="row-label">${preserveSpaces(row.label)}</div>` : '';
+    // 라벨을 줄바꿈(엔터/<br>)으로 여러 줄 쓰면 첫 줄은 소제목, 그 다음 줄부터는 한 단계 낮춰(작게) 표시한다.
+    let labelHtml = '';
+    if (hasLabel) {
+      const parts = String(row.label).replace(/<\/?br\s*\/?>/gi, '\n').split('\n').map(s => s.trim()).filter(Boolean);
+      const inner = parts.map((p, idx) =>
+        `<span class="row-label-line${idx === 0 ? '' : ' sub'}">${preserveSpaces(p)}</span>`).join('');
+      labelHtml = `<div class="row-label">${inner}</div>`;
+    }
     return `
       <div class="concept-row${posClass}${hasLabel ? '' : ' no-label'}">
         ${labelHtml}
