@@ -261,12 +261,24 @@
     const posClass = labelPos === 'top' ? ' label-top' : '';
     // 라벨이 비어 있으면 라벨 칸(네이비 박스) 자체를 렌더하지 않고 내용이 폭을 다 쓰게 한다.
     const hasLabel = !!(row.label && String(row.label).trim());
-    // 라벨을 줄바꿈(엔터/<br>)으로 여러 줄 쓰면 첫 줄은 소제목, 그 다음 줄부터는 한 단계 낮춰(작게) 표시한다.
+    // 라벨 여러 줄 규칙:
+    //  · 그냥 줄바꿈(엔터/<br>) → 같은 수준(같은 크기)으로 다음 줄 (긴 라벨용)
+    //  · 줄 맨 앞에 '>' → 그 줄만 한 수준 낮게(작게·연하게)
+    //  · 줄 끝의 (연도) 같은 괄호 → 아랫줄에 작게 분리
     let labelHtml = '';
     if (hasLabel) {
-      const parts = String(row.label).replace(/<\/?br\s*\/?>/gi, '\n').split('\n').map(s => s.trim()).filter(Boolean);
-      const inner = parts.map((p, idx) =>
-        `<span class="row-label-line${idx === 0 ? '' : ' sub'}">${preserveSpaces(p)}</span>`).join('');
+      const lines = [];
+      String(row.label).replace(/<\/?br\s*\/?>/gi, '\n').split('\n').forEach(raw => {
+        let t = raw.trim();
+        if (!t) return;
+        let sub = false;
+        if (t[0] === '>') { sub = true; t = t.slice(1).trim(); }
+        const m = t.match(/^(.*\S)\s*(\([^()]*\))$/); // 끝의 (…) 분리
+        if (m && m[1]) { lines.push({ t: m[1].trim(), sub }); lines.push({ t: m[2], sub: true }); }
+        else if (t) lines.push({ t, sub });
+      });
+      const inner = lines.map(o =>
+        `<span class="row-label-line${o.sub ? ' sub' : ''}">${preserveSpaces(o.t)}</span>`).join('');
       labelHtml = `<div class="row-label">${inner}</div>`;
     }
     return `
