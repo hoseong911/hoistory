@@ -29,6 +29,10 @@
         html, body { scrollbar-width: none; -ms-overflow-style: none; }
         *::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
+        /* ─── LMS 모달 임베드: 앱 자체 헤더 숨김(모달 상단 제목과 중복 방지) ─── */
+        body.hi-embedded #screen-main .hi-header { display: none; }
+        body.hi-embedded .hi-page { padding-top: 8px; }
+
         /* ─── lms 연동 폰트 (제목류는 lms와 동일하게 Paperlogy) ─── */
         .hi-header-title { font-family: 'Paperlogy', sans-serif; }
 
@@ -850,14 +854,19 @@ import { firebaseConfig } from "../shared/firebase-config.js";
 
         // lms 안에 임베드된 경우 — lms 로그인 세션(학번·이름)을 그대로 받아
         // 자체 로그인 화면을 건너뛰고 바로 CHECK(사진 인증) 탭으로 진입한다.
-        if (isEmbeddedInLms) {
-            const sid = sessionStorage.getItem('lms_sid');
-            const sname = sessionStorage.getItem('lms_sname');
+        // 세션스토리지가 안 넘어오는 환경 대비로 URL 파라미터(sid/sn)도 fallback으로 읽는다.
+        const _qs = new URLSearchParams(location.search);
+        const embedded = isEmbeddedInLms || _qs.get('embed') === '1';
+        if (embedded) {
+            const sid = sessionStorage.getItem('lms_sid') || _qs.get('sid');
+            const sname = sessionStorage.getItem('lms_sname') || _qs.get('sn');
             if (sid && sname) {
                 currentUser = { num: sid, name: sname, cls: parseClass(sid), grade: parseGrade(sid) };
                 localStorage.setItem('hi_history_user', JSON.stringify(currentUser));
                 initXP(db, sid, sname, { ref, get, set, push, update, onValue }).catch(() => {});
                 document.getElementById('logout-btn').style.display = 'none';
+                // lms 모달 상단에 이미 "역사 열공 마일리지" 제목이 있으므로 앱 자체 헤더는 숨겨 중복을 없앤다.
+                document.body.classList.add('hi-embedded');
                 showMain();
                 return;
             }

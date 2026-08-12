@@ -747,8 +747,11 @@ function renderContentsBlock() {
 }
 
 // ── 마일리지 모달 — hismile 앱을 큰 팝업(iframe)으로 연다(데스크톱·모바일 공통) ──
+// 학번·이름을 URL로 넘겨 hismile가 자체 로그인 화면을 건너뛰고 바로 로그인된 상태로 뜨게 한다.
 function openMileageModal() {
-  const url = resolveAppUrl('hismile/index.html');
+  const base = resolveAppUrl('hismile/index.html');
+  const sep = base.includes('?') ? '&' : '?';
+  const url = `${base}${sep}embed=1&sid=${encodeURIComponent(currentStudentId)}&sn=${encodeURIComponent(currentStudentName)}`;
   document.getElementById('contentAppModalTitle').textContent = '역사 열공 마일리지';
   document.getElementById('contentAppFrame').src = url;
   document.getElementById('contentAppModal').style.display = 'flex';
