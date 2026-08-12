@@ -352,7 +352,8 @@ function dbToggleCard(title, list, kind) {
     ? '<div class="empty-panel" style="padding:14px;font-size:13px">항목 없음</div>'
     : list.map(item => {
         const open = kind === 'mission' ? !item.locked : item.isOpen;
-        const label = kind === 'concept' ? `${item.num}강. ${esc(item.title)}` : esc(item.title);
+        const clean = String(item.title || '').replace(/\*\*/g, '').replace(/[{}]/g, ''); // 편집기호 제거
+        const label = kind === 'concept' ? `${item.num}강. ${esc(clean)}` : esc(clean);
         const gradeBtn = kind === 'think'
           ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbGoGrade('${item.docId}')">채점${item.ungraded ? ` <b>${item.ungraded}</b>` : ''}</button>`
           : '';
@@ -3716,7 +3717,7 @@ function renderGradeSettings() {
   container.innerHTML = selected.length
     ? selected.map(key => {
         const lec = _allGradedLectures.find(l => l.key === key);
-        return `<div class="lecture-list-item">${esc(lec?.title || key + '강')}<button class="lecture-list-remove" data-key="${esc(key)}">삭제</button></div>`;
+        return `<div class="lecture-list-item">${esc(String(lec?.title || key + '강').replace(/\*\*/g, '').replace(/[{}]/g, ''))}<button class="lecture-list-remove" data-key="${esc(key)}">삭제</button></div>`;
       }).join('')
     : '<span style="font-size:13px;color:var(--sub)">반영할 강의가 없습니다. 위에서 추가해 주세요.</span>';
 
@@ -3730,7 +3731,7 @@ function renderGradeSettings() {
   const addSel = document.getElementById('gradeSettingsAddSel');
   const available = _allGradedLectures.filter(l => !selected.includes(l.key));
   addSel.innerHTML = `<option value="">${available.length ? '강의를 선택하면 바로 추가됩니다' : '추가할 강의 없음'}</option>` +
-    available.map(l => `<option value="${esc(l.key)}">${esc(l.title)}</option>`).join('');
+    available.map(l => `<option value="${esc(l.key)}">${esc(String(l.title || '').replace(/\*\*/g, '').replace(/[{}]/g, ''))}</option>`).join('');
 
   const bands = _gradeSettings.bands || DEFAULT_BANDS;
   document.getElementById('bandTableBody').innerHTML = bands.map((band, i) => {
