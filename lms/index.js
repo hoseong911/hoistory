@@ -942,7 +942,6 @@ async function fetchLessonContext(num) {
   } catch(_) { return ''; }
 }
 
-const THINK_LV_CLS = { '하': '', '중': 'mid', '상': 'high' };
 
 // ── 쓰기 전 도움 질문: 답을 주지 않고 난이도별로 하나씩 (강의당 1회) ──
 document.getElementById('thinkHintBtn').addEventListener('click', async () => {
@@ -986,10 +985,8 @@ ${lessonCtx ? `오늘 배운 내용:\n${lessonCtx}` : ''}
     // 쉬운 것부터 보여준다 — 막힌 학생이 첫 줄에서 걸리면 안 된다.
     const order = { '하': 0, '중': 1, '상': 2 };
     list.sort((a, b) => (order[a.level] ?? 9) - (order[b.level] ?? 9));
-    document.getElementById('thinkHintList').innerHTML = list.slice(0, 3).map(o => {
-      const lv = THINK_LV_CLS[o.level] !== undefined ? o.level : '하';
-      return `<div class="think-aid-item"><span class="think-lv ${THINK_LV_CLS[lv]}">${esc(lv)}</span><span>${esc(o.text)}</span></div>`;
-    }).join('');
+    document.getElementById('thinkHintList').innerHTML = list.slice(0, 3)
+      .map(o => `<div class="think-aid-item"><span>${esc(o.text)}</span></div>`).join('');
     document.getElementById('thinkHintPanel').style.display = 'flex';
     _thinkHintUsed = true;
     btn.style.display = 'none';
