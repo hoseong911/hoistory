@@ -469,10 +469,6 @@ const CE_LESSON_DEFAULTS = {
   }
 };
 
-// 생각 Check 표준 안내문구 — 활동지에는 없는 정형 문구라 업로드 시 질문만 채워지고 비는데,
-// 질문이 있으면 이 기본 안내문구를 자동으로 넣어준다.
-const THINK_GUIDE_DEFAULT = '핸드폰 등 모바일 기기로 QR 코드 접속 후\n오늘의 질문에 대한 본인의 생각을\n50자 이상 작성해 주세요.';
-
 let ceCs = {}, ceCd = {};
 let ceCurrentLessonNum = '';
 
@@ -1589,6 +1585,8 @@ async function ceSyncThinkLecture(cd) {
   const num = cd?.lesson?.num;
   if (!question || !num) return;
   const title = `${num}강. ${cd.lesson.title || ''}`.trim();
+  // 콘텐츠 생각 Check의 안내(보충설명, think.guide)를 활동의 설명(reference)으로 그대로 끌어온다.
+  const reference = (cd?.think?.guide || '').trim();
   try {
     const cfgRef = doc(db, 'grade_lecture_config', num);
     const cfgSnap = await getDoc(cfgRef);
@@ -1598,10 +1596,10 @@ async function ceSyncThinkLecture(cd) {
       if (!exist.exists()) linkId = ''; // 연결은 있는데 문서가 지워진 경우 새로 만든다
     }
     if (linkId) {
-      await updateDoc(doc(db, 'think_lectures', linkId), { title, question });
+      await updateDoc(doc(db, 'think_lectures', linkId), { title, question, reference });
     } else {
       const ref = await addDoc(collection(db, 'think_lectures'), {
-        title, question, reference: '', icon: num,
+        title, question, reference, icon: num,
         isOpen: false, isArchived: false, createdAt: Date.now()
       });
       await setDoc(cfgRef, { thinkLectureDocId: ref.id, lessonTitle: cd.lesson.title || `${num}강` }, { merge: true });
@@ -1881,8 +1879,7 @@ async function ceHandleFileUpload(file) {
       },
       contentLines: parsed.conceptContentLines,
       mission: { contentLines: parsed.missionContentLines },
-      // 안내문구(guide)는 활동지에 없어 AI가 못 채우므로, 질문이 있으면 표준 안내문구를 자동으로 넣는다.
-      think: { question: parsed.think.question || '', guide: (parsed.think.guide || '').trim() || (parsed.think.question ? THINK_GUIDE_DEFAULT : '') }
+      think: { question: parsed.think.question || '', guide: parsed.think.guide || '' }
     };
     await addDoc(collection(db, 'class_lessons'), ceStripUndefined({
       num, title: content.lesson.title, unit: content.lesson.unit, year: '2026', order, isOpen: false, content
