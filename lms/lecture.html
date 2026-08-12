@@ -54,37 +54,40 @@
     }
     #overlay-btns[hidden] { display: none; }
 
+    /* 홈 칩·모드 토글은 수업 화면을 가리지 않게 반투명하게 두고, 마우스 올리면 또렷해진다.
+       테두리 박스 없이 아이콘/이모지만 남긴다. */
     #back-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 28px;
-      height: 28px;
-      background: rgba(39,56,79,0.08);
-      border: 1px solid rgba(39,56,79,0.16);
+      width: calc(30px * var(--slide-scale, 1));
+      height: calc(30px * var(--slide-scale, 1));
+      background: none;
+      border: none;
       color: var(--navy);
       padding: 0;
-      border-radius: 50%;
+      opacity: 0.4;
       cursor: pointer;
+      transition: opacity 0.15s;
     }
-    #back-btn:hover { background: rgba(39,56,79,0.14); }
+    #back-btn:hover { opacity: 1; }
+    #back-btn svg { width: 70%; height: 70%; }
 
-    /* 완성형/빈칸형 클릭 토글 */
+    /* 완성형/빈칸형 클릭 토글 — 이모지만, 박스 없이, 반투명 */
     #mode-badge {
       display: flex;
       align-items: center;
-      gap: 5px;
-      font-size: calc(var(--fs-slide-title) * 0.55 * var(--slide-scale, 1));
-      font-weight: 700;
-      height: 28px;
-      padding: 0 0.6em 0 0.5em;
-      border-radius: 16px;
+      justify-content: center;
+      font-size: calc(28px * var(--slide-scale, 1));
+      line-height: 1;
+      background: none;
+      padding: 0;
       cursor: pointer;
       user-select: none;
+      opacity: 0.45;
+      transition: opacity 0.15s;
     }
-    body[data-mode="complete"] #mode-badge { background: rgba(39,56,79,0.09); color: var(--navy); }
-    body[data-mode="blank"]    #mode-badge { background: rgba(255,107,61,0.12); color: var(--red); }
-    body[data-mode="typing"]   #mode-badge { background: rgba(26,127,55,0.10); color: #1a7f37; }
+    #mode-badge:hover { opacity: 1; }
 
     #typing-score {
       display: flex;
@@ -204,8 +207,9 @@
       -webkit-backdrop-filter: blur(4px);
       backdrop-filter: blur(4px);
     }
-    body.mobile-scroll #back-btn { width: 32px; height: 32px; }
-    body.mobile-scroll #mode-badge,
+    /* 모바일 툴바는 흰 배경 위라 반투명을 풀고 또렷하게 둔다 */
+    body.mobile-scroll #back-btn { width: 32px; height: 32px; opacity: 0.85; }
+    body.mobile-scroll #mode-badge { font-size: 1.35rem; opacity: 0.9; }
     body.mobile-scroll #typing-score {
       font-size: 0.82rem;   /* PC용 축소 배율(--slide-scale) 대신 고정 크기로 읽기 좋게 */
       height: 30px;
@@ -495,20 +499,19 @@ async function init() {
 
   // 완성형/빈칸형 모드 전환 + 주소창의 ?mode= 값을 항상 현재 상태와 일치시킨다
   // (새로고침해도, 링크를 복사해서 다시 열어도 마지막 상태 그대로 열리게).
-  const SVG_EYE      = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
-  const SVG_EYE_OFF  = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
-  const SVG_PEN      = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>`;
-
   const MODE_ORDER = ['complete', 'blank']; // 토글은 완성형↔빈칸형만. 타이핑(복습)은 입장 시에만 진입.
+  // 박스·글자 없이 이모지 하나로만 모드를 표시(수업 화면 방해 최소화).
   const MODE_LABEL = {
-    complete: `${SVG_EYE}<span>완성형</span>`,
-    blank:    `${SVG_EYE_OFF}<span>빈칸형</span>`,
-    typing:   `${SVG_PEN}<span>타이핑</span>`,
+    complete: '👁️',   // 완성형: 정답 보임
+    blank:    '🙈',   // 빈칸형: 정답 가림
+    typing:   '✏️',   // 타이핑(복습)
   };
 
+  const MODE_TITLE = { complete: '완성형 (정답 보임)', blank: '빈칸형 (정답 가림)', typing: '타이핑 복습' };
   function setMode(mode) {
     document.body.dataset.mode = mode;
     modeBadge.innerHTML = MODE_LABEL[mode] || MODE_LABEL.complete;
+    modeBadge.title = MODE_TITLE[mode] || '';
     if (mode === 'typing') { setupTyping(); updateTypingScore(); typingScore.hidden = false; }
     else { typingScore.hidden = true; }
     const url = new URL(location.href);
@@ -714,18 +717,35 @@ async function init() {
     return true;                    // 이번 넘김은 연출로 소비
   }
 
+  /* 첫 넘김에 맞춰 F11처럼 전체화면으로 들어간다. 브라우저 정책상 로드 즉시엔 불가하고
+     사용자 제스처(키/터치)가 있어야 하므로, 처음 슬라이드를 넘기는 순간 1회만 요청한다.
+     성공했을 때만 done으로 표시해, 실패(제스처 인정 안 됨) 시 다음 넘김에서 다시 시도한다. */
+  let fsRequested = false;
+  function requestFsOnce() {
+    if (fsRequested || document.fullscreenElement) return;
+    const el = document.documentElement;
+    const fn = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    if (!fn) { fsRequested = true; return; }
+    try {
+      const p = fn.call(el);
+      if (p && p.then) p.then(() => { fsRequested = true; }).catch(() => {});
+      else fsRequested = true;
+    } catch (e) { /* 다음 제스처에서 재시도 */ }
+  }
+
   /* ── 키보드·마우스휠·터치 탐색 (데스크톱 push 전환 전용, 모바일은 네이티브 스크롤 사용) ── */
   if (!isMobileLayout) {
     document.addEventListener('keydown', e => {
       if (slidesEl.hidden) return;
       // 타이핑 모드에서 입력칸에 포커스가 있으면 화살표는 커서 이동용이므로 슬라이드 넘김을 막지 않는다.
       if (e.target && e.target.classList && e.target.classList.contains('blank-input')) return;
-      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); if (!tryCoverIntro()) scrollToSlide(currentIdx() + 1); }
-      else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); scrollToSlide(currentIdx() - 1); }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); requestFsOnce(); if (!tryCoverIntro()) scrollToSlide(currentIdx() + 1); }
+      else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); requestFsOnce(); scrollToSlide(currentIdx() - 1); }
     });
 
     slidesEl.addEventListener('wheel', e => {
       e.preventDefault();
+      requestFsOnce();
       if (e.deltaY > 0) { if (!tryCoverIntro()) scrollToSlide(currentIdx() + 1); }
       else scrollToSlide(currentIdx() - 1);
     }, { passive: false });
@@ -735,6 +755,7 @@ async function init() {
     slidesEl.addEventListener('touchend', e => {
       const diff = touchStartY - e.changedTouches[0].clientY;
       if (Math.abs(diff) <= 40) return;
+      requestFsOnce();
       if (diff > 0) { if (!tryCoverIntro()) scrollToSlide(currentIdx() + 1); }
       else scrollToSlide(currentIdx() - 1);
     }, { passive: true });
