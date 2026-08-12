@@ -723,13 +723,12 @@ function renderMileageBlock() {
     el.querySelector('.mileage-btn').onclick = openMileageModal;
   } else {
     el.className = 'mileage-block clickable';
-    const url = resolveAppUrl('hismile/index.html');
     el.innerHTML = `<div class="sec-head"><div class="sec-name">역사 열공 마일리지</div></div><hr class="sec-divider">
       <div class="mileage-body">
         <div class="mileage-days">${num}<span class="mileage-unit">일</span></div>
         <div class="mileage-caption">매일 꾸준히 기록해 마일리지를 쌓아요</div>
       </div>`;
-    el.onclick = () => { location.href = url; };
+    el.onclick = openMileageModal;
   }
 }
 
@@ -747,23 +746,13 @@ function renderContentsBlock() {
   }
 }
 
-// ── 마일리지 모달 (모바일) ──
+// ── 마일리지 모달 — hismile 앱을 큰 팝업(iframe)으로 연다(데스크톱·모바일 공통) ──
 function openMileageModal() {
-  const num = _mileageDays === null ? 0 : _mileageDays;
   const url = resolveAppUrl('hismile/index.html');
-  document.getElementById('mileageModalBody').innerHTML = `
-    <div class="mileage-modal-body">
-      <div class="mileage-days">${num}<span class="mileage-unit">일째</span></div>
-      <div class="mileage-caption">매일 꾸준히 역사 공부를 기록하면 마일리지가 쌓여요.</div>
-      <a class="mileage-go-btn" href="${url}">오늘 학습 기록하러 가기</a>
-    </div>`;
-  document.getElementById('mileageModal').style.display = 'flex';
+  document.getElementById('contentAppModalTitle').textContent = '역사 열공 마일리지';
+  document.getElementById('contentAppFrame').src = url;
+  document.getElementById('contentAppModal').style.display = 'flex';
 }
-function closeMileageModal() { document.getElementById('mileageModal').style.display = 'none'; }
-document.getElementById('mileageModalClose').addEventListener('click', closeMileageModal);
-document.getElementById('mileageModal').addEventListener('click', e => {
-  if (e.target.id === 'mileageModal') closeMileageModal();
-});
 
 // ── 모바일 섹션 목록 모달 (개념/미션/생각/콘텐츠 런처 탭 시) ──
 function openSectionList(key) {
