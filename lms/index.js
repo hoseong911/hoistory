@@ -9,6 +9,12 @@ import { initAuth, mountLoginVerification, verifyStudentId, verifyStudentName } 
 import "../shared/offline.js";
 import { firebaseConfig } from "../shared/firebase-config.js";
 import { initXP, onXPChange, checkAndAddAttendance, calcLevel, calcNextThreshold } from "../shared/xp.js";
+import { findBadWord } from "../shared/profanity.js";
+import { icon } from "../shared/icons.js";
+
+// 생각 체크 AI 도움(힌트·제출 전 점검)은 이 프록시를 통해서만 Claude를 호출한다.
+// 키는 서버(Secret Manager)에 있고, functions/index.js의 ALLOWED_ORIGINS에 등록된 origin만 통과한다.
+const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
 
 const app  = initializeApp(firebaseConfig);
 const db   = getFirestore(app);
@@ -805,6 +811,38 @@ function makeIconItem(item) {
 
 // ── 생각 체크 모달 ──
 let _thinkItem = null, _thinkStart = null, _thinkCheat = 0, _thinkMyAnswer = '';
+// AI 도움 상태 — 힌트는 강의당 1회, 제출 전 점검은 AI 호출 2회까지(그 뒤엔 점검 없이 바로 제출)
+let _thinkHintUsed = false, _thinkCheckCount = 0, _thinkFlagged = 0, _thinkFixed = false;
+let _thinkProfane = false, _thinkTextAtCheck = '';
+const THINK_CHECK_MAX = 2;
+
+function resetThinkAid() {
+  _thinkHintUsed = false; _thinkCheckCount = 0; _thinkFlagged = 0;
+  _thinkFixed = false; _thinkProfane = false; _thinkTextAtCheck = '';
+  const hintBtn = document.getElementById('thinkHintBtn');
+  hintBtn.style.display = 'inline-flex';
+  hintBtn.disabled = false;
+  hintBtn.innerHTML = `${icon('circle-help', 16)}생각이 안 떠올라요`;
+  document.getElementById('thinkHintPanel').style.display  = 'none';
+  document.getElementById('thinkHintList').innerHTML       = '';
+  hideThinkCheck();
+}
+
+// 버튼만 "제출하기" 한 개짜리로 되돌린다. 점검 패널은 그대로 두어
+// 학생이 무엇을 고쳐야 하는지 보면서 위 입력칸을 수정할 수 있게 한다.
+function resetThinkButtons() {
+  document.getElementById('thinkSubmitBtn').style.display = '';
+  document.getElementById('thinkReviseBtn').style.display = 'none';
+  document.getElementById('thinkForceBtn').style.display  = 'none';
+}
+
+function hideThinkCheck() {
+  document.getElementById('thinkCheckPanel').style.display = 'none';
+  document.getElementById('thinkCheckList').innerHTML      = '';
+  document.getElementById('thinkFixList').innerHTML        = '';
+  document.getElementById('thinkFixList').style.display    = 'none';
+  resetThinkButtons();
+}
 
 async function openThinkModal(item) {
   _thinkItem  = item; _thinkStart = Date.now(); _thinkCheat = 0;
@@ -822,6 +860,7 @@ async function openThinkModal(item) {
   document.getElementById('thinkMyAnswerBox').style.display = 'none';
   document.getElementById('thinkSubmitBtn').disabled      = true;
   document.getElementById('thinkSubmitBtn').textContent   = '제출하기';
+  resetThinkAid();
   updateThinkMeta();
   document.getElementById('thinkModal').style.display = 'flex';
   setTimeout(() => ta.focus(), 100);
@@ -869,28 +908,188 @@ function updateThinkMeta() {
 
 document.addEventListener('visibilitychange', () => { if (_thinkItem && document.hidden) _thinkCheat++; });
 
+// ── 프록시 호출 공통 ──
+async function thinkAskClaude(prompt, maxTokens) {
+  const res = await fetch(CLAUDE_PROXY_URL, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }] })
+  });
+  if (!res.ok) throw new Error(`API ${res.status}`);
+  const data = await res.json();
+  return (data.content?.[0]?.text || '').replace(/```json|```/g, '').trim();
+}
+
+// ── 쓰기 전 힌트: 답을 주지 않고 되묻기만 한다 (강의당 1회) ──
+document.getElementById('thinkHintBtn').addEventListener('click', async () => {
+  if (!_thinkItem || _thinkHintUsed) return;
+  const btn = document.getElementById('thinkHintBtn');
+  btn.disabled = true;
+  btn.innerHTML = `${icon('circle-help', 16)}생각하는 중...`;
+
+  const prompt = `너는 중학교 3학년 역사 수업을 돕는 도우미다. 아래 서술형 질문 앞에서 무엇을 써야 할지 몰라 막힌 학생에게, 답을 알려주지 말고 스스로 떠올리도록 되물어라.
+
+반드시 지킬 것:
+- 정답을 말하거나, 어느 쪽이 정답인지 눈치챌 수 있는 표현을 쓰지 마라. 후보를 여러 개 견주게만 하고 한쪽으로 몰지 마라.
+- 학생이 바로 생각을 시작할 수 있는 짧고 구체적인 질문 3개만 만들어라. 각 45자 이내.
+- 수업 안내에 나온 범위 안에서만 물어라. 배우지 않은 내용을 끌어오지 마라.
+- 부드러운 존댓말로 쓰되 "~해 보세요" 같은 지시문이 아니라 물음표로 끝나는 질문이어야 한다.
+
+질문: "${_thinkItem.question}"
+${_thinkItem.reference ? `수업 안내: "${String(_thinkItem.reference).slice(0, 400)}"` : ''}
+
+다른 텍스트 없이 JSON 배열만 출력: ["질문1","질문2","질문3"]`;
+
+  try {
+    const raw  = await thinkAskClaude(prompt, 400);
+    const list = JSON.parse(raw.match(/\[[\s\S]*\]/)?.[0] || '[]')
+      .filter(s => typeof s === 'string' && s.trim()).slice(0, 3);
+    if (!list.length) throw new Error('빈 응답');
+    document.getElementById('thinkHintList').innerHTML =
+      list.map(q => `<div class="think-aid-item">${esc(q)}</div>`).join('');
+    document.getElementById('thinkHintPanel').style.display = 'flex';
+    _thinkHintUsed = true;
+    btn.style.display = 'none';
+  } catch(_) {
+    // 실패해도 학생 발목을 잡지 않는다 — 버튼을 되살려 다시 눌러볼 수 있게 한다.
+    btn.disabled = false;
+    btn.innerHTML = `${icon('circle-help', 16)}다시 시도해 주세요`;
+    setTimeout(() => { if (!_thinkHintUsed) btn.innerHTML = `${icon('circle-help', 16)}생각이 안 떠올라요`; }, 2500);
+  }
+});
+
+// ── 제출 전 점검: 자기 생각·이유가 있는지 + 오타/비속어 (띄어쓰기는 보지 않음) ──
+async function runThinkCheck(text) {
+  const prompt = `중학교 3학년 학생이 역사 수업 서술형 질문에 쓴 답변을 제출 직전에 점검한다.
+
+질문: "${_thinkItem.question}"
+학생 답변: """${text}"""
+
+아래 네 가지를 판단해라.
+1. hasThought: 자기 생각(누구를 골랐는지, 어떻게 본다는 주장)이 드러나는가
+2. hasReason: 왜 그렇게 생각했는지 이유나 근거를 댔는가
+3. typos: 글자가 틀린 것만 최대 4개. 다음은 절대 넣지 마라 — 띄어쓰기 오류, 문장부호, 어색한 표현이나 문체, 줄임말·구어체(예: "같다", "했음"), 맞다고 볼 여지가 있는 것. 받침·철자가 명백히 틀린 것만 골라라. 각 항목은 {"was":"틀린 그대로","now":"고친 말","why":"6자 이내 이유"}
+4. profanity: 욕설·비속어로 볼 수 있는 표현만 배열로. 없으면 []
+
+확신이 없으면 넣지 마라. 틀리지 않은 것을 틀렸다고 하면 안 된다.
+다른 텍스트 없이 JSON만 출력: {"hasThought":true,"hasReason":true,"typos":[],"profanity":[]}`;
+
+  const raw = await thinkAskClaude(prompt, 600);
+  const r   = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}');
+  const typos = (Array.isArray(r.typos) ? r.typos : [])
+    .filter(t => t && typeof t.was === 'string' && typeof t.now === 'string' && t.was !== t.now)
+    .filter(t => text.includes(t.was))   // 실제 답변에 없는 말을 지적하는 환각 방지
+    .slice(0, 4);
+  // 비속어는 공용 사전(shared/profanity.js)을 우선하고, AI가 잡은 변형을 더한다.
+  const local = findBadWord(text);
+  const bad   = [...new Set([...(local ? [local] : []), ...(Array.isArray(r.profanity) ? r.profanity : []).filter(w => typeof w === 'string' && w.trim())])];
+  return { hasThought: r.hasThought !== false, hasReason: r.hasReason !== false, typos, bad };
+}
+
+function renderThinkCheck(r) {
+  const row = (cls, ic, html) => `<div class="think-check ${cls}">${icon(ic, 16)}<span>${html}</span></div>`;
+  const rows = [];
+  rows.push(r.hasThought
+    ? row('pass', 'circle-check', '<b>내 생각이 담겨 있어요</b>')
+    : row('warn', 'triangle-alert', '<b>내 생각이 잘 안 보여요</b> — 누구를 골랐는지, 어떻게 보는지를 한 문장으로 밝혀 주세요.'));
+  rows.push(r.hasReason
+    ? row('pass', 'circle-check', '<b>이유도 썼어요</b>')
+    : row('warn', 'triangle-alert', '<b>이유가 빠졌어요</b> — 왜 그렇게 생각했는지 근거를 한 가지만 더 써 보세요.'));
+  if (r.bad.length)
+    rows.push(row('bad', 'triangle-alert', '<b>쓰면 안 되는 말이 있어요</b> — 고쳐서 내 주세요.'));
+  if (r.typos.length)
+    rows.push(row('warn', 'triangle-alert', `<b>고칠 곳 ${r.typos.length}군데</b> — 아래를 고쳐서 내면 더 좋아요.`));
+  document.getElementById('thinkCheckList').innerHTML = rows.join('');
+
+  const fixEl = document.getElementById('thinkFixList');
+  if (r.typos.length) {
+    fixEl.innerHTML = r.typos.map(t => `<div class="think-fix">
+        <span class="think-fix-was">${esc(t.was)}</span>
+        <span class="think-fix-now">${esc(t.now)}</span>
+        ${t.why ? `<span class="think-fix-why">${esc(String(t.why).slice(0, 8))}</span>` : ''}
+      </div>`).join('');
+    fixEl.style.display = 'flex';
+  } else {
+    fixEl.innerHTML = ''; fixEl.style.display = 'none';
+  }
+
+  const panel = document.getElementById('thinkCheckPanel');
+  panel.style.display = 'flex';
+  document.getElementById('thinkSubmitBtn').style.display = 'none';
+  document.getElementById('thinkReviseBtn').style.display = '';
+  document.getElementById('thinkForceBtn').style.display  = '';
+  panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+// ── 실제 제출 ──
+async function doThinkSubmit(triggerId) {
+  const text = thinkTextarea.value.trim();
+  const textLength = text.replace(/\s/g, '').length;
+  if (!_thinkItem) return;
+  // 점검에서 지적받은 뒤 실제로 글을 고쳤는지 ("이대로 제출"로 바로 낸 경우도 여기서 판정된다)
+  if (_thinkTextAtCheck && text !== _thinkTextAtCheck) _thinkFixed = true;
+  const duration = Math.floor((Date.now() - _thinkStart) / 1000);
+  const btns = ['thinkSubmitBtn', 'thinkReviseBtn', 'thinkForceBtn'].map(id => document.getElementById(id));
+  btns.forEach(b => b.disabled = true);
+  const activeBtn = document.getElementById(triggerId || 'thinkSubmitBtn');
+  const activeLabel = activeBtn.textContent;
+  activeBtn.textContent = '제출 중...';
+  try {
+    await addDoc(collection(db, 'think_submissions'), {
+      lectureDocId: _thinkItem.lectureDocId, lectureTitle: _thinkItem.lectureTitle,
+      id: currentStudentId, name: currentStudentName, verify: currentStudentName,
+      text, textLength, duration, cheatCount: _thinkCheat,
+      // AI 도움 사용 기록 — 채점 참고용이며 점수에는 관여하지 않는다.
+      aiHintUsed: _thinkHintUsed, spellFlagged: _thinkFlagged,
+      spellFixed: _thinkFixed, hasProfanity: _thinkProfane,
+      isPicked: false, createdAt: serverTimestamp(), source: 'lms'
+    });
+    document.getElementById('thinkWriteArea').style.display = 'none';
+    document.getElementById('thinkDoneBox').style.display   = 'block';
+  } catch(_) {
+    btns.forEach(b => b.disabled = false);
+    activeBtn.textContent = activeLabel;
+    alert('제출 중 오류가 발생했습니다. 다시 시도해 주세요.');
+  }
+}
+
+document.getElementById('thinkReviseBtn').addEventListener('click', () => {
+  // 점검 결과는 남겨둔 채 버튼만 되돌린다 — 고칠 목록을 보면서 위 입력칸을 수정한다.
+  resetThinkButtons();
+  updateThinkMeta();
+  thinkTextarea.focus();
+  thinkTextarea.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+});
+document.getElementById('thinkForceBtn').addEventListener('click', () => doThinkSubmit('thinkForceBtn'));
+
 document.getElementById('thinkSubmitBtn').addEventListener('click', async () => {
   const text = thinkTextarea.value.trim();
   const textLength = text.replace(/\s/g, '').length;
   if (!_thinkItem) return;
   if (textLength > THINK_MAX_CHARS) return;
   if (textLength < 50 && !confirm('50자 미만 작성했습니다. 그래도 제출 하시겠습니까?')) return;
-  const duration = Math.floor((Date.now() - _thinkStart) / 1000);
+
+  // 점검 횟수를 다 썼으면 그냥 제출한다.
+  if (_thinkCheckCount >= THINK_CHECK_MAX) { doThinkSubmit(); return; }
+
   const btn = document.getElementById('thinkSubmitBtn');
-  btn.disabled = true; btn.textContent = '제출 중...';
-  try {
-    await addDoc(collection(db, 'think_submissions'), {
-      lectureDocId: _thinkItem.lectureDocId, lectureTitle: _thinkItem.lectureTitle,
-      id: currentStudentId, name: currentStudentName, verify: currentStudentName,
-      text, textLength, duration, cheatCount: _thinkCheat,
-      isPicked: false, createdAt: serverTimestamp(), source: 'lms'
-    });
-    document.getElementById('thinkWriteArea').style.display = 'none';
-    document.getElementById('thinkDoneBox').style.display   = 'block';
-  } catch(_) {
-    btn.disabled = false; btn.textContent = '제출하기';
-    alert('제출 중 오류가 발생했습니다. 다시 시도해 주세요.');
-  }
+  btn.disabled = true; btn.textContent = '점검 중...';
+  let r = null;
+  try { r = await runThinkCheck(text); } catch(_) {}
+  _thinkCheckCount++;
+  btn.disabled = false; btn.textContent = '제출하기';
+
+  // 점검에 실패하면 건너뛰고 제출한다 — AI 때문에 제출을 못 하는 일은 없어야 한다.
+  if (!r) { doThinkSubmit(); return; }
+
+  if (_thinkCheckCount === 1) _thinkFlagged = r.typos.length;
+  if (r.bad.length) _thinkProfane = true;
+  if (_thinkTextAtCheck && text !== _thinkTextAtCheck) _thinkFixed = true;
+  _thinkTextAtCheck = text;
+
+  // 지적할 게 없으면 한 번 더 누르게 하지 않고 바로 제출한다.
+  if (r.hasThought && r.hasReason && !r.typos.length && !r.bad.length) { doThinkSubmit(); return; }
+
+  renderThinkCheck(r);
 });
 
 function esc(s) {
@@ -1005,4 +1204,9 @@ document.getElementById('cpTyping').addEventListener('click', () => {
 });
 document.addEventListener('click', e => {
   if (_cpItem && !_cpEl.contains(e.target)) closeConceptPicker();
+});
+
+// 정적 HTML에 박아둔 아이콘 자리(data-icon)를 SVG로 채운다. (shared/icons.js 공용 헬퍼)
+document.querySelectorAll('[data-icon]').forEach(el => {
+  el.innerHTML = icon(el.dataset.icon, el.dataset.iconSize ? +el.dataset.iconSize : 24);
 });

@@ -7,6 +7,9 @@ const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 // 로컬 테스트용 origin도 열어둔다.
 const ALLOWED_ORIGINS = new Set([
   "https://hoseong911.github.io",
+  // Firebase Hosting 기본 도메인 (lms/index.html의 생각 체크 AI 도움이 학생 화면에서 직접 호출한다)
+  "https://ho0911seong-56638.web.app",
+  "https://ho0911seong-56638.firebaseapp.com",
   "http://localhost:5500",
   "http://127.0.0.1:5500",
 ]);
