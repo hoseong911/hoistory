@@ -99,6 +99,33 @@ function initSidebar() {
     e.stopPropagation();
     openContentsAppAdmin(item, item.dataset.appadmin);
   });
+
+  // ── 모바일: 햄버거 드로어 ──
+  const menuBtn = document.getElementById('admMenuBtn');
+  const scrim   = document.getElementById('admSidebarScrim');
+  const sidebar = document.querySelector('.adm-sidebar');
+  menuBtn?.addEventListener('click', () => {
+    const open = sidebar?.classList.toggle('open');
+    scrim?.classList.toggle('open', open);
+  });
+  scrim?.addEventListener('click', closeAdmDrawer);
+
+  // ── 모바일: 'PC 권장' 안내에서 그래도 열기 ──
+  document.getElementById('mpnOpenBtn')?.addEventListener('click', () => {
+    const notice  = document.getElementById('mobilePcNotice');
+    const panelId = notice?.dataset.panel;
+    const nav     = notice?.dataset.nav;
+    if (!panelId) return;
+    _mobileForced.add(panelId);      // 이후 이 세션 동안은 모바일에서도 바로 열림
+    if (nav) switchNav(nav);         // 지연 렌더까지 정상 재실행
+  });
+
+  // 화면 크기 전환 시 게이트 재평가(모바일↔PC)
+  let _rzT;
+  window.addEventListener('resize', () => {
+    clearTimeout(_rzT);
+    _rzT = setTimeout(() => applyMobileGate(_currentPanelId, _currentNav), 200);
+  });
 }
 
 // 메뉴별 서브메뉴 목록 (첫 항목이 기본 진입 페이지)
@@ -110,6 +137,52 @@ const SUBNAV_MAP = {
   xp: ['xp-award', 'xp-settings'],
   settings: ['settings-system', 'settings-student']
 };
+
+// ── 모바일 소프트 게이트 ──
+// 넓은 화면 기준으로 만든 '저작' 패널은 모바일에서 열면 곧바로 띄우지 않고 안내 카드를 보여준다.
+// 대신 '그래도 여기서 열기'로 언제든 강제로 불러 쓸 수 있다(하드 차단 아님).
+const MOBILE_PC_ONLY = new Set([
+  'panel-concept-content','panel-concept-design','panel-mission',
+  'panel-think-question','panel-grade-setting','panel-contents',
+  'panel-archive-cards','panel-archive-category','panel-archive-add',
+  'panel-students','panel-settings-system','panel-settings-student',
+  'panel-xp-settings'
+]);
+const PANEL_LABELS = {
+  'panel-concept-content':'개념 체크 · CONTENT','panel-concept-design':'개념 체크 · DESIGN',
+  'panel-mission':'미션 체크','panel-think-question':'생각 체크 · QUESTION',
+  'panel-grade-setting':'성적 · SETTING','panel-contents':'각종 콘텐츠',
+  'panel-archive-cards':'아카이브 · CARDS','panel-archive-category':'아카이브 · CATEGORY',
+  'panel-archive-add':'아카이브 · ADD','panel-students':'학생 관리',
+  'panel-settings-system':'설정 · SYSTEM','panel-settings-student':'설정 · STUDENT',
+  'panel-xp-settings':'경험치 · 설정'
+};
+const _mobileForced = new Set(); // 사용자가 '그래도 열기'로 통과시킨 패널
+let _currentNav = 'dashboard', _currentPanelId = 'panel-dashboard';
+function isMobileAdmin() { return window.matchMedia('(max-width:768px)').matches; }
+
+function applyMobileGate(panelId, nav) {
+  const notice = document.getElementById('mobilePcNotice');
+  if (!notice) return;
+  const panel = document.getElementById(panelId);
+  const gated = isMobileAdmin() && MOBILE_PC_ONLY.has(panelId) && !_mobileForced.has(panelId);
+  if (gated) {
+    if (panel) panel.classList.remove('active');
+    notice.dataset.panel = panelId;
+    notice.dataset.nav   = nav || '';
+    const nameEl = document.getElementById('mpnName');
+    if (nameEl) nameEl.textContent = PANEL_LABELS[panelId] || '이 기능';
+    notice.classList.add('show');
+  } else {
+    notice.classList.remove('show');
+    if (panel && !panel.classList.contains('active')) panel.classList.add('active');
+  }
+}
+
+function closeAdmDrawer() {
+  document.querySelector('.adm-sidebar')?.classList.remove('open');
+  document.getElementById('admSidebarScrim')?.classList.remove('open');
+}
 
 function switchNav(nav) {
   // 웹앱 어드민 iframe이 열려있는 상태에서 다른 메뉴로 이동하면 오버레이부터 닫는다.
@@ -174,6 +247,11 @@ function switchNav(nav) {
   if (panelId === 'panel-xp-award'    && typeof xpManualLoadStudents === 'function') { xpEnsureConfig(); xpManualLoadStudents(); }
   if (panelId === 'panel-xp-settings' && typeof xpLoadSettings       === 'function') xpLoadSettings();
   if (panelId === 'panel-dashboard') dbLoad();
+
+  // 모바일: 저작 패널이면 안내 카드로 대체(강제 열기 전까지), 그리고 열린 드로어를 닫는다.
+  _currentNav = nav; _currentPanelId = panelId;
+  applyMobileGate(panelId, nav);
+  closeAdmDrawer();
 }
 
 // 사이드바의 미션 체크 서브메뉴에서 특정 웹앱 어드민을 바로 열 때: 카드 목록 패널로
