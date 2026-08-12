@@ -811,10 +811,11 @@ function makeIconItem(item) {
 
 // ── 생각 체크 모달 ──
 let _thinkItem = null, _thinkStart = null, _thinkCheat = 0, _thinkMyAnswer = '';
-// AI 도움 상태 — 힌트는 강의당 1회, 제출 전 점검은 AI 호출 2회까지(그 뒤엔 점검 없이 바로 제출)
+// AI 도움 상태 — 도움 질문도, 제출 전 점검도 답변당 딱 1회씩.
+// 점검을 다 쓴 뒤 "제출하기"를 누르면 점검 없이 바로 제출된다.
 let _thinkHintUsed = false, _thinkCheckCount = 0, _thinkFlagged = 0, _thinkFixed = false;
 let _thinkProfane = false, _thinkTextAtCheck = '';
-const THINK_CHECK_MAX = 2;
+const THINK_CHECK_MAX = 1;
 
 function resetThinkAid() {
   _thinkHintUsed = false; _thinkCheckCount = 0; _thinkFlagged = 0;
@@ -919,33 +920,68 @@ async function thinkAskClaude(prompt, maxTokens) {
   return (data.content?.[0]?.text || '').replace(/```json|```/g, '').trim();
 }
 
-// ── 쓰기 전 힌트: 답을 주지 않고 되묻기만 한다 (강의당 1회) ──
+// 해당 강의 본문(class_lessons)을 압축해서 가져온다.
+// 질문·안내만으로는 AI가 원래 질문을 되풀이하는 수준의 힌트밖에 못 만든다 —
+// 실제로 배운 제도·사건 이름이 들어가야 학생이 붙잡을 거리가 생긴다.
+async function fetchLessonContext(num) {
+  if (!num || num >= 9999) return '';
+  try {
+    const snap = await getDocs(query(collection(db, 'class_lessons'), where('num', '==', String(num))));
+    if (snap.empty) return '';
+    const lines = snap.docs[0].data()?.content?.contentLines || [];
+    const parts = [];
+    lines.forEach(l => {
+      if (l?.type !== 'row') return;
+      const items = (l.items || []).join(' ');
+      parts.push(`${l.label || ''}: ${items}`);
+    });
+    // 빈칸 표기({정답})와 줄바꿈 태그를 걷어내고 길이를 제한한다.
+    return parts.join('\n').replace(/[{}]/g, '').replace(/<br>/g, ' ').slice(0, 1500);
+  } catch(_) { return ''; }
+}
+
+const THINK_LV_CLS = { '하': '', '중': 'mid', '상': 'high' };
+
+// ── 쓰기 전 도움 질문: 답을 주지 않고 난이도별로 하나씩 (강의당 1회) ──
 document.getElementById('thinkHintBtn').addEventListener('click', async () => {
   if (!_thinkItem || _thinkHintUsed) return;
   const btn = document.getElementById('thinkHintBtn');
   btn.disabled = true;
   btn.innerHTML = `${icon('circle-help', 16)}생각하는 중...`;
 
-  const prompt = `너는 중학교 3학년 역사 수업을 돕는 도우미다. 아래 서술형 질문 앞에서 무엇을 써야 할지 몰라 막힌 학생에게, 답을 알려주지 말고 스스로 떠올리도록 되물어라.
+  try {
+    const lessonCtx = await fetchLessonContext(_thinkItem._n);
+    const prompt = `중학교 3학년 학생이 아래 역사 질문 앞에서 무엇을 써야 할지 몰라 막혀 있다. 답을 알려주지 말고, 스스로 생각을 시작하게 만드는 도움 질문을 난이도별로 하나씩 만들어라.
+
+난이도:
+- 하: 오늘 배운 사실 하나만 떠올리면 되는 것
+- 중: 두 인물이나 두 제도를 견주어 보게 하는 것
+- 상: 무엇을 기준으로 판단할지 스스로 세워 보게 하는 것
 
 반드시 지킬 것:
-- 정답을 말하거나, 어느 쪽이 정답인지 눈치챌 수 있는 표현을 쓰지 마라. 후보를 여러 개 견주게만 하고 한쪽으로 몰지 마라.
-- 학생이 바로 생각을 시작할 수 있는 짧고 구체적인 질문 3개만 만들어라. 각 45자 이내.
-- 수업 안내에 나온 범위 안에서만 물어라. 배우지 않은 내용을 끌어오지 마라.
-- 부드러운 존댓말로 쓰되 "~해 보세요" 같은 지시문이 아니라 물음표로 끝나는 질문이어야 한다.
+- 한 항목은 40자를 넘기지 마라. 짧고 쉬운 한 문장이어야 한다.
+- 아래 자료에 실제로 나온 제도·사건·인물 이름을 하나씩 넣어라. 배우지 않은 내용을 끌어오지 마라.
+- 정답이 무엇인지 티내지 마라. 세 항목이 한 인물로 몰리면 안 된다.
+- 원래 질문을 그대로 되풀이하지 마라.
+- 전부 물음표로 끝낼 필요는 없다. "~을 떠올려 보자", "~을 견주어 보자" 같은 권유형을 섞어라.
 
 질문: "${_thinkItem.question}"
-${_thinkItem.reference ? `수업 안내: "${String(_thinkItem.reference).slice(0, 400)}"` : ''}
+${_thinkItem.reference ? `수업 안내: "${String(_thinkItem.reference).slice(0, 300)}"` : ''}
+${lessonCtx ? `오늘 배운 내용:\n${lessonCtx}` : ''}
 
-다른 텍스트 없이 JSON 배열만 출력: ["질문1","질문2","질문3"]`;
+다른 텍스트 없이 JSON 배열만 출력: [{"level":"하","text":"..."},{"level":"중","text":"..."},{"level":"상","text":"..."}]`;
 
-  try {
-    const raw  = await thinkAskClaude(prompt, 400);
+    const raw  = await thinkAskClaude(prompt, 500);
     const list = JSON.parse(raw.match(/\[[\s\S]*\]/)?.[0] || '[]')
-      .filter(s => typeof s === 'string' && s.trim()).slice(0, 3);
+      .filter(o => o && typeof o.text === 'string' && o.text.trim());
     if (!list.length) throw new Error('빈 응답');
-    document.getElementById('thinkHintList').innerHTML =
-      list.map(q => `<div class="think-aid-item">${esc(q)}</div>`).join('');
+    // 쉬운 것부터 보여준다 — 막힌 학생이 첫 줄에서 걸리면 안 된다.
+    const order = { '하': 0, '중': 1, '상': 2 };
+    list.sort((a, b) => (order[a.level] ?? 9) - (order[b.level] ?? 9));
+    document.getElementById('thinkHintList').innerHTML = list.slice(0, 3).map(o => {
+      const lv = THINK_LV_CLS[o.level] !== undefined ? o.level : '하';
+      return `<div class="think-aid-item"><span class="think-lv ${THINK_LV_CLS[lv]}">${esc(lv)}</span><span>${esc(o.text)}</span></div>`;
+    }).join('');
     document.getElementById('thinkHintPanel').style.display = 'flex';
     _thinkHintUsed = true;
     btn.style.display = 'none';
@@ -953,27 +989,25 @@ ${_thinkItem.reference ? `수업 안내: "${String(_thinkItem.reference).slice(0
     // 실패해도 학생 발목을 잡지 않는다 — 버튼을 되살려 다시 눌러볼 수 있게 한다.
     btn.disabled = false;
     btn.innerHTML = `${icon('circle-help', 16)}다시 시도해 주세요`;
-    setTimeout(() => { if (!_thinkHintUsed) btn.innerHTML = `${icon('circle-help', 16)}생각이 안 떠올라요`; }, 2500);
+    setTimeout(() => { if (!_thinkHintUsed) btn.innerHTML = `${icon('circle-help', 16)}도움 질문 보기`; }, 2500);
   }
 });
 
-// ── 제출 전 점검: 자기 생각·이유가 있는지 + 오타/비속어 (띄어쓰기는 보지 않음) ──
+// ── 제출 전 점검: 오탈자와 비속어만 본다 ──
+// 답변의 내용·품질은 일부러 판단하지 않는다. 그건 학생 본인의 실력이고,
+// AI가 "생각이 부족하다"고 훈수를 두기 시작하면 답변이 AI 취향으로 수렴한다.
 async function runThinkCheck(text) {
-  const prompt = `중학교 3학년 학생이 역사 수업 서술형 질문에 쓴 답변을 제출 직전에 점검한다.
+  const prompt = `중학교 3학년 학생이 쓴 글에서 오탈자와 비속어만 찾아라. 글의 내용이 좋은지 나쁜지, 논리가 있는지는 절대 판단하지 마라.
 
-질문: "${_thinkItem.question}"
-학생 답변: """${text}"""
+학생 글: """${text}"""
 
-아래 네 가지를 판단해라.
-1. hasThought: 자기 생각(누구를 골랐는지, 어떻게 본다는 주장)이 드러나는가
-2. hasReason: 왜 그렇게 생각했는지 이유나 근거를 댔는가
-3. typos: 글자가 틀린 것만 최대 4개. 다음은 절대 넣지 마라 — 띄어쓰기 오류, 문장부호, 어색한 표현이나 문체, 줄임말·구어체(예: "같다", "했음"), 맞다고 볼 여지가 있는 것. 받침·철자가 명백히 틀린 것만 골라라. 각 항목은 {"was":"틀린 그대로","now":"고친 말","why":"6자 이내 이유"}
-4. profanity: 욕설·비속어로 볼 수 있는 표현만 배열로. 없으면 []
+1. typos: 글자가 명백히 틀린 것만 최대 4개. 다음은 절대 넣지 마라 — 띄어쓰기 오류, 문장부호, 어색한 표현이나 문체, 줄임말·구어체(예: "같다", "했음"), 맞다고 볼 여지가 있는 것. 받침·철자가 틀린 것만 골라라. 각 항목은 {"was":"틀린 그대로","now":"고친 말","why":"6자 이내 이유"}
+2. profanity: 욕설·비속어로 볼 수 있는 표현만 배열로. 없으면 []
 
 확신이 없으면 넣지 마라. 틀리지 않은 것을 틀렸다고 하면 안 된다.
-다른 텍스트 없이 JSON만 출력: {"hasThought":true,"hasReason":true,"typos":[],"profanity":[]}`;
+다른 텍스트 없이 JSON만 출력: {"typos":[],"profanity":[]}`;
 
-  const raw = await thinkAskClaude(prompt, 600);
+  const raw = await thinkAskClaude(prompt, 500);
   const r   = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}');
   const typos = (Array.isArray(r.typos) ? r.typos : [])
     .filter(t => t && typeof t.was === 'string' && typeof t.now === 'string' && t.was !== t.now)
@@ -982,18 +1016,12 @@ async function runThinkCheck(text) {
   // 비속어는 공용 사전(shared/profanity.js)을 우선하고, AI가 잡은 변형을 더한다.
   const local = findBadWord(text);
   const bad   = [...new Set([...(local ? [local] : []), ...(Array.isArray(r.profanity) ? r.profanity : []).filter(w => typeof w === 'string' && w.trim())])];
-  return { hasThought: r.hasThought !== false, hasReason: r.hasReason !== false, typos, bad };
+  return { typos, bad };
 }
 
 function renderThinkCheck(r) {
   const row = (cls, ic, html) => `<div class="think-check ${cls}">${icon(ic, 16)}<span>${html}</span></div>`;
   const rows = [];
-  rows.push(r.hasThought
-    ? row('pass', 'circle-check', '<b>내 생각이 담겨 있어요</b>')
-    : row('warn', 'triangle-alert', '<b>내 생각이 잘 안 보여요</b> — 누구를 골랐는지, 어떻게 보는지를 한 문장으로 밝혀 주세요.'));
-  rows.push(r.hasReason
-    ? row('pass', 'circle-check', '<b>이유도 썼어요</b>')
-    : row('warn', 'triangle-alert', '<b>이유가 빠졌어요</b> — 왜 그렇게 생각했는지 근거를 한 가지만 더 써 보세요.'));
   if (r.bad.length)
     rows.push(row('bad', 'triangle-alert', '<b>쓰면 안 되는 말이 있어요</b> — 고쳐서 내 주세요.'));
   if (r.typos.length)
@@ -1087,7 +1115,7 @@ document.getElementById('thinkSubmitBtn').addEventListener('click', async () => 
   _thinkTextAtCheck = text;
 
   // 지적할 게 없으면 한 번 더 누르게 하지 않고 바로 제출한다.
-  if (r.hasThought && r.hasReason && !r.typos.length && !r.bad.length) { doThinkSubmit(); return; }
+  if (!r.typos.length && !r.bad.length) { doThinkSubmit(); return; }
 
   renderThinkCheck(r);
 });
