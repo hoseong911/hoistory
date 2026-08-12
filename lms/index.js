@@ -463,10 +463,13 @@ function startListening() {
 
   // 1. 개념 체크 — class_lessons
   onSnapshot(query(collection(db, 'class_lessons'), orderBy('order','desc')), snap => {
-    sectionData.concept = snap.docs.map(d => {
-      const l = d.data();
-      return { icon: l.num, label: stripLecNum(l.title), sublabel: l.unit, num: l.num, isConcept: true, locked: l.isOpen === false };
-    });
+    // 비공개(isOpen===false)는 생각 체크처럼 허브에서 아예 숨긴다(흐린 잠금 표시 안 함).
+    sectionData.concept = snap.docs
+      .filter(d => d.data().isOpen !== false)
+      .map(d => {
+        const l = d.data();
+        return { icon: l.num, label: stripLecNum(l.title), sublabel: l.unit, num: l.num, isConcept: true, locked: false };
+      });
     renderAll();
   });
 
@@ -477,7 +480,7 @@ function startListening() {
     onSnapshot(query(collection(db, 'cards'), where('category','==', cat)), snap => {
       sectionData.mission = snap.docs
         .map(d => { const data = d.data(); return { docId: d.id, ...data, label: data.title || data.label, url: resolveAppUrl(data.url) }; })
-        .filter(notHismile)
+        .filter(x => notHismile(x) && x.locked !== true) // 비공개(locked)는 생각 체크처럼 허브에서 숨긴다
         .sort((a, b) => (b.order ?? -1) - (a.order ?? -1)); // 최신(order 큰 것)이 위로
       renderAll();
     });
