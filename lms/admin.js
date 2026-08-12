@@ -1911,6 +1911,9 @@ async function ceHandleFileUpload(file) {
     await addDoc(collection(db, 'class_lessons'), ceStripUndefined({
       num, title: content.lesson.title, unit: content.lesson.unit, year: '2026', order, isOpen: false, content
     }));
+    // 업로드로 "생성"만 하고 저장을 안 거치면 생각 체크 활동(think_lectures)·성적 연결이
+    // 안 만들어져 학생 화면에 생각 체크가 안 뜬다. 생성 시점에도 함께 동기화해 둔다.
+    await ceSyncThinkLecture(content);
     await ceGetLessonsFromFirestore();
     ceCurrentLessonNum = num;
     cePopulateLessonSelect();
