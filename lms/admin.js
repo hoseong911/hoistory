@@ -7,6 +7,7 @@ import { getDatabase, ref, get, set, remove, update, onValue, push } from "https
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { mountIconPicker } from '../shared/icon-picker.js';
+import { icon } from '../shared/icons.js';
 
 import { firebaseConfig } from "../shared/firebase-config.js";
 
@@ -75,6 +76,10 @@ function initAdmin() {
 
 // ── 사이드바 ──
 function initSidebar() {
+  // 사이드바 메뉴 아이콘(SVG) 렌더 — 색 점 대신 각 메뉴 성격에 맞는 Lucide 아이콘
+  document.querySelectorAll('.nav-ic[data-nic]').forEach(el => {
+    el.innerHTML = icon(el.dataset.nic, 18);
+  });
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => switchNav(item.dataset.nav));
   });
