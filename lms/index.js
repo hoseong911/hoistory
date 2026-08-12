@@ -451,7 +451,9 @@ let _mileageDays = null;   // 역사 열공 마일리지 누적 일수
 let _openListKey = null;   // 모바일: 현재 열려 있는 섹션 목록 모달의 key (실시간 갱신 시 재렌더용)
 let _gradeAccOpen = false; // 모바일: 성적 아코디언 펼침 상태 (실시간 갱신 시에도 유지)
 // 허브 아이콘은 이미 강 번호를 원 안에 크게 보여주므로, 라벨 앞의 "24강." 같은 중복 번호는 뗀다.
-function stripLecNum(t) { return String(t || '').replace(/^\s*\d+\s*강\.?\s*/, '').trim() || String(t || ''); }
+// 제목 원문에 섞인 편집 문법(**강조**, {빈칸})은 학생 화면에 텍스트로 보일 땐 떼어낸다.
+function stripEmph(t) { return String(t || '').replace(/\*\*/g, '').replace(/[{}]/g, ''); }
+function stripLecNum(t) { const s = stripEmph(t); return s.replace(/^\s*\d+\s*강\.?\s*/, '').trim() || s; }
 // hismile(역사 열공 마일리지)은 전용 마일리지 버튼으로 노출하므로 미션/콘텐츠 카드 목록에서는 제외한다.
 function notHismile(x) { return !/hismile/i.test(x.url || ''); }
 
@@ -847,7 +849,7 @@ function hideThinkCheck() {
 
 async function openThinkModal(item) {
   _thinkItem  = item; _thinkStart = Date.now(); _thinkCheat = 0;
-  document.getElementById('thinkModalTitle').textContent    = item.lectureTitle;
+  document.getElementById('thinkModalTitle').textContent    = stripEmph(item.lectureTitle);
   document.getElementById('thinkModalQuestion').textContent = item.question;
   const refEl = document.getElementById('thinkModalRef');
   if (item.reference) { refEl.textContent = item.reference; refEl.style.display = 'block'; }
@@ -1147,7 +1149,7 @@ window.openGradeDetail = function() {
   const no  = s => `<span class="gd-no">✗</span>`;
   const na  = ()  => `<span class="gd-na">미실시</span>`;
   const rows = g.lectureDetails.map(d => `<tr>
-    <td>${esc(d.title)}</td>
+    <td>${esc(stripEmph(d.title))}</td>
     <td>${d.concept.enabled ? (d.concept.achieved ? ok() : no()) : na()}</td>
     <td>${d.mission.enabled ? (d.mission.achieved ? ok() : no()) : na()}</td>
     <td>${d.think.enabled   ? (d.think.achieved   ? ok() : no()) : na()}</td>
@@ -1182,7 +1184,7 @@ window.openGradeFeedback = function() {
   const withFeedback = g.lectureDetails.filter(d => d.feedback);
   document.getElementById('gradeFeedbackContent').innerHTML = withFeedback.length
     ? withFeedback.map(d => `<div class="feedback-card">
-        <div class="feedback-lec">${esc(d.title)}</div>
+        <div class="feedback-lec">${esc(stripEmph(d.title))}</div>
         <div class="feedback-text">${esc(d.feedback)}</div>
       </div>`).join('')
     : `<div class="feedback-empty">아직 등록된 피드백이 없습니다</div>`;
