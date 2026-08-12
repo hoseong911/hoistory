@@ -1107,7 +1107,7 @@ function ceRenderContentLines(target) {
         // 페이지 단위 공통 액션바(우측 세로) — 모든 형식에서 동일한 모양으로 쓴다.
         const pageActions = `
               <div class="cl-row-actions">
-                <button class="cl-icon-btn" onclick="addRowToGroup('${target}',${divIdx})" title="행 추가">${ceIconPlus()}</button>
+                <button class="cl-icon-btn" onclick="ceShowAddMenu(event,'${target}',${divIdx})" title="추가 (행/페이지)">${ceIconPlus()}</button>
                 <button class="cl-icon-btn" onclick="toggleDividerImg('${target}',${divIdx})" title="${hasImg?'이미지 제거':'이미지 삽입'}">${ceIconImage()}</button>
                 <button class="cl-icon-btn${fmt !== 'rows' ? ' active' : ''}" onclick="ceToggleFmt('${target}',${divIdx})" title="형식 변경">${ceIconSliders()}</button>
                 <button class="cl-icon-btn danger" onclick="${slides.length > 1 ? `deletePair('${target}',${divIdx})` : `deleteGroup('${target}',${slides[0].divIdx})`}" title="이 페이지 삭제">${ceIconTrash()}</button>
@@ -1276,6 +1276,33 @@ function addPageToGroup(target, lastDivIdx) {
     { type: 'row', label: '', items: [] }
   );
   ceRenderContentLines(target); ceRenderPreview();
+}
+
+/* 액션바의 + 버튼: 누르면 "행 추가 / 페이지 추가" 중 고를 수 있는 작은 메뉴를 연다.
+   행 추가는 이 페이지에 행 하나를, 페이지 추가는 같은 제목의 새 페이지를 바로 뒤에 넣는다. */
+function ceShowAddMenu(ev, target, divIdx) {
+  ev.stopPropagation();
+  document.querySelectorAll('.cl-add-menu').forEach(m => m.remove());
+  const btn = ev.currentTarget || (ev.target && ev.target.closest('button'));
+  if (!btn) return;
+  const menu = document.createElement('div');
+  menu.className = 'cl-add-menu';
+  const mkBtn = (label, fn) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.addEventListener('click', () => { menu.remove(); fn(); });
+    return b;
+  };
+  menu.appendChild(mkBtn('행 추가', () => addRowToGroup(target, divIdx)));
+  menu.appendChild(mkBtn('페이지 추가', () => addPageToGroup(target, divIdx)));
+  document.body.appendChild(menu);
+  const r = btn.getBoundingClientRect();
+  const left = Math.max(8, window.scrollX + r.right - menu.offsetWidth);
+  menu.style.top  = `${window.scrollY + r.bottom + 4}px`;
+  menu.style.left = `${left}px`;
+  const off = e => { if (!menu.contains(e.target)) { menu.remove(); document.removeEventListener('mousedown', off); } };
+  setTimeout(() => document.addEventListener('mousedown', off), 0);
 }
 
 function deleteGroup(target, firstDivIdx) {
@@ -3948,7 +3975,7 @@ async function saveGradeRecords() {
 Object.assign(window, {
   switchSubTab, addLesson, deleteLesson, onLessonChange,
   addSlide, addDivider, addContentRow, addImageSlide, toggleDividerImg, deleteLine, deletePair, moveLine,
-  addRowToGroup, addPageToGroup, deleteGroup, deleteRow, updateGroupTitle, ceToggleFmt,
+  addRowToGroup, addPageToGroup, ceShowAddMenu, deleteGroup, deleteRow, updateGroupTitle, ceToggleFmt,
   setLineFormat, toggleLabelPos, setLineFontSize,
   updateEventField, updateEventContent, addEvent, removeEvent,
   updateCompareField, updateCompareItems,
