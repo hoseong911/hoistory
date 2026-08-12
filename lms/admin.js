@@ -4885,11 +4885,11 @@ initAdmin();
     const quality = {};
     if (needAi.length) {
       if (statusEl) statusEl.textContent = `${needAi.length}개 답변 채점 중…`;
-      const prompt = `역사 수업(중학교 3학년)의 질문에 대한 학생 답변을 채점합니다. 학생 답변은 보통 공백 제외 150자 안팎으로 짧습니다. 길이가 짧다는 이유로 감점하지 마세요. "중3 학생이 질문 취지에 맞게 자기 생각을 성실히 썼는가"만 봅니다. 격려 위주로 매우 후하게 매기세요.
-- 90~100: 질문에 맞게 자기 생각이나 근거를 담아 성실히 답함(짧고 문장이 서툴러도 방향이 맞고 성의가 있으면 이 구간 — 주저 말고 100까지 주세요)
-- 70~89: 방향은 맞지만 매우 단편적이거나 근거가 거의 없음
-- 45~69: 관련은 있으나 성의가 뚜렷이 부족
-- 0~44: 질문과 무관, 의미 없는 반복/복붙, 장난 답변
+      const prompt = `역사 수업(중학교 3학년)의 질문에 대한 학생 답변을 채점합니다. 학생 답변은 보통 공백 제외 150자 안팎으로 짧습니다. 길이가 짧다는 이유로 감점하지 마세요. "중3 학생이 질문 취지에 맞게 자기 생각을 썼는가"만 봅니다. 매우 후하게, 격려 위주로 매기세요. 성실히 쓴 답은 기본 90점 이상이라고 보고 시작하고, 감점은 예외적인 경우에만 하세요.
+- 90~100: 질문 취지에 맞게 자기 생각을 씀. 근거가 있거나, 짧고 문장이 서툴러도 방향이 맞고 성의가 보이면 이 구간(성실한 답은 대부분 여기 — 주저 말고 100까지 주세요). 자기 입장을 밝히고 이유를 하나라도 붙였으면 95점 이상.
+- 75~89: 자기 생각은 있으나 질문과 살짝 어긋나거나 근거 없이 매우 단편적
+- 50~74: 관련은 있으나 한두 단어 수준으로 성의가 뚜렷이 부족
+- 0~44: 질문과 완전히 무관, 무의미한 반복/복붙, 장난 답변
 질문: "${lec.question}"
 ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
 답변 목록(JSON): ${JSON.stringify(needAi.map(s => ({ subId: s.subId, text: s.text })))}
@@ -4897,7 +4897,7 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
       try {
         const res = await fetch(CLAUDE_PROXY_URL, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] })
+          body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1024, messages: [{ role: 'user', content: prompt }] })
         });
         if (!res.ok) throw new Error(`API ${res.status}`);
         const data = await res.json();
