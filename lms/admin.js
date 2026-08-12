@@ -154,9 +154,9 @@ const MOBILE_PC_ONLY = new Set([
   'panel-xp-settings'
 ]);
 const PANEL_LABELS = {
-  'panel-concept-content':'개념 체크 · CONTENT','panel-concept-design':'개념 체크 · DESIGN',
-  'panel-mission':'미션 체크','panel-think-question':'생각 체크 · QUESTION',
-  'panel-grade-setting':'성적 · SETTING','panel-contents':'각종 콘텐츠',
+  'panel-concept-content':'개념 Check · CONTENT','panel-concept-design':'개념 Check · DESIGN',
+  'panel-mission':'미션 Check','panel-think-question':'생각 Check · QUESTION',
+  'panel-grade-setting':'성적 Check · SETTING','panel-contents':'각종 콘텐츠',
   'panel-archive-cards':'아카이브 · CARDS','panel-archive-category':'아카이브 · CATEGORY',
   'panel-archive-add':'아카이브 · ADD','panel-students':'학생 관리',
   'panel-settings-system':'설정 · SYSTEM','panel-settings-student':'설정 · STUDENT',
@@ -341,9 +341,9 @@ function dbRender() {
       <div class="db-summary-card"><div class="db-summary-label">채점 대기(생각체크)</div><div class="db-summary-val" style="color:${totalUngraded ? 'var(--critical)' : 'var(--text)'}">${totalUngraded}건</div></div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
-      ${dbToggleCard('개념 체크', _dbConcept, 'concept')}
-      ${dbToggleCard('미션 체크', _dbMission, 'mission')}
-      ${dbToggleCard('생각 체크', _dbThink, 'think')}
+      ${dbToggleCard('개념 Check', _dbConcept, 'concept')}
+      ${dbToggleCard('미션 Check', _dbMission, 'mission')}
+      ${dbToggleCard('생각 Check', _dbThink, 'think')}
     </div>`;
 }
 
@@ -4197,10 +4197,10 @@ initAdmin();
   let menuVis  = { concept: true, mission: true, think: true, grade: true, contents: true };
 
   const MENU_LABELS = [
-    { key: 'concept',  label: '개념 체크' },
-    { key: 'mission',  label: '미션 체크' },
-    { key: 'think',    label: '생각 체크' },
-    { key: 'grade',    label: '성적 확인' },
+    { key: 'concept',  label: '개념 Check' },
+    { key: 'mission',  label: '미션 Check' },
+    { key: 'think',    label: '생각 Check' },
+    { key: 'grade',    label: '성적 Check' },
     { key: 'contents', label: '각종 콘텐츠' },
   ];
 
@@ -4503,7 +4503,7 @@ initAdmin();
       const isOpen = lec.isOpen === true;
       return `
         <div class="th-lec-card">
-          <div class="th-lec-title">${thEsc(lec.title)}</div>
+          <div class="th-lec-title">${thEsc((lec.title||'').replace(/\*\*/g,'').replace(/[{}]/g,''))}</div>
           <div id="th-view-${lec.docId}">
             <div class="th-lec-actions">
               <div class="th-toggle ${isOpen?'on':''}" id="th-tog-${lec.docId}" title="${isOpen?'공개 중':'비공개'}" onclick="thToggleOpen('${lec.docId}',this)"></div>
