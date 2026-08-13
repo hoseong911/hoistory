@@ -1281,3 +1281,46 @@ document.addEventListener('click', e => {
 document.querySelectorAll('[data-icon]').forEach(el => {
   el.innerHTML = icon(el.dataset.icon, el.dataset.iconSize ? +el.dataset.iconSize : 24);
 });
+
+// ── 홈 화면에 추가 (PWA 설치) 버튼 ──
+// 안드로이드/PC 크롬: beforeinstallprompt를 잡아 눌렀을 때 설치창을 바로 띄운다.
+// iOS: 애플이 프롬프트를 막아 두어 "공유 → 홈 화면에 추가" 안내 시트를 대신 띄운다.
+(function initInstallButton() {
+  const btn = document.getElementById('installBtn');
+  if (!btn) return;
+  // 이미 홈 화면 앱으로 실행 중이면 버튼을 숨긴다.
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  if (isStandalone) return;
+
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  let deferredPrompt = null;
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    btn.style.display = 'flex';
+  });
+  window.addEventListener('appinstalled', () => { btn.style.display = 'none'; });
+
+  // iOS는 이벤트가 없으므로 바로 보여주고, 안드로이드도 설치 안내 폴백이 있으니 노출한다.
+  btn.style.display = 'flex';
+
+  const guide = document.getElementById('iosInstallGuide');
+  const closeGuide = () => { if (guide) guide.style.display = 'none'; };
+
+  btn.addEventListener('click', async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      try { await deferredPrompt.userChoice; } catch (_) {}
+      deferredPrompt = null;
+      btn.style.display = 'none';
+    } else if (isIOS) {
+      if (guide) guide.style.display = 'flex';
+    } else {
+      showToast('브라우저 메뉴(⋮)에서 "홈 화면에 추가"를 눌러주세요');
+    }
+  });
+
+  document.getElementById('iosGuideClose')?.addEventListener('click', closeGuide);
+  guide?.addEventListener('click', (e) => { if (e.target === guide) closeGuide(); });
+})();
