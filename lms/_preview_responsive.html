@@ -159,6 +159,16 @@
   function fire(el, type){
     el.dispatchEvent(new el.ownerDocument.defaultView.Event(type, { bubbles: true }));
   }
+  // 두 프레임의 레이아웃이 다를 수 있으므로(로그인 후 허브), 같은 위치라도
+  // "같은 요소"가 맞을 때만 클릭/입력을 복제한다. id·onclick·태그·텍스트로 대조.
+  function equivalent(a, b){
+    if (!a || !b || a.tagName !== b.tagName) return false;
+    if (a.id && b.id) return a.id === b.id;
+    const oa = a.getAttribute && a.getAttribute('onclick');
+    const ob = b.getAttribute && b.getAttribute('onclick');
+    if (oa || ob) return oa === ob;
+    return (a.textContent || '').trim().slice(0, 40) === (b.textContent || '').trim().slice(0, 40);
+  }
 
   function attach(selfFrame, otherFrame){
     const doc = otherDoc(selfFrame);
@@ -168,7 +178,7 @@
     doc.addEventListener('input', e => {
       if (!syncOn() || applying) return;
       const other = otherDoc(otherFrame); if (!other) return;
-      const t = elAt(other, pathOf(e.target)); if (!t) return;
+      const t = elAt(other, pathOf(e.target)); if (!t || !equivalent(e.target, t)) return;
       applying = true;
       try {
         if ('value' in t) t.value = e.target.value;
@@ -180,7 +190,7 @@
     doc.addEventListener('change', e => {
       if (!syncOn() || applying) return;
       const other = otherDoc(otherFrame); if (!other) return;
-      const t = elAt(other, pathOf(e.target)); if (!t) return;
+      const t = elAt(other, pathOf(e.target)); if (!t || !equivalent(e.target, t)) return;
       applying = true;
       try {
         if ('checked' in t) t.checked = e.target.checked;
@@ -192,7 +202,7 @@
     doc.addEventListener('click', e => {
       if (!syncOn() || applying) return;
       const other = otherDoc(otherFrame); if (!other) return;
-      const t = elAt(other, pathOf(e.target)); if (!t) return;
+      const t = elAt(other, pathOf(e.target)); if (!t || !equivalent(e.target, t)) return;
       applying = true;
       try { t.click(); } finally { applying = false; }
     }, true);
@@ -201,7 +211,7 @@
       if (!syncOn() || applying) return;
       if (e.key !== 'Enter') return;
       const other = otherDoc(otherFrame); if (!other) return;
-      const t = elAt(other, pathOf(e.target)); if (!t) return;
+      const t = elAt(other, pathOf(e.target)); if (!t || !equivalent(e.target, t)) return;
       applying = true;
       try { t.dispatchEvent(new other.defaultView.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }
       finally { applying = false; }
@@ -216,8 +226,44 @@
     }, true);
   }
 
-  $('#pcFrame').addEventListener('load', () => attach($('#pcFrame'), $('#moFrame')));
-  $('#moFrame').addEventListener('load', () => attach($('#moFrame'), $('#pcFrame')));
+  /* ── 모달/팝업 동기화 ──
+     허브는 PC·모바일 레이아웃이 달라 트리거(카드) 클릭 복제가 안 맞는다.
+     하지만 모달·팝업 오버레이는 정적 HTML이라 양쪽 DOM이 동일하므로,
+     id 기준으로 열림/닫힘(style·class)과 내용(innerHTML)을 직접 복제한다.
+     값이 같을 때는 쓰지 않아(=변경 없음) 되돌이 루프가 생기지 않는다. */
+  const OVERLAY_RE = /modal|popup|picker|guide|overlay|lightbox|sheet|consent|float/i;
+  function isOverlay(el){
+    return el && el.nodeType === 1 && el.id && (OVERLAY_RE.test(el.id) || OVERLAY_RE.test(el.className || ''));
+  }
+  function mirrorOverlay(el, otherFrame){
+    const other = otherDoc(otherFrame); if (!other) return;
+    const tgt = other.getElementById(el.id); if (!tgt) return;
+    const style = el.getAttribute('style') || '';
+    if ((tgt.getAttribute('style') || '') !== style) tgt.setAttribute('style', style);
+    if (tgt.className !== el.className) tgt.className = el.className;
+    const visible = el.ownerDocument.defaultView.getComputedStyle(el).display !== 'none';
+    if (visible && tgt.innerHTML !== el.innerHTML) tgt.innerHTML = el.innerHTML;
+  }
+  function attachModalSync(selfFrame, otherFrame){
+    const doc = otherDoc(selfFrame);
+    if (!doc || doc.__modalSync) return;
+    doc.__modalSync = true;
+    const Obs = doc.defaultView.MutationObserver;
+    const obs = new Obs(muts => {
+      if (!syncOn()) return;
+      const seen = new Set();
+      for (const m of muts){
+        let el = m.target;
+        if (el && el.nodeType === 3) el = el.parentNode;
+        while (el && el !== doc.body && !isOverlay(el)) el = el.parentNode;
+        if (isOverlay(el) && !seen.has(el)){ seen.add(el); mirrorOverlay(el, otherFrame); }
+      }
+    });
+    obs.observe(doc.body, { attributes: true, attributeFilter: ['style', 'class'], childList: true, subtree: true });
+  }
+
+  $('#pcFrame').addEventListener('load', () => { attach($('#pcFrame'), $('#moFrame')); attachModalSync($('#pcFrame'), $('#moFrame')); });
+  $('#moFrame').addEventListener('load', () => { attach($('#moFrame'), $('#pcFrame')); attachModalSync($('#moFrame'), $('#pcFrame')); });
 
   load();
   layout();
