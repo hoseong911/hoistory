@@ -177,6 +177,24 @@
   function objectivesHTML(lesson) { return numberedListHTML(lesson.objectives, 'Dive into History', '학습 목표'); }
   function chosungHTML(slide, lesson) { return numberedListHTML(slide.items, 'Dive into History', '지난 수업 시간에는?'); }
 
+  // 좌측 라벨 6자 줄바꿈: 6자(공백 포함) 이내로 자르되 6자 안 마지막 공백에서 끊고,
+  // 공백이 없으면 6자에서 강제로 끊는다.
+  function wrapLabelLine(text) {
+    let arr = [...String(text)];
+    if (arr.length <= 6) return [String(text)];
+    const out = [];
+    while (arr.length > 6) {
+      let br = -1;
+      for (let k = Math.min(6, arr.length - 1); k >= 1; k--) { if (arr[k] === ' ') { br = k; break; } }
+      const cut = br > 0 ? br : 6;
+      out.push(arr.slice(0, cut).join('').trim());
+      arr = arr.slice(br > 0 ? cut + 1 : cut);
+      while (arr[0] === ' ') arr = arr.slice(1);
+    }
+    if (arr.length) out.push(arr.join('').trim());
+    return out;
+  }
+
   function rowHTML(row, labelPos) {
     const rawItems = row.items || [];
     const CIRCLE_RE = /^[①-⑳㉑-㊿]\s*/;
@@ -268,7 +286,7 @@
     //  · 줄 끝의 (연도) 같은 괄호 → 아랫줄에 작게 분리
     let labelHtml = '';
     if (hasLabel) {
-      const lines = [];
+      let lines = [];
       String(row.label).replace(/<\/?br\s*\/?>/gi, '\n').split('\n').forEach(raw => {
         let t = raw.trim();
         if (!t) return;
@@ -278,9 +296,17 @@
         if (m && m[1]) { lines.push({ t: m[1].trim(), sub }); lines.push({ t: m[2], sub: true }); }
         else if (t) lines.push({ t, sub });
       });
+      // 좌측 라벨은 6자(공백 포함)까지 한 줄, 넘으면 줄바꿈(6자 이내 마지막 공백에서 끊고,
+      // 공백이 없으면 6자에서 강제 줄바꿈). 줄바꿈되면 라벨을 우측정렬(.multi).
+      if (labelPos === 'left') {
+        const wrapped = [];
+        lines.forEach(o => wrapLabelLine(o.t).forEach(t => wrapped.push({ t, sub: o.sub })));
+        lines = wrapped;
+      }
+      const multiCls = (labelPos === 'left' && lines.length > 1) ? ' multi' : '';
       const inner = lines.map(o =>
         `<span class="row-label-line${o.sub ? ' sub' : ''}">${preserveSpaces(o.t)}</span>`).join('');
-      labelHtml = `<div class="row-label">${inner}</div>`;
+      labelHtml = `<div class="row-label${multiCls}">${inner}</div>`;
     }
     return `
       <div class="concept-row${posClass}${hasLabel ? '' : ' no-label'}">
