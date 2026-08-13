@@ -2904,6 +2904,10 @@ function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
+// 강의 제목을 평문(드롭다운·목록 등)으로 보여줄 때 편집 마크업(**강조**, {빈칸})을 떼어낸다.
+// 커버 슬라이드는 이 마크업을 굵게/빈칸으로 렌더하므로 저장값 자체에는 남겨 둔다.
+function cleanTitle(t) { return String(t || '').replace(/\*\*/g, '').replace(/[{}]/g, ''); }
+
 // 미션 카드 URL은 hoistory 루트 기준 상대경로(예: interview/admin.html)로 입력받는다.
 // 이 페이지 자체가 lms/ 하위에 있어 그대로 쓰면 lms/interview/... 로 잘못 풀리므로 루트 기준으로 보정한다.
 function resolveAppUrl(u) {
@@ -2939,7 +2943,7 @@ async function initGradeTab() {
     _gradeLessons.forEach(l => {
       const o = document.createElement('option');
       o.value = l.num;
-      o.textContent = `${l.num}강 · ${l.title || ''}`;
+      o.textContent = `${l.num}강 · ${cleanTitle(l.title)}`;
       lessonSel.appendChild(o);
     });
     lessonSel.addEventListener('change', onGradeLessonChange);
@@ -3659,7 +3663,7 @@ async function fetchAllConceptLectures() {
   return snap.docs
     .map(d => {
       const data = d.data();
-      return { key: data.num, title: `${data.num}강 · ${data.title || ''}` };
+      return { key: data.num, title: `${data.num}강 · ${cleanTitle(data.title)}` };
     })
     .filter(l => l.key)
     .sort((a, b) => parseInt(a.key || 0) - parseInt(b.key || 0));

@@ -471,7 +471,16 @@ async function init() {
   // 복습 모드는 세로면 '가로로 돌려주세요' 안내를 띄우고 가로에서 진행하므로,
   // 항상 데스크톱식(한 장 크게 보기) 레이아웃을 써서 가로에서 글자·커서가 크게 보이게 한다.
   if (reviewMode) document.body.classList.add('review-mode');
-  const isMobileLayout = window.innerWidth <= 820 && !reviewMode;
+  const coarsePointer = window.matchMedia('(pointer: coarse)').matches; // 터치 기기 여부
+  // 좁은 화면(폰)뿐 아니라, PC라도 창이 좁거나(≤1024) 16:9에 안 맞게 세로로 긴 창이면
+  // 데스크톱 push 방식 대신 슬라이드를 세로로 이어붙이는 모바일식 스크롤을 쓴다.
+  function wantsMobileLayout() {
+    if (reviewMode) return false;
+    if (window.innerWidth <= 820) return true;
+    if (!coarsePointer && (window.innerWidth <= 1024 || (window.innerWidth / window.innerHeight) < 1.4)) return true;
+    return false;
+  }
+  const isMobileLayout = wantsMobileLayout();
   if (isMobileLayout) {
     document.body.classList.add('mobile-scroll');
     /* 각 슬라이드를 16:9 프레임으로 감싸, 프레임 폭에 맞춰 scale만 적용한다
@@ -804,9 +813,18 @@ async function init() {
     frames.forEach(f => io.observe(f));
   }
 
+  let _layoutResizeT = null;
   window.addEventListener('resize', () => {
     if (isMobileLayout) rescaleMobileSlides();
     else rescaleSlides();
+    // PC에서 창 크기를 바꿔 레이아웃 종류가 달라지면(좁아짐↔넓어짐) 다시 그린다.
+    // 터치 기기(폰 회전 등)는 잦은 새로고침을 피하려고 대상에서 뺀다.
+    if (!coarsePointer) {
+      clearTimeout(_layoutResizeT);
+      _layoutResizeT = setTimeout(() => {
+        if (wantsMobileLayout() !== isMobileLayout) location.reload();
+      }, 450);
+    }
   });
   if (!isMobileLayout) rescaleSlides();
 
