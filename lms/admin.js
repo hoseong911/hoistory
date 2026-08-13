@@ -337,14 +337,6 @@ function dbRender() {
   if (!el) return;
   const totalUngraded = _dbThink.reduce((a, t) => a + (t.ungraded || 0), 0);
   el.innerHTML = `
-    <div class="stu-card" style="margin-bottom:14px">
-      <div class="stu-card-head">학생 검색</div>
-      <div style="display:flex;gap:8px;padding:12px 18px 0">
-        <input id="db-stu-q" class="stu-edit-input" style="flex:1" inputmode="numeric" maxlength="5" placeholder="학번 5자리 입력" onkeydown="if(event.key==='Enter')dbStudentSearch()">
-        <button class="add-btn" onclick="dbStudentSearch()">검색</button>
-      </div>
-      <div id="db-stu-result" style="padding:10px 18px 14px"></div>
-    </div>
     <div class="db-summary-row">
       <div class="db-summary-card"><div class="db-summary-label">오늘 출석</div><div class="db-summary-val">${_dbToday.attend} / ${_dbStuCount}명</div></div>
       <div class="db-summary-card"><div class="db-summary-label">오늘 생각체크 제출</div><div class="db-summary-val">${_dbToday.thinkSubmit}건</div></div>
@@ -355,6 +347,14 @@ function dbRender() {
       ${dbToggleCard('개념 Check', _dbConcept, 'concept')}
       ${dbToggleCard('미션 Check', _dbMission, 'mission')}
       ${dbToggleCard('생각 Check', _dbThink, 'think')}
+    </div>
+    <div class="stu-card" style="margin-top:14px">
+      <div class="stu-card-head">학생 검색</div>
+      <div style="display:flex;gap:8px;padding:12px 18px 0">
+        <input id="db-stu-q" class="stu-edit-input" style="flex:1" inputmode="numeric" maxlength="5" placeholder="학번 5자리 입력" onkeydown="if(event.key==='Enter')dbStudentSearch()">
+        <button class="add-btn" onclick="dbStudentSearch()">검색</button>
+      </div>
+      <div id="db-stu-result" style="padding:10px 18px 14px"></div>
     </div>`;
 }
 
@@ -371,22 +371,24 @@ window.dbStudentSearch = async function() {
   try {
     const snap = await getDocs(query(collection(db, 'grade_records'), where('studentId', '==', sid)));
     const recs = snap.docs.map(d => d.data());
-    const cnt = { concept: 0, mission: 0, think: 0 };
+    const recByKey = {};
     const fbs = [];
     recs.forEach(r => {
-      if (r.concept?.achieved) cnt.concept++;
-      if (r.mission?.achieved) cnt.mission++;
-      if (r.think?.achieved) cnt.think++;
+      if (r.lessonKey) recByKey[r.lessonKey] = r;
       if (r.feedback && String(r.feedback).trim()) fbs.push({ key: r.lessonKey || '', text: String(r.feedback).trim() });
     });
+
+    // 성적 Check(GRADE)와 동일하게 계산해서 그대로 보여준다.
+    const score = await dbComputeStudentScore(recByKey);
+
     box.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <div style="font-size:15px"><b>${esc(name)}</b> <span style="color:var(--sub);font-size:13px">${esc(sid)}</span></div>
         <button class="add-btn" onclick="dbResetPw('${esc(sid)}','${esc(name)}')">PW 초기화</button>
       </div>
-      <div style="font-size:13px;color:var(--text);margin-top:8px">달성 현황  개념 ${cnt.concept}회, 미션 ${cnt.mission}회, 생각 ${cnt.think}회 <span style="color:var(--sub)">(성적 기록 ${recs.length}건)</span></div>
+      ${dbRenderStudentScore(score, recs.length)}
       ${fbs.length
-        ? `<div style="font-size:12px;font-weight:700;color:var(--sub);margin:10px 0 4px">피드백 ${fbs.length}건</div>` +
+        ? `<div style="font-size:12px;font-weight:700;color:var(--sub);margin:12px 0 4px">피드백 ${fbs.length}건</div>` +
           fbs.map(f => `<div style="font-size:13px;padding:6px 0;border-top:1px solid var(--hairline-soft)"><b style="color:var(--sub)">${esc(String(f.key))}</b> ${esc(f.text)}</div>`).join('')
         : `<div style="font-size:13px;color:var(--sub);margin-top:8px">등록된 피드백이 없어요.</div>`}
     `;
@@ -394,6 +396,82 @@ window.dbStudentSearch = async function() {
     box.innerHTML = `<div style="color:var(--critical);font-size:13px">불러오기 실패: ${esc(e.message)}</div>`;
   }
 };
+
+// 성적 Check(GRADE, loadScoreData)의 계산 로직을 한 학생분만 그대로 재현한다.
+// grade_settings/config 급간·반영 강의 + grade_lecture_config 미실시/가중치를 반영한다.
+// 반환: { concept, mission, think, total, maxScore, lectureCount } 또는 null(설정 없음)
+async function dbComputeStudentScore(recByKey) {
+  const settingsSnap = await getDoc(doc(db, 'grade_settings', 'config'));
+  if (!settingsSnap.exists()) return null;
+  const { selectedLectures = [], bands = [] } = settingsSnap.data();
+  if (!selectedLectures.length || !bands.length) return null;
+
+  const enabledMap = {};
+  await Promise.all(selectedLectures.map(async key => {
+    try {
+      const snap = await getDoc(doc(db, 'grade_lecture_config', key));
+      const d = snap.exists() ? snap.data() : {};
+      enabledMap[key] = {
+        concept: d.conceptEnabled !== false, mission: d.missionEnabled !== false, think: d.thinkEnabled !== false,
+        conceptWeight: parseInt(d.conceptWeight) || 1, missionWeight: parseInt(d.missionWeight) || 1, thinkWeight: parseInt(d.thinkWeight) || 1,
+      };
+    } catch(e) { enabledMap[key] = { concept:true, mission:true, think:true, conceptWeight:1, missionWeight:1, thinkWeight:1 }; }
+  }));
+
+  const calcScore = (achieved, total, type) => {
+    if (!total) return { achieved:0, total:0, pct:0, score:0 };
+    const pct = Math.round(achieved / total * 100);
+    const band = bands.find(b => pct >= b.min) || bands[bands.length-1];
+    return { achieved, total, pct, score: band ? (band[type]||0) : 0 };
+  };
+
+  let cA=0, cN=0, mA=0, mN=0, tA=0, tN=0;
+  selectedLectures.forEach(key => {
+    const en = enabledMap[key];
+    const rec = recByKey[key];
+    if (en.concept) { cN += 2*en.conceptWeight; if (rec?.concept?.achieved) cA += en.conceptWeight; if (rec?.concept?.onTime) cA += en.conceptWeight; }
+    if (en.mission) { mN += 2*en.missionWeight; if (rec?.mission?.achieved) mA += en.missionWeight; if (rec?.mission?.onTime) mA += en.missionWeight; }
+    if (en.think)   { tN += 2*en.thinkWeight;   if (rec?.think?.achieved)   tA += en.thinkWeight;   if (rec?.think?.onTime)   tA += en.thinkWeight; }
+  });
+  const concept = calcScore(cA, cN, 'concept');
+  const mission = calcScore(mA, mN, 'mission');
+  const think   = calcScore(tA, tN, 'think');
+  const maxScore = (bands[0]?.concept||0) + (bands[0]?.mission||0) + (bands[0]?.think||0);
+  return { concept, mission, think, total: concept.score + mission.score + think.score, maxScore, lectureCount: selectedLectures.length };
+}
+
+// 성적 Check(GRADE) 표를 한 학생분만 그대로 축약해 보여준다.
+function dbRenderStudentScore(s, recCount) {
+  if (!s) {
+    return `<div style="font-size:13px;color:var(--sub);margin-top:8px">성적 설정(반영 강의·급간)이 없어 점수를 계산할 수 없어요. <span style="color:var(--sub)">(성적 기록 ${recCount}건)</span></div>`;
+  }
+  const cell = (o, color) => o.total
+    ? `<td style="text-align:center">${o.achieved}/${o.total}</td><td style="text-align:center">${o.pct}%</td><td style="text-align:center;font-weight:700;color:${color}">${o.score}</td>`
+    : `<td style="text-align:center">미실시</td><td style="text-align:center">—</td><td style="text-align:center">—</td>`;
+  return `
+    <div style="font-size:12px;color:var(--sub);margin:10px 0 6px">성적 Check 기준 · 반영 강의 ${s.lectureCount}개 · 최대 ${s.maxScore}점</div>
+    <div style="overflow-x:auto"><table class="grade-score-table" style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr>
+          <th style="padding:5px" colspan="3" class="sh-c">개념체크</th>
+          <th style="padding:5px" colspan="3" class="sh-m">미션체크</th>
+          <th style="padding:5px" colspan="3" class="sh-t">생각체크</th>
+          <th style="padding:5px" rowspan="2" class="sh-tot">총점<br><span style="font-size:10px;font-weight:400">/${s.maxScore}</span></th>
+        </tr>
+        <tr>
+          <th class="sh-c">달성</th><th class="sh-c">%</th><th class="sh-c">점수</th>
+          <th class="sh-m">달성</th><th class="sh-m">%</th><th class="sh-m">점수</th>
+          <th class="sh-t">달성</th><th class="sh-t">%</th><th class="sh-t">점수</th>
+        </tr>
+      </thead>
+      <tbody><tr>
+        ${cell(s.concept, 'var(--c1)')}
+        ${cell(s.mission, 'var(--c2)')}
+        ${cell(s.think, 'var(--c1)')}
+        <td style="text-align:center;font-weight:800;color:var(--c4)">${s.total}</td>
+      </tr></tbody>
+    </table></div>`;
+}
 
 // 학생이 LMS 로그인 때 설정한 비밀번호(lms_auth/{학번})를 지워 초기화한다(다음 로그인 때 재설정).
 window.dbResetPw = async function(sid, name) {
@@ -416,8 +494,10 @@ function dbToggleCard(title, list, kind) {
         const gradeBtn = kind === 'think'
           ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbGoGrade('${item.docId}')">채점${item.ungraded ? ` <b>${item.ungraded}</b>` : ''}</button>`
           : '';
-        const editBtn = kind === 'concept'
-          ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbEditLesson('${esc(String(item.num))}')">수정</button>`
+        const editBtn =
+            kind === 'concept' ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbEditLesson('${esc(String(item.num))}')">수정</button>`
+          : kind === 'mission' ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbEditMission()">수정</button>`
+          : kind === 'think'   ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbEditThink()">수정</button>`
           : '';
         return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--hairline-soft)">
             <span style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
@@ -459,6 +539,12 @@ window.dbGoGrade = function(lecId) {
   if (sel) sel.value = lecId;
   if (window.thRenderAnswerClass) window.thRenderAnswerClass();
 };
+
+// 대시보드 → 미션 체크(카드 목록) 편집 화면으로 이동.
+window.dbEditMission = function() { switchNav('mission'); };
+
+// 대시보드 → 생각 체크 QUESTION(강의·질문 편집) 화면으로 이동.
+window.dbEditThink = function() { switchNav('think-question'); };
 
 // ── Firestore: lms_items (개념·미션·생각 섹션용) ──
 let _items = [];
