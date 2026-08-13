@@ -32,6 +32,8 @@
         /* ─── LMS 모달 임베드: 앱 자체 헤더 숨김(모달 상단 제목과 중복 방지) ─── */
         body.hi-embedded #screen-main .hi-header { display: none; }
         body.hi-embedded .hi-page { padding-top: 8px; }
+        /* 임베드(LMS 모달) 부팅 중엔 자동 로그인 전 로그인 화면이 번쩍이지 않게 첫 페인트부터 숨긴다 */
+        html.hi-embed-boot #screen-login { display: none !important; }
 
         /* ─── lms 연동 폰트 (제목류는 lms와 동일하게 Paperlogy) ─── */
         .hi-header-title { font-family: 'Paperlogy', sans-serif; }
@@ -394,6 +396,16 @@
 </head>
 
 <body class="hi-preset-lms">
+<script>
+    // LMS 모달로 임베드된 경우, 자동 로그인 전 로그인 화면이 번쩍이지 않게 첫 페인트부터 숨긴다.
+    // (자동 로그인이 안 되면 DOMContentLoaded 끝에서 hi-embed-boot 를 풀어 로그인 화면을 다시 보여준다.)
+    try {
+        var _bootQs = new URLSearchParams(location.search);
+        if (window.self !== window.top || _bootQs.get('embed') === '1') {
+            document.documentElement.classList.add('hi-embed-boot');
+        }
+    } catch (e) {}
+</script>
 <div class="hi-page">
 
     <!-- ════════════════════════════════════════════════════════
@@ -880,6 +892,10 @@ import { firebaseConfig } from "../shared/firebase-config.js";
                 showMain();
             }
         } catch(e) { localStorage.removeItem('hi_history_user'); }
+
+        // 여기까지 왔다는 건 임베드 자동 로그인이 안 됐다는 뜻 — 숨겨둔 로그인 화면을 다시 보여준다.
+        // (자동 로그인 성공 시엔 위에서 이미 return 했고, showMain은 로그인 화면에 hi-hidden을 걸어둔다.)
+        document.documentElement.classList.remove('hi-embed-boot');
     });
 
     // ────────────────────────────────────────────────────────
