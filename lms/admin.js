@@ -3072,7 +3072,7 @@ async function initGradeTab() {
     _gradeLessons.forEach(l => {
       const o = document.createElement('option');
       o.value = l.num;
-      o.textContent = `${l.num}강 · ${cleanTitle(l.title)}`;
+      o.textContent = `${l.num}강. ${cleanTitle(l.title)}`;
       lessonSel.appendChild(o);
     });
     lessonSel.addEventListener('change', onGradeLessonChange);
@@ -3792,7 +3792,7 @@ async function fetchAllConceptLectures() {
   return snap.docs
     .map(d => {
       const data = d.data();
-      return { key: data.num, title: `${data.num}강 · ${cleanTitle(data.title)}` };
+      return { key: data.num, title: `${data.num}강. ${cleanTitle(data.title)}` };
     })
     .filter(l => l.key)
     .sort((a, b) => parseInt(a.key || 0) - parseInt(b.key || 0));
