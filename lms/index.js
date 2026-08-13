@@ -5,7 +5,7 @@ import {
   doc, getDoc, setDoc, addDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getDatabase, ref as rtdbRef, get as rtdbGet, set as rtdbSet, push as rtdbPush, update as rtdbUpdate, onValue as rtdbOnValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
-import { initAuth, mountLoginVerification, verifyStudentId, verifyStudentName } from "../shared/auth.js";
+import { initAuth, verifyStudentId, verifyStudentName, isStudentMapLoaded } from "../shared/auth.js";
 import "../shared/offline.js";
 import { firebaseConfig } from "../shared/firebase-config.js";
 import { initXP, onXPChange, checkAndAddAttendance, calcLevel, calcNextThreshold } from "../shared/xp.js";
@@ -73,9 +73,10 @@ const pwInput    = document.getElementById('pwInput');
 const statusArea = document.getElementById('statusArea');
 const enterBtn   = document.getElementById('enterBtn');
 
-let _idValid = false, _nameValid = false;
 let _pendingId = '', _pendingName = '';
-let _hasPw = false, _storedPw = null, _pwChecked = false, _pwValid = false, _pwAttemptFailed = false;
+let _matched = false;                 // 학번+이름이 명단과 조용히 일치하는지 (에러는 표시하지 않음)
+let _hasPw = false, _storedPw = null, _pwChecked = false, _pwAttemptFailed = false;
+let _pwLookupToken = 0;               // 입력이 바뀌면 이전 비밀번호 조회 결과를 무시
 let currentStudentId   = sessionStorage.getItem('lms_sid')   || '';
 let currentStudentName = sessionStorage.getItem('lms_sname') || '';
 
@@ -107,174 +108,163 @@ document.getElementById('autosaveResetBtn').addEventListener('click', () => {
   document.getElementById('normalLoginForm').style.display = 'flex';
 });
 
-mountLoginVerification({
-  idInput, nameInput,
-  onChange: (s) => {
-    _idValid     = s.idValid;
-    _nameValid   = s.nameValid;
-    _pendingId   = idInput.value.trim();
-    _pendingName = s.registeredName || nameInput.value.trim();
-    if (_idValid && _nameValid) {
-      pwInput.disabled = false;
-      if (!_pwChecked || pwInput.dataset.forId !== _pendingId) fetchStoredPassword(_pendingId);
-    } else {
-      pwInput.disabled = true; pwInput.value = '';
-      _hasPw = false; _storedPw = null; _pwChecked = false; _pwValid = false; _pwAttemptFailed = false;
-      pwInput.placeholder = '비밀번호'; pwInput.dataset.forId = '';
-    }
-    nameInput.classList.toggle('valid', _nameValid);
-    nameInput.classList.toggle('error', _idValid && !_nameValid && nameInput.value.trim() !== '');
-    updateStatus();
-  }
-});
+// ── 로그인 ──
+// 입력 중엔 학번/이름 일치 여부를 표시하지 않고(스펙 1·2), 조용히 명단과 대조해
+// "맞을 때만" 비밀번호 안내(설정/입력)를 띄운다(스펙 3·4·5). 최종 검증은 로그인 버튼에서만.
 
-async function fetchStoredPassword(sid) {
-  _pwChecked = false; _hasPw = false; _storedPw = null;
-  pwInput.placeholder = '비밀번호 확인 중...'; pwInput.dataset.forId = sid;
-  try {
-    const snap = await getDoc(doc(db, 'lms_auth', sid));
-    if (snap.exists() && snap.data().pw) { _hasPw = true; _storedPw = snap.data().pw; pwInput.placeholder = '비밀번호'; }
-    else { pwInput.placeholder = '비밀번호 (첫 방문: 직접 설정)'; }
-  } catch(_) { pwInput.placeholder = '비밀번호 (선택)'; }
-  _pwChecked = true; validatePassword(); updateStatus();
+// 비밀번호는 SHA-256(학번 salt) 해시로 저장한다. 기존 평문은 로그인 성공 시 해시로 자동 업그레이드.
+async function hashPw(pw, salt) {
+  const data = new TextEncoder().encode(`lms:${salt}:${pw}`);
+  const buf  = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+const isHash = v => typeof v === 'string' && /^[0-9a-f]{64}$/.test(v);
+async function pwMatches(input, stored, salt) {
+  if (stored == null) return false;
+  return isHash(stored) ? (await hashPw(input, salt)) === stored : input === stored; // 평문(legacy) 호환
 }
 
-pwInput.addEventListener('input', () => { _pwAttemptFailed = false; validatePassword(); });
-function validatePassword() {
-  if (!_pwChecked) { _pwValid = false; updateStatus(); return; }
-  const val = pwInput.value;
-  _pwValid = _hasPw ? val === _storedPw : (val === '' || val.length >= 4);
-  pwInput.classList.toggle('valid', _pwValid && val !== '');
-  pwInput.classList.toggle('error', _pwAttemptFailed);
-  updateStatus();
-}
-
-function updateStatus() {
-  let line = null;
-  if (!_idValid) {
-    if (idInput.value.length > 0 && idInput.value.length < 5) line = { type:'muted', icon:'·', text:`학번은 5자리입니다 (현재 ${idInput.value.length}자리)` };
-    else if (idInput.value.length === 5) line = { type:'err', icon:'✕', text:'명단에 없는 학번입니다' };
-  } else if (!_nameValid) {
-    if (nameInput.value.trim() !== '') line = { type:'err', icon:'✕', text:'이름을 다시 확인해 주세요' };
-  } else if (_pwChecked) {
-    if (_hasPw) {
-      if (_pwAttemptFailed)        line = { type:'err',  icon:'✕',  text:'비밀번호가 틀렸습니다. 다시 입력해 주세요.' };
-      else if (pwInput.value === '') line = { type:'info', icon:'🔒', text:'비밀번호가 설정되어 있습니다. 입력해 주세요.' };
-    } else {
-      if (pwInput.value.length > 0 && pwInput.value.length < 4) line = { type:'muted', icon:'·', text:'비밀번호는 4자 이상으로 설정해 주세요' };
-      else if (pwInput.value.length >= 4) line = { type:'ok', icon:'✓', text:'새 비밀번호가 설정됩니다' };
-    }
-  }
+function setStatusLine(line) {
   statusArea.innerHTML = line
     ? `<div class="status-line ${line.type}"><span class="status-icon">${line.icon}</span>${esc(line.text)}</div>` : '';
-  // 비밀번호는 입력 중엔 막지 않고, 입장 시도 시점에 검증한다 (한 글자만 쳐도 "틀렸다"고 뜨는 문제 방지)
-  const canEnter = _idValid && _nameValid && _pwChecked && (_hasPw ? pwInput.value.length > 0 : (pwInput.value === '' || pwInput.value.length >= 4));
-  enterBtn.disabled = !canEnter;
 }
+
+function updateLoginUI() {
+  let line = null;
+  if (_matched && _pwChecked) {
+    if (_hasPw) {
+      line = _pwAttemptFailed
+        ? { type:'err',  icon:'✕',  text:'비밀번호가 틀렸습니다. 다시 입력해 주세요.' }
+        : { type:'info', icon:'🔒', text:'비밀번호를 입력하세요.' };
+    } else {
+      line = { type:'ok', icon:'✓', text:'처음이시네요! 사용할 비밀번호를 설정하세요 (4자 이상).' };
+    }
+  } else if (_matched && !_pwChecked) {
+    line = { type:'muted', icon:'·', text:'확인 중…' };
+  }
+  // 명단과 안 맞으면 아무것도 표시하지 않는다(스펙대로). 에러는 로그인 버튼에서만.
+  setStatusLine(line);
+  pwInput.classList.toggle('error', _pwAttemptFailed);
+  pwInput.disabled = !_matched;
+  enterBtn.disabled = !(idInput.value.trim() && nameInput.value.trim());
+}
+
+// 조용한 명단 대조 + 비밀번호 존재 여부 조회
+async function refreshCreds() {
+  _pendingId   = idInput.value.trim();
+  _pendingName = nameInput.value.trim();
+  _pwAttemptFailed = false;
+
+  const idRes   = verifyStudentId(_pendingId);
+  const nameRes = idRes.ok ? verifyStudentName(_pendingId, _pendingName) : { ok:false };
+  _matched = !!(idRes.ok && nameRes.ok && _pendingName);
+
+  if (!_matched) {
+    _pwChecked = false; _hasPw = false; _storedPw = null;
+    pwInput.value = '';
+    updateLoginUI();
+    return;
+  }
+
+  const token = ++_pwLookupToken;
+  _pwChecked = false;
+  updateLoginUI();                       // "확인 중…"
+  let hasPw = false, stored = null;
+  try {
+    const snap = await getDoc(doc(db, 'lms_auth', _pendingId));
+    if (snap.exists() && snap.data().pw) { hasPw = true; stored = snap.data().pw; }
+  } catch(_) {}
+  if (token !== _pwLookupToken) return;  // 그 사이 입력이 바뀌었으면 결과 무시
+  _hasPw = hasPw; _storedPw = stored; _pwChecked = true;
+  updateLoginUI();
+}
+
+idInput.addEventListener('input', () => {
+  const v = idInput.value.replace(/\D/g, '');
+  if (idInput.value !== v) idInput.value = v;
+  refreshCreds();
+});
+nameInput.addEventListener('input', refreshCreds);
+pwInput.addEventListener('input', () => { _pwAttemptFailed = false; updateLoginUI(); });
+
+// 명단이 로그인 화면보다 늦게 로드될 수 있으므로, 로드되면 한 번 다시 대조한다.
+(function waitRoster() {
+  if (isStudentMapLoaded()) { refreshCreds(); return; }
+  setTimeout(waitRoster, 200);
+})();
 
 [idInput, nameInput, pwInput].forEach(el => {
   el.addEventListener('keydown', e => { if (e.key === 'Enter' && !enterBtn.disabled) enterBtn.click(); });
 });
 
 enterBtn.addEventListener('click', async () => {
-  if (!_pendingId || !_pendingName) return;
-  if (_hasPw && pwInput.value !== _storedPw) {
-    _pwAttemptFailed = true;
-    pwInput.classList.add('error');
-    updateStatus();
-    pwInput.focus();
+  const id   = idInput.value.trim();
+  const name = nameInput.value.trim();
+  if (!id || !name) return;
+
+  // 1) 로그인 버튼을 눌렀을 때만 명단을 검증하고 에러를 표시한다(스펙 1·2).
+  const idRes = verifyStudentId(id);
+  if (!idRes.ok) {
+    setStatusLine({ type:'err', icon:'✕',
+      text: idRes.reason === 'format' ? '학번은 숫자 5자리입니다.' : '학번 또는 이름을 확인해 주세요.' });
     return;
   }
-  if (!_hasPw && pwInput.value.length >= 4) {
-    try { await setDoc(doc(db, 'lms_auth', _pendingId), { pw: pwInput.value }); } catch(_) {}
+  const nameRes = verifyStudentName(id, name);
+  if (!nameRes.ok) {
+    setStatusLine({ type:'err', icon:'✕', text:'학번 또는 이름을 확인해 주세요.' });
+    return;
   }
-  sessionStorage.setItem('lms_sid',   _pendingId);
-  sessionStorage.setItem('lms_sname', _pendingName);
+  const registeredName = nameRes.registeredName || name;
+
+  // 2) 비밀번호 확인/설정 (조회 결과가 아직이면 여기서 한 번 더 읽는다)
+  let hasPw = _hasPw, stored = _storedPw;
+  if (!_pwChecked || _pendingId !== id) {
+    try {
+      const snap = await getDoc(doc(db, 'lms_auth', id));
+      hasPw  = snap.exists() && !!snap.data().pw;
+      stored = hasPw ? snap.data().pw : null;
+    } catch(_) {}
+  }
+  const pw = pwInput.value;
+  if (hasPw) {
+    if (!(await pwMatches(pw, stored, id))) {
+      _pwAttemptFailed = true; updateLoginUI(); pwInput.focus(); return;
+    }
+    if (!isHash(stored)) {                 // 평문 → 해시로 업그레이드
+      try { await setDoc(doc(db, 'lms_auth', id), { pw: await hashPw(pw, id) }); } catch(_) {}
+    }
+  } else {
+    if (pw.length < 4) {
+      setStatusLine({ type:'err', icon:'✕', text:'비밀번호를 4자 이상으로 설정해 주세요.' });
+      pwInput.focus(); return;
+    }
+    try { await setDoc(doc(db, 'lms_auth', id), { pw: await hashPw(pw, id) }); } catch(_) {}
+  }
+
+  // 3) 세션 저장 + 자동 로그인 + 진입 (첫 로그인이면 진입 흐름에서 개인정보 동의)
+  sessionStorage.setItem('lms_sid',   id);
+  sessionStorage.setItem('lms_sname', registeredName);
   if (document.getElementById('autosaveCheck')?.checked) {
-    localStorage.setItem('lms_autosave_sid',   _pendingId);
-    localStorage.setItem('lms_autosave_sname', _pendingName);
+    localStorage.setItem('lms_autosave_sid',   id);
+    localStorage.setItem('lms_autosave_sname', registeredName);
   } else {
     localStorage.removeItem('lms_autosave_sid');
     localStorage.removeItem('lms_autosave_sname');
   }
-  currentStudentId   = _pendingId;
-  currentStudentName = _pendingName;
-  checkConsentThenEnter(_pendingId, _pendingName);
+  currentStudentId   = id;
+  currentStudentName = registeredName;
+  checkConsentThenEnter(id, registeredName);
 });
 
-// ── 비밀번호 재설정 ──
-const resetPwForm     = document.getElementById('resetPwForm');
-const resetIdInput    = document.getElementById('resetIdInput');
-const resetNameInput  = document.getElementById('resetNameInput');
-const resetNewPwInput = document.getElementById('resetNewPwInput');
-const resetPwStatus   = document.getElementById('resetPwStatus');
-const resetConfirmBtn = document.getElementById('resetConfirmBtn');
-
-function showResetPwForm() {
-  document.getElementById('normalLoginForm').style.display = 'none';
-  document.getElementById('autoSaveCard').style.display    = 'none';
-  resetPwForm.style.display = 'flex';
-  resetIdInput.focus();
-}
-function hideResetPwForm() {
-  resetPwForm.style.display = 'none';
-  resetIdInput.value = ''; resetNameInput.value = ''; resetNewPwInput.value = '';
-  setResetStatus('', '');
-  resetConfirmBtn.disabled = true;
-  if (localStorage.getItem('lms_autosave_sid')) {
-    document.getElementById('autoSaveCard').style.display = 'flex';
-  } else {
-    document.getElementById('normalLoginForm').style.display = 'flex';
-  }
-}
-function setResetStatus(msg, type) {
-  resetPwStatus.textContent = msg;
-  resetPwStatus.className = 'reset-pw-status' + (type ? ' ' + type : '');
-}
-function validateResetForm() {
-  const id   = resetIdInput.value.trim();
-  const name = resetNameInput.value.trim();
-  const pw   = resetNewPwInput.value;
-  const idRes = verifyStudentId(id);
-  if (!idRes.ok) {
-    setResetStatus(id.length === 5 ? (idRes.message || '학번을 확인해 주세요') : '', '');
-    resetConfirmBtn.disabled = true; return;
-  }
-  const nameRes = verifyStudentName(id, name);
-  if (!nameRes.ok) {
-    setResetStatus(name ? '이름이 일치하지 않습니다' : '', '');
-    resetConfirmBtn.disabled = true; return;
-  }
-  if (pw.length < 4) {
-    setResetStatus(pw ? '비밀번호는 4자 이상으로 설정해 주세요' : '', '');
-    resetConfirmBtn.disabled = true; return;
-  }
-  setResetStatus('확인되었습니다. 재설정 버튼을 눌러주세요', 'ok');
-  resetConfirmBtn.disabled = false;
-}
-[resetIdInput, resetNameInput, resetNewPwInput].forEach(el => {
-  el.addEventListener('input', validateResetForm);
-  el.addEventListener('keydown', e => { if (e.key === 'Enter' && !resetConfirmBtn.disabled) resetConfirmBtn.click(); });
+// ── 비밀번호 초기화 안내 (학생 자가 재설정 없음 · 교사만 초기화) ──
+document.getElementById('forgotPwBtn').addEventListener('click', () => {
+  document.getElementById('pwResetHelpModal').style.display = 'flex';
 });
-document.getElementById('forgotPwBtn').addEventListener('click', showResetPwForm);
-document.getElementById('resetBackBtn').addEventListener('click', hideResetPwForm);
-resetConfirmBtn.addEventListener('click', async () => {
-  const id = resetIdInput.value.trim();
-  const pw = resetNewPwInput.value;
-  resetConfirmBtn.disabled = true;
-  setResetStatus('재설정 중...', '');
-  try {
-    await setDoc(doc(db, 'lms_auth', id), { pw });
-    setResetStatus('비밀번호가 재설정되었습니다!', 'ok');
-    setTimeout(() => {
-      hideResetPwForm();
-      idInput.value = id;
-      idInput.dispatchEvent(new Event('input'));
-    }, 1500);
-  } catch(_) {
-    setResetStatus('오류가 발생했습니다. 다시 시도해 주세요.', 'err');
-    resetConfirmBtn.disabled = false;
-  }
+document.getElementById('pwHelpClose').addEventListener('click', () => {
+  document.getElementById('pwResetHelpModal').style.display = 'none';
+});
+document.getElementById('pwResetHelpModal').addEventListener('click', e => {
+  if (e.target.id === 'pwResetHelpModal') e.currentTarget.style.display = 'none';
 });
 
 // ── 개인정보 동의 ──
