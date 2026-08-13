@@ -909,7 +909,8 @@ function setLineFormat(target, i, fmt) {
 
 function toggleLabelPos(target, i, isChecked) {
   const line = ceLinesFor(target)[i];
-  if (isChecked) line.labelPos = 'top';
+  // 기본은 상단. 체크하면 좌측 배치로 되돌린다.
+  if (isChecked) line.labelPos = 'left';
   else delete line.labelPos;
   const lines = ceLinesFor(target);
   const nth = lines.slice(0, i).filter(l => l.type === 'divider').length;
@@ -953,8 +954,8 @@ function ceFormatPanelBody(target, i, line) {
   if (fmt === 'flow-h' || fmt === 'flow-v') return ceFlowEditor(target, i, line);
   return `
     <label class="cl-labelpos">
-      <input type="checkbox" ${line.labelPos === 'top' ? 'checked' : ''} onclick="event.stopPropagation();toggleLabelPos('${target}',${i},this.checked)">
-      라벨 상단 배치
+      <input type="checkbox" ${line.labelPos === 'left' ? 'checked' : ''} onclick="event.stopPropagation();toggleLabelPos('${target}',${i},this.checked)">
+      라벨 좌측 배치
     </label>`;
 }
 
@@ -1134,18 +1135,12 @@ function ceRenderContentLines(target) {
         const bodyHtml = `<div class="cl-slide-row cl-slide-special"><div class="cl-special-editor">${contentInner}</div>${pageActions}</div>`;
         const pageHandle = slides.length > 1 ? `<span class="cl-handle cl-page-handle" title="페이지 순서 변경">⋮⋮</span>` : '';
         const imgLayout = div.imgLayout || 'right';
-        const imgFill = div.imgFill || 'fit';
-        // 채우기: 우측 배치일 때만 선택. 세로 꽉(폭 자동) vs 위 정렬(비율 유지)
-        const fillSel = imgLayout === 'right' ? `
-              <span class="cl-img-label">채우기</span>
-              <select class="cl-img-select" onchange="updateImgFill('${target}',${divIdx},this.value)">
-                <option value="fit" ${imgFill==='fit'?'selected':''}>위 정렬</option>
-                <option value="height" ${imgFill==='height'?'selected':''}>세로 꽉</option>
-              </select>` : '';
-        // 비율(%)은 우측 '위 정렬'에서만 의미가 있음(하단·세로 꽉은 자동으로 채움)
-        const sizeInput = (imgLayout === 'right' && imgFill === 'fit') ? `
-              <span class="cl-img-label">비율</span>
-              <input type="number" class="cl-img-input" min="20" max="70" value="${div.imgSize!=null?div.imgSize:50}" oninput="updateLine('${target}',${divIdx},'imgSize',+this.value)">
+        // 텍스트 폭(%)은 우측 배치에서만 의미가 있음. 나머지 폭을 이미지가 세로로 꽉 채움.
+        // 저장값 imgSize는 '이미지 칸 폭%'이라, 입력은 텍스트 폭(=100-imgSize)으로 주고받는다.
+        const textWidth = 100 - (div.imgSize != null ? div.imgSize : 50);
+        const sizeInput = imgLayout === 'right' ? `
+              <span class="cl-img-label">텍스트 폭</span>
+              <input type="number" class="cl-img-input" min="40" max="90" value="${textWidth}" oninput="updateLine('${target}',${divIdx},'imgSize',100-(+this.value))">
               <span class="cl-img-label">%</span>` : '';
         const imgRow = hasImg ? `
             <div class="cl-img-row" style="padding:6px 12px 8px 12px;border-top:1px solid #eee;margin-top:4px">
@@ -1155,7 +1150,7 @@ function ceRenderContentLines(target) {
               <select class="cl-img-select" onchange="updateImgLayout('${target}',${divIdx},this.value)">
                 <option value="right" ${imgLayout==='right'?'selected':''}>우측</option>
                 <option value="bottom" ${imgLayout==='bottom'?'selected':''}>하단</option>
-              </select>${fillSel}${sizeInput}
+              </select>${sizeInput}
             </div>` : '';
         return `
           <div class="cl-slide-item" data-div-idx="${divIdx}">
@@ -1332,9 +1327,8 @@ function deleteGroup(target, firstDivIdx) {
 }
 
 function updateLine(target,i,f,v)    { ceLinesFor(target)[i][f]=v; ceRenderPreview(); }
-// 배치·채우기는 옵션 노출(채우기/비율)이 바뀌므로 편집기까지 다시 그린다.
+// 배치 변경 시 '텍스트 폭' 입력 노출 여부가 바뀌므로 편집기까지 다시 그린다.
 function updateImgLayout(target,i,v) { const l=ceLinesFor(target)[i]; l.imgLayout=v; ceRenderContentLines(target); ceRenderPreview(); }
-function updateImgFill(target,i,v)   { const l=ceLinesFor(target)[i]; l.imgFill=v; ceRenderContentLines(target); ceRenderPreview(); }
 function updateLineItems(target,i,v) {
   // a./b./c. 로 시작하는 줄은 바로 위 항목에 <br>로 이어 붙여 하나의 항목으로 저장한다.
   // 이렇게 하면 사용자는 태그 없이 엔터만 눌러 하위 항목을 입력할 수 있다.
@@ -1361,7 +1355,7 @@ function toggleDividerImg(target,i) {
   if (line.img != null) {
     delete line.img; delete line.imgLayout; delete line.imgSize;
   } else {
-    line.img = 1; line.imgLayout = 'right'; line.imgSize = 50; line.imgFill = 'fit';
+    line.img = 1; line.imgLayout = 'right'; line.imgSize = 50;
   }
   ceRenderContentLines(target); ceRenderPreview();
 }
@@ -1574,7 +1568,7 @@ async function saveContent() {
       if (!item) return;
       const line = ceLinesFor(target)[+item.dataset.divIdx];
       if (!line) return;
-      if (cb.checked) line.labelPos = 'top';
+      if (cb.checked) line.labelPos = 'left';
       else delete line.labelPos;
     });
   });

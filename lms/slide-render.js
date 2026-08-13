@@ -258,7 +258,8 @@
       return `<p><span class="item-text">${parseText(g.content)}</span></p>`;
     }).join('');
 
-    const posClass = labelPos === 'top' ? ' label-top' : '';
+    // 라벨 위치 기본값은 '상단'. 명시적으로 'left'인 경우에만 좌측 배치.
+    const posClass = labelPos === 'left' ? '' : ' label-top';
     // 라벨이 비어 있으면 라벨 칸(네이비 박스) 자체를 렌더하지 않고 내용이 폭을 다 쓰게 한다.
     const hasLabel = !!(row.label && String(row.label).trim());
     // 라벨 여러 줄 규칙:
@@ -394,16 +395,13 @@
       ? `/hoistory/lms/img/${lesson.num}_${slide.img}`
       : null;
     const imgSize = slide.imgSize != null ? slide.imgSize : 50;
-    const imgFill = slide.imgFill || 'fit';
-    // 하단 배치는 남는 세로 공간을 꽉 채움. 우측 '세로 꽉'은 폭을 이미지에 맡김(auto).
-    // 우측 '위 정렬'은 기존처럼 imgSize% 폭 고정.
-    let imgPanelStyle;
-    if (slide.layout === 'bottom')                            imgPanelStyle = 'flex: 1 1 0; min-height: 0';
-    else if (slide.layout === 'right' && imgFill === 'height') imgPanelStyle = 'flex: 0 1 auto; min-width: 0';
-    else                                                       imgPanelStyle = `flex: 0 0 ${imgSize}%`;
-    const imgFillClass = imgFill === 'height' ? ' clayout-img--fill' : '';
+    // 하단: 텍스트 아래 남는 세로 공간을 이미지가 꽉 채움(폭 개념 없음).
+    // 우측: imgSize = 이미지 칸 가로폭%(= 100 - 텍스트폭). 이미지는 그 칸을 꽉 채움.
+    const imgPanelStyle = slide.layout === 'bottom'
+      ? 'flex: 1 1 0; min-height: 0'
+      : `flex: 0 0 ${imgSize}%`;
     const imgPanel = imgBase ? `
-      <div class="clayout-img${imgFillClass}" style="${imgPanelStyle}">
+      <div class="clayout-img" style="${imgPanelStyle}">
         <img src="${imgBase}.png" alt="${slide.imgCaption || ''}" onerror="SlideRenderImgFallback(this,'${imgBase}',0)">
         ${slide.imgCaption ? `<p class="clayout-caption">${slide.imgCaption}</p>` : ''}
       </div>` : '';
@@ -519,14 +517,13 @@
           else if (fmt === 'compare') { current.left = line.left || { label: '', items: [] }; current.right = line.right || { label: '', items: [] }; }
           else if (fmt === 'quote') { current.text = line.quoteText || ''; current.source = line.quoteSource || ''; current.quoteLabel = line.quoteLabel || ''; }
           else if (fmt === 'flow-h' || fmt === 'flow-v') current.stages = line.stages || [];
-        } else if (line.labelPos === 'top') {
-          current.labelPos = 'top';
+        } else if (line.labelPos) {
+          current.labelPos = line.labelPos;
         }
         if (line.img != null) {
           current.img = line.img;
           current.layout = line.imgLayout || 'right';
           current.imgSize = line.imgSize != null ? line.imgSize : 50;
-          current.imgFill = line.imgFill || 'fit';
         }
         raw.push(current);
       } else if (line.type === 'image') {
