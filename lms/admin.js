@@ -170,7 +170,8 @@ function applyMobileGate(panelId, nav) {
   const notice = document.getElementById('mobilePcNotice');
   if (!notice) return;
   const panel = document.getElementById(panelId);
-  const gated = isMobileAdmin() && MOBILE_PC_ONLY.has(panelId) && !_mobileForced.has(panelId);
+  // 모바일에서는 대시보드만 그대로 쓰고, 그 외 모든 패널은 PC 이용 안내를 띄운다.
+  const gated = isMobileAdmin() && panelId !== 'panel-dashboard' && !_mobileForced.has(panelId);
   if (gated) {
     if (panel) panel.classList.remove('active');
     notice.dataset.panel = panelId;
@@ -278,6 +279,7 @@ window.openContentsAppAdmin = function(el, adminUrl) {
 // ══════════ 대시보드 ══════════
 let _dbConcept = [], _dbMission = [], _dbThink = [];
 let _dbStuCount = 0, _dbToday = { attend: 0, thinkSubmit: 0, review: 0 };
+let _dbStudents = []; // 학생 검색용 명단 캐시 ({studentId, name})
 
 async function dbLoad() {
   const el = document.getElementById('db-content');
@@ -316,7 +318,8 @@ async function dbLoad() {
     // 학생 수 + 오늘 출석/복습(rtdb/xp)
     const stuSnap = await get(ref(rtdb, 'students'));
     const stuData = stuSnap.exists() ? (stuSnap.val() || {}) : {};
-    _dbStuCount = Object.values(stuData).filter(v => v && v.studentId).length;
+    _dbStudents = Object.values(stuData).filter(v => v && v.studentId).map(v => ({ studentId: String(v.studentId), name: v.name || v.studentName || '' }));
+    _dbStuCount = _dbStudents.length;
     const xpSnap = await get(ref(rtdb, `${XP_ROOT}/students`));
     const xp = xpSnap.exists() ? (xpSnap.val() || {}) : {};
     let attend = 0, review = 0;
@@ -334,6 +337,14 @@ function dbRender() {
   if (!el) return;
   const totalUngraded = _dbThink.reduce((a, t) => a + (t.ungraded || 0), 0);
   el.innerHTML = `
+    <div class="stu-card" style="margin-bottom:14px">
+      <div class="stu-card-head">학생 검색</div>
+      <div style="display:flex;gap:8px;padding:12px 18px 0">
+        <input id="db-stu-q" class="stu-edit-input" style="flex:1" inputmode="numeric" maxlength="5" placeholder="학번 5자리 입력" onkeydown="if(event.key==='Enter')dbStudentSearch()">
+        <button class="add-btn" onclick="dbStudentSearch()">검색</button>
+      </div>
+      <div id="db-stu-result" style="padding:10px 18px 14px"></div>
+    </div>
     <div class="db-summary-row">
       <div class="db-summary-card"><div class="db-summary-label">오늘 출석</div><div class="db-summary-val">${_dbToday.attend} / ${_dbStuCount}명</div></div>
       <div class="db-summary-card"><div class="db-summary-label">오늘 생각체크 제출</div><div class="db-summary-val">${_dbToday.thinkSubmit}건</div></div>
@@ -346,6 +357,54 @@ function dbRender() {
       ${dbToggleCard('생각 Check', _dbThink, 'think')}
     </div>`;
 }
+
+// 대시보드 학생 검색 — 학번으로 이름·성적(달성 현황)·피드백을 보고 PW 초기화까지 한다.
+// 모바일에서도 쓸 수 있게 대시보드에 둔다(비밀번호 초기화를 휴대폰으로 해야 할 때 대비).
+window.dbStudentSearch = async function() {
+  const box = document.getElementById('db-stu-result');
+  if (!box) return;
+  const sid = (document.getElementById('db-stu-q')?.value || '').trim();
+  if (!sid) { box.innerHTML = ''; return; }
+  const stu = _dbStudents.find(s => s.studentId === sid);
+  const name = stu ? stu.name : '(명단에 없음)';
+  box.innerHTML = '<div style="color:var(--sub);font-size:13px">불러오는 중...</div>';
+  try {
+    const snap = await getDocs(query(collection(db, 'grade_records'), where('studentId', '==', sid)));
+    const recs = snap.docs.map(d => d.data());
+    const cnt = { concept: 0, mission: 0, think: 0 };
+    const fbs = [];
+    recs.forEach(r => {
+      if (r.concept?.achieved) cnt.concept++;
+      if (r.mission?.achieved) cnt.mission++;
+      if (r.think?.achieved) cnt.think++;
+      if (r.feedback && String(r.feedback).trim()) fbs.push({ key: r.lessonKey || '', text: String(r.feedback).trim() });
+    });
+    box.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <div style="font-size:15px"><b>${esc(name)}</b> <span style="color:var(--sub);font-size:13px">${esc(sid)}</span></div>
+        <button class="add-btn" onclick="dbResetPw('${esc(sid)}','${esc(name)}')">PW 초기화</button>
+      </div>
+      <div style="font-size:13px;color:var(--text);margin-top:8px">달성 현황  개념 ${cnt.concept}회, 미션 ${cnt.mission}회, 생각 ${cnt.think}회 <span style="color:var(--sub)">(성적 기록 ${recs.length}건)</span></div>
+      ${fbs.length
+        ? `<div style="font-size:12px;font-weight:700;color:var(--sub);margin:10px 0 4px">피드백 ${fbs.length}건</div>` +
+          fbs.map(f => `<div style="font-size:13px;padding:6px 0;border-top:1px solid var(--hairline-soft)"><b style="color:var(--sub)">${esc(String(f.key))}</b> ${esc(f.text)}</div>`).join('')
+        : `<div style="font-size:13px;color:var(--sub);margin-top:8px">등록된 피드백이 없어요.</div>`}
+    `;
+  } catch(e) {
+    box.innerHTML = `<div style="color:var(--critical);font-size:13px">불러오기 실패: ${esc(e.message)}</div>`;
+  }
+};
+
+// 학생이 LMS 로그인 때 설정한 비밀번호(lms_auth/{학번})를 지워 초기화한다(다음 로그인 때 재설정).
+window.dbResetPw = async function(sid, name) {
+  if (!confirm(`${name}(${sid}) 학생의 비밀번호를 초기화할까요?\n다음 로그인 때 새 비밀번호를 설정하게 됩니다.`)) return;
+  try {
+    await deleteDoc(doc(db, 'lms_auth', sid));
+    alert('비밀번호가 초기화되었어요.');
+  } catch(e) {
+    alert('초기화 실패: ' + e.message);
+  }
+};
 
 function dbToggleCard(title, list, kind) {
   const rows = !list.length
