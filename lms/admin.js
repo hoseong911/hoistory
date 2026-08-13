@@ -357,12 +357,14 @@ function dbToggleCard(title, list, kind) {
         const gradeBtn = kind === 'think'
           ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbGoGrade('${item.docId}')">채점${item.ungraded ? ` <b>${item.ungraded}</b>` : ''}</button>`
           : '';
+        const editBtn = kind === 'concept'
+          ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbEditLesson('${esc(String(item.num))}')">수정</button>`
+          : '';
         return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--hairline-soft)">
             <span style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
             <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-              ${gradeBtn}
+              ${gradeBtn}${editBtn}
               <div class="th-toggle ${open ? 'on' : ''}" onclick="dbToggle('${kind}','${item.docId}',this)"></div>
-              <span style="font-size:12px;font-weight:700;width:34px;color:${open ? 'var(--c3)' : 'var(--sub)'}">${open ? '공개' : '비공개'}</span>
             </div>
           </div>`;
       }).join('');
@@ -372,8 +374,6 @@ function dbToggleCard(title, list, kind) {
 window.dbToggle = async function(kind, docId, el) {
   const on = !el.classList.contains('on');
   el.classList.toggle('on', on);
-  const lbl = el.nextElementSibling;
-  if (lbl) { lbl.textContent = on ? '공개' : '비공개'; lbl.style.color = on ? 'var(--c3)' : 'var(--sub)'; }
   try {
     if (kind === 'concept')      { await updateDoc(doc(db, 'class_lessons', docId), { isOpen: on }); const t = _dbConcept.find(x => x.docId === docId); if (t) t.isOpen = on; }
     else if (kind === 'mission') { await updateDoc(doc(db, 'cards', docId), { locked: !on });        const t = _dbMission.find(x => x.docId === docId); if (t) t.locked = !on; }
@@ -381,8 +381,15 @@ window.dbToggle = async function(kind, docId, el) {
   } catch(e) {
     alert('변경 실패: ' + e.message);
     el.classList.toggle('on', !on);
-    if (lbl) { lbl.textContent = !on ? '공개' : '비공개'; lbl.style.color = !on ? 'var(--c3)' : 'var(--sub)'; }
   }
+};
+
+// 대시보드 → 개념 체크 CONTENT 편집으로 이동해 해당 강의를 바로 연다.
+window.dbEditLesson = function(num) {
+  switchNav('concept-content');
+  const sel = document.getElementById('lesson-select');
+  if (sel) sel.value = num;
+  onLessonChange(num);
 };
 
 // 대시보드 → 생각 체크 ANSWER 반별 화면으로 이동(해당 강의 선택)해서 바로 채점하게 한다.
