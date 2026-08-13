@@ -11,7 +11,7 @@
    캐시 로직을 바꿀 땐 CACHE 이름의 버전을 올린다(예: v1 → v2). 그러면 activate에서
    옛 캐시를 지운다.
    ════════════════════════════════════════════════════════════════ */
-const CACHE = 'hoistory-v1';
+const CACHE = 'hoistory-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 

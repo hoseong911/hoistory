@@ -354,11 +354,8 @@ function _updateXPWidget(state) {
 const ACT_ICONS = { attendance:'📅', mileage:'🏃', conceptCheck:'📖', thinkCheck:'💭', oxQuiz:'❓', manual:'✏️' };
 
 // 데스크톱: 클릭 시 경험치 내역 모달 / 모바일: 인라인 아코디언 펼침
-document.getElementById('xpWidget').addEventListener('click', (e) => {
-  if (e.target.closest('.xp-acc-body')) return; // 펼친 내역 안을 클릭했을 땐 접히지 않게
-  if (isMobile()) toggleXPAccordion();
-  else _openXPHistory();
-});
+// 모바일도 PC처럼 모달로 연다(인라인 아코디언은 닫아도 내용이 남고 스크롤이 지저분해 폐기).
+document.getElementById('xpWidget').addEventListener('click', () => _openXPHistory());
 
 async function _fetchXPRows() {
   const snap = await rtdbGet(rtdbRef(rtdb, `xp/students/${currentStudentId}/history`));
@@ -400,22 +397,6 @@ async function _openXPHistory() {
 }
 
 // 모바일: 경험치 위젯 아코디언 (펼치면 내역을 인라인으로 표시)
-async function toggleXPAccordion() {
-  const w = document.getElementById('xpWidget');
-  const open = w.classList.toggle('open');
-  if (!open) return;
-  const body = document.getElementById('xpAccBody');
-  body.innerHTML = LOADING_HTML;
-  try {
-    const rows = await _fetchXPRows();
-    body.innerHTML = `<div class="xp-acc-list">${
-      rows.length ? rows.map(_xpItemHTML).join('') : '<div class="xp-acc-empty">활동 내역이 없어요.</div>'
-    }</div>`;
-  } catch(e) {
-    body.innerHTML = '<div class="xp-acc-empty">내역을 불러올 수 없어요.</div>';
-  }
-}
-
 window._closeXPHistory = function() {
   document.getElementById('xpHistoryModal').classList.remove('open');
 };
