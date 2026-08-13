@@ -48,7 +48,8 @@
     <select id="pcW"><option value="1280" selected>1280</option><option value="1440">1440</option><option value="1024">1024</option></select>
   </label>
   <button id="reload" class="btn">↻ 새로고침</button>
-  <label class="chk"><input type="checkbox" id="auto"> 자동(2초)</label>
+  <label class="chk"><input type="checkbox" id="sync" checked> 🔗 동시 입력</label>
+  <label class="chk"><input type="checkbox" id="auto"> 자동 새로고침(2초)</label>
 </header>
 
 <main class="row" id="row">
@@ -129,6 +130,94 @@
     clearInterval(timer);
     if (e.target.checked) timer = setInterval(load, 2000);
   });
+
+  /* ── 두 프레임 동시 입력 동기화 ──
+     같은 출처(localhost)라 부모가 iframe 내부에 접근 가능.
+     한쪽의 입력/클릭/스크롤을 반대쪽 같은 위치 요소에 복제한다. */
+  let applying = false;                       // 되돌이 이벤트 방지 플래그
+  const syncOn = () => $('#sync').checked;
+
+  function pathOf(el){
+    const path = [];
+    const root = el.ownerDocument.documentElement;
+    while (el && el.nodeType === 1 && el !== root){
+      const parent = el.parentNode;
+      if (!parent) break;
+      path.unshift(Array.prototype.indexOf.call(parent.children, el));
+      el = parent;
+    }
+    return path;
+  }
+  function elAt(doc, path){
+    let el = doc.documentElement;
+    for (const idx of path){ if (!el) return null; el = el.children[idx]; }
+    return el;
+  }
+  function otherDoc(otherFrame){
+    try { return otherFrame.contentDocument; } catch(_) { return null; }
+  }
+  function fire(el, type){
+    el.dispatchEvent(new el.ownerDocument.defaultView.Event(type, { bubbles: true }));
+  }
+
+  function attach(selfFrame, otherFrame){
+    const doc = otherDoc(selfFrame);
+    if (!doc || doc.__syncAttached) return;
+    doc.__syncAttached = true;
+
+    doc.addEventListener('input', e => {
+      if (!syncOn() || applying) return;
+      const other = otherDoc(otherFrame); if (!other) return;
+      const t = elAt(other, pathOf(e.target)); if (!t) return;
+      applying = true;
+      try {
+        if ('value' in t) t.value = e.target.value;
+        if ('checked' in t && e.target.type && /checkbox|radio/.test(e.target.type)) t.checked = e.target.checked;
+        fire(t, 'input');
+      } finally { applying = false; }
+    }, true);
+
+    doc.addEventListener('change', e => {
+      if (!syncOn() || applying) return;
+      const other = otherDoc(otherFrame); if (!other) return;
+      const t = elAt(other, pathOf(e.target)); if (!t) return;
+      applying = true;
+      try {
+        if ('checked' in t) t.checked = e.target.checked;
+        if ('value' in t) t.value = e.target.value;
+        fire(t, 'change');
+      } finally { applying = false; }
+    }, true);
+
+    doc.addEventListener('click', e => {
+      if (!syncOn() || applying) return;
+      const other = otherDoc(otherFrame); if (!other) return;
+      const t = elAt(other, pathOf(e.target)); if (!t) return;
+      applying = true;
+      try { t.click(); } finally { applying = false; }
+    }, true);
+
+    doc.addEventListener('keydown', e => {
+      if (!syncOn() || applying) return;
+      if (e.key !== 'Enter') return;
+      const other = otherDoc(otherFrame); if (!other) return;
+      const t = elAt(other, pathOf(e.target)); if (!t) return;
+      applying = true;
+      try { t.dispatchEvent(new other.defaultView.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }
+      finally { applying = false; }
+    }, true);
+
+    const win = doc.defaultView;
+    win.addEventListener('scroll', () => {
+      if (!syncOn() || applying) return;
+      const other = otherDoc(otherFrame); if (!other) return;
+      applying = true;
+      try { other.defaultView.scrollTo(win.scrollX, win.scrollY); } finally { applying = false; }
+    }, true);
+  }
+
+  $('#pcFrame').addEventListener('load', () => attach($('#pcFrame'), $('#moFrame')));
+  $('#moFrame').addEventListener('load', () => attach($('#moFrame'), $('#pcFrame')));
 
   load();
   layout();
