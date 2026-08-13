@@ -4456,7 +4456,7 @@ initAdmin();
       sel.innerHTML = '<option value="">강의를 선택하세요</option>';
       thLectures.forEach(l => {
         const o = document.createElement('option');
-        o.value = l.docId; o.textContent = l.title;
+        o.value = l.docId; o.textContent = String(l.title||'').replace(/\*\*/g,'').replace(/[{}]/g,'');
         sel.appendChild(o);
       });
       if (thLectures.some(l => l.docId === cur)) sel.value = cur;
@@ -4467,7 +4467,7 @@ initAdmin();
       gradeSel.innerHTML = '<option value="">-- 연결 없음 (수동) --</option>';
       thLectures.forEach(l => {
         const o = document.createElement('option');
-        o.value = l.docId; o.textContent = l.title;
+        o.value = l.docId; o.textContent = String(l.title||'').replace(/\*\*/g,'').replace(/[{}]/g,'');
         gradeSel.appendChild(o);
       });
       if (cur) gradeSel.value = cur;
@@ -4604,19 +4604,26 @@ initAdmin();
     );
   }
 
+  function thFmtSubTime(ts) {
+    const d = ts && ts.toDate ? ts.toDate() : (ts ? new Date(ts) : null);
+    if (!d || isNaN(d)) return '';
+    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  }
+
   function thBuildAnswerCard(data, showMeta) {
     const isPicked = data.isPicked;
+    const time = thFmtSubTime(data.createdAt);
+    const meta = `${data.textLength||0}자${time?` · ${time} 제출`:''}`;
     return `
       <div class="th-answer-card">
         <div class="th-student-row">
-          <span class="th-student-name">${thEsc(data.id)} ${thEsc(data.name)}</span>
+          <span class="th-student-name">${thEsc(data.id)} ${thEsc(data.name)} <span class="th-student-meta">${meta}</span></span>
           <div class="th-answer-actions">
             <button class="edit-btn" style="${isPicked?'background:var(--c3-l);color:var(--c3)':''}" onclick="thTogglePick('${data.subId}')" title="PICK">★</button>
             <button class="del-btn" onclick="thDeleteSub('${data.subId}')">삭제</button>
           </div>
         </div>
         <div class="th-answer-text">${thEsc(data.text||'')}</div>
-        ${showMeta ? `<div class="th-answer-meta">글자 수: ${data.textLength||0}자 &nbsp;|&nbsp; 비밀번호: ${thEsc(data.verify||'-')}</div>` : ''}
       </div>`;
   }
 
@@ -4841,7 +4848,7 @@ initAdmin();
       html += subs.map(s => {
         const v = s.aiVerdict || '';
         const chip = s.thGraded
-          ? `<span style="font-weight:800;color:${v.startsWith('미흡')?'#DC2626':(vColor[v]||'var(--sub)')}">${v||'-'} · ${s.aiPt??0}점</span>`
+          ? `<span style="font-weight:800;color:${v.startsWith('미흡')?'#DC2626':(vColor[v]||'var(--sub)')}">${v||'-'} · ${s.aiPt??0}pt</span>`
           : `<span style="color:var(--slate);font-weight:700">미채점</span>`;
         return `<div class="th-review-card">
             <div class="th-review-card-top">
@@ -4887,10 +4894,11 @@ initAdmin();
     const quality = {};
     if (needAi.length) {
       if (statusEl) statusEl.textContent = `${needAi.length}개 답변 채점 중…`;
-      const prompt = `역사 수업(중학교 3학년)의 질문에 대한 학생 답변을 채점합니다. 학생 답변은 보통 공백 제외 150자 안팎으로 짧습니다. 길이가 짧다는 이유로 감점하지 마세요. "중3 학생이 질문 취지에 맞게 자기 생각을 썼는가"만 봅니다. 매우 후하게, 격려 위주로 매기세요. 성실히 쓴 답은 기본 90점 이상이라고 보고 시작하고, 감점은 예외적인 경우에만 하세요.
-- 90~100: 질문 취지에 맞게 자기 생각을 씀. 근거가 있거나, 짧고 문장이 서툴러도 방향이 맞고 성의가 보이면 이 구간(성실한 답은 대부분 여기 — 주저 말고 100까지 주세요). 자기 입장을 밝히고 이유를 하나라도 붙였으면 95점 이상.
-- 75~89: 자기 생각은 있으나 질문과 살짝 어긋나거나 근거 없이 매우 단편적
-- 50~74: 관련은 있으나 한두 단어 수준으로 성의가 뚜렷이 부족
+      const prompt = `역사 수업(중학교 3학년)의 질문에 대한 학생 답변을 채점합니다. 학생 답변은 보통 공백 제외 150자 안팎으로 짧습니다. 길이가 짧다는 이유로 감점하지 마세요. "질문 취지에 맞게 자기 생각을 근거와 함께 썼는가"를 봅니다. 중3 눈높이에서 격려하는 태도로 보되, 점수는 실제 품질에 따라 분명히 구분해서 매기세요. 성의 있게 자기 생각을 쓴 보통 수준의 답은 75~85 구간이 기본입니다. 90점 이상은 자기 입장이 분명하고 근거나 구체적 사례까지 갖춘, 눈에 띄게 뛰어난 답에만 주세요(대부분의 답은 여기까지 오지 않습니다).
+- 90~100: 자기 입장이 분명하고 이유·근거·구체적 사례까지 갖춰 설득력이 있음 (뛰어난 소수만)
+- 75~89: 질문 취지에 맞게 자기 생각을 성의 있게 씀 (성실한 답의 대부분이 여기)
+- 60~74: 자기 생각은 있으나 근거 없이 단편적이거나 질문과 살짝 어긋남
+- 45~59: 관련은 있으나 한두 문장으로 성의가 뚜렷이 부족
 - 0~44: 질문과 완전히 무관, 무의미한 반복/복붙, 장난 답변
 질문: "${lec.question}"
 ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}

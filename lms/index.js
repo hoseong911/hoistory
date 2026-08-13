@@ -381,11 +381,13 @@ function _xpItemHTML(r) {
   const dt = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
   const icon = ACT_ICONS[r.type] || '⭐';
   const sign = r.pt > 0 ? '+' : '';
+  const isSnack = r.pt >= 30 && /^생각\s*체크\s*:/.test(r.note || '');
   return `<div class="xp-hist-item">
     <div class="xp-hist-icon">${icon}</div>
     <div class="xp-hist-info">
       <div class="xp-hist-note">${esc(r.note || r.type || '활동')}</div>
       <div class="xp-hist-date">${dt}</div>
+      ${isSnack ? `<div class="xp-hist-snack">🍬 선생님께 간식을 받으러 오세요</div>` : ''}
     </div>
     <div class="xp-hist-pt">${sign}${r.pt} pt</div>
   </div>`;
@@ -617,6 +619,35 @@ async function loadStudentGrade() {
     sectionData.grade = { _summary: false };
   }
   renderAll();
+  _maybeNotifyFeedback();
+}
+
+// ── 간단 토스트 ──
+function showToast(msg, duration) {
+  let el = document.getElementById('lmsToast');
+  if (!el) { el = document.createElement('div'); el.id = 'lmsToast'; el.className = 'lms-toast'; document.body.appendChild(el); }
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), duration || 5000);
+}
+
+// ── 새 선생님 피드백 감지 (입장 시 1회 토스트) ──
+function _feedbackSig(g) {
+  if (!g || !g.lectureDetails) return '';
+  return g.lectureDetails.filter(d => d.feedback).map(d => `${d.key}:${d.feedback}`).join('||');
+}
+let _fbToastShown = false;
+function _maybeNotifyFeedback() {
+  if (_fbToastShown) return;
+  const sig = _feedbackSig(sectionData.grade);
+  if (!sig) return;
+  let seen = '';
+  try { seen = localStorage.getItem('lms_seen_fb_' + currentStudentId) || ''; } catch(_) {}
+  if (sig !== seen) {
+    _fbToastShown = true;
+    showToast('📩 새 선생님 피드백이 있어요 · 성적에서 확인하세요');
+  }
 }
 
 function renderGradeSummaryHTML(g) {
@@ -1064,7 +1095,7 @@ async function doThinkSubmit(triggerId) {
   try {
     await addDoc(collection(db, 'think_submissions'), {
       lectureDocId: _thinkItem.lectureDocId, lectureTitle: _thinkItem.lectureTitle,
-      id: currentStudentId, name: currentStudentName, verify: currentStudentName,
+      id: currentStudentId, name: currentStudentName,
       text, textLength, duration, cheatCount: _thinkCheat,
       // AI 도움 사용 기록 — 채점 참고용이며 점수에는 관여하지 않는다.
       aiHintUsed: _thinkHintUsed, spellFlagged: _thinkFlagged,
@@ -1170,17 +1201,29 @@ document.getElementById('gradeDetailModal').addEventListener('click', e => {
 });
 
 // ── 선생님 피드백 모달 ──
-window.openGradeFeedback = function() {
+window.openGradeFeedback = async function() {
   const g = sectionData.grade;
   if (!g || !g.lectureDetails || !g.lectureDetails.length) return;
   const withFeedback = g.lectureDetails.filter(d => d.feedback);
-  document.getElementById('gradeFeedbackContent').innerHTML = withFeedback.length
+  const body = withFeedback.length
     ? withFeedback.map(d => `<div class="feedback-card">
         <div class="feedback-lec">${esc(stripEmph(d.title))}</div>
         <div class="feedback-text">${esc(d.feedback)}</div>
       </div>`).join('')
     : `<div class="feedback-empty">아직 등록된 피드백이 없습니다</div>`;
+  const el = document.getElementById('gradeFeedbackContent');
+  el.innerHTML = body;
   document.getElementById('gradeFeedbackModal').style.display = 'flex';
+  // 확인한 피드백은 "본 것"으로 기록해 다음 입장 때 토스트가 다시 뜨지 않게 한다.
+  try { localStorage.setItem('lms_seen_fb_' + currentStudentId, _feedbackSig(g)); } catch(_) {}
+  // 생각 체크에서 만점(30pt)을 받은 적이 있으면 간식 안내 배너를 맨 위에 붙인다.
+  try {
+    const rows = await _fetchXPRows();
+    if (rows.some(r => r.pt >= 30 && /^생각\s*체크\s*:/.test(r.note || ''))) {
+      el.insertAdjacentHTML('afterbegin',
+        `<div class="feedback-snack">🍬 생각 체크 만점! 선생님께 간식을 받으러 오세요</div>`);
+    }
+  } catch(_) {}
 };
 
 document.getElementById('gradeFeedbackClose').addEventListener('click', () => {
