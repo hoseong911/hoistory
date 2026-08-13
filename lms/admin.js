@@ -676,7 +676,8 @@ function cePopulateLessonSelect() {
 }
 
 window.ceLessonPreview = function() {
-  if (ceCurrentLessonNum) window.open('lecture.html?num=' + ceCurrentLessonNum + '&mode=complete', '_blank', 'noopener');
+  // preview=1 을 붙여 비공개(편집 중) 강의도 미리보기로 열 수 있게 한다.
+  if (ceCurrentLessonNum) window.open('lecture.html?num=' + ceCurrentLessonNum + '&mode=complete&preview=1', '_blank', 'noopener');
 };
 
 function onLessonChange(num) {

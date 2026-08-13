@@ -369,10 +369,12 @@ function _xpItemHTML(r) {
   const icon = ACT_ICONS[r.type] || '⭐';
   const sign = r.pt > 0 ? '+' : '';
   const isSnack = r.pt >= 30 && /^생각\s*체크\s*:/.test(r.note || '');
+  // 강의 제목에 섞인 마크다운 강조(**...**) 표시는 내역에선 그대로 노출되므로 제거한다.
+  const note = String(r.note || r.type || '활동').replace(/\*\*/g, '');
   return `<div class="xp-hist-item">
     <div class="xp-hist-icon">${icon}</div>
     <div class="xp-hist-info">
-      <div class="xp-hist-note">${esc(r.note || r.type || '활동')}</div>
+      <div class="xp-hist-note">${esc(note)}</div>
       <div class="xp-hist-date">${dt}</div>
       ${isSnack ? `<div class="xp-hist-snack">🍬 선생님께 간식을 받으러 오세요</div>` : ''}
     </div>
