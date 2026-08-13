@@ -394,8 +394,16 @@
       ? `/hoistory/lms/img/${lesson.num}_${slide.img}`
       : null;
     const imgSize = slide.imgSize != null ? slide.imgSize : 50;
+    const imgFill = slide.imgFill || 'fit';
+    // 하단 배치는 남는 세로 공간을 꽉 채움. 우측 '세로 꽉'은 폭을 이미지에 맡김(auto).
+    // 우측 '위 정렬'은 기존처럼 imgSize% 폭 고정.
+    let imgPanelStyle;
+    if (slide.layout === 'bottom')                            imgPanelStyle = 'flex: 1 1 0; min-height: 0';
+    else if (slide.layout === 'right' && imgFill === 'height') imgPanelStyle = 'flex: 0 1 auto; min-width: 0';
+    else                                                       imgPanelStyle = `flex: 0 0 ${imgSize}%`;
+    const imgFillClass = imgFill === 'height' ? ' clayout-img--fill' : '';
     const imgPanel = imgBase ? `
-      <div class="clayout-img" style="flex: 0 0 ${imgSize}%">
+      <div class="clayout-img${imgFillClass}" style="${imgPanelStyle}">
         <img src="${imgBase}.png" alt="${slide.imgCaption || ''}" onerror="SlideRenderImgFallback(this,'${imgBase}',0)">
         ${slide.imgCaption ? `<p class="clayout-caption">${slide.imgCaption}</p>` : ''}
       </div>` : '';
@@ -518,6 +526,7 @@
           current.img = line.img;
           current.layout = line.imgLayout || 'right';
           current.imgSize = line.imgSize != null ? line.imgSize : 50;
+          current.imgFill = line.imgFill || 'fit';
         }
         raw.push(current);
       } else if (line.type === 'image') {

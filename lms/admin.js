@@ -1133,18 +1133,29 @@ function ceRenderContentLines(target) {
           : (rowIndices.length ? rowIndices.map(rowInner).join('') : `<div class="cl-norow-hint">내용이 없는 페이지입니다. 행을 추가하세요.</div>`);
         const bodyHtml = `<div class="cl-slide-row cl-slide-special"><div class="cl-special-editor">${contentInner}</div>${pageActions}</div>`;
         const pageHandle = slides.length > 1 ? `<span class="cl-handle cl-page-handle" title="페이지 순서 변경">⋮⋮</span>` : '';
+        const imgLayout = div.imgLayout || 'right';
+        const imgFill = div.imgFill || 'fit';
+        // 채우기: 우측 배치일 때만 선택. 세로 꽉(폭 자동) vs 위 정렬(비율 유지)
+        const fillSel = imgLayout === 'right' ? `
+              <span class="cl-img-label">채우기</span>
+              <select class="cl-img-select" onchange="updateImgFill('${target}',${divIdx},this.value)">
+                <option value="fit" ${imgFill==='fit'?'selected':''}>위 정렬</option>
+                <option value="height" ${imgFill==='height'?'selected':''}>세로 꽉</option>
+              </select>` : '';
+        // 비율(%)은 우측 '위 정렬'에서만 의미가 있음(하단·세로 꽉은 자동으로 채움)
+        const sizeInput = (imgLayout === 'right' && imgFill === 'fit') ? `
+              <span class="cl-img-label">비율</span>
+              <input type="number" class="cl-img-input" min="20" max="70" value="${div.imgSize!=null?div.imgSize:50}" oninput="updateLine('${target}',${divIdx},'imgSize',+this.value)">
+              <span class="cl-img-label">%</span>` : '';
         const imgRow = hasImg ? `
             <div class="cl-img-row" style="padding:6px 12px 8px 12px;border-top:1px solid #eee;margin-top:4px">
               <span class="cl-img-label">이미지 번호</span>
               <input type="number" class="cl-img-input" min="1" max="99" value="${div.img}" oninput="updateLine('${target}',${divIdx},'img',+this.value)">
               <span class="cl-img-label">배치</span>
-              <select class="cl-img-select" onchange="updateLine('${target}',${divIdx},'imgLayout',this.value)">
-                <option value="right" ${(div.imgLayout||'right')==='right'?'selected':''}>우측</option>
-                <option value="bottom" ${div.imgLayout==='bottom'?'selected':''}>하단</option>
-              </select>
-              <span class="cl-img-label">비율</span>
-              <input type="number" class="cl-img-input" min="20" max="70" value="${div.imgSize!=null?div.imgSize:50}" oninput="updateLine('${target}',${divIdx},'imgSize',+this.value)">
-              <span class="cl-img-label">%</span>
+              <select class="cl-img-select" onchange="updateImgLayout('${target}',${divIdx},this.value)">
+                <option value="right" ${imgLayout==='right'?'selected':''}>우측</option>
+                <option value="bottom" ${imgLayout==='bottom'?'selected':''}>하단</option>
+              </select>${fillSel}${sizeInput}
             </div>` : '';
         return `
           <div class="cl-slide-item" data-div-idx="${divIdx}">
@@ -1321,6 +1332,9 @@ function deleteGroup(target, firstDivIdx) {
 }
 
 function updateLine(target,i,f,v)    { ceLinesFor(target)[i][f]=v; ceRenderPreview(); }
+// 배치·채우기는 옵션 노출(채우기/비율)이 바뀌므로 편집기까지 다시 그린다.
+function updateImgLayout(target,i,v) { const l=ceLinesFor(target)[i]; l.imgLayout=v; ceRenderContentLines(target); ceRenderPreview(); }
+function updateImgFill(target,i,v)   { const l=ceLinesFor(target)[i]; l.imgFill=v; ceRenderContentLines(target); ceRenderPreview(); }
 function updateLineItems(target,i,v) {
   // a./b./c. 로 시작하는 줄은 바로 위 항목에 <br>로 이어 붙여 하나의 항목으로 저장한다.
   // 이렇게 하면 사용자는 태그 없이 엔터만 눌러 하위 항목을 입력할 수 있다.
@@ -1347,7 +1361,7 @@ function toggleDividerImg(target,i) {
   if (line.img != null) {
     delete line.img; delete line.imgLayout; delete line.imgSize;
   } else {
-    line.img = 1; line.imgLayout = 'right'; line.imgSize = 50;
+    line.img = 1; line.imgLayout = 'right'; line.imgSize = 50; line.imgFill = 'fit';
   }
   ceRenderContentLines(target); ceRenderPreview();
 }
