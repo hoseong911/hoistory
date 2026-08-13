@@ -1067,18 +1067,20 @@ function ceRenderContentLines(target) {
     if (group.type === 'fullimage') {
       const i = group.idx, line = lines[i];
       const pg = ++pageNum;
+      const legacy = line.img == null && line.url; // 예전 업로드분
       return `
         <div class="cl-image" data-idx="${i}">
           <div class="cl-divider-top">
             <span class="cl-handle">⋮⋮</span>
             <span class="cl-slide-meta">${pg}페이지 <span class="cl-meta-sep">｜</span> 전면 이미지</span>
-            <span style="flex:1;font-size:12px;color:var(--stone);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${line.url ? '업로드됨' : '(비어 있음)'}</span>
-            <button class="cbtn-sm" onclick="replaceFullImage('${target}',${i})">이미지 교체</button>
             <button class="cbtn-danger" onclick="deleteFullImage('${target}',${i})">삭제</button>
           </div>
-          ${line.url
-            ? `<div style="padding:8px 12px"><img src="${esc(line.url)}" style="max-height:120px;max-width:100%;border-radius:6px;border:1px solid var(--cborder)"></div>`
-            : `<div style="padding:10px 12px;color:var(--stone);font-size:13px">"이미지 교체"로 파일을 업로드하세요. 화면을 꽉 채우는 슬라이드가 됩니다.</div>`}
+          <div class="cl-img-row">
+            <span class="cl-img-label">이미지 번호</span>
+            <input type="number" class="cl-img-input" min="1" max="99" value="${line.img != null ? line.img : 1}" oninput="updateLine('${target}',${i},'img',+this.value)">
+            <span class="cl-img-label" style="font-weight:400;color:var(--stone)">화면을 꽉 채우는 슬라이드 (강번호_번호 이미지)</span>
+          </div>
+          ${legacy ? `<div style="padding:0 12px 8px;color:var(--stone);font-size:12px">※ 예전에 업로드한 이미지가 남아 있습니다. 번호를 입력하면 그 이미지로 교체됩니다.</div>` : ''}
         </div>`;
     }
     if (group.type === 'video') {
@@ -1355,50 +1357,16 @@ function updateImageItem(target,li,ii,f,v) { ceLinesFor(target)[li].images[ii][f
 function addImageItem(target,li)     { ceLinesFor(target)[li].images.push({ img:1, caption:'' }); ceRenderContentLines(target); ceRenderPreview(); }
 function removeImageItem(target,li,ii) { ceLinesFor(target)[li].images.splice(ii,1); ceRenderContentLines(target); ceRenderPreview(); }
 
-// ── 전면 이미지 슬라이드 (Firebase Storage 업로드) ──
-// 기존 이미지 슬라이드는 img:숫자(git 파일)를 참조하지만, 전면 이미지는 Storage에
-// 올린 뒤 다운로드 URL을 line.url에 저장한다. line.storagePath는 교체/삭제 시 원본
-// 파일을 지우기 위한 경로.
-function cePickFile(accept) {
-  return new Promise(resolve => {
-    const inp = document.createElement('input');
-    inp.type = 'file'; inp.accept = accept;
-    inp.onchange = () => resolve(inp.files[0] || null);
-    inp.click();
-  });
-}
-async function ceUploadToStorage(file) {
-  const num  = ceCurrentLessonNum || 'x';
-  const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const path = `lms/slides/${num}/${Date.now()}_${safe}`;
-  const r    = sRef(storage, path);
-  await uploadBytes(r, file);
-  const url  = await getDownloadURL(r);
-  return { url, path };
-}
-async function addFullImageSlide(target) {
-  const file = await cePickFile('image/*');
-  if (!file) return;
-  try {
-    const { url, path } = await ceUploadToStorage(file);
-    ceLinesFor(target).push({ type:'fullimage', url, storagePath: path });
-    ceRenderContentLines(target); ceRenderPreview();
-  } catch (e) { alert('업로드 실패: ' + (e?.message || e)); }
-}
-async function replaceFullImage(target, i) {
-  const file = await cePickFile('image/*');
-  if (!file) return;
-  const line = ceLinesFor(target)[i];
-  try {
-    const { url, path } = await ceUploadToStorage(file);
-    if (line.storagePath) deleteObject(sRef(storage, line.storagePath)).catch(() => {});
-    line.url = url; line.storagePath = path;
-    ceRenderContentLines(target); ceRenderPreview();
-  } catch (e) { alert('업로드 실패: ' + (e?.message || e)); }
+// ── 전면 이미지 슬라이드 (이미지 슬라이드처럼 번호로 참조) ──
+// 이미지 슬라이드와 동일하게 img:숫자(=/hoistory/lms/img/{강번호}_{번호}.png)를 참조한다.
+// 화면을 꽉 채우는 슬라이드로 렌더된다. (예전 Storage 업로드분은 line.url로 계속 표시된다.)
+function addFullImageSlide(target) {
+  ceLinesFor(target).push({ type:'fullimage', img:1 });
+  ceRenderContentLines(target); ceRenderPreview();
 }
 function deleteFullImage(target, i) {
   const line = ceLinesFor(target)[i];
-  if (line.storagePath) deleteObject(sRef(storage, line.storagePath)).catch(() => {});
+  if (line.storagePath) deleteObject(sRef(storage, line.storagePath)).catch(() => {}); // 예전 업로드분 정리
   ceLinesFor(target).splice(i, 1);
   ceRenderContentLines(target); ceRenderPreview();
 }
@@ -3990,7 +3958,7 @@ Object.assign(window, {
   updateCompareField, updateCompareItems,
   updateStageField, addStage, removeStage,
   updateImageItem, addImageItem, removeImageItem,
-  addFullImageSlide, replaceFullImage, deleteFullImage, addVideoSlide, updateVideoUrl,
+  addFullImageSlide, deleteFullImage, addVideoSlide, updateVideoUrl,
   updateLesson, updateObjectives, updateLine, updateLineItems, updateThink,
   updateDive, updateDiveImg, toggleOpeningEnabled, toggleChosungEnabled, updateChosungEnabled, updateChosungItems, ceToggleLessonOpen,
   resetContent, saveContent, ceHandleFileUpload,

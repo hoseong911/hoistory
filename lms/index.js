@@ -299,7 +299,7 @@ function enterHub(id, name) {
   document.getElementById('loginScreen').style.display   = 'none';
   document.getElementById('consentPopup').style.display  = 'none';
   document.getElementById('mainHub').style.cssText = 'display:flex;flex-direction:column';
-  document.getElementById('studentChip').textContent = `${id} ${name}`;
+  document.getElementById('studentChip').innerHTML = `<span class="chip-id">${esc(id)}</span><span class="chip-name">${esc(name)}</span>`;
   document.getElementById('welcomeMsg').textContent  = `${name} 학생, 오늘도 즐거운 역사 학습!`;
   document.getElementById('logoutBtn').addEventListener('click', () => {
     sessionStorage.removeItem('lms_sid'); sessionStorage.removeItem('lms_sname'); location.reload();

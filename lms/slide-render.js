@@ -528,7 +528,7 @@
         });
         current = null;
       } else if (line.type === 'fullimage') {
-        raw.push({ type: 'fullimage', url: line.url || '' });
+        raw.push({ type: 'fullimage', img: line.img != null ? line.img : null, url: line.url || '' });
         current = null;
       } else if (line.type === 'video') {
         raw.push({ type: 'video', videoId: line.videoId || '' });
@@ -599,9 +599,14 @@
       inner = imageHTML(slide, lesson);
     } else if (slide.type === 'fullimage') {
       extraClass = ' slide-full';
-      inner = slide.url
-        ? `<img class="full-img" src="${slide.url}" alt="">`
-        : `<div class="slide-media-empty" style="color:#999">이미지 없음</div>`;
+      if (slide.img != null) {
+        const base = `/hoistory/lms/img/${lesson.num}_${slide.img}`;
+        inner = `<img class="full-img" src="${base}.png" alt="" onerror="SlideRenderImgFallback(this,'${base}',0)">`;
+      } else if (slide.url) {
+        inner = `<img class="full-img" src="${slide.url}" alt="">`;   // 예전 업로드분 호환
+      } else {
+        inner = `<div class="slide-media-empty" style="color:#999">이미지 없음</div>`;
+      }
     } else if (slide.type === 'video') {
       extraClass = ' slide-video';
       inner = slide.videoId
