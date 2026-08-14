@@ -432,9 +432,9 @@
       <!-- 액션 -->
       <div class="adm-action-row">
         <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="runScoring()">채점하기</button>
-        <button class="hi-btn hi-btn-outline hi-btn-sm" id="aiPickBtn" onclick="runAiPick()">✨ AI 픽</button>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" id="aiPickBtn" onclick="runAiPick()"><span data-ic="sparkles"></span> AI 픽</button>
         <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportExcel()">엑셀 내보내기</button>
-        <button class="scoring-prompt-btn" onclick="openSettingsModal()" title="AI 설정">⚙️</button>
+        <button class="scoring-prompt-btn" onclick="openSettingsModal()" title="AI 설정"><span data-ic="settings" data-ic-size="18"></span></button>
         <div class="sort-box">
           <button class="sort-btn active" id="classSortNewest" onclick="setClassSort('newest')">최신순</button>
           <button class="sort-btn" id="classSortId" onclick="setClassSort('id')">학번순</button>
@@ -486,7 +486,7 @@
 <!-- 게시글 수정 모달 -->
 <div class="edit-modal-bg" id="postEditModal">
   <div class="edit-modal-box">
-    <div class="edit-modal-title">✏️ 게시글 수정</div>
+    <div class="edit-modal-title"><span data-ic="pencil"></span> 게시글 수정</div>
     <div class="edit-modal-desc">내용과 닉네임을 수정합니다.</div>
     <div class="edit-field">
       <label>내용</label>
@@ -526,6 +526,15 @@ import { getFirestore, collection, doc, onSnapshot, query, orderBy, updateDoc, d
   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import { firebaseConfig } from "../../shared/firebase-config.js";
+import { icon } from "../../shared/icons.js";
+
+// data-ic="아이콘명" 요소에 SVG 주입 (정적 HTML 아이콘용)
+function injectIcons(root = document) {
+  root.querySelectorAll('[data-ic]').forEach(el => {
+    el.innerHTML = icon(el.dataset.ic, +el.dataset.icSize || 16);
+  });
+}
+injectIcons();
 
 const app    = initializeApp(firebaseConfig);
 const db     = getDatabase(app);
@@ -534,9 +543,10 @@ const auth   = getAuth(app);
 const toastRef = ref(db, 'silla_toast');
 
 const roleIcons = {
-  "진골": "👑", "6두품": "📜", "호족": "🏰",
-  "농민": "🌾", "선종 승려": "🧘", "풍수지리사": "🧭"
+  "진골": "crown", "6두품": "scroll-text", "호족": "castle",
+  "농민": "wheat", "선종 승려": "flower", "풍수지리사": "compass"
 };
+const roleGlyph = (role, size = 14) => icon(roleIcons[role] || 'users', size);
 const roleSlugs = {
   "진골": "jingol", "6두품": "yukdupum", "호족": "hojok",
   "농민": "nongmin", "선종 승려": "seonjong", "풍수지리사": "pungsu"
@@ -694,7 +704,7 @@ function buildClassCard(post) {
   const role = post.role || '';
   const picked = !!post.adminPick;
   const badgeRow = (role || post.nickname)
-    ? `<div class="std-badge-row">${role?`<span class="std-badge role-${roleSlugs[role]||''}">${roleIcons[role]||''} ${esc(role)}</span>`:''}${post.nickname?`<span class="std-badge-nick">${esc(post.nickname)}</span>`:''}</div>`
+    ? `<div class="std-badge-row">${role?`<span class="std-badge role-${roleSlugs[role]||''}">${roleGlyph(role)} ${esc(role)}</span>`:''}${post.nickname?`<span class="std-badge-nick">${esc(post.nickname)}</span>`:''}</div>`
     : '';
   return `<div class="std-card">
     <div class="std-card-row">
@@ -709,9 +719,9 @@ function buildClassCard(post) {
       </div>
       <div class="std-actions">
         <button class="std-pick${picked?' picked':''}" onclick="togglePick('${post.id}',${picked},'${(post.content||'').slice(0,80).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' ')}','${esc(post.nickname||'').replace(/'/g,"\\'")}')">
-          ${picked?'⭐':'☆'}
+          ${icon('star', 16)}
         </button>
-        <button class="std-edit" onclick="openPostEditModal('${post.id}')">✏️</button>
+        <button class="std-edit" onclick="openPostEditModal('${post.id}')">${icon('pencil', 15)}</button>
         <button class="std-del" onclick="deletePost('${post.id}')">✕</button>
       </div>
     </div>
@@ -812,7 +822,7 @@ function showToast(msg) {
 
 // 도구
 window.resetAll = () => {
-  openConfirm('⚠️ 전체 초기화', '전체 게시글을 삭제합니다. 되돌릴 수 없습니다.', () => {
+  openConfirm('전체 초기화', '전체 게시글을 삭제합니다. 되돌릴 수 없습니다.', () => {
     openConfirm('정말 삭제하시겠습니까?', '이 작업은 취소할 수 없습니다.', async () => {
       const snap = await getDocs(collection(fsdb, 's_threads_posts'));
       const batch = writeBatch(fsdb);
@@ -847,15 +857,15 @@ window.initDummy = async () => {
   const now = new Date();
   const time = `${now.getMonth()+1}.${now.getDate()}. ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   const dummy = [
-    { role:"진골", nickname:"golden_bone", content:"오늘 안압지 팟 구함~ 🥂 진골끼리만요" },
-    { role:"농민", nickname:"rice_is_life", content:"세금이 너무 많다! 이러다 다 굶어 죽겠어 😡" },
-    { role:"선종 승려", nickname:"empty_mind_99", content:"마음을 비우면 모든 것이 보입니다 🧘" },
-    { role:"풍수지리사", nickname:"vibe_checker", content:"새 도읍지를 찾아야 할 때입니다. 한강 주변이 길지입니다 🧭" },
+    { role:"진골", nickname:"golden_bone", content:"오늘 안압지 팟 구함~ 진골끼리만요" },
+    { role:"농민", nickname:"rice_is_life", content:"세금이 너무 많다! 이러다 다 굶어 죽겠어" },
+    { role:"선종 승려", nickname:"empty_mind_99", content:"마음을 비우면 모든 것이 보입니다" },
+    { role:"풍수지리사", nickname:"vibe_checker", content:"새 도읍지를 찾아야 할 때입니다. 한강 주변이 길지입니다" },
     { role:"6두품", nickname:"six_head_swag", content:"능력으로 인정받고 싶은데 골품제가 너무 답답해. 당나라라도 가야 하나..." },
     { role:"호족", nickname:"local_kingpin", content:"중앙 통제가 약해진 틈을 타 우리 지역 세력을 키울 때가 됐다." },
-    { role:"농민", nickname:"flaming_farmer", content:"흉년인데 세금은 그대로라니. 군주가 백성을 버렸다 🌾" },
+    { role:"농민", nickname:"flaming_farmer", content:"흉년인데 세금은 그대로라니. 군주가 백성을 버렸다" },
     { role:"6두품", nickname:"scholar_kim", content:"최치원 선생님 따라 당 유학 가고 싶다. 이 나라에선 6두품 이상 못 오르는 거 다들 알잖아." },
-    { role:"진골", nickname:"royal_blood", content:"왕위 계승 다툼 또 시작됐음. 이번엔 누가 이길 것 같아? 📊" },
+    { role:"진골", nickname:"royal_blood", content:"왕위 계승 다툼 또 시작됐음. 이번엔 누가 이길 것 같아?" },
     { role:"호족", nickname:"iron_lord", content:"궁예 세력이 북쪽에서 커지고 있다. 우리도 슬슬 편 정해야 할 때." },
   ];
   const batch = writeBatch(fsdb);
@@ -926,7 +936,7 @@ window.runScoring = async () => {
   if (!classPosts.length) { alert('채점할 게시글이 없습니다.'); return; }
   let customPrompt = '';
   try { const snap = await get(ref(db, SCORING_PROMPT_PATH)); customPrompt = snap.exists() ? snap.val() : ''; } catch(e) {}
-  if (!customPrompt) { alert('채점 프롬프트를 먼저 설정해주세요. (⚙️ 버튼 클릭)'); return; }
+  if (!customPrompt) { alert('채점 프롬프트를 먼저 설정해주세요. (설정 버튼 클릭)'); return; }
   const btn = document.querySelector('[onclick="runScoring()"]');
   const origText = btn?.textContent;
   if (btn) btn.disabled = true;
@@ -953,7 +963,7 @@ window.runAiPick = async () => {
   const posts = allPosts.filter(p => p.studentId !== '00000' && p.content);
   if (!posts.length) { alert('픽할 게시글이 없습니다.'); return; }
   const btn = document.getElementById('aiPickBtn');
-  btn.disabled = true; btn.textContent = '✨ 분석 중…';
+  btn.disabled = true; btn.innerHTML = icon('sparkles', 15) + ' 분석 중…';
   let criteria = DEFAULT_PICK_CRITERIA;
   try { const snap = await get(ref(db, AI_PICK_CRITERIA_PATH)); if (snap.exists() && snap.val().trim()) criteria = snap.val(); } catch(e) {}
   const postsText = posts.map((p, i) =>
@@ -989,11 +999,11 @@ ${postsText}
       if (p) batch.update(doc(fsdb, 's_threads_posts', p.id), { adminPick: true });
     });
     await batch.commit();
-    alert(`✨ AI가 ${nums.length}개 게시글을 픽했습니다.`);
+    alert(`AI가 ${nums.length}개 게시글을 픽했습니다.`);
   } catch(e) {
     alert('AI 픽 실패: ' + e.message);
   } finally {
-    btn.disabled = false; btn.textContent = '✨ AI 픽';
+    btn.disabled = false; btn.innerHTML = icon('sparkles', 15) + ' AI 픽';
   }
 };
 
@@ -1038,7 +1048,7 @@ window.exportPostsExcel = () => {
     '번호': i+1, '학번': p.studentId||'', '이름': p.realName||'',
     '닉네임': p.nickname||'', '반': classLabel(p.studentId),
     '신분': p.role||'', '내용': p.content||'',
-    '좋아요': p.likes||0, 'PICK': p.adminPick?'⭐':'', '작성시각': p.time||''
+    '좋아요': p.likes||0, 'PICK': p.adminPick?'O':'', '작성시각': p.time||''
   }));
   const ws = XLSX.utils.json_to_sheet(rows);
   ws['!cols'] = Array(Object.keys(rows[0]).length).fill({ wch: 16 });
@@ -1063,7 +1073,7 @@ window.exportPostsExcel = () => {
       <textarea class="scoring-modal-textarea" id="scoring-prompt-textarea" placeholder="예) 다음 학생의 게시글을 읽고, 신분에 맞는 내용이면 pass, 아니면 fail로만 답하세요.&#10;&#10;{content}"></textarea>
     </div>
     <div id="settings-panel-pick" style="display:none;">
-      <p class="scoring-modal-desc">✨ AI 픽이 우수한 게시글을 고를 때 사용할 기준입니다. 한 줄에 기준 하나씩 자유롭게 작성하세요.</p>
+      <p class="scoring-modal-desc"><span data-ic="sparkles" data-ic-size="15"></span> AI 픽이 우수한 게시글을 고를 때 사용할 기준입니다. 한 줄에 기준 하나씩 자유롭게 작성하세요.</p>
       <textarea class="scoring-modal-textarea" id="ai-pick-criteria-textarea" placeholder="예)&#10;- 해당 신분의 처지와 관점이 잘 담긴 글&#10;- 전체의 20~30% 내외 선정"></textarea>
     </div>
     <div class="scoring-modal-msg" id="settings-modal-msg"></div>

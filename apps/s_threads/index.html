@@ -293,12 +293,12 @@
       style="margin-bottom: 8px;">
 
     <select class="hi-select" id="joinRole" style="margin-bottom: 12px;">
-      <option value="진골">👑 진골 귀족</option>
-      <option value="6두품">📜 6두품 지식인</option>
-      <option value="호족">🏰 지방 호족</option>
-      <option value="농민">🌾 일반 농민</option>
-      <option value="선종 승려">🧘 선종 승려</option>
-      <option value="풍수지리사">🧭 풍수지리사</option>
+      <option value="진골">진골 귀족</option>
+      <option value="6두품">6두품 지식인</option>
+      <option value="호족">지방 호족</option>
+      <option value="농민">일반 농민</option>
+      <option value="선종 승려">선종 승려</option>
+      <option value="풍수지리사">풍수지리사</option>
     </select>
 
     <button class="hi-btn hi-btn-primary hi-btn-block" id="enterBtn" disabled>
@@ -338,7 +338,7 @@
       <button class="role-tab" onclick="setRoleFilter('농민', this)">농민</button>
       <button class="role-tab" onclick="setRoleFilter('선종 승려', this)">승려</button>
       <button class="role-tab" onclick="setRoleFilter('풍수지리사', this)">풍수</button>
-      <button class="role-tab" onclick="setRoleFilter('pick', this)">⭐ Pick</button>
+      <button class="role-tab" onclick="setRoleFilter('pick', this)"><span data-ic="star" data-ic-size="14"></span> Pick</button>
     </div>
   </header>
 
@@ -402,7 +402,7 @@
       <button class="arc-tab" onclick="arcSetFilterSt('호족',this)">호족</button>
       <button class="arc-tab" onclick="arcSetFilterSt('농민',this)">농민</button>
       <button class="arc-tab" onclick="arcSetFilterSt('선종 승려',this)">선종</button>
-      <button class="arc-tab" onclick="arcSetFilterSt('풍수지리사',this)">🧭 풍수</button>
+      <button class="arc-tab" onclick="arcSetFilterSt('풍수지리사',this)">풍수</button>
     </div>
     <!-- 활동 흐름 -->
     <div id="arcFlowSt">
@@ -468,12 +468,12 @@
 
     <label class="hi-label">신분 변경</label>
     <select class="hi-select" id="editRole">
-      <option value="진골">👑 진골 귀족</option>
-      <option value="6두품">📜 6두품 지식인</option>
-      <option value="호족">🏰 지방 호족</option>
-      <option value="농민">🌾 일반 농민</option>
-      <option value="선종 승려">🧘 선종 승려</option>
-      <option value="풍수지리사">🧭 풍수지리사</option>
+      <option value="진골">진골 귀족</option>
+      <option value="6두품">6두품 지식인</option>
+      <option value="호족">지방 호족</option>
+      <option value="농민">일반 농민</option>
+      <option value="선종 승려">선종 승려</option>
+      <option value="풍수지리사">풍수지리사</option>
     </select>
 
     <div style="display:flex; flex-direction:column; gap:8px; margin-top:18px;">
@@ -488,7 +488,7 @@
 <div class="hi-sheet-backdrop hi-hidden" id="editPostModal">
   <div class="hi-sheet">
     <div class="hi-sheet-handle"></div>
-    <div class="hi-sheet-title">✏️ 글 수정</div>
+    <div class="hi-sheet-title"><span data-ic="pencil"></span> 글 수정</div>
 
     <label class="hi-label">내용 수정</label>
     <textarea class="hi-textarea" id="editPostContent"
@@ -498,12 +498,12 @@
 
     <label class="hi-label">계층 변경</label>
     <select class="hi-select" id="editPostRole">
-      <option value="진골">👑 진골 귀족</option>
-      <option value="6두품">📜 6두품 지식인</option>
-      <option value="호족">🏰 지방 호족</option>
-      <option value="농민">🌾 일반 농민</option>
-      <option value="선종 승려">🧘 선종 승려</option>
-      <option value="풍수지리사">🧭 풍수지리사</option>
+      <option value="진골">진골 귀족</option>
+      <option value="6두품">6두품 지식인</option>
+      <option value="호족">지방 호족</option>
+      <option value="농민">일반 농민</option>
+      <option value="선종 승려">선종 승려</option>
+      <option value="풍수지리사">풍수지리사</option>
     </select>
 
     <div style="display:flex; flex-direction:column; gap:8px; margin-top:18px;">
@@ -528,6 +528,15 @@ import { mountCharCounter, validateText }
   from '../../shared/textLimit.js';
 import { showRichToast, subscribePickChannel }
   from '../../shared/toast.js';
+import { icon } from '../../shared/icons.js';
+
+// data-ic="아이콘명" 요소에 SVG 주입 (정적 HTML 아이콘용)
+function injectIcons(root = document) {
+  root.querySelectorAll('[data-ic]').forEach(el => {
+    el.innerHTML = icon(el.dataset.ic, +el.dataset.icSize || 16);
+  });
+}
+injectIcons();
 
 // ─── Firebase 초기화 ───
 import "../../shared/offline.js";
@@ -542,9 +551,10 @@ initAuth(db);
 const MIN_LEN = 30;
 
 const roleIcons = {
-  "진골":"👑","6두품":"📜","호족":"🏰",
-  "농민":"🌾","선종 승려":"🧘","풍수지리사":"🧭"
+  "진골":"crown","6두품":"scroll-text","호족":"castle",
+  "농민":"wheat","선종 승려":"flower","풍수지리사":"compass"
 };
+const roleGlyph = (role, size = 22) => icon(roleIcons[role] || 'users', size);
 
 // ─── 상태 ───
 let currentUser = null;
@@ -634,7 +644,7 @@ function showApp() {
   subscribePickChannel({
     dbRef: toastRef, onValue,
     title: '선생님이 이 글을 Pick 했어요!',
-    icon: '⭐',
+    icon: icon('star', 30),
     buildMessage: ({ content, nickname }) =>
       `"${content.length > 40 ? content.slice(0, 40) + '…' : content}"<br>` +
       `<span style="font-weight:700;">— ${nickname}</span>`
@@ -642,11 +652,11 @@ function showApp() {
 }
 
 function updateUI() {
-  const icon = roleIcons[currentUser.role] || '?';
-  document.getElementById('myAvatar').textContent = icon;
-  document.getElementById('headerAvatar').textContent = icon;
+  const glyph = roleGlyph(currentUser.role);
+  document.getElementById('myAvatar').innerHTML = glyph;
+  document.getElementById('headerAvatar').innerHTML = glyph;
   document.getElementById('headerNick').textContent = currentUser.nick;
-  document.getElementById('modalAvatar').textContent = icon;
+  document.getElementById('modalAvatar').innerHTML = glyph;
   document.getElementById('modalName').textContent = `${currentUser.name} (${currentUser.nick})`;
   document.getElementById('modalId').textContent = `학번 ${currentUser.id} · ${currentUser.role}`;
   document.getElementById('editNick').value = currentUser.nick;
@@ -702,7 +712,7 @@ function renderFeed() {
   }
 
   if (!posts.length) {
-    feed.innerHTML = `<div class="hi-empty">📭 아직 게시글이 없습니다.</div>`;
+    feed.innerHTML = `<div class="hi-empty">${icon('inbox', 20)} 아직 게시글이 없습니다.</div>`;
     return;
   }
 
@@ -717,14 +727,14 @@ function renderFeed() {
 
     const avatar = document.createElement('div');
     avatar.className = 'avatar-circle';
-    avatar.textContent = roleIcons[post.role] || '?';
+    avatar.innerHTML = roleGlyph(post.role);
 
     const body = document.createElement('div');
     body.style.flex = '1';
 
     if (post.adminPick) {
       const badge = document.createElement('div');
-      badge.className = 'pick-badge'; badge.textContent = '⭐ Pick';
+      badge.className = 'pick-badge'; badge.innerHTML = icon('star', 13) + ' Pick';
       body.appendChild(badge);
     }
 
@@ -762,7 +772,7 @@ function renderFeed() {
 
     const likeBtn = document.createElement('div');
     likeBtn.className = `like-btn${isLiked ? ' liked' : ''}`;
-    likeBtn.textContent = `${isLiked ? '❤️' : '♡'} ${post.likes || 0}`;
+    likeBtn.innerHTML = `${icon('heart', 14)} ${post.likes || 0}`;
     if (!isDummy) likeBtn.onclick = () => toggleLike(post.id, !!isLiked);
     actions.appendChild(likeBtn);
 
@@ -794,11 +804,11 @@ window.createPost = () => {
   const content = document.getElementById('postInput').value.trim();
   const v = validateText(content, { min: MIN_LEN });
   if (!v.ok) {
-    showRichToast({ icon: '✏️', title: '글자 수 부족', message: v.message });
+    showRichToast({ icon: icon('pencil', 30), title: '글자 수 부족', message: v.message });
     return;
   }
   if (containsBadWord(content)) {
-    showRichToast({ icon: '🚫', title: '게시 불가',
+    showRichToast({ icon: icon('ban', 30), title: '게시 불가',
       message: '부적절한 표현이 포함되어 있어 게시할 수 없습니다.', kind: 'error' });
     return;
   }
@@ -846,11 +856,11 @@ window.submitPostEdit = async () => {
   const role = document.getElementById('editPostRole').value;
   const v = validateText(content, { min: MIN_LEN });
   if (!v.ok) {
-    showRichToast({ icon: '✏️', title: '글자 수 부족', message: v.message });
+    showRichToast({ icon: icon('pencil', 30), title: '글자 수 부족', message: v.message });
     return;
   }
   if (containsBadWord(content)) {
-    showRichToast({ icon: '🚫', title: '수정 불가',
+    showRichToast({ icon: icon('ban', 30), title: '수정 불가',
       message: '부적절한 표현이 포함되어 있어 수정할 수 없습니다.', kind: 'error' });
     return;
   }
@@ -862,7 +872,7 @@ window.submitPostEdit = async () => {
              && post.realName === currentUser.name
              && post.nickname === currentUser.nick;
   if (!valid) {
-    showRichToast({ icon: '🚫', title: '권한 없음',
+    showRichToast({ icon: icon('ban', 30), title: '권한 없음',
       message: '수정 권한이 없습니다.', kind: 'error' });
     closeEditPost(); return;
   }
@@ -881,7 +891,7 @@ window.closeProfile = () => {
 window.saveProfile = () => {
   const nick = document.getElementById('editNick').value.trim();
   if (!nick) {
-    showRichToast({ icon: '⚠️', title: '닉네임 필요',
+    showRichToast({ icon: icon('triangle-alert', 30), title: '닉네임 필요',
       message: '닉네임을 입력하세요.', kind: 'error' });
     return;
   }
@@ -957,15 +967,15 @@ function renderArcFeed() {
   posts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
   if (!posts.length) {
-    feed.innerHTML = `<div class="arc-empty">📭 아직 Pick된 글이 없어요.</div>`;
+    feed.innerHTML = `<div class="arc-empty">${icon('inbox', 20)} 아직 Pick된 글이 없어요.</div>`;
     return;
   }
 
   const visible = posts.slice(0, arcPage * ARC_PAGE_SIZE);
   feed.innerHTML = visible.map(post => `<div class="arc-post">
-    <div class="arc-post-pick">⭐ Pick</div>
+    <div class="arc-post-pick">${icon('star', 13)} Pick</div>
     <div class="arc-post-meta">
-      <span class="arc-post-role">${roleIcons[post.role]||''} ${post.role||''}</span>
+      <span class="arc-post-role">${roleGlyph(post.role, 14)} ${post.role||''}</span>
       <span class="arc-post-nick">${post.nickname||''}</span>
     </div>
     <div class="arc-post-text">${post.content||''}</div>
