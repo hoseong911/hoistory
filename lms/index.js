@@ -436,8 +436,8 @@ function startListening() {
   ['concept','mission','think','grade','contents'].forEach(k => sectionData[k] = null);
   renderAll();
 
-  // 1. 개념 체크 — class_lessons
-  onSnapshot(query(collection(db, 'class_lessons'), orderBy('order','desc')), snap => {
+  // 1. 개념 체크 — class_lessons (어드민 강의 목록과 동일한 order 오름차순)
+  onSnapshot(query(collection(db, 'class_lessons'), orderBy('order','asc')), snap => {
     // 비공개(isOpen===false)는 생각 체크처럼 허브에서 아예 숨긴다(흐린 잠금 표시 안 함).
     sectionData.concept = snap.docs
       .filter(d => d.data().isOpen !== false)
@@ -470,9 +470,9 @@ function startListening() {
         const n = extractNum(l.title);
         return { icon: l.icon || (n < 9999 ? String(n) : '?'), label: stripLecNum(l.title), locked:false,
           isThink:true, lectureDocId:d.id, lectureTitle:l.title,
-          question:l.question||'', reference:l.reference||'', _n: n };
+          question:l.question||'', reference:l.reference||'', _n: n, _ts: (l.createdAt && l.createdAt.seconds) || 0 };
       })
-      .sort((a, b) => b._n - a._n);
+      .sort((a, b) => b._ts - a._ts); // 어드민(생각 체크)과 동일한 createdAt 내림차순
     renderAll();
   });
 
@@ -487,7 +487,7 @@ function startListening() {
       sectionData.contents = snap.docs
         .map(d => { const data = d.data(); return { docId: d.id, ...data, label: data.title || data.label, url: resolveAppUrl(data.url), openInModal: !!data.openInModal }; })
         .filter(x => notHismile(x) && x.locked !== true) // 비공개(locked)는 생각 체크처럼 허브에서 숨긴다
-        .sort((a, b) => (b.order ?? -1) - (a.order ?? -1)); // 최신(order 큰 것)이 위로
+        .sort((a, b) => (a.order ?? 999) - (b.order ?? 999)); // 어드민과 동일한 오름차순(order 작은 게 위)
       renderAll();
     });
   }).catch(() => { sectionData.contents = []; renderAll(); });
