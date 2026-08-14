@@ -456,7 +456,7 @@ function startListening() {
       sectionData.mission = snap.docs
         .map(d => { const data = d.data(); return { docId: d.id, ...data, label: data.title || data.label, url: resolveAppUrl(data.url) }; })
         .filter(x => notHismile(x) && x.locked !== true) // 비공개(locked)는 생각 체크처럼 허브에서 숨긴다
-        .sort((a, b) => (b.order ?? -1) - (a.order ?? -1)); // 최신(order 큰 것)이 위로
+        .sort((a, b) => (a.order ?? 999) - (b.order ?? 999)); // 어드민과 동일한 오름차순(order 작은 게 위)
       renderAll();
     });
   }).catch(() => { sectionData.mission = []; renderAll(); });
