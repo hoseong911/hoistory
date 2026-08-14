@@ -4114,7 +4114,7 @@ Object.assign(window, {
   switchSubTab, addLesson, deleteLesson, onLessonChange,
   addSlide, addDivider, addContentRow, addImageSlide, toggleDividerImg, deleteLine, deletePair, moveLine,
   addRowToGroup, addPageToGroup, ceShowAddMenu, deleteGroup, deleteRow, updateGroupTitle, ceToggleFmt,
-  setLineFormat, toggleLabelPos, setLineFontSize,
+  setLineFormat, toggleLabelPos, setLineFontSize, updateImgLayout,
   updateEventField, updateEventContent, addEvent, removeEvent,
   updateCompareField, updateCompareItems,
   updateStageField, addStage, removeStage,
