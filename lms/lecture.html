@@ -6,7 +6,7 @@
   <title>강의</title>
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Great+Vibes&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="slide-style.css?v=20260813i">
+  <link rel="stylesheet" href="slide-style.css?v=20260814a">
   <style>
     /* ════ 리셋 ════ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -95,10 +95,10 @@
     #typing-score {
       display: flex;
       align-items: center;
-      height: 28px;
-      padding: 0 0.7em;
-      border-radius: 16px;
+      padding: 0.35em 0.9em;
+      border-radius: 999px;
       font-size: calc(var(--fs-slide-title) * 0.55 * var(--slide-scale, 1));
+      line-height: 1;
       font-weight: 700;
       background: rgba(26,127,55,0.10);
       color: #1a7f37;
@@ -124,9 +124,41 @@
       pointer-events: none;
     }
     .typing-reward.show { opacity: 1; transform: translate(-50%, 0); }
-    .typing-reward .tr-main { font-size: 1.05rem; font-weight: 700; }
+    .typing-reward .tr-main { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 1.05rem; font-weight: 700; }
+    .typing-reward .tr-main svg { flex-shrink: 0; }
     .typing-reward .tr-main b { font-weight: 800; }
     .typing-reward .tr-sub { margin-top: 4px; font-size: 0.9rem; font-weight: 700; color: #d6f5df; }
+    /* 아직 90% 미달이라 XP를 못 받았을 때는 초록(성공) 대신 차분한 톤으로 구분 */
+    .typing-reward.retry { background: #27384F; }
+    .typing-reward.retry .tr-sub { color: #cbd5e1; }
+
+    /* 타이핑 복습 완료 버튼: 마지막 슬라이드에서만 노출(JS가 토글) */
+    #typing-complete-btn {
+      position: fixed;
+      left: 50%;
+      bottom: 34px;
+      transform: translateX(-50%);
+      z-index: 200;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 30px;
+      border: none;
+      border-radius: 999px;
+      background: #1a7f37;
+      color: #fff;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 8px 22px rgba(26,127,55,0.35);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    #typing-complete-btn svg { flex-shrink: 0; }
+    #typing-complete-btn:hover  { transform: translateX(-50%) scale(1.04); }
+    #typing-complete-btn:active { transform: translateX(-50%) scale(0.97); }
+    #typing-complete-btn[hidden] { display: none; }
+    body.mobile-scroll #typing-complete-btn { bottom: 18px; padding: 12px 24px; font-size: 0.92rem; }
 
     #slide-counter {
       position: fixed;
@@ -215,8 +247,7 @@
     body.mobile-scroll #mode-badge { font-size: 1.35rem; opacity: 0.9; }
     body.mobile-scroll #typing-score {
       font-size: 0.82rem;   /* PC용 축소 배율(--slide-scale) 대신 고정 크기로 읽기 좋게 */
-      height: 30px;
-      padding: 0 0.7em;
+      padding: 0.4em 0.9em;
     }
 
     /* ════ 복습 모드: 세로화면이면 '가로로 돌려주세요' 안내로 덮는다 ════
@@ -266,6 +297,7 @@
   <div id="mode-badge"></div>
   <div id="typing-score" hidden></div>
 </div>
+<button id="typing-complete-btn" hidden></button>
 <div    id="slide-counter" hidden></div>
 <div    id="load-error"    hidden></div>
 
@@ -276,7 +308,7 @@
   <div class="rh-sub">화면을 가로로 돌리면<br>글자와 빈칸이 크게 잘 보여요</div>
 </div>
 
-<script src="slide-render.js?v=20260813q"></script>
+<script src="slide-render.js?v=20260814a"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
@@ -284,6 +316,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getDatabase, ref, get, set, push, update, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { initXP, addTypingReviewXP } from '../shared/xp.js';
+import { icon } from '../shared/icons.js';
 
 const app = initializeApp({
   apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -501,14 +534,24 @@ async function init() {
   const backBtn     = document.getElementById('back-btn');
   const modeBadge   = document.getElementById('mode-badge');
   const typingScore = document.getElementById('typing-score');
+  const completeBtn = document.getElementById('typing-complete-btn');
+  completeBtn.innerHTML = `${icon('circle-check', 20)}<span>타이핑 복습 완료</span>`;
   const counterEl = document.getElementById('slide-counter');
 
   let currentSlideIdx = 0;
   function currentIdx() { return currentSlideIdx; }
   function totalCount() { return slidesEl.querySelectorAll('.slide').length; }
 
+  // 완료 버튼은 타이핑 모드에서 마지막 슬라이드에 도달했을 때만 보인다.
+  function updateCompleteBtn() {
+    const onTyping   = document.body.dataset.mode === 'typing';
+    const onLastSlide = currentIdx() === totalCount() - 1;
+    completeBtn.hidden = !(onTyping && onLastSlide);
+  }
+
   function updateCounter() {
     counterEl.textContent = `${currentIdx() + 1} / ${totalCount()}`;
+    updateCompleteBtn();
   }
 
   // 완성형/빈칸형 모드 전환 + 주소창의 ?mode= 값을 항상 현재 상태와 일치시킨다
@@ -532,6 +575,7 @@ async function init() {
     modeBadge.title = MODE_TITLE[mode] || '';
     if (mode === 'typing') { setupTyping(); updateTypingScore(); typingScore.hidden = false; }
     else { typingScore.hidden = true; }
+    updateCompleteBtn();
     const url = new URL(location.href);
     url.searchParams.set('mode', mode);
     history.replaceState(null, '', url);
@@ -564,9 +608,14 @@ async function init() {
       input.style.width = ([...answer].length + 0.4) + 'em'; // 글자 수에 맞춰 딱 맞는 폭
       input.addEventListener('input', () => { input.classList.remove('correct', 'wrong'); });
       input.addEventListener('blur', () => checkTypingInput(input));
+      // 다른 모드는 화살표/휠/터치로 넘길 때 전체화면을 요청하지만, 타이핑 모드는 학생이
+      // 입력칸을 직접 클릭해 시작하고 이후 Enter/Tab으로만 이동해 그 트리거를 안 타므로
+      // 여기서도(첫 클릭 + 이동 시) 요청해준다.
+      input.addEventListener('mousedown', () => { if (!isMobileLayout) requestFsOnce(); });
       // Enter/Tab으로 칸 이동을 직접 처리한다. 브라우저 기본 Tab은 화면 밖(다음 슬라이드)
       // 입력칸으로 포커스를 옮기며 컨테이너를 스크롤시켜 슬라이드 위치가 어긋나므로 가로챈다.
       input.addEventListener('keydown', e => {
+        if (!isMobileLayout) requestFsOnce();
         if (e.key === 'Enter')    { e.preventDefault(); moveTyping(input, +1); }
         else if (e.key === 'Tab') { e.preventDefault(); moveTyping(input, e.shiftKey ? -1 : +1); }
       });
@@ -607,25 +656,41 @@ async function init() {
     const inputs = slidesEl.querySelectorAll('.blank-input');
     const correct = slidesEl.querySelectorAll('.blank-input.correct').length;
     typingScore.textContent = `${correct} / ${inputs.length}`;
-    maybeAwardTypingXP(correct, inputs.length);
   }
 
-  // 90% 이상 정답이면 그날 1회 XP 적립(강 무관). 신원(sid)이 있을 때만 대상.
-  async function maybeAwardTypingXP(correct, total) {
-    if (typingXpDone || !xpReady || !XP_SID || !total) return;
-    if (correct / total < 0.9) return;
+  // 완료 버튼을 눌렀을 때만 채점하고, 90% 이상이면 그날 1회 XP를 적립한다(강 무관,
+  // 신원(sid)이 있을 때만 대상). 입력 도중에는 지급하지 않는다.
+  completeBtn.addEventListener('click', finishTypingReview);
+  async function finishTypingReview() {
+    const inputs  = slidesEl.querySelectorAll('.blank-input');
+    const correct = slidesEl.querySelectorAll('.blank-input.correct').length;
+    const total   = inputs.length;
+    const pass    = total > 0 && correct / total >= 0.9;
+
+    if (!pass) {
+      showTypingToast('pencil', `채점 결과: ${correct} / ${total}`, '정답률 90% 이상이면 XP를 받을 수 있어요', 'retry');
+      return;
+    }
+    if (typingXpDone || !xpReady || !XP_SID) {
+      showTypingToast('party-popper', `타이핑 복습 완료! (${correct} / ${total})`, '');
+      return;
+    }
     typingXpDone = true; // 중복 시도 방지. 이미 오늘 받았으면 addTypingReviewXP가 null 반환.
     try {
       const res = await addTypingReviewXP();
-      if (res) showTypingReward(res);
-    } catch (e) { typingXpDone = false; }
+      if (res) showTypingToast('party-popper', `타이핑 복습 완료! <b>+${res.pt} XP</b>`, res.levelUp ? `레벨 업! Lv.${res.newLevel}` : '');
+      else      showTypingToast('party-popper', `타이핑 복습 완료! (${correct} / ${total})`, '오늘 XP는 이미 받았어요');
+    } catch (e) {
+      typingXpDone = false;
+      showTypingToast('party-popper', `타이핑 복습 완료! (${correct} / ${total})`, '');
+    }
   }
 
-  function showTypingReward(res) {
+  function showTypingToast(iconName, mainHTML, subHTML, cls) {
     const el = document.createElement('div');
-    el.className = 'typing-reward';
-    el.innerHTML = `<div class="tr-main">🎉 타이핑 복습 완료! <b>+${res.pt} XP</b></div>`
-      + (res.levelUp ? `<div class="tr-sub">레벨 업! Lv.${res.newLevel}</div>` : '');
+    el.className = 'typing-reward' + (cls ? ' ' + cls : '');
+    el.innerHTML = `<div class="tr-main">${icon(iconName, 20)}<span>${mainHTML}</span></div>`
+      + (subHTML ? `<div class="tr-sub">${subHTML}</div>` : '');
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('show'));
     setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 3200);

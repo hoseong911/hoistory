@@ -14,6 +14,12 @@
     );
   }
 
+  // 빈칸({})이나 괄호 축소 없이 **굵게** 문법만 적용. 생각 Check 질문처럼 빈칸 문법이
+  // 필요 없는 일반 텍스트에 쓴다.
+  function boldOnly(str) {
+    return String(str).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+  }
+
   function parseText(str) {
     // 빈칸을 임시 플레이스홀더로 보호
     const blanks = [];
@@ -500,7 +506,7 @@
         <span class="check-badge think">생각 Check</span>
         <h2 class="slide-title">${lesson.num}강</h2>
       </div>
-      <p class="think-question">${preserveSpaces(slide.question).replace(/\n/g, '<br>')}</p>
+      <p class="think-question">${boldOnly(preserveSpaces(slide.question)).replace(/\n/g, '<br>')}</p>
       <div class="think-body">
         <p class="think-guide">${preserveSpaces(slide.guide).replace(/\n/g, '<br>').replace('50자', '<strong>50자</strong>')}</p>
       </div>
