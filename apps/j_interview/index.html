@@ -65,7 +65,11 @@ input,textarea,select{font-size:16px;font-family:inherit}
 .char-slide-track{display:flex;height:100%;transition:transform .3s cubic-bezier(.22,.61,.36,1)}
 .char-slide{flex:0 0 100%;min-width:0;height:100%;display:flex;align-items:flex-end;justify-content:center;padding:8px}
 .char-illust{width:100%;height:100%;display:flex;align-items:flex-end;justify-content:center}
-.char-illust img{width:100%;height:100%;object-fit:contain;object-position:center bottom}
+/* 인물마다 원본 이미지 비율이 달라 width:100%/height:100%로 채우면 인물 크기가
+   제각각으로 보였다. 높이를 기준으로 통일하고(height:100%), 폭은 비율대로 따라오게
+   해서 인물 간 실제 크기가 맞춰 보이게 한다. 지나치게 옆으로 넓은 이미지만
+   max-width로 눌러 object-fit:contain이 대신 받아준다. */
+.char-illust img{height:100%;width:auto;max-width:100%;object-fit:contain;object-position:center bottom}
 .char-emoji-big{font-size:96px;line-height:1}
 .char-info{flex-shrink:0;text-align:center}
 .char-name{font-family:var(--serif);font-weight:700;font-size:18px}
@@ -133,10 +137,12 @@ input,textarea,select{font-size:16px;font-family:inherit}
 .flow-next{margin-top:4px}
 
 /* ── 심화 질문 ── */
-.deep-char-tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch}
+/* 인물 선택 칩 4개를 가로 폭 전체(칩 4개 + 칩 사이 여백)에 맞춰 균등폭으로 늘린다. */
+.deep-char-tabs{display:flex;gap:8px;padding-bottom:4px}
 /* 심화 질문: 인물 선택 칩 (가로 나란히, 사진+이름) */
-.deep-char-chip{display:inline-flex;align-items:center;gap:8px;flex-shrink:0;padding:6px 15px 6px 6px;border:1px solid var(--line);border-radius:100px;background:var(--canvas);font-family:inherit;font-size:14px;font-weight:700;color:var(--ink);cursor:pointer;box-shadow:var(--shadow);touch-action:manipulation;transition:.15s}
+.deep-char-chip{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:1;min-width:0;padding:6px 12px 6px 6px;border:1px solid var(--line);border-radius:100px;background:var(--canvas);font-family:inherit;font-size:14px;font-weight:700;color:var(--ink);cursor:pointer;box-shadow:var(--shadow);touch-action:manipulation;transition:.15s}
 .deep-char-chip.active{background:var(--primary);color:#fff;border-color:transparent}
+.dcc-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dcc-av{width:34px;height:34px;border-radius:50%;overflow:hidden;flex-shrink:0;background:var(--gold-soft);border:2px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:16px}
 .deep-char-chip.active .dcc-av{border-color:#fff}
 .dcc-av img{width:100%;height:100%;object-fit:cover;object-position:50% 12%}
@@ -204,7 +210,6 @@ input,textarea,select{font-size:16px;font-family:inherit}
 /* ── 인트로 시나리오 ── */
 .intro-box{background:var(--canvas);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow-lg);padding:38px 26px 30px;text-align:center;margin-top:24px;position:relative;overflow:hidden}
 .intro-box::before{content:'';position:absolute;top:0;left:0;right:0;height:6px;background:linear-gradient(90deg,var(--primary),var(--gold))}
-.intro-badge{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.08em;color:var(--primary-deep);background:var(--primary-soft);border:1px solid rgba(198,61,47,.24);border-radius:100px;padding:5px 14px;margin-bottom:14px}
 .intro-title{font-family:var(--serif);font-weight:700;font-size:18px;line-height:1.35;margin-bottom:18px}
 .intro-p{font-size:14px;color:var(--sub);line-height:1.75;word-break:keep-all;margin-bottom:12px}
 .intro-p b{color:var(--primary-deep);font-weight:800}
@@ -229,7 +234,6 @@ input,textarea,select{font-size:16px;font-family:inherit}
   <!-- 인트로 시나리오 (로그인 후 첫 화면) -->
   <div class="screen active" id="screen-intro">
     <div class="intro-box">
-      <div class="intro-badge" id="intro-badge">가상 인터뷰</div>
       <div class="intro-title" id="intro-title">조선의 기틀을 만든 자들</div>
       <div id="intro-paras"></div>
       <button class="btn btn-primary btn-full intro-start" id="intro-start-btn">인터뷰 시작하기</button>
@@ -385,7 +389,7 @@ const DEFAULT_CHARS=[
 ];
 
 let CHARS=DEFAULT_CHARS;
-const DEFAULT_INTRO={badge:'가상 인터뷰',title:'조선의 기틀을 만든 자들',paragraphs:[
+const DEFAULT_INTRO={title:'조선의 기틀을 만든 자들',paragraphs:[
   '600년 전, 새로 세운 나라 조선. 그 뼈대를 세운 사람들이 지금 여러분 앞에 앉아 있습니다.',
   '태종과 세종 같은 임금부터 3사 관원, 지방의 양반까지 — 직접 만날 순 없지만, 여러분이 그 인물이 되어 생각을 상상해보는 **가상 인터뷰**예요.',
   '묻고, 답하고, 친구들과 생각을 나눠보세요.'
@@ -409,7 +413,6 @@ function showHint(el,t){el.textContent=t;el.classList.add('show');clearTimeout(e
 function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');window.scrollTo(0,0);}
 // 인트로 화면을 어드민에서 설정한 내용(interview_content.intro)으로 채운다.
 function renderIntro(){
-  document.getElementById('intro-badge').textContent=INTRO.badge||'';
   document.getElementById('intro-title').textContent=INTRO.title||'';
   const paras=Array.isArray(INTRO.paragraphs)?INTRO.paragraphs:[];
   document.getElementById('intro-paras').innerHTML=paras.filter(p=>String(p||'').trim()).map(p=>`<p class="intro-p">${esc(p).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')}</p>`).join('');
