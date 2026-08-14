@@ -21,8 +21,6 @@
   --primary:#C63D2F;--primary-deep:#A62F23;--primary-soft:rgba(198,61,47,.10);--primary-m:rgba(198,61,47,.20);
   --gold:#C9A24B;--gold-line:#E3D3A6;--gold-soft:#FBF6E8;--indigo:#2C5A7C;
   --accent:#C9A24B;--accent-deep:#A62F23;--accent-l:rgba(201,162,75,.12);
-  --pass:#2E7D5B;--pass-l:rgba(46,125,91,.12);
-  --insuf:#C63D2F;--insuf-l:rgba(198,61,47,.08);
   --shadow:0 6px 16px rgba(120,90,40,.12);--shadow-lg:0 10px 26px rgba(120,90,40,.16);
   --r:16px;--r-lg:22px;--r-pill:100px;
   --serif:'Gowun Batang',serif;
@@ -115,16 +113,9 @@ input,textarea,select{font-size:16px;font-family:inherit}
 .ai-q-label{font-size:12px;font-weight:800;color:var(--ink);margin-bottom:6px}
 .ai-preview{font-size:14px;color:var(--ink);line-height:1.55;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:10px;word-break:break-word}
 .ai-fb-row{display:flex;align-items:flex-start;gap:8px}
-.ai-badge{flex-shrink:0;padding:3px 11px;border-radius:100px;font-size:12px;font-weight:800}
-.ai-badge.pass{background:var(--pass);color:#fff}
-.ai-badge.insuf{background:var(--primary);color:#fff}
 .ai-fb-text{font-size:14px;color:var(--sub);line-height:1.6;word-break:keep-all}
-.ai-overall{border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.ai-overall.pass{background:var(--pass-l);border-color:rgba(46,125,91,.28)}
-.ai-overall.insuf{background:var(--primary-soft);border-color:rgba(198,61,47,.24)}
-.ai-overall-label{font-family:var(--serif);font-weight:700;font-size:16px}
-.ai-overall.pass .ai-overall-label{color:var(--pass)}
-.ai-overall.insuf .ai-overall-label{color:var(--primary-deep)}
+.ai-overall{border:1px solid var(--gold-line);background:var(--gold-soft);border-radius:var(--r);box-shadow:var(--shadow);padding:16px 18px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ai-overall-label{font-family:var(--serif);font-weight:700;font-size:16px;color:var(--sub)}
 .ai-overall-desc{font-size:14px;color:var(--sub);margin-top:3px;word-break:keep-all}
 .ai-overall-icon{flex-shrink:0}
 .ai-action-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -133,11 +124,7 @@ input,textarea,select{font-size:16px;font-family:inherit}
 .step-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .step-tag{font-size:12px;font-weight:800;border:1px solid var(--gold-line);border-radius:100px;background:var(--gold-soft);color:var(--sub);padding:6px 14px;box-shadow:var(--shadow)}
 .step-title{font-family:var(--serif);font-weight:700;font-size:18px}
-.result-banner{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:14px 16px}
-.result-banner.pass{background:var(--pass-l);border-color:rgba(46,125,91,.28)}
-.result-banner.insuf{background:var(--primary-soft);border-color:rgba(198,61,47,.24)}
-.rb-badge{flex-shrink:0;font-weight:800;font-size:12px;padding:4px 11px;border-radius:100px;background:var(--primary);color:#fff}
-.result-banner.pass .rb-badge{background:var(--pass)}
+.result-banner{display:flex;align-items:center;gap:12px;border:1px solid var(--gold-line);background:var(--gold-soft);border-radius:var(--r);box-shadow:var(--shadow);padding:14px 16px}
 .rb-text{font-size:14px;font-weight:700;line-height:1.5;word-break:keep-all}
 .flow-next{margin-top:4px}
 
@@ -439,7 +426,7 @@ function fbFromFlags(ht,hr){
 }
 async function runAI(){
   const c=CHARS[selIdx];
-  const SHORT_FB='조금 더 자세히 써봐요. 생각과 이유를 담아 30자 이상 작성해야 통과할 수 있어요.';
+  const SHORT_FB='조금 더 자세히 써봐요. 생각과 이유를 담아 30자 이상 써보면 좋아요.';
   const lengthOk=answers.map(a=>a.replace(/\s/g,'').length>=30);
 
   try{
@@ -575,25 +562,26 @@ document.getElementById('ai-check-btn').addEventListener('click',async()=>{
   document.getElementById('ai-loading').style.display='none';
   const c=CHARS[selIdx];
   const el=document.getElementById('ai-result');
+  // AI는 내용에 대한 피드백만 준다. 통과/미흡 판정은 선생님이 어드민에서 직접 채점하므로
+  // 여기선 그 판정(뱃지·색·"통과/미흡" 문구)을 학생에게 보여주지 않는다.
   el.innerHTML=c.questions.map((q,i)=>`
     <div class="ai-q-result">
       <div class="ai-q-label">Q${i+1}. ${esc(q)}</div>
       <div class="ai-preview">${answers[i]?esc(answers[i]):'<em style="color:var(--stone)">미작성</em>'}</div>
       <div class="ai-fb-row">
-        <span class="ai-badge ${aiResult.items[i].ok?'pass':'insuf'}">${aiResult.items[i].ok?'통과':'미흡'}</span>
         <span class="ai-fb-text">${aiResult.items[i].fb}</span>
       </div>
     </div>`).join('')
-  +`<div class="ai-overall ${aiResult.overallOk?'pass':'insuf'}">
+  +`<div class="ai-overall">
       <div>
-        <div class="ai-overall-label">${aiResult.overallOk?'전체 통과':'보완이 필요해요'}</div>
-        <div class="ai-overall-desc">${aiResult.overallOk?'모든 답변이 충분해요. 제출해 보세요!':'일부 답변을 더 보완하면 더 좋은 인터뷰가 될 거예요.'}</div>
+        <div class="ai-overall-label">AI 피드백</div>
+        <div class="ai-overall-desc">위 피드백을 참고해서 답변을 다듬어도 좋고, 그대로 제출해도 괜찮아요.</div>
       </div>
-      <div class="ai-overall-icon">${aiResult.overallOk?icon('circle-check',30):icon('pencil',30)}</div>
+      <div class="ai-overall-icon">${icon('sparkles',30)}</div>
     </div>
     <div class="ai-action-row">
       <button class="btn btn-ghost" id="rewrite-btn">답변 수정하기</button>
-      <button class="btn ${aiResult.overallOk?'btn-primary':'btn-danger'}" id="submit-btn">${aiResult.overallOk?'제출하기':'그래도 제출하기'}</button>
+      <button class="btn btn-primary" id="submit-btn">제출하기</button>
     </div>`;
   el.style.display='flex';
   document.getElementById('rewrite-btn').addEventListener('click',()=>{
@@ -609,7 +597,9 @@ document.getElementById('ai-back-btn').addEventListener('click',()=>{
 
 /* ── 제출 → 마무리 활동 1/3로 진행 ── */
 async function doSubmit(){
-  submissionStatus=aiResult?.overallOk?'pass':'fail';
+  // 통과/미흡은 선생님이 어드민에서 채점하므로, 제출 시점엔 AI 판정 없이 항상
+  // 미채점(pending) 상태로 저장한다.
+  submissionStatus='pending';
   const c=CHARS[selIdx];
   const ansMap={};answers.forEach((a,i)=>ansMap[i]=a);
   try{
@@ -619,10 +609,9 @@ async function doSubmit(){
       submittedAt:serverTimestamp(),status:submissionStatus
     },{merge:true});
   }catch(e){}
-  const pass=submissionStatus==='pass';
   const banner=document.getElementById('hub-result');
-  banner.className='result-banner '+(pass?'pass':'insuf');
-  banner.innerHTML=`<span class="rb-badge">${pass?'통과':'미흡'}</span><span class="rb-text">${pass?'답변이 잘 제출되었어요. 이어서 활동을 골라 해보세요.':'답변을 제출했어요. 이어서 활동을 골라 해보세요.'}</span>`;
+  banner.className='result-banner';
+  banner.innerHTML=`<span class="rb-text">답변이 제출되었어요. 이어서 활동을 골라 해보세요.</span>`;
   deepCharIdx=selIdx;
   showScreen('screen-hub');
 }
