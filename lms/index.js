@@ -126,7 +126,7 @@ async function pwMatches(input, stored, salt) {
 
 function setStatusLine(line) {
   statusArea.innerHTML = line
-    ? `<div class="status-line ${line.type}"><span class="status-icon">${line.icon}</span>${esc(line.text)}</div>` : '';
+    ? `<div class="status-line ${line.type}"><span class="status-icon">${icon(line.icon, 16)}</span>${esc(line.text)}</div>` : '';
 }
 
 function updateLoginUI() {
@@ -134,13 +134,13 @@ function updateLoginUI() {
   if (_matched && _pwChecked) {
     if (_hasPw) {
       line = _pwAttemptFailed
-        ? { type:'err',  icon:'✕',  text:'비밀번호가 틀렸습니다. 다시 입력해 주세요.' }
-        : { type:'info', icon:'🔒', text:'비밀번호를 입력하세요.' };
+        ? { type:'err',  icon:'x',    text:'비밀번호가 틀렸습니다. 다시 입력해 주세요.' }
+        : { type:'info', icon:'lock', text:'비밀번호를 입력하세요.' };
     } else {
-      line = { type:'ok', icon:'✓', text:'처음이시네요! 사용할 비밀번호를 설정하세요 (4자 이상).' };
+      line = { type:'ok', icon:'check', text:'처음이시네요! 사용할 비밀번호를 설정하세요 (4자 이상).' };
     }
   } else if (_matched && !_pwChecked) {
-    line = { type:'muted', icon:'·', text:'확인 중…' };
+    line = { type:'muted', icon:'hourglass', text:'확인 중…' };
   }
   // 명단과 안 맞으면 아무것도 표시하지 않는다(스펙대로). 에러는 로그인 버튼에서만.
   setStatusLine(line);
@@ -351,7 +351,7 @@ function _updateXPWidget(state) {
   document.getElementById('xpHistLevel').textContent = `Lv.${lv}`;
 }
 
-const ACT_ICONS = { attendance:'📅', mileage:'🏃', conceptCheck:'📖', thinkCheck:'💭', oxQuiz:'❓', manual:'✏️' };
+const ACT_ICONS = { attendance:'calendar-days', mileage:'footprints', conceptCheck:'book-open', thinkCheck:'message-circle', oxQuiz:'circle-help', manual:'pencil' };
 
 // 데스크톱: 클릭 시 경험치 내역 모달 / 모바일: 인라인 아코디언 펼침
 // 모바일도 PC처럼 모달로 연다(인라인 아코디언은 닫아도 내용이 남고 스크롤이 지저분해 폐기).
@@ -366,17 +366,17 @@ async function _fetchXPRows() {
 function _xpItemHTML(r) {
   const d  = new Date(r.ts || 0);
   const dt = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-  const icon = ACT_ICONS[r.type] || '⭐';
+  const iconName = ACT_ICONS[r.type] || 'star';
   const sign = r.pt > 0 ? '+' : '';
   const isSnack = r.pt >= 30 && /^생각\s*체크\s*:/.test(r.note || '');
   // 강의 제목에 섞인 마크다운 강조(**...**) 표시는 내역에선 그대로 노출되므로 제거한다.
   const note = String(r.note || r.type || '활동').replace(/\*\*/g, '');
   return `<div class="xp-hist-item">
-    <div class="xp-hist-icon">${icon}</div>
+    <div class="xp-hist-icon">${icon(iconName, 18)}</div>
     <div class="xp-hist-info">
       <div class="xp-hist-note">${esc(note)}</div>
       <div class="xp-hist-date">${dt}</div>
-      ${isSnack ? `<div class="xp-hist-snack">🍬 선생님께 간식을 받으러 오세요</div>` : ''}
+      ${isSnack ? `<div class="xp-hist-snack">${icon('candy',16)} 선생님께 간식을 받으러 오세요</div>` : ''}
     </div>
     <div class="xp-hist-pt">${sign}${r.pt} pt</div>
   </div>`;
@@ -596,10 +596,10 @@ async function loadStudentGrade() {
 }
 
 // ── 간단 토스트 ──
-function showToast(msg, duration) {
+function showToast(msg, duration, iconName) {
   let el = document.getElementById('lmsToast');
   if (!el) { el = document.createElement('div'); el.id = 'lmsToast'; el.className = 'lms-toast'; document.body.appendChild(el); }
-  el.textContent = msg;
+  el.innerHTML = (iconName ? `<span class="toast-ic">${icon(iconName, 16)}</span>` : '') + esc(msg);
   el.classList.add('show');
   clearTimeout(el._t);
   el._t = setTimeout(() => el.classList.remove('show'), duration || 5000);
@@ -619,7 +619,7 @@ function _maybeNotifyFeedback() {
   try { seen = localStorage.getItem('lms_seen_fb_' + currentStudentId) || ''; } catch(_) {}
   if (sig !== seen) {
     _fbToastShown = true;
-    showToast('📩 새 선생님 피드백이 있어요 · 성적에서 확인하세요');
+    showToast('새 선생님 피드백이 있어요. 성적에서 확인하세요', undefined, 'mail');
   }
 }
 
@@ -1194,7 +1194,7 @@ window.openGradeFeedback = async function() {
     const rows = await _fetchXPRows();
     if (rows.some(r => r.pt >= 30 && /^생각\s*체크\s*:/.test(r.note || ''))) {
       el.insertAdjacentHTML('afterbegin',
-        `<div class="feedback-snack">🍬 생각 체크 만점! 선생님께 간식을 받으러 오세요</div>`);
+        `<div class="feedback-snack">${icon('candy',16)} 생각 체크 만점! 선생님께 간식을 받으러 오세요</div>`);
     }
   } catch(_) {}
 };

@@ -4156,6 +4156,11 @@ Object.assign(window, {
   applyFeedbackTemplate,
 });
 
+// 정적 HTML에 박아둔 아이콘 자리(data-icon)를 SVG로 채운다. (shared/icons.js 공용 헬퍼)
+document.querySelectorAll('[data-icon]').forEach(el => {
+  el.innerHTML = icon(el.dataset.icon, el.dataset.iconSize ? +el.dataset.iconSize : 24);
+});
+
 // 스크립트 최상위 const/let 선언이 모두 끝난 뒤에 호출해야 TDZ 에러가 안 난다.
 initAdmin();
 
@@ -4290,7 +4295,7 @@ initAdmin();
   };
 
   window.stuClearAll = async function() {
-    if (!confirm(`⚠️ 전체 학생 명단(${stuList.length}명)을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    if (!confirm(`전체 학생 명단(${stuList.length}명)을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
     await remove(stuRef);
   };
 
