@@ -133,9 +133,9 @@
 
       <div class="adm-action-row">
         <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="runScoring()">채점하기</button>
-        <button class="hi-btn hi-btn-outline hi-btn-sm" id="aiPickBtn" onclick="runAiPick()">✨ AI 픽</button>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" id="aiPickBtn" onclick="runAiPick()"><span data-ic="sparkles"></span> AI 픽</button>
         <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportExcel()">엑셀 내보내기</button>
-        <button class="scoring-prompt-btn" onclick="openSettingsModal()" title="AI 설정">⚙️</button>
+        <button class="scoring-prompt-btn" onclick="openSettingsModal()" title="AI 설정"><span data-ic="settings" data-ic-size="18"></span></button>
         <div class="sort-box">
           <button class="sort-btn active" id="classSortNewest" onclick="setClassSort('newest', this)">최신순</button>
           <button class="sort-btn" id="classSortId" onclick="setClassSort('id', this)">학번순</button>
@@ -210,6 +210,16 @@ import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
   from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
 import { firebaseConfig } from "../../shared/firebase-config.js";
+import { icon } from "../../shared/icons.js";
+
+// data-ic="아이콘명" 요소에 SVG 주입 (정적 HTML 아이콘용)
+function injectIcons(root = document) {
+  root.querySelectorAll('[data-ic]').forEach(el => {
+    el.innerHTML = icon(el.dataset.ic, +el.dataset.icSize || 16);
+  });
+}
+injectIcons();
+
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
@@ -374,7 +384,7 @@ function renderClass() {
     ? [...pickBase].sort((a,b) => String(a.studentId).localeCompare(String(b.studentId)))
     : [...pickBase].sort((a,b) => (b.timestamp||0)-(a.timestamp||0) || b.id.localeCompare(a.id));
   const container = document.getElementById('classList');
-  if (!sorted.length) { container.innerHTML = `<div class="empty-state"><div class="icon">📝</div>${classPickOnly ? '픽한 게시글이 없습니다.' : '게시글이 없습니다.'}</div>`; return; }
+  if (!sorted.length) { container.innerHTML = `<div class="empty-state"><div class="icon">${icon('square-pen', 28)}</div>${classPickOnly ? '픽한 게시글이 없습니다.' : '게시글이 없습니다.'}</div>`; return; }
   container.innerHTML = `<div class="std-list">${sorted.map(p => buildClassCard(p)).join('')}</div>`;
 }
 
@@ -401,9 +411,9 @@ function buildClassCard(post) {
       </div>
       <div class="std-actions">
         <button class="std-pick${picked?' picked':''}" onclick="togglePick('${post.id}',${picked},'${(post.content||'').slice(0,80).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,' ')}','${esc(post.nickname||'').replace(/'/g,"\\'")}')">
-          ${picked?'⭐':'☆'}
+          ${icon('star', 16)}
         </button>
-        <button class="std-edit" onclick="">✏️</button>
+        <button class="std-edit" onclick="">${icon('pencil', 15)}</button>
         <button class="std-del" onclick="deletePost('${post.id}')">✕</button>
       </div>
     </div>
@@ -425,7 +435,7 @@ window.deletePost = (id) => {
 };
 
 window.resetAll = () => {
-  openConfirm('⚠️ 전체 초기화', '전체 게시글을 삭제합니다. 되돌릴 수 없습니다.', () => {
+  openConfirm('전체 초기화', '전체 게시글을 삭제합니다. 되돌릴 수 없습니다.', () => {
     openConfirm('정말 삭제하시겠습니까?', '이 작업은 취소할 수 없습니다.', async () => {
       const snap = await getDocs(collection(fsdb, 'blind_ryeo_posts'));
       const batch = writeBatch(fsdb);
@@ -536,7 +546,7 @@ function renderGradeModalBody() {
 
   if (gradeTabState === 'pass') {
     const passStudents = students.filter(s => !failIds.has(s.studentId));
-    if (!passStudents.length) { body.innerHTML = '<div class="empty-state"><div class="icon">📋</div>통과한 학생이 없습니다.</div>'; return; }
+    if (!passStudents.length) { body.innerHTML = `<div class="empty-state"><div class="icon">${icon('clipboard-list', 28)}</div>통과한 학생이 없습니다.</div>`; return; }
     body.innerHTML = `<p style="font-size:12px; color:var(--hi-text-muted); margin-bottom:14px; line-height:1.6;">총 <strong style="color:var(--hi-positive)">${passStudents.length}명</strong> 통과<br><span style="font-size:12px;">제출했고, 1개 이상의 글이 미흡 처리되지 않은 학생입니다.</span></p><div>` +
       passStudents.map(s => {
         const postCount = (postsByStudent[s.studentId] || []).length;
@@ -549,7 +559,7 @@ function renderGradeModalBody() {
     if (!absentStudents.length && !allFailStudents.length) { body.innerHTML = '<span class="chip-ok">미흡 학생 없음!</span>'; return; }
     let html = `<p style="font-size:12px; color:var(--hi-text-muted); margin-bottom:14px; line-height:1.6;">총 <strong style="color:var(--hi-negative)">${absentStudents.length + allFailStudents.length}명</strong> 미흡</p>`;
     if (absentStudents.length) {
-      html += `<div style="margin-bottom:20px;"><div class="reason-section-title">⚠️ 미제출 · ${absentStudents.length}명</div><div>${absentStudents.map(s => `<span class="activity-chip chip-absent">${esc(s.studentId)} ${esc(s.name)}</span>`).join('')}</div></div>`;
+      html += `<div style="margin-bottom:20px;"><div class="reason-section-title">${icon('triangle-alert', 15)} 미제출 · ${absentStudents.length}명</div><div>${absentStudents.map(s => `<span class="activity-chip chip-absent">${esc(s.studentId)} ${esc(s.name)}</span>`).join('')}</div></div>`;
     }
     if (allFailStudents.length) {
       html += `<div><div class="reason-section-title">모든 글 미흡 처리됨 · ${allFailStudents.length}명</div><div>${allFailStudents.map(s => { const postCount = (postsByStudent[s.studentId] || []).length; return `<span class="activity-chip chip-fail-marked">${esc(s.studentId)} ${esc(s.name)} <span style="opacity:0.7;">(${postCount}글)</span></span>`; }).join('')}</div></div>`;
@@ -578,7 +588,7 @@ function renderReviewTab(body, classPosts) {
         </span>
       </p>
       ${!hasPosts ? '<p style="color:var(--hi-text-muted); font-size:14px; margin-bottom:14px;">채점할 게시글이 없습니다.</p>' : ''}
-      <button class="btn-ai" ${hasPosts ? '' : 'disabled'} onclick="runAiReview()">✨ 채점하기</button>
+      <button class="btn-ai" ${hasPosts ? '' : 'disabled'} onclick="runAiReview()">${icon('sparkles', 15)} 채점하기</button>
     </div>`;
     return;
   }
@@ -592,11 +602,11 @@ function renderReviewTab(body, classPosts) {
   }
   body.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
     <div style="flex:1; min-width:200px;">
-      <div style="font-size:12px; color:var(--hi-text-muted); font-weight:700;">🤖 AI가 ${visible.length}건을 미흡 후보로 분류했습니다</div>
+      <div style="font-size:12px; color:var(--hi-text-muted); font-weight:700; display:inline-flex; align-items:center; gap:5px;">${icon('bot', 15)} AI가 ${visible.length}건을 미흡 후보로 분류했습니다</div>
       <div style="font-size:12px; color:var(--hi-text-muted); margin-top:4px; line-height:1.55;">기본값은 <strong style="color:var(--hi-positive)">통과</strong>입니다.<br><strong style="color:var(--hi-negative)">미흡</strong> 토글을 눌러야 미흡으로 확정됩니다.</div>
       ${aiReviewTimestamps[classTab] ? `<div style="font-size:12px; color:var(--hi-text-muted); margin-top:6px;">채점 시각: ${formatTime(aiReviewTimestamps[classTab])}</div>` : ''}
     </div>
-    <button class="btn-ai" style="padding:7px 14px; font-size:12px; flex-shrink:0;" onclick="runAiReview()">🔄 재분석</button>
+    <button class="btn-ai" style="padding:7px 14px; font-size:12px; flex-shrink:0;" onclick="runAiReview()">${icon('rotate-ccw', 14)} 재분석</button>
   </div>` +
     visible.map(item => {
       const post = classPosts.find(p => p.id === item.postId);
@@ -615,7 +625,7 @@ function renderReviewTab(body, classPosts) {
           </div>
         </div>
         <div class="review-card-text">${esc(post.content||'')}</div>
-        <div class="review-card-meta"><strong style="color:#7c3aed;">🤖 AI 판단:</strong> ${esc(item.reason||'')}</div>
+        <div class="review-card-meta"><strong style="color:#7c3aed; display:inline-flex; align-items:center; gap:4px; vertical-align:middle;">${icon('bot', 14)} AI 판단:</strong> ${esc(item.reason||'')}</div>
       </div>`;
     }).join('');
 }
@@ -681,7 +691,7 @@ window.runAiPick = async () => {
   const posts = allPosts.filter(p => p.studentId !== '00000' && p.content);
   if (!posts.length) { alert('픽할 게시글이 없습니다.'); return; }
   const btn = document.getElementById('aiPickBtn');
-  btn.disabled = true; btn.textContent = '✨ 분석 중…';
+  btn.disabled = true; btn.innerHTML = icon('sparkles', 15) + ' 분석 중…';
   let criteria = DEFAULT_PICK_CRITERIA;
   try { const snap = await get(ref(db, AI_PICK_CRITERIA_PATH)); if (snap.exists() && snap.val().trim()) criteria = snap.val(); } catch(e) {}
   const postsText = posts.map((p, i) =>
@@ -714,11 +724,11 @@ ${postsText}
     await Promise.all(
       nums.filter(n => posts[n-1]).map(n => updateDoc(doc(fsdb, 'blind_ryeo_posts', posts[n-1].id), { adminPick: true }))
     );
-    alert(`✨ AI가 ${nums.length}개 게시글을 픽했습니다.`);
+    alert(`AI가 ${nums.length}개 게시글을 픽했습니다.`);
   } catch(e) {
     alert('AI 픽 실패: ' + e.message);
   } finally {
-    btn.disabled = false; btn.textContent = '✨ AI 픽';
+    btn.disabled = false; btn.innerHTML = icon('sparkles', 15) + ' AI 픽';
   }
 };
 
@@ -791,7 +801,7 @@ window.runScoring = async () => {
   if (!classPosts.length) { alert('채점할 게시글이 없습니다.'); return; }
   let customPrompt = '';
   try { const snap = await get(ref(db, SCORING_PROMPT_PATH)); customPrompt = snap.exists() ? snap.val() : ''; } catch(e) {}
-  if (!customPrompt) { alert('채점 프롬프트를 먼저 설정해주세요. (⚙️ 버튼 클릭)'); return; }
+  if (!customPrompt) { alert('채점 프롬프트를 먼저 설정해주세요. (설정 버튼 클릭)'); return; }
   const btn = document.querySelector('[onclick="runScoring()"]');
   const origText = btn?.textContent;
   if (btn) btn.disabled = true;
@@ -842,7 +852,7 @@ function formatTime(ts) {
       <textarea class="scoring-modal-textarea" id="scoring-prompt-textarea" placeholder="예) 다음 학생의 게시글을 읽고, 주제에 맞는 내용이면 pass, 아니면 fail로만 답하세요.&#10;&#10;{content}"></textarea>
     </div>
     <div id="settings-panel-pick" style="display:none;">
-      <p class="scoring-modal-desc">✨ AI 픽이 우수한 게시글을 고를 때 사용할 기준입니다. 한 줄에 기준 하나씩 자유롭게 작성하세요.</p>
+      <p class="scoring-modal-desc"><span data-ic="sparkles" data-ic-size="15"></span> AI 픽이 우수한 게시글을 고를 때 사용할 기준입니다. 한 줄에 기준 하나씩 자유롭게 작성하세요.</p>
       <textarea class="scoring-modal-textarea" id="ai-pick-criteria-textarea" placeholder="예)&#10;- 역사적 사고가 담긴 글&#10;- 전체의 20~30% 내외 선정"></textarea>
     </div>
     <div class="scoring-modal-msg" id="settings-modal-msg"></div>
