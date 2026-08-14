@@ -39,6 +39,9 @@
       const attr = ans.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       return `<span class="blank" data-answer="${attr}">${ans}</span>`;
     });
+    // 소프트 줄바꿈: U+2028 -> <br> (편집기 Shift+Enter). U+200B(편집기 표시)는 제거.
+    s = s.replace(new RegExp(String.fromCharCode(0x200B), 'g'), '')
+         .replace(new RegExp(String.fromCharCode(0x2028), 'g'), '<br>');
     return s;
   }
 
@@ -53,7 +56,10 @@
      sub-body가 본문 시작 위치에서 시작하는 flex:1 박스이므로, 안에서 줄이 나뉘어도(수동
      줄바꿈이든 자동 줄바꿈이든) 항상 본문 시작 위치에 맞춰 내어쓰기된다. */
   function renderWithBreaks(text) {
-    const lines = text.replace(/<\/?br\s*\/?>/gi, '\n').split('\n');
+    const lines = text
+      .replace(new RegExp(String.fromCharCode(0x200B), 'g'), '')
+      .replace(new RegExp(String.fromCharCode(0x2028), 'g'), '\n')
+      .replace(/<\/?br\s*\/?>/gi, '\n').split('\n');
     const out = [];
     let subLead = null, subBodyLines = null;
 

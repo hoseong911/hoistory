@@ -1098,6 +1098,22 @@ function handleContentKeydown(e) {
     ta.dispatchEvent(new Event('input', { bubbles: true }));
   }
 }
+/* 행 항목(.cl-items) 전용: Tab → " : ", Shift+Enter → 같은 항목 안 줄바꿈.
+   Shift+Enter는 실제 개행(\n) + 보이지 않는 ZWSP(U+200B, 이어붙임 표시)를 넣어
+   편집기에선 줄바꿈처럼 보이고, updateLineItems가 그 줄을 직전 항목에 U+2028로 합친다. */
+function handleItemsKeydown(e) {
+  if (e.key === 'Tab' && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+    e.preventDefault();
+    const ta = e.target;
+    ta.setRangeText(' : ', ta.selectionStart, ta.selectionEnd, 'end');
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+  } else if (e.key === 'Enter' && e.shiftKey) {
+    e.preventDefault();
+    const ta = e.target;
+    ta.setRangeText('\n' + String.fromCharCode(0x200B), ta.selectionStart, ta.selectionEnd, 'end');
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+}
 
 function ceFormatPanelBody(target, i, line) {
   const fmt = line.format || 'rows';
@@ -1277,7 +1293,7 @@ function ceRenderContentLines(target) {
           return `
               <div class="cl-row-inner" data-row-idx="${rowIdx}">
                 <textarea class="cl-label" placeholder="라벨" oninput="updateLine('${target}',${rowIdx},'label',this.value);autoResizeTa(this)">${esc(row.label)}</textarea>
-                <textarea class="cl-items" placeholder="{단어}는 빈칸, **굵게**, 엔터로 항목 구분 (a./b./c. 줄은 하위 항목)" oninput="updateLineItems('${target}',${rowIdx},this.value);autoResizeTa(this)" onkeydown="handleContentKeydown(event)">${esc(row.items.map(it => it.replace(/<\/?br\s*\/?>/gi, '\n')).join('\n'))}</textarea>
+                <textarea class="cl-items" placeholder="{단어}는 빈칸, **굵게**, 엔터로 항목 구분, Shift+Enter로 같은 항목 안 줄바꿈 (a./b./c. 줄은 하위 항목)" oninput="updateLineItems('${target}',${rowIdx},this.value);autoResizeTa(this)" onkeydown="handleItemsKeydown(event)">${esc(row.items.map(it => it.replace(new RegExp(String.fromCharCode(0x2028), 'g'), '\n' + String.fromCharCode(0x200B)).replace(/<\/?br\s*\/?>/gi, '\n')).join('\n'))}</textarea>
                 ${rowDelete}
               </div>`;
         };
@@ -1483,14 +1499,21 @@ function updateLine(target,i,f,v)    { ceLinesFor(target)[i][f]=v; ceRenderPrevi
 // 배치 변경 시 '텍스트 폭' 입력 노출 여부가 바뀌므로 편집기까지 다시 그린다.
 function updateImgLayout(target,i,v) { const l=ceLinesFor(target)[i]; l.imgLayout=v; ceRenderContentLines(target); ceRenderPreview(); }
 function updateLineItems(target,i,v) {
-  // a./b./c. 로 시작하는 줄은 바로 위 항목에 <br>로 이어 붙여 하나의 항목으로 저장한다.
-  // 이렇게 하면 사용자는 태그 없이 엔터만 눌러 하위 항목을 입력할 수 있다.
+  // 규칙: 일반 엔터(\n) = 새 항목. ZWSP(U+200B)로 시작하는 줄 = 같은 항목 안 줄바꿈(Shift+Enter,
+  //   → U+2028로 이어 붙임). a./b./c. 로 시작하는 줄 = 하위 항목(<br>로 이어 붙임).
+  const LS = String.fromCharCode(0x2028);
   const lines = v.split('\n');
   const items = [];
   let cur = null;
-  for (const ln of lines) {
-    if (ln === '') continue;
-    if (/^[a-z]\.\s/.test(ln) && cur !== null) {
+  for (const raw of lines) {
+    const soft = raw.charCodeAt(0) === 0x200B;
+    const ln = soft ? raw.slice(1) : raw;
+    if (soft) {                                       // 같은 항목 안 줄바꿈
+      cur = (cur === null) ? ln : cur + LS + ln;
+      continue;
+    }
+    if (ln === '') continue;                           // 일반 빈 줄은 버림
+    if (/^[a-z]\.\s/.test(ln) && cur !== null) {       // 하위 항목
       cur += '<br>' + ln;
     } else {
       if (cur !== null) items.push(cur);
@@ -4127,7 +4150,7 @@ Object.assign(window, {
   onLsSliderInput, onLsNumberInput, onTwSliderInput, onTwNumberInput,
   onColorChange, resetDesign, saveDesign,
   openGradeFeedbackModal, closeGradeFeedbackModal, saveGradeFeedback,
-  handleContentKeydown,
+  handleContentKeydown, handleItemsKeydown,
   openFeedbackTemplateModal, closeFeedbackTemplateModal,
   editFeedbackTemplate, resetTemplateForm, saveFeedbackTemplate, deleteFeedbackTemplate,
   applyFeedbackTemplate,
