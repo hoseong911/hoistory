@@ -1496,8 +1496,14 @@ function addTitledPageAfter(target, divIdx) {
     if (lines[end].type === 'divider' && lines[end].title === title) { end++; continue; }
     break;
   }
+  // 그룹은 "제목이 같으면" 합쳐지므로, 새 페이지 제목이 앞(현재 그룹)이나 뒤 그룹 제목과
+  // 같으면 별도 그룹이 되지 않는다. 앞뒤와 겹치지 않는 기본 제목을 만들어 준다.
+  const afterTitle = (lines[end] && lines[end].type === 'divider') ? lines[end].title : null;
+  const base = '새 슬라이드';
+  let newTitle = base, n = 2;
+  while (newTitle === title || newTitle === afterTitle) newTitle = `${base} ${n++}`;
   lines.splice(end, 0,
-    { type: 'divider', title: '새 슬라이드' },
+    { type: 'divider', title: newTitle },
     { type: 'row', label: '', items: [] }
   );
   ceRenderContentLines(target); ceRenderPreview();
