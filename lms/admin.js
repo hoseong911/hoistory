@@ -1307,7 +1307,6 @@ function ceRenderContentLines(target) {
     if (group.type === 'slide-group') {
       const { title, slides } = group;
       const allDivIds = slides.map(s => s.divIdx);
-      const lastDivIdx = slides[slides.length - 1].divIdx;
       const slidesHtml = slides.map(({ divIdx, rowIndices }) => {
         const div = lines[divIdx];
         const hasImg = div.img != null, fmt = div.format || 'rows';
@@ -1385,7 +1384,6 @@ function ceRenderContentLines(target) {
             <span class="cl-handle">⋮⋮</span>
             <input type="text" class="cl-divider-title" placeholder="슬라이드 제목" value="${esc(title)}" oninput="updateGroupTitle('${target}',[${allDivIds.join(',')}],this.value)">
             <div class="cl-row-actions">
-              <button class="cl-page-btn" onclick="addPageToGroup('${target}',${lastDivIdx})" title="페이지 추가">${ceIconPlus()} 페이지</button>
               <button class="cl-icon-btn danger" onclick="deleteGroup('${target}',${slides[0].divIdx})" title="전체 삭제">${ceIconTrash()}</button>
             </div>
           </div>
