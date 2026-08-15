@@ -1132,13 +1132,8 @@ function ceFormatPanelBody(target, i, line) {
   if (fmt === 'quote') return ceQuoteEditor(target, i, line);
   if (fmt === 'flow-h' || fmt === 'flow-v') return ceFlowEditor(target, i, line);
   if (fmt === 'notice') return ceNoticeEditor(target, i, line);
-  // 행 나열(rows) — 라벨 위치 + (선택) 하단 사료 인용
-  return `
-    <label class="cl-labelpos">
-      <input type="checkbox" ${line.labelPos === 'left' ? 'checked' : ''} onclick="event.stopPropagation();toggleLabelPos('${target}',${i},this.checked)">
-      라벨 좌측 배치
-    </label>
-    ${ceBottomQuoteEditor(target, i, line)}`;
+  // 행 나열(rows)의 옵션(라벨 좌측·배지 숨김·글자 크기)과 하단 사료는 페이지 설정 패널에서 직접 렌더한다.
+  return '';
 }
 
 // 안내(OT·수행평가) 자유 문단 편집기 — 한 줄 = 한 문단, "- "로 시작하면 불릿, 빈 줄은 간격.
@@ -1369,9 +1364,12 @@ function ceRenderContentLines(target) {
               <summary class="cl-fmt-summary">형식 변경 · 페이지 설정</summary>
               <div class="cl-fmt-panel">
                 <div class="cl-fmt-chips">${ceFormatChips(target,divIdx,fmt)}</div>
-                ${fmt === 'rows' ? ceFormatPanelBody(target,divIdx,div) : ''}
-                ${fmt !== 'notice' ? `<label class="cl-labelpos"><input type="checkbox" ${div.hideBadge ? 'checked' : ''} onclick="event.stopPropagation();toggleHideBadge('${target}',${divIdx},this.checked)"> 개념/미션 배지 숨김 (제목만 표시)</label>` : ''}
-                <div class="cl-fmt-fontsize">이 페이지 글자 크기 <input type="number" min="10" max="140" placeholder="기본" value="${div.fontSize != null ? div.fontSize : ''}" oninput="setLineFontSize('${target}',${divIdx},this.value)"> px <span class="cl-fmt-fontsize-hint">비우면 디자인 기본값</span></div>
+                <div class="cl-fmt-opts">
+                  ${fmt === 'rows' ? `<label class="cl-opt"><input type="checkbox" class="cl-opt-labelpos" ${div.labelPos === 'left' ? 'checked' : ''} onclick="event.stopPropagation();toggleLabelPos('${target}',${divIdx},this.checked)"> 라벨 좌측</label>` : ''}
+                  ${fmt !== 'notice' ? `<label class="cl-opt"><input type="checkbox" ${div.hideBadge ? 'checked' : ''} onclick="event.stopPropagation();toggleHideBadge('${target}',${divIdx},this.checked)"> 배지 숨김</label>` : ''}
+                  <label class="cl-opt">글자 크기 <input type="number" min="10" max="140" placeholder="기본" value="${div.fontSize != null ? div.fontSize : ''}" oninput="setLineFontSize('${target}',${divIdx},this.value)"> px</label>
+                </div>
+                ${fmt === 'rows' ? ceBottomQuoteEditor(target,divIdx,div) : ''}
               </div>
             </details>
             <div class="cl-slide-body">${bodyHtml}</div>
@@ -1836,7 +1834,7 @@ async function ceSaveContentToFirestore(docId, cd) {
 
 async function saveContent() {
   ['concept', 'mission'].forEach(target => {
-    document.querySelectorAll(`#${ceContainerIdFor(target)} .cl-labelpos input[type=checkbox]`).forEach(cb => {
+    document.querySelectorAll(`#${ceContainerIdFor(target)} .cl-opt-labelpos`).forEach(cb => {
       const item = cb.closest('[data-div-idx]');
       if (!item) return;
       const line = ceLinesFor(target)[+item.dataset.divIdx];
