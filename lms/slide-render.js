@@ -474,8 +474,9 @@
         <div class="cx-head">${parseText(c.head || '')}</div>
         ${(c.body && c.body.trim()) ? `<div class="cx-body">${renderWithBreaks(c.body)}</div>` : ''}
       </div>`).join('');
-    const title = slide.title ? `<div class="cx-title">${parseText(slide.title)}</div>` : '';
-    return `<div class="fmt-cols-wrap">${title}<div class="fmt-cols">${cols}</div></div>`;
+    // 상단 배지 헤더(slide.title)와 별개로, 본문 가운데에 큰 대제목(slide.colsTitle)을 둔다.
+    const bigTitle = (slide.colsTitle && slide.colsTitle.trim()) ? `<div class="cx-title">${parseText(slide.colsTitle)}</div>` : '';
+    return `<div class="fmt-cols-wrap">${bigTitle}<div class="fmt-cols">${cols}</div></div>`;
   }
 
   // 제목 없는 헤더(배지 없이 제목만) — 안내 슬라이드와 '배지 숨김' 옵션에서 공용.
@@ -494,8 +495,8 @@
       return wrapWithImg(titleOnlyHeaderHTML(slide.title) + noticeBodyHTML(slide), slide, lesson);
     }
     if (format === 'cols') {
-      // 대제목 + 소제목/내용 균등 나열. 자체적으로 가운데 정렬 구성이라 배지/헤더를 쓰지 않는다.
-      return colsBodyHTML(slide);
+      // 일반 배지 헤더(제목) + 소제목/내용 균등 나열(가운데). hideBadge/이미지도 지원.
+      return wrapWithImg(mkHeader(slide.title) + colsBodyHTML(slide), slide, lesson);
     }
     if (format === 'quote') {
       // 전체 슬라이드 제목은 다른 슬라이드와 똑같이 좌상단 헤더로 고정.
@@ -619,7 +620,7 @@
           else if (fmt === 'quote') { current.text = line.quoteText || ''; current.source = line.quoteSource || ''; current.quoteLabel = line.quoteLabel || ''; }
           else if (fmt === 'flow-h' || fmt === 'flow-v') current.stages = line.stages || [];
           else if (fmt === 'notice') current.noticeText = line.noticeText || '';
-          else if (fmt === 'cols') current.cols = line.cols || [];
+          else if (fmt === 'cols') { current.cols = line.cols || []; current.colsTitle = line.colsTitle || ''; }
         } else if (line.labelPos) {
           current.labelPos = line.labelPos;
         }
@@ -656,7 +657,7 @@
       if (s.type === 'image' || s.type === 'fullimage' || s.type === 'video') return true;
       if (s.img != null) return true;
       if (s.format === 'notice') return !!(s.noticeText && s.noticeText.trim());
-      if (s.format === 'cols') return (s.cols || []).some(c => (c.head && c.head.trim()) || (c.body && c.body.trim()));
+      if (s.format === 'cols') return !!(s.colsTitle && s.colsTitle.trim()) || (s.cols || []).some(c => (c.head && c.head.trim()) || (c.body && c.body.trim()));
       if (s.format === 'quote') return !!(s.text && s.text.trim());
       if (s.format === 'timeline-h' || s.format === 'timeline-v') return (s.events || []).length > 0;
       if (s.format === 'compare') return (((s.left && s.left.items) || []).length + ((s.right && s.right.items) || []).length) > 0;

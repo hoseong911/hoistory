@@ -1147,7 +1147,12 @@ function ceColsEditor(target, i, line) {
       <input type="text" class="cl-fmt-grow" placeholder="내용 (선택), {단어}는 빈칸" value="${esc(c.body||'')}" oninput="updateColField('${target}',${i},${j},'body',this.value)">
       <button class="cl-fmt-del" onclick="removeCol('${target}',${i},${j})">삭제</button>
     </div>`).join('');
-  return `<div class="cl-fmt-fields"><div class="cl-fmt-hint">대제목은 위 슬라이드 제목칸에 입력 · 항목은 가로로 균등 배치됩니다</div>${rows}<button type="button" class="cbtn-sm" onclick="addCol('${target}',${i})">+ 항목 추가</button></div>`;
+  return `<div class="cl-fmt-fields">
+      <div class="cl-fmt-hint">상단 배지 헤더는 위 슬라이드 제목칸 · 아래 대제목은 본문 가운데 큰 제목(선택) · 항목은 가로로 균등 배치</div>
+      <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="대제목 (본문 가운데 큰 제목, 선택)" value="${esc(line.colsTitle||'')}" oninput="updateLine('${target}',${i},'colsTitle',this.value)">
+      ${rows}
+      <button type="button" class="cbtn-sm" onclick="addCol('${target}',${i})">+ 항목 추가</button>
+    </div>`;
 }
 function updateColField(target,i,j,f,v){ ceLinesFor(target)[i].cols[j][f]=v; ceRenderPreview(); }
 function addCol(target,i){ ceLinesFor(target)[i].cols.push({head:'',body:''}); ceRenderContentLines(target); ceRenderPreview(); }
@@ -1383,7 +1388,7 @@ function ceRenderContentLines(target) {
                 <div class="cl-fmt-chips">${ceFormatChips(target,divIdx,fmt)}</div>
                 <div class="cl-fmt-opts">
                   ${fmt === 'rows' ? `<label class="cl-opt"><input type="checkbox" class="cl-opt-labelpos" ${div.labelPos === 'left' ? 'checked' : ''} onclick="event.stopPropagation();toggleLabelPos('${target}',${divIdx},this.checked)"> 라벨 좌측</label>` : ''}
-                  ${(fmt !== 'notice' && fmt !== 'cols') ? `<label class="cl-opt"><input type="checkbox" ${div.hideBadge ? 'checked' : ''} onclick="event.stopPropagation();toggleHideBadge('${target}',${divIdx},this.checked)"> 배지 숨김</label>` : ''}
+                  ${fmt !== 'notice' ? `<label class="cl-opt"><input type="checkbox" ${div.hideBadge ? 'checked' : ''} onclick="event.stopPropagation();toggleHideBadge('${target}',${divIdx},this.checked)"> 배지 숨김</label>` : ''}
                   <label class="cl-opt">글자 크기 <input type="number" min="10" max="140" placeholder="기본" value="${div.fontSize != null ? div.fontSize : ''}" oninput="setLineFontSize('${target}',${divIdx},this.value)"> px</label>
                 </div>
                 ${fmt === 'rows' ? ceBottomQuoteEditor(target,divIdx,div) : ''}
@@ -2086,7 +2091,7 @@ function ceSanitizeParsedLesson(d) {
     if (line.img != null) return true;              // 이미지 있음
     const fmt = line.format;
     if (fmt === 'notice') return !!(line.noticeText && line.noticeText.trim());
-    if (fmt === 'cols') return (line.cols || []).some(c => (c.head && c.head.trim()) || (c.body && c.body.trim()));
+    if (fmt === 'cols') return !!(line.colsTitle && line.colsTitle.trim()) || (line.cols || []).some(c => (c.head && c.head.trim()) || (c.body && c.body.trim()));
     if (fmt === 'quote') return !!(line.quoteText && line.quoteText.trim());
     if (fmt === 'timeline-h' || fmt === 'timeline-v') return (line.events || []).length > 0;
     if (fmt === 'compare') return (((line.left && line.left.items) || []).length + ((line.right && line.right.items) || []).length) > 0;
