@@ -1148,7 +1148,7 @@ function ceColsEditor(target, i, line) {
       <button class="cl-fmt-del" onclick="removeCol('${target}',${i},${j})">삭제</button>
     </div>`).join('');
   return `<div class="cl-fmt-fields">
-      <div class="cl-fmt-hint">상단 배지 헤더는 위 슬라이드 제목칸 · 아래 대제목은 본문 가운데 큰 제목(선택) · 항목은 가로로 균등 배치</div>
+      <div class="cl-fmt-hint">상단 배지 헤더는 위 슬라이드 제목칸 · 아래 대제목은 본문 가운데 큰 제목(선택) · 항목은 가로로 균등 배치 · **글자**로 감싸면 강조색</div>
       <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="대제목 (본문 가운데 큰 제목, 선택)" value="${esc(line.colsTitle||'')}" oninput="updateLine('${target}',${i},'colsTitle',this.value)">
       ${rows}
       <button type="button" class="cbtn-sm" onclick="addCol('${target}',${i})">+ 항목 추가</button>
