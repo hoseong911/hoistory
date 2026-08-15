@@ -1077,6 +1077,14 @@ function toggleLabelPos(target, i, isChecked) {
 }
 
 // 페이지(슬라이드)별 본문 글자 크기 절대값(px). 비우면 필드를 지워 디자인 기본값을 따른다.
+// 페이지별 개념/미션 배지 숨김(A 기능) — 켜면 형식(rows 등) 상관없이 배지 없이 제목만 표시.
+function toggleHideBadge(target, i, checked) {
+  const line = ceLinesFor(target)[i];
+  if (checked) line.hideBadge = true;
+  else delete line.hideBadge;
+  ceRenderPreview();
+}
+
 function setLineFontSize(target, i, v) {
   const line = ceLinesFor(target)[i];
   const n = parseInt(v, 10);
@@ -1363,6 +1371,7 @@ function ceRenderContentLines(target) {
               <div class="cl-fmt-panel">
                 <div class="cl-fmt-chips">${ceFormatChips(target,divIdx,fmt)}</div>
                 ${fmt === 'rows' ? ceFormatPanelBody(target,divIdx,div) : ''}
+                ${fmt !== 'notice' ? `<label class="cl-labelpos"><input type="checkbox" ${div.hideBadge ? 'checked' : ''} onclick="event.stopPropagation();toggleHideBadge('${target}',${divIdx},this.checked)"> 개념/미션 배지 숨김 (제목만 표시)</label>` : ''}
                 <div class="cl-fmt-fontsize">이 페이지 글자 크기 <input type="number" min="10" max="140" placeholder="기본" value="${div.fontSize != null ? div.fontSize : ''}" oninput="setLineFontSize('${target}',${divIdx},this.value)"> px <span class="cl-fmt-fontsize-hint">비우면 디자인 기본값</span></div>
               </div>
             </details>
@@ -4230,7 +4239,7 @@ Object.assign(window, {
   switchSubTab, addLesson, deleteLesson, onLessonChange,
   addSlide, addDivider, addContentRow, addImageSlide, toggleDividerImg, deleteLine, deletePair, moveLine,
   addRowToGroup, addPageToGroup, addTitledPageAfter, moveSlideBlock, ceShowAddMenu, deleteGroup, deleteRow, updateGroupTitle, ceToggleFmt,
-  setLineFormat, toggleLabelPos, setLineFontSize, updateImgLayout,
+  setLineFormat, toggleLabelPos, toggleHideBadge, setLineFontSize, updateImgLayout,
   updateEventField, updateEventContent, addEvent, removeEvent,
   updateCompareField, updateCompareItems,
   updateStageField, addStage, removeStage,

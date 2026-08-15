@@ -466,33 +466,37 @@
     return `<div class="fmt-flow-${orientation}">${inner}</div>`;
   }
 
+  // 제목 없는 헤더(배지 없이 제목만) — 안내 슬라이드와 '배지 숨김' 옵션에서 공용.
+  function titleOnlyHeaderHTML(title) {
+    return title ? `<div class="slide-header slide-header-notice"><h2 class="slide-title">${preserveSpaces(title)}</h2></div>` : '';
+  }
+
   function checkStyleHTML(slide, lesson, badgeLabel) {
     const format = slide.format || 'rows';
+    // slide.hideBadge가 켜져 있으면 어떤 형식이든 개념/미션 배지 없이 제목만 표시한다(A 기능).
+    const mkHeader = (title) => slide.hideBadge ? titleOnlyHeaderHTML(title) : checkHeaderHTML(badgeLabel, title);
 
     if (format === 'notice') {
       // OT·수행 안내 등 자유 문단 슬라이드. 개념/미션 배지를 달지 않고 제목만 표시한다.
       // (제목이 비어 있으면 헤더 자체를 렌더하지 않는다.)
-      const header = slide.title
-        ? `<div class="slide-header slide-header-notice"><h2 class="slide-title">${preserveSpaces(slide.title)}</h2></div>`
-        : '';
-      return wrapWithImg(header + noticeBodyHTML(slide), slide, lesson);
+      return wrapWithImg(titleOnlyHeaderHTML(slide.title) + noticeBodyHTML(slide), slide, lesson);
     }
     if (format === 'quote') {
       // 전체 슬라이드 제목은 다른 슬라이드와 똑같이 좌상단 헤더로 고정.
-      const header = slide.title ? checkHeaderHTML(badgeLabel, slide.title) : '';
+      const header = slide.title ? mkHeader(slide.title) : '';
       // 사료 소제목((가) 등)만 사료 본문 위에 가운데 정렬로 한 번 더 표시.
       const sub = slide.quoteLabel ? `<div class="qt-subtitle">${preserveSpaces(slide.quoteLabel)}</div>` : '';
       // 사료 인용도 우측/하단 이미지 패널을 지원한다(3번 기능).
       return wrapWithImg(`${header}${sub}${quoteBodyHTML(slide)}`, slide, lesson);
     }
-    if (format === 'timeline-h') return checkHeaderHTML(badgeLabel, slide.title) + timelineHBodyHTML(slide);
-    if (format === 'timeline-v') return checkHeaderHTML(badgeLabel, slide.title) + timelineVBodyHTML(slide);
-    if (format === 'compare')    return checkHeaderHTML(badgeLabel, slide.title) + compareBodyHTML(slide);
-    if (format === 'flow-h')     return checkHeaderHTML(badgeLabel, slide.title) + flowBodyHTML(slide, 'h');
-    if (format === 'flow-v')     return checkHeaderHTML(badgeLabel, slide.title) + flowBodyHTML(slide, 'v');
+    if (format === 'timeline-h') return mkHeader(slide.title) + timelineHBodyHTML(slide);
+    if (format === 'timeline-v') return mkHeader(slide.title) + timelineVBodyHTML(slide);
+    if (format === 'compare')    return mkHeader(slide.title) + compareBodyHTML(slide);
+    if (format === 'flow-h')     return mkHeader(slide.title) + flowBodyHTML(slide, 'h');
+    if (format === 'flow-v')     return mkHeader(slide.title) + flowBodyHTML(slide, 'v');
 
     // format === 'rows' (기본값) — 행 나열 + (선택) 하단 사료 + 이미지 우/하 배치
-    const header = checkHeaderHTML(badgeLabel, slide.title);
+    const header = mkHeader(slide.title);
     const rows = `
       <div class="concept-rows">
         ${slide.rows.map(r => rowHTML(r, slide.labelPos)).join('')}
@@ -590,6 +594,7 @@
       if (line.type === 'divider') {
         current = { type, title: line.title, rows: [] };
         if (line.fontSize != null) current.fontSize = line.fontSize; // 페이지별 본문 글자 크기(px) 오버라이드
+        if (line.hideBadge) current.hideBadge = true;                 // 페이지별 개념/미션 배지 숨김(A 기능)
         const fmt = line.format;
         if (fmt && fmt !== 'rows') {
           current.format = fmt;
