@@ -490,7 +490,7 @@ function dbToggleCard(title, list, kind) {
     : list.map(item => {
         const open = kind === 'mission' ? !item.locked : item.isOpen;
         const clean = String(item.title || '').replace(/\*\*/g, '').replace(/[{}]/g, ''); // 편집기호 제거
-        const label = kind === 'concept' ? `${item.num}강. ${esc(clean)}` : esc(clean);
+        const label = kind === 'concept' ? lecLabel(item.num, esc(clean)) : esc(clean);
         const gradeBtn = kind === 'think'
           ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbGoGrade('${item.docId}')">채점${item.ungraded ? ` <b>${item.ungraded}</b>` : ''}</button>`
           : '';
@@ -824,7 +824,7 @@ function cePopulateLessonSelect() {
   const sel = document.getElementById('lesson-select');
   const cur = sel.value || ceCurrentLessonNum; // 선택 유지 (새 강의 추가/갱신 시)
   sel.innerHTML = '<option value="">— 강의 선택 —</option>' +
-    [...ceLessonsCache].reverse().map(l => `<option value="${esc(l.num)}" ${cur && l.num===cur?'selected':''}>${esc(l.num)}강. ${esc(String(l.title||'').replace(/\*\*/g,'').replace(/[{}]/g,''))}</option>`).join('');
+    [...ceLessonsCache].reverse().map(l => `<option value="${esc(l.num)}" ${cur && l.num===cur?'selected':''}>${lecLabel(esc(l.num), esc(String(l.title||'').replace(/\*\*/g,'').replace(/[{}]/g,'')))}</option>`).join('');
 }
 
 window.ceLessonPreview = function() {
@@ -869,7 +869,7 @@ async function addLesson() {
 }
 
 async function deleteLesson() {
-  if (!confirm(`${ceCurrentLessonNum}강을 삭제하시겠습니까? (슬라이드 내용은 삭제되지 않습니다)`)) return;
+  if (!confirm(`${lecTag(ceCurrentLessonNum)}을 삭제하시겠습니까? (슬라이드 내용은 삭제되지 않습니다)`)) return;
   const lesson = ceLessonsCache.find(l => l.num === ceCurrentLessonNum);
   if (!lesson) return;
   await deleteDoc(doc(db, 'class_lessons', lesson.docId));
@@ -1881,7 +1881,7 @@ async function ceSyncThinkLecture(cd) {
   const question = (cd?.think?.question || '').trim();
   const num = cd?.lesson?.num;
   if (!question || !num) return;
-  const title = `${num}강. ${cd.lesson.title || ''}`.trim();
+  const title = lecLabel(num, cd.lesson.title || '').trim();
   // 콘텐츠 생각 Check의 안내(보충설명, think.guide)를 활동의 설명(reference)으로 그대로 끌어온다.
   const reference = (cd?.think?.guide || '').trim();
   try {
@@ -1899,7 +1899,7 @@ async function ceSyncThinkLecture(cd) {
         title, question, reference, icon: num,
         isOpen: false, isArchived: false, createdAt: Date.now()
       });
-      await setDoc(cfgRef, { thinkLectureDocId: ref.id, lessonTitle: cd.lesson.title || `${num}강` }, { merge: true });
+      await setDoc(cfgRef, { thinkLectureDocId: ref.id, lessonTitle: cd.lesson.title || lecTag(num) }, { merge: true });
     }
   } catch (e) { console.warn('생각 체크 강의 자동 생성 실패', e); }
 }
@@ -3180,6 +3180,10 @@ function esc(s) {
 // 강의 제목을 평문(드롭다운·목록 등)으로 보여줄 때 편집 마크업(**강조**, {빈칸})을 떼어낸다.
 // 커버 슬라이드는 이 마크업을 굵게/빈칸으로 렌더하므로 저장값 자체에는 남겨 둔다.
 function cleanTitle(t) { return String(t || '').replace(/\*\*/g, '').replace(/[{}]/g, ''); }
+// 강 번호 표기 규칙: 숫자면 "N강"/"N강. 제목", 문자(OT 등)면 "강" 없이 / 제목과 함께면 콜론.
+function lecIsNum(n) { return /^\d+$/.test(String(n == null ? '' : n).trim()); }
+function lecTag(n) { return lecIsNum(n) ? `${n}강` : `${n}`; }
+function lecLabel(n, title) { return lecIsNum(n) ? `${n}강. ${title}` : `${n}: ${title}`; }
 
 // 미션 카드 URL은 hoistory 루트 기준 상대경로(예: interview/admin.html)로 입력받는다.
 // 이 페이지 자체가 lms/ 하위에 있어 그대로 쓰면 lms/interview/... 로 잘못 풀리므로 루트 기준으로 보정한다.
@@ -3216,7 +3220,7 @@ async function initGradeTab() {
     _gradeLessons.forEach(l => {
       const o = document.createElement('option');
       o.value = l.num;
-      o.textContent = `${l.num}강. ${cleanTitle(l.title)}`;
+      o.textContent = lecLabel(l.num, cleanTitle(l.title));
       lessonSel.appendChild(o);
     });
     lessonSel.addEventListener('change', onGradeLessonChange);
@@ -3318,7 +3322,7 @@ async function loadGradeData() {
     await setDoc(doc(db, 'grade_lecture_config', _gradeLessonKey), {
       thinkLectureDocId: thinkDocId,
       missionCollection: missionColl,
-      lessonTitle: lesson?.title || `${_gradeLessonKey}강`,
+      lessonTitle: lesson?.title || lecTag(_gradeLessonKey),
       conceptEnabled, missionEnabled, thinkEnabled,
       conceptWeight, missionWeight, thinkWeight,
     });
@@ -3936,7 +3940,7 @@ async function fetchAllConceptLectures() {
   return snap.docs
     .map(d => {
       const data = d.data();
-      return { key: data.num, title: `${data.num}강. ${cleanTitle(data.title)}` };
+      return { key: data.num, title: lecLabel(data.num, cleanTitle(data.title)) };
     })
     .filter(l => l.key)
     .sort((a, b) => parseInt(a.key || 0) - parseInt(b.key || 0));
@@ -3994,7 +3998,7 @@ function renderGradeSettings() {
   container.innerHTML = selected.length
     ? selected.map(key => {
         const lec = _allGradedLectures.find(l => l.key === key);
-        return `<div class="lecture-list-item">${esc(String(lec?.title || key + '강').replace(/\*\*/g, '').replace(/[{}]/g, ''))}<button class="lecture-list-remove" data-key="${esc(key)}">삭제</button></div>`;
+        return `<div class="lecture-list-item">${esc(String(lec?.title || lecTag(key)).replace(/\*\*/g, '').replace(/[{}]/g, ''))}<button class="lecture-list-remove" data-key="${esc(key)}">삭제</button></div>`;
       }).join('')
     : '<span style="font-size:13px;color:var(--sub)">반영할 강의가 없습니다. 위에서 추가해 주세요.</span>';
 

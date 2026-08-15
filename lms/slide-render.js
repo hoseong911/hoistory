@@ -20,6 +20,10 @@
     return String(str).replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
   }
 
+  // 강 번호 표기 규칙: 순수 숫자면 "N강", 문자(OT/안내 등)가 섞이면 "강" 없이 그대로 둔다.
+  function isNumericNum(n) { return /^\d+$/.test(String(n == null ? '' : n).trim()); }
+  function lessonNumTag(num) { return isNumericNum(num) ? `${num}강` : `${num}`; }
+
   function parseText(str) {
     // 빈칸을 임시 플레이스홀더로 보호
     const blanks = [];
@@ -158,7 +162,7 @@
     return `
       <div class="cover-script">Dive into<br>History</div>
       <div class="intro-sweep"></div>
-      <div class="cover-num">${lesson.num}강</div>
+      <div class="cover-num">${lessonNumTag(lesson.num)}</div>
       <div class="cover-fg">
         <div class="cover-tagline">생각하고 활동하고 질문하는 역사 수업</div>
         <h1 class="cover-title">${titleLines}</h1>
@@ -573,7 +577,7 @@
     return `
       <div class="slide-header">
         <span class="check-badge think">생각 Check</span>
-        <h2 class="slide-title">${lesson.num}강</h2>
+        <h2 class="slide-title">${lessonNumTag(lesson.num)}</h2>
       </div>
       <p class="think-question">${boldOnly(preserveSpaces(slide.question)).replace(/\n/g, '<br>')}</p>
       <div class="think-body">
@@ -776,6 +780,9 @@
     });
   }
 
-  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, buildSlidesFromData, circledGroups };
+  // 강 번호 + 제목 결합 표기: 숫자면 "N강. 제목", 문자면 "OT: 제목".
+  function lessonTitleLabel(num, title) { return isNumericNum(num) ? `${num}강. ${title}` : `${num}: ${title}`; }
+
+  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, buildSlidesFromData, circledGroups, lessonNumTag, lessonTitleLabel };
 
 })(window);

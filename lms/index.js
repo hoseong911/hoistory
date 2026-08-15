@@ -429,6 +429,8 @@ let _gradeAccOpen = false; // 모바일: 성적 아코디언 펼침 상태 (실�
 // 제목 원문에 섞인 편집 문법(**강조**, {빈칸})은 학생 화면에 텍스트로 보일 땐 떼어낸다.
 function stripEmph(t) { return String(t || '').replace(/\*\*/g, '').replace(/[{}]/g, ''); }
 function stripLecNum(t) { const s = stripEmph(t); return s.replace(/^\s*\d+\s*강\.?\s*/, '').trim() || s; }
+// 강 번호 표기: 숫자면 "N강", 문자(OT 등)면 "강" 없이 그대로.
+function lecTag(n) { return /^\d+$/.test(String(n == null ? '' : n).trim()) ? `${n}강` : `${n}`; }
 // hismile(역사 열공 마일리지)은 전용 마일리지 버튼으로 노출하므로 미션/콘텐츠 카드 목록에서는 제외한다.
 function notHismile(x) { return !/hismile/i.test(x.url || ''); }
 
@@ -540,11 +542,11 @@ async function loadStudentGrade() {
           mission: d.missionEnabled !== false,
           think:   d.thinkEnabled   !== false,
         };
-        titleMap[key] = d.lessonTitle || `${key}강`;
+        titleMap[key] = d.lessonTitle || lecTag(key);
         if (recSnap.exists()) records[key] = recSnap.data();
       } catch {
         enabledMap[key] = { concept:true, mission:true, think:true };
-        titleMap[key] = `${key}강`;
+        titleMap[key] = lecTag(key);
       }
     }));
 
