@@ -3,7 +3,7 @@
    똑같이 이 파일을 불러써서, 슬라이드 HTML 생성 로직이 항상 일치하도록 한다.
    ════════════════════════════════════════════════════════ */
 (function (global) {
-  console.log('[SlideRender] v20260815b loaded');
+  console.log('[SlideRender] v20260815c loaded');
 
   // 스페이스를 2칸 이상 연달아 쓰면 브라우저가 하나로 줄여버리므로, 짝수 번째
   // 스페이스를 &nbsp;로 바꿔 타이핑한 칸 수 그대로 보이게 한다(홀수 번째는 일반
@@ -470,8 +470,12 @@
     const format = slide.format || 'rows';
 
     if (format === 'notice') {
-      // OT·수행 안내 등 자유 문단 슬라이드. 배지는 '안내'로 고정.
-      return wrapWithImg(checkHeaderHTML('안내', slide.title) + noticeBodyHTML(slide), slide, lesson);
+      // OT·수행 안내 등 자유 문단 슬라이드. 개념/미션 배지를 달지 않고 제목만 표시한다.
+      // (제목이 비어 있으면 헤더 자체를 렌더하지 않는다.)
+      const header = slide.title
+        ? `<div class="slide-header slide-header-notice"><h2 class="slide-title">${preserveSpaces(slide.title)}</h2></div>`
+        : '';
+      return wrapWithImg(header + noticeBodyHTML(slide), slide, lesson);
     }
     if (format === 'quote') {
       // 전체 슬라이드 제목은 다른 슬라이드와 똑같이 좌상단 헤더로 고정.
