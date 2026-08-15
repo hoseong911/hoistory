@@ -1305,8 +1305,12 @@ function ceRenderContentLines(target) {
         const hasImg = div.img != null, fmt = div.format || 'rows';
         const pg = ++pageNum;
         // 페이지 단위 공통 액션바(우측 세로) — 모든 형식에서 동일한 모양으로 쓴다.
+        const blockEnd = divIdx + 1 + rowIndices.length;   // 이 페이지 블록의 끝(다음 블록 시작 인덱스)
+        const canUp = divIdx > 0, canDown = blockEnd < lines.length;
         const pageActions = `
               <div class="cl-row-actions">
+                <button class="cl-icon-btn" onclick="moveSlideBlock('${target}',${divIdx},-1)" ${canUp?'':'disabled'} title="페이지 위로 이동">${ceIconUp()}</button>
+                <button class="cl-icon-btn" onclick="moveSlideBlock('${target}',${divIdx},1)" ${canDown?'':'disabled'} title="페이지 아래로 이동">${ceIconDown()}</button>
                 <button class="cl-icon-btn" onclick="ceShowAddMenu(event,'${target}',${divIdx})" title="추가 (행/페이지)">${ceIconPlus()}</button>
                 <button class="cl-icon-btn" onclick="toggleDividerImg('${target}',${divIdx})" title="${hasImg?'이미지 제거':'이미지 삽입'}">${ceIconImage()}</button>
                 <button class="cl-icon-btn${fmt !== 'rows' ? ' active' : ''}" onclick="ceToggleFmt('${target}',${divIdx})" title="형식 변경">${ceIconSliders()}</button>
@@ -1423,10 +1427,41 @@ const _svgPlus    = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" 
 const _svgImage   = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="12" height="10" rx="1.5"/><circle cx="5.5" cy="6.5" r="1"/><polyline points="2,12 5,8.5 7.5,11 10,8 14,12"/></svg>`;
 const _svgSliders = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><line x1="2" y1="5" x2="14" y2="5"/><line x1="2" y1="11" x2="14" y2="11"/><circle cx="6" cy="5" r="1.8" fill="white" stroke="currentColor"/><circle cx="10" cy="11" r="1.8" fill="white" stroke="currentColor"/></svg>`;
 const _svgTrash   = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,4 13,4"/><path d="M5,4V3a1,1,0,0,1,1-1h4a1,1,0,0,1,1,1V4"/><path d="M6,7v4M10,7v4"/><rect x="4" y="4" width="8" height="9" rx="1"/></svg>`;
+const _svgUp   = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4,10 8,6 12,10"/></svg>`;
+const _svgDown = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4,6 8,10 12,6"/></svg>`;
 function ceIconPlus()    { return _svgPlus; }
 function ceIconImage()   { return _svgImage; }
 function ceIconSliders() { return _svgSliders; }
 function ceIconTrash()   { return _svgTrash; }
+function ceIconUp()      { return _svgUp; }
+function ceIconDown()    { return _svgDown; }
+
+/* 페이지(=divider + 딸린 row들)를 한 덩어리로 위/아래 인접 블록과 자리 바꾼다.
+   그룹(제목) 경계도 넘나들 수 있어, 원하는 순서로 페이지를 재배치할 수 있다.
+   dir: -1(위) / +1(아래). 이미지·영상 등 단일 라인 블록과도 자리 바꿈이 된다. */
+function moveSlideBlock(target, divIdx, dir) {
+  const lines = ceLinesFor(target);
+  if (!lines[divIdx] || lines[divIdx].type !== 'divider') return;
+  let count = 1;
+  while (divIdx + count < lines.length && lines[divIdx + count].type === 'row') count++;
+  if (dir < 0) {
+    if (divIdx === 0) return;
+    let p = divIdx - 1;                          // 앞 블록의 시작 지점을 찾는다
+    while (p > 0 && lines[p].type === 'row') p--;
+    const moved = lines.splice(divIdx, count);
+    lines.splice(p, 0, ...moved);
+  } else {
+    const nextStart = divIdx + count;
+    if (nextStart >= lines.length) return;
+    let nextCount = 1;
+    if (lines[nextStart].type === 'divider') {
+      while (nextStart + nextCount < lines.length && lines[nextStart + nextCount].type === 'row') nextCount++;
+    }
+    const moved = lines.splice(divIdx, count);
+    lines.splice(divIdx + nextCount, 0, ...moved);
+  }
+  ceRenderContentLines(target); ceRenderPreview();
+}
 
 function updateGroupTitle(target, indices, v) {
   const lines = ceLinesFor(target);
@@ -4194,7 +4229,7 @@ async function saveGradeRecords() {
 Object.assign(window, {
   switchSubTab, addLesson, deleteLesson, onLessonChange,
   addSlide, addDivider, addContentRow, addImageSlide, toggleDividerImg, deleteLine, deletePair, moveLine,
-  addRowToGroup, addPageToGroup, addTitledPageAfter, ceShowAddMenu, deleteGroup, deleteRow, updateGroupTitle, ceToggleFmt,
+  addRowToGroup, addPageToGroup, addTitledPageAfter, moveSlideBlock, ceShowAddMenu, deleteGroup, deleteRow, updateGroupTitle, ceToggleFmt,
   setLineFormat, toggleLabelPos, setLineFontSize, updateImgLayout,
   updateEventField, updateEventContent, addEvent, removeEvent,
   updateCompareField, updateCompareItems,
