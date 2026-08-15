@@ -1029,9 +1029,9 @@ function moveLine(target, i, dir) {
 const CE_FORMAT_LABELS = {
   rows: '행 나열', 'timeline-h': '연표(가로)', 'timeline-v': '연표(세로)',
   compare: '비교표', quote: '사료 인용', 'flow-h': '플로우(가로)', 'flow-v': '플로우(세로)',
-  notice: '안내(OT·수행)'
+  notice: '안내(OT·수행)', cols: '중앙 나열'
 };
-const CE_FORMATS = ['rows','timeline-h','timeline-v','compare','quote','flow-h','flow-v','notice'];
+const CE_FORMATS = ['rows','timeline-h','timeline-v','compare','quote','flow-h','flow-v','notice','cols'];
 
 function ceFormatChips(target, i, current) {
   return CE_FORMATS.map(f => `<button type="button" class="cl-fmt-chip${current===f?' active':''}" onclick="setLineFormat('${target}',${i},'${f}')">${CE_FORMAT_LABELS[f]}</button>`).join('');
@@ -1057,6 +1057,7 @@ function setLineFormat(target, i, fmt) {
     line.stages = [{ label: '', text: '' }];
   }
   if (fmt === 'notice' && line.noticeText == null) line.noticeText = '';
+  if (fmt === 'cols' && !line.cols) line.cols = [{ head:'', body:'' }, { head:'', body:'' }, { head:'', body:'' }];
   ceRenderContentLines(target);
   ceToggleFmt(target, i);
   ceRenderPreview();
@@ -1132,9 +1133,25 @@ function ceFormatPanelBody(target, i, line) {
   if (fmt === 'quote') return ceQuoteEditor(target, i, line);
   if (fmt === 'flow-h' || fmt === 'flow-v') return ceFlowEditor(target, i, line);
   if (fmt === 'notice') return ceNoticeEditor(target, i, line);
+  if (fmt === 'cols') return ceColsEditor(target, i, line);
   // 행 나열(rows)의 옵션(라벨 좌측·배지 숨김·글자 크기)과 하단 사료는 페이지 설정 패널에서 직접 렌더한다.
   return '';
 }
+
+// 중앙 나열(cols) 편집기 — 대제목은 슬라이드 제목칸, 항목마다 소제목+내용.
+function ceColsEditor(target, i, line) {
+  const cols = line.cols || [];
+  const rows = cols.map((c, j) => `
+    <div class="cl-fmt-row">
+      <input type="text" class="cl-fmt-sm" style="width:150px" placeholder="소제목" value="${esc(c.head||'')}" oninput="updateColField('${target}',${i},${j},'head',this.value)">
+      <input type="text" class="cl-fmt-grow" placeholder="내용 (선택), {단어}는 빈칸" value="${esc(c.body||'')}" oninput="updateColField('${target}',${i},${j},'body',this.value)">
+      <button class="cl-fmt-del" onclick="removeCol('${target}',${i},${j})">삭제</button>
+    </div>`).join('');
+  return `<div class="cl-fmt-fields"><div class="cl-fmt-hint">대제목은 위 슬라이드 제목칸에 입력 · 항목은 가로로 균등 배치됩니다</div>${rows}<button type="button" class="cbtn-sm" onclick="addCol('${target}',${i})">+ 항목 추가</button></div>`;
+}
+function updateColField(target,i,j,f,v){ ceLinesFor(target)[i].cols[j][f]=v; ceRenderPreview(); }
+function addCol(target,i){ ceLinesFor(target)[i].cols.push({head:'',body:''}); ceRenderContentLines(target); ceRenderPreview(); }
+function removeCol(target,i,j){ ceLinesFor(target)[i].cols.splice(j,1); ceRenderContentLines(target); ceRenderPreview(); }
 
 // 안내(OT·수행평가) 자유 문단 편집기 — 한 줄 = 한 문단, "- "로 시작하면 불릿, 빈 줄은 간격.
 function ceNoticeEditor(target, i, line) {
@@ -1366,7 +1383,7 @@ function ceRenderContentLines(target) {
                 <div class="cl-fmt-chips">${ceFormatChips(target,divIdx,fmt)}</div>
                 <div class="cl-fmt-opts">
                   ${fmt === 'rows' ? `<label class="cl-opt"><input type="checkbox" class="cl-opt-labelpos" ${div.labelPos === 'left' ? 'checked' : ''} onclick="event.stopPropagation();toggleLabelPos('${target}',${divIdx},this.checked)"> 라벨 좌측</label>` : ''}
-                  ${fmt !== 'notice' ? `<label class="cl-opt"><input type="checkbox" ${div.hideBadge ? 'checked' : ''} onclick="event.stopPropagation();toggleHideBadge('${target}',${divIdx},this.checked)"> 배지 숨김</label>` : ''}
+                  ${(fmt !== 'notice' && fmt !== 'cols') ? `<label class="cl-opt"><input type="checkbox" ${div.hideBadge ? 'checked' : ''} onclick="event.stopPropagation();toggleHideBadge('${target}',${divIdx},this.checked)"> 배지 숨김</label>` : ''}
                   <label class="cl-opt">글자 크기 <input type="number" min="10" max="140" placeholder="기본" value="${div.fontSize != null ? div.fontSize : ''}" oninput="setLineFontSize('${target}',${divIdx},this.value)"> px</label>
                 </div>
                 ${fmt === 'rows' ? ceBottomQuoteEditor(target,divIdx,div) : ''}
@@ -2069,6 +2086,7 @@ function ceSanitizeParsedLesson(d) {
     if (line.img != null) return true;              // 이미지 있음
     const fmt = line.format;
     if (fmt === 'notice') return !!(line.noticeText && line.noticeText.trim());
+    if (fmt === 'cols') return (line.cols || []).some(c => (c.head && c.head.trim()) || (c.body && c.body.trim()));
     if (fmt === 'quote') return !!(line.quoteText && line.quoteText.trim());
     if (fmt === 'timeline-h' || fmt === 'timeline-v') return (line.events || []).length > 0;
     if (fmt === 'compare') return (((line.left && line.left.items) || []).length + ((line.right && line.right.items) || []).length) > 0;
@@ -4239,6 +4257,7 @@ Object.assign(window, {
   updateEventField, updateEventContent, addEvent, removeEvent,
   updateCompareField, updateCompareItems,
   updateStageField, addStage, removeStage,
+  updateColField, addCol, removeCol,
   updateImageItem, addImageItem, removeImageItem,
   addFullImageSlide, deleteFullImage, addVideoSlide, updateVideoUrl,
   updateLesson, updateObjectives, updateLine, updateLineItems, updateThink,

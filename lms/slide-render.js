@@ -466,6 +466,18 @@
     return `<div class="fmt-flow-${orientation}">${inner}</div>`;
   }
 
+  /* 중앙 나열 형식(cols): 대제목(slide.title) 아래에 소제목+내용 칸을 가로로 균등 배치하고
+     전체를 화면 정중앙에 놓는다. 칸 개수(2~N)에 상관없이 여백은 균등. */
+  function colsBodyHTML(slide) {
+    const cols = (slide.cols || []).map(c => `
+      <div class="cx-col">
+        <div class="cx-head">${parseText(c.head || '')}</div>
+        ${(c.body && c.body.trim()) ? `<div class="cx-body">${renderWithBreaks(c.body)}</div>` : ''}
+      </div>`).join('');
+    const title = slide.title ? `<div class="cx-title">${parseText(slide.title)}</div>` : '';
+    return `<div class="fmt-cols-wrap">${title}<div class="fmt-cols">${cols}</div></div>`;
+  }
+
   // 제목 없는 헤더(배지 없이 제목만) — 안내 슬라이드와 '배지 숨김' 옵션에서 공용.
   function titleOnlyHeaderHTML(title) {
     return title ? `<div class="slide-header slide-header-notice"><h2 class="slide-title">${preserveSpaces(title)}</h2></div>` : '';
@@ -480,6 +492,10 @@
       // OT·수행 안내 등 자유 문단 슬라이드. 개념/미션 배지를 달지 않고 제목만 표시한다.
       // (제목이 비어 있으면 헤더 자체를 렌더하지 않는다.)
       return wrapWithImg(titleOnlyHeaderHTML(slide.title) + noticeBodyHTML(slide), slide, lesson);
+    }
+    if (format === 'cols') {
+      // 대제목 + 소제목/내용 균등 나열. 자체적으로 가운데 정렬 구성이라 배지/헤더를 쓰지 않는다.
+      return colsBodyHTML(slide);
     }
     if (format === 'quote') {
       // 전체 슬라이드 제목은 다른 슬라이드와 똑같이 좌상단 헤더로 고정.
@@ -603,6 +619,7 @@
           else if (fmt === 'quote') { current.text = line.quoteText || ''; current.source = line.quoteSource || ''; current.quoteLabel = line.quoteLabel || ''; }
           else if (fmt === 'flow-h' || fmt === 'flow-v') current.stages = line.stages || [];
           else if (fmt === 'notice') current.noticeText = line.noticeText || '';
+          else if (fmt === 'cols') current.cols = line.cols || [];
         } else if (line.labelPos) {
           current.labelPos = line.labelPos;
         }
@@ -639,6 +656,7 @@
       if (s.type === 'image' || s.type === 'fullimage' || s.type === 'video') return true;
       if (s.img != null) return true;
       if (s.format === 'notice') return !!(s.noticeText && s.noticeText.trim());
+      if (s.format === 'cols') return (s.cols || []).some(c => (c.head && c.head.trim()) || (c.body && c.body.trim()));
       if (s.format === 'quote') return !!(s.text && s.text.trim());
       if (s.format === 'timeline-h' || s.format === 'timeline-v') return (s.events || []).length > 0;
       if (s.format === 'compare') return (((s.left && s.left.items) || []).length + ((s.right && s.right.items) || []).length) > 0;
