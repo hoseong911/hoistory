@@ -485,9 +485,9 @@
       <!-- 표준 액션 줄 -->
       <div class="adm-action-row">
         <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="runScoring()">채점하기</button>
-        <button class="hi-btn hi-btn-outline hi-btn-sm" id="aiPickBtn" onclick="runAiPick()">✨ AI 픽</button>
+        <button class="hi-btn hi-btn-outline hi-btn-sm" id="aiPickBtn" onclick="runAiPick()"><span data-ic="sparkles"></span> AI 픽</button>
         <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportExcel()">엑셀 내보내기</button>
-        <button class="scoring-prompt-btn" onclick="openSettingsModal()" title="AI 설정">⚙️</button>
+        <button class="scoring-prompt-btn" onclick="openSettingsModal()" title="AI 설정"><span data-ic="settings" data-ic-size="18"></span></button>
         <div class="sort-box">
           <button class="sort-btn active" id="sortNewest" onclick="setResultSort('newest')">최신순</button>
           <button class="sort-btn" id="sortSid" onclick="setResultSort('sid')">학번순</button>
@@ -531,6 +531,16 @@ import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
 
 /* ===== Firebase ===== */
 import { firebaseConfig } from "../../shared/firebase-config.js";
+import { icon } from "../../shared/icons.js";
+
+// data-ic="아이콘명" 요소에 SVG 주입 (정적 HTML 아이콘용)
+function injectIcons(root = document) {
+  root.querySelectorAll('[data-ic]').forEach(el => {
+    el.innerHTML = icon(el.dataset.ic, +el.dataset.icSize || 16);
+  });
+}
+injectIcons();
+
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
@@ -753,7 +763,7 @@ function renderResultList(results) {
   const pickBase = resultPickOnly ? results.filter(r => r.pick) : results;
 
   if (!pickBase.length) {
-    container.innerHTML = `<div class="empty"><div class="empty-icon">📜</div>${resultPickOnly ? '픽한 결과가 없습니다' : (classTab==='all'?'아직 플레이 결과가 없습니다':'이 반의 플레이 결과가 없습니다')}</div>`;
+    container.innerHTML = `<div class="empty"><div class="empty-icon">${icon('scroll-text', 28)}</div>${resultPickOnly ? '픽한 결과가 없습니다' : (classTab==='all'?'아직 플레이 결과가 없습니다':'이 반의 플레이 결과가 없습니다')}</div>`;
     return;
   }
 
@@ -797,9 +807,9 @@ function buildResultCard(r) {
       </div>
       <div class="std-actions">
         <button class="std-pick${picked?' picked':''}" onclick="togglePick('${r._key}',${picked})">
-          ${picked?'⭐':'☆'}
+          ${icon('star', 16)}
         </button>
-        <button class="std-edit" onclick="editResult('${r._key}')">✏️</button>
+        <button class="std-edit" onclick="editResult('${r._key}')">${icon('pencil', 15)}</button>
         <button class="std-del" onclick="deleteResult('${r._key}')">✕</button>
       </div>
     </div>
@@ -873,7 +883,7 @@ window.runScoring = async () => {
   if (!results.length) { alert('채점할 성찰 텍스트가 없습니다.'); return; }
   let customPrompt = '';
   try { const snap = await get(ref(db, SCORING_PROMPT_PATH)); customPrompt = snap.exists() ? snap.val() : ''; } catch(e) {}
-  if (!customPrompt) { alert('채점 프롬프트를 먼저 설정해주세요. (⚙️ 버튼 클릭)'); return; }
+  if (!customPrompt) { alert('채점 프롬프트를 먼저 설정해주세요. (설정 버튼 클릭)'); return; }
   const btn = document.querySelector('[onclick="runScoring()"]');
   const origText = btn?.textContent;
   if (btn) btn.disabled = true;
@@ -900,7 +910,7 @@ window.runAiPick = async () => {
   const results = filteredResults().filter(r => r.reflection && r.reflection.trim());
   if (!results.length) { alert('픽할 소감이 없습니다.'); return; }
   const btn = document.getElementById('aiPickBtn');
-  btn.disabled = true; btn.textContent = '✨ 분석 중…';
+  btn.disabled = true; btn.innerHTML = icon('sparkles', 15) + ' 분석 중…';
   let criteria = DEFAULT_PICK_CRITERIA;
   try { const snap = await get(ref(db, AI_PICK_CRITERIA_PATH)); if (snap.exists() && snap.val().trim()) criteria = snap.val(); } catch(e) {}
   const postsText = results.map((r, i) => {
@@ -935,11 +945,11 @@ ${postsText}
     await Promise.all(
       nums.filter(n => results[n-1]).map(n => updateDoc(doc(fsdb, 'goryeo_choice_results', results[n-1]._key), { pick: true }))
     );
-    alert(`✨ AI가 ${nums.length}개 소감을 픽했습니다.`);
+    alert(`AI가 ${nums.length}개 소감을 픽했습니다.`);
   } catch(e) {
     alert('AI 픽 실패: ' + e.message);
   } finally {
-    btn.disabled = false; btn.textContent = '✨ AI 픽';
+    btn.disabled = false; btn.innerHTML = icon('sparkles', 15) + ' AI 픽';
   }
 };
 
@@ -979,7 +989,7 @@ function showToast(msg) {
       <textarea class="scoring-modal-textarea" id="scoring-prompt-textarea" placeholder="예) 다음 학생의 고려의 선택 성찰 텍스트를 읽고, 역사적 사고가 담겨 있으면 pass, 아니면 fail로만 답하세요.&#10;&#10;{content}"></textarea>
     </div>
     <div id="settings-panel-pick" style="display:none;">
-      <p class="scoring-modal-desc">✨ AI 픽이 우수한 소감을 고를 때 사용할 기준입니다. 한 줄에 기준 하나씩 자유롭게 작성하세요.</p>
+      <p class="scoring-modal-desc"><span data-ic="sparkles" data-ic-size="15"></span> AI 픽이 우수한 소감을 고를 때 사용할 기준입니다. 한 줄에 기준 하나씩 자유롭게 작성하세요.</p>
       <textarea class="scoring-modal-textarea" id="ai-pick-criteria-textarea" placeholder="예)&#10;- 역사적 인물/상황에 대한 공감과 이해가 담긴 소감&#10;- 전체의 20~30% 내외 선정"></textarea>
     </div>
     <div class="scoring-modal-msg" id="settings-modal-msg"></div>

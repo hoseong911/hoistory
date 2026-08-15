@@ -764,7 +764,7 @@ body::before {
       </div>
     </div>
     <div class="reflection-done" id="reflection-done">
-      <div class="reflection-done-icon">📜</div>
+      <div class="reflection-done-icon"><span data-ic="scroll-text" data-ic-size="32"></span></div>
       <div class="reflection-done-text">소감이 제출되었습니다.<br>수고하셨습니다.</div>
       <button class="btn-restart" onclick="restartGame()">처음으로 돌아가기</button>
     </div>
@@ -780,6 +780,15 @@ import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } from "ht
 import { initAuth, verifyStudentId, loadStudents } from '../../shared/auth.js';
 import { mountCharCounter, validateText } from '../../shared/textLimit.js';
 import { showToast } from '../../shared/toast.js';
+import { icon } from '../../shared/icons.js';
+
+// data-ic="아이콘명" 요소에 SVG 주입 (정적 HTML 아이콘용)
+function injectIcons(root = document) {
+  root.querySelectorAll('[data-ic]').forEach(el => {
+    el.innerHTML = icon(el.dataset.ic, +el.dataset.icSize || 16);
+  });
+}
+injectIcons();
 
 import "../../shared/offline.js";
 import { firebaseConfig } from "../../shared/firebase-config.js";
@@ -824,7 +833,7 @@ const SCENES = [
       { term:'문하(門下)', desc:'어떤 스승 밑에서 가르침을 받는 제자의 무리, 또는 그 학파.' },
       { term:'성리학(性理學)', desc:'중국 송나라 주희가 정립한 유학의 한 갈래. 고려 말 신진사대부의 사상적 기반.' }
     ],
-    npc:{ name:'동료 유생', icon:'📚', text:'"이색 선생 문하는 안정적이지만 정도전 선생 쪽은 뭔가 새로운 세상을 꿈꾸는 것 같소. 그대는 어찌하겠소?"' },
+    npc:{ name:'동료 유생', icon:'book', text:'"이색 선생 문하는 안정적이지만 정도전 선생 쪽은 뭔가 새로운 세상을 꿈꾸는 것 같소. 그대는 어찌하겠소?"' },
     choices:[
       { text:'이색(李穡) 선생 문하에 든다. 고려 왕조를 지키며 성리학으로 세상을 바로잡겠다.', stat:{fame:1,loyalty:2,study:2,survive:1}, log:'스승 선택 — 이색 문하' },
       { text:'정도전(鄭道傳)과 뜻을 같이한다. 낡은 체제를 버리고 새 세상을 설계하겠다.', stat:{fame:1,loyalty:-1,study:3,survive:-1}, log:'스승 선택 — 정도전과 동행' },
@@ -843,7 +852,7 @@ const SCENES = [
       { term:'요동 정벌', desc:'명나라 영토인 요동 지방을 치러 가는 출병. 우왕과 최영이 강행했다.' },
       { term:'역적(逆賊)', desc:'나라와 임금을 배반한 죄인.' }
     ],
-    npc:{ name:'동료 사대부 김씨', icon:'👤', text:'"이성계 장군이 드디어 일을 벌였소. 그대는 어느 편에 서겠소? 이 선택이 우리의 미래를 가를 것이오."' },
+    npc:{ name:'동료 사대부 김씨', icon:'users', text:'"이성계 장군이 드디어 일을 벌였소. 그대는 어느 편에 서겠소? 이 선택이 우리의 미래를 가를 것이오."' },
     choices:[
       { text:'이성계 장군을 지지한다. 병든 고려를 바로잡으려면 강한 무인의 힘이 필요하다.', stat:{fame:1,loyalty:-2,survive:2}, log:'위화도 회군 — 이성계 지지' },
       { text:'왕실에 충성한다. 군주를 버리는 것은 성리학자의 도리가 아니다.', stat:{fame:2,loyalty:3,survive:-2}, log:'위화도 회군 — 왕실 충성' },
@@ -861,7 +870,7 @@ const SCENES = [
       { term:'이인임(李仁任)', desc:'고려 말 권문세족의 대표 인물. 우왕 즉위에 큰 역할을 했다.' },
       { term:'거두(巨頭)', desc:'어떤 집단·세력의 우두머리.' }
     ],
-    npc:{ name:'권문세족 심복', icon:'🎭', text:'"조정은 결국 힘 있는 자들의 것이오. 그대처럼 재능 있는 선비가 헛되이 낭비되는 것은 아깝지 않소?"' },
+    npc:{ name:'권문세족 심복', icon:'drama', text:'"조정은 결국 힘 있는 자들의 것이오. 그대처럼 재능 있는 선비가 헛되이 낭비되는 것은 아깝지 않소?"' },
     choices:[
       { text:'손을 잡는다. 권력 없이 이상을 펼칠 수는 없다. 안에서 바꾸겠다.', stat:{fame:2,loyalty:-2,study:-1,survive:2}, log:'권문세족 거래 — 동조' },
       { text:'단호히 거절한다. 불의와 타협하는 순간 선비의 길은 끝난다.', stat:{fame:-1,loyalty:3,study:2,survive:-2}, log:'권문세족 거래 — 거부' },
@@ -880,7 +889,7 @@ const SCENES = [
       { term:'과전법(科田法)', desc:'1391년 시행된 토지제도. 관직 등급에 따라 관리에게 토지를 나누어 주었다.' },
       { term:'토지 겸병(兼倂)', desc:'권력자가 백성들의 토지를 마구 사들이거나 빼앗아 합치는 일.' }
     ],
-    npc:{ name:'정도전(鄭道傳)', icon:'📜', text:'"백성이 굶주리는 것은 토지 겸병 때문이오. 지금 개혁하지 않으면 고려는 스스로 무너질 것이오."' },
+    npc:{ name:'정도전(鄭道傳)', icon:'scroll-text', text:'"백성이 굶주리는 것은 토지 겸병 때문이오. 지금 개혁하지 않으면 고려는 스스로 무너질 것이오."' },
     choices:[
       { text:'적극 지지한다. 굶주리는 백성을 외면하는 것은 성리학자의 도리가 아니다.', stat:{fame:2,loyalty:-1,study:2,survive:-1}, log:'전제개혁 — 적극 지지' },
       { text:'반대한다. 합법적 재산을 빼앗는 것은 성리학의 이치에도 어긋난다.', stat:{fame:-1,loyalty:2,study:1,survive:1}, log:'전제개혁 — 반대' },
@@ -899,7 +908,7 @@ const SCENES = [
       { term:'폐단(弊端)', desc:'어떤 일이나 행동에서 일어나는 옳지 못하고 해로운 일.' },
       { term:'승려(僧侶)', desc:'불교에서 출가한 사람. 고려 말 일부 승려는 왕실과 결탁해 권력을 누렸다.' }
     ],
-    npc:{ name:'성균관 유생', icon:'🏯', text:'"사원이 토지를 독점하고 승려가 왕실에 기생하고 있소. 이것이 고려가 병든 근본 원인이 아니겠소?"' },
+    npc:{ name:'성균관 유생', icon:'castle', text:'"사원이 토지를 독점하고 승려가 왕실에 기생하고 있소. 이것이 고려가 병든 근본 원인이 아니겠소?"' },
     choices:[
       { text:'강하게 척불을 주장한다. 성리학이 새 시대의 정신이 되어야 백성이 바로 선다.', stat:{fame:2,loyalty:0,study:2,survive:-1}, log:'불교 척결 — 강경 척불' },
       { text:'사원의 경제적 폐단만 바로잡자고 주장한다. 수백 년의 신앙을 하루아침에 무너뜨릴 수는 없다.', stat:{fame:1,loyalty:1,study:2,survive:1}, log:'불교 척결 — 온건 개혁' },
@@ -918,7 +927,7 @@ const SCENES = [
       { term:'사절단(使節團)', desc:'나라를 대표해 외국에 가는 사람들의 무리.' },
       { term:'자주 외교', desc:'다른 나라에 휘둘리지 않고 스스로의 판단으로 펼치는 외교.' }
     ],
-    npc:{ name:'예부 관리', icon:'🏛️', text:'"명나라는 이미 강대국이오. 그들과 척을 지면 고려는 고립될 것이오. 하지만 비굴한 굴종도 선비의 길이 아니지 않소?"' },
+    npc:{ name:'예부 관리', icon:'landmark', text:'"명나라는 이미 강대국이오. 그들과 척을 지면 고려는 고립될 것이오. 하지만 비굴한 굴종도 선비의 길이 아니지 않소?"' },
     choices:[
       { text:'직접 사절단을 이끌겠다고 자원한다. 외교의 중심에 서서 새 시대를 설계하겠다.', stat:{fame:3,loyalty:0,study:1,survive:-1}, log:'명나라 외교 — 사절단 자원' },
       { text:'강경 자주 외교를 촉구하는 상소를 올린다. 명나라의 눈치만 보는 것은 자존을 버리는 일이다.', stat:{fame:1,loyalty:2,study:2,survive:-2}, log:'명나라 외교 — 강경 자주' },
@@ -936,7 +945,7 @@ const SCENES = [
       { term:'절의(節義)', desc:'옳다고 믿는 도리와 의리를 끝까지 지키는 굳센 태도.' },
       { term:'만류(挽留)', desc:'붙잡고 말림. 무언가를 못하게 막는 것.' }
     ],
-    npc:{ name:'그대의 부인', icon:'🕯️', text:'"당신의 절의도 소중하지만 아이들이 있소. 한 번만, 한 번만 물러서면 안 되겠소?"' },
+    npc:{ name:'그대의 부인', icon:'flame', text:'"당신의 절의도 소중하지만 아이들이 있소. 한 번만, 한 번만 물러서면 안 되겠소?"' },
     choices:[
       { text:'뜻을 굽히지 않는다. 선비의 절의는 어떤 것과도 바꿀 수 없다.', stat:{fame:2,loyalty:3,survive:-2}, log:'가족 만류 — 절의 고수' },
       { text:'가족을 위해 잠시 물러서겠다고 달랜다. 살아야 다시 뜻을 펼칠 수 있다.', stat:{fame:-1,loyalty:-1,survive:3}, log:'가족 만류 — 타협' },
@@ -954,7 +963,7 @@ const SCENES = [
       { term:'일편단심(一片丹心)', desc:'한 조각의 붉은 마음. 변치 않는 충성심을 뜻한다. 정몽주의 「단심가」에서 유래.' },
       { term:'보루(堡壘)', desc:'적의 공격을 막기 위해 쌓은 진지. 비유적으로 "마지막으로 지켜야 할 것"을 의미.' }
     ],
-    npc:{ name:'정몽주(鄭夢周)', icon:'🕯️', text:'"이 몸이 죽고 죽어 일백 번 고쳐 죽어도, 임 향한 일편단심이야 가실 줄이 있으랴. 그대는 어찌하겠소?"' },
+    npc:{ name:'정몽주(鄭夢周)', icon:'flame', text:'"이 몸이 죽고 죽어 일백 번 고쳐 죽어도, 임 향한 일편단심이야 가실 줄이 있으랴. 그대는 어찌하겠소?"' },
     choices:[
       { text:'함께 고려를 지키겠다고 맹세한다. 절의는 살아서가 아니라 죽음 앞에서 증명된다.', stat:{fame:2,loyalty:4,survive:-3}, log:'정몽주와 — 함께 맹세' },
       { text:'"뜻은 같으나 방법은 달리할 수도 있습니다"라고 답한다. 아직 판단을 유보할 때다.', stat:{fame:0,loyalty:1,study:2}, log:'정몽주와 — 유보적 답변' },
@@ -973,7 +982,7 @@ const SCENES = [
       { term:'역성혁명(易姓革命)', desc:'성씨를 바꾸는 혁명. 한 왕조를 무너뜨리고 다른 성씨가 새 왕조를 세우는 것.' },
       { term:'개국공신(開國功臣)', desc:'새 나라를 여는 데 큰 공을 세운 신하. 조선 개국공신은 큰 권력과 토지를 받았다.' }
     ],
-    npc:{ name:'이성계 측근', icon:'⚔️', text:'"새 나라에 함께하시오. 개국공신의 반열에 오를 것이오. 아니면… 선택은 그대에게 있소."' },
+    npc:{ name:'이성계 측근', icon:'swords', text:'"새 나라에 함께하시오. 개국공신의 반열에 오를 것이오. 아니면… 선택은 그대에게 있소."' },
     choices:[
       { text:'이성계의 손을 잡는다. 역사의 흐름을 거스르는 것은 백성을 위한 길이 아니다.', stat:{fame:3,loyalty:-3,survive:3}, log:'최후 선택 — 조선 합류', ending:'open' },
       { text:'거절하고 낙향한다. 두 임금을 섬길 수 없다. 전원에서 후학을 가르치며 절의를 지키겠다.', stat:{fame:-1,loyalty:4,study:2,survive:1}, log:'최후 선택 — 두문동 은거', ending:'retreat' },
@@ -1365,7 +1374,7 @@ function showScene(idx) {
   else textArea.textContent = s.text || '';
 
   const npcArea = document.getElementById('scene-npc-area');
-  if (s.npc) npcArea.innerHTML = `<div class="scene-npc"><div class="scene-npc-avatar">${s.npc.icon}</div><div><div class="scene-npc-name">${s.npc.name}</div><div class="scene-npc-text">${s.npc.text}</div></div></div>`;
+  if (s.npc) npcArea.innerHTML = `<div class="scene-npc"><div class="scene-npc-avatar">${icon(s.npc.icon, 24)}</div><div><div class="scene-npc-name">${s.npc.name}</div><div class="scene-npc-text">${s.npc.text}</div></div></div>`;
   else npcArea.innerHTML = '';
 
   const fnArea = document.getElementById('scene-footnotes-area');
@@ -1848,7 +1857,7 @@ function renderArcFeedGc() {
   results.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
   if (!results.length) {
-    feed.innerHTML = `<div class="arc-empty">📭 아직 Pick된 소감이 없어요.</div>`;
+    feed.innerHTML = `<div class="arc-empty">${icon('inbox', 20)} 아직 Pick된 소감이 없어요.</div>`;
     return;
   }
 
@@ -1857,7 +1866,7 @@ function renderArcFeedGc() {
     const endingTitle = ENDINGS_META_ARC[r.ending] || r.endingTitle || r.ending || '—';
     return `<div class="arc-post">
       <div class="arc-post-meta">
-        <span class="arc-post-pick">⭐ Pick</span>
+        <span class="arc-post-pick">${icon('star', 13)} Pick</span>
         <span class="arc-post-badge ${path}">${endingTitle}</span>
       </div>
       <div class="arc-post-text">${escHtml(r.reflection.trim())}</div>
