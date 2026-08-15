@@ -439,8 +439,9 @@ function startListening() {
   // 1. 개념 체크 — class_lessons (어드민 강의 목록과 동일한 order 오름차순)
   onSnapshot(query(collection(db, 'class_lessons'), orderBy('order','asc')), snap => {
     // 비공개(isOpen===false)는 생각 체크처럼 허브에서 아예 숨긴다(흐린 잠금 표시 안 함).
+    // OT(안내용 강의)는 복습 대상이 아니므로 개념 Check 허브/복습 목록에서 제외한다.
     sectionData.concept = snap.docs
-      .filter(d => d.data().isOpen !== false)
+      .filter(d => d.data().isOpen !== false && d.data().num !== 'OT')
       .map(d => {
         const l = d.data();
         return { icon: l.num, label: stripLecNum(l.title), sublabel: l.unit, num: l.num, isConcept: true, locked: false };
