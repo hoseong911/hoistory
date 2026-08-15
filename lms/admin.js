@@ -1483,8 +1483,29 @@ function addPageToGroup(target, lastDivIdx) {
   ceRenderContentLines(target); ceRenderPreview();
 }
 
-/* 액션바의 + 버튼: 누르면 "행 추가 / 페이지 추가" 중 고를 수 있는 작은 메뉴를 연다.
-   행 추가는 이 페이지에 행 하나를, 페이지 추가는 같은 제목의 새 페이지를 바로 뒤에 넣는다. */
+/* 다른 제목의 새 페이지(=새 슬라이드 그룹)를 이 그룹 바로 뒤에 만든다.
+   제목이 그룹 기준이라, 같은 제목이면 한 그룹으로 묶여버리므로 새 제목을 주려면
+   그룹 전체가 끝난 지점에 별도 제목의 divider를 넣어야 한다. */
+function addTitledPageAfter(target, divIdx) {
+  const lines = ceLinesFor(target);
+  const title = lines[divIdx].title;
+  // 이 그룹(같은 제목의 연속 divider + 각자의 row들)의 끝 지점을 찾는다.
+  let end = divIdx;
+  while (end < lines.length) {
+    if (lines[end].type === 'row') { end++; continue; }
+    if (lines[end].type === 'divider' && lines[end].title === title) { end++; continue; }
+    break;
+  }
+  lines.splice(end, 0,
+    { type: 'divider', title: '새 슬라이드' },
+    { type: 'row', label: '', items: [] }
+  );
+  ceRenderContentLines(target); ceRenderPreview();
+}
+
+/* 액션바의 + 버튼: 누르면 "행 추가 / 페이지 추가(같은 제목) / 새 페이지(다른 제목)"를
+   고를 수 있는 작은 메뉴를 연다. 행 추가는 이 페이지에 행 하나를, 같은 제목 페이지 추가는
+   같은 그룹에 새 페이지를, 다른 제목 새 페이지는 이 그룹 뒤에 별도 제목의 새 그룹을 만든다. */
 function ceShowAddMenu(ev, target, divIdx) {
   ev.stopPropagation();
   document.querySelectorAll('.cl-add-menu').forEach(m => m.remove());
@@ -1500,7 +1521,8 @@ function ceShowAddMenu(ev, target, divIdx) {
     return b;
   };
   menu.appendChild(mkBtn('행 추가', () => addRowToGroup(target, divIdx)));
-  menu.appendChild(mkBtn('페이지 추가', () => addPageToGroup(target, divIdx)));
+  menu.appendChild(mkBtn('페이지 추가 (같은 제목)', () => addPageToGroup(target, divIdx)));
+  menu.appendChild(mkBtn('새 페이지 (다른 제목)', () => addTitledPageAfter(target, divIdx)));
   document.body.appendChild(menu);
   const r = btn.getBoundingClientRect();
   const left = Math.max(8, window.scrollX + r.right - menu.offsetWidth);
@@ -4166,7 +4188,7 @@ async function saveGradeRecords() {
 Object.assign(window, {
   switchSubTab, addLesson, deleteLesson, onLessonChange,
   addSlide, addDivider, addContentRow, addImageSlide, toggleDividerImg, deleteLine, deletePair, moveLine,
-  addRowToGroup, addPageToGroup, ceShowAddMenu, deleteGroup, deleteRow, updateGroupTitle, ceToggleFmt,
+  addRowToGroup, addPageToGroup, addTitledPageAfter, ceShowAddMenu, deleteGroup, deleteRow, updateGroupTitle, ceToggleFmt,
   setLineFormat, toggleLabelPos, setLineFontSize, updateImgLayout,
   updateEventField, updateEventContent, addEvent, removeEvent,
   updateCompareField, updateCompareItems,
