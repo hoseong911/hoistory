@@ -1028,9 +1028,10 @@ function moveLine(target, i, dir) {
 // 기본값은 'rows'(지금까지의 행 나열)라서, 기존 강의는 아무 필드도 없어도 그대로 동작한다.
 const CE_FORMAT_LABELS = {
   rows: '행 나열', 'timeline-h': '연표(가로)', 'timeline-v': '연표(세로)',
-  compare: '비교표', quote: '사료 인용', 'flow-h': '플로우(가로)', 'flow-v': '플로우(세로)'
+  compare: '비교표', quote: '사료 인용', 'flow-h': '플로우(가로)', 'flow-v': '플로우(세로)',
+  notice: '안내(OT·수행)'
 };
-const CE_FORMATS = ['rows','timeline-h','timeline-v','compare','quote','flow-h','flow-v'];
+const CE_FORMATS = ['rows','timeline-h','timeline-v','compare','quote','flow-h','flow-v','notice'];
 
 function ceFormatChips(target, i, current) {
   return CE_FORMATS.map(f => `<button type="button" class="cl-fmt-chip${current===f?' active':''}" onclick="setLineFormat('${target}',${i},'${f}')">${CE_FORMAT_LABELS[f]}</button>`).join('');
@@ -1055,6 +1056,7 @@ function setLineFormat(target, i, fmt) {
   if ((fmt === 'flow-h' || fmt === 'flow-v') && !line.stages) {
     line.stages = [{ label: '', text: '' }];
   }
+  if (fmt === 'notice' && line.noticeText == null) line.noticeText = '';
   ceRenderContentLines(target);
   ceToggleFmt(target, i);
   ceRenderPreview();
@@ -1121,11 +1123,36 @@ function ceFormatPanelBody(target, i, line) {
   if (fmt === 'compare') return ceCompareEditor(target, i, line);
   if (fmt === 'quote') return ceQuoteEditor(target, i, line);
   if (fmt === 'flow-h' || fmt === 'flow-v') return ceFlowEditor(target, i, line);
+  if (fmt === 'notice') return ceNoticeEditor(target, i, line);
+  // 행 나열(rows) — 라벨 위치 + (선택) 하단 사료 인용
   return `
     <label class="cl-labelpos">
       <input type="checkbox" ${line.labelPos === 'left' ? 'checked' : ''} onclick="event.stopPropagation();toggleLabelPos('${target}',${i},this.checked)">
       라벨 좌측 배치
-    </label>`;
+    </label>
+    ${ceBottomQuoteEditor(target, i, line)}`;
+}
+
+// 안내(OT·수행평가) 자유 문단 편집기 — 한 줄 = 한 문단, "- "로 시작하면 불릿, 빈 줄은 간격.
+function ceNoticeEditor(target, i, line) {
+  return `
+    <div class="cl-fmt-fields">
+      <div class="cl-fmt-hint">한 줄 = 한 문단 · 줄 앞에 "- "를 붙이면 불릿 · 빈 줄은 간격 · **굵게**/{빈칸} 문법 사용 가능</div>
+      <textarea class="cl-fmt-grow" placeholder="예)&#10;- 수행평가 안내&#10;- 제출 기한: 다음 주 금요일&#10;&#10;**모둠별**로 발표 자료를 준비하세요." oninput="updateLine('${target}',${i},'noticeText',this.value);autoResizeTa(this)" onkeydown="handleContentKeydown(event)">${esc(line.noticeText||'')}</textarea>
+    </div>`;
+}
+
+// 행 나열 하단 사료 인용(선택). 채우면 행 아래에 사료 블록이 붙는다. quote 형식과 같은 필드를 공유.
+function ceBottomQuoteEditor(target, i, line) {
+  return `
+    <details class="cl-bq" ${(line.quoteText && line.quoteText.trim()) ? 'open' : ''}>
+      <summary class="cl-bq-summary">하단 사료 인용 (선택)</summary>
+      <div class="cl-fmt-fields">
+        <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="사료 소제목 (선택, 예: (가) …)" value="${esc(line.quoteLabel||'')}" oninput="updateLine('${target}',${i},'quoteLabel',this.value)">
+        <textarea class="cl-fmt-grow" placeholder="사료 원문 (비우면 사료 안 붙음), {단어}는 빈칸" oninput="updateLine('${target}',${i},'quoteText',this.value);autoResizeTa(this)" onkeydown="handleContentKeydown(event)">${esc(line.quoteText||'')}</textarea>
+        <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="출처 (선택, 자동으로 겹낫표 『』 표시)" value="${esc(line.quoteSource||'')}" oninput="updateLine('${target}',${i},'quoteSource',this.value)">
+      </div>
+    </details>`;
 }
 
 function ceTimelineEditor(target, i, line) {
@@ -1938,6 +1965,7 @@ function ceSanitizeParsedLesson(d) {
       if (line.quoteText   !== undefined) out.quoteText   = fixBreaks(line.quoteText);
       if (line.quoteSource !== undefined) out.quoteSource = fixBraces(line.quoteSource);
       if (line.quoteLabel  !== undefined) out.quoteLabel  = fixBraces(line.quoteLabel);
+      if (line.noticeText  !== undefined) out.noticeText  = fixBreaks(line.noticeText);
       return out;
     }
     return line;
@@ -1972,10 +2000,12 @@ function ceSanitizeParsedLesson(d) {
     if (next && next.type === 'row') return true;   // 뒤에 행이 있으면 내용 있음
     if (line.img != null) return true;              // 이미지 있음
     const fmt = line.format;
+    if (fmt === 'notice') return !!(line.noticeText && line.noticeText.trim());
     if (fmt === 'quote') return !!(line.quoteText && line.quoteText.trim());
     if (fmt === 'timeline-h' || fmt === 'timeline-v') return (line.events || []).length > 0;
     if (fmt === 'compare') return (((line.left && line.left.items) || []).length + ((line.right && line.right.items) || []).length) > 0;
     if (fmt === 'flow-h' || fmt === 'flow-v') return (line.stages || []).length > 0;
+    if (line.quoteText && line.quoteText.trim()) return true;  // rows + 하단 사료만 있는 페이지
     return false;                                   // rows 형식인데 뒤에 행 없음 → 빈 슬라이드, 제거
   });
   if (d.conceptContentLines) d.conceptContentLines = dropEmptyDividers(enforceOnePerSlide(d.conceptContentLines));

@@ -3,7 +3,7 @@
    똑같이 이 파일을 불러써서, 슬라이드 HTML 생성 로직이 항상 일치하도록 한다.
    ════════════════════════════════════════════════════════ */
 (function (global) {
-  console.log('[SlideRender] v20260811redesign loaded');
+  console.log('[SlideRender] v20260815b loaded');
 
   // 스페이스를 2칸 이상 연달아 쓰면 브라우저가 하나로 줄여버리므로, 짝수 번째
   // 스페이스를 &nbsp;로 바꿔 타이핑한 칸 수 그대로 보이게 한다(홀수 번째는 일반
@@ -383,16 +383,76 @@
       </div>`;
   }
 
+  /* 출처는 항상 겹낫표(『』)로 감싼다. 이미 낫표/꺽쇠류(「」『』〈〉《》【】<>)로 감싸져
+     있으면 그 바깥 기호를 벗겨내고 겹낫표로 통일한다 — 예전 데이터가 홑낫표「」로
+     저장돼 있어도 화면에는 겹낫표로 보이게 한다. */
+  function normalizeSource(src) {
+    let s = String(src || '').trim();
+    if (!s) return '';
+    s = s.replace(/^[『「【《〈<]+\s*/, '').replace(/\s*[』」】》〉>]+$/, '').trim();
+    return s ? '『' + s + '』' : '';
+  }
+
   function quoteBodyHTML(slide) {
-    // 출처는 우측 정렬 + 꺽쇠(『』)로 감싼다. 이미 낫표/꺽쇠류로 감싸져 있으면 그대로 둔다.
-    const src = (slide.source || '').trim();
-    const srcWrapped = src ? (/^[『「【《<].*[』」】》>]$/.test(src) ? src : '『' + src + '』') : '';
+    const srcWrapped = normalizeSource(slide.source);
     // 소제목이 없으면 화면 세로 중앙에, 있으면 소제목 아래에 그대로 따라붙는다.
     return `
       <div class="fmt-quote${slide.quoteLabel ? '' : ' qt-centered'}">
         <p class="qt-text"><span class="qt-open">&ldquo;</span>${renderWithBreaks(slide.text || '')}<span class="qt-close">&rdquo;</span></p>
         ${srcWrapped ? `<p class="qt-src">${preserveSpaces(srcWrapped)}</p>` : ''}
       </div>`;
+  }
+
+  /* 행 나열 슬라이드 하단에 붙는 사료 인용 블록(2번 기능). 라벨(소제목)이 있으면
+     사료 위에 가운데 정렬로 표시한다. */
+  function bottomQuoteHTML(q) {
+    const srcWrapped = normalizeSource(q.source);
+    const sub = q.label ? `<div class="qt-subtitle">${preserveSpaces(q.label)}</div>` : '';
+    return `
+      <div class="rows-quote">
+        ${sub}
+        <div class="fmt-quote qt-inline">
+          <p class="qt-text"><span class="qt-open">&ldquo;</span>${renderWithBreaks(q.text || '')}<span class="qt-close">&rdquo;</span></p>
+          ${srcWrapped ? `<p class="qt-src">${preserveSpaces(srcWrapped)}</p>` : ''}
+        </div>
+      </div>`;
+  }
+
+  /* 안내(OT·수행평가 등) 자유 문단 슬라이드(1번 기능). 한 줄 = 한 문단,
+     "- "로 시작하면 불릿, 빈 줄은 간격. 굵게/빈칸 문법 그대로 적용. */
+  function noticeBodyHTML(slide) {
+    const lines = String(slide.noticeText || '')
+      .replace(new RegExp(String.fromCharCode(0x2028), 'g'), '\n')
+      .replace(/<\/?br\s*\/?>/gi, '\n')
+      .split('\n');
+    const html = lines.map(raw => {
+      const t = raw.trim();
+      if (!t) return '<div class="notice-gap"></div>';
+      if (/^-\s/.test(t)) return `<div class="notice-line notice-bullet">${parseText(t.slice(2))}</div>`;
+      return `<div class="notice-line">${parseText(t)}</div>`;
+    }).join('');
+    return `<div class="fmt-notice">${html}</div>`;
+  }
+
+  /* 슬라이드에 이미지(img 번호)가 있으면 우측/하단 패널 HTML을 만든다. 없으면 ''. */
+  function imgPanelHTML(slide, lesson) {
+    const imgBase = slide.img != null ? `/hoistory/lms/img/${lesson.num}_${slide.img}` : null;
+    if (!imgBase) return '';
+    const imgSize = slide.imgSize != null ? slide.imgSize : 50;
+    const style = slide.layout === 'bottom' ? 'flex: 1 1 0; min-height: 0' : `flex: 0 0 ${imgSize}%`;
+    return `
+      <div class="clayout-img" style="${style}">
+        <img src="${imgBase}.png" alt="${slide.imgCaption || ''}" onerror="SlideRenderImgFallback(this,'${imgBase}',0)">
+        ${slide.imgCaption ? `<p class="clayout-caption">${slide.imgCaption}</p>` : ''}
+      </div>`;
+  }
+
+  /* 본문 HTML을 이미지 패널과 함께 우측/하단 레이아웃으로 감싼다. 이미지 없으면 본문 그대로. */
+  function wrapWithImg(mainHtml, slide, lesson) {
+    const panel = imgPanelHTML(slide, lesson);
+    if (!panel) return mainHtml;
+    const wrapClass = slide.layout === 'bottom' ? 'clayout-bottom' : 'clayout-right';
+    return `<div class="${wrapClass}"><div class="clayout-main">${mainHtml}</div>${panel}</div>`;
   }
 
   function flowBodyHTML(slide, orientation) {
@@ -409,12 +469,17 @@
   function checkStyleHTML(slide, lesson, badgeLabel) {
     const format = slide.format || 'rows';
 
+    if (format === 'notice') {
+      // OT·수행 안내 등 자유 문단 슬라이드. 배지는 '안내'로 고정.
+      return wrapWithImg(checkHeaderHTML('안내', slide.title) + noticeBodyHTML(slide), slide, lesson);
+    }
     if (format === 'quote') {
       // 전체 슬라이드 제목은 다른 슬라이드와 똑같이 좌상단 헤더로 고정.
       const header = slide.title ? checkHeaderHTML(badgeLabel, slide.title) : '';
       // 사료 소제목((가) 등)만 사료 본문 위에 가운데 정렬로 한 번 더 표시.
       const sub = slide.quoteLabel ? `<div class="qt-subtitle">${preserveSpaces(slide.quoteLabel)}</div>` : '';
-      return `${header}${sub}${quoteBodyHTML(slide)}`;
+      // 사료 인용도 우측/하단 이미지 패널을 지원한다(3번 기능).
+      return wrapWithImg(`${header}${sub}${quoteBodyHTML(slide)}`, slide, lesson);
     }
     if (format === 'timeline-h') return checkHeaderHTML(badgeLabel, slide.title) + timelineHBodyHTML(slide);
     if (format === 'timeline-v') return checkHeaderHTML(badgeLabel, slide.title) + timelineVBodyHTML(slide);
@@ -422,43 +487,16 @@
     if (format === 'flow-h')     return checkHeaderHTML(badgeLabel, slide.title) + flowBodyHTML(slide, 'h');
     if (format === 'flow-v')     return checkHeaderHTML(badgeLabel, slide.title) + flowBodyHTML(slide, 'v');
 
-    // format === 'rows' (기본값) — 기존 행 나열 + 이미지 좌/우 배치
+    // format === 'rows' (기본값) — 행 나열 + (선택) 하단 사료 + 이미지 우/하 배치
     const header = checkHeaderHTML(badgeLabel, slide.title);
     const rows = `
       <div class="concept-rows">
         ${slide.rows.map(r => rowHTML(r, slide.labelPos)).join('')}
       </div>`;
-
-    const imgBase = slide.img != null
-      ? `/hoistory/lms/img/${lesson.num}_${slide.img}`
-      : null;
-    const imgSize = slide.imgSize != null ? slide.imgSize : 50;
-    // 하단: 텍스트 아래 남는 세로 공간을 이미지가 꽉 채움(폭 개념 없음).
-    // 우측: imgSize = 이미지 칸 가로폭%(= 100 - 텍스트폭). 이미지는 그 칸을 꽉 채움.
-    const imgPanelStyle = slide.layout === 'bottom'
-      ? 'flex: 1 1 0; min-height: 0'
-      : `flex: 0 0 ${imgSize}%`;
-    const imgPanel = imgBase ? `
-      <div class="clayout-img" style="${imgPanelStyle}">
-        <img src="${imgBase}.png" alt="${slide.imgCaption || ''}" onerror="SlideRenderImgFallback(this,'${imgBase}',0)">
-        ${slide.imgCaption ? `<p class="clayout-caption">${slide.imgCaption}</p>` : ''}
-      </div>` : '';
-
-    if (slide.layout === 'right') {
-      return `
-        <div class="clayout-right">
-          <div class="clayout-main">${header}${rows}</div>
-          ${imgPanel}
-        </div>`;
-    }
-    if (slide.layout === 'bottom') {
-      return `
-        <div class="clayout-bottom">
-          <div class="clayout-main">${header}${rows}</div>
-          ${imgPanel}
-        </div>`;
-    }
-    return `${header}${rows}`;
+    // 2번 기능: 행 아래에 붙는 사료 인용 블록(bottomQuote가 있고 본문이 비어있지 않을 때만).
+    const bq = slide.bottomQuote;
+    const bottomQuote = (bq && bq.text && bq.text.trim()) ? bottomQuoteHTML(bq) : '';
+    return wrapWithImg(`${header}${rows}${bottomQuote}`, slide, lesson);
   }
 
   function conceptHTML(slide, lesson) { return checkStyleHTML(slide, lesson, '개념 Check'); }
@@ -555,8 +593,13 @@
           else if (fmt === 'compare') { current.left = line.left || { label: '', items: [] }; current.right = line.right || { label: '', items: [] }; }
           else if (fmt === 'quote') { current.text = line.quoteText || ''; current.source = line.quoteSource || ''; current.quoteLabel = line.quoteLabel || ''; }
           else if (fmt === 'flow-h' || fmt === 'flow-v') current.stages = line.stages || [];
+          else if (fmt === 'notice') current.noticeText = line.noticeText || '';
         } else if (line.labelPos) {
           current.labelPos = line.labelPos;
+        }
+        // 행 나열(rows) 페이지에 하단 사료 인용이 붙어 있으면 함께 넘긴다(2번 기능).
+        if ((!fmt || fmt === 'rows') && line.quoteText && line.quoteText.trim()) {
+          current.bottomQuote = { text: line.quoteText, source: line.quoteSource || '', label: line.quoteLabel || '' };
         }
         if (line.img != null) {
           current.img = line.img;
@@ -586,10 +629,12 @@
     return raw.filter(s => {
       if (s.type === 'image' || s.type === 'fullimage' || s.type === 'video') return true;
       if (s.img != null) return true;
+      if (s.format === 'notice') return !!(s.noticeText && s.noticeText.trim());
       if (s.format === 'quote') return !!(s.text && s.text.trim());
       if (s.format === 'timeline-h' || s.format === 'timeline-v') return (s.events || []).length > 0;
       if (s.format === 'compare') return (((s.left && s.left.items) || []).length + ((s.right && s.right.items) || []).length) > 0;
       if (s.format === 'flow-h' || s.format === 'flow-v') return (s.stages || []).length > 0;
+      if (s.bottomQuote && s.bottomQuote.text && s.bottomQuote.text.trim()) return true;
       return (s.rows || []).some(r => (r.label && r.label.trim()) || (r.items || []).some(it => it && String(it).trim()));
     });
   }
