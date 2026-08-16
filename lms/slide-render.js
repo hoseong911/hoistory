@@ -159,6 +159,14 @@
     // 제목은 \n 기준으로 줄을 나눠 각 줄이 좌·우에서 번갈아 밀려들어오는 스플릿 진입을 쓴다.
     const lines = String(lesson.title || '').split('\n');
     const titleLines = lines.map(l => `<span class="cline">${coverParse(l)}</span>`).join('');
+    // 단원명·교과서 페이지 메타. 둘 다 있을 때만 사이에 '|' 바를 넣고, 하나만 있으면 그것만,
+    // 둘 다 비어 있으면 메타 줄(바 포함) 자체를 렌더하지 않는다.
+    const unit = String(lesson.unit || '').trim();
+    const page = String(lesson.page || '').trim();
+    const metaInner = (unit && page)
+      ? `${preserveSpaces(unit)} &nbsp;|&nbsp; ${preserveSpaces(page)}`
+      : preserveSpaces(unit || page);
+    const metaHTML = metaInner ? `<div class="cover-meta">${metaInner}</div>` : '';
     return `
       <div class="cover-script">Dive into<br>History</div>
       <div class="intro-sweep"></div>
@@ -166,7 +174,7 @@
       <div class="cover-fg">
         <div class="cover-tagline">생각하고 활동하고 질문하는 역사 수업</div>
         <h1 class="cover-title">${titleLines}</h1>
-        <div class="cover-meta">${preserveSpaces(lesson.unit)} &nbsp;|&nbsp; ${preserveSpaces(lesson.page)}</div>
+        ${metaHTML}
       </div>
     `;
   }
