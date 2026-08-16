@@ -61,9 +61,10 @@ const SECTION_MAP = {
   grade:   { colorVar:'--c4', previewClass:'preview-grade'   },
 };
 
-function initAdmin() {
+async function initAdmin() {
   initSidebar();
   startListening();
+  await seedLectureOrderByNumberOnce(); // 기존 강의·질문의 order를 강 번호 기준으로 1회 보정
   ceInitContent();
   ceInitDesign();
   initMissionTab();
@@ -72,6 +73,22 @@ function initAdmin() {
   initContentsTab();
   initArchiveTab();
   dbLoad();
+}
+
+// 개념 강의(class_lessons)·생각 질문(think_lectures)의 order를 강 번호 기준으로 딱 한 번 재설정한다.
+// 이후에는 ▲▼ 수동 순서 변경 값을 그대로 보존하려고 settings/lms_order 마커로 재실행을 막는다.
+async function seedLectureOrderByNumberOnce() {
+  try {
+    const marker = await getDoc(doc(db, 'settings', 'lms_order'));
+    if (marker.exists() && marker.data().seededByNumber === true) return;
+    const batch = writeBatch(db);
+    const clSnap = await getDocs(collection(db, 'class_lessons'));
+    clSnap.docs.forEach(d => batch.update(d.ref, { order: lecOrderKey(d.data().num) }));
+    const tlSnap = await getDocs(collection(db, 'think_lectures'));
+    tlSnap.docs.forEach(d => { const v = d.data(); batch.update(d.ref, { order: lecOrderKey(v.icon || v.title) }); });
+    batch.set(doc(db, 'settings', 'lms_order'), { seededByNumber: true }, { merge: true });
+    await batch.commit();
+  } catch (e) { console.warn('[order seed]', e); }
 }
 
 // ── 사이드바 ──
@@ -302,7 +319,7 @@ async function dbLoad() {
 
     // 생각 체크 강의 (상위 10)
     const tlSnap = await getDocs(query(collection(db, 'think_lectures'), orderBy('createdAt', 'desc')));
-    // 개념 Check 카드(order desc)와 위아래 방향을 맞춘다 → 두 카드 모두 OT가 맨 위(수업 순서).
+    // order는 강 번호 기준 → 내림차순으로 강 번호 큰(최신) 강의가 맨 위. 개념 Check 카드와 방향 일치.
     _dbThink = tlSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', isOpen: v.isOpen === true, order: v.order ?? -1, ungraded: 0 }; }).sort((a, b) => b.order - a.order).slice(0, 10);
 
     // 제출물: 강의별 미채점 수 + 오늘 제출 수
@@ -867,8 +884,8 @@ function cePopulateLessonSelect() {
 }
 
 // 개념 체크 강의 순서 목록(미션 체크 카드처럼 ▲▼로 순서 변경).
-// ceLessonsCache는 order 오름차순이지만, 강의 선택 드롭다운·대시보드와 위아래를 맞추기 위해
-// 목록은 뒤집어(order 내림차순 = 최근 만든 강의가 맨 위) 보여준다.
+// order는 강 번호 기준이고 ceLessonsCache는 order 오름차순이라, 뒤집어서(order 내림차순 =
+// 강 번호 큰 최신 강의가 맨 위) 보여준다. 드롭다운·대시보드와 위아래가 일치한다.
 function ceLessonOrderList() { return [...ceLessonsCache].reverse(); }
 
 function renderCeLessonOrder() {
@@ -936,7 +953,7 @@ async function addLesson() {
   const title = (prompt('수업 제목을 입력하세요') || '새 강의').trim();
   const unit = (prompt('학습 단원을 입력하세요 (예: Ⅲ-4. 고려의 생활과 문화)') || '').trim();
   const year = (prompt('연도를 입력하세요 (예: 2026)') || '2026').trim();
-  const order = ceLessonsCache.length + 1;
+  const order = lecOrderKey(num); // 강 번호 기준(큰 번호가 위)
   await addDoc(collection(db, 'class_lessons'), {
     num, title, unit, year, order, isOpen: false,
     content: ceBlankLessonData(num)
@@ -1982,7 +1999,7 @@ async function ceSyncThinkLecture(cd) {
       await updateDoc(doc(db, 'think_lectures', linkId), { title, question, reference });
     } else {
       const ref = await addDoc(collection(db, 'think_lectures'), {
-        title, question, reference, icon: num,
+        title, question, reference, icon: num, order: lecOrderKey(num),
         isOpen: false, isArchived: false, createdAt: Date.now()
       });
       await setDoc(cfgRef, { thinkLectureDocId: ref.id, lessonTitle: cd.lesson.title || lecTag(num) }, { merge: true });
@@ -2254,7 +2271,7 @@ async function ceHandleFileUpload(file) {
     }
     if (!ceValidateParsedLesson(parsed)) throw new Error('AI 응답 구조가 올바르지 않습니다.');
 
-    const order = ceLessonsCache.length + 1;
+    const order = lecOrderKey(num); // 강 번호 기준(큰 번호가 위)
     const content = {
       lesson: {
         num, title: parsed.lesson.title || '새 강의', unit: parsed.lesson.unit || '', page: parsed.lesson.page || '',
@@ -3271,6 +3288,9 @@ function cleanTitle(t) { return String(t || '').replace(/\*\*/g, '').replace(/[{
 function lecIsNum(n) { return /^\d+$/.test(String(n == null ? '' : n).trim()); }
 function lecTag(n) { return lecIsNum(n) ? `${n}강` : `${n}`; }
 function lecLabel(n, title) { return lecIsNum(n) ? `${n}강. ${title}` : `${n}: ${title}`; }
+// 강 번호 정렬 키: 앞머리 숫자("24"·"28강. ..."→24·28), OT 등 비숫자는 맨 아래(-1).
+// order 필드를 이 값으로 두고 내림차순 정렬하면 강 번호 큰(최신) 강의가 맨 위로 온다.
+function lecOrderKey(v) { const m = String(v == null ? '' : v).trim().match(/^(\d+)/); return m ? parseInt(m[1], 10) : -1; }
 
 // 미션 카드 URL은 hoistory 루트 기준 상대경로(예: interview/admin.html)로 입력받는다.
 // 이 페이지 자체가 lms/ 하위에 있어 그대로 쓰면 lms/interview/... 로 잘못 풀리므로 루트 기준으로 보정한다.
@@ -4787,19 +4807,17 @@ initAdmin();
   }
 
   /* ─ 초기화 ─ */
-  // 생각 체크 질문(강의) 순서: order 필드 오름차순. order가 없던 기존 강의는 최초 1회
-  // 현재 표시 순서(createdAt 최신순)를 그대로 order 0..n-1로 부여해 Firestore에 저장한다.
+  // 생각 체크 질문(강의) 순서: order를 강 번호 기준으로 두고 내림차순(강 번호 큰 강의가 위) 정렬.
+  // order가 없는 강의는 즉석에서 강 번호(icon 또는 제목)로 order를 채워 저장한다.
   let thOrderMigrating = false;
   function thSortLectures() {
-    const missing = thLectures.some(l => typeof l.order !== 'number');
-    if (missing && !thOrderMigrating) {
+    const missing = thLectures.filter(l => typeof l.order !== 'number');
+    if (missing.length && !thOrderMigrating) {
       thOrderMigrating = true;
-      const seq = [...thLectures].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       const batch = writeBatch(db);
-      seq.forEach((l, i) => { l.order = i; batch.update(doc(db, 'think_lectures', l.docId), { order: i }); });
+      missing.forEach(l => { l.order = lecOrderKey(l.icon || l.title); batch.update(doc(db, 'think_lectures', l.docId), { order: l.order }); });
       batch.commit().catch(e => console.warn('[think] order migrate:', e)).finally(() => { thOrderMigrating = false; });
     }
-    // 개념 Check 강의 순서(내림차순, 최근·OT가 위)와 방향을 맞춘다.
     thLectures.sort((a, b) => (b.order ?? -1) - (a.order ?? -1));
   }
 
@@ -4880,8 +4898,7 @@ initAdmin();
     const question = document.getElementById('th-new-q').value.trim();
     const reference = document.getElementById('th-new-ref').value.trim();
     if (!title || !question) { alert('강의명과 질문을 입력해주세요.'); return; }
-    const maxOrder = thLectures.reduce((m, l) => Math.max(m, typeof l.order === 'number' ? l.order : -1), -1);
-    const data = { title, question, reference, isOpen: false, isArchived: false, createdAt: Date.now(), order: maxOrder + 1 };
+    const data = { title, question, reference, isOpen: false, isArchived: false, createdAt: Date.now(), order: lecOrderKey(num || title) };
     if (num) data.icon = num;
     try {
       await addDoc(collection(db, 'think_lectures'), data);
