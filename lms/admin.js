@@ -865,34 +865,43 @@ function cePopulateLessonSelect() {
     [...ceLessonsCache].reverse().map(l => `<option value="${esc(l.num)}" ${cur && l.num===cur?'selected':''}>${lecLabel(esc(l.num), esc(String(l.title||'').replace(/\*\*/g,'').replace(/[{}]/g,'')))}</option>`).join('');
 }
 
-// 개념 체크 강의 순서 목록(미션 체크 카드처럼 ▲▼로 순서 변경). ceLessonsCache는 order asc.
+// 개념 체크 강의 순서 목록(미션 체크 카드처럼 ▲▼로 순서 변경).
+// ceLessonsCache는 order 오름차순이지만, 강의 선택 드롭다운·대시보드와 위아래를 맞추기 위해
+// 목록은 뒤집어(order 내림차순 = 최근 만든 강의가 맨 위) 보여준다.
+function ceLessonOrderList() { return [...ceLessonsCache].reverse(); }
+
 function renderCeLessonOrder() {
   const box = document.getElementById('ce-lesson-order');
   if (!box) return;
-  if (!ceLessonsCache.length) {
+  const list = ceLessonOrderList();
+  if (!list.length) {
     box.innerHTML = '<div class="empty-panel" style="padding:14px;font-size:13px">강의가 없습니다.</div>';
     return;
   }
-  box.innerHTML = ceLessonsCache.map((l, idx) => {
+  box.innerHTML = list.map((l, idx) => {
     const clean = String(l.title || '').replace(/\*\*/g, '').replace(/[{}]/g, '');
     return `<div class="item-row">
         <div class="item-info"><div class="item-label">${lecLabel(esc(String(l.num)), esc(clean))}</div></div>
         <div class="item-meta">
           <button class="edit-btn" ${idx===0?'disabled':''} title="위로" onclick="ceMoveLesson('${l.docId}','up',${idx})">▲</button>
-          <button class="edit-btn" ${idx===ceLessonsCache.length-1?'disabled':''} title="아래로" onclick="ceMoveLesson('${l.docId}','down',${idx})">▼</button>
+          <button class="edit-btn" ${idx===list.length-1?'disabled':''} title="아래로" onclick="ceMoveLesson('${l.docId}','down',${idx})">▼</button>
         </div>
       </div>`;
   }).join('');
 }
 
 window.ceMoveLesson = async function(docId, dir, idx) {
+  const list = ceLessonOrderList(); // 화면과 동일한 내림차순 목록 기준
   const targetIdx = dir === 'up' ? idx - 1 : idx + 1;
-  if (targetIdx < 0 || targetIdx >= ceLessonsCache.length) return;
-  const cur = ceLessonsCache[idx], target = ceLessonsCache[targetIdx];
+  if (targetIdx < 0 || targetIdx >= list.length) return;
+  const cur = list[idx], target = list[targetIdx];
   try {
     const batch = writeBatch(db);
-    batch.update(doc(db, 'class_lessons', cur.docId),    { order: target.order ?? targetIdx });
-    batch.update(doc(db, 'class_lessons', target.docId), { order: cur.order ?? idx });
+    // 인접한 두 강의의 order 값을 맞바꾼다(표시 방향과 무관하게 안전).
+    const curOrder    = cur.order    ?? ceLessonsCache.indexOf(cur);
+    const targetOrder = target.order ?? ceLessonsCache.indexOf(target);
+    batch.update(doc(db, 'class_lessons', cur.docId),    { order: targetOrder });
+    batch.update(doc(db, 'class_lessons', target.docId), { order: curOrder });
     await batch.commit();
     await ceGetLessonsFromFirestore();
     cePopulateLessonSelect();
