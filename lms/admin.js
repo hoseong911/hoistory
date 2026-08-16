@@ -908,6 +908,14 @@ function renderCeLessonOrder() {
   }).join('');
 }
 
+window.ceOpenOrderModal = function() {
+  renderCeLessonOrder();
+  document.getElementById('ceOrderBackdrop')?.classList.add('open');
+};
+window.ceCloseOrderModal = function() {
+  document.getElementById('ceOrderBackdrop')?.classList.remove('open');
+};
+
 window.ceMoveLesson = async function(docId, dir, idx) {
   const list = ceLessonOrderList(); // 화면과 동일한 내림차순 목록 기준
   const targetIdx = dir === 'up' ? idx - 1 : idx + 1;
