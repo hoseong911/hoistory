@@ -280,6 +280,7 @@ window.openContentsAppAdmin = function(el, adminUrl) {
 let _dbConcept = [], _dbMission = [], _dbThink = [];
 let _dbStuCount = 0, _dbToday = { attend: 0, thinkSubmit: 0, review: 0 };
 let _dbStudents = []; // 학생 검색용 명단 캐시 ({studentId, name})
+let _dbAnn = { enabled: false, text: '' }; // 공지사항(settings/announcement 재사용, 설정·Student와 동일 문서)
 
 async function dbLoad() {
   const el = document.getElementById('db-content');
@@ -301,7 +302,7 @@ async function dbLoad() {
 
     // 생각 체크 강의 (상위 10)
     const tlSnap = await getDocs(query(collection(db, 'think_lectures'), orderBy('createdAt', 'desc')));
-    _dbThink = tlSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', isOpen: v.isOpen === true, ungraded: 0 }; }).slice(0, 10);
+    _dbThink = tlSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', isOpen: v.isOpen === true, order: v.order ?? 9e9, ungraded: 0 }; }).sort((a, b) => a.order - b.order).slice(0, 10);
 
     // 제출물: 강의별 미채점 수 + 오늘 제출 수
     const tsSnap = await getDocs(collection(db, 'think_submissions'));
@@ -325,6 +326,12 @@ async function dbLoad() {
     let attend = 0, review = 0;
     Object.values(xp).forEach(x => { if (!x) return; if (x.lastAttendance === today) attend++; if (x.lastTypingReview === today) review++; });
     _dbToday = { attend, thinkSubmit, review };
+
+    // 공지사항(설정·Student의 공지 배너와 같은 문서)
+    try {
+      const annSnap = await getDoc(doc(db, 'settings', 'announcement'));
+      _dbAnn = annSnap.exists() ? { enabled: !!annSnap.data().enabled, text: annSnap.data().text || '' } : { enabled: false, text: '' };
+    } catch(_) { _dbAnn = { enabled: false, text: '' }; }
 
     dbRender();
   } catch(e) {
@@ -355,8 +362,39 @@ function dbRender() {
         <button class="add-btn" onclick="dbStudentSearch()">검색</button>
       </div>
       <div id="db-stu-result" style="padding:10px 18px 14px"></div>
+    </div>
+    <div class="stu-card" style="margin-top:14px">
+      <div class="stu-card-head" style="display:flex;justify-content:space-between;align-items:center">
+        <span>공지사항</span>
+        <div class="th-toggle ${_dbAnn.enabled ? 'on' : ''}" id="db-ann-toggle" title="${_dbAnn.enabled ? '공개 중' : '숨김'}" onclick="dbToggleAnnouncement(this)"></div>
+      </div>
+      <div style="padding:12px 18px 16px">
+        <textarea id="db-ann-text" class="stu-edit-input" style="width:100%;height:80px;resize:vertical" placeholder="예) 7월 21일(화) 역사 수행평가는 개념 체크 3~5강 범위입니다.">${esc(_dbAnn.text)}</textarea>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
+          <button class="add-btn" onclick="dbSaveAnnouncement()">저장</button>
+          <span style="font-size:12px;color:var(--sub)">토글을 켜면 학생 허브 상단에 문구가 노출됩니다. (설정·Student 공지 배너와 같은 문구예요.)</span>
+        </div>
+      </div>
     </div>`;
 }
+
+// 대시보드 공지사항 — 설정·Student의 공지 배너와 동일한 settings/announcement 문서를 그대로 쓴다.
+window.dbToggleAnnouncement = async function(el) {
+  const on = !el.classList.contains('on');
+  el.classList.toggle('on', on);
+  el.title = on ? '공개 중' : '숨김';
+  _dbAnn.enabled = on;
+  try { await setDoc(doc(db, 'settings', 'announcement'), { enabled: on, text: _dbAnn.text || '' }); }
+  catch(e) { el.classList.toggle('on', !on); alert('변경 실패: ' + e.message); }
+};
+
+window.dbSaveAnnouncement = async function() {
+  _dbAnn.text = (document.getElementById('db-ann-text')?.value || '').trim();
+  try {
+    await setDoc(doc(db, 'settings', 'announcement'), { enabled: _dbAnn.enabled, text: _dbAnn.text });
+    alert('저장되었습니다.');
+  } catch(e) { alert('저장 실패: ' + e.message); }
+};
 
 // 대시보드 학생 검색 — 학번으로 이름·성적(달성 현황)·피드백을 보고 PW 초기화까지 한다.
 // 모바일에서도 쓸 수 있게 대시보드에 둔다(비밀번호 초기화를 휴대폰으로 해야 할 때 대비).
@@ -827,6 +865,41 @@ function cePopulateLessonSelect() {
     [...ceLessonsCache].reverse().map(l => `<option value="${esc(l.num)}" ${cur && l.num===cur?'selected':''}>${lecLabel(esc(l.num), esc(String(l.title||'').replace(/\*\*/g,'').replace(/[{}]/g,'')))}</option>`).join('');
 }
 
+// 개념 체크 강의 순서 목록(미션 체크 카드처럼 ▲▼로 순서 변경). ceLessonsCache는 order asc.
+function renderCeLessonOrder() {
+  const box = document.getElementById('ce-lesson-order');
+  if (!box) return;
+  if (!ceLessonsCache.length) {
+    box.innerHTML = '<div class="empty-panel" style="padding:14px;font-size:13px">강의가 없습니다.</div>';
+    return;
+  }
+  box.innerHTML = ceLessonsCache.map((l, idx) => {
+    const clean = String(l.title || '').replace(/\*\*/g, '').replace(/[{}]/g, '');
+    return `<div class="item-row">
+        <div class="item-info"><div class="item-label">${lecLabel(esc(String(l.num)), esc(clean))}</div></div>
+        <div class="item-meta">
+          <button class="edit-btn" ${idx===0?'disabled':''} title="위로" onclick="ceMoveLesson('${l.docId}','up',${idx})">▲</button>
+          <button class="edit-btn" ${idx===ceLessonsCache.length-1?'disabled':''} title="아래로" onclick="ceMoveLesson('${l.docId}','down',${idx})">▼</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+window.ceMoveLesson = async function(docId, dir, idx) {
+  const targetIdx = dir === 'up' ? idx - 1 : idx + 1;
+  if (targetIdx < 0 || targetIdx >= ceLessonsCache.length) return;
+  const cur = ceLessonsCache[idx], target = ceLessonsCache[targetIdx];
+  try {
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'class_lessons', cur.docId),    { order: target.order ?? targetIdx });
+    batch.update(doc(db, 'class_lessons', target.docId), { order: cur.order ?? idx });
+    await batch.commit();
+    await ceGetLessonsFromFirestore();
+    cePopulateLessonSelect();
+    renderCeLessonOrder();
+  } catch(e) { alert('순서 변경 실패: ' + e.message); }
+};
+
 window.ceLessonPreview = function() {
   // preview=1 을 붙여 비공개(편집 중) 강의도 미리보기로 열 수 있게 한다.
   if (ceCurrentLessonNum) window.open('lecture.html?num=' + ceCurrentLessonNum + '&mode=complete&preview=1', '_blank', 'noopener');
@@ -861,6 +934,7 @@ async function addLesson() {
   await ceGetLessonsFromFirestore();
   ceCurrentLessonNum = num;
   cePopulateLessonSelect();
+  renderCeLessonOrder();
   ceLoadLessonData(num);
   const area = document.getElementById('ce-editor-area');
   if (area) area.style.display = '';
@@ -876,6 +950,7 @@ async function deleteLesson() {
   await ceGetLessonsFromFirestore();
   ceCurrentLessonNum = '';
   cePopulateLessonSelect();
+  renderCeLessonOrder();
   const area = document.getElementById('ce-editor-area');
   if (area) area.style.display = 'none';
 }
@@ -924,6 +999,7 @@ function ceIsValidContentData(d) {
 async function ceInitContent() {
   await ceGetLessonsFromFirestore();
   cePopulateLessonSelect();
+  renderCeLessonOrder();
   // 강의를 선택해야 편집 영역이 나타나도록 초기에는 숨겨둔다.
 }
 
@@ -2191,6 +2267,7 @@ async function ceHandleFileUpload(file) {
     await ceGetLessonsFromFirestore();
     ceCurrentLessonNum = num;
     cePopulateLessonSelect();
+    renderCeLessonOrder();
     ceLoadLessonData(num);
     const area = document.getElementById('ce-editor-area');
     if (area) area.style.display = '';
@@ -4700,12 +4777,28 @@ initAdmin();
   }
 
   /* ─ 초기화 ─ */
+  // 생각 체크 질문(강의) 순서: order 필드 오름차순. order가 없던 기존 강의는 최초 1회
+  // 현재 표시 순서(createdAt 최신순)를 그대로 order 0..n-1로 부여해 Firestore에 저장한다.
+  let thOrderMigrating = false;
+  function thSortLectures() {
+    const missing = thLectures.some(l => typeof l.order !== 'number');
+    if (missing && !thOrderMigrating) {
+      thOrderMigrating = true;
+      const seq = [...thLectures].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      const batch = writeBatch(db);
+      seq.forEach((l, i) => { l.order = i; batch.update(doc(db, 'think_lectures', l.docId), { order: i }); });
+      batch.commit().catch(e => console.warn('[think] order migrate:', e)).finally(() => { thOrderMigrating = false; });
+    }
+    thLectures.sort((a, b) => (a.order ?? 9e9) - (b.order ?? 9e9));
+  }
+
   function thStartLecListener() {
     if (thLecUnsub) thLecUnsub();
     thLecUnsub = onSnapshot(
       query(collection(db, 'think_lectures'), orderBy('createdAt', 'desc')),
       snap => {
         thLectures = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+        thSortLectures();
         thPopulateSelects();
         thRenderLecList();
         if (document.getElementById('panel-think-answer')?.classList.contains('active')) {
@@ -4776,7 +4869,8 @@ initAdmin();
     const question = document.getElementById('th-new-q').value.trim();
     const reference = document.getElementById('th-new-ref').value.trim();
     if (!title || !question) { alert('강의명과 질문을 입력해주세요.'); return; }
-    const data = { title, question, reference, isOpen: false, isArchived: false, createdAt: Date.now() };
+    const maxOrder = thLectures.reduce((m, l) => Math.max(m, typeof l.order === 'number' ? l.order : -1), -1);
+    const data = { title, question, reference, isOpen: false, isArchived: false, createdAt: Date.now(), order: maxOrder + 1 };
     if (num) data.icon = num;
     try {
       await addDoc(collection(db, 'think_lectures'), data);
@@ -4788,7 +4882,7 @@ initAdmin();
     const el = document.getElementById('th-lec-list');
     if (!el) return;
     if (!thLectures.length) { el.innerHTML = '<div class="empty-panel">강의가 없습니다. 새 강의를 추가해보세요.</div>'; return; }
-    el.innerHTML = thLectures.map(lec => {
+    el.innerHTML = thLectures.map((lec, idx) => {
       const isOpen = lec.isOpen === true;
       return `
         <div class="th-lec-card">
@@ -4797,6 +4891,8 @@ initAdmin();
             <div class="th-lec-actions">
               <div class="th-toggle ${isOpen?'on':''}" id="th-tog-${lec.docId}" title="${isOpen?'공개 중':'비공개'}" onclick="thToggleOpen('${lec.docId}',this)"></div>
               <span style="font-size:13px;font-weight:700;color:${isOpen?'var(--c3)':'var(--sub)'}" id="th-tog-lbl-${lec.docId}">${isOpen?'공개 중':'비공개'}</span>
+              <button class="edit-btn" ${idx===0?'disabled':''} title="위로" onclick="thMoveLecture('${lec.docId}','up')">▲</button>
+              <button class="edit-btn" ${idx===thLectures.length-1?'disabled':''} title="아래로" onclick="thMoveLecture('${lec.docId}','down')">▼</button>
               <button class="edit-btn" onclick="thToggleEdit('${lec.docId}',true)">수정</button>
               <button class="del-btn" onclick="thDeleteLecture('${lec.docId}','${thEsc(lec.title).replace(/'/g,"\\'")}')">삭제</button>
               <button class="edit-btn" onclick="thToggleMore('${lec.docId}')">자세히</button>
@@ -4825,6 +4921,19 @@ initAdmin();
     const lbl = document.getElementById(`th-tog-lbl-${docId}`);
     if (lbl) { lbl.textContent = isOn ? '공개 중' : '비공개'; lbl.style.color = isOn ? 'var(--c3)' : 'var(--sub)'; }
     updateDoc(doc(db, 'think_lectures', docId), { isOpen: isOn }).catch(e => console.warn(e));
+  };
+  window.thMoveLecture = async function(docId, dir) {
+    const idx = thLectures.findIndex(l => l.docId === docId);
+    if (idx < 0) return;
+    const targetIdx = dir === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= thLectures.length) return;
+    const cur = thLectures[idx], target = thLectures[targetIdx];
+    try {
+      const batch = writeBatch(db);
+      batch.update(doc(db, 'think_lectures', cur.docId),    { order: target.order ?? targetIdx });
+      batch.update(doc(db, 'think_lectures', target.docId), { order: cur.order ?? idx });
+      await batch.commit(); // onSnapshot이 목록을 다시 그린다
+    } catch(e) { alert('순서 변경 실패: ' + e.message); }
   };
   window.thToggleEdit = function(docId, open) {
     document.getElementById(`th-view-${docId}`).style.display = open ? 'none' : '';
