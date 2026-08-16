@@ -302,7 +302,8 @@ async function dbLoad() {
 
     // 생각 체크 강의 (상위 10)
     const tlSnap = await getDocs(query(collection(db, 'think_lectures'), orderBy('createdAt', 'desc')));
-    _dbThink = tlSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', isOpen: v.isOpen === true, order: v.order ?? 9e9, ungraded: 0 }; }).sort((a, b) => a.order - b.order).slice(0, 10);
+    // 개념 Check 카드(order desc)와 위아래 방향을 맞춘다 → 두 카드 모두 OT가 맨 위(수업 순서).
+    _dbThink = tlSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', isOpen: v.isOpen === true, order: v.order ?? -1, ungraded: 0 }; }).sort((a, b) => b.order - a.order).slice(0, 10);
 
     // 제출물: 강의별 미채점 수 + 오늘 제출 수
     const tsSnap = await getDocs(collection(db, 'think_submissions'));
@@ -366,14 +367,14 @@ function dbRender() {
     <div class="stu-card" style="margin-top:14px">
       <div class="stu-card-head" style="display:flex;justify-content:space-between;align-items:center">
         <span>공지사항</span>
-        <div class="th-toggle ${_dbAnn.enabled ? 'on' : ''}" id="db-ann-toggle" title="${_dbAnn.enabled ? '공개 중' : '숨김'}" onclick="dbToggleAnnouncement(this)"></div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="add-btn" onclick="dbSaveAnnouncement()">저장</button>
+          <div class="th-toggle ${_dbAnn.enabled ? 'on' : ''}" id="db-ann-toggle" title="${_dbAnn.enabled ? '공개 중' : '숨김'}" onclick="dbToggleAnnouncement(this)"></div>
+        </div>
       </div>
       <div style="padding:12px 18px 16px">
-        <textarea id="db-ann-text" class="stu-edit-input" style="width:100%;height:80px;resize:vertical" placeholder="예) 7월 21일(화) 역사 수행평가는 개념 체크 3~5강 범위입니다.">${esc(_dbAnn.text)}</textarea>
-        <div style="display:flex;align-items:center;gap:10px;margin-top:10px">
-          <button class="add-btn" onclick="dbSaveAnnouncement()">저장</button>
-          <span style="font-size:12px;color:var(--sub)">토글을 켜면 학생 허브 상단에 문구가 노출됩니다. (설정·Student 공지 배너와 같은 문구예요.)</span>
-        </div>
+        <textarea id="db-ann-text" class="stu-edit-input" style="width:100%;height:80px;resize:vertical;border-radius:10px" placeholder="예) 7월 21일(화) 역사 수행평가는 개념 체크 3~5강 범위입니다.">${esc(_dbAnn.text)}</textarea>
+        <p style="font-size:12px;color:var(--sub);margin-top:8px;line-height:1.5">토글을 켜면 학생 허브 상단에 문구가 노출됩니다. (설정·Student 공지 배너와 같은 문구예요.)</p>
       </div>
     </div>`;
 }
@@ -4798,7 +4799,8 @@ initAdmin();
       seq.forEach((l, i) => { l.order = i; batch.update(doc(db, 'think_lectures', l.docId), { order: i }); });
       batch.commit().catch(e => console.warn('[think] order migrate:', e)).finally(() => { thOrderMigrating = false; });
     }
-    thLectures.sort((a, b) => (a.order ?? 9e9) - (b.order ?? 9e9));
+    // 개념 Check 강의 순서(내림차순, 최근·OT가 위)와 방향을 맞춘다.
+    thLectures.sort((a, b) => (b.order ?? -1) - (a.order ?? -1));
   }
 
   function thStartLecListener() {
