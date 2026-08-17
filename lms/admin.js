@@ -442,14 +442,15 @@ window.dbStudentSearch = async function() {
     // 성적 Check(GRADE)와 동일하게 계산해서 요약만 보여준다.
     const score = await dbComputeStudentScore(recByKey);
 
-    // 경험치 + 랭킹(전체 학생 대비 순위)
+    // 경험치 + 랭킹(전체 학생 대비, 동률 규칙 적용)
     const xpAll   = xpSnap.exists() ? (xpSnap.val() || {}) : {};
     const my      = xpAll[sid] || { total: 0 };
     const myTotal = my.total || 0;
     const lv      = my.level || calcLevel(myTotal, _xpCfg?.levels, _xpCfg?.levelFormula);
-    const sorted  = Object.entries(xpAll).sort((a, b) => (b[1].total || 0) - (a[1].total || 0));
-    const rankIdx = sorted.findIndex(([k]) => k === sid);
-    const rankTxt = rankIdx >= 0 ? `${rankIdx + 1}위 / ${sorted.length}명` : '기록 없음';
+    const ranked  = xpBuildRanking(xpAll);
+    const mine    = ranked.find(e => e.sid === sid);
+    const isShared = mine && ranked.filter(e => e.rank === mine.rank).length > 1;
+    const rankTxt = mine ? `${isShared ? '공동 ' : ''}${mine.rank}위 / ${ranked.length}명` : '기록 없음';
 
     box.innerHTML = `
       <div class="dbs-head">
@@ -5473,24 +5474,65 @@ async function xpLoadStatus() {
   xpPopulateClassFilter();
 }
 
+// ── 랭킹 계산 (동률 처리) ──
+// 누적 XP 동률 시: 1)생각체크 포인트 2)마일리지 3)출석일수 4)복습(타이핑) 포인트 순으로 비교.
+// 모두 같으면 공동순위로 묶고, 공동인 학생끼리는 학번 오름차순으로 나열한다.
+function xpTieMetric(s) {
+  const h = (s && s.history) || {};
+  let think = 0, mileage = 0, attendDays = 0, review = 0;
+  Object.values(h).forEach(e => {
+    if (!e) return;
+    const pt = e.pt || 0;
+    if (e.type === 'mileage') mileage += pt;
+    else if (e.type === 'attendance') attendDays += 1;
+    else if (e.type === 'typingReview') review += pt;
+    else if (e.type === 'manual' && typeof e.note === 'string' && e.note.startsWith('생각 체크')) think += pt;
+  });
+  return { think, mileage, attendDays, review };
+}
+function xpSameRank(a, b) {
+  return (a.data.total || 0) === (b.data.total || 0)
+    && a.m.think === b.m.think && a.m.mileage === b.m.mileage
+    && a.m.attendDays === b.m.attendDays && a.m.review === b.m.review;
+}
+// studentsObj({sid:data}) → [{sid, data, m, rank}] (순위 규칙 적용, competition ranking)
+function xpBuildRanking(studentsObj) {
+  const list = Object.entries(studentsObj).map(([sid, data]) => ({ sid, data: data || {}, m: xpTieMetric(data || {}) }));
+  list.sort((a, b) => {
+    if ((b.data.total || 0) !== (a.data.total || 0)) return (b.data.total || 0) - (a.data.total || 0);
+    if (b.m.think      !== a.m.think)      return b.m.think - a.m.think;
+    if (b.m.mileage    !== a.m.mileage)    return b.m.mileage - a.m.mileage;
+    if (b.m.attendDays !== a.m.attendDays) return b.m.attendDays - a.m.attendDays;
+    if (b.m.review     !== a.m.review)     return b.m.review - a.m.review;
+    return a.sid.localeCompare(b.sid, undefined, { numeric: true }); // 완전 동률 → 학번순
+  });
+  let prev = null;
+  list.forEach((e, i) => { e.rank = (prev && xpSameRank(prev, e)) ? prev.rank : i + 1; prev = e; });
+  return list;
+}
+
 window.xpRenderStatus = function() {
   const filterCls = document.getElementById('xp-filter-class')?.value || '';
-  let rows = Object.entries(_xpStuAll)
-    .filter(([sid]) => !filterCls || sid.startsWith(filterCls));
+  const filtered = {};
+  Object.entries(_xpStuAll).forEach(([sid, s]) => { if (!filterCls || sid.startsWith(filterCls)) filtered[sid] = s; });
+  const ranked = xpBuildRanking(filtered);
+  const sharedRanks = new Set(); const seen = new Set();
+  ranked.forEach(e => { if (seen.has(e.rank)) sharedRanks.add(e.rank); else seen.add(e.rank); });
+  let view = ranked;
   if (_xpSortMode === 'id') {
-    rows.sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }));
-  } else {
-    rows.sort((a, b) => (b[1].total || 0) - (a[1].total || 0));
+    view = ranked.slice().sort((a, b) => a.sid.localeCompare(b.sid, undefined, { numeric: true }));
   }
   const tbody = document.getElementById('xp-status-body');
   if (!tbody) return;
-  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" style="color:var(--slate);padding:24px;font-size:13px">데이터가 없습니다.</td></tr>'; return; }
-  tbody.innerHTML = rows.map(([sid, s], i) => {
+  if (!view.length) { tbody.innerHTML = '<tr><td colspan="7" style="color:var(--slate);padding:24px;font-size:13px">데이터가 없습니다.</td></tr>'; return; }
+  tbody.innerHTML = view.map(({ sid, data: s, rank }) => {
     const lv      = s.level || calcLevel(s.total || 0, _xpCfg?.levels, _xpCfg?.levelFormula);
     const lastAct = s.lastAttendance || s.lastMileage || '';
-    const rank    = _xpSortMode === 'rank' ? `<span style="font-weight:700;color:var(--slate)">${i+1}</span>` : '-';
+    const rankCell = _xpSortMode === 'rank'
+      ? `<span style="font-weight:700;color:var(--slate)">${rank}${sharedRanks.has(rank) ? '<span style="font-size:11px;color:var(--stone)"> 공동</span>' : ''}</span>`
+      : '-';
     return `<tr>
-      <td>${rank}</td><td>${sid}</td><td>${s.name || ''}</td>
+      <td>${rankCell}</td><td>${sid}</td><td>${s.name || ''}</td>
       <td><span style="font-weight:700;color:var(--amber-d)">Lv.${lv}</span></td>
       <td style="font-weight:700">${(s.total||0).toLocaleString()} pt</td>
       <td style="font-size:12px;color:var(--slate)">${lastAct}</td>
