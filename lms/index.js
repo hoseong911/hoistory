@@ -852,9 +852,9 @@ function hideThinkCheck() {
 async function openThinkModal(item) {
   _thinkItem  = item; _thinkStart = Date.now(); _thinkCheat = 0;
   document.getElementById('thinkModalTitle').textContent    = stripEmph(item.lectureTitle);
-  document.getElementById('thinkModalQuestion').textContent = item.question;
+  document.getElementById('thinkModalQuestion').textContent = stripEmph(item.question);
   const refEl = document.getElementById('thinkModalRef');
-  if (item.reference) { refEl.textContent = item.reference; refEl.style.display = 'block'; }
+  if (item.reference) { refEl.textContent = stripEmph(item.reference); refEl.style.display = 'block'; }
   else { refEl.style.display = 'none'; }
 
   const ta = document.getElementById('thinkTextarea');
