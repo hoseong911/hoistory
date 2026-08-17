@@ -72,8 +72,52 @@ async function initAdmin() {
   initGradeSettings();
   initContentsTab();
   initArchiveTab();
+  await loadTestIds();                    // 집계 제외용 테스트 학번(랭킹·집계보다 먼저 로드)
   dbLoad();
 }
+
+// ── 테스트 학생(집계 제외) ──
+// settings/lms_config.testStudentIds 에 저장. 로그인·개별 조회는 되지만
+// 경험치 랭킹·대시보드 오늘 집계·성적(GRADE) 목록/평균에서 빠진다.
+let _testIds = new Set();
+function isTestId(sid) { return _testIds.has(String(sid == null ? '' : sid).trim()); }
+
+async function loadTestIds() {
+  try {
+    const cfg = await getDoc(doc(db, 'settings', 'lms_config'));
+    const arr = cfg.exists() ? (cfg.data().testStudentIds || []) : [];
+    _testIds = new Set(arr.map(x => String(x).trim()).filter(Boolean));
+  } catch (_) { _testIds = new Set(); }
+  stRenderTestIds();
+}
+async function saveTestIds() {
+  await setDoc(doc(db, 'settings', 'lms_config'), { testStudentIds: [..._testIds] }, { merge: true });
+}
+function stRenderTestIds() {
+  const box = document.getElementById('st-testid-list');
+  if (!box) return;
+  const ids = [..._testIds].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  box.innerHTML = ids.length
+    ? ids.map(id => `<span class="test-id-chip">${esc(id)}<button title="제거" onclick="stRemoveTestId('${esc(id)}')">×</button></span>`).join('')
+    : '<span style="font-size:13px;color:var(--sub)">등록된 테스트 학생이 없습니다.</span>';
+}
+window.stAddTestId = async function() {
+  const inp = document.getElementById('st-testid-input');
+  const sid = (inp?.value || '').trim();
+  if (!/^\d{5}$/.test(sid)) { alert('학번 5자리를 입력하세요.'); return; }
+  _testIds.add(sid);
+  try { await saveTestIds(); } catch (e) { _testIds.delete(sid); alert('저장 실패: ' + e.message); return; }
+  if (inp) inp.value = '';
+  stRenderTestIds();
+  if (typeof dbLoad === 'function') dbLoad(); // 대시보드 집계 즉시 반영
+};
+window.stRemoveTestId = async function(sid) {
+  const id = String(sid).trim();
+  _testIds.delete(id);
+  try { await saveTestIds(); } catch (e) { _testIds.add(id); alert('저장 실패: ' + e.message); return; }
+  stRenderTestIds();
+  if (typeof dbLoad === 'function') dbLoad();
+};
 
 // 개념 강의(class_lessons)·생각 질문(think_lectures)의 order를 강 번호 기준으로 딱 한 번 재설정한다.
 // 이후에는 ▲▼ 수동 순서 변경 값을 그대로 보존하려고 settings/lms_order 마커로 재실행을 막는다.
@@ -269,6 +313,7 @@ function switchNav(nav) {
   // XP 패널 진입 시 데이터 로드
   if (panelId === 'panel-xp-award'    && typeof xpManualLoadStudents === 'function') { xpEnsureConfig(); xpManualLoadStudents(); }
   if (panelId === 'panel-xp-ranking'  && typeof xpLoadStatus         === 'function') xpLoadStatus();
+  if (panelId === 'panel-settings-system' && typeof stRenderTestIds  === 'function') stRenderTestIds();
   if (panelId === 'panel-xp-settings' && typeof xpLoadSettings       === 'function') xpLoadSettings();
   if (panelId === 'panel-dashboard') dbLoad();
 
@@ -329,6 +374,7 @@ async function dbLoad() {
     let thinkSubmit = 0;
     tsSnap.docs.forEach(d => {
       const s = d.data();
+      if (isTestId(s.id)) return; // 테스트 학생 제출은 집계·채점대기에서 제외
       if (s.thGraded !== true) ungraded[s.lectureDocId] = (ungraded[s.lectureDocId] || 0) + 1;
       const secs = s.createdAt?.seconds;
       if (secs && kstDate(secs * 1000) === today) thinkSubmit++;
@@ -339,11 +385,11 @@ async function dbLoad() {
     const stuSnap = await get(ref(rtdb, 'students'));
     const stuData = stuSnap.exists() ? (stuSnap.val() || {}) : {};
     _dbStudents = Object.values(stuData).filter(v => v && v.studentId).map(v => ({ studentId: String(v.studentId), name: v.name || v.studentName || '' }));
-    _dbStuCount = _dbStudents.length;
+    _dbStuCount = _dbStudents.filter(s => !isTestId(s.studentId)).length; // 테스트 학생은 총원에서 제외(이름 조회는 유지)
     const xpSnap = await get(ref(rtdb, `${XP_ROOT}/students`));
     const xp = xpSnap.exists() ? (xpSnap.val() || {}) : {};
     let attend = 0, review = 0;
-    Object.values(xp).forEach(x => { if (!x) return; if (x.lastAttendance === today) attend++; if (x.lastTypingReview === today) review++; });
+    Object.entries(xp).forEach(([sid, x]) => { if (!x || isTestId(sid)) return; if (x.lastAttendance === today) attend++; if (x.lastTypingReview === today) review++; });
     _dbToday = { attend, thinkSubmit, review };
 
     // 공지사항(설정·Student의 공지 배너와 같은 문서)
@@ -450,7 +496,9 @@ window.dbStudentSearch = async function() {
     const ranked  = xpBuildRanking(xpAll);
     const mine    = ranked.find(e => e.sid === sid);
     const isShared = mine && ranked.filter(e => e.rank === mine.rank).length > 1;
-    const rankTxt = mine ? `${isShared ? '공동 ' : ''}${mine.rank}위 / ${ranked.length}명` : '기록 없음';
+    const rankTxt = isTestId(sid)
+      ? '테스트 계정 · 순위 제외'
+      : (mine ? `${isShared ? '공동 ' : ''}${mine.rank}위 / ${ranked.length}명` : '기록 없음');
 
     box.innerHTML = `
       <div class="dbs-head">
@@ -3376,7 +3424,7 @@ async function initGradeTab() {
         if (!s) return;
         const sid   = String(s.studentId || s.id || '').trim();
         const sname = (s.name || s.studentName || '').trim();
-        if (sid && sname) map[sid] = sname;
+        if (sid && sname && !isTestId(sid)) map[sid] = sname; // 테스트 학생은 GRADE 목록/평균에서 제외
       });
       _gradeStudents = Object.entries(map)
         .map(([id, name]) => ({ id, name }))
@@ -5497,7 +5545,9 @@ function xpSameRank(a, b) {
 }
 // studentsObj({sid:data}) → [{sid, data, m, rank}] (순위 규칙 적용, competition ranking)
 function xpBuildRanking(studentsObj) {
-  const list = Object.entries(studentsObj).map(([sid, data]) => ({ sid, data: data || {}, m: xpTieMetric(data || {}) }));
+  const list = Object.entries(studentsObj)
+    .filter(([sid]) => !isTestId(sid)) // 테스트 학생은 랭킹에서 제외
+    .map(([sid, data]) => ({ sid, data: data || {}, m: xpTieMetric(data || {}) }));
   list.sort((a, b) => {
     if ((b.data.total || 0) !== (a.data.total || 0)) return (b.data.total || 0) - (a.data.total || 0);
     if (b.m.think      !== a.m.think)      return b.m.think - a.m.think;
