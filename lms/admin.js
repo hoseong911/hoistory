@@ -426,7 +426,11 @@ window.dbStudentSearch = async function() {
   const name = stu ? stu.name : '(명단에 없음)';
   box.innerHTML = '<div style="color:var(--sub);font-size:13px">불러오는 중...</div>';
   try {
-    const snap = await getDocs(query(collection(db, 'grade_records'), where('studentId', '==', sid)));
+    const [snap, xpSnap] = await Promise.all([
+      getDocs(query(collection(db, 'grade_records'), where('studentId', '==', sid))),
+      get(ref(rtdb, 'xp/students')),
+    ]);
+    await xpEnsureConfig();
     const recs = snap.docs.map(d => d.data());
     const recByKey = {};
     const fbs = [];
@@ -435,23 +439,58 @@ window.dbStudentSearch = async function() {
       if (r.feedback && String(r.feedback).trim()) fbs.push({ key: r.lessonKey || '', text: String(r.feedback).trim() });
     });
 
-    // 성적 Check(GRADE)와 동일하게 계산해서 그대로 보여준다.
+    // 성적 Check(GRADE)와 동일하게 계산해서 요약만 보여준다.
     const score = await dbComputeStudentScore(recByKey);
 
+    // 경험치 + 랭킹(전체 학생 대비 순위)
+    const xpAll   = xpSnap.exists() ? (xpSnap.val() || {}) : {};
+    const my      = xpAll[sid] || { total: 0 };
+    const myTotal = my.total || 0;
+    const lv      = my.level || calcLevel(myTotal, _xpCfg?.levels, _xpCfg?.levelFormula);
+    const sorted  = Object.entries(xpAll).sort((a, b) => (b[1].total || 0) - (a[1].total || 0));
+    const rankIdx = sorted.findIndex(([k]) => k === sid);
+    const rankTxt = rankIdx >= 0 ? `${rankIdx + 1}위 / ${sorted.length}명` : '기록 없음';
+
     box.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-        <div style="font-size:15px"><b>${esc(name)}</b> <span style="color:var(--sub);font-size:13px">${esc(sid)}</span></div>
-        <button class="add-btn" onclick="dbResetPw('${esc(sid)}','${esc(name)}')">PW 초기화</button>
+      <div class="dbs-head">
+        <div class="dbs-name">${esc(name)}<span class="sid">${esc(sid)}</span></div>
+        <button class="chip-btn" onclick="dbResetPw('${esc(sid)}','${esc(name)}')">PW 초기화</button>
       </div>
-      ${dbRenderStudentScore(score, recs.length)}
-      ${fbs.length
-        ? `<div style="font-size:12px;font-weight:700;color:var(--sub);margin:12px 0 4px">피드백 ${fbs.length}건</div>` +
-          fbs.map(f => `<div style="font-size:13px;padding:6px 0;border-top:1px solid var(--hairline-soft)"><b style="color:var(--sub)">${esc(String(f.key))}</b> ${esc(f.text)}</div>`).join('')
-        : `<div style="font-size:13px;color:var(--sub);margin-top:8px">등록된 피드백이 없어요.</div>`}
+
+      <div class="dbs-sec">
+        <div class="dbs-sec-label">실시간 포트폴리오 점수</div>
+        ${dbRenderScoreChips(score, recs.length)}
+      </div>
+
+      <div class="dbs-sec">
+        <div class="dbs-sec-label">경험치</div>
+        <div class="dbs-xp">
+          <div class="dbs-xp-info">누적 <b>${myTotal.toLocaleString()} XP</b> · Lv.${lv} · 랭킹 ${rankTxt}</div>
+          <button class="chip-btn danger" style="margin-left:auto" onclick="dbResetXp('${esc(sid)}','${esc(name)}')">경험치 초기화</button>
+        </div>
+      </div>
+
+      <div class="dbs-sec">
+        <div class="dbs-sec-label">선생님 피드백</div>
+        ${fbs.length
+          ? `<button class="chip-btn" onclick="this.nextElementSibling.classList.toggle('open')">피드백 ${fbs.length}건 보기</button>
+             <div class="dbs-fb-list">${fbs.map(f => `<div class="dbs-fb-item"><span class="lec">${esc(String(f.key))}</span>${esc(f.text)}</div>`).join('')}</div>`
+          : `<div style="font-size:13px;color:var(--sub)">등록된 피드백이 없어요.</div>`}
+      </div>
     `;
   } catch(e) {
     box.innerHTML = `<div style="color:var(--critical);font-size:13px">불러오기 실패: ${esc(e.message)}</div>`;
   }
+};
+
+// 대시보드 학생 경험치 초기화 — 초기화 후 검색 결과를 다시 그린다.
+window.dbResetXp = async function(sid, name) {
+  if (!confirm(`${name}(${sid}) 학생의 경험치를 초기화할까요?\n누적 XP·레벨·적립 기록이 모두 0으로 돌아갑니다.`)) return;
+  try {
+    await set(ref(rtdb, `xp/students/${sid}`), { name, total: 0, level: 1 });
+    if (_xpStuAll && _xpStuAll[sid]) _xpStuAll[sid] = { name, total: 0, level: 1 };
+    dbStudentSearch();
+  } catch(e) { alert('초기화 실패: ' + e.message); }
 };
 
 // 성적 Check(GRADE, loadScoreData)의 계산 로직을 한 학생분만 그대로 재현한다.
@@ -497,37 +536,18 @@ async function dbComputeStudentScore(recByKey) {
   return { concept, mission, think, total: concept.score + mission.score + think.score, maxScore, lectureCount: selectedLectures.length };
 }
 
-// 성적 Check(GRADE) 표를 한 학생분만 그대로 축약해 보여준다.
-function dbRenderStudentScore(s, recCount) {
+// 포트폴리오 점수 요약 — 세부(달성·%)는 성적 Check에서 확인하고, 여기선 체크 3개 점수 + 총점만.
+function dbRenderScoreChips(s, recCount) {
   if (!s) {
-    return `<div style="font-size:13px;color:var(--sub);margin-top:8px">성적 설정(반영 강의·급간)이 없어 점수를 계산할 수 없어요. <span style="color:var(--sub)">(성적 기록 ${recCount}건)</span></div>`;
+    return `<div style="font-size:13px;color:var(--sub)">성적 설정(반영 강의·급간)이 없어 점수를 계산할 수 없어요. <span>(성적 기록 ${recCount}건)</span></div>`;
   }
-  const cell = (o, color) => o.total
-    ? `<td style="text-align:center">${o.achieved}/${o.total}</td><td style="text-align:center">${o.pct}%</td><td style="text-align:center;font-weight:700;color:${color}">${o.score}</td>`
-    : `<td style="text-align:center">미실시</td><td style="text-align:center">—</td><td style="text-align:center">—</td>`;
-  return `
-    <div style="font-size:12px;color:var(--sub);margin:10px 0 6px">성적 Check 기준 · 반영 강의 ${s.lectureCount}개 · 최대 ${s.maxScore}점</div>
-    <div style="overflow-x:auto"><table class="grade-score-table" style="width:100%;border-collapse:collapse;font-size:13px">
-      <thead>
-        <tr>
-          <th style="padding:5px" colspan="3" class="sh-c">개념체크</th>
-          <th style="padding:5px" colspan="3" class="sh-m">미션체크</th>
-          <th style="padding:5px" colspan="3" class="sh-t">생각체크</th>
-          <th style="padding:5px" rowspan="2" class="sh-tot">총점<br><span style="font-size:10px;font-weight:400">/${s.maxScore}</span></th>
-        </tr>
-        <tr>
-          <th class="sh-c">달성</th><th class="sh-c">%</th><th class="sh-c">점수</th>
-          <th class="sh-m">달성</th><th class="sh-m">%</th><th class="sh-m">점수</th>
-          <th class="sh-t">달성</th><th class="sh-t">%</th><th class="sh-t">점수</th>
-        </tr>
-      </thead>
-      <tbody><tr>
-        ${cell(s.concept, 'var(--c1)')}
-        ${cell(s.mission, 'var(--c2)')}
-        ${cell(s.think, 'var(--c1)')}
-        <td style="text-align:center;font-weight:800;color:var(--c4)">${s.total}</td>
-      </tr></tbody>
-    </table></div>`;
+  const chip = (k, v, cls = '') => `<div class="dbs-score ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+  return `<div class="dbs-scorerow">
+    ${chip('개념체크', s.concept.score)}
+    ${chip('미션체크', s.mission.score)}
+    ${chip('생각체크', s.think.score)}
+    ${chip('총점', `${s.total}<span style="font-size:12px;color:var(--sub);font-weight:600"> / ${s.maxScore}</span>`, 'total')}
+  </div>`;
 }
 
 // 학생이 LMS 로그인 때 설정한 비밀번호(lms_auth/{학번})를 지워 초기화한다(다음 로그인 때 재설정).
