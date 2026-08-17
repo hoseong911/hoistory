@@ -156,7 +156,7 @@ const SUBNAV_MAP = {
   think: ['think-question', 'think-answer'],
   grade: ['grade-check', 'grade-grade', 'grade-setting'],
   archive: ['archive-cards', 'archive-category', 'archive-add'],
-  xp: ['xp-award', 'xp-settings'],
+  xp: ['xp-award', 'xp-ranking', 'xp-settings'],
   settings: ['settings-system', 'settings-student']
 };
 
@@ -268,6 +268,7 @@ function switchNav(nav) {
   if (panelId === 'panel-archive-category' && typeof renderArchiveCategoryEditor === 'function') renderArchiveCategoryEditor();
   // XP 패널 진입 시 데이터 로드
   if (panelId === 'panel-xp-award'    && typeof xpManualLoadStudents === 'function') { xpEnsureConfig(); xpManualLoadStudents(); }
+  if (panelId === 'panel-xp-ranking'  && typeof xpLoadStatus         === 'function') xpLoadStatus();
   if (panelId === 'panel-xp-settings' && typeof xpLoadSettings       === 'function') xpLoadSettings();
   if (panelId === 'panel-dashboard') dbLoad();
 
@@ -5463,7 +5464,7 @@ window.xpRenderStatus = function() {
   }
   const tbody = document.getElementById('xp-status-body');
   if (!tbody) return;
-  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" style="color:var(--slate);padding:24px;font-size:13px">데이터가 없습니다.</td></tr>'; return; }
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="7" style="color:var(--slate);padding:24px;font-size:13px">데이터가 없습니다.</td></tr>'; return; }
   tbody.innerHTML = rows.map(([sid, s], i) => {
     const lv      = s.level || calcLevel(s.total || 0, _xpCfg?.levels, _xpCfg?.levelFormula);
     const lastAct = s.lastAttendance || s.lastMileage || '';
@@ -5473,8 +5474,42 @@ window.xpRenderStatus = function() {
       <td><span style="font-weight:700;color:var(--amber-d)">Lv.${lv}</span></td>
       <td style="font-weight:700">${(s.total||0).toLocaleString()} pt</td>
       <td style="font-size:12px;color:var(--slate)">${lastAct}</td>
+      <td><button class="xp-row-reset" onclick="xpResetStudent('${esc(sid)}','${esc(s.name||'')}')">초기화</button></td>
     </tr>`;
   }).join('');
+};
+
+// ── 초기화(개별/전체) ──
+// 경험치 문서를 {name, total:0, level:1}로 되돌려 누적·기록·일일 게이트를 모두 초기화한다.
+window.xpResetStudent = async function(sid, name) {
+  if (!confirm(`${name || sid} 학생의 경험치를 초기화할까요?\n누적 XP·레벨·적립 기록이 모두 0으로 돌아갑니다.`)) return;
+  try {
+    await set(ref(rtdb, `${XP_ROOT}/students/${sid}`), { name: name || (_xpStuAll[sid]?.name || ''), total: 0, level: 1 });
+    _xpStuAll[sid] = { ...(_xpStuAll[sid] || {}), total: 0, level: 1 };
+    xpRenderStatus();
+  } catch (e) { alert('초기화 실패: ' + e.message); }
+};
+
+window.xpResetAll = async function() {
+  const ids = Object.keys(_xpStuAll);
+  if (!ids.length) { alert('초기화할 학생 데이터가 없습니다.'); return; }
+  const filterCls = document.getElementById('xp-filter-class')?.value || '';
+  const targets = filterCls ? ids.filter(sid => sid.startsWith(filterCls)) : ids;
+  if (!targets.length) { alert('해당 반에 초기화할 학생이 없습니다.'); return; }
+  const scope = filterCls ? `${filterCls} 반 ${targets.length}명` : `전체 ${targets.length}명`;
+  const val = prompt(`${scope}의 경험치를 모두 초기화합니다.\n되돌릴 수 없습니다. 진행하려면 "초기화"를 입력하세요.`);
+  if (val !== '초기화') return;
+  try {
+    const updates = {};
+    targets.forEach(sid => {
+      const nm = _xpStuAll[sid]?.name || '';
+      updates[`${XP_ROOT}/students/${sid}`] = { name: nm, total: 0, level: 1 };
+      _xpStuAll[sid] = { name: nm, total: 0, level: 1 };
+    });
+    await update(ref(rtdb, '/'), updates);
+    xpRenderStatus();
+    alert(`${scope}의 경험치를 초기화했습니다.`);
+  } catch (e) { alert('초기화 실패: ' + e.message); }
 };
 
 function xpPopulateClassFilter() {
@@ -5503,14 +5538,66 @@ async function xpLoadSettings() {
       </tr>`;
     }).join('');
   }
-  // 레벨 기준
-  const lvInput = document.getElementById('xp-levels-input');
-  if (lvInput) lvInput.value = (_xpCfg.levels || DEFAULT_LEVELS).join(', ');
+  // 레벨 시스템 — 누적 levels[]를 레벨별 '필요 XP'(간격)로 변환해 표로 편집한다.
+  const cumLevels = _xpCfg.levels || DEFAULT_LEVELS;
+  _xpLevelGaps = cumLevels.map((v, i) => i === 0 ? 0 : v - cumLevels[i - 1]);
+  xpRenderLevelTable();
   const lgInput = document.getElementById('xp-lastgap-input');
   if (lgInput) lgInput.value = _xpCfg.levelFormula?.lastGap ?? 550;
   const incInput = document.getElementById('xp-increment-input');
   if (incInput) incInput.value = _xpCfg.levelFormula?.increment ?? 25;
 }
+
+// ── 레벨 표 편집 ──
+let _xpLevelGaps = []; // [0, Lv2필요, Lv3필요, ...] (index 0 = Lv.1 시작)
+
+function xpRenderLevelTable() {
+  const body = document.getElementById('xp-level-body');
+  if (!body) return;
+  let cum = 0;
+  body.innerHTML = _xpLevelGaps.map((gap, i) => {
+    cum += (i === 0 ? 0 : gap);
+    const need = i === 0
+      ? '<span style="color:var(--stone);font-size:13px">시작 지점</span>'
+      : `<input type="number" min="1" data-lvidx="${i}" value="${gap}" oninput="xpRecalcCum()">`;
+    return `<tr>
+      <td style="font-weight:700">Lv.${i + 1}</td>
+      <td>${need}</td>
+      <td class="xp-cum" data-cumidx="${i}" style="font-weight:700;color:var(--amber-d)">${cum.toLocaleString()} pt</td>
+    </tr>`;
+  }).join('');
+}
+
+// 입력값 → _xpLevelGaps 동기화
+function xpSyncGaps() {
+  _xpLevelGaps[0] = 0;
+  document.querySelectorAll('#xp-level-body input[data-lvidx]').forEach(inp => {
+    _xpLevelGaps[Number(inp.dataset.lvidx)] = Number(inp.value) || 0;
+  });
+}
+
+window.xpRecalcCum = function() {
+  xpSyncGaps();
+  let cum = 0;
+  for (let i = 0; i < _xpLevelGaps.length; i++) {
+    cum += (i === 0 ? 0 : _xpLevelGaps[i]);
+    const cell = document.querySelector(`#xp-level-body .xp-cum[data-cumidx="${i}"]`);
+    if (cell) cell.textContent = cum.toLocaleString() + ' pt';
+  }
+};
+
+window.xpAddLevel = function() {
+  xpSyncGaps();
+  _xpLevelGaps.push(_xpLevelGaps[_xpLevelGaps.length - 1] || 100);
+  xpRenderLevelTable();
+};
+
+window.xpRemoveLevel = function() {
+  if (_xpLevelGaps.length <= 2) { alert('레벨은 최소 2개(Lv.1~2)까지 필요합니다.'); return; }
+  xpSyncGaps();
+  _xpLevelGaps.pop();
+  xpRenderLevelTable();
+};
 
 window.xpToggleAct = function(el) {
   el.classList.toggle('on');
@@ -5536,14 +5623,20 @@ window.xpSaveActivities = async function() {
 
 window.xpSaveLevels = async function() {
   await xpEnsureConfig();
-  const raw = document.getElementById('xp-levels-input')?.value || '';
-  const lvls = raw.split(/[,\s]+/).map(Number).filter(n => !isNaN(n));
-  if (!lvls.length || lvls[0] !== 0) { alert('첫 값은 반드시 0이어야 합니다.'); return; }
-  _xpCfg.levels              = lvls;
-  _xpCfg.levelFormula        = _xpCfg.levelFormula || {};
-  _xpCfg.levelFormula.lastGap     = Number(document.getElementById('xp-lastgap-input')?.value) || 550;
-  _xpCfg.levelFormula.increment   = Number(document.getElementById('xp-increment-input')?.value) || 25;
+  xpSyncGaps();
+  const gaps = _xpLevelGaps.map((g, i) => i === 0 ? 0 : Math.max(1, Math.round(g || 0)));
+  if (gaps.length < 2) { alert('레벨은 최소 2개(Lv.1~2)가 필요합니다.'); return; }
+  // 간격 → 누적 배열(levels[])로 변환. 첫 값은 항상 0.
+  const levels = [];
+  let cum = 0;
+  gaps.forEach((g, i) => { cum += (i === 0 ? 0 : g); levels.push(cum); });
+  _xpCfg.levels            = levels;
+  _xpCfg.levelFormula      = _xpCfg.levelFormula || {};
+  _xpCfg.levelFormula.lastGap   = Math.max(1, Number(document.getElementById('xp-lastgap-input')?.value) || 550);
+  _xpCfg.levelFormula.increment = Math.max(0, Number(document.getElementById('xp-increment-input')?.value) || 25);
   await saveXPConfig(rtdb, _xpCfg, fbFns);
+  _xpLevelGaps = gaps;
+  xpRenderLevelTable();
   alert('레벨 기준이 저장되었습니다.');
 };
 

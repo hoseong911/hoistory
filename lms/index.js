@@ -438,8 +438,8 @@ function startListening() {
   ['concept','mission','think','grade','contents'].forEach(k => sectionData[k] = null);
   renderAll();
 
-  // 1. 개념 체크 — class_lessons (어드민 강의 목록과 동일한 order 오름차순)
-  onSnapshot(query(collection(db, 'class_lessons'), orderBy('order','asc')), snap => {
+  // 1. 개념 체크 — class_lessons (어드민 강의 목록과 동일한 order 내림차순: 큰 번호=최신이 위, OT가 맨 아래)
+  onSnapshot(query(collection(db, 'class_lessons'), orderBy('order','desc')), snap => {
     // 비공개(isOpen===false)는 생각 체크처럼 허브에서 아예 숨긴다(흐린 잠금 표시 안 함).
     // OT를 포함해 공개된 강의는 모두 개념 Check 허브에 노출한다(어드민에서 공개 토글로 제어).
     sectionData.concept = snap.docs

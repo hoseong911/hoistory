@@ -11,7 +11,7 @@
 <!-- 개념 체크 미리보기가 학생 화면(class/lesson.html)과 100% 동일하게 렌더링되도록 공용 슬라이드 스타일을 그대로 불러온다.
      이 파일의 :root 변수 중 --text/--border는 아래 이 페이지 자체 :root 선언이 나중에 와서 재정의하므로 전역 충돌은 없다. -->
 <link rel="stylesheet" href="slide-style.css?v=20260816h">
-<link rel="stylesheet" href="admin.css?v=20260815d">
+<link rel="stylesheet" href="admin.css?v=20260817a">
   <script src="/hoistory/pwa.js"></script>
 </head>
 <body data-mode="complete">
@@ -120,8 +120,9 @@
           <span class="nav-ic" data-nic="star"></span><span class="nav-label">경험치 관리</span><span class="nav-arrow">›</span>
         </div>
         <div class="nav-sub" id="subnav-xp" data-title="경험치 관리">
-          <div class="nav-sub-item" data-subnav="xp-award">Points</div>
-          <div class="nav-sub-item" data-subnav="xp-settings">Settings</div>
+          <div class="nav-sub-item" data-subnav="xp-award">POINTS</div>
+          <div class="nav-sub-item" data-subnav="xp-ranking">RANKING</div>
+          <div class="nav-sub-item" data-subnav="xp-settings">SETTINGS</div>
         </div>
       </div>
       <div class="nav-group">
@@ -990,6 +991,34 @@
     </div>
   </div>
 
+  <!-- ── 경험치 · 랭킹 / 초기화 ── -->
+  <div class="adm-panel" id="panel-xp-ranking">
+    <div class="panel-top"><div class="panel-title">경험치 랭킹</div></div>
+
+    <div class="stu-card">
+      <div class="stu-card-head">학생 경험치 랭킹</div>
+      <div class="stu-card-body">
+        <div class="xp-rank-tools">
+          <select class="form-input" id="xp-filter-class" style="width:auto;min-width:120px" onchange="xpRenderStatus()">
+            <option value="">전체 반</option>
+          </select>
+          <div class="xp-sort-group">
+            <button class="xp-sort-btn active" id="xpSortRank" onclick="xpSetSort('rank')">XP순</button>
+            <button class="xp-sort-btn" id="xpSortId" onclick="xpSetSort('id')">학번순</button>
+          </div>
+          <button class="xp-sort-btn" onclick="xpRefreshStatus()">새로고침</button>
+          <button class="xp-danger-btn" style="margin-left:auto" onclick="xpResetAll()">전체 초기화</button>
+        </div>
+        <div style="overflow-x:auto;margin-top:14px">
+          <table class="gd-table">
+            <thead><tr><th>순위</th><th>학번</th><th>이름</th><th>레벨</th><th>누적 XP</th><th>최근 활동</th><th>관리</th></tr></thead>
+            <tbody id="xp-status-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── 경험치 · 설정 ── -->
   <div class="adm-panel" id="panel-xp-settings">
     <div class="panel-top"><div class="panel-title">경험치 설정</div></div>
@@ -1006,17 +1035,23 @@
     </div>
 
     <div class="stu-card">
-      <div class="stu-card-head">레벨 XP 기준</div>
+      <div class="stu-card-head">레벨 시스템</div>
       <div class="stu-card-body">
-        <p style="font-size:12px;color:var(--slate);margin-bottom:12px;line-height:1.6">레벨별 누적 XP 기준값을 쉼표로 구분하여 입력하세요. 첫 값은 반드시 0이어야 합니다. 표 이후 레벨은 자동으로 공식이 적용됩니다.</p>
-        <textarea class="form-textarea" id="xp-levels-input" style="height:100px;font-family:monospace;font-size:13px"></textarea>
-        <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
-          <span style="font-size:12px;color:var(--slate)">이후 레벨 간격 시작:</span>
-          <input type="number" class="form-input" id="xp-lastgap-input" style="width:80px;text-align:center" value="550">
-          <span style="font-size:12px;color:var(--slate)">증가량:</span>
-          <input type="number" class="form-input" id="xp-increment-input" style="width:70px;text-align:center" value="25">
+        <p class="xp-help">레벨마다 필요한 경험치를 표에서 직접 설정합니다. <b>필요 XP</b>는 직전 레벨에서 이 레벨로 올라가는 데 드는 경험치이고, <b>누적 XP</b>는 자동으로 계산됩니다. 표에 없는 상위 레벨은 아래 공식으로 자동 확장됩니다.</p>
+        <table class="gd-table" id="xp-level-table">
+          <thead><tr><th style="width:80px">레벨</th><th>필요 XP</th><th>누적 XP</th></tr></thead>
+          <tbody id="xp-level-body"></tbody>
+        </table>
+        <div class="xp-level-actions">
+          <button class="xp-sort-btn" onclick="xpAddLevel()">+ 레벨 추가</button>
+          <button class="xp-sort-btn" onclick="xpRemoveLevel()">− 마지막 레벨</button>
         </div>
-        <button class="add-btn" style="margin-top:12px" onclick="xpSaveLevels()">레벨 기준 저장</button>
+        <div class="xp-tail">
+          <span class="form-label" style="margin:0">표 이후 자동 확장</span>
+          <div class="xp-tail-field"><span>다음 간격</span><input type="number" class="form-input" id="xp-lastgap-input" value="550"></div>
+          <div class="xp-tail-field"><span>레벨마다 +</span><input type="number" class="form-input" id="xp-increment-input" value="25"></div>
+        </div>
+        <button class="add-btn" style="margin-top:16px" onclick="xpSaveLevels()">레벨 기준 저장</button>
       </div>
     </div>
   </div>
@@ -1182,6 +1217,6 @@
 <!-- hwpx 파일(zip+xml) 압축 해제용: 활동지 업로드로 새 강의 자동 생성 기능에 사용 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="slide-render.js?v=20260816a"></script>
-<script type="module" src="admin.js?v=20260816f"></script>
+<script type="module" src="admin.js?v=20260817a"></script>
 </body>
 </html>
