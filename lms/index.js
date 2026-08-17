@@ -41,7 +41,7 @@ onSnapshot(doc(db, 'settings', 'announcement'), snap => {
     const html = esc(d.text)
       .replace(/\n/g, '<br>')
       .replace(/https?:\/\/[^\s<&]+/g, url => `<a href="${url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:700">${url}</a>`);
-    banner.innerHTML = html;
+    banner.innerHTML = `<div class="sec-head"><div class="sec-name">공지사항</div></div><hr class="sec-divider"><div class="announce-body">${html}</div>`;
     banner.style.display = 'block';
   } else {
     banner.style.display = 'none';
@@ -441,9 +441,9 @@ function startListening() {
   // 1. 개념 체크 — class_lessons (어드민 강의 목록과 동일한 order 오름차순)
   onSnapshot(query(collection(db, 'class_lessons'), orderBy('order','asc')), snap => {
     // 비공개(isOpen===false)는 생각 체크처럼 허브에서 아예 숨긴다(흐린 잠금 표시 안 함).
-    // OT(안내용 강의)는 복습 대상이 아니므로 개념 Check 허브/복습 목록에서 제외한다.
+    // OT를 포함해 공개된 강의는 모두 개념 Check 허브에 노출한다(어드민에서 공개 토글로 제어).
     sectionData.concept = snap.docs
-      .filter(d => d.data().isOpen !== false && d.data().num !== 'OT')
+      .filter(d => d.data().isOpen !== false)
       .map(d => {
         const l = d.data();
         return { icon: l.num, label: stripLecNum(l.title), sublabel: l.unit, num: l.num, isConcept: true, locked: false };
