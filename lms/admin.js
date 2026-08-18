@@ -5522,12 +5522,26 @@ window.xpSetSort = function(mode) {
   xpRenderStatus();
 };
 
+// 반 필터 — 학생 관리 탭과 동일하게 학번 2~3번째 자리(반)로 판별한다.
+let _xpClsFilter = '';
+function xpClassNum(sid) {
+  if (!sid || sid.length < 3) return null;
+  const c = parseInt(sid.slice(1, 3), 10);
+  return isNaN(c) ? null : c;
+}
+window.xpSetClsFilter = function(cls) {
+  _xpClsFilter = cls;
+  document.querySelectorAll('#xp-rank-cls-tags .stu-cls-tag').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.cls === cls);
+  });
+  xpRenderStatus();
+};
+
 async function xpLoadStatus() {
   await xpEnsureConfig();
   const snap = await get(ref(rtdb, `${XP_ROOT}/students`));
   _xpStuAll  = snap.exists() ? (snap.val() || {}) : {};
   xpRenderStatus();
-  xpPopulateClassFilter();
 }
 
 // ── 랭킹 계산 (동률 처리) ──
@@ -5570,9 +5584,13 @@ function xpBuildRanking(studentsObj) {
 }
 
 window.xpRenderStatus = function() {
-  const filterCls = document.getElementById('xp-filter-class')?.value || '';
+  const q = (document.getElementById('xp-rank-search')?.value || '').trim().toLowerCase();
   const filtered = {};
-  Object.entries(_xpStuAll).forEach(([sid, s]) => { if (!filterCls || sid.startsWith(filterCls)) filtered[sid] = s; });
+  Object.entries(_xpStuAll).forEach(([sid, s]) => {
+    if (_xpClsFilter && xpClassNum(sid) !== +_xpClsFilter) return;
+    if (q && !sid.includes(q) && !(s.name || '').toLowerCase().includes(q)) return;
+    filtered[sid] = s;
+  });
   const ranked = xpBuildRanking(filtered);
   const sharedRanks = new Set(); const seen = new Set();
   ranked.forEach(e => { if (seen.has(e.rank)) sharedRanks.add(e.rank); else seen.add(e.rank); });
@@ -5594,7 +5612,7 @@ window.xpRenderStatus = function() {
       <td><span style="font-weight:700;color:var(--amber-d)">Lv.${lv}</span></td>
       <td style="font-weight:700">${(s.total||0).toLocaleString()} pt</td>
       <td style="font-size:12px;color:var(--slate)">${lastAct}</td>
-      <td><button class="xp-row-reset" onclick="xpResetStudent('${esc(sid)}','${esc(s.name||'')}')">초기화</button></td>
+      <td><button class="stu-btn stu-btn-del" onclick="xpResetStudent('${esc(sid)}','${esc(s.name||'')}')">초기화</button></td>
     </tr>`;
   }).join('');
 };
@@ -5613,10 +5631,9 @@ window.xpResetStudent = async function(sid, name) {
 window.xpResetAll = async function() {
   const ids = Object.keys(_xpStuAll);
   if (!ids.length) { alert('초기화할 학생 데이터가 없습니다.'); return; }
-  const filterCls = document.getElementById('xp-filter-class')?.value || '';
-  const targets = filterCls ? ids.filter(sid => sid.startsWith(filterCls)) : ids;
+  const targets = _xpClsFilter ? ids.filter(sid => xpClassNum(sid) === +_xpClsFilter) : ids;
   if (!targets.length) { alert('해당 반에 초기화할 학생이 없습니다.'); return; }
-  const scope = filterCls ? `${filterCls} 반 ${targets.length}명` : `전체 ${targets.length}명`;
+  const scope = _xpClsFilter ? `${_xpClsFilter}반 ${targets.length}명` : `전체 ${targets.length}명`;
   const val = prompt(`${scope}의 경험치를 모두 초기화합니다.\n되돌릴 수 없습니다. 진행하려면 "초기화"를 입력하세요.`);
   if (val !== '초기화') return;
   try {
@@ -5631,14 +5648,6 @@ window.xpResetAll = async function() {
     alert(`${scope}의 경험치를 초기화했습니다.`);
   } catch (e) { alert('초기화 실패: ' + e.message); }
 };
-
-function xpPopulateClassFilter() {
-  const sel = document.getElementById('xp-filter-class');
-  if (!sel) return;
-  const classes = [...new Set(Object.keys(_xpStuAll).map(s => s.slice(0,4)))].sort();
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">전체 반</option>' + classes.map(c => `<option value="${c}"${c===cur?' selected':''}>${c}</option>`).join('');
-}
 
 // ── SETTINGS ──
 async function xpLoadSettings() {
