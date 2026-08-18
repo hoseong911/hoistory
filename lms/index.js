@@ -691,8 +691,7 @@ function renderMileageBlock() {
   const el = document.getElementById('mileageBlock');
   if (!menuVisible('mileage')) { el.style.display = 'none'; return; }
   el.style.display = '';
-  const num = _mileageDays === null ? '…' : _mileageDays;
-  el.innerHTML = `<span class="hub-chip-title">열공 마일리지</span><span class="hub-chip-value">${num}일째</span>`;
+  el.innerHTML = `<span class="hub-chip-title">열공 마일리지</span>`;
   el.onclick = openMileageModal;
 }
 
