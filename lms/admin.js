@@ -303,6 +303,14 @@ function switchNav(nav) {
   const panel = document.getElementById(panelId);
   if (panel) panel.classList.add('active');
 
+  // 서브메뉴가 있는 패널은 상단 제목을 "메뉴 제목 - 서브메뉴 제목"으로 통일해 보여준다.
+  if (subs && panel) {
+    const groupTitle = document.getElementById(`subnav-${mainNav}`)?.dataset.title || '';
+    const subLabel = document.querySelector(`.nav-sub-item[data-subnav="${subNav}"]`)?.textContent.trim() || '';
+    const titleEl = panel.querySelector('.panel-title');
+    if (titleEl && groupTitle && subLabel) titleEl.textContent = `${groupTitle} - ${subLabel}`;
+  }
+
   // 개념 체크 · 디자인 패널은 숨겨진 동안 미리보기 폭 계산이 0이 되므로, 보일 때마다 다시 계산한다.
   if (panelId === 'panel-concept-design') requestAnimationFrame(rescalePreview);
   if (panelId === 'panel-think-answer' && window.thRenderAnswerLecture) {
@@ -5109,7 +5117,7 @@ initAdmin();
   function thFmtSubTime(ts) {
     const d = ts && ts.toDate ? ts.toDate() : (ts ? new Date(ts) : null);
     if (!d || isNaN(d)) return '';
-    return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+    return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
   }
 
   function thBuildAnswerCard(data, showMeta) {
