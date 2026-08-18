@@ -332,8 +332,6 @@ async function _initXPForStudent(id, name) {
 function _updateXPWidget(state) {
   const total = state.total || 0;
   const lv    = state.level || 1;
-  document.getElementById('xpLevelText').textContent = `Lv.${lv}`;
-  document.getElementById('xpBarLabel').textContent  = `${total} pt`;
   document.getElementById('xpHistTotal').textContent = `${total} pt`;
   document.getElementById('xpHistLevel').textContent = `Lv.${lv}`;
 }
@@ -684,7 +682,7 @@ function renderGradeBlock() {
   el.style.display = '';
   const g = sectionData.grade;
   const total = (g && g._summary && g.totalPublished > 0) ? `총점 ${g.total}점` : '';
-  el.innerHTML = `<span class="hub-chip-title">성적 Check (포트폴리오)</span>${total ? `<span class="hub-chip-value">${total}</span>` : ''}`;
+  el.innerHTML = `<span class="hub-chip-title">성적 Check</span>${total ? `<span class="hub-chip-value">${total}</span>` : ''}`;
   el.onclick = openGradeSummaryModal;
 }
 
@@ -694,7 +692,7 @@ function renderMileageBlock() {
   if (!menuVisible('mileage')) { el.style.display = 'none'; return; }
   el.style.display = '';
   const num = _mileageDays === null ? '…' : _mileageDays;
-  el.innerHTML = `<span class="hub-chip-title">역사 열공 마일리지</span><span class="hub-chip-value">${num}일째</span>`;
+  el.innerHTML = `<span class="hub-chip-title">열공 마일리지</span><span class="hub-chip-value">${num}일째</span>`;
   el.onclick = openMileageModal;
 }
 
@@ -713,7 +711,7 @@ function openMileageModal() {
   const base = resolveAppUrl('hismile/index.html');
   const sep = base.includes('?') ? '&' : '?';
   const url = `${base}${sep}embed=1&sid=${encodeURIComponent(currentStudentId)}&sn=${encodeURIComponent(currentStudentName)}`;
-  document.getElementById('contentAppModalTitle').textContent = '역사 열공 마일리지';
+  document.getElementById('contentAppModalTitle').textContent = '열공 마일리지';
   document.getElementById('contentAppFrame').src = url;
   document.getElementById('contentAppModal').style.display = 'flex';
 }
