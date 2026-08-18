@@ -494,7 +494,7 @@ window.dbStudentSearch = async function() {
     });
 
     // 성적 Check(GRADE)와 동일하게 계산해서 요약만 보여준다.
-    const score = await dbComputeStudentScore(recByKey);
+    const score = await dbComputeStudentScore(recByKey, sid);
 
     // 경험치 + 랭킹(전체 학생 대비, 동률 규칙 적용)
     const xpAll   = xpSnap.exists() ? (xpSnap.val() || {}) : {};
@@ -552,15 +552,25 @@ window.dbResetXp = async function(sid, name) {
 
 // 성적 Check(GRADE, loadScoreData)의 계산 로직을 한 학생분만 그대로 재현한다.
 // grade_settings/config 급간·반영 강의 + grade_lecture_config 미실시/가중치를 반영한다.
+// 학생 index.js(loadStudentGrade)와 동일하게, "성적 반영하기"로 실제 반영된(grade_publish_status) 강의만 집계한다.
 // 반환: { concept, mission, think, total, maxScore, lectureCount } 또는 null(설정 없음)
-async function dbComputeStudentScore(recByKey) {
+async function dbComputeStudentScore(recByKey, sid) {
   const settingsSnap = await getDoc(doc(db, 'grade_settings', 'config'));
   if (!settingsSnap.exists()) return null;
   const { selectedLectures = [], bands = [] } = settingsSnap.data();
   if (!selectedLectures.length || !bands.length) return null;
 
+  const classNum = Math.floor((parseInt(sid) - 30000) / 100);
+  const publishChecks = await Promise.all(selectedLectures.map(async key => {
+    try {
+      const snap = await getDoc(doc(db, 'grade_publish_status', `${key}_${classNum}`));
+      return { key, published: snap.exists() && snap.data().published === true };
+    } catch { return { key, published: false }; }
+  }));
+  const publishedLectures = publishChecks.filter(p => p.published).map(p => p.key);
+
   const enabledMap = {};
-  await Promise.all(selectedLectures.map(async key => {
+  await Promise.all(publishedLectures.map(async key => {
     try {
       const snap = await getDoc(doc(db, 'grade_lecture_config', key));
       const d = snap.exists() ? snap.data() : {};
@@ -579,7 +589,7 @@ async function dbComputeStudentScore(recByKey) {
   };
 
   let cA=0, cN=0, mA=0, mN=0, tA=0, tN=0;
-  selectedLectures.forEach(key => {
+  publishedLectures.forEach(key => {
     const en = enabledMap[key];
     const rec = recByKey[key];
     if (en.concept) { cN += 2*en.conceptWeight; if (rec?.concept?.achieved) cA += en.conceptWeight; if (rec?.concept?.onTime) cA += en.conceptWeight; }
@@ -590,7 +600,7 @@ async function dbComputeStudentScore(recByKey) {
   const mission = calcScore(mA, mN, 'mission');
   const think   = calcScore(tA, tN, 'think');
   const maxScore = (bands[0]?.concept||0) + (bands[0]?.mission||0) + (bands[0]?.think||0);
-  return { concept, mission, think, total: concept.score + mission.score + think.score, maxScore, lectureCount: selectedLectures.length };
+  return { concept, mission, think, total: concept.score + mission.score + think.score, maxScore, lectureCount: publishedLectures.length };
 }
 
 // 포트폴리오 점수 요약 — 세부(달성·%)는 성적 Check에서 확인하고, 여기선 체크 3개 점수 + 총점만.
@@ -3996,6 +4006,16 @@ async function loadScoreData() {
     if (!selectedLectures.length) throw new Error('반영할 강의가 선택되지 않았습니다.');
     if (!bands.length) throw new Error('급간 설정이 없습니다.');
 
+    // 반별 "성적 반영하기" 여부 로드 — 실제로 반영 버튼을 누른 (강의, 반) 조합만 집계에 포함한다.
+    const classNums = [...new Set(_gradeStudents.filter(s => s.id !== '00000').map(s => Math.floor((parseInt(s.id) - 30000) / 100)))];
+    const publishedSet = new Set();
+    await Promise.all(selectedLectures.flatMap(key => classNums.map(async cls => {
+      try {
+        const snap = await getDoc(doc(db, 'grade_publish_status', `${key}_${cls}`));
+        if (snap.exists() && snap.data().published === true) publishedSet.add(`${key}_${cls}`);
+      } catch(e) {}
+    })));
+
     // 강의별 미실시 플래그 로드
     const enabledMap = {};
     await Promise.all(selectedLectures.map(async key => {
@@ -4036,6 +4056,7 @@ async function loadScoreData() {
         const cls = Math.floor((parseInt(s.id) - 30000) / 100);
         let cA=0, cN=0, mA=0, mN=0, tA=0, tN=0;
         selectedLectures.forEach(key => {
+          if (!publishedSet.has(`${key}_${cls}`)) return; // 미반영 강의 제외
           const en  = enabledMap[key];
           const rec = recByLec[key]?.[s.id];
           if (en.concept) { cN += 2*en.conceptWeight; if (rec?.concept?.achieved) cA += en.conceptWeight; if (rec?.concept?.onTime) cA += en.conceptWeight; }
