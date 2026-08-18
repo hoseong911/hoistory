@@ -8,7 +8,7 @@ import { getDatabase, ref as rtdbRef, get as rtdbGet, set as rtdbSet, push as rt
 import { initAuth, verifyStudentId, verifyStudentName, isStudentMapLoaded } from "../shared/auth.js";
 import "../shared/offline.js";
 import { firebaseConfig } from "../shared/firebase-config.js";
-import { initXP, onXPChange, checkAndAddAttendance, calcLevel, calcNextThreshold } from "../shared/xp.js";
+import { initXP, onXPChange, checkAndAddAttendance } from "../shared/xp.js";
 import { findBadWord } from "../shared/profanity.js";
 import { icon } from "../shared/icons.js";
 
@@ -332,21 +332,8 @@ async function _initXPForStudent(id, name) {
 function _updateXPWidget(state) {
   const total = state.total || 0;
   const lv    = state.level || 1;
-  const next  = calcNextThreshold(total);
-  const lvls  = [0,100,225,375,550,750,975,1225,1500,1800,2125,2475,2850,3250,3675,4125,4600,5100,5625,6175];
-  let lvStart;
-  if (lv <= lvls.length) {
-    lvStart = lvls[lv - 1];
-  } else {
-    lvStart = lvls[lvls.length - 1];
-    let gap = 550; let cur = lvls.length;
-    while (cur < lv) { lvStart += gap; gap += 25; cur++; }
-  }
-  const span = next - lvStart;
-  const pct  = span > 0 ? Math.round(((total - lvStart) / span) * 100) : 100;
   document.getElementById('xpLevelText').textContent = `Lv.${lv}`;
   document.getElementById('xpBarLabel').textContent  = `${total} pt`;
-  document.getElementById('xpBarFill').style.width   = `${Math.min(pct, 100)}%`;
   document.getElementById('xpHistTotal').textContent = `${total} pt`;
   document.getElementById('xpHistLevel').textContent = `Lv.${lv}`;
 }
@@ -424,7 +411,7 @@ function _showXPFloat(pt) {
 const sectionData  = { concept:null, mission:null, think:null, grade:null, contents:null };
 let _mileageDays = null;   // 역사 열공 마일리지 누적 일수
 let _openListKey = null;   // 모바일: 현재 열려 있는 섹션 목록 모달의 key (실시간 갱신 시 재렌더용)
-let _gradeAccOpen = false; // 모바일: 성적 아코디언 펼침 상태 (실시간 갱신 시에도 유지)
+let _gradeModalOpen = false; // 성적 요약 모달이 열려 있는지 (실시간 갱신 시 재렌더용)
 // 허브 아이콘은 이미 강 번호를 원 안에 크게 보여주므로, 라벨 앞의 "24강." 같은 중복 번호는 뗀다.
 // 제목 원문에 섞인 편집 문법(**강조**, {빈칸})은 학생 화면에 텍스트로 보일 땐 떼어낸다.
 function stripEmph(t) { return String(t || '').replace(/\*\*/g, '').replace(/[{}]/g, ''); }
@@ -504,6 +491,7 @@ function renderAll() {
   renderContentsBlock();
   // 모바일 목록 모달이 열린 채 실시간 데이터가 갱신되면 모달 내용도 같이 새로고침
   if (_openListKey && document.getElementById('sectionListModal').style.display === 'flex') openSectionList(_openListKey);
+  if (_gradeModalOpen && document.getElementById('gradeSummaryModal').style.display === 'flex') renderGradeSummaryModalContent();
 }
 
 // ── 성적 체크 계산 ──
@@ -660,8 +648,6 @@ function renderGradeSummaryHTML(g) {
 
 // ── 렌더 공통 조각 ──
 const LOADING_HTML = '<div class="loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
-const CHEVRON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>';
-const CARET   = '<svg class="acc-caret" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
 const SEC_CLS    = { concept:'s-concept', mission:'s-mission', think:'s-think', contents:'s-contents' };
 const SEC_LABELS = { concept:'개념 Check', mission:'미션 Check', think:'생각 Check', contents:'각종 콘텐츠' };
 const GRADE_CAPTION = '채점 기준에 따른 실시간 점수를 제공합니다. 최종 점수는 학기말에 별도로 안내됩니다.';
@@ -691,66 +677,34 @@ function renderSections() {
   });
 }
 
-// 성적 Check (포트폴리오) — PC는 카드로 펼쳐 표시, 모바일은 전폭 아코디언 버튼
+// 성적 Check (포트폴리오) — 버튼칩, 탭하면 모달로 세부 내역 표시
 function renderGradeBlock() {
   const el = document.getElementById('gradeBlock');
   if (!menuVisible('grade')) { el.style.display = 'none'; return; }
   el.style.display = '';
   const g = sectionData.grade;
-  const summary = g === null ? LOADING_HTML : renderGradeSummaryHTML(g);
-  const caption = `<div class="grade-caption">${GRADE_CAPTION}</div>`;
-  if (isMobile()) {
-    const total = (g && g._summary && g.totalPublished > 0) ? `총점 ${g.total}점` : '';
-    el.className = 'grade-block' + (_gradeAccOpen ? ' open' : '');
-    el.innerHTML = `<button class="acc-head" type="button">
-        <span class="acc-title">성적 Check (포트폴리오)</span>
-        <span class="acc-right">${total ? `<span class="acc-total">${total}</span>` : ''}${CARET}</span>
-      </button>
-      <div class="acc-body">${summary}${caption}</div>`;
-    el.querySelector('.acc-head').onclick = () => {
-      _gradeAccOpen = !_gradeAccOpen;
-      el.classList.toggle('open', _gradeAccOpen);
-    };
-  } else {
-    el.className = 'grade-block';
-    el.innerHTML = `<div class="sec-head"><div class="sec-name">성적 Check (포트폴리오)</div></div><hr class="sec-divider"><div class="sec-body">${summary}${caption}</div>`;
-  }
+  const total = (g && g._summary && g.totalPublished > 0) ? `총점 ${g.total}점` : '';
+  el.innerHTML = `<span class="hub-chip-title">성적 Check (포트폴리오)</span>${total ? `<span class="hub-chip-value">${total}</span>` : ''}`;
+  el.onclick = openGradeSummaryModal;
 }
 
-// 역사 열공 마일리지 — PC는 누적일수 카드(탭 시 hismile 이동), 모바일은 "N일째" 버튼(탭 시 모달)
+// 역사 열공 마일리지 — 버튼칩, 탭하면 hismile 모달
 function renderMileageBlock() {
   const el = document.getElementById('mileageBlock');
   if (!menuVisible('mileage')) { el.style.display = 'none'; return; }
   el.style.display = '';
   const num = _mileageDays === null ? '…' : _mileageDays;
-  if (isMobile()) {
-    el.className = 'mileage-block';
-    el.innerHTML = `<button class="mileage-btn" type="button"><span class="acc-title">역사 열공 마일리지</span><span class="mileage-btn-days">${num}일째</span></button>`;
-    el.onclick = null;
-    el.querySelector('.mileage-btn').onclick = openMileageModal;
-  } else {
-    el.className = 'mileage-block clickable';
-    el.innerHTML = `<div class="sec-head"><div class="sec-name">역사 열공 마일리지</div></div><hr class="sec-divider">
-      <div class="mileage-body">
-        <div class="mileage-days">${num}<span class="mileage-unit">일</span></div>
-        <div class="mileage-caption">매일 꾸준히 기록해 마일리지를 쌓아요</div>
-      </div>`;
-    el.onclick = openMileageModal;
-  }
+  el.innerHTML = `<span class="hub-chip-title">역사 열공 마일리지</span><span class="hub-chip-value">${num}일째</span>`;
+  el.onclick = openMileageModal;
 }
 
-// 각종 콘텐츠 — PC는 카드+그리드, 모바일은 전폭 버튼(탭 시 목록 모달)
+// 각종 콘텐츠 — 버튼칩, 탭하면 목록 모달
 function renderContentsBlock() {
   const el = document.getElementById('contentsBlock');
   if (!menuVisible('contents')) { el.style.display = 'none'; return; }
   el.style.display = '';
-  const items = sectionData.contents;
-  if (isMobile()) {
-    el.innerHTML = `<button class="sec-launch" type="button"><span class="sec-name">각종 콘텐츠</span><span class="sec-launch-count">${CHEVRON}</span></button>`;
-    el.querySelector('.sec-launch').onclick = () => openSectionList('contents');
-  } else {
-    renderGridCard(el, '각종 콘텐츠', items);
-  }
+  el.innerHTML = `<span class="hub-chip-title">각종 콘텐츠</span>`;
+  el.onclick = () => openSectionList('contents');
 }
 
 // ── 마일리지 모달 — hismile 앱을 큰 팝업(iframe)으로 연다(데스크톱·모바일 공통) ──
@@ -763,6 +717,26 @@ function openMileageModal() {
   document.getElementById('contentAppFrame').src = url;
   document.getElementById('contentAppModal').style.display = 'flex';
 }
+
+// ── 성적 요약 모달 (성적 버튼칩 탭 시) ──
+function renderGradeSummaryModalContent() {
+  const g = sectionData.grade;
+  const summary = g === null ? LOADING_HTML : renderGradeSummaryHTML(g);
+  document.getElementById('gradeSummaryContent').innerHTML = `${summary}<div class="grade-caption">${GRADE_CAPTION}</div>`;
+}
+function openGradeSummaryModal() {
+  _gradeModalOpen = true;
+  renderGradeSummaryModalContent();
+  document.getElementById('gradeSummaryModal').style.display = 'flex';
+}
+function closeGradeSummaryModal() {
+  document.getElementById('gradeSummaryModal').style.display = 'none';
+  _gradeModalOpen = false;
+}
+document.getElementById('gradeSummaryClose').addEventListener('click', closeGradeSummaryModal);
+document.getElementById('gradeSummaryModal').addEventListener('click', e => {
+  if (e.target.id === 'gradeSummaryModal') closeGradeSummaryModal();
+});
 
 // ── 모바일 섹션 목록 모달 (개념/미션/생각/콘텐츠 런처 탭 시) ──
 function openSectionList(key) {
