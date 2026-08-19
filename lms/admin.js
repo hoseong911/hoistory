@@ -3436,9 +3436,20 @@ let _gradeRecords     = {};
 let _gradeThinkTimes  = {};
 let _gradeMissionTimes = {};
 let _gradeLessonKey   = '';
+let _gradeThinkDocId  = '';   // 현재 성적 표에 로드된 생각 체크 강의 docId (이탈 토글 즉시 반영용)
 let _gradeEnabled     = { concept: true, mission: true, think: true };
 let _publishStatus    = {};   // { classNum: boolean }
 let _currentGradeClass = null;
+
+// 생각 체크 "달성" 판정: 제출했더라도 이탈 미흡(생각 체크 탭에서 "통과" override가 아닌 경우)
+// 또는 AI 내용 미흡(조금 미흡·50자 미만)이면 달성을 해제한다. '미흡(이탈)' verdict는
+// 이탈 override로만 관리하므로 AI 미흡 판정에서 제외한다(통과로 토글하면 달성이 다시 켜지도록).
+function thinkAchieved(sub, overrideVal) {
+  const cheatFail = (sub.cheatCount || 0) >= 5 && overrideVal !== 'pass';
+  const v = sub.aiVerdict;
+  const aiFail = sub.thGraded && typeof v === 'string' && v.includes('미흡') && v !== '미흡(이탈)';
+  return !cheatFail && !aiFail;
+}
 
 async function initGradeTab() {
   // 개념 체크 강의 선택(gradeLessonSel)은 class_lessons(개념 체크에서 만든 강의)에서,
@@ -3542,6 +3553,7 @@ async function loadGradeData() {
   _gradeLessonKey = lessonNum;
 
   const thinkDocId  = document.getElementById('gradeThinkSel').value;
+  _gradeThinkDocId  = thinkDocId;
   const missionColl = document.getElementById('gradeMissionColl').value.trim();
   const conceptEnabled = !document.getElementById('gradeConceptNA').checked;
   const missionEnabled = !document.getElementById('gradeMissionNA').checked;
@@ -3603,9 +3615,7 @@ async function loadGradeData() {
 
     // 생각체크 자동감지 (제출시간 수집)
     // 제출만 했으면 "기한(onTime)"은 체크된다(제때 냈다는 뜻). "달성(achieved)"은
-    // 통과일 때만 체크되고, 아래 두 경우엔 달성만 해제한다(기한은 유지):
-    //   1) 이탈 5회 이상 — 생각 체크 탭(gradeOverrides)에서 "통과"로 되돌리면 달성이 다시 체크된다.
-    //   2) AI 채점 결과가 미흡(조금 미흡 등) — aiVerdict에 '미흡'이 들어간 경우.
+    // thinkAchieved() 규칙대로 통과일 때만 체크(이탈 미흡·AI 미흡이면 달성만 해제).
     // 아예 미제출이면 달성·기한 모두 기본값(false)으로 남는다.
     if (thinkDocId) {
       const thinkOverrides = {};
@@ -3623,9 +3633,7 @@ async function loadGradeData() {
       tSnap.docs.forEach(d => {
         const sub = d.data();
         if (!_gradeRecords[sub.id]) return;
-        const cheatFail = (sub.cheatCount || 0) >= 5 && thinkOverrides[d.id] !== 'pass';
-        const aiFail = sub.thGraded && typeof sub.aiVerdict === 'string' && sub.aiVerdict.includes('미흡');
-        _gradeRecords[sub.id].think.achieved = !cheatFail && !aiFail;
+        _gradeRecords[sub.id].think.achieved = thinkAchieved(sub, thinkOverrides[d.id]);
         // 제출했으면 기한은 체크(제때 냈다는 뜻) — 이탈·미흡이어도 유지.
         if (!savedSet.has(sub.id)) _gradeRecords[sub.id].think.onTime = true;
         const ts = sub.createdAt;
@@ -5417,7 +5425,20 @@ initAdmin();
     if (thOverrides[subId] === value) delete thOverrides[subId]; else thOverrides[subId] = value;
     await thSaveOverrides();
     thUpdateGradeSummary(); thRenderGradeBody(); window.thRenderAnswerClass();
+    thSyncGradeAchieved(subId);
   };
+
+  // 성적 표(성적 체크)가 같은 생각 체크 강의로 로드돼 있으면, 이탈 통과/미흡 토글 즉시
+  // 해당 학생의 "달성" 체크를 다시 계산해 표와 통계를 갱신한다(불러오기 다시 안 해도 됨).
+  function thSyncGradeAchieved(subId) {
+    if (!_gradeThinkDocId || _gradeThinkDocId !== thGradeCtx.lecId) return;
+    const sub = (thSubs || []).find(s => s.subId === subId);
+    const rec = sub && _gradeRecords[sub.id];
+    if (!rec || rec.absent) return;   // 결석 학생은 미달성 고정 — 건드리지 않는다.
+    rec.think.achieved = thinkAchieved(sub, thOverrides[subId]);
+    renderGradeTable();
+    renderGradeStats();
+  }
 
   // AI 채점 & 포인트 지급: 아직 채점 안 된 제출만 채점한다(채점된 학생은 고정).
   // 0점=구조적 미흡(50자 미만/이탈 5회↑), 5점=AI 조금 미흡, 10~30=AI 품질 차등.
