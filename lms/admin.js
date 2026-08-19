@@ -6012,7 +6012,12 @@ function plRender() {
     </tr>`;
 
   tbody.innerHTML = rows.length ? rows.map(r => `<tr>
-      <td class="pl-col-num"><input class="pl-input pl-label-input" data-row="${r.id}" data-field="label" value="${esc(r.label || '')}" onchange="plRowFieldChange(this)"></td>
+      <td class="pl-col-num">
+        <div class="pl-num-row">
+          <input class="pl-input pl-label-input" data-row="${r.id}" data-field="label" value="${esc(r.label || '')}" onchange="plRowFieldChange(this)">
+          <button class="pl-lec-link-btn" title="개념·생각 Check 통합 편집" onclick="plOpenLectureModal('${r.id}')">${icon('square-pen', 11)}</button>
+        </div>
+      </td>
       <td class="pl-col-topic"><div class="pl-input pl-topic-input" contenteditable="true" data-row="${r.id}" data-field="topic" data-placeholder="주제 입력" onblur="plRowFieldChange(this)" onpaste="plTopicPaste(event)">${esc(r.topic || '')}</div></td>
       ${classes.map(c => {
         const val = (r.cells && r.cells[c.id]) || '';
@@ -6027,9 +6032,12 @@ function plRender() {
 window.plRowFieldChange = function(el) {
   const r = _plData.rows.find(x => x.id === el.dataset.row);
   if (!r) return;
+  const field = el.dataset.field;
   const val = (el.isContentEditable ? el.textContent : el.value).trim();
-  r[el.dataset.field] = val;
+  r[field] = val;
   plSaveAndRender();
+  // 강의수를 입력/수정했고 주제가 비어있으면, 연결된 개념 Check 강의 제목을 자동으로 끌어온다.
+  if (field === 'label' && !r.topic) plAutoFillTopic(r.id, val);
 };
 // 주제(contenteditable)에 서식 있는 텍스트를 붙여넣어도 순수 텍스트만 들어가게 한다.
 window.plTopicPaste = function(e) {
@@ -6059,8 +6067,10 @@ window.plAddRow = function() {
   }
   const cells = {};
   _plData.classes.forEach(c => { cells[c.id] = ''; });
-  _plData.rows.push({ id: plGenId(), label, topic: '', cells });
+  const newRow = { id: plGenId(), label, topic: '', cells };
+  _plData.rows.push(newRow);
   plSaveAndRender();
+  if (label) plAutoFillTopic(newRow.id, label); // 자동 채번된 번호로 주제도 시도해서 채운다
 };
 window.plDeleteRow = function(rid) {
   const r = _plData.rows.find(x => x.id === rid);
@@ -6091,5 +6101,136 @@ window.plAutoFillNumbers = function() {
   let n = +re.exec(rows[startIdx].label.trim())[1];
   for (let i = startIdx; i < rows.length; i++) { rows[i].label = `${n}강`; n++; }
   plSaveAndRender();
+};
+
+// ── 강의수(N강) ↔ 개념 Check(class_lessons.num) / 생각 Check(think_lectures) 연결 ──
+// "24강"→"24", "OT"→"OT"처럼 강의수 라벨을 class_lessons.num/think_lectures.icon과 같은 형식의 키로 바꾼다.
+function plLectureNumKey(label) {
+  const s = (label || '').trim();
+  if (!s) return null;
+  const m = /^(\d+)\s*강$/.exec(s);
+  return m ? m[1] : s;
+}
+// 강의수에 매칭되는 개념 Check 강의 제목을, 주제가 비어있을 때만 자동으로 채운다(기존 입력은 덮어쓰지 않음).
+async function plAutoFillTopic(rowId, label) {
+  const numKey = plLectureNumKey(label);
+  if (!numKey) return;
+  try {
+    const snap = await getDocs(query(collection(db, 'class_lessons'), where('num', '==', numKey)));
+    if (snap.empty) return;
+    const title = cleanTitle(snap.docs[0].data().title || '');
+    const cur = _plData.rows.find(x => x.id === rowId); // 그 사이 사용자가 이미 주제를 입력했을 수 있어 다시 확인
+    if (cur && !cur.topic && title) { cur.topic = title; plSaveAndRender(); }
+  } catch (e) { console.warn('주제 자동 채우기 실패:', e); }
+}
+
+let _plLecCtx = { numKey: '', concept: null, think: null };
+
+// grade_lecture_config/{num}.thinkLectureDocId로 먼저 찾고(개념 Check 저장 시 자동 연결되는 표준 경로),
+// 없으면 think_lectures.icon===numKey로 한 번 더 찾는다(수동으로 만든 생각 체크 강의 대비).
+async function plFetchLinkedLectures(numKey) {
+  let concept = null, think = null;
+  try {
+    const clSnap = await getDocs(query(collection(db, 'class_lessons'), where('num', '==', numKey)));
+    if (!clSnap.empty) concept = { docId: clSnap.docs[0].id, ...clSnap.docs[0].data() };
+  } catch (e) { console.warn(e); }
+  try {
+    let linkId = '';
+    const cfgSnap = await getDoc(doc(db, 'grade_lecture_config', numKey));
+    if (cfgSnap.exists()) linkId = cfgSnap.data().thinkLectureDocId || '';
+    if (linkId) {
+      const tSnap = await getDoc(doc(db, 'think_lectures', linkId));
+      if (tSnap.exists()) think = { docId: tSnap.id, ...tSnap.data() };
+    }
+    if (!think) {
+      const tlSnap = await getDocs(query(collection(db, 'think_lectures'), where('icon', '==', numKey)));
+      if (!tlSnap.empty) think = { docId: tlSnap.docs[0].id, ...tlSnap.docs[0].data() };
+    }
+  } catch (e) { console.warn(e); }
+  return { concept, think };
+}
+
+window.plOpenLectureModal = async function(rowId) {
+  const r = _plData.rows.find(x => x.id === rowId);
+  const numKey = plLectureNumKey(r?.label);
+  if (!numKey) { alert('강의수를 먼저 입력해주세요 (예: 24강, OT).'); return; }
+  document.getElementById('plLectureTitle').textContent = `${lecTag(numKey)} 통합 편집`;
+  document.getElementById('pl-concept-fields').style.display = 'none';
+  document.getElementById('pl-concept-empty').style.display = 'none';
+  document.getElementById('pl-think-fields').style.display = 'none';
+  document.getElementById('pl-think-empty').style.display = 'none';
+  document.getElementById('plLectureBackdrop').classList.add('open');
+
+  const { concept, think } = await plFetchLinkedLectures(numKey);
+  _plLecCtx = { numKey, concept, think };
+
+  if (concept) {
+    document.getElementById('pl-concept-fields').style.display = '';
+    document.getElementById('pl-concept-title').value = cleanTitle(concept.title || '');
+    const on = concept.isOpen === true;
+    document.getElementById('pl-concept-toggle').classList.toggle('on', on);
+    document.getElementById('pl-concept-toggle-label').textContent = on ? '공개 중' : '비공개';
+  } else {
+    document.getElementById('pl-concept-empty').style.display = '';
+  }
+  if (think) {
+    document.getElementById('pl-think-fields').style.display = '';
+    document.getElementById('pl-think-question').value = think.question || '';
+    document.getElementById('pl-think-reference').value = think.reference || '';
+    const on = think.isOpen === true;
+    document.getElementById('pl-think-toggle').classList.toggle('on', on);
+    document.getElementById('pl-think-toggle-label').textContent = on ? '공개 중' : '비공개';
+  } else {
+    document.getElementById('pl-think-empty').style.display = '';
+  }
+};
+window.plCloseLectureModal = function() {
+  document.getElementById('plLectureBackdrop')?.classList.remove('open');
+};
+window.plToggleModalField = function(kind) {
+  const el = document.getElementById(`pl-${kind}-toggle`);
+  if (!el) return;
+  const on = el.classList.toggle('on');
+  document.getElementById(`pl-${kind}-toggle-label`).textContent = on ? '공개 중' : '비공개';
+};
+window.plSaveConceptFromModal = async function() {
+  if (!_plLecCtx.concept) return;
+  const title = document.getElementById('pl-concept-title').value.trim();
+  const isOpen = document.getElementById('pl-concept-toggle').classList.contains('on');
+  if (!title) { alert('제목을 입력해주세요.'); return; }
+  try {
+    await updateDoc(doc(db, 'class_lessons', _plLecCtx.concept.docId), { title, isOpen });
+    _plLecCtx.concept.title = title; _plLecCtx.concept.isOpen = isOpen;
+    alert('저장했습니다.');
+  } catch (e) { alert('저장 실패: ' + e.message); }
+};
+window.plSaveThinkFromModal = async function() {
+  if (!_plLecCtx.think) return;
+  const question = document.getElementById('pl-think-question').value.trim();
+  const reference = document.getElementById('pl-think-reference').value.trim();
+  const isOpen = document.getElementById('pl-think-toggle').classList.contains('on');
+  if (!question) { alert('질문을 입력해주세요.'); return; }
+  try {
+    await updateDoc(doc(db, 'think_lectures', _plLecCtx.think.docId), { question, reference, isOpen });
+    _plLecCtx.think.question = question; _plLecCtx.think.reference = reference; _plLecCtx.think.isOpen = isOpen;
+    alert('저장했습니다.');
+  } catch (e) { alert('저장 실패: ' + e.message); }
+};
+// "전체 편집으로 이동"은 모달을 닫고 기존 개념 Check/생각 Check 화면에서 해당 강의를 바로 연다.
+window.plGoToConceptEdit = function() {
+  if (!_plLecCtx.concept) return;
+  const num = _plLecCtx.numKey;
+  window.plCloseLectureModal();
+  if (window.dbEditLesson) window.dbEditLesson(num);
+};
+window.plGoToThinkEdit = function() {
+  if (!_plLecCtx.think) return;
+  const docId = _plLecCtx.think.docId;
+  window.plCloseLectureModal();
+  switchNav('think-question');
+  setTimeout(() => {
+    if (window.thToggleEdit) window.thToggleEdit(docId, true);
+    document.getElementById(`th-edit-${docId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 60);
 };
 
