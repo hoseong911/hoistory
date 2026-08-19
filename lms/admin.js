@@ -3589,7 +3589,17 @@ async function loadGradeData() {
     });
 
     // 생각체크 자동감지 (제출시간 수집)
+    // 이탈 5회 이상은 생각 체크 탭(gradeOverrides)에서 기본 미흡으로 판정된다.
+    // 교사가 그 탭에서 "통과"로 되돌리지 않은 이상, 여기서도 미달성으로 취급한다.
     if (thinkDocId) {
+      const thinkOverrides = {};
+      await Promise.all([1,2,3,4,5,6].map(async cls => {
+        try {
+          const ovSnap = await getDoc(doc(db, 'gradeOverrides', `${thinkDocId}_${cls}`));
+          if (ovSnap.exists()) Object.assign(thinkOverrides, ovSnap.data());
+        } catch(e) {}
+      }));
+
       const tSnap = await getDocs(query(
         collection(db, 'think_submissions'),
         where('lectureDocId', '==', thinkDocId)
@@ -3597,8 +3607,9 @@ async function loadGradeData() {
       tSnap.docs.forEach(d => {
         const sub = d.data();
         if (!_gradeRecords[sub.id]) return;
-        _gradeRecords[sub.id].think.achieved = true;
-        if (!savedSet.has(sub.id)) _gradeRecords[sub.id].think.onTime = true;
+        const cheatFail = (sub.cheatCount || 0) >= 5 && thinkOverrides[d.id] !== 'pass';
+        _gradeRecords[sub.id].think.achieved = !cheatFail;
+        if (!savedSet.has(sub.id)) _gradeRecords[sub.id].think.onTime = !cheatFail;
         const ts = sub.createdAt;
         if (ts) _gradeThinkTimes[sub.id] = ts.toDate ? ts.toDate() : new Date(ts);
       });
