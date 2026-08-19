@@ -22,6 +22,9 @@ import { CLAUDE_PROXY_URL, kstDate } from '../shared/util.js';
 function showAdminView() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('adminView').style.display = 'flex';
+  // 메뉴 전환이 URL을 안 바꿔서 브라우저 히스토리에 아무것도 안 남던 문제 보완: 최초 진입 상태를
+  // 히스토리에 하나 심어둔다(switchNav가 그 위에 쌓아가고, 뒤로가기는 popstate로 되짚어간다).
+  try { history.replaceState({ nav: (typeof _currentNav !== 'undefined' && _currentNav) || 'dashboard' }, '', location.href); } catch (e) {}
 }
 function showLoginView() {
   document.getElementById('adminView').style.display = 'none';
@@ -251,7 +254,7 @@ function closeAdmDrawer() {
   document.getElementById('admSidebarScrim')?.classList.remove('open');
 }
 
-function switchNav(nav) {
+function switchNav(nav, fromHistory) {
   // 웹앱 어드민 iframe이 열려있는 상태에서 다른 메뉴로 이동하면 오버레이부터 닫는다.
   const overlay = document.getElementById('app-admin-overlay');
   if (overlay && overlay.classList.contains('open')) window.closeAppAdmin();
@@ -330,7 +333,16 @@ function switchNav(nav) {
   _currentNav = nav; _currentPanelId = panelId;
   applyMobileGate(panelId, nav);
   closeAdmDrawer();
+
+  // 메뉴 클릭으로 들어온 이동만 히스토리에 쌓는다(popstate로 되짚어온 이동은 다시 쌓지 않음) —
+  // 이래야 "개념 Check → 생각 Check → 뒤로가기"가 로그인 화면이 아니라 개념 Check로 돌아간다.
+  if (!fromHistory) { try { history.pushState({ nav }, '', location.href); } catch (e) {} }
 }
+
+window.addEventListener('popstate', e => {
+  const nav = e.state && e.state.nav;
+  if (nav) switchNav(nav, true);
+});
 
 // 사이드바의 미션 체크 서브메뉴에서 특정 웹앱 어드민을 바로 열 때: 카드 목록 패널로
 // 이동한 뒤(switchNav) 그 자리에서 곧바로 오버레이를 띄우고, 클릭한 서브메뉴 항목만 active로 표시한다.

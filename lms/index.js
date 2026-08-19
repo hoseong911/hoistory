@@ -482,7 +482,7 @@ function renderAll() {
   renderMileageBlock();
   renderContentsBlock();
   // 모바일 목록 모달이 열린 채 실시간 데이터가 갱신되면 모달 내용도 같이 새로고침
-  if (_openListKey && document.getElementById('sectionListModal').style.display === 'flex') openSectionList(_openListKey);
+  if (_openListKey && document.getElementById('sectionListModal').style.display === 'flex') openSectionList(_openListKey, true);
   if (_gradeModalOpen && document.getElementById('gradeSummaryModal').style.display === 'flex') renderGradeSummaryModalContent();
 }
 
@@ -791,7 +791,10 @@ document.getElementById('gradeSummaryModal').addEventListener('click', e => {
 });
 
 // ── 모바일 섹션 목록 모달 (개념/미션/생각/콘텐츠 런처 탭 시) ──
-function openSectionList(key) {
+// 예전엔 이 모달을 열어도 브라우저 히스토리에 아무것도 안 남아서, 뒤로가기를 누르면 모달이
+// 안 닫히고 로그인 화면까지 나가버렸다. 열 때 히스토리를 하나 쌓고(fromHistory=true면 재렌더용이라
+// 다시 안 쌓음), 뒤로가기(popstate)로 그 항목을 지나치면 모달을 닫도록 맞춰준다.
+function openSectionList(key, fromHistory) {
   _openListKey = key;
   const items = sectionData[key];
   document.getElementById('sectionListTitle').textContent = SEC_LABELS[key] || '';
@@ -803,14 +806,25 @@ function openSectionList(key) {
     fillIconGrid(body.querySelector('.icon-grid'), items);
   }
   document.getElementById('sectionListModal').style.display = 'flex';
+  if (!fromHistory) { try { history.pushState({ sectionList: key }, '', location.href); } catch (e) {} }
 }
 function closeSectionList() {
   document.getElementById('sectionListModal').style.display = 'none';
   _openListKey = null;
+  // 열 때 쌓아둔 히스토리 항목을 정리한다 — 안 지우면 뒤로가기를 한 번 더 눌러야 이 모달을 지나간다.
+  if (history.state && history.state.sectionList) { try { history.back(); } catch (e) {} }
 }
 document.getElementById('sectionListClose').addEventListener('click', closeSectionList);
 document.getElementById('sectionListModal').addEventListener('click', e => {
   if (e.target.id === 'sectionListModal') closeSectionList();
+});
+window.addEventListener('popstate', e => {
+  const key = e.state && e.state.sectionList;
+  if (key) openSectionList(key, true);
+  else if (document.getElementById('sectionListModal').style.display === 'flex') {
+    document.getElementById('sectionListModal').style.display = 'none';
+    _openListKey = null;
+  }
 });
 
 function fillIconGrid(container, items) {
