@@ -6102,6 +6102,23 @@ window.plAutoFillNumbers = function() {
   for (let i = startIdx; i < rows.length; i++) { rows[i].label = `${n}강`; n++; }
   plSaveAndRender();
 };
+// 모든 행의 주제를 지우고, 강의수(N강)에 매칭되는 개념 Check 강의 제목으로 다시 채운다.
+// 매칭되는 강의가 없으면 빈칸으로 둔다(직접 입력했던 임의 주제는 여기서 전부 지워짐에 유의).
+window.plRefillTopics = async function() {
+  if (!_plData.rows.length) return;
+  if (!confirm('모든 행의 주제를 지우고, 현재 만들어진 개념 Check 강의 제목으로 다시 채울까요?\n연결된 강의가 없는 행은 빈칸으로 남습니다.')) return;
+  let lessonsByNum = {};
+  try {
+    const snap = await getDocs(collection(db, 'class_lessons'));
+    snap.docs.forEach(d => { const v = d.data(); if (v.num != null) lessonsByNum[String(v.num)] = v; });
+  } catch (e) { alert('강의 목록을 불러오지 못했습니다: ' + e.message); return; }
+  _plData.rows.forEach(r => {
+    const numKey = plLectureNumKey(r.label);
+    const lesson = numKey ? lessonsByNum[numKey] : null;
+    r.topic = lesson ? cleanTitle(lesson.title || '') : '';
+  });
+  plSaveAndRender();
+};
 
 // ── 강의수(N강) ↔ 개념 Check(class_lessons.num) / 생각 Check(think_lectures) 연결 ──
 // "24강"→"24", "OT"→"OT"처럼 강의수 라벨을 class_lessons.num/think_lectures.icon과 같은 형식의 키로 바꾼다.
