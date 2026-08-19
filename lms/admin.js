@@ -6013,7 +6013,7 @@ function plRender() {
 
   tbody.innerHTML = rows.length ? rows.map(r => `<tr>
       <td class="pl-col-num"><input class="pl-input pl-label-input" data-row="${r.id}" data-field="label" value="${esc(r.label || '')}" onchange="plRowFieldChange(this)"></td>
-      <td class="pl-col-topic"><textarea class="pl-input pl-topic-input" rows="2" data-row="${r.id}" data-field="topic" onchange="plRowFieldChange(this)">${esc(r.topic || '')}</textarea></td>
+      <td class="pl-col-topic"><div class="pl-input pl-topic-input" contenteditable="true" data-row="${r.id}" data-field="topic" data-placeholder="주제 입력" onblur="plRowFieldChange(this)" onpaste="plTopicPaste(event)">${esc(r.topic || '')}</div></td>
       ${classes.map(c => {
         const val = (r.cells && r.cells[c.id]) || '';
         const status = plCellStatus(val, today);
@@ -6027,8 +6027,15 @@ function plRender() {
 window.plRowFieldChange = function(el) {
   const r = _plData.rows.find(x => x.id === el.dataset.row);
   if (!r) return;
-  r[el.dataset.field] = el.value.trim();
+  const val = (el.isContentEditable ? el.textContent : el.value).trim();
+  r[el.dataset.field] = val;
   plSaveAndRender();
+};
+// 주제(contenteditable)에 서식 있는 텍스트를 붙여넣어도 순수 텍스트만 들어가게 한다.
+window.plTopicPaste = function(e) {
+  e.preventDefault();
+  const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+  document.execCommand('insertText', false, text);
 };
 window.plClassFieldChange = function(el) {
   const c = _plData.classes.find(x => x.id === el.dataset.cls);
