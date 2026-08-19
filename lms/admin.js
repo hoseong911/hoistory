@@ -212,7 +212,7 @@ const MOBILE_PC_ONLY = new Set([
   'panel-think-question','panel-grade-setting','panel-contents',
   'panel-archive-cards','panel-archive-category','panel-archive-add',
   'panel-students','panel-settings-system','panel-settings-student',
-  'panel-xp-settings'
+  'panel-xp-settings','panel-progress'
 ]);
 const PANEL_LABELS = {
   'panel-concept-content':'개념 Check · CONTENT','panel-concept-design':'개념 Check · DESIGN',
@@ -221,7 +221,7 @@ const PANEL_LABELS = {
   'panel-archive-cards':'아카이브 · CARDS','panel-archive-category':'아카이브 · CATEGORY',
   'panel-archive-add':'아카이브 · ADD','panel-students':'학생 관리',
   'panel-settings-system':'설정 · SYSTEM','panel-settings-student':'설정 · STUDENT',
-  'panel-xp-settings':'경험치 · 설정'
+  'panel-xp-settings':'경험치 · 설정','panel-progress':'진도'
 };
 const _mobileForced = new Set(); // 사용자가 '그래도 열기'로 통과시킨 패널
 let _currentNav = 'dashboard', _currentPanelId = 'panel-dashboard';
@@ -323,6 +323,7 @@ function switchNav(nav) {
   if (panelId === 'panel-xp-ranking'  && typeof xpLoadStatus         === 'function') xpLoadStatus();
   if (panelId === 'panel-settings-system' && typeof stRenderTestIds  === 'function') stRenderTestIds();
   if (panelId === 'panel-xp-settings' && typeof xpLoadSettings       === 'function') xpLoadSettings();
+  if (panelId === 'panel-progress'    && typeof plLoad               === 'function') plLoad();
   if (panelId === 'panel-dashboard') dbLoad();
 
   // 모바일: 저작 패널이면 안내 카드로 대체(강제 열기 전까지), 그리고 열린 드로어를 닫는다.
@@ -5882,4 +5883,195 @@ async function xpManualLogLoad() {
     return `<tr><td style="font-size:12px;color:var(--slate)">${dt}</td><td>${r.sid}</td><td>${r.name}</td><td style="font-weight:700;color:${r.pt>0?'var(--success)':'var(--critical)'}">${sign}${r.pt}</td><td style="font-size:12px">${r.note||''}</td></tr>`;
   }).join('') || '<tr><td colspan="5" style="color:var(--slate);padding:16px;font-size:13px">내역 없음</td></tr>';
 }
+
+// ══ 진도 계획 (class_progress/plan, Firestore 단일 문서) ══
+// rows: [{id,label,topic,cells:{classId:'M/D',...}}], classes: [{id,name,schedule}]
+// 셀 강조는 저장하지 않고, 화면에 그릴 때마다 오늘(KST) 날짜와 비교해서 매번 새로 계산한다.
+let _plData = { classes: [], rows: [] };
+
+function plGenId() { return 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+function plDefaultData() {
+  const classes = [
+    { id: 'c1', name: '1반', schedule: '수1, 목5' },
+    { id: 'c2', name: '2반', schedule: '수5, 금3' },
+    { id: 'c3', name: '3반', schedule: '수6, 금1' },
+    { id: 'c4', name: '4반', schedule: '수3, 목2' },
+    { id: 'c5', name: '5반', schedule: '목4, 금6' },
+    { id: 'c6', name: '6반', schedule: '목1, 금4' },
+  ];
+  const raw = [
+    ['OT',  '2학기 수업 안내',        ['8/19','8/19','8/18','8/19','8/20','8/20']],
+    ['24강','조선 초기',              ['8/20','8/21','8/21','8/20','8/21','8/21']],
+    ['25강','조선 전기 제도',          ['8/26','8/26','8/26','8/26','8/27','8/27']],
+    ['26강','조선 전기 대외관계',       ['8/27','8/28','8/28','8/27','8/28','8/28']],
+    ['27강','수행1',                 ['9/2','9/2','9/2','9/2','9/3','9/3']],
+    ['28강','사림의 정치적 성장',       ['9/3','9/4','9/4','9/3','9/4','9/4']],
+    ['29강','사림의 정치적 성장2',      ['9/9','9/9','9/9','9/9','9/10','9/10']],
+    ['30강','수행2',                 ['9/10','9/11','9/11','9/10','9/11','9/11']],
+    ['31강','왜란',                  ['9/16','9/16','9/16','9/16','9/17','9/17']],
+    ['32강','호란',                  ['9/17','9/18','9/18','9/17','9/18','9/18']],
+    ['33강','수행3',                 ['9/30','9/30','9/30','9/30','10/1','10/1']],
+    ['34강','조선 후기 변화',          ['10/1','10/2','10/2','10/1','10/2','10/2']],
+    ['35강','영조 정조',              ['10/7','10/7','10/7','10/7','10/8','10/8']],
+    ['36강','세도 정치와 농민봉기',      ['10/8','10/14','10/14','10/14','10/8','10/15']],
+    ['37강','수행4',                 ['10/14','10/21','10/28','10/15','10/15','10/22']],
+    ['38강','경제적 변화',            ['10/15','10/28','10/30','10/21','10/22','10/29']],
+    ['39강','조선의 문화와 사상',       ['10/21','10/30','','10/22','10/29','10/30']],
+    ['40강','',                     ['10/22','','','10/28','10/29','']],
+    ['41강','',                     ['10/28','','','10/29','','']],
+    ['42강','',                     ['10/29','','','','','']],
+  ];
+  const rows = raw.map(([label, topic, dates]) => {
+    const cells = {};
+    classes.forEach((c, i) => { cells[c.id] = dates[i] || ''; });
+    return { id: plGenId(), label, topic, cells };
+  });
+  return { classes, rows };
+}
+
+// "M/D" 문자열을 오늘(today)과 가장 가까운 연도로 해석한다(학기가 연말을 넘어가도 자연스럽게 맞음).
+function plResolveDate(mmdd, today) {
+  const mt = /^(\d{1,2})\s*\/\s*(\d{1,2})$/.exec((mmdd || '').trim());
+  if (!mt) return null;
+  const m = +mt[1], d = +mt[2];
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const ty = today.getFullYear();
+  let best = null;
+  [ty - 1, ty, ty + 1].forEach(yy => {
+    const cand = new Date(yy, m - 1, d);
+    const diff = Math.abs(cand - today);
+    if (!best || diff < best.diff) best = { date: cand, diff };
+  });
+  return best.date;
+}
+function plToday() {
+  const [y, m, d] = kstDate().split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+// 'past' | 'today' | 'future' | 'none'(빈 값/입력 형식 오류)
+function plCellStatus(mmdd, today) {
+  const resolved = plResolveDate(mmdd, today);
+  if (!resolved) return 'none';
+  if (resolved.getTime() === today.getTime()) return 'today';
+  return resolved < today ? 'past' : 'future';
+}
+
+async function plLoad() {
+  const snap = await getDoc(doc(db, 'class_progress', 'plan'));
+  if (snap.exists()) {
+    const data = snap.data() || {};
+    _plData = { classes: data.classes || [], rows: data.rows || [] };
+  } else {
+    _plData = plDefaultData();
+    await setDoc(doc(db, 'class_progress', 'plan'), _plData);
+  }
+  plRender();
+}
+
+async function plSaveAndRender() {
+  plRender();
+  try { await setDoc(doc(db, 'class_progress', 'plan'), _plData); }
+  catch (e) { alert('저장 실패: ' + e.message); }
+}
+
+function plRender() {
+  const thead = document.getElementById('pl-thead');
+  const tbody = document.getElementById('pl-body');
+  if (!thead || !tbody) return;
+  const { classes, rows } = _plData;
+  const today = plToday();
+
+  thead.innerHTML = `
+    <tr>
+      <th rowspan="2">강의</th>
+      <th rowspan="2">주제</th>
+      ${classes.map(c => `<th>
+          <div class="pl-cls-th-row">
+            <input class="pl-cls-name" data-cls="${c.id}" data-field="name" value="${esc(c.name || '')}" onchange="plClassFieldChange(this)">
+            <button class="stu-btn stu-btn-del" style="padding:3px 5px" title="반 삭제" onclick="plDeleteClass('${c.id}')">${icon('x', 12)}</button>
+          </div>
+        </th>`).join('')}
+      <th rowspan="2">관리</th>
+    </tr>
+    <tr>
+      ${classes.map(c => `<th style="font-weight:400">
+          <input class="pl-cls-schedule-input" data-cls="${c.id}" data-field="schedule" value="${esc(c.schedule || '')}" placeholder="요일" onchange="plClassFieldChange(this)">
+        </th>`).join('')}
+    </tr>`;
+
+  tbody.innerHTML = rows.length ? rows.map(r => `<tr>
+      <td><input class="pl-input pl-label-input" data-row="${r.id}" data-field="label" value="${esc(r.label || '')}" onchange="plRowFieldChange(this)"></td>
+      <td><input class="pl-input" data-row="${r.id}" data-field="topic" value="${esc(r.topic || '')}" onchange="plRowFieldChange(this)"></td>
+      ${classes.map(c => {
+        const val = (r.cells && r.cells[c.id]) || '';
+        const status = plCellStatus(val, today);
+        const cellCls = status === 'today' ? 'pl-date-cell is-today' : status === 'past' ? 'pl-date-cell is-past' : 'pl-date-cell';
+        return `<td class="${cellCls}"><input class="pl-input" data-row="${r.id}" data-cls="${c.id}" value="${esc(val)}" placeholder="M/D" onchange="plCellChange(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>`;
+      }).join('')}
+      <td><button class="stu-btn stu-btn-del" title="삭제" onclick="plDeleteRow('${r.id}')">${icon('trash-2', 14)}</button></td>
+    </tr>`).join('') : `<tr><td colspan="${classes.length + 3}" style="color:var(--slate);padding:24px;font-size:13px">강의를 추가해주세요.</td></tr>`;
+}
+
+window.plRowFieldChange = function(el) {
+  const r = _plData.rows.find(x => x.id === el.dataset.row);
+  if (!r) return;
+  r[el.dataset.field] = el.value.trim();
+  plSaveAndRender();
+};
+window.plClassFieldChange = function(el) {
+  const c = _plData.classes.find(x => x.id === el.dataset.cls);
+  if (!c) return;
+  c[el.dataset.field] = el.value.trim();
+  plSaveAndRender();
+};
+window.plCellChange = function(el) {
+  const r = _plData.rows.find(x => x.id === el.dataset.row);
+  if (!r) return;
+  r.cells = r.cells || {};
+  r.cells[el.dataset.cls] = el.value.trim();
+  plSaveAndRender();
+};
+window.plAddRow = function() {
+  const last = _plData.rows[_plData.rows.length - 1];
+  let label = '';
+  if (last) {
+    const mt = /^(\d+)\s*강$/.exec((last.label || '').trim());
+    if (mt) label = `${+mt[1] + 1}강`;
+  }
+  const cells = {};
+  _plData.classes.forEach(c => { cells[c.id] = ''; });
+  _plData.rows.push({ id: plGenId(), label, topic: '', cells });
+  plSaveAndRender();
+};
+window.plDeleteRow = function(rid) {
+  const r = _plData.rows.find(x => x.id === rid);
+  const label = [r?.label, r?.topic].filter(Boolean).join(' ');
+  if (!confirm(`"${label}" 행을 삭제할까요?`)) return;
+  _plData.rows = _plData.rows.filter(x => x.id !== rid);
+  plSaveAndRender();
+};
+window.plAddClass = function() {
+  const id = plGenId();
+  _plData.classes.push({ id, name: `${_plData.classes.length + 1}반`, schedule: '' });
+  _plData.rows.forEach(r => { r.cells = r.cells || {}; r.cells[id] = ''; });
+  plSaveAndRender();
+};
+window.plDeleteClass = function(cid) {
+  const c = _plData.classes.find(x => x.id === cid);
+  if (!confirm(`"${c?.name || ''}" 열을 삭제할까요? 이 반의 진도 기록도 함께 삭제됩니다.`)) return;
+  _plData.classes = _plData.classes.filter(x => x.id !== cid);
+  _plData.rows.forEach(r => { if (r.cells) delete r.cells[cid]; });
+  plSaveAndRender();
+};
+// 처음으로 "N강" 형식인 행을 찾아 그 행부터 끝까지 번호를 1씩 증가시키며 다시 채운다(그 앞 행은 그대로 둠).
+window.plAutoFillNumbers = function() {
+  const rows = _plData.rows;
+  const re = /^(\d+)\s*강$/;
+  const startIdx = rows.findIndex(r => re.test((r.label || '').trim()));
+  if (startIdx === -1) { alert('먼저 "N강" 형식의 강의수를 하나 입력한 뒤 눌러주세요.'); return; }
+  let n = +re.exec(rows[startIdx].label.trim())[1];
+  for (let i = startIdx; i < rows.length; i++) { rows[i].label = `${n}강`; n++; }
+  plSaveAndRender();
+};
 
