@@ -4530,12 +4530,6 @@ initAdmin();
   let stuEditingId = null;
   let stuClsFilter = '';
 
-  function stuParseClass(sid) {
-    if (!sid || sid.length < 3) return null;
-    const g = sid[0], c = parseInt(sid.slice(1, 3), 10);
-    return isNaN(c) ? null : `${g}학년 ${c}반`;
-  }
-
   // 학반 태그(1~6반) 필터용 — 학년은 무시하고 학번 2~3번째 자리(반 번호)만 비교한다.
   function stuClassNum(sid) {
     if (!sid || sid.length < 3) return null;
@@ -4575,13 +4569,11 @@ initAdmin();
       return;
     }
     if (empty) empty.style.display = 'none';
-    tbody.innerHTML = filtered.map((s, i) => {
+    tbody.innerHTML = filtered.map(s => {
       if (stuEditingId === s.studentId) {
         return `<tr>
-          <td style="color:var(--sub)">${i+1}</td>
           <td><input class="stu-edit-input" id="stu-edit-id" value="${stuEsc(s.studentId)}" maxlength="5" inputmode="numeric"></td>
           <td><input class="stu-edit-input" id="stu-edit-name" value="${stuEsc(s.studentName)}" onkeydown="if(event.key==='Enter') stuSaveEdit('${stuEsc(s.studentId)}','${stuEsc(s._key)}')"></td>
-          <td class="stu-td-cls">${stuParseClass(s.studentId)||'—'}</td>
           <td><div class="stu-actions">
             <button class="stu-btn stu-btn-save" onclick="stuSaveEdit('${stuEsc(s.studentId)}','${stuEsc(s._key)}')">저장</button>
             <button class="stu-btn stu-btn-cancel" onclick="stuCancelEdit()">취소</button>
@@ -4589,10 +4581,8 @@ initAdmin();
         </tr>`;
       }
       return `<tr>
-        <td style="color:var(--sub);font-size:13px">${i+1}</td>
         <td class="stu-td-id">${stuEsc(s.studentId)}</td>
         <td style="font-weight:600">${stuEsc(s.studentName)}</td>
-        <td class="stu-td-cls">${stuParseClass(s.studentId)||'—'}</td>
         <td><div class="stu-actions">
           <button class="stu-btn stu-btn-edit" onclick="stuStartEdit('${stuEsc(s.studentId)}')">수정</button>
           <button class="stu-btn stu-btn-edit" onclick="stuResetPassword('${stuEsc(s.studentId)}','${stuEsc(s.studentName)}')" title="비밀번호 초기화">PW 초기화</button>
@@ -5140,11 +5130,13 @@ initAdmin();
   function thBuildAnswerCard(data, showMeta) {
     const isPicked = data.isPicked;
     const time = thFmtSubTime(data.createdAt);
-    const meta = `${data.textLength||0}자${time?` · ${time} 제출`:''}`;
+    const metaParts = [time ? `${time} 제출` : '', `${data.textLength||0}자`];
+    if (data.cheatCount) metaParts.push(`이탈 ${data.cheatCount}회`);
+    const meta = metaParts.filter(Boolean).join(' ｜ ');
     return `
       <div class="th-answer-card">
         <div class="th-student-row">
-          <span class="th-student-name">${thEsc(data.id)} ${thEsc(data.name)} <span class="th-student-meta">${meta}</span></span>
+          <span class="th-student-name">${thEsc(data.id)} ${thEsc(data.name)} <span class="th-student-meta">｜ ${meta}</span></span>
           <div class="th-answer-actions">
             <button class="edit-btn" style="${isPicked?'background:var(--c3-l);color:var(--c3)':''}" onclick="thTogglePick('${data.subId}')" title="PICK">★</button>
             <button class="del-btn" onclick="thDeleteSub('${data.subId}')">삭제</button>
