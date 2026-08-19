@@ -4287,6 +4287,7 @@ function renderGradePublishBar(classNum) {
   statusEl.className = `grade-publish-status-lbl ${published ? 'published' : 'unpublished'}`;
 
   btn.style.display = '';
+  btn.disabled = false; // 다른 반을 반영/취소한 뒤 탭을 옮겨와도 이 버튼은 항상 눌러진 상태로 시작해야 한다
   btn.className = published ? 'btn-unpublish' : 'btn-publish';
   btn.textContent = published ? '반영 취소' : '성적 반영하기';
   btn.onclick = () => published ? unpublishClassGrades(classNum) : publishClassGrades(classNum);
@@ -4350,6 +4351,7 @@ async function publishClassGrades(classNum) {
     alert(`${classNum}반 성적 반영 완료!`);
   } catch(e) {
     alert('반영 실패: ' + e.message);
+    renderGradePublishBar(classNum); // 실패해도 버튼을 다시 눌러진 상태로 되돌린다
   }
 }
 
@@ -4384,6 +4386,7 @@ async function unpublishClassGrades(classNum) {
     alert(`${classNum}반 성적 반영 취소 완료.`);
   } catch(e) {
     alert('취소 실패: ' + e.message);
+    renderGradePublishBar(classNum); // 실패해도 버튼을 다시 눌러진 상태로 되돌린다
   }
 }
 
