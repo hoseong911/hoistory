@@ -5631,13 +5631,37 @@ window.xpRenderStatus = function() {
       ? `<span style="font-weight:700;color:var(--slate)">${rank}${sharedRanks.has(rank) ? '<span style="font-size:11px;color:var(--stone)"> 공동</span>' : ''}</span>`
       : '-';
     return `<tr>
-      <td>${rankCell}</td><td>${sid}</td><td>${s.name || ''}</td>
+      <td>${rankCell}</td><td>${sid}</td><td><span class="stu-name-link" onclick="xpOpenHistory('${esc(sid)}','${esc(s.name||'')}')">${s.name || ''}</span></td>
       <td><span style="font-weight:700;color:var(--amber-d)">Lv.${lv}</span></td>
       <td style="font-weight:700">${(s.total||0).toLocaleString()} pt</td>
       <td style="font-size:12px;color:var(--slate)">${lastAct}</td>
       <td><button class="stu-btn stu-btn-del" onclick="xpResetStudent('${esc(sid)}','${esc(s.name||'')}')">초기화</button></td>
     </tr>`;
   }).join('');
+};
+
+// ── 학생별 경험치 적립 기록 모달 ──
+window.xpOpenHistory = function(sid, name) {
+  const s = _xpStuAll[sid] || {};
+  const hist = Object.values(s.history || {});
+  hist.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  const title = document.getElementById('xpHistoryTitle');
+  if (title) title.textContent = `${name || s.name || sid} (${sid}) · 경험치 기록`;
+  const tbody = document.getElementById('xp-history-body');
+  if (tbody) {
+    tbody.innerHTML = hist.length ? hist.map(h => {
+      const d = new Date(h.ts || 0);
+      const dt = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      const label = ACT_LABELS[h.type] || (h.type === 'manual' ? '수동 조정' : (h.type || '-'));
+      const sign  = h.pt > 0 ? '+' : '';
+      const color = h.pt > 0 ? 'var(--success)' : (h.pt < 0 ? 'var(--critical)' : 'var(--text)');
+      return `<tr><td style="font-size:12px;color:var(--slate)">${dt}</td><td>${label}</td><td style="font-weight:700;color:${color}">${sign}${h.pt||0}</td><td style="font-size:12px">${h.note||''}</td></tr>`;
+    }).join('') : '<tr><td colspan="4" style="color:var(--slate);padding:20px;font-size:13px">기록이 없습니다.</td></tr>';
+  }
+  document.getElementById('xpHistoryBackdrop')?.classList.add('open');
+};
+window.xpCloseHistory = function() {
+  document.getElementById('xpHistoryBackdrop')?.classList.remove('open');
 };
 
 // ── 초기화(개별/전체) ──
