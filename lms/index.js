@@ -333,6 +333,67 @@ async function _fetchXPRows() {
   return Object.values(snap.val()).sort((a, b) => (b.ts || 0) - (a.ts || 0));
 }
 
+// ── 경험치 랭킹 (어드민 xpBuildRanking과 동일한 동률 규칙 + 테스트 학생 제외) ──
+let _rankTestIds = null;
+async function _loadRankTestIds() {
+  if (_rankTestIds) return _rankTestIds;
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'lms_config'));
+    const arr = snap.exists() ? (snap.data().testStudentIds || []) : [];
+    _rankTestIds = new Set(arr.map(x => String(x).trim()));
+  } catch { _rankTestIds = new Set(); }
+  return _rankTestIds;
+}
+function _xpTieMetric(s) {
+  const h = (s && s.history) || {};
+  let think = 0, mileage = 0, attendDays = 0, review = 0;
+  Object.values(h).forEach(e => {
+    if (!e) return;
+    const pt = e.pt || 0;
+    if (e.type === 'mileage') mileage += pt;
+    else if (e.type === 'attendance') attendDays += 1;
+    else if (e.type === 'typingReview') review += pt;
+    else if (e.type === 'manual' && typeof e.note === 'string' && e.note.startsWith('생각 체크')) think += pt;
+  });
+  return { think, mileage, attendDays, review };
+}
+function _xpSameRank(a, b) {
+  return (a.data.total || 0) === (b.data.total || 0)
+    && a.m.think === b.m.think && a.m.mileage === b.m.mileage
+    && a.m.attendDays === b.m.attendDays && a.m.review === b.m.review;
+}
+function _xpBuildRanking(studentsObj, testIds) {
+  const list = Object.entries(studentsObj)
+    .filter(([sid]) => !testIds.has(String(sid).trim()))
+    .map(([sid, data]) => ({ sid, data: data || {}, m: _xpTieMetric(data || {}) }));
+  list.sort((a, b) => {
+    if ((b.data.total || 0) !== (a.data.total || 0)) return (b.data.total || 0) - (a.data.total || 0);
+    if (b.m.think !== a.m.think) return b.m.think - a.m.think;
+    if (b.m.mileage !== a.m.mileage) return b.m.mileage - a.m.mileage;
+    if (b.m.attendDays !== a.m.attendDays) return b.m.attendDays - a.m.attendDays;
+    if (b.m.review !== a.m.review) return b.m.review - a.m.review;
+    return a.sid.localeCompare(b.sid, undefined, { numeric: true });
+  });
+  let prev = null;
+  list.forEach((e, i) => { e.rank = (prev && _xpSameRank(prev, e)) ? prev.rank : i + 1; prev = e; });
+  return list;
+}
+async function _updateRankStat() {
+  const el = document.getElementById('xpHistRank');
+  if (!el) return;
+  try {
+    const testIds = await _loadRankTestIds();
+    if (testIds.has(String(currentStudentId).trim())) { el.textContent = '현재 랭킹 순위 제외'; return; }
+    const snap = await rtdbGet(rtdbRef(rtdb, 'xp/students'));
+    const all  = snap.exists() ? (snap.val() || {}) : {};
+    const ranked = _xpBuildRanking(all, testIds);
+    const mine   = ranked.find(e => e.sid === String(currentStudentId));
+    if (!mine) { el.textContent = '현재 랭킹 -'; return; }
+    const shared = ranked.filter(e => e.rank === mine.rank).length > 1;
+    el.textContent = `현재 랭킹 ${shared ? '공동 ' : ''}${mine.rank}위 / ${ranked.length}명`;
+  } catch (e) { el.textContent = '현재 랭킹 -'; }
+}
+
 function _xpItemHTML(r) {
   const d  = new Date(r.ts || 0);
   const dt = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
@@ -355,6 +416,7 @@ function _xpItemHTML(r) {
 async function _openXPHistory() {
   const modal = document.getElementById('xpHistoryModal');
   modal.classList.add('open');
+  _updateRankStat();
   const list = document.getElementById('xpHistList');
   list.innerHTML = '<div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">로딩 중...</div>';
   try {
@@ -542,9 +604,10 @@ async function loadStudentGrade() {
       if (en.think)   { tN++; if (r?.think?.achieved)   tA++; }
       lectureDetails.push({
         key, title: titleMap[key],
-        concept: { achieved: en.concept && !!(r?.concept?.achieved), enabled: en.concept },
-        mission: { achieved: en.mission && !!(r?.mission?.achieved), enabled: en.mission },
-        think:   { achieved: en.think   && !!(r?.think?.achieved),   enabled: en.think   },
+        // 각 항목은 체크 2개(달성 achieved + 기한 onTime)
+        concept: { achieved: en.concept && !!(r?.concept?.achieved), onTime: en.concept && !!(r?.concept?.onTime), enabled: en.concept },
+        mission: { achieved: en.mission && !!(r?.mission?.achieved), onTime: en.mission && !!(r?.mission?.onTime), enabled: en.mission },
+        think:   { achieved: en.think   && !!(r?.think?.achieved),   onTime: en.think   && !!(r?.think?.onTime),   enabled: en.think   },
         feedback: r?.feedback || '',
       });
     });
@@ -1184,14 +1247,19 @@ function resolveAppUrl(u) {
 window.openGradeDetail = function() {
   const g = sectionData.grade;
   if (!g || !g.lectureDetails || !g.lectureDetails.length) return;
-  const ok  = s => `<span class="gd-ok">●</span>`;
-  const no  = s => `<span class="gd-no">✗</span>`;
-  const na  = ()  => `<span class="gd-na">미실시</span>`;
+  // 항목별 체크 2개(달성+기한): 둘 다 ● / 하나 △ / 없음 ✗ / 미실시 –
+  const mark = c => {
+    if (!c.enabled) return `<span class="gd-na">–</span>`;
+    const n = (c.achieved ? 1 : 0) + (c.onTime ? 1 : 0);
+    return n >= 2 ? `<span class="gd-ok">●</span>`
+         : n === 1 ? `<span class="gd-half">△</span>`
+         : `<span class="gd-no">✗</span>`;
+  };
   const rows = g.lectureDetails.map(d => `<tr>
-    <td>${esc(stripEmph(d.title))}</td>
-    <td>${d.concept.enabled ? (d.concept.achieved ? ok() : no()) : na()}</td>
-    <td>${d.mission.enabled ? (d.mission.achieved ? ok() : no()) : na()}</td>
-    <td>${d.think.enabled   ? (d.think.achieved   ? ok() : no()) : na()}</td>
+    <td>${esc(String(d.key))}</td>
+    <td>${mark(d.concept)}</td>
+    <td>${mark(d.mission)}</td>
+    <td>${mark(d.think)}</td>
   </tr>`).join('');
   document.getElementById('gradeDetailContent').innerHTML = `
     <table class="gd-table">
