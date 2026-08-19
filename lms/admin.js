@@ -4584,9 +4584,9 @@ initAdmin();
         <td class="stu-td-id">${stuEsc(s.studentId)}</td>
         <td style="font-weight:600">${stuEsc(s.studentName)}</td>
         <td><div class="stu-actions">
-          <button class="stu-btn stu-btn-edit" onclick="stuStartEdit('${stuEsc(s.studentId)}')">수정</button>
-          <button class="stu-btn stu-btn-edit" onclick="stuResetPassword('${stuEsc(s.studentId)}','${stuEsc(s.studentName)}')" title="비밀번호 초기화">PW 초기화</button>
-          <button class="stu-btn stu-btn-del" onclick="stuDelete('${stuEsc(s._key)}','${stuEsc(s.studentName)}')">삭제</button>
+          <button class="stu-btn stu-btn-edit" onclick="stuStartEdit('${stuEsc(s.studentId)}')" title="수정">${icon('pencil', 15)}</button>
+          <button class="stu-btn stu-btn-edit" onclick="stuResetPassword('${stuEsc(s.studentId)}','${stuEsc(s.studentName)}')" title="비밀번호 초기화">${icon('key', 15)}</button>
+          <button class="stu-btn stu-btn-del" onclick="stuDelete('${stuEsc(s._key)}','${stuEsc(s.studentName)}')" title="삭제">${icon('trash-2', 15)}</button>
         </div></td>
       </tr>`;
     }).join('');
