@@ -453,12 +453,10 @@ function dbRender() {
 function dbAnnListHTML() {
   if (!_dbAnnList.length) return '<p style="font-size:13px;color:var(--sub);padding:4px 0">등록된 공지가 없습니다.</p>';
   return _dbAnnList.map(a => `
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--hairline)">
-      <div style="min-width:0">
-        <div style="font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.title || '(제목 없음)')}</div>
-        <div style="font-size:12px;color:var(--sub);margin-top:2px">${dbAnnDate(a.createdAt)}</div>
-      </div>
-      <button class="stu-btn stu-btn-del" style="flex-shrink:0;padding:6px 12px;font-size:12px" onclick="dbDeleteAnnouncement('${a.docId}')">삭제</button>
+    <div style="display:flex;align-items:baseline;gap:10px;padding:9px 0;border-bottom:1px solid var(--hairline)">
+      <div style="font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex-shrink:1">${esc(a.title || '(제목 없음)')}</div>
+      <div style="font-size:12px;color:var(--sub);flex-shrink:0">${dbAnnDate(a.createdAt)}</div>
+      <button class="stu-btn stu-btn-del" style="flex-shrink:0;margin-left:auto;padding:6px 12px;font-size:12px" onclick="dbDeleteAnnouncement('${a.docId}')">삭제</button>
     </div>`).join('');
 }
 
