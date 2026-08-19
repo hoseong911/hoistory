@@ -383,15 +383,15 @@ async function _updateRankStat() {
   if (!el) return;
   try {
     const testIds = await _loadRankTestIds();
-    if (testIds.has(String(currentStudentId).trim())) { el.textContent = '현재 랭킹 순위 제외'; return; }
+    if (testIds.has(String(currentStudentId).trim())) { el.textContent = '제외'; return; }
     const snap = await rtdbGet(rtdbRef(rtdb, 'xp/students'));
     const all  = snap.exists() ? (snap.val() || {}) : {};
     const ranked = _xpBuildRanking(all, testIds);
     const mine   = ranked.find(e => e.sid === String(currentStudentId));
-    if (!mine) { el.textContent = '현재 랭킹 -'; return; }
+    if (!mine) { el.textContent = '-'; return; }
     const shared = ranked.filter(e => e.rank === mine.rank).length > 1;
-    el.textContent = `현재 랭킹 ${shared ? '공동 ' : ''}${mine.rank}위 / ${ranked.length}명`;
-  } catch (e) { el.textContent = '현재 랭킹 -'; }
+    el.textContent = `${shared ? '공동 ' : ''}${mine.rank}위`;
+  } catch (e) { el.textContent = '-'; }
 }
 
 function _xpItemHTML(r) {
@@ -801,9 +801,8 @@ function renderGradeBlock() {
   const el = document.getElementById('gradeBlock');
   if (!menuVisible('grade')) { el.style.display = 'none'; return; }
   el.style.display = '';
-  const g = sectionData.grade;
-  const total = (g && g._summary && g.totalPublished > 0) ? `총점 ${g.total}점` : '';
-  el.innerHTML = `<span class="hub-chip-title">성적 Check</span>${total ? `<span class="hub-chip-value">${total}</span>` : ''}`;
+  // 성적 칩은 제목만 노출한다(점수는 탭 후 모달에서 확인).
+  el.innerHTML = `<span class="hub-chip-title">성적 Check</span>`;
   el.onclick = openGradeSummaryModal;
 }
 

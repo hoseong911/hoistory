@@ -554,7 +554,7 @@ window.dbStudentSearch = async function() {
       <div class="dbs-sec">
         <div class="dbs-sec-label">경험치</div>
         <div class="dbs-xp">
-          <div class="dbs-xp-info">누적 <b>${myTotal.toLocaleString()} XP</b> / Lv.${lv} / 랭킹 ${rankTxt}</div>
+          <div class="dbs-xp-info">누적 <b>${myTotal.toLocaleString()} 경험치</b> / Lv.${lv} / 랭킹 ${rankTxt}</div>
           <button class="chip-btn danger" style="margin-left:auto" onclick="dbResetXp('${esc(sid)}','${esc(name)}')">경험치 초기화</button>
         </div>
       </div>
@@ -574,7 +574,7 @@ window.dbStudentSearch = async function() {
 
 // 대시보드 학생 경험치 초기화 — 초기화 후 검색 결과를 다시 그린다.
 window.dbResetXp = async function(sid, name) {
-  if (!confirm(`${name}(${sid}) 학생의 경험치를 초기화할까요?\n누적 XP, 레벨, 적립 기록이 모두 0으로 돌아갑니다.`)) return;
+  if (!confirm(`${name}(${sid}) 학생의 경험치를 초기화할까요?\n누적 경험치, 레벨, 적립 기록이 모두 0으로 돌아갑니다.`)) return;
   try {
     await set(ref(rtdb, `xp/students/${sid}`), { name, total: 0, level: 1 });
     if (_xpStuAll && _xpStuAll[sid]) _xpStuAll[sid] = { name, total: 0, level: 1 };
@@ -5691,7 +5691,7 @@ window.xpCloseHistory = function() {
 // ── 초기화(개별/전체) ──
 // 경험치 문서를 {name, total:0, level:1}로 되돌려 누적·기록·일일 게이트를 모두 초기화한다.
 window.xpResetStudent = async function(sid, name) {
-  if (!confirm(`${name || sid} 학생의 경험치를 초기화할까요?\n누적 XP, 레벨, 적립 기록이 모두 0으로 돌아갑니다.`)) return;
+  if (!confirm(`${name || sid} 학생의 경험치를 초기화할까요?\n누적 경험치, 레벨, 적립 기록이 모두 0으로 돌아갑니다.`)) return;
   try {
     await set(ref(rtdb, `${XP_ROOT}/students/${sid}`), { name: name || (_xpStuAll[sid]?.name || ''), total: 0, level: 1 });
     _xpStuAll[sid] = { ...(_xpStuAll[sid] || {}), total: 0, level: 1 };
@@ -5877,7 +5877,7 @@ window.xpManualAward = async function() {
   if (!_xpManSel) { alert('학생을 먼저 선택하세요.'); return; }
   const pt   = Number(document.getElementById('xp-manual-pt')?.value) || 0;
   const note = document.getElementById('xp-manual-note')?.value.trim() || '수동 지급';
-  if (!pt) { alert('XP 양을 입력하세요.'); return; }
+  if (!pt) { alert('경험치 양을 입력하세요.'); return; }
   await xpEnsureConfig();
   const { newTotal, newLevel } = await adminAddXP(rtdb, _xpManSel.sid, _xpManSel.name, pt, note, fbFns, _xpCfg.levels, _xpCfg.levelFormula);
   const res = document.getElementById('xp-manual-result');
