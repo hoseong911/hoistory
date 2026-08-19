@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   getFirestore, collection, query, orderBy, where, onSnapshot,
-  addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, writeBatch, serverTimestamp, limit
+  addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, writeBatch, serverTimestamp, limit, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getDatabase, ref, get, set, remove, update, onValue, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -5456,18 +5456,29 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
 
     // 3) 점수 환산 + XP 지급 + 제출 문서 기록
     if (statusEl) statusEl.textContent = '포인트 지급 중…';
+    // 트랜잭션으로 "아직 채점 안 됨 → 채점됨"을 먼저 원자적으로 확정한 뒤에만 포인트를 지급한다.
+    // (다중 탭에서 동시에 채점하거나, 이전 실행의 저장이 조용히 실패해 다시 채점 대상으로 잡히는 경우 등
+    //  같은 제출물이 중복 채점되면서 XP가 여러 번 지급되는 사고를 막기 위함)
     async function commit(s, pt, verdict, score) {
+      const subRef = doc(db, 'think_submissions', s.subId);
+      let claimed = false;
+      try {
+        await runTransaction(db, async tx => {
+          const snap = await tx.get(subRef);
+          if (snap.exists() && snap.data().thGraded) return; // 이미 채점됨 → 중단(claimed=false 유지)
+          claimed = true;
+          tx.update(subRef, {
+            aiScore: score == null ? null : score, aiVerdict: verdict, aiPt: pt,
+            xpAwarded: pt > 0, xpAwardedAt: serverTimestamp(), thGraded: true
+          });
+        });
+      } catch (e) { console.warn('채점 결과 저장 실패:', s.subId, e); return; }
+      if (!claimed) return; // 이미 다른 실행에서 채점된 제출물 → 포인트 지급 건너뜀
+      const local = (thSubs || []).find(x => x.subId === s.subId);
+      if (local) { local.aiScore = score == null ? null : score; local.aiVerdict = verdict; local.aiPt = pt; local.xpAwarded = pt > 0; local.thGraded = true; }
       if (pt > 0) {
         try { await adminAddXP(rtdb, s.id, s.name, pt, `생각 체크: ${lec.title}`, fbFns, _xpCfg.levels, _xpCfg.levelFormula); } catch (e) { console.warn(e); }
       }
-      try {
-        await updateDoc(doc(db, 'think_submissions', s.subId), {
-          aiScore: score == null ? null : score, aiVerdict: verdict, aiPt: pt,
-          xpAwarded: pt > 0, xpAwardedAt: serverTimestamp(), thGraded: true
-        });
-      } catch (e) {}
-      const local = (thSubs || []).find(x => x.subId === s.subId);
-      if (local) { local.aiScore = score == null ? null : score; local.aiVerdict = verdict; local.aiPt = pt; local.xpAwarded = pt > 0; local.thGraded = true; }
     }
     for (const { s, verdict } of structFail) await commit(s, 0, verdict, null);
     for (const s of needAi) {

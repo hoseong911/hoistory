@@ -4,7 +4,7 @@ import {
   getFirestore, collection, query, orderBy, where, onSnapshot, getDocs, limit,
   doc, getDoc, setDoc, addDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { getDatabase, ref as rtdbRef, get as rtdbGet, set as rtdbSet, push as rtdbPush, update as rtdbUpdate, onValue as rtdbOnValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref as rtdbRef, get as rtdbGet, set as rtdbSet, push as rtdbPush, update as rtdbUpdate, onValue as rtdbOnValue, runTransaction as rtdbRunTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { initAuth, verifyStudentId, verifyStudentName, isStudentMapLoaded } from "../shared/auth.js";
 import "../shared/offline.js";
 import { firebaseConfig } from "../shared/firebase-config.js";
@@ -303,7 +303,7 @@ function _listenMileage(id) {
 }
 
 async function _initXPForStudent(id, name) {
-  const fbFns = { ref: rtdbRef, get: rtdbGet, set: rtdbSet, push: rtdbPush, update: rtdbUpdate, onValue: rtdbOnValue };
+  const fbFns = { ref: rtdbRef, get: rtdbGet, set: rtdbSet, push: rtdbPush, update: rtdbUpdate, onValue: rtdbOnValue, runTransaction: rtdbRunTransaction };
   await initXP(rtdb, id, name, fbFns);
   onXPChange(_updateXPWidget);
   document.getElementById('xpWidget').style.display = 'flex';
