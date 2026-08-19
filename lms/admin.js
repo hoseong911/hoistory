@@ -3602,8 +3602,11 @@ async function loadGradeData() {
     });
 
     // 생각체크 자동감지 (제출시간 수집)
-    // 이탈 5회 이상은 생각 체크 탭(gradeOverrides)에서 기본 미흡으로 판정된다.
-    // 교사가 그 탭에서 "통과"로 되돌리지 않은 이상, 여기서도 미달성으로 취급한다.
+    // 제출만 했으면 "기한(onTime)"은 체크된다(제때 냈다는 뜻). "달성(achieved)"은
+    // 통과일 때만 체크되고, 아래 두 경우엔 달성만 해제한다(기한은 유지):
+    //   1) 이탈 5회 이상 — 생각 체크 탭(gradeOverrides)에서 "통과"로 되돌리면 달성이 다시 체크된다.
+    //   2) AI 채점 결과가 미흡(조금 미흡 등) — aiVerdict에 '미흡'이 들어간 경우.
+    // 아예 미제출이면 달성·기한 모두 기본값(false)으로 남는다.
     if (thinkDocId) {
       const thinkOverrides = {};
       await Promise.all([1,2,3,4,5,6].map(async cls => {
@@ -3621,8 +3624,10 @@ async function loadGradeData() {
         const sub = d.data();
         if (!_gradeRecords[sub.id]) return;
         const cheatFail = (sub.cheatCount || 0) >= 5 && thinkOverrides[d.id] !== 'pass';
-        _gradeRecords[sub.id].think.achieved = !cheatFail;
-        if (!savedSet.has(sub.id)) _gradeRecords[sub.id].think.onTime = !cheatFail;
+        const aiFail = sub.thGraded && typeof sub.aiVerdict === 'string' && sub.aiVerdict.includes('미흡');
+        _gradeRecords[sub.id].think.achieved = !cheatFail && !aiFail;
+        // 제출했으면 기한은 체크(제때 냈다는 뜻) — 이탈·미흡이어도 유지.
+        if (!savedSet.has(sub.id)) _gradeRecords[sub.id].think.onTime = true;
         const ts = sub.createdAt;
         if (ts) _gradeThinkTimes[sub.id] = ts.toDate ? ts.toDate() : new Date(ts);
       });
