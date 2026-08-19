@@ -218,13 +218,13 @@ const MOBILE_PC_ONLY = new Set([
   'panel-xp-settings','panel-progress'
 ]);
 const PANEL_LABELS = {
-  'panel-concept-content':'개념 Check · CONTENT','panel-concept-design':'개념 Check · DESIGN',
-  'panel-mission':'미션 Check','panel-think-question':'생각 Check · QUESTION',
-  'panel-grade-setting':'성적 Check · SETTING','panel-contents':'각종 콘텐츠',
-  'panel-archive-cards':'아카이브 · CARDS','panel-archive-category':'아카이브 · CATEGORY',
-  'panel-archive-add':'아카이브 · ADD','panel-students':'학생 관리',
-  'panel-settings-system':'설정 · SYSTEM','panel-settings-student':'설정 · STUDENT',
-  'panel-xp-settings':'경험치 · 설정','panel-progress':'수업 스케줄'
+  'panel-concept-content':'개념 Check CONTENT','panel-concept-design':'개념 Check DESIGN',
+  'panel-mission':'미션 Check','panel-think-question':'생각 Check QUESTION',
+  'panel-grade-setting':'성적 Check SETTING','panel-contents':'각종 콘텐츠',
+  'panel-archive-cards':'아카이브 CARDS','panel-archive-category':'아카이브 CATEGORY',
+  'panel-archive-add':'아카이브 ADD','panel-students':'학생 관리',
+  'panel-settings-system':'설정 SYSTEM','panel-settings-student':'설정 STUDENT',
+  'panel-xp-settings':'경험치 설정','panel-progress':'수업 스케줄'
 };
 const _mobileForced = new Set(); // 사용자가 '그래도 열기'로 통과시킨 패널
 let _currentNav = 'dashboard', _currentPanelId = 'panel-dashboard';
@@ -537,7 +537,7 @@ window.dbStudentSearch = async function() {
     const mine    = ranked.find(e => e.sid === sid);
     const isShared = mine && ranked.filter(e => e.rank === mine.rank).length > 1;
     const rankTxt = isTestId(sid)
-      ? '테스트 계정 · 순위 제외'
+      ? '테스트 계정 (순위 제외)'
       : (mine ? `${isShared ? '공동 ' : ''}${mine.rank}위 / ${ranked.length}명` : '기록 없음');
 
     box.innerHTML = `
@@ -554,7 +554,7 @@ window.dbStudentSearch = async function() {
       <div class="dbs-sec">
         <div class="dbs-sec-label">경험치</div>
         <div class="dbs-xp">
-          <div class="dbs-xp-info">누적 <b>${myTotal.toLocaleString()} XP</b> · Lv.${lv} · 랭킹 ${rankTxt}</div>
+          <div class="dbs-xp-info">누적 <b>${myTotal.toLocaleString()} XP</b> / Lv.${lv} / 랭킹 ${rankTxt}</div>
           <button class="chip-btn danger" style="margin-left:auto" onclick="dbResetXp('${esc(sid)}','${esc(name)}')">경험치 초기화</button>
         </div>
       </div>
@@ -574,7 +574,7 @@ window.dbStudentSearch = async function() {
 
 // 대시보드 학생 경험치 초기화 — 초기화 후 검색 결과를 다시 그린다.
 window.dbResetXp = async function(sid, name) {
-  if (!confirm(`${name}(${sid}) 학생의 경험치를 초기화할까요?\n누적 XP·레벨·적립 기록이 모두 0으로 돌아갑니다.`)) return;
+  if (!confirm(`${name}(${sid}) 학생의 경험치를 초기화할까요?\n누적 XP, 레벨, 적립 기록이 모두 0으로 돌아갑니다.`)) return;
   try {
     await set(ref(rtdb, `xp/students/${sid}`), { name, total: 0, level: 1 });
     if (_xpStuAll && _xpStuAll[sid]) _xpStuAll[sid] = { name, total: 0, level: 1 };
@@ -638,7 +638,7 @@ async function dbComputeStudentScore(recByKey, sid) {
 // 포트폴리오 점수 요약 — 세부(달성·%)는 성적 Check에서 확인하고, 여기선 체크 3개 점수 + 총점만.
 function dbRenderScoreChips(s, recCount) {
   if (!s) {
-    return `<div style="font-size:13px;color:var(--sub)">성적 설정(반영 강의·급간)이 없어 점수를 계산할 수 없어요. <span>(성적 기록 ${recCount}건)</span></div>`;
+    return `<div style="font-size:13px;color:var(--sub)">성적 설정(반영 강의와 급간)이 없어 점수를 계산할 수 없어요. <span>(성적 기록 ${recCount}건)</span></div>`;
   }
   const chip = (k, v, cls = '') => `<div class="dbs-score ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
   return `<div class="dbs-scorerow">
@@ -1260,7 +1260,7 @@ function moveLine(target, i, dir) {
 const CE_FORMAT_LABELS = {
   rows: '행 나열', 'timeline-h': '연표(가로)', 'timeline-v': '연표(세로)',
   compare: '비교표', quote: '사료 인용', 'flow-h': '플로우(가로)', 'flow-v': '플로우(세로)',
-  notice: '안내(OT·수행)', cols: '중앙 나열'
+  notice: '안내(OT/수행)', cols: '중앙 나열'
 };
 const CE_FORMATS = ['rows','timeline-h','timeline-v','compare','quote','flow-h','flow-v','notice','cols'];
 
@@ -1379,7 +1379,7 @@ function ceColsEditor(target, i, line) {
       <button class="cl-fmt-del" onclick="removeCol('${target}',${i},${j})">삭제</button>
     </div>`).join('');
   return `<div class="cl-fmt-fields">
-      <div class="cl-fmt-hint">상단 배지 헤더는 위 슬라이드 제목칸 · 아래 대제목은 본문 가운데 큰 제목(선택) · 항목은 가로로 균등 배치 · **글자**로 감싸면 강조색</div>
+      <div class="cl-fmt-hint">상단 배지 헤더는 위 슬라이드 제목칸 / 아래 대제목은 본문 가운데 큰 제목(선택) / 항목은 가로로 균등 배치 / **글자**로 감싸면 강조색</div>
       <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="대제목 (본문 가운데 큰 제목, 선택)" value="${esc(line.colsTitle||'')}" oninput="updateLine('${target}',${i},'colsTitle',this.value)">
       ${rows}
       <button type="button" class="cbtn-sm" onclick="addCol('${target}',${i})">+ 항목 추가</button>
@@ -1393,7 +1393,7 @@ function removeCol(target,i,j){ ceLinesFor(target)[i].cols.splice(j,1); ceRender
 function ceNoticeEditor(target, i, line) {
   return `
     <div class="cl-fmt-fields">
-      <div class="cl-fmt-hint">한 줄 = 한 문단 · 줄 앞에 "- "를 붙이면 불릿 · 빈 줄은 간격 · **굵게**/{빈칸} 문법 사용 가능</div>
+      <div class="cl-fmt-hint">한 줄 = 한 문단 / 줄 앞에 "- "를 붙이면 불릿 / 빈 줄은 간격 / **굵게**/{빈칸} 문법 사용 가능</div>
       <textarea class="cl-fmt-grow" placeholder="예)&#10;- 수행평가 안내&#10;- 제출 기한: 다음 주 금요일&#10;&#10;**모둠별**로 발표 자료를 준비하세요." oninput="updateLine('${target}',${i},'noticeText',this.value);autoResizeTa(this)" onkeydown="handleContentKeydown(event)">${esc(line.noticeText||'')}</textarea>
     </div>`;
 }
@@ -1614,7 +1614,7 @@ function ceRenderContentLines(target) {
               <span class="cl-slide-meta">${pg}페이지 <span class="cl-meta-sep">｜</span> ${CE_FORMAT_LABELS[fmt]}</span>
             </div>
             <details class="cl-fmt-details" style="margin:0 12px 6px">
-              <summary class="cl-fmt-summary">형식 변경 · 페이지 설정</summary>
+              <summary class="cl-fmt-summary">형식 변경 / 페이지 설정</summary>
               <div class="cl-fmt-panel">
                 <div class="cl-fmt-chips">${ceFormatChips(target,divIdx,fmt)}</div>
                 <div class="cl-fmt-opts">
@@ -2586,7 +2586,7 @@ async function renderMissionPreview(cat) {
         <div class="item-icon-preview preview-mission">${isSvg ? iconStr : esc(iconStr) || '—'}</div>
         <div class="item-info">
           <div class="item-label">${esc(item.title||'')}</div>
-          <div class="item-url">${esc(item.url||'')}${item.adminUrl?` · 어드민: ${esc(item.adminUrl)}`:''}</div>
+          <div class="item-url">${esc(item.url||'')}${item.adminUrl?` / 어드민: ${esc(item.adminUrl)}`:''}</div>
         </div>
         <div class="item-meta">
           <button class="lock-toggle ${isLocked?'locked':'open'}" onclick="missionToggleLocked('${item.docId}',${isLocked})">${isLocked?'비공개':'공개'}</button>
@@ -2856,7 +2856,7 @@ async function renderContentsPreview(cat) {
         <div class="item-icon-preview preview-contents">${isSvg ? iconStr : esc(iconStr) || '—'}</div>
         <div class="item-info">
           <div class="item-label">${esc(item.title||'')}</div>
-          <div class="item-url">${esc(item.url||'')}${item.adminUrl?` · 어드민: ${esc(item.adminUrl)}`:''}${item.openInModal?' · 팝업으로 열기':''}</div>
+          <div class="item-url">${esc(item.url||'')}${item.adminUrl?` / 어드민: ${esc(item.adminUrl)}`:''}${item.openInModal?' / 팝업으로 열기':''}</div>
         </div>
         <div class="item-meta">
           <button class="lock-toggle ${isLocked?'locked':'open'}" onclick="contentsToggleLocked('${item.docId}',${isLocked})">${isLocked?'비공개':'공개'}</button>
@@ -3003,7 +3003,7 @@ async function renderArchiveCards() {
   const addSel = document.getElementById('archiveAddCategory');
   if (addSel) {
     addSel.innerHTML = cats.length
-      ? cats.map(c => `<option value="${esc(c.key)}">${esc(c.en)}${c.ko ? ' · ' + esc(c.ko) : ''}</option>`).join('')
+      ? cats.map(c => `<option value="${esc(c.key)}">${esc(c.en)}${c.ko ? ' / ' + esc(c.ko) : ''}</option>`).join('')
       : '<option value="">카테고리를 먼저 만들어주세요</option>';
   }
 }
@@ -3039,7 +3039,7 @@ function renderArchivePendingList(pending, published, cats) {
           <div class="stu-field" style="flex:1">
             <label>공개할 카테고리</label>
             <select class="grade-config-sel" id="archivePubCat-${card.docId}" style="height:44px;width:100%">
-              ${cats.map(c => `<option value="${esc(c.key)}">${esc(c.en)}${c.ko ? ' · ' + esc(c.ko) : ''}</option>`).join('')}
+              ${cats.map(c => `<option value="${esc(c.key)}">${esc(c.en)}${c.ko ? ' / ' + esc(c.ko) : ''}</option>`).join('')}
             </select>
           </div>
         </div>
@@ -3123,7 +3123,7 @@ function renderArchiveCardsList(published, cats) {
       <div class="item-icon-preview preview-contents">${isSvg ? iconStr : esc(iconStr) || '—'}</div>
       <div class="item-info">
         <div class="item-label">${esc(card.title || '')}</div>
-        <div class="item-sublabel">${esc(cat?.en || '')}${cat?.ko ? ' · ' + esc(cat.ko) : ''}</div>
+        <div class="item-sublabel">${esc(cat?.en || '')}${cat?.ko ? ' / ' + esc(cat.ko) : ''}</div>
         <div class="item-url">${esc(card.url || '')}</div>
       </div>
       <div class="item-meta">
@@ -3162,7 +3162,7 @@ window.archiveStartEdit = function(docId) {
           <button type="button" class="icon-picker-trigger" id="ae-icon-trigger-${docId}">아이콘 선택</button>
         </div>
         <select class="grade-config-sel" id="ae-cat-${docId}" style="height:44px">
-          ${cats.map(c => `<option value="${esc(c.key)}" ${c.key === card.category ? 'selected' : ''}>${esc(c.en)}${c.ko ? ' · ' + esc(c.ko) : ''}</option>`).join('')}
+          ${cats.map(c => `<option value="${esc(c.key)}" ${c.key === card.category ? 'selected' : ''}>${esc(c.en)}${c.ko ? ' / ' + esc(c.ko) : ''}</option>`).join('')}
         </select>
         <input id="ae-title-${docId}" class="form-input" value="${esc(card.title || '')}" placeholder="제목" style="flex:1;min-width:120px">
       </div>
@@ -4116,7 +4116,7 @@ async function loadScoreData() {
 
     const maxScore = (bands[0]?.concept||0) + (bands[0]?.mission||0) + (bands[0]?.think||0);
     document.getElementById('gradeScoreInfo').textContent =
-      `반영 강의 ${selectedLectures.length}개 기준 · 최대 ${maxScore}점`;
+      `반영 강의 ${selectedLectures.length}개 기준, 최대 ${maxScore}점`;
 
     renderScoreTable(maxScore);
     setupSubtabs('gradeScoreWrap', 'gradeSubtabScore');
@@ -4813,7 +4813,7 @@ initAdmin();
         const snap = await getDocs(collection(db, c.name));
         return `${c.name} ${snap.size}건`;
       }));
-      out.textContent = counts.join(' · ');
+      out.textContent = counts.join(' / ');
     } catch(e) { out.textContent = '확인 중 오류가 발생했습니다.'; }
   };
 
@@ -5042,12 +5042,12 @@ initAdmin();
               <button class="edit-btn" ${idx===0?'disabled':''} title="위로" onclick="thMoveLecture('${lec.docId}','up')">▲</button>
               <button class="edit-btn" ${idx===thLectures.length-1?'disabled':''} title="아래로" onclick="thMoveLecture('${lec.docId}','down')">▼</button>
               <button class="edit-btn" onclick="thToggleEdit('${lec.docId}',true)">수정</button>
-              <button class="del-btn" onclick="thDeleteLecture('${lec.docId}','${thEsc(lec.title).replace(/'/g,"\\'")}')">삭제</button>
+              <button class="del-btn" onclick="thDeleteLecture('${lec.docId}','${thEsc(cleanTitle(lec.title)).replace(/'/g,"\\'")}')">삭제</button>
               <button class="edit-btn" onclick="thToggleMore('${lec.docId}')">자세히</button>
             </div>
             <div id="th-more-${lec.docId}" class="th-more-detail" style="display:none">
-              <div class="th-detail-lbl">질문</div><div class="th-detail-val">${thEsc(lec.question)}</div>
-              <div class="th-detail-lbl">설명</div><div class="th-detail-val">${thEsc(lec.reference||'없음')}</div>
+              <div class="th-detail-lbl">질문</div><div class="th-detail-val">${thEsc(cleanTitle(lec.question))}</div>
+              <div class="th-detail-lbl">설명</div><div class="th-detail-val">${thEsc(cleanTitle(lec.reference) || '없음')}</div>
             </div>
           </div>
           <div id="th-edit-${lec.docId}" class="th-inline-edit" style="display:none">
@@ -5328,7 +5328,7 @@ initAdmin();
     (thAiCache[cacheKey]||[]).filter(s=>thIsOverrideFail(s.subId)).forEach(s=>failIds.add(String(s.id)));
     const fail = failIds.size;
     const el = document.getElementById('th-grade-summary');
-    if (el) el.textContent = `${thGradeCtx.cls}반 · 통과 ${Math.max(0,total-fail)}명 / 미흡 ${fail}명 / 전체 ${total}명`;
+    if (el) el.textContent = `${thGradeCtx.cls}반  통과 ${Math.max(0,total-fail)}명 / 미흡 ${fail}명 / 전체 ${total}명`;
   }
 
   function thRenderGradeBody() {
@@ -5353,10 +5353,10 @@ initAdmin();
       const totalFail = thActivityData.absent.length + thActivityData.short.length + cheatFail.length + aiFail.length;
       if (!totalFail) { body.innerHTML = '<div style="text-align:center;padding:32px 0;font-weight:700;color:var(--c3)">미흡 학생 없음!</div>'; return; }
       let html = `<p style="font-size:13px;color:var(--sub);margin-bottom:12px">총 <strong style="color:#DC2626">${totalFail}명</strong> 미흡</p>`;
-      if (thActivityData.absent.length) html += `<div style="margin-bottom:14px"><div class="th-reason-hd">미제출 · ${thActivityData.absent.length}명</div><div>${thActivityData.absent.map(s=>`<span class="th-chip th-chip-absent">${s.studentId} ${s.studentName}</span>`).join('')}</div></div>`;
-      if (thActivityData.short.length)  html += `<div style="margin-bottom:14px"><div class="th-reason-hd">50자 미만 · ${thActivityData.short.length}명</div><div>${thActivityData.short.map(s=>`<span class="th-chip th-chip-short">${s.id} ${s.name} <small style="opacity:.75">${s.textLength}자</small></span>`).join('')}</div></div>`;
-      if (cheatFail.length)             html += `<div style="margin-bottom:14px"><div class="th-reason-hd">이탈 5회 이상 · ${cheatFail.length}명</div><div>${cheatFail.map(s=>`<span class="th-chip th-chip-cheat">${s.id} ${s.name}</span>`).join('')}</div></div>`;
-      if (aiFail.length)                html += `<div><div class="th-reason-hd">AI 분석 미흡 · ${aiFail.length}명</div><div>${aiFail.map(s=>`<span class="th-chip th-chip-wrong">${s.id} ${s.name}</span>`).join('')}</div></div>`;
+      if (thActivityData.absent.length) html += `<div style="margin-bottom:14px"><div class="th-reason-hd">미제출 ${thActivityData.absent.length}명</div><div>${thActivityData.absent.map(s=>`<span class="th-chip th-chip-absent">${s.studentId} ${s.studentName}</span>`).join('')}</div></div>`;
+      if (thActivityData.short.length)  html += `<div style="margin-bottom:14px"><div class="th-reason-hd">50자 미만 ${thActivityData.short.length}명</div><div>${thActivityData.short.map(s=>`<span class="th-chip th-chip-short">${s.id} ${s.name} <small style="opacity:.75">${s.textLength}자</small></span>`).join('')}</div></div>`;
+      if (cheatFail.length)             html += `<div style="margin-bottom:14px"><div class="th-reason-hd">이탈 5회 이상 ${cheatFail.length}명</div><div>${cheatFail.map(s=>`<span class="th-chip th-chip-cheat">${s.id} ${s.name}</span>`).join('')}</div></div>`;
+      if (aiFail.length)                html += `<div><div class="th-reason-hd">AI 분석 미흡 ${aiFail.length}명</div><div>${aiFail.map(s=>`<span class="th-chip th-chip-wrong">${s.id} ${s.name}</span>`).join('')}</div></div>`;
       body.innerHTML = html;
     } else if (thGradeTabName === 'cheat') {
       const list = thActivityData.cheat;
@@ -5389,12 +5389,12 @@ initAdmin();
           ${gradedN ? `<button class="th-btn-ai" style="background:none;border:1.5px solid var(--hairline);color:var(--charcoal)" onclick="thRegrade()">재채점 (${gradedN}명)</button>` : ''}
           <span id="th-ai-status" style="font-size:13px;color:var(--sub);font-weight:700;min-height:18px"></span>
         </div>
-        <p style="font-size:12px;color:var(--slate);margin-bottom:12px;line-height:1.6">채점하면 점수가 고정됩니다. 기준·모델을 바꿔 다시 매기려면 <b>재채점</b>을 누르세요(이전 포인트는 회수 후 재지급).</p>`;
+        <p style="font-size:12px;color:var(--slate);margin-bottom:12px;line-height:1.6">채점하면 점수가 고정됩니다. 기준과 모델을 바꿔 다시 매기려면 <b>재채점</b>을 누르세요(이전 포인트는 회수 후 재지급).</p>`;
       if (!subs.length) { body.innerHTML = html + '<div class="empty-panel">이 반의 제출이 없습니다.</div>'; return; }
       html += subs.map(s => {
         const v = s.aiVerdict || '';
         const chip = s.thGraded
-          ? `<span style="font-weight:800;color:${v.startsWith('미흡')?'#DC2626':(vColor[v]||'var(--sub)')}">${v||'-'} · ${s.aiPt??0}pt</span>`
+          ? `<span style="font-weight:800;color:${v.startsWith('미흡')?'#DC2626':(vColor[v]||'var(--sub)')}">${v||'-'} / ${s.aiPt??0}pt</span>`
           : `<span style="color:var(--slate);font-weight:700">미채점</span>`;
         return `<div class="th-review-card">
             <div class="th-review-card-top">
@@ -5670,7 +5670,7 @@ window.xpOpenHistory = function(sid, name) {
   const hist = Object.values(s.history || {});
   hist.sort((a, b) => (b.ts || 0) - (a.ts || 0));
   const title = document.getElementById('xpHistoryTitle');
-  if (title) title.textContent = `${name || s.name || sid} (${sid}) · 경험치 기록`;
+  if (title) title.textContent = `${name || s.name || sid} (${sid}) 경험치 기록`;
   const tbody = document.getElementById('xp-history-body');
   if (tbody) {
     tbody.innerHTML = hist.length ? hist.map(h => {
@@ -5691,7 +5691,7 @@ window.xpCloseHistory = function() {
 // ── 초기화(개별/전체) ──
 // 경험치 문서를 {name, total:0, level:1}로 되돌려 누적·기록·일일 게이트를 모두 초기화한다.
 window.xpResetStudent = async function(sid, name) {
-  if (!confirm(`${name || sid} 학생의 경험치를 초기화할까요?\n누적 XP·레벨·적립 기록이 모두 0으로 돌아갑니다.`)) return;
+  if (!confirm(`${name || sid} 학생의 경험치를 초기화할까요?\n누적 XP, 레벨, 적립 기록이 모두 0으로 돌아갑니다.`)) return;
   try {
     await set(ref(rtdb, `${XP_ROOT}/students/${sid}`), { name: name || (_xpStuAll[sid]?.name || ''), total: 0, level: 1 });
     _xpStuAll[sid] = { ...(_xpStuAll[sid] || {}), total: 0, level: 1 };
@@ -5860,17 +5860,17 @@ window.xpManualSearch = function(q) {
   if (!results.length) { dd.style.display = 'none'; return; }
   dd.style.display = '';
   dd.innerHTML = results.map(s =>
-    `<div style="padding:10px 14px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--hairline-soft)" onmousedown="xpManualSelect('${s.sid}','${s.name}')">${s.sid} · ${s.name}</div>`
+    `<div style="padding:10px 14px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--hairline-soft)" onmousedown="xpManualSelect('${s.sid}','${s.name}')">${s.sid} ${s.name}</div>`
   ).join('');
 };
 
 window.xpManualSelect = function(sid, name) {
   _xpManSel = { sid, name };
-  document.getElementById('xp-manual-search').value = `${sid} · ${name}`;
+  document.getElementById('xp-manual-search').value = `${sid} ${name}`;
   document.getElementById('xp-manual-dropdown').style.display = 'none';
   const tgt = document.getElementById('xp-manual-target');
   tgt.style.display = '';
-  tgt.textContent   = `선택: ${sid} · ${name}`;
+  tgt.textContent   = `선택: ${sid} ${name}`;
 };
 
 window.xpManualAward = async function() {
@@ -6027,7 +6027,7 @@ function plRender() {
       <td class="pl-col-num">
         <div class="pl-num-row">
           <input class="pl-input pl-label-input" data-row="${r.id}" data-field="label" value="${esc(r.label || '')}" onchange="plRowFieldChange(this)">
-          <button class="pl-lec-link-btn" title="개념·생각 Check 통합 편집" onclick="plOpenLectureModal('${r.id}')">${icon('square-pen', 11)}</button>
+          <button class="pl-lec-link-btn" title="개념/생각 Check 통합 편집" onclick="plOpenLectureModal('${r.id}')">${icon('square-pen', 11)}</button>
         </div>
       </td>
       <td class="pl-col-topic"><div class="pl-input pl-topic-input" contenteditable="true" data-row="${r.id}" data-field="topic" data-placeholder="주제 입력" onblur="plRowFieldChange(this)" onpaste="plTopicPaste(event)">${esc(r.topic || '')}</div></td>
