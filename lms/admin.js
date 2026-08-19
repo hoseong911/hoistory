@@ -221,7 +221,7 @@ const PANEL_LABELS = {
   'panel-archive-cards':'아카이브 · CARDS','panel-archive-category':'아카이브 · CATEGORY',
   'panel-archive-add':'아카이브 · ADD','panel-students':'학생 관리',
   'panel-settings-system':'설정 · SYSTEM','panel-settings-student':'설정 · STUDENT',
-  'panel-xp-settings':'경험치 · 설정','panel-progress':'진도'
+  'panel-xp-settings':'경험치 · 설정','panel-progress':'수업 스케줄'
 };
 const _mobileForced = new Set(); // 사용자가 '그래도 열기'로 통과시킨 패널
 let _currentNav = 'dashboard', _currentPanelId = 'panel-dashboard';
@@ -5995,15 +5995,15 @@ function plRender() {
 
   thead.innerHTML = `
     <tr>
-      <th rowspan="2">강의</th>
-      <th rowspan="2">주제</th>
+      <th class="pl-col-num" rowspan="2">강의</th>
+      <th class="pl-col-topic" rowspan="2">주제</th>
       ${classes.map(c => `<th>
           <div class="pl-cls-th-row">
             <input class="pl-cls-name" data-cls="${c.id}" data-field="name" value="${esc(c.name || '')}" onchange="plClassFieldChange(this)">
             <button class="stu-btn stu-btn-del" style="padding:3px 5px" title="반 삭제" onclick="plDeleteClass('${c.id}')">${icon('x', 12)}</button>
           </div>
         </th>`).join('')}
-      <th rowspan="2">관리</th>
+      <th class="pl-col-manage" rowspan="2">관리</th>
     </tr>
     <tr>
       ${classes.map(c => `<th style="font-weight:400">
@@ -6012,15 +6012,15 @@ function plRender() {
     </tr>`;
 
   tbody.innerHTML = rows.length ? rows.map(r => `<tr>
-      <td><input class="pl-input pl-label-input" data-row="${r.id}" data-field="label" value="${esc(r.label || '')}" onchange="plRowFieldChange(this)"></td>
-      <td><input class="pl-input" data-row="${r.id}" data-field="topic" value="${esc(r.topic || '')}" onchange="plRowFieldChange(this)"></td>
+      <td class="pl-col-num"><input class="pl-input pl-label-input" data-row="${r.id}" data-field="label" value="${esc(r.label || '')}" onchange="plRowFieldChange(this)"></td>
+      <td class="pl-col-topic"><textarea class="pl-input pl-topic-input" rows="2" data-row="${r.id}" data-field="topic" onchange="plRowFieldChange(this)">${esc(r.topic || '')}</textarea></td>
       ${classes.map(c => {
         const val = (r.cells && r.cells[c.id]) || '';
         const status = plCellStatus(val, today);
         const cellCls = status === 'today' ? 'pl-date-cell is-today' : status === 'past' ? 'pl-date-cell is-past' : 'pl-date-cell';
         return `<td class="${cellCls}"><input class="pl-input" data-row="${r.id}" data-cls="${c.id}" value="${esc(val)}" placeholder="M/D" onchange="plCellChange(this)" onkeydown="if(event.key==='Enter')this.blur()"></td>`;
       }).join('')}
-      <td><button class="stu-btn stu-btn-del" title="삭제" onclick="plDeleteRow('${r.id}')">${icon('trash-2', 14)}</button></td>
+      <td class="pl-col-manage"><button class="stu-btn stu-btn-del" title="삭제" onclick="plDeleteRow('${r.id}')">${icon('trash-2', 14)}</button></td>
     </tr>`).join('') : `<tr><td colspan="${classes.length + 3}" style="color:var(--slate);padding:24px;font-size:13px">강의를 추가해주세요.</td></tr>`;
 }
 
