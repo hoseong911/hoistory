@@ -407,7 +407,7 @@ function _xpItemHTML(r) {
     <div class="xp-hist-info">
       <div class="xp-hist-note">${esc(note)}</div>
       <div class="xp-hist-date">${dt}</div>
-      ${isSnack ? `<div class="xp-hist-snack">${icon('candy',16)} 선생님께 간식을 받으러 오세요</div>` : ''}
+      ${isSnack ? `<div class="xp-hist-snack">선생님께 간식을 받으러 오세요</div>` : ''}
     </div>
     <div class="xp-hist-pt">${sign}${r.pt} pt</div>
   </div>`;
@@ -421,7 +421,6 @@ async function _openXPHistory() {
   list.innerHTML = '<div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">로딩 중...</div>';
   try {
     const rows = await _fetchXPRows();
-    document.getElementById('xpHistCount').textContent = rows.length;
     list.innerHTML = rows.length
       ? rows.map(_xpItemHTML).join('')
       : '<div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">활동 내역이 없어요.</div>';
@@ -583,11 +582,14 @@ async function loadStudentGrade() {
           concept: d.conceptEnabled !== false,
           mission: d.missionEnabled !== false,
           think:   d.thinkEnabled   !== false,
+          conceptWeight: parseInt(d.conceptWeight) || 1,
+          missionWeight: parseInt(d.missionWeight) || 1,
+          thinkWeight:   parseInt(d.thinkWeight)   || 1,
         };
         titleMap[key] = d.lessonTitle || lecTag(key);
         if (recSnap.exists()) records[key] = recSnap.data();
       } catch {
-        enabledMap[key] = { concept:true, mission:true, think:true };
+        enabledMap[key] = { concept:true, mission:true, think:true, conceptWeight:1, missionWeight:1, thinkWeight:1 };
         titleMap[key] = lecTag(key);
       }
     }));
@@ -599,9 +601,10 @@ async function loadStudentGrade() {
       if (!publishedSet.has(key)) return; // 미반영 강의 제외
       const r  = records[key];
       const en = enabledMap[key];
-      if (en.concept) { cN++; if (r?.concept?.achieved) cA++; }
-      if (en.mission) { mN++; if (r?.mission?.achieved) mA++; }
-      if (en.think)   { tN++; if (r?.think?.achieved)   tA++; }
+      // 어드민과 동일: 항목당 체크 2개(달성 achieved + 기한 onTime)를 가중치만큼 집계
+      if (en.concept) { cN += 2*en.conceptWeight; if (r?.concept?.achieved) cA += en.conceptWeight; if (r?.concept?.onTime) cA += en.conceptWeight; }
+      if (en.mission) { mN += 2*en.missionWeight; if (r?.mission?.achieved) mA += en.missionWeight; if (r?.mission?.onTime) mA += en.missionWeight; }
+      if (en.think)   { tN += 2*en.thinkWeight;   if (r?.think?.achieved)   tA += en.thinkWeight;   if (r?.think?.onTime)   tA += en.thinkWeight; }
       lectureDetails.push({
         key, title: titleMap[key],
         // 각 항목은 체크 2개(달성 achieved + 기한 onTime)
@@ -1305,7 +1308,7 @@ window.openGradeFeedback = async function() {
     const rows = await _fetchXPRows();
     if (rows.some(r => r.pt >= 30 && /^생각\s*체크\s*:/.test(r.note || ''))) {
       el.insertAdjacentHTML('afterbegin',
-        `<div class="feedback-snack">${icon('candy',16)} 생각 체크 만점! 선생님께 간식을 받으러 오세요</div>`);
+        `<div class="feedback-snack">생각 체크 만점! 선생님께 간식을 받으러 오세요</div>`);
     }
   } catch(_) {}
 };
