@@ -1,7 +1,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getFirestore, collection, query, orderBy, where, onSnapshot, getDocs,
+  getFirestore, collection, query, orderBy, where, onSnapshot, getDocs, limit,
   doc, getDoc, setDoc, addDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getDatabase, ref as rtdbRef, get as rtdbGet, set as rtdbSet, push as rtdbPush, update as rtdbUpdate, onValue as rtdbOnValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
@@ -30,21 +30,6 @@ onSnapshot(doc(db, 'settings', 'lockdown'), snap => {
     screen.style.display = 'flex';
   } else {
     screen.style.display = 'none';
-  }
-}, () => {});
-
-// ── 공지사항 배너 ──
-onSnapshot(doc(db, 'settings', 'announcement'), snap => {
-  const d = snap.exists() ? snap.data() : {};
-  const banner = document.getElementById('announceBanner');
-  if (d.enabled && d.text) {
-    const html = esc(d.text)
-      .replace(/\n/g, '<br>')
-      .replace(/https?:\/\/[^\s<&]+/g, url => `<a href="${url}" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline;font-weight:700">${url}</a>`);
-    banner.innerHTML = `<div class="sec-head"><div class="sec-name">공지사항</div></div><hr class="sec-divider"><div class="announce-body">${html}</div>`;
-    banner.style.display = 'block';
-  } else {
-    banner.style.display = 'none';
   }
 }, () => {});
 
@@ -423,6 +408,15 @@ function startListening() {
   ['concept','mission','think','grade','contents'].forEach(k => sectionData[k] = null);
   renderAll();
 
+  // 0. 공지사항(패치노트 리스트, 최신 30건) — 미확인 글은 뱃지 표시 + 입장 시 1회 토스트
+  _loadAnnReadSet();
+  onSnapshot(query(collection(db, 'announcements'), orderBy('createdAt', 'desc'), limit(30)), snap => {
+    _announcements = snap.docs.map(d => { const v = d.data(); return { id: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt }; });
+    renderAnnounceList();
+    const unread = _announcements.filter(a => !_annReadSet.has(a.id)).length;
+    if (unread && !_annToastShown) { _annToastShown = true; showToast(`새 공지가 ${unread}건 있어요`, undefined, 'megaphone'); }
+  });
+
   // 1. 개념 체크 — class_lessons (어드민 강의 목록과 동일한 order 내림차순: 큰 번호=최신이 위, OT가 맨 아래)
   onSnapshot(query(collection(db, 'class_lessons'), orderBy('order','desc')), snap => {
     // 비공개(isOpen===false)는 생각 체크처럼 허브에서 아예 숨긴다(흐린 잠금 표시 안 함).
@@ -674,6 +668,67 @@ function renderSections() {
     }
   });
 }
+
+// ── 공지사항(패치노트 리스트) ──
+let _announcements = [];
+let _annReadSet = new Set();
+let _annToastShown = false;
+function _annReadKey() { return 'lms_ann_read_' + currentStudentId; }
+function _loadAnnReadSet() {
+  try { _annReadSet = new Set(JSON.parse(localStorage.getItem(_annReadKey()) || '[]')); } catch(_) { _annReadSet = new Set(); }
+}
+function _saveAnnReadSet() {
+  try { localStorage.setItem(_annReadKey(), JSON.stringify([..._annReadSet].slice(-200))); } catch(_) {}
+}
+function _annDateLabel(ts) {
+  if (!ts || !ts.seconds) return '';
+  const d = new Date(ts.seconds * 1000);
+  return `${d.getMonth() + 1}.${d.getDate()}`;
+}
+function renderAnnounceList() {
+  const banner = document.getElementById('announceBanner');
+  if (!_announcements.length) { banner.style.display = 'none'; return; }
+  const unreadCount = _announcements.filter(a => !_annReadSet.has(a.id)).length;
+  const rows = _announcements.map(a => `
+    <button type="button" class="announce-item${_annReadSet.has(a.id) ? '' : ' unread'}" data-id="${esc(a.id)}">
+      <span class="announce-item-title">${esc(a.title || '공지')}</span>
+      <span class="announce-item-date">${_annDateLabel(a.createdAt)}</span>
+    </button>`).join('');
+  banner.innerHTML = `
+    <div class="sec-head announce-head">
+      <div class="sec-name">공지사항</div>
+      ${unreadCount ? `<span class="announce-unread">${unreadCount}</span>` : ''}
+    </div>
+    <hr class="sec-divider">
+    <div class="announce-list">${rows}</div>`;
+  banner.style.display = 'block';
+  banner.querySelectorAll('.announce-item').forEach(btn => {
+    btn.addEventListener('click', () => openAnnounceDetail(btn.dataset.id));
+  });
+}
+function openAnnounceDetail(id) {
+  const a = _announcements.find(x => x.id === id);
+  if (!a) return;
+  document.getElementById('announceDetailTitle').textContent = a.title || '공지';
+  document.getElementById('announceDetailDate').textContent = _annDateLabel(a.createdAt);
+  const html = esc(a.body)
+    .replace(/\n/g, '<br>')
+    .replace(/https?:\/\/[^\s<&]+/g, url => `<a href="${url}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;font-weight:700">${url}</a>`);
+  document.getElementById('announceDetailBody').innerHTML = html;
+  document.getElementById('announceDetailModal').style.display = 'flex';
+  if (!_annReadSet.has(id)) {
+    _annReadSet.add(id);
+    _saveAnnReadSet();
+    renderAnnounceList();
+  }
+}
+function closeAnnounceDetail() {
+  document.getElementById('announceDetailModal').style.display = 'none';
+}
+document.getElementById('announceDetailClose').addEventListener('click', closeAnnounceDetail);
+document.getElementById('announceDetailModal').addEventListener('click', e => {
+  if (e.target.id === 'announceDetailModal') closeAnnounceDetail();
+});
 
 // 성적 Check (포트폴리오) — 버튼칩, 탭하면 모달로 세부 내역 표시
 function renderGradeBlock() {

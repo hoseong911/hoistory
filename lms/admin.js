@@ -351,7 +351,7 @@ window.openContentsAppAdmin = function(el, adminUrl) {
 let _dbConcept = [], _dbMission = [], _dbThink = [];
 let _dbStuCount = 0, _dbToday = { attend: 0, thinkSubmit: 0, review: 0 };
 let _dbStudents = []; // 학생 검색용 명단 캐시 ({studentId, name})
-let _dbAnn = { enabled: false, text: '' }; // 공지사항(settings/announcement 재사용, 설정·Student와 동일 문서)
+let _dbAnnList = []; // 공지사항(announcements 컬렉션, 패치노트 리스트, 최신순 최대 10건)
 
 async function dbLoad() {
   const el = document.getElementById('db-content');
@@ -400,11 +400,11 @@ async function dbLoad() {
     Object.entries(xp).forEach(([sid, x]) => { if (!x || isTestId(sid)) return; if (x.lastAttendance === today) attend++; if (x.lastTypingReview === today) review++; });
     _dbToday = { attend, thinkSubmit, review };
 
-    // 공지사항(설정·Student의 공지 배너와 같은 문서)
+    // 공지사항(패치노트 리스트, 최신 10건)
     try {
-      const annSnap = await getDoc(doc(db, 'settings', 'announcement'));
-      _dbAnn = annSnap.exists() ? { enabled: !!annSnap.data().enabled, text: annSnap.data().text || '' } : { enabled: false, text: '' };
-    } catch(_) { _dbAnn = { enabled: false, text: '' }; }
+      const annSnap = await getDocs(query(collection(db, 'announcements'), orderBy('createdAt', 'desc')));
+      _dbAnnList = annSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt }; }).slice(0, 10);
+    } catch(_) { _dbAnnList = []; }
 
     dbRender();
   } catch(e) {
@@ -437,36 +437,57 @@ function dbRender() {
       <div id="db-stu-result" style="padding:10px 18px 14px"></div>
     </div>
     <div class="stu-card" style="margin-top:14px">
-      <div class="stu-card-head" style="display:flex;justify-content:space-between;align-items:center">
-        <span>공지사항</span>
-        <div style="display:flex;align-items:center;gap:10px">
-          <button class="add-btn" onclick="dbSaveAnnouncement()">저장</button>
-          <div class="th-toggle ${_dbAnn.enabled ? 'on' : ''}" id="db-ann-toggle" title="${_dbAnn.enabled ? '공개 중' : '숨김'}" onclick="dbToggleAnnouncement(this)"></div>
-        </div>
-      </div>
+      <div class="stu-card-head">공지사항</div>
       <div style="padding:12px 18px 16px">
-        <textarea id="db-ann-text" class="stu-edit-input" style="width:100%;height:80px;resize:vertical;border-radius:10px" placeholder="예) 7월 21일(화) 역사 수행평가는 개념 체크 3~5강 범위입니다.">${esc(_dbAnn.text)}</textarea>
-        <p style="font-size:12px;color:var(--sub);margin-top:8px;line-height:1.5">토글을 켜면 학생 허브 상단에 문구가 노출됩니다. (설정·Student 공지 배너와 같은 문구예요.)</p>
+        <div id="db-ann-list">${dbAnnListHTML()}</div>
+        <hr style="border:none;border-top:1px solid var(--hairline);margin:14px 0">
+        <input id="db-ann-title" class="stu-edit-input" style="width:100%" maxlength="60" placeholder="제목(선택)">
+        <textarea id="db-ann-body" class="stu-edit-input" style="width:100%;height:80px;resize:vertical;border-radius:10px;margin-top:8px" placeholder="예) 8월 25일(화) 역사 수행평가는 개념 체크 3~5강 범위입니다."></textarea>
+        <button class="add-btn" style="margin-top:10px" onclick="dbPostAnnouncement()">게시하기</button>
+        <p style="font-size:12px;color:var(--sub);margin-top:8px;line-height:1.5">게시하면 학생 허브 공지사항 목록 맨 위에 바로 올라갑니다.</p>
       </div>
     </div>`;
 }
 
-// 대시보드 공지사항 — 설정·Student의 공지 배너와 동일한 settings/announcement 문서를 그대로 쓴다.
-window.dbToggleAnnouncement = async function(el) {
-  const on = !el.classList.contains('on');
-  el.classList.toggle('on', on);
-  el.title = on ? '공개 중' : '숨김';
-  _dbAnn.enabled = on;
-  try { await setDoc(doc(db, 'settings', 'announcement'), { enabled: on, text: _dbAnn.text || '' }); }
-  catch(e) { el.classList.toggle('on', !on); alert('변경 실패: ' + e.message); }
+// 대시보드 공지사항 — announcements 컬렉션(패치노트 리스트). 글은 항상 즉시 게시되며, 잘못 쓴 글은 삭제로 정정한다.
+function dbAnnListHTML() {
+  if (!_dbAnnList.length) return '<p style="font-size:13px;color:var(--sub);padding:4px 0">등록된 공지가 없습니다.</p>';
+  return _dbAnnList.map(a => `
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--hairline)">
+      <div style="min-width:0">
+        <div style="font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.title || '(제목 없음)')}</div>
+        <div style="font-size:12px;color:var(--sub);margin-top:2px">${dbAnnDate(a.createdAt)}</div>
+      </div>
+      <button class="stu-btn stu-btn-del" style="flex-shrink:0;padding:6px 12px;font-size:12px" onclick="dbDeleteAnnouncement('${a.docId}')">삭제</button>
+    </div>`).join('');
+}
+
+function dbAnnDate(ts) {
+  if (!ts || !ts.seconds) return '방금 전';
+  const d = new Date(ts.seconds * 1000);
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+}
+
+window.dbPostAnnouncement = async function() {
+  const titleEl = document.getElementById('db-ann-title');
+  const bodyEl  = document.getElementById('db-ann-body');
+  const title = (titleEl?.value || '').trim();
+  const body  = (bodyEl?.value  || '').trim();
+  if (!body) { alert('내용을 입력해 주세요.'); return; }
+  try {
+    const docRef = await addDoc(collection(db, 'announcements'), { title, body, createdAt: serverTimestamp() });
+    _dbAnnList = [{ docId: docRef.id, title, body, createdAt: null }, ..._dbAnnList].slice(0, 10);
+    dbRender();
+  } catch(e) { alert('게시 실패: ' + e.message); }
 };
 
-window.dbSaveAnnouncement = async function() {
-  _dbAnn.text = (document.getElementById('db-ann-text')?.value || '').trim();
+window.dbDeleteAnnouncement = async function(docId) {
+  if (!confirm('이 공지를 삭제할까요? 학생 화면에서도 바로 사라집니다.')) return;
   try {
-    await setDoc(doc(db, 'settings', 'announcement'), { enabled: _dbAnn.enabled, text: _dbAnn.text });
-    alert('저장되었습니다.');
-  } catch(e) { alert('저장 실패: ' + e.message); }
+    await deleteDoc(doc(db, 'announcements', docId));
+    _dbAnnList = _dbAnnList.filter(a => a.docId !== docId);
+    dbRender();
+  } catch(e) { alert('삭제 실패: ' + e.message); }
 };
 
 // 대시보드 학생 검색 — 학번으로 이름·성적(달성 현황)·피드백을 보고 PW 초기화까지 한다.
@@ -4695,7 +4716,6 @@ initAdmin();
 
 /* ════ 설정 ════ */
 {
-  let annData  = { enabled: false, text: '' };
   let lockData = { enabled: false, message: '' };
   let menuVis  = { concept: true, mission: true, think: true, grade: true, contents: true };
 
@@ -4727,28 +4747,10 @@ initAdmin();
     try { await setDoc(doc(db, 'settings', 'menu_visibility'), menuVis, { merge: true }); } catch(e) {}
   }
 
-  function stApplyAnnouncementToggleUI() {
-    const tog = document.getElementById('st-ann-toggle');
-    if (tog) tog.classList.toggle('on', !!annData.enabled);
-  }
   function stApplyLockdownToggleUI() {
     const tog = document.getElementById('st-lock-toggle');
     if (tog) tog.classList.toggle('on', !!lockData.enabled);
   }
-
-  window.stSettingsToggleAnnouncement = async function() {
-    annData.enabled = !annData.enabled;
-    stApplyAnnouncementToggleUI();
-    try { await setDoc(doc(db, 'settings', 'announcement'), { enabled: annData.enabled, text: annData.text || '' }); } catch(e) {}
-  };
-
-  window.stSettingsSaveAnnouncement = async function() {
-    annData.text = document.getElementById('st-ann-text').value.trim();
-    try {
-      await setDoc(doc(db, 'settings', 'announcement'), { enabled: annData.enabled, text: annData.text });
-      alert('저장되었습니다.');
-    } catch(e) { alert('저장에 실패했습니다.'); }
-  };
 
   window.stSettingsToggleLockdown = async function() {
     lockData.enabled = !lockData.enabled;
@@ -4870,18 +4872,14 @@ initAdmin();
   // ── 초기 로드 ──
   (async function stInit() {
     try {
-      const [annSnap, lockSnap, menuSnap] = await Promise.all([
-        getDoc(doc(db, 'settings', 'announcement')),
+      const [lockSnap, menuSnap] = await Promise.all([
         getDoc(doc(db, 'settings', 'lockdown')),
         getDoc(doc(db, 'settings', 'menu_visibility')),
       ]);
-      if (annSnap.exists())  annData  = { enabled: !!annSnap.data().enabled,  text: annSnap.data().text || '' };
       if (lockSnap.exists()) lockData = { enabled: !!lockSnap.data().enabled, message: lockSnap.data().message || '' };
       if (menuSnap.exists()) menuVis  = Object.assign({}, menuVis, menuSnap.data());
     } catch(e) {}
-    document.getElementById('st-ann-text').value  = annData.text || '';
     document.getElementById('st-lock-text').value = lockData.message || '';
-    stApplyAnnouncementToggleUI();
     stApplyLockdownToggleUI();
     stRenderMenuList();
     window.stSettingsRefreshRoster();
