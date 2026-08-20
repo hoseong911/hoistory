@@ -6,7 +6,7 @@
   <title>강의</title>
   <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Great+Vibes&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="slide-style.css?v=20260819a">
+  <link rel="stylesheet" href="slide-style.css?v=20260820a">
   <style>
     /* ════ 리셋 ════ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -308,7 +308,7 @@
   <div class="rh-sub">화면을 가로로 돌리면<br>글자와 빈칸이 크게 잘 보여요</div>
 </div>
 
-<script src="slide-render.js?v=20260816a"></script>
+<script src="slide-render.js?v=20260820a"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
@@ -500,6 +500,7 @@ async function init() {
     container.insertAdjacentHTML('beforeend', SlideRender.renderSlideHTML(s, LESSON));
   });
   SlideRender.wireLightbox(container);
+  SlideRender.wireHoverZoom(container);
 
   /* ── 모바일 판별: 좁은 화면은 push 전환 대신 슬라이드를 세로로 이어붙여
      스크롤로 넘기는 방식을 쓴다 ── */
@@ -592,6 +593,21 @@ async function init() {
   // ── 타이핑 모드: 빈칸을 입력칸으로 바꿔 학생이 정답을 직접 쳐보고 즉시 채점 ──
   function normAns(s) { return String(s == null ? '' : s).trim().replace(/\s+/g, ' ').toLowerCase(); }
 
+  // 글자 수 기반(1자=1em 가정) 폭 계산은 한글은 맞지만 영문·숫자 답에서는 실제 글자보다
+  // 훨씬 넓게 잡혀 좌우에 빈 여백이 남는다. 실제 폰트로 캔버스에 그려 픽셀 폭을 재서 딱 맞춘다.
+  let _typingMeasureCanvas = null;
+  function measureTextWidth(text, font) {
+    const canvas = _typingMeasureCanvas || (_typingMeasureCanvas = document.createElement('canvas'));
+    const ctx = canvas.getContext('2d');
+    ctx.font = font;
+    return ctx.measureText(text).width;
+  }
+  function sizeTypingInput(input, answer) {
+    const cs = getComputedStyle(input);
+    const w = measureTextWidth(answer || ' ', `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`);
+    input.style.width = Math.ceil(w) + 6 + 'px'; // 커서 놓일 최소 여유만 남긴다
+  }
+
   // 각 .blank 뒤에 입력칸을 한 번만 만들어 둔다(모드 전환마다 재생성 안 함). 표시 여부는 CSS가 담당.
   function setupTyping() {
     slidesEl.querySelectorAll('.blank').forEach(blank => {
@@ -605,7 +621,6 @@ async function init() {
       input.setAttribute('autocomplete', 'off');
       input.setAttribute('autocapitalize', 'off');
       input.setAttribute('spellcheck', 'false');
-      input.style.width = ([...answer].length + 0.4) + 'em'; // 글자 수에 맞춰 딱 맞는 폭
       input.addEventListener('input', () => { input.classList.remove('correct', 'wrong'); });
       input.addEventListener('blur', () => checkTypingInput(input));
       // 다른 모드는 화살표/휠/터치로 넘길 때 전체화면을 요청하지만, 타이핑 모드는 학생이
@@ -620,6 +635,7 @@ async function init() {
         else if (e.key === 'Tab') { e.preventDefault(); moveTyping(input, e.shiftKey ? -1 : +1); }
       });
       blank.insertAdjacentElement('afterend', input);
+      sizeTypingInput(input, answer); // DOM에 들어간 뒤라야 상속받은 실제 폰트로 잴 수 있다
     });
   }
 

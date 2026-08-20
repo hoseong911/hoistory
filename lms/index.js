@@ -507,15 +507,20 @@ function startListening() {
   // 3. 생각 체크 — open lectures
   onSnapshot(query(collection(db, 'think_lectures'), where('isOpen','==', true)), snap => {
     function extractNum(title) { const m = String(title).match(/(\d+)/); return m ? parseInt(m[1], 10) : 9999; }
+    // 어드민(thSortLectures)과 동일한 기준: order 필드가 있으면(수동 이동 결과 포함) 그걸 우선하고,
+    // 없으면 강 번호(lecOrderKey와 동일한 규칙)로 대체해 최신 강의가 자동으로 위에 오게 한다.
     sectionData.think = snap.docs
       .map(d => {
         const l = d.data();
         const n = extractNum(l.title);
+        const m = String(l.icon || l.title || '').trim().match(/^(\d+)/);
+        const autoOrder = m ? parseInt(m[1], 10) : -1;
         return { icon: l.icon || (n < 9999 ? String(n) : '?'), label: stripLecNum(l.title), locked:false,
           isThink:true, lectureDocId:d.id, lectureTitle:l.title,
-          question:l.question||'', reference:l.reference||'', _n: n, _ts: (l.createdAt && l.createdAt.seconds) || 0 };
+          question:l.question||'', reference:l.reference||'',
+          _n: n, _order: typeof l.order === 'number' ? l.order : autoOrder };
       })
-      .sort((a, b) => b._ts - a._ts); // 어드민(생각 체크)과 동일한 createdAt 내림차순
+      .sort((a, b) => b._order - a._order); // 어드민(생각 체크)과 동일한 order 내림차순(수동 이동이 최우선)
     renderAll();
   });
 
