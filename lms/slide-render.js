@@ -788,9 +788,14 @@
     });
   }
 
+  /* 확대된 상태면 닫는다. 슬라이드 전환 시(다음/이전) 호출해서 확대 이미지가 그대로 남지 않게 한다. */
+  function closeLightbox() {
+    if (lightbox) lightbox.close();
+  }
+
   // 강 번호 + 제목 결합 표기: 숫자면 "N강. 제목", 문자면 "OT: 제목".
   function lessonTitleLabel(num, title) { return isNumericNum(num) ? `${num}강. ${title}` : `${num}: ${title}`; }
 
-  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, buildSlidesFromData, circledGroups, lessonNumTag, lessonTitleLabel };
+  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, closeLightbox, buildSlidesFromData, circledGroups, lessonNumTag, lessonTitleLabel };
 
 })(window);
