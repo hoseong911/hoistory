@@ -788,35 +788,9 @@
     });
   }
 
-  /* 커서를 올리면 화면 정중앙에 뜨는 가벼운 확대 미리보기. body에 딱 하나만 만들어 재사용한다.
-     슬라이드 컨테이너는 transform:scale로 축소 렌더되므로(rescaleSlides), 그 안에 두면
-     position:fixed가 화면이 아니라 그 컨테이너 기준으로 잡힌다 — 그래서 body 바로 아래에 붙인다. */
-  let hoverPreview = null;
-  function ensureHoverPreview() {
-    if (hoverPreview) return hoverPreview;
-    hoverPreview = document.createElement('img');
-    hoverPreview.className = 'img-hover-preview';
-    document.body.appendChild(hoverPreview);
-    return hoverPreview;
-  }
-
-  /* container 안의 슬라이드 이미지들에 호버 확대 미리보기를 붙인다. 완성형 모드에서만 동작
-     (빈칸형·타이핑은 정답 학습에 집중해야 하므로 제외). 렌더 후(슬라이드를 새로 그릴 때마다) 호출. */
-  function wireHoverZoom(container) {
-    const preview = ensureHoverPreview();
-    container.querySelectorAll('.grid-img, .clayout-img img').forEach(img => {
-      img.addEventListener('mouseenter', () => {
-        if (document.body.dataset.mode !== 'complete') return;
-        preview.src = img.src;
-        preview.classList.add('show');
-      });
-      img.addEventListener('mouseleave', () => preview.classList.remove('show'));
-    });
-  }
-
   // 강 번호 + 제목 결합 표기: 숫자면 "N강. 제목", 문자면 "OT: 제목".
   function lessonTitleLabel(num, title) { return isNumericNum(num) ? `${num}강. ${title}` : `${num}: ${title}`; }
 
-  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, wireHoverZoom, buildSlidesFromData, circledGroups, lessonNumTag, lessonTitleLabel };
+  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, buildSlidesFromData, circledGroups, lessonNumTag, lessonTitleLabel };
 
 })(window);
