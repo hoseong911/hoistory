@@ -11,6 +11,10 @@ import { firebaseConfig } from "../shared/firebase-config.js";
 import { initXP, onXPChange, checkAndAddAttendance } from "../shared/xp.js";
 import { findBadWord } from "../shared/profanity.js";
 import { icon } from "../shared/icons.js";
+import { blockPaste } from "../shared/textLimit.js";
+
+// 학생 화면 복사/붙여넣기·우클릭 차단(부정행위 방지). 관리자(admin.html)는 대상 아님.
+blockPaste(document);
 
 // 생각 체크 AI 도움(힌트·제출 전 점검)은 이 프록시를 통해서만 Claude를 호출한다.
 // 키는 서버(Secret Manager)에 있고, functions/index.js의 ALLOWED_ORIGINS에 등록된 origin만 통과한다.

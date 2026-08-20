@@ -1531,7 +1531,9 @@ function ceRenderContentLines(target) {
           <div class="cl-img-row">
             <span class="cl-img-label">이미지 번호</span>
             <input type="number" class="cl-img-input" min="1" max="99" value="${line.img != null ? line.img : 1}" oninput="updateLine('${target}',${i},'img',+this.value)">
-            <span class="cl-img-label" style="font-weight:400;color:var(--stone)">화면을 꽉 채우는 슬라이드 (강번호_번호 이미지)</span>
+            <span class="cl-img-label">화면 차지 비율</span>
+            <input type="number" class="cl-img-input" min="10" max="100" value="${line.size != null ? line.size : 100}" oninput="updateLine('${target}',${i},'size',+this.value)">
+            <span class="cl-img-label" style="font-weight:400;color:var(--stone)">%</span>
           </div>
           ${legacy ? `<div style="padding:0 12px 8px;color:var(--stone);font-size:12px">※ 예전에 업로드한 이미지가 남아 있습니다. 번호를 입력하면 그 이미지로 교체됩니다.</div>` : ''}
         </div>`;
@@ -1559,7 +1561,7 @@ function ceRenderContentLines(target) {
         const div = lines[divIdx];
         const hasImg = div.img != null, fmt = div.format || 'rows';
         const pg = ++pageNum;
-        // 페이지 단위 공통 액션바(우측 세로) — 모든 형식에서 동일한 모양으로 쓴다.
+        // 페이지 단위 공통 액션바(가로, 페이지/형식 표시 옆) — 모든 형식에서 동일한 모양으로 쓴다.
         const blockEnd = divIdx + 1 + rowIndices.length;   // 이 페이지 블록의 끝(다음 블록 시작 인덱스)
         const canUp = divIdx > 0, canDown = blockEnd < lines.length;
         const pageActions = `
@@ -1587,7 +1589,7 @@ function ceRenderContentLines(target) {
         const contentInner = fmt !== 'rows'
           ? ceFormatPanelBody(target, divIdx, div)
           : (rowIndices.length ? rowIndices.map(rowInner).join('') : `<div class="cl-norow-hint">내용이 없는 페이지입니다. 행을 추가하세요.</div>`);
-        const bodyHtml = `<div class="cl-slide-row cl-slide-special"><div class="cl-special-editor">${contentInner}</div>${pageActions}</div>`;
+        const bodyHtml = `<div class="cl-slide-row cl-slide-special"><div class="cl-special-editor">${contentInner}</div></div>`;
         const pageHandle = slides.length > 1 ? `<span class="cl-handle cl-page-handle" title="페이지 순서 변경">⋮⋮</span>` : '';
         const imgLayout = div.imgLayout || 'right';
         // 텍스트 폭(%)은 우측 배치에서만 의미가 있음. 나머지 폭을 이미지가 세로로 꽉 채움.
@@ -1612,6 +1614,7 @@ function ceRenderContentLines(target) {
             <div class="cl-slide-head">
               ${pageHandle}
               <span class="cl-slide-meta">${pg}페이지 <span class="cl-meta-sep">｜</span> ${CE_FORMAT_LABELS[fmt]}</span>
+              ${pageActions}
             </div>
             <details class="cl-fmt-details" style="margin:0 12px 6px">
               <summary class="cl-fmt-summary">형식 변경 / 페이지 설정</summary>
@@ -3441,11 +3444,15 @@ let _gradeEnabled     = { concept: true, mission: true, think: true };
 let _publishStatus    = {};   // { classNum: boolean }
 let _currentGradeClass = null;
 
-// 생각 체크 "달성" 판정: 제출했더라도 이탈 미흡(생각 체크 탭에서 "통과" override가 아닌 경우)
-// 또는 AI 내용 미흡(조금 미흡·50자 미만)이면 달성을 해제한다. '미흡(이탈)' verdict는
-// 이탈 override로만 관리하므로 AI 미흡 판정에서 제외한다(통과로 토글하면 달성이 다시 켜지도록).
+// 생각 체크 "달성" 판정: 제출했더라도 이탈 미흡(cheatCount 5회 이상) 또는 AI 내용 미흡
+// (조금 미흡·50자 미만)이면 기본적으로 달성을 해제한다. 교사가 생각 체크 탭에서
+// 통과/미흡 수동 토글을 누르면(gradeOverrides, subId 단위) 그 값이 이유(이탈이든 AI든)와
+// 무관하게 최종 판정을 덮어쓴다 — "통과"로 토글하면 미흡이어도 달성 체크, "미흡"으로
+// 토글하면 통과 판정이어도 달성 해제.
 function thinkAchieved(sub, overrideVal) {
-  const cheatFail = (sub.cheatCount || 0) >= 5 && overrideVal !== 'pass';
+  if (overrideVal === 'pass') return true;
+  if (overrideVal === 'fail') return false;
+  const cheatFail = (sub.cheatCount || 0) >= 5;
   const v = sub.aiVerdict;
   const aiFail = sub.thGraded && typeof v === 'string' && v.includes('미흡') && v !== '미흡(이탈)';
   return !cheatFail && !aiFail;
@@ -5409,10 +5416,21 @@ initAdmin();
         const chip = s.thGraded
           ? `<span style="font-weight:800;color:${v.startsWith('미흡')?'#DC2626':(vColor[v]||'var(--sub)')}">${v||'-'} / ${s.aiPt??0}pt</span>`
           : `<span style="color:var(--slate);font-weight:700">미채점</span>`;
+        // 이탈로 인한 구조적 미흡('미흡(이탈)')은 "이탈" 탭에서 이미 통과/미흡 토글로 관리하므로
+        // 여기서는 중복 토글을 두지 않는다. 그 외 채점된 제출(조금 미흡·50자 미만·통과)은
+        // 교사가 이 자리에서 직접 달성 여부를 뒤집을 수 있게 통과/미흡 토글을 제공한다.
+        const showToggle = s.thGraded && v !== '미흡(이탈)';
+        const isPass = thOverrides[s.subId] === 'pass' || (thOverrides[s.subId] !== 'fail' && !v.startsWith('미흡'));
+        const toggle = showToggle ? `
+              <div class="th-grade-toggle">
+                <button class="th-grade-btn pass ${isPass?'active':''}" onclick="thToggleOverride('${s.subId}','pass')">통과</button>
+                <button class="th-grade-btn fail ${!isPass?'active':''}" onclick="thToggleOverride('${s.subId}','fail')">미흡</button>
+              </div>` : '';
         return `<div class="th-review-card">
             <div class="th-review-card-top">
               <span class="th-review-card-name">${thEsc(s.id)} ${thEsc(s.name)}</span>
               ${chip}
+              ${toggle}
             </div>
             <div class="th-review-card-text">${thEsc(s.text||'')}</div>
           </div>`;
