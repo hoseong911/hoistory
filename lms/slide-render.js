@@ -573,9 +573,11 @@
           ${im.caption ? `<p class="grid-img-caption">${im.caption}</p>` : ''}
         </div>`;
     }).join('');
+    const sz = slide.size != null ? slide.size : 100;
+    const sizeStyle = sz < 100 ? `;flex:0 0 auto;width:${sz}%;height:${sz}%;margin:auto` : '';
     return `
       ${slide.title ? `<div class="slide-header"><span class="check-badge">자료</span><h2 class="slide-title">${preserveSpaces(slide.title)}</h2></div>` : ''}
-      <div class="image-body" style="grid-template-columns: repeat(${cols}, 1fr)">
+      <div class="image-body" style="grid-template-columns: repeat(${cols}, 1fr)${sizeStyle}">
         ${cells}
       </div>
     `;
@@ -650,7 +652,8 @@
         raw.push({
           type: 'image',
           title: line.title || '',
-          images: line.images.map(im => ({ img: im.img || 1, caption: im.caption || '' }))
+          images: line.images.map(im => ({ img: im.img || 1, caption: im.caption || '' })),
+          size: line.size != null ? line.size : 100
         });
         current = null;
       } else if (line.type === 'fullimage') {

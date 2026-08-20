@@ -1515,6 +1515,11 @@ function ceRenderContentLines(target) {
               ${line.images.length > 1 ? `<button class="cbtn-sm" onclick="removeImageItem('${target}',${i},${j})">이 이미지 제거</button>` : ''}
             </div>`).join('')}
           <button class="cbtn-sm" onclick="addImageItem('${target}',${i})">+ 이미지 추가 (그리드 배치)</button>
+          <div class="cl-img-row">
+            <span class="cl-img-label">화면 차지 비율</span>
+            <input type="number" class="cl-img-input" min="10" max="100" value="${line.size != null ? line.size : 100}" oninput="updateLine('${target}',${i},'size',+this.value)">
+            <span class="cl-img-label" style="font-weight:400;color:var(--stone)">%</span>
+          </div>
         </div>`;
     }
     if (group.type === 'fullimage') {
