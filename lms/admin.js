@@ -5421,10 +5421,10 @@ initAdmin();
         const chip = s.thGraded
           ? `<span style="font-weight:800;color:${v.startsWith('미흡')?'#DC2626':(vColor[v]||'var(--sub)')}">${v||'-'} / ${s.aiPt??0}pt</span>`
           : `<span style="color:var(--slate);font-weight:700">미채점</span>`;
-        // 이탈로 인한 구조적 미흡('미흡(이탈)')은 "이탈" 탭에서 이미 통과/미흡 토글로 관리하므로
-        // 여기서는 중복 토글을 두지 않는다. 그 외 채점된 제출(조금 미흡·50자 미만·통과)은
-        // 교사가 이 자리에서 직접 달성 여부를 뒤집을 수 있게 통과/미흡 토글을 제공한다.
-        const showToggle = s.thGraded && v !== '미흡(이탈)';
+        // 채점된 제출은 모두(이탈로 인한 '미흡(이탈)' 포함) 교사가 이 자리에서 바로
+        // 달성 여부를 뒤집을 수 있게 통과/미흡 토글을 제공한다. "이탈" 탭의 토글과 같은
+        // gradeOverrides 값을 공유하므로 어느 쪽에서 눌러도 서로 동기화된다.
+        const showToggle = s.thGraded;
         const isPass = thOverrides[s.subId] === 'pass' || (thOverrides[s.subId] !== 'fail' && !v.startsWith('미흡'));
         const toggle = showToggle ? `
               <div class="th-grade-toggle">
