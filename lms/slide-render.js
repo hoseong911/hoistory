@@ -180,8 +180,10 @@
   }
 
   /* 번호가 매겨진 목록 형태의 슬라이드(학습 목표, 초성 퀴즈가 이 구성을 공유한다).
-     둘 다 Dive into History 묶음이라 배지는 "Dive into History", 제목만 다르게 표시한다. */
-  function numberedListHTML(items, badgeLabel, headerTitle) {
+     둘 다 Dive into History 묶음이라 배지는 "Dive into History", 제목만 다르게 표시한다.
+     startNum: 초성 퀴즈가 여러 페이지로 나뉠 때 번호가 이어지도록(6번 문제부터 시작 등). */
+  function numberedListHTML(items, badgeLabel, headerTitle, startNum) {
+    const base = startNum || 1;
     return `
       <div class="intro-sweep"></div>
       <div class="slide-header">
@@ -191,7 +193,7 @@
       <div class="obj-list">
         ${items.map((o, i) => `
           <div class="obj-item">
-            <span class="obj-num">${i + 1}</span>
+            <span class="obj-num">${base + i}</span>
             <p class="obj-text">${parseText(o)}</p>
           </div>
         `).join('')}
@@ -199,7 +201,37 @@
     `;
   }
   function objectivesHTML(lesson) { return numberedListHTML(lesson.objectives, 'Dive into History', '학습 목표'); }
-  function chosungHTML(slide, lesson) { return numberedListHTML(slide.items, 'Dive into History', '지난 수업 시간에는?'); }
+  function chosungHTML(slide, lesson) {
+    return numberedListHTML(slide.items, 'Dive into History', '지난 수업 시간에는?', (slide.numOffset || 0) + 1);
+  }
+
+  /* 초성 퀴즈 문항이 많으면 한 화면(약 8줄)을 넘기 전에 다음 페이지로 넘긴다. 실제 DOM
+     렌더 전에 문항 배열만 보고 결정해야 하므로, 글자수로 줄바꿈 줄 수를 대략 추정하는
+     방식을 쓴다(48px 폰트·현재 슬라이드 여백 기준 어림값 — 실제 폭과 정확히 안 맞을 수
+     있음). 문항 하나가 이미 8줄을 넘어도 페이지는 최소 1문항은 담는다. */
+  function estimateChosungLines(text) {
+    const CHARS_PER_LINE = 24;
+    const len = String(text || '').replace(/[{}]/g, '').length; // 빈칸 중괄호는 렌더 시 사라짐
+    return Math.max(1, Math.ceil(len / CHARS_PER_LINE));
+  }
+  function buildChosungSlides(items) {
+    const MAX_LINES = 8;
+    const pages = [];
+    let cur = [], curLines = 0;
+    (items || []).forEach(it => {
+      const ln = estimateChosungLines(it);
+      if (cur.length && curLines + ln > MAX_LINES) { pages.push(cur); cur = []; curLines = 0; }
+      cur.push(it);
+      curLines += ln;
+    });
+    if (cur.length) pages.push(cur);
+    let offset = 0;
+    return pages.map(group => {
+      const s = { type: 'chosung', items: group, numOffset: offset };
+      offset += group.length;
+      return s;
+    });
+  }
 
   // 좌측 라벨 6자 줄바꿈: 6자(공백 포함) 이내로 자르되 6자 안 마지막 공백에서 끊고,
   // 공백이 없으면 6자에서 강제로 끊는다.
@@ -219,7 +251,7 @@
     return out;
   }
 
-  function rowHTML(row, labelPos) {
+  function rowHTML(row, labelPos, bottomQuote) {
     const rawItems = row.items || [];
     const CIRCLE_RE = /^[①-⑳㉑-㊿]\s*/;
 
@@ -292,19 +324,36 @@
 
     const itemsHtml = groups.map(g => {
       if (g.type === 'title-with-subs') {
-        return `<p><span class="item-lead">${parseText(g.title)}</span><span class="item-text">${g.subs.map(renderSub).join('')}</span></p>`;
+        return `<p class="cr-block"><span class="item-lead">${parseText(g.title)}</span><span class="item-text">${g.subs.map(renderSub).join('')}</span></p>`;
       }
       if (g.type === 'subs-standalone') {
-        return `<p><span class="item-text">${g.subs.map(renderSub).join('')}</span></p>`;
+        return `<p class="cr-block"><span class="item-text">${g.subs.map(renderSub).join('')}</span></p>`;
       }
       if (g.type === 'title-colon') {
-        return `<p><span class="item-lead">${parseText(g.title)}</span><span class="item-text">${parseText(g.content)}</span></p>`;
+        return `<p class="cr-block"><span class="item-lead">${parseText(g.title)}</span><span class="item-text">${parseText(g.content)}</span></p>`;
       }
       if (g.type === 'title-alone') {
-        return `<p class="title-alone"><span class="item-lead">${parseText(g.title)}</span></p>`;
+        return `<p class="cr-block title-alone"><span class="item-lead">${parseText(g.title)}</span></p>`;
       }
-      return `<p><span class="item-text">${parseText(g.content)}</span></p>`;
+      return `<p class="cr-block"><span class="item-text">${parseText(g.content)}</span></p>`;
     }).join('');
+
+    // 행 라벨 밑에 사료 인용을 같이 보이고 싶을 때(3번 기능): 페이지 하단에 따로 떨어뜨리지
+    // 않고, 이 행의 항목(들) 바로 아래 같은 내용 칸(라벨 옆)에 이어서 렌더한다. 라벨은
+    // 아래 grid-row span에 이 블록까지 포함해 늘어나므로 라벨과 오렌지 선도 여기까지 걸린다.
+    const bqHtml = bottomQuote ? (() => {
+      const srcWrapped = normalizeSource(bottomQuote.source);
+      const sub = bottomQuote.label ? `<div class="qt-subtitle">${preserveSpaces(bottomQuote.label)}</div>` : '';
+      return `
+        <div class="cr-block row-bq">
+          ${sub}
+          <div class="fmt-quote qt-inline">
+            <p class="qt-text"><span class="qt-open">&ldquo;</span>${renderWithBreaks(bottomQuote.text || '')}<span class="qt-close">&rdquo;</span></p>
+            ${srcWrapped ? `<p class="qt-src">${preserveSpaces(srcWrapped)}</p>` : ''}
+          </div>
+        </div>`;
+    })() : '';
+    const blockCount = groups.length + (bottomQuote ? 1 : 0);
 
     // 라벨 위치 기본값은 '상단'. 명시적으로 'left'인 경우에만 좌측 배치.
     const posClass = labelPos === 'left' ? '' : ' label-top';
@@ -338,16 +387,17 @@
         `<span class="row-label-line${o.sub ? ' sub' : ''}">${preserveSpaces(o.t)}</span>`).join('');
       // 좌측 라벨 배치는 CSS grid(display:contents 트릭)로 "라벨 = 1행, 항목(p)들 = 각자 행"
       // 구조를 만드는데, 라벨 자체엔 grid-row가 없어 자동으로 1행에만 배치된다. ①/② 등
-      // 원문자로 묶인 그룹이 여러 개라 <p>가 2개 이상 나오면(=groups.length>1), 라벨이 첫 번째
+      // 원문자로 묶인 그룹이 여러 개라 <p>가 2개 이상 나오면(=blockCount>1), 라벨이 첫 번째
       // <p>에만 걸리고 나머지 <p>들은 라벨 없이 아래로 떨어져 보이는 문제가 있었다.
-      // 라벨이 전체 항목 행에 걸치도록 grid-row를 항목 개수만큼 명시적으로 지정해 고정한다.
-      const spanStyle = (labelPos === 'left' && groups.length > 1) ? ` style="grid-row:1 / span ${groups.length}"` : '';
+      // 라벨이 전체 항목 행(+사료 인용 블록)에 걸치도록 grid-row를 블록 개수만큼 명시적으로
+      // 지정해 고정한다.
+      const spanStyle = (labelPos === 'left' && blockCount > 1) ? ` style="grid-row:1 / span ${blockCount}"` : '';
       labelHtml = `<div class="row-label${multiCls}"${spanStyle}>${inner}</div>`;
     }
     return `
       <div class="concept-row${posClass}${hasLabel ? '' : ' no-label'}">
         ${labelHtml}
-        <div class="row-content">${itemsHtml}</div>
+        <div class="row-content">${itemsHtml}${bqHtml}</div>
       </div>`;
   }
 
@@ -424,21 +474,6 @@
       <div class="fmt-quote${slide.quoteLabel ? '' : ' qt-centered'}">
         <p class="qt-text"><span class="qt-open">&ldquo;</span>${renderWithBreaks(slide.text || '')}<span class="qt-close">&rdquo;</span></p>
         ${srcWrapped ? `<p class="qt-src">${preserveSpaces(srcWrapped)}</p>` : ''}
-      </div>`;
-  }
-
-  /* 행 나열 슬라이드 하단에 붙는 사료 인용 블록(2번 기능). 라벨(소제목)이 있으면
-     사료 위에 가운데 정렬로 표시한다. */
-  function bottomQuoteHTML(q) {
-    const srcWrapped = normalizeSource(q.source);
-    const sub = q.label ? `<div class="qt-subtitle">${preserveSpaces(q.label)}</div>` : '';
-    return `
-      <div class="rows-quote">
-        ${sub}
-        <div class="fmt-quote qt-inline">
-          <p class="qt-text"><span class="qt-open">&ldquo;</span>${renderWithBreaks(q.text || '')}<span class="qt-close">&rdquo;</span></p>
-          ${srcWrapped ? `<p class="qt-src">${preserveSpaces(srcWrapped)}</p>` : ''}
-        </div>
       </div>`;
   }
 
@@ -538,14 +573,16 @@
 
     // format === 'rows' (기본값) — 행 나열 + (선택) 하단 사료 + 이미지 우/하 배치
     const header = mkHeader(slide.title);
+    // 2번 기능: 하단 사료 인용(bottomQuote, 본문이 비어있지 않을 때만). 페이지 맨 아래에
+    // 따로 떨어뜨리지 않고 마지막 행의 라벨 옆(내용 칸) 밑에 같이 붙여서, 그 행의 라벨과
+    // 오렌지 구분선이 사료 인용까지 자연스럽게 이어지게 한다(3번 기능).
+    const bq = slide.bottomQuote;
+    const hasBQ = !!(bq && bq.text && bq.text.trim());
     const rows = `
       <div class="concept-rows">
-        ${slide.rows.map(r => rowHTML(r, slide.labelPos)).join('')}
+        ${slide.rows.map((r, idx) => rowHTML(r, slide.labelPos, hasBQ && idx === slide.rows.length - 1 ? bq : null)).join('')}
       </div>`;
-    // 2번 기능: 행 아래에 붙는 사료 인용 블록(bottomQuote가 있고 본문이 비어있지 않을 때만).
-    const bq = slide.bottomQuote;
-    const bottomQuote = (bq && bq.text && bq.text.trim()) ? bottomQuoteHTML(bq) : '';
-    return wrapWithImg(`${header}${rows}${bottomQuote}`, slide, lesson);
+    return wrapWithImg(`${header}${rows}`, slide, lesson);
   }
 
   function conceptHTML(slide, lesson) { return checkStyleHTML(slide, lesson, '개념 Check'); }
@@ -704,7 +741,7 @@
     const dive = d.dive || (d.opening ? { title: d.opening.question, guide: d.opening.guide } : null);
     // 1. 초성 퀴즈 — 토글 ON + 항목 있을 때만
     if (d.dive && d.dive.chosungEnabled && d.dive.chosungItems && d.dive.chosungItems.length) {
-      slides.push({ type: 'chosung', items: d.dive.chosungItems });
+      slides.push(...buildChosungSlides(d.dive.chosungItems));
     }
     // 2. Opening Question — 내용 있고 토글 ON일 때만(openingEnabled 없으면 기본 ON)
     if (dive && (dive.title || dive.guide || dive.img != null) && dive.openingEnabled !== false) {
