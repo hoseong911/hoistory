@@ -330,7 +330,13 @@
       const multiCls = (labelPos === 'left' && lines.length > 1) ? ' multi' : '';
       const inner = lines.map(o =>
         `<span class="row-label-line${o.sub ? ' sub' : ''}">${preserveSpaces(o.t)}</span>`).join('');
-      labelHtml = `<div class="row-label${multiCls}">${inner}</div>`;
+      // 좌측 라벨 배치는 CSS grid(display:contents 트릭)로 "라벨 = 1행, 항목(p)들 = 각자 행"
+      // 구조를 만드는데, 라벨 자체엔 grid-row가 없어 자동으로 1행에만 배치된다. ①/② 등
+      // 원문자로 묶인 그룹이 여러 개라 <p>가 2개 이상 나오면(=groups.length>1), 라벨이 첫 번째
+      // <p>에만 걸리고 나머지 <p>들은 라벨 없이 아래로 떨어져 보이는 문제가 있었다.
+      // 라벨이 전체 항목 행에 걸치도록 grid-row를 항목 개수만큼 명시적으로 지정해 고정한다.
+      const spanStyle = (labelPos === 'left' && groups.length > 1) ? ` style="grid-row:1 / span ${groups.length}"` : '';
+      labelHtml = `<div class="row-label${multiCls}"${spanStyle}>${inner}</div>`;
     }
     return `
       <div class="concept-row${posClass}${hasLabel ? '' : ' no-label'}">
