@@ -5477,12 +5477,46 @@ initAdmin();
     const lec = thLectures.find(l => l.docId === lecId);
     if (!lec) return;
     const clsNum = parseInt(cls, 10);
-    const ungraded = (thSubs||[]).filter(s => s.lectureDocId === lecId && thClassNum(s.id) === clsNum && !s.thGraded);
+    const allForLecClass = (thSubs||[]).filter(s => s.lectureDocId === lecId && thClassNum(s.id) === clsNum);
+    let ungraded = allForLecClass.filter(s => !s.thGraded);
     if (!ungraded.length) return;
     const statusEl = document.getElementById('th-ai-status');
     document.querySelectorAll('.th-btn-ai').forEach(b => b.disabled = true);
     await xpEnsureConfig();
     const maxPt = _xpCfg?.activities?.thinkCheck?.pt ?? 30;
+
+    // 0) 같은 학생이 같은 강의에 중복 제출한 경우(재입장 후 또 제출 등) 방지 —
+    // 학생 화면(index.js)에서 이미 제출했으면 다시 못 쓰게 막았지만, 그 전에 이미
+    // 쌓인 중복 데이터나 예외적인 경로에 대한 안전장치로 여기서도 한 번 더 거른다.
+    // 이미 채점(지급)된 제출이 있는 학생이면 새 제출은 채점하지 않고 포인트 없이
+    // "중복 제출"로만 표시해서 포인트가 두 번 나가는 걸 막는다(30416 윤세준 사고 재발 방지).
+    const alreadyGradedIds = new Set(allForLecClass.filter(s => s.thGraded).map(s => s.id));
+    const seenInBatch = new Set();
+    const dupes = [];
+    ungraded = ungraded
+      .slice()
+      .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0))
+      .filter(s => {
+        if (alreadyGradedIds.has(s.id) || seenInBatch.has(s.id)) { dupes.push(s); return false; }
+        seenInBatch.add(s.id);
+        return true;
+      });
+    if (dupes.length) {
+      for (const s of dupes) {
+        try {
+          await updateDoc(doc(db, 'think_submissions', s.subId), {
+            thGraded: true, aiPt: 0, aiScore: null, aiVerdict: '중복 제출(포인트 미지급)', xpAwarded: false
+          });
+          const local = (thSubs || []).find(x => x.subId === s.subId);
+          if (local) { local.thGraded = true; local.aiPt = 0; local.aiScore = null; local.aiVerdict = '중복 제출(포인트 미지급)'; local.xpAwarded = false; }
+        } catch (e) { console.warn('중복 제출 처리 실패:', s.subId, e); }
+      }
+    }
+    if (!ungraded.length) {
+      document.querySelectorAll('.th-btn-ai').forEach(b => b.disabled = false);
+      thUpdateGradeSummary(); thRenderGradeBody(); window.thRenderAnswerClass();
+      return;
+    }
 
     // 1) 구조적 미흡(0점) vs AI 채점 대상 분리
     const structFail = [], needAi = [];

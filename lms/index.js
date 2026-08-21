@@ -975,8 +975,8 @@ async function openThinkModal(item) {
   ta.value = '';
   document.getElementById('thinkWriteArea').style.display   = 'flex';
   document.getElementById('thinkDoneBox').style.display     = 'none';
-  document.getElementById('thinkViewAnswerBtn').style.display = 'none';
-  document.getElementById('thinkMyAnswerBox').style.display = 'none';
+  document.getElementById('thinkDoneMsg').textContent       = '✓ 제출 완료! 잘 했어요.';
+  document.getElementById('thinkDoneAnswerBox').style.display = 'none';
   document.getElementById('thinkSubmitBtn').disabled      = true;
   document.getElementById('thinkSubmitBtn').textContent   = '제출하기';
   resetThinkAid();
@@ -984,7 +984,10 @@ async function openThinkModal(item) {
   document.getElementById('thinkModal').style.display = 'flex';
   setTimeout(() => ta.focus(), 100);
 
-  // 이미 제출한 답변이 있으면 "내가 쓴 답변 보기" 버튼을 텍스트에어리어 위에 노출
+  // 이미 제출한 답변이 있으면 다시 쓰지 못하게 잠근다(제출 완료 화면으로 바로 전환).
+  // 예전엔 "내가 쓴 답변 보기" 버튼만 얹고 입력칸은 그대로 열어둬서, 학생이 재입장 후
+  // 또 제출하면 같은 강의에 제출물이 2개 생기고 채점 때 포인트가 두 번 지급되는
+  // 사고가 있었다(30416 윤세준 등). 이제 기존 제출이 있으면 아예 다시 못 쓰게 막는다.
   try {
     const snap = await getDocs(query(collection(db, 'think_submissions'),
       where('lectureDocId', '==', item.lectureDocId), where('id', '==', currentStudentId)));
@@ -992,7 +995,12 @@ async function openThinkModal(item) {
       const subs = snap.docs.map(d => d.data())
         .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
       _thinkMyAnswer = subs[0].text || '';
-      document.getElementById('thinkViewAnswerBtn').style.display = 'inline-block';
+      document.getElementById('thinkWriteArea').style.display = 'none';
+      document.getElementById('thinkDoneMsg').textContent = '이미 제출했습니다.';
+      const ansBox = document.getElementById('thinkDoneAnswerBox');
+      ansBox.textContent = _thinkMyAnswer;
+      ansBox.style.display = 'block';
+      document.getElementById('thinkDoneBox').style.display = 'block';
     }
   } catch(_) {}
 }
@@ -1004,11 +1012,6 @@ function closeThinkModal() {
 
 document.getElementById('thinkModalClose').addEventListener('click', closeThinkModal);
 document.getElementById('thinkDoneClose').addEventListener('click', closeThinkModal);
-document.getElementById('thinkViewAnswerBtn').addEventListener('click', () => {
-  const box = document.getElementById('thinkMyAnswerBox');
-  box.textContent = _thinkMyAnswer;
-  box.style.display = box.style.display === 'block' ? 'none' : 'block';
-});
 document.getElementById('thinkModal').addEventListener('click', e => { if (e.target === document.getElementById('thinkModal')) closeThinkModal(); });
 
 const thinkTextarea = document.getElementById('thinkTextarea');
