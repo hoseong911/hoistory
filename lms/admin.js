@@ -3455,6 +3455,10 @@ let _gradeThinkDocId  = '';   // 현재 성적 표에 로드된 생각 체크 �
 let _gradeEnabled     = { concept: true, mission: true, think: true };
 let _publishStatus    = {};   // { classNum: boolean }
 let _currentGradeClass = null;
+// 생각 체크 강의 캐시({docId,icon,title}[]) — "생각 체크" 관리 블록 안의 thLectures를
+// 이 바깥(성적 체크)에서 직접 읽을 수 없어서, thPopulateSelects()가 갱신될 때마다
+// 여기로 복사해 둔다. gradeFindMatchingThinkLec()/gradeUpdateThinkLabel()이 사용.
+let _thLecCache = [];
 
 // think_lectures의 icon(강의수 "24"·"OT" 등)과 class_progress(수업 스케줄)의 강의 라벨을
 // 매칭해, 그 반이 이 강의를 실제로 들은 날짜(M/D)를 찾아 Date로 돌려준다. 스케줄에 없으면
@@ -3558,23 +3562,6 @@ async function initGradeTab() {
     }
   } catch(e) {}
 
-  // 미션 소스 자동탐색 — 새 escape 앱 추가 시 아래 배열에 추가
-  const missionCandidates = [
-    'escape26_2_reflections',
-  ];
-  const missionSel = document.getElementById('gradeMissionColl');
-  for (const coll of missionCandidates) {
-    try {
-      const snap = await getDocs(query(collection(db, coll), limit(1)));
-      if (!snap.empty) {
-        const o = document.createElement('option');
-        o.value = coll;
-        o.textContent = coll;
-        missionSel.appendChild(o);
-      }
-    } catch(e) {}
-  }
-
   document.getElementById('gradeLoadBtn').addEventListener('click', loadGradeData);
   document.getElementById('gradeSaveBtn').addEventListener('click', saveGradeRecords);
   document.getElementById('gradeScoreLoadBtn').addEventListener('click', loadScoreData);
@@ -3590,8 +3577,8 @@ async function onGradeLessonChange() {
     const cfg = await getDoc(doc(db, 'grade_lecture_config', key));
     if (cfg.exists()) {
       const d = cfg.data();
-      document.getElementById('gradeThinkSel').value    = d.thinkLectureDocId || '';
-      gradeSetMissionColl(d.missionCollection || '');
+      document.getElementById('gradeThinkSel').value = d.thinkLectureDocId || '';
+      gradeUpdateThinkLabel(d.thinkLectureDocId || '');
       document.getElementById('gradeConceptNA').checked = d.conceptEnabled === false;
       document.getElementById('gradeMissionNA').checked = d.missionEnabled === false;
       document.getElementById('gradeThinkNA').checked   = d.thinkEnabled   === false;
@@ -3601,9 +3588,10 @@ async function onGradeLessonChange() {
     } else {
       // 저장된 연결 설정이 아직 없으면(이 강의를 성적 체크에서 처음 고른 경우), 강의수
       // 번호(class_lessons.num == think_lectures.icon)가 같은 생각 체크 강의를 자동으로
-      // 찾아 연결한다. 못 찾으면 빈 채로 둬서 수동으로 고르게 한다.
-      document.getElementById('gradeThinkSel').value    = gradeFindMatchingThinkLec(key);
-      gradeSetMissionColl('');
+      // 찾아 연결한다(수동 선택 UI 없음 — 못 찾으면 빈 채로 둔다).
+      const matched = gradeFindMatchingThinkLec(key);
+      document.getElementById('gradeThinkSel').value = matched ? matched.docId : '';
+      gradeUpdateThinkLabel(matched ? matched.docId : '');
       document.getElementById('gradeConceptNA').checked = false;
       document.getElementById('gradeMissionNA').checked = false;
       document.getElementById('gradeThinkNA').checked   = false;
@@ -3614,40 +3602,21 @@ async function onGradeLessonChange() {
   } catch(e) {}
 }
 
-// class_lessons.num(예: "24")과 icon이 같은 think_lectures 강의를 gradeThinkSel의
-// <option data-icon>에서 찾아 그 docId를 돌려준다(없으면 '').
+// class_lessons.num(예: "24")과 icon이 같은 think_lectures 강의를 찾아 {docId,title}을
+// 돌려준다(없으면 null). "생각 체크" 관리 블록 안의 thLectures는 그 블록 밖(여기)에서
+// 직접 못 읽으므로, thPopulateSelects()가 갱신할 때마다 _thLecCache에 복사해 둔 걸 쓴다.
 function gradeFindMatchingThinkLec(num) {
-  const sel = document.getElementById('gradeThinkSel');
-  if (!sel) return '';
-  const opt = Array.from(sel.options).find(o => o.dataset.icon && o.dataset.icon === String(num));
-  return opt ? opt.value : '';
+  const lec = _thLecCache.find(l => l.icon && l.icon === String(num));
+  return lec ? { docId: lec.docId, title: lec.title } : null;
 }
 
-// 미션 컬렉션 선택: 자동 탐색된 목록에 없는 컬렉션도 "직접 입력"으로 쓸 수 있게 한다.
-window.gradeMissionCollChange = function(sel) {
-  const customInput = document.getElementById('gradeMissionCollCustom');
-  customInput.style.display = sel.value === '__custom__' ? '' : 'none';
-  if (sel.value === '__custom__') customInput.focus();
-};
-function gradeGetMissionColl() {
-  const sel = document.getElementById('gradeMissionColl');
-  if (sel.value === '__custom__') return document.getElementById('gradeMissionCollCustom').value.trim();
-  return sel.value.trim();
-}
-function gradeSetMissionColl(value) {
-  const sel = document.getElementById('gradeMissionColl');
-  const customInput = document.getElementById('gradeMissionCollCustom');
-  const v = value || '';
-  const matched = Array.from(sel.options).some(o => o.value === v);
-  if (v && !matched) {
-    sel.value = '__custom__';
-    customInput.value = v;
-    customInput.style.display = '';
-  } else {
-    sel.value = v;
-    customInput.value = '';
-    customInput.style.display = 'none';
-  }
+// "자동 연결: OO강 제목" 상태 표시를 갱신한다(고르는 UI 없이 확인만 할 수 있게).
+function gradeUpdateThinkLabel(docId) {
+  const label = document.getElementById('gradeThinkAutoLabel');
+  if (!label) return;
+  if (!docId) { label.textContent = '연결된 생각 체크 강의를 찾지 못했습니다'; return; }
+  const lec = _thLecCache.find(l => l.docId === docId);
+  label.textContent = lec ? `자동 연결: ${cleanTitle(lec.title)}` : '연결됨';
 }
 
 async function loadGradeData() {
@@ -3658,7 +3627,7 @@ async function loadGradeData() {
 
   const thinkDocId  = document.getElementById('gradeThinkSel').value;
   _gradeThinkDocId  = thinkDocId;
-  const missionColl = gradeGetMissionColl();
+  const missionColl = ''; // 미션 체크는 컬렉션 자동 감지 없이 표에서 직접 체크한다.
   const conceptEnabled = !document.getElementById('gradeConceptNA').checked;
   const missionEnabled = !document.getElementById('gradeMissionNA').checked;
   const thinkEnabled   = !document.getElementById('gradeThinkNA').checked;
@@ -5114,18 +5083,9 @@ initAdmin();
       });
       if (thLectures.some(l => l.docId === cur)) sel.value = cur;
     });
-    const gradeSel = document.getElementById('gradeThinkSel');
-    if (gradeSel) {
-      const cur = gradeSel.value;
-      gradeSel.innerHTML = '<option value="">-- 연결 없음 (수동) --</option>';
-      thLectures.forEach(l => {
-        const o = document.createElement('option');
-        o.value = l.docId; o.textContent = String(l.title||'').replace(/\*\*/g,'').replace(/[{}]/g,'');
-        if (l.icon) o.dataset.icon = String(l.icon); // 성적 체크에서 강의수 번호로 자동 매칭할 때 씀
-        gradeSel.appendChild(o);
-      });
-      if (cur) gradeSel.value = cur;
-    }
+    // 성적 체크의 강의수 자동 매칭용 캐시(gradeFindMatchingThinkLec)를 갱신한다.
+    // gradeThinkSel은 이제 화면에 없는 hidden 값이라 여기서 직접 손대지 않는다.
+    _thLecCache = thLectures.map(l => ({ docId: l.docId, icon: l.icon || '', title: l.title || '' }));
   }
 
   /* ─ QUESTION ─ */
@@ -5679,7 +5639,7 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
       const local = (thSubs || []).find(x => x.subId === s.subId);
       if (local) { local.aiScore = score == null ? null : score; local.aiVerdict = verdict; local.aiPt = pt; local.xpAwarded = pt > 0; local.thGraded = true; }
       if (pt > 0) {
-        try { await adminAddXP(rtdb, s.id, s.name, pt, `생각 체크: ${lec.title}`, fbFns, _xpCfg.levels, _xpCfg.levelFormula); } catch (e) { console.warn(e); }
+        try { await adminAddXP(rtdb, s.id, s.name, pt, `생각 체크: ${cleanTitle(lec.title)}`, fbFns, _xpCfg.levels, _xpCfg.levelFormula); } catch (e) { console.warn(e); }
       }
     }
     for (const { s, verdict } of structFail) await commit(s, 0, verdict, null);
@@ -5717,7 +5677,7 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
 
     for (const s of graded) {
       if (s.aiPt > 0) {
-        try { await adminAddXP(rtdb, s.id, s.name, -s.aiPt, `생각 체크 재채점(이전 점수 회수): ${lec.title}`, fbFns, _xpCfg.levels, _xpCfg.levelFormula); } catch (e) { console.warn(e); }
+        try { await adminAddXP(rtdb, s.id, s.name, -s.aiPt, `생각 체크 재채점(이전 점수 회수): ${cleanTitle(lec.title)}`, fbFns, _xpCfg.levels, _xpCfg.levelFormula); } catch (e) { console.warn(e); }
       }
       try {
         await updateDoc(doc(db, 'think_submissions', s.subId), { thGraded: false, aiPt: null, aiScore: null, aiVerdict: null, xpAwarded: false });
@@ -5873,7 +5833,7 @@ window.xpOpenHistory = function(sid, name) {
       const dt = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       const label = ACT_LABELS[h.type] || (h.type === 'manual' ? '수동 조정' : (h.type || '-'));
       const sign  = h.pt > 0 ? '+' : '';
-      return `<tr><td style="font-size:12px;color:var(--slate)">${dt}</td><td>${label}</td><td>${sign}${h.pt||0}</td><td style="font-size:12px">${h.note||''}</td></tr>`;
+      return `<tr><td style="font-size:12px;color:var(--slate)">${dt}</td><td>${label}</td><td>${sign}${h.pt||0}</td><td style="font-size:12px">${cleanTitle(h.note||'')}</td></tr>`;
     }).join('') : '<tr><td colspan="4" style="color:var(--slate);padding:20px;font-size:13px">기록이 없습니다.</td></tr>';
   }
   document.getElementById('xpHistoryBackdrop')?.classList.add('open');
@@ -6097,7 +6057,7 @@ async function xpManualLogLoad() {
     const d = new Date(r.ts || 0);
     const dt = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     const sign = r.pt > 0 ? '+' : '';
-    return `<tr><td style="font-size:12px;color:var(--slate)">${dt}</td><td>${r.sid}</td><td>${r.name}</td><td style="font-weight:700;color:${r.pt>0?'var(--success)':'var(--critical)'}">${sign}${r.pt}</td><td style="font-size:12px">${r.note||''}</td></tr>`;
+    return `<tr><td style="font-size:12px;color:var(--slate)">${dt}</td><td>${r.sid}</td><td>${r.name}</td><td>${sign}${r.pt}</td><td style="font-size:12px">${cleanTitle(r.note||'')}</td></tr>`;
   }).join('') || '<tr><td colspan="5" style="color:var(--slate);padding:16px;font-size:13px">내역 없음</td></tr>';
 }
 
