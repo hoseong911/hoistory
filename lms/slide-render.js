@@ -339,8 +339,8 @@
     }).join('');
 
     // 행 라벨 밑에 사료 인용을 같이 보이고 싶을 때(3번 기능): 페이지 하단에 따로 떨어뜨리지
-    // 않고, 이 행의 항목(들) 바로 아래 같은 내용 칸(라벨 옆)에 이어서 렌더한다. 라벨은
-    // 아래 grid-row span에 이 블록까지 포함해 늘어나므로 라벨과 오렌지 선도 여기까지 걸린다.
+    // 않고, 이 행의 항목(들) 바로 아래 같은 내용 칸(라벨 옆)에 이어서 렌더한다. 라벨/오렌지
+    // 선은 원래 정한 대로 첫 소제목 높이에만 맞추고(아래 참고), 이 블록 때문에 늘어나지 않는다.
     const bqHtml = bottomQuote ? (() => {
       const srcWrapped = normalizeSource(bottomQuote.source);
       const sub = bottomQuote.label ? `<div class="qt-subtitle">${preserveSpaces(bottomQuote.label)}</div>` : '';
@@ -353,7 +353,6 @@
           </div>
         </div>`;
     })() : '';
-    const blockCount = groups.length + (bottomQuote ? 1 : 0);
 
     // 라벨 위치 기본값은 '상단'. 명시적으로 'left'인 경우에만 좌측 배치.
     const posClass = labelPos === 'left' ? '' : ' label-top';
@@ -385,14 +384,11 @@
       const multiCls = (labelPos === 'left' && lines.length > 1) ? ' multi' : '';
       const inner = lines.map(o =>
         `<span class="row-label-line${o.sub ? ' sub' : ''}">${preserveSpaces(o.t)}</span>`).join('');
-      // 좌측 라벨 배치는 CSS grid(display:contents 트릭)로 "라벨 = 1행, 항목(p)들 = 각자 행"
-      // 구조를 만드는데, 라벨 자체엔 grid-row가 없어 자동으로 1행에만 배치된다. ①/② 등
-      // 원문자로 묶인 그룹이 여러 개라 <p>가 2개 이상 나오면(=blockCount>1), 라벨이 첫 번째
-      // <p>에만 걸리고 나머지 <p>들은 라벨 없이 아래로 떨어져 보이는 문제가 있었다.
-      // 라벨이 전체 항목 행(+사료 인용 블록)에 걸치도록 grid-row를 블록 개수만큼 명시적으로
-      // 지정해 고정한다.
-      const spanStyle = (labelPos === 'left' && blockCount > 1) ? ` style="grid-row:1 / span ${blockCount}"` : '';
-      labelHtml = `<div class="row-label${multiCls}"${spanStyle}>${inner}</div>`;
+      // 좌측 라벨 배치는 라벨과 '첫 소제목'만 세로 가운데로 맞춘다는 원래 정한 규칙 그대로
+      // 유지한다(전체 내용/그룹 개수와 무관) — 라벨·오렌지 세로선은 항상 첫 항목 높이만큼만.
+      // CSS grid(display:contents 트릭)로 라벨은 1행에, 항목(<p>)들은 각자 행에 자동 배치되고,
+      // align-items:center로 라벨과 1행(첫 항목)만 상호 중앙정렬된다.
+      labelHtml = `<div class="row-label${multiCls}">${inner}</div>`;
     }
     return `
       <div class="concept-row${posClass}${hasLabel ? '' : ' no-label'}">
