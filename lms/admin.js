@@ -5768,8 +5768,7 @@ window.xpOpenHistory = function(sid, name) {
       const dt = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
       const label = ACT_LABELS[h.type] || (h.type === 'manual' ? '수동 조정' : (h.type || '-'));
       const sign  = h.pt > 0 ? '+' : '';
-      const color = h.pt > 0 ? 'var(--success)' : (h.pt < 0 ? 'var(--critical)' : 'var(--text)');
-      return `<tr><td style="font-size:12px;color:var(--slate)">${dt}</td><td>${label}</td><td style="font-weight:700;color:${color}">${sign}${h.pt||0}</td><td style="font-size:12px">${h.note||''}</td></tr>`;
+      return `<tr><td style="font-size:12px;color:var(--slate)">${dt}</td><td>${label}</td><td>${sign}${h.pt||0}</td><td style="font-size:12px">${h.note||''}</td></tr>`;
     }).join('') : '<tr><td colspan="4" style="color:var(--slate);padding:20px;font-size:13px">기록이 없습니다.</td></tr>';
   }
   document.getElementById('xpHistoryBackdrop')?.classList.add('open');
