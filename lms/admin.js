@@ -1864,17 +1864,20 @@ function updateLineItems(target,i,v) {
   for (const raw of lines) {
     const soft = raw.charCodeAt(0) === 0x200B;
     const ln = soft ? raw.slice(1) : raw;
+    // a./b./c. 줄은 Shift+Enter(soft)로 넘어왔든 그냥 Enter로 넘어왔든 항상 하위 항목으로
+    // 취급한다. soft만 먼저 걸러 무조건 LS로 이어붙이면, a. 다음 줄을 Shift+Enter로 쳤을 때
+    // b.가 하위 항목(<br>)이 아니라 그냥 이어지는 일반 줄(굵게 표시 안 됨)로 저장되는 버그가 있었다.
+    if (/^[a-z]\.\s/.test(ln) && cur !== null) {       // 하위 항목
+      cur += '<br>' + ln;
+      continue;
+    }
     if (soft) {                                       // 같은 항목 안 줄바꿈
       cur = (cur === null) ? ln : cur + LS + ln;
       continue;
     }
     if (ln === '') continue;                           // 일반 빈 줄은 버림
-    if (/^[a-z]\.\s/.test(ln) && cur !== null) {       // 하위 항목
-      cur += '<br>' + ln;
-    } else {
-      if (cur !== null) items.push(cur);
-      cur = ln;
-    }
+    if (cur !== null) items.push(cur);
+    cur = ln;
   }
   if (cur !== null) items.push(cur);
   ceLinesFor(target)[i].items = items;

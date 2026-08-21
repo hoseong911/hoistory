@@ -225,9 +225,15 @@
 
     // 1. rawItems를 줄 단위로 납작하게 펴기 (<br>도 줄바꿈으로 처리)
     //    단, "→"로 시작하는 줄은 화살표에서 줄을 바꾸지 않고 바로 앞 줄에 이어 붙인다.
+    // U+2028(Shift+Enter로 같은 항목 안에 이어붙인 줄바꿈) 뒤에 곧바로 a./b./c. 하위 항목
+    // 마커가 오면, 원래 별도 하위 항목으로 갈라졌어야 하는데 예전 편집기 버그로 그냥
+    // 이어붙여져 저장된 데이터다(a.는 굵게 나오는데 b.는 일반 텍스트로 보이던 문제).
+    // 그 경우만 줄바꿈으로 되살려 재분류하고, 그 외 U+2028(문장 중간 줄바꿈)은 그대로 둬서
+    // 기존 동작에 영향 없게 한다.
+    const SOFT_SUBITEM_RE = new RegExp(String.fromCharCode(0x2028) + '(?=[a-z]\\.\\s)', 'g');
     const lines = [];
     rawItems.forEach(item => {
-      item.replace(/<\/?br\s*\/?>/gi, '\n').split('\n').forEach(line => {
+      item.replace(SOFT_SUBITEM_RE, '\n').replace(/<\/?br\s*\/?>/gi, '\n').split('\n').forEach(line => {
         const t = line.trim();
         if (!t) return;
         if (/^→/.test(t) && lines.length) lines[lines.length - 1] += ' ' + t;
