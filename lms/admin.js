@@ -1858,12 +1858,16 @@ function updateLineItems(target,i,v) {
   // 규칙: 일반 엔터(\n) = 새 항목. ZWSP(U+200B)로 시작하는 줄 = 같은 항목 안 줄바꿈(Shift+Enter,
   //   → U+2028로 이어 붙임). a./b./c. 로 시작하는 줄 = 하위 항목(<br>로 이어 붙임).
   const LS = String.fromCharCode(0x2028);
+  const ZWSP = String.fromCharCode(0x200B);
+  const LEADING_ZWSP_RE = new RegExp('^' + ZWSP + '+');
   const lines = v.split('\n');
   const items = [];
   let cur = null;
   for (const raw of lines) {
     const soft = raw.charCodeAt(0) === 0x200B;
-    const ln = soft ? raw.slice(1) : raw;
+    // ZWSP가 한 개가 아니라 여러 개 연달아 남아있는 경우(예전 버그로 실제 저장된 데이터에서
+    // 확인됨)에도 전부 걷어낸다 — 하나만 벗기면 남은 ZWSP 때문에 a./b. 마커 검사가 실패한다.
+    const ln = soft ? raw.replace(LEADING_ZWSP_RE, '') : raw;
     // a./b./c. 줄은 Shift+Enter(soft)로 넘어왔든 그냥 Enter로 넘어왔든 항상 하위 항목으로
     // 취급한다. soft만 먼저 걸러 무조건 LS로 이어붙이면, a. 다음 줄을 Shift+Enter로 쳤을 때
     // b.가 하위 항목(<br>)이 아니라 그냥 이어지는 일반 줄(굵게 표시 안 됨)로 저장되는 버그가 있었다.
