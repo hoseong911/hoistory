@@ -3456,18 +3456,64 @@ let _gradeEnabled     = { concept: true, mission: true, think: true };
 let _publishStatus    = {};   // { classNum: boolean }
 let _currentGradeClass = null;
 
-// 생각 체크 "달성" 판정: 제출했더라도 이탈 미흡(cheatCount 5회 이상) 또는 AI 내용 미흡
-// (조금 미흡·50자 미만)이면 기본적으로 달성을 해제한다. 교사가 생각 체크 탭에서
-// 통과/미흡 수동 토글을 누르면(gradeOverrides, subId 단위) 그 값이 이유(이탈이든 AI든)와
-// 무관하게 최종 판정을 덮어쓴다 — "통과"로 토글하면 미흡이어도 달성 체크, "미흡"으로
-// 토글하면 통과 판정이어도 달성 해제.
-function thinkAchieved(sub, overrideVal) {
-  if (overrideVal === 'pass') return true;
-  if (overrideVal === 'fail') return false;
-  const cheatFail = (sub.cheatCount || 0) >= 5;
+// think_lectures의 icon(강의수 "24"·"OT" 등)과 class_progress(수업 스케줄)의 강의 라벨을
+// 매칭해, 그 반이 이 강의를 실제로 들은 날짜(M/D)를 찾아 Date로 돌려준다. 스케줄에 없으면
+// null(정보 부족 — 지연 여부를 판단하지 않고 안전하게 넘어간다).
+function thScheduledDate(icon, classNum) {
+  if (!icon || !classNum) return null;
+  const label = /^\d+$/.test(String(icon).trim()) ? `${icon}강` : String(icon).trim();
+  const row = (_plData.rows || []).find(r => r.label === label);
+  if (!row) return null;
+  const cell = row.cells && row.cells['c' + classNum];
+  if (!cell) return null;
+  return plResolveDate(cell, plToday());
+}
+
+// 생각 체크 최종 판정: 문구(verdict)·달성(achieved)·기한(onTime) 세 가지를 한 번에 계산한다.
+// 우선순위(동시에 여러 개 어겨도 하나만 표시): 이탈 5회↑ > 50자 미만 > AI 미흡(조금 미흡)
+// > 지연 제출 > 통과. 각 사유별 표시 규칙은 다음과 같다(사용자 확정 기준):
+//   통과              → achieved✓ onTime✓
+//   미흡(지연 제출)    → achieved✓ onTime✗ (내용·분량·AI 채점은 통과했으나 당일 제출 못함)
+//   조금 미흡          → achieved✗ onTime✓ (AI 채점 기준 미달)
+//   미흡(50자 미만)    → achieved✗ onTime✓
+//   미흡(이탈)         → achieved✗ onTime✓ (이탈 5회 이상)
+//   미흡(미제출)       → achieved✗ onTime✗ (호출 쪽에서 sub 자체가 없을 때 처리)
+// overrideVal(교사 수동 토글, gradeOverrides)이 있으면 이유와 무관하게 achieved만 덮어쓴다
+// — 포인트는 채점 시 이미 확정된 값 그대로이고, 토글로 새 포인트가 생기지는 않는다.
+// 제출 시각이 그 반의 수업일(class_progress 스케줄)보다 늦으면 true. 스케줄 정보가 없으면
+// 판단 보류(false) — 정보 부족으로 불이익을 주지 않는다. thinkVerdict()와 thRunGrading() 둘 다 씀.
+function thIsLateSubmission(sub, lec) {
+  const classNum = sub.id && String(sub.id).length >= 3 ? parseInt(String(sub.id).slice(1, 3), 10) : null;
+  const sched = thScheduledDate(lec && lec.icon, classNum);
+  const subDate = sub.createdAt ? (sub.createdAt.toDate ? sub.createdAt.toDate() : new Date(sub.createdAt)) : null;
+  if (!sched || !subDate) return false;
+  const dayOnly = d => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  return dayOnly(subDate) > dayOnly(sched);
+}
+
+function thinkVerdict(sub, lec, overrideVal) {
+  const late = thIsLateSubmission(sub, lec);
+  let verdict, achieved, onTime;
   const v = sub.aiVerdict;
-  const aiFail = sub.thGraded && typeof v === 'string' && v.includes('미흡') && v !== '미흡(이탈)';
-  return !cheatFail && !aiFail;
+  if ((sub.cheatCount || 0) >= 5) {
+    verdict = '미흡(이탈)'; achieved = false; onTime = true;
+  } else if ((sub.textLength || 0) < 50) {
+    verdict = '미흡(50자 미만)'; achieved = false; onTime = true;
+  } else if (sub.thGraded && v === '조금 미흡') {
+    // 정확히 '조금 미흡'(AI 품질 미달)일 때만 여기서 잡는다. 넓게 "미흡" 포함 여부로
+    // 검사하면 '미흡(지연 제출)'도 걸려버려(문자열에 "미흡"이 들어있음) 지연 제출인데도
+    // achieved가 꺼지는 오류가 생긴다.
+    verdict = '조금 미흡'; achieved = false; onTime = true;
+  } else if (late) {
+    verdict = '미흡(지연 제출)'; achieved = true; onTime = false;
+  } else {
+    verdict = '통과'; achieved = true; onTime = true;
+  }
+
+  if (overrideVal === 'pass') achieved = true;
+  else if (overrideVal === 'fail') achieved = false;
+
+  return { verdict, achieved, onTime };
 }
 
 async function initGradeTab() {
@@ -3633,10 +3679,17 @@ async function loadGradeData() {
     });
 
     // 생각체크 자동감지 (제출시간 수집)
-    // 제출만 했으면 "기한(onTime)"은 체크된다(제때 냈다는 뜻). "달성(achieved)"은
-    // thinkAchieved() 규칙대로 통과일 때만 체크(이탈 미흡·AI 미흡이면 달성만 해제).
+    // thinkVerdict() 기준대로 달성(achieved)·기한(onTime)을 함께 계산한다(통과/미흡(지연 제출)/
+    // 조금 미흡/미흡(50자 미만)/미흡(이탈)/미흡(미제출) 6가지 — 자세한 규칙은 thinkVerdict 주석 참고).
     // 아예 미제출이면 달성·기한 모두 기본값(false)으로 남는다.
     if (thinkDocId) {
+      await plEnsureLoaded(); // 지연 제출 판정에 필요한 수업 스케줄(class_progress) 데이터
+      let thinkLec = null;
+      try {
+        const lecSnap = await getDoc(doc(db, 'think_lectures', thinkDocId));
+        if (lecSnap.exists()) thinkLec = lecSnap.data();
+      } catch (e) {}
+
       const thinkOverrides = {};
       await Promise.all([1,2,3,4,5,6].map(async cls => {
         try {
@@ -3652,9 +3705,9 @@ async function loadGradeData() {
       tSnap.docs.forEach(d => {
         const sub = d.data();
         if (!_gradeRecords[sub.id]) return;
-        _gradeRecords[sub.id].think.achieved = thinkAchieved(sub, thinkOverrides[d.id]);
-        // 제출했으면 기한은 체크(제때 냈다는 뜻) — 이탈·미흡이어도 유지.
-        if (!savedSet.has(sub.id)) _gradeRecords[sub.id].think.onTime = true;
+        const { achieved, onTime } = thinkVerdict(sub, thinkLec, thinkOverrides[d.id]);
+        _gradeRecords[sub.id].think.achieved = achieved;
+        if (!savedSet.has(sub.id)) _gradeRecords[sub.id].think.onTime = onTime;
         const ts = sub.createdAt;
         if (ts) _gradeThinkTimes[sub.id] = ts.toDate ? ts.toDate() : new Date(ts);
       });
@@ -5414,7 +5467,7 @@ initAdmin();
       const subs = (thSubs||[]).filter(s => s.lectureDocId === thGradeCtx.lecId && thClassNum(s.id) === clsN)
         .sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
       const ungraded = subs.filter(s => !s.thGraded);
-      const vColor = { '통과':'var(--c3)', '조금 미흡':'#B8860B' };
+      const vColor = { '통과':'var(--c3)', '조금 미흡':'#B8860B', '미흡(지연 제출)':'#B8860B' };
       const gradedN = subs.length - ungraded.length;
       let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
           <button class="th-btn-ai" ${ungraded.length?'':'disabled'} onclick="thRunGrading()">AI 채점 &amp; 포인트 지급${ungraded.length?` (미채점 ${ungraded.length})`:''}</button>
@@ -5426,13 +5479,15 @@ initAdmin();
       html += subs.map(s => {
         const v = s.aiVerdict || '';
         const chip = s.thGraded
-          ? `<span style="font-weight:800;color:${v.startsWith('미흡')?'#DC2626':(vColor[v]||'var(--sub)')}">${v||'-'} / ${s.aiPt??0}pt</span>`
+          ? `<span style="font-weight:800;color:${vColor[v] || (v.startsWith('미흡')?'#DC2626':'var(--sub)')}">${v||'-'} / ${s.aiPt??0}pt</span>`
           : `<span style="color:var(--slate);font-weight:700">미채점</span>`;
         // 채점된 제출은 모두(이탈로 인한 '미흡(이탈)' 포함) 교사가 이 자리에서 바로
         // 달성 여부를 뒤집을 수 있게 통과/미흡 토글을 제공한다. "이탈" 탭의 토글과 같은
         // gradeOverrides 값을 공유하므로 어느 쪽에서 눌러도 서로 동기화된다.
+        // '미흡(지연 제출)'은 thinkVerdict() 기준상 이미 달성으로 치므로(내용·AI 채점은
+        // 통과, 당일 제출만 못함) 토글 기본 상태도 "통과"로 보여준다.
         const showToggle = s.thGraded;
-        const isPass = thOverrides[s.subId] === 'pass' || (thOverrides[s.subId] !== 'fail' && !v.startsWith('미흡'));
+        const isPass = thOverrides[s.subId] === 'pass' || (thOverrides[s.subId] !== 'fail' && (v === '통과' || v === '미흡(지연 제출)'));
         const toggle = showToggle ? `
               <div class="th-grade-toggle">
                 <button class="th-grade-btn pass ${isPass?'active':''}" onclick="thToggleOverride('${s.subId}','pass')">통과</button>
@@ -5465,13 +5520,18 @@ initAdmin();
     const sub = (thSubs || []).find(s => s.subId === subId);
     const rec = sub && _gradeRecords[sub.id];
     if (!rec || rec.absent) return;   // 결석 학생은 미달성 고정 — 건드리지 않는다.
-    rec.think.achieved = thinkAchieved(sub, thOverrides[subId]);
+    const lec = thLectures.find(l => l.docId === thGradeCtx.lecId);
+    const { achieved, onTime } = thinkVerdict(sub, lec, thOverrides[subId]);
+    rec.think.achieved = achieved;
+    rec.think.onTime = onTime;
     renderGradeTable();
     renderGradeStats();
   }
 
   // AI 채점 & 포인트 지급: 아직 채점 안 된 제출만 채점한다(채점된 학생은 고정).
-  // 0점=구조적 미흡(50자 미만/이탈 5회↑), 5점=AI 조금 미흡, 10~30=AI 품질 차등.
+  // 0점=구조적 미흡(50자 미만/이탈 5회↑), 5점=AI 조금 미흡, 10~30=AI 품질 차등
+  // (내용 기준 통과인데 수업 당일 제출을 못했으면 포인트는 그대로 주되 verdict만
+  // "미흡(지연 제출)"로 남겨 성적 표의 달성/기한 체크가 갈리게 한다 — thinkVerdict() 참고).
   window.thRunGrading = async function() {
     const { lecId, cls } = thGradeCtx;
     const lec = thLectures.find(l => l.docId === lecId);
@@ -5587,7 +5647,12 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
       const q = quality[s.subId];
       let pt, verdict;
       if (q == null || q < 40) { pt = 5; verdict = '조금 미흡'; }
-      else { pt = Math.max(10, Math.min(maxPt, Math.round(10 + (q - 40) / 60 * (maxPt - 10)))); verdict = '통과'; }
+      else {
+        pt = Math.max(10, Math.min(maxPt, Math.round(10 + (q - 40) / 60 * (maxPt - 10))));
+        // 내용·분량·AI 채점은 통과 기준이어도 수업 당일에 제출하지 못했으면 "미흡(지연 제출)"로
+        // 표시한다(포인트는 그대로 — 지급 여부가 아니라 달성/기한 체크 표시만 갈린다).
+        verdict = thIsLateSubmission(s, lec) ? '미흡(지연 제출)' : '통과';
+      }
       await commit(s, pt, verdict, q == null ? null : q);
     }
     if (statusEl) statusEl.textContent = '';
@@ -6000,6 +6065,8 @@ async function xpManualLogLoad() {
 // rows: [{id,label,topic,cells:{classId:'M/D',...}}], classes: [{id,name,schedule}]
 // 셀 강조는 저장하지 않고, 화면에 그릴 때마다 오늘(KST) 날짜와 비교해서 매번 새로 계산한다.
 let _plData = { classes: [], rows: [] };
+let _plLoaded = false; // 생각 체크 지연 제출 판정(thScheduledDate)이 "수업 스케줄" 탭을 연
+                        // 적 없어도 동작하도록, plEnsureLoaded()가 이 플래그로 최초 1회만 불러온다.
 
 function plGenId() { return 'id_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
@@ -6078,7 +6145,13 @@ async function plLoad() {
     _plData = plDefaultData();
     await setDoc(doc(db, 'class_progress', 'plan'), _plData);
   }
+  _plLoaded = true;
   plRender();
+}
+
+async function plEnsureLoaded() {
+  if (_plLoaded) return;
+  try { await plLoad(); } catch (e) {}
 }
 
 async function plSaveAndRender() {
