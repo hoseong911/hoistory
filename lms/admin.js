@@ -3591,7 +3591,7 @@ async function onGradeLessonChange() {
     if (cfg.exists()) {
       const d = cfg.data();
       document.getElementById('gradeThinkSel').value    = d.thinkLectureDocId || '';
-      document.getElementById('gradeMissionColl').value = d.missionCollection || '';
+      gradeSetMissionColl(d.missionCollection || '');
       document.getElementById('gradeConceptNA').checked = d.conceptEnabled === false;
       document.getElementById('gradeMissionNA').checked = d.missionEnabled === false;
       document.getElementById('gradeThinkNA').checked   = d.thinkEnabled   === false;
@@ -3599,8 +3599,11 @@ async function onGradeLessonChange() {
       document.getElementById('gradeMissionWeight').value = String(d.missionWeight || 1);
       document.getElementById('gradeThinkWeight').value   = String(d.thinkWeight   || 1);
     } else {
-      document.getElementById('gradeThinkSel').value    = '';
-      document.getElementById('gradeMissionColl').value = '';
+      // 저장된 연결 설정이 아직 없으면(이 강의를 성적 체크에서 처음 고른 경우), 강의수
+      // 번호(class_lessons.num == think_lectures.icon)가 같은 생각 체크 강의를 자동으로
+      // 찾아 연결한다. 못 찾으면 빈 채로 둬서 수동으로 고르게 한다.
+      document.getElementById('gradeThinkSel').value    = gradeFindMatchingThinkLec(key);
+      gradeSetMissionColl('');
       document.getElementById('gradeConceptNA').checked = false;
       document.getElementById('gradeMissionNA').checked = false;
       document.getElementById('gradeThinkNA').checked   = false;
@@ -3611,6 +3614,42 @@ async function onGradeLessonChange() {
   } catch(e) {}
 }
 
+// class_lessons.num(예: "24")과 icon이 같은 think_lectures 강의를 gradeThinkSel의
+// <option data-icon>에서 찾아 그 docId를 돌려준다(없으면 '').
+function gradeFindMatchingThinkLec(num) {
+  const sel = document.getElementById('gradeThinkSel');
+  if (!sel) return '';
+  const opt = Array.from(sel.options).find(o => o.dataset.icon && o.dataset.icon === String(num));
+  return opt ? opt.value : '';
+}
+
+// 미션 컬렉션 선택: 자동 탐색된 목록에 없는 컬렉션도 "직접 입력"으로 쓸 수 있게 한다.
+window.gradeMissionCollChange = function(sel) {
+  const customInput = document.getElementById('gradeMissionCollCustom');
+  customInput.style.display = sel.value === '__custom__' ? '' : 'none';
+  if (sel.value === '__custom__') customInput.focus();
+};
+function gradeGetMissionColl() {
+  const sel = document.getElementById('gradeMissionColl');
+  if (sel.value === '__custom__') return document.getElementById('gradeMissionCollCustom').value.trim();
+  return sel.value.trim();
+}
+function gradeSetMissionColl(value) {
+  const sel = document.getElementById('gradeMissionColl');
+  const customInput = document.getElementById('gradeMissionCollCustom');
+  const v = value || '';
+  const matched = Array.from(sel.options).some(o => o.value === v);
+  if (v && !matched) {
+    sel.value = '__custom__';
+    customInput.value = v;
+    customInput.style.display = '';
+  } else {
+    sel.value = v;
+    customInput.value = '';
+    customInput.style.display = 'none';
+  }
+}
+
 async function loadGradeData() {
   const lessonNum = document.getElementById('gradeLessonSel').value;
   if (!lessonNum) { alert('강의를 먼저 선택해 주세요.'); return; }
@@ -3619,7 +3658,7 @@ async function loadGradeData() {
 
   const thinkDocId  = document.getElementById('gradeThinkSel').value;
   _gradeThinkDocId  = thinkDocId;
-  const missionColl = document.getElementById('gradeMissionColl').value.trim();
+  const missionColl = gradeGetMissionColl();
   const conceptEnabled = !document.getElementById('gradeConceptNA').checked;
   const missionEnabled = !document.getElementById('gradeMissionNA').checked;
   const thinkEnabled   = !document.getElementById('gradeThinkNA').checked;
@@ -5082,6 +5121,7 @@ initAdmin();
       thLectures.forEach(l => {
         const o = document.createElement('option');
         o.value = l.docId; o.textContent = String(l.title||'').replace(/\*\*/g,'').replace(/[{}]/g,'');
+        if (l.icon) o.dataset.icon = String(l.icon); // 성적 체크에서 강의수 번호로 자동 매칭할 때 씀
         gradeSel.appendChild(o);
       });
       if (cur) gradeSel.value = cur;
