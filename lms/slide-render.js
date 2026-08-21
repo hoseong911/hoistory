@@ -205,21 +205,53 @@
     return numberedListHTML(slide.items, 'Dive into History', '지난 수업 시간에는?', (slide.numOffset || 0) + 1);
   }
 
-  /* 초성 퀴즈 문항이 많으면 한 화면(약 8줄)을 넘기 전에 다음 페이지로 넘긴다. 실제 DOM
-     렌더 전에 문항 배열만 보고 결정해야 하므로, 글자수로 줄바꿈 줄 수를 대략 추정하는
-     방식을 쓴다(48px 폰트·현재 슬라이드 여백 기준 어림값 — 실제 폭과 정확히 안 맞을 수
-     있음). 문항 하나가 이미 8줄을 넘어도 페이지는 최소 1문항은 담는다. */
-  function estimateChosungLines(text) {
-    const CHARS_PER_LINE = 24;
-    const len = String(text || '').replace(/[{}]/g, '').length; // 빈칸 중괄호는 렌더 시 사라짐
-    return Math.max(1, Math.ceil(len / CHARS_PER_LINE));
+  /* 초성 퀴즈 문항이 많으면 한 화면(약 8줄)을 넘기 전에 다음 페이지로 넘긴다.
+     글자수로 줄바꿈 줄 수를 어림잡는 방식은 실제 폭·폰트와 안 맞아 문항 하나가 이미
+     8줄로 잡혀 "한 줄짜리 문항도 페이지 하나를 통째로 차지"하는 문제가 있었다. 대신
+     실제 프로덕션과 똑같은 DOM(.slide-chosung .obj-item .obj-text)을 화면 밖에
+     그대로 만들어 각 문항을 진짜로 렌더해보고 줄바꿈 줄 수를 측정한다 — 폭·폰트가
+     나중에 바뀌어도 이 숫자가 항상 실제와 일치한다. */
+  let _chosungMeasureP = null;
+  function ensureChosungMeasureP() {
+    if (_chosungMeasureP) return _chosungMeasureP;
+    const wrap = document.createElement('div');
+    wrap.className = 'slide slide-chosung';
+    wrap.style.cssText = 'position:fixed;left:-9999px;top:0;width:1920px;height:1080px;visibility:hidden;pointer-events:none;';
+    const list = document.createElement('div');
+    list.className = 'obj-list';
+    const item = document.createElement('div');
+    item.className = 'obj-item';
+    const num = document.createElement('span');
+    num.className = 'obj-num';
+    num.textContent = '1';
+    const p = document.createElement('p');
+    p.className = 'obj-text';
+    item.appendChild(num);
+    item.appendChild(p);
+    list.appendChild(item);
+    wrap.appendChild(list);
+    document.body.appendChild(wrap);
+    _chosungMeasureP = p;
+    return p;
+  }
+  function measureChosungLines(text) {
+    // document가 없는 극히 예외적인 상황(테스트 등) 대비 안전장치 — 글자수로 대략 추정.
+    if (typeof document === 'undefined') {
+      const len = String(text || '').replace(/[{}]/g, '').length;
+      return Math.max(1, Math.ceil(len / 28));
+    }
+    const p = ensureChosungMeasureP();
+    p.innerHTML = parseText(text || '');
+    const lineHeight = parseFloat(getComputedStyle(p).lineHeight) || 74;
+    const h = p.getBoundingClientRect().height;
+    return Math.max(1, Math.round(h / lineHeight));
   }
   function buildChosungSlides(items) {
     const MAX_LINES = 8;
     const pages = [];
     let cur = [], curLines = 0;
     (items || []).forEach(it => {
-      const ln = estimateChosungLines(it);
+      const ln = measureChosungLines(it);
       if (cur.length && curLines + ln > MAX_LINES) { pages.push(cur); cur = []; curLines = 0; }
       cur.push(it);
       curLines += ln;
