@@ -731,8 +731,11 @@
       inner = imageHTML(slide, lesson);
     } else if (slide.type === 'fullimage') {
       extraClass = ' slide-full';
+      // 항상 화면 기준 퍼센테이지 — 사진 자체 비율과 무관하게 지정한 비율만큼 화면을 차지하도록
+      // object-fit:cover로 남는 부분은 크롭한다(contain이면 사진 비율에 따라 실제 보이는
+      // 크기가 퍼센테이지보다 작아져 버림).
       const sz = slide.size != null ? slide.size : 100;
-      const sizeStyle = sz < 100 ? ` style="width:${sz}%;height:${sz}%;object-fit:contain"` : '';
+      const sizeStyle = sz < 100 ? ` style="width:${sz}%;height:${sz}%;object-fit:cover"` : '';
       if (slide.img != null) {
         const base = `/hoistory/lms/img/${lesson.num}_${slide.img}`;
         inner = `<img class="full-img"${sizeStyle} src="${base}.png" alt="" onerror="SlideRenderImgFallback(this,'${base}',0)">`;
