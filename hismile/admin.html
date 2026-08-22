@@ -5,16 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>역사 열공 마일리지 : 관리자 모드</title>
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<!-- 공용 어드민 표준(LMS와 동일한 오렌지·Paperlogy 토큰) -->
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/admin-base.css">
 <style>
 @font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2');font-weight:700;font-display:swap}
 @font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2');font-weight:900;font-display:swap}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --canvas:#FAFAF9;--surface:#F4F3EE;
-  --hairline:#E5E4DF;--hairline-soft:#ECEAE4;
-  --ink:#0A1317;--sub:#6B7280;--stone:#C4C4C4;
-  --primary:#1E3A8A;--primary-deep:#172554;--primary-soft:rgba(30,58,138,0.09);--primary-m:rgba(30,58,138,0.15);
-  --accent:#2DD4BF;--accent-deep:#0F766E;--accent-l:rgba(45,212,191,0.12);
+/* LMS/공용 어드민 토큰(admin-base.css --hi-*)에 매핑 — 브랜드색 네이비→오렌지 통일 */
+:root, body{
+  --canvas:var(--hi-bg-card);--surface:var(--hi-bg-base);
+  --hairline:var(--hi-border);--hairline-soft:var(--hi-border-soft);
+  --ink:var(--hi-text);--sub:var(--hi-text-muted);--stone:var(--hi-border-light);
+  --primary:var(--hi-accent);--primary-deep:var(--hi-accent-strong);--primary-soft:rgba(255,107,61,0.09);--primary-m:rgba(255,107,61,0.15);
+  --accent:var(--hi-accent);--accent-deep:var(--hi-accent-strong);--accent-l:rgba(255,107,61,0.12);
   --pass:#16A34A;--pass-l:rgba(22,163,74,0.1);
   --insuf:#DC2626;--insuf-l:rgba(220,38,38,0.09);
   --pick:#7C3AED;--pick-l:rgba(124,58,237,0.1);
@@ -33,7 +37,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--surface)
 .gate-input{width:100%;padding:11px 14px;border:1.5px solid var(--hairline);border-radius:10px;font-family:inherit;font-size:14px;color:var(--ink);background:var(--surface);outline:none;transition:border-color .2s;text-align:center;letter-spacing:2px}
 .gate-input:focus{border-color:var(--primary)}
 .gate-err{font-size:12px;color:#DC2626;min-height:16px;margin-bottom:4px;text-align:center}
-.gate-btn{width:100%;padding:12px;border-radius:10px;background:var(--primary);color:#fff;font-family:'Paperlogy',sans-serif;font-weight:700;font-size:15px;border:none;cursor:pointer}
+.gate-btn{width:100%;padding:12px;border-radius:10px;background:var(--primary);color:#fff;font-family:'Paperlogy',sans-serif;font-weight:700;font-size:16px;border:none;cursor:pointer}
 .gate-btn:hover{background:var(--primary-deep)}
 .gate-foot{text-align:center;margin-top:16px}
 .gate-foot a{font-size:12px;color:var(--sub);text-decoration:none}
@@ -47,7 +51,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--surface)
 .adm-header{background:var(--canvas);border-bottom:1px solid var(--hairline-soft);padding:0 28px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:54px;position:sticky;top:0;z-index:30}
 .adm-logo{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:16px;color:var(--primary);justify-self:start;grid-column:1}
 .adm-tabs{display:flex;gap:2px;background:var(--surface);border:1px solid var(--hairline-soft);border-radius:10px;padding:3px;justify-self:center;grid-column:2}
-.adm-tab{padding:6px 20px;border-radius:7px;font-family:inherit;font-size:13px;font-weight:700;color:var(--sub);background:none;border:none;cursor:pointer;transition:.15s}
+.adm-tab{padding:6px 20px;border-radius:7px;font-family:inherit;font-size:14px;font-weight:700;color:var(--sub);background:none;border:none;cursor:pointer;transition:.15s}
 .adm-tab.active{background:var(--primary);color:#fff}
 .adm-logout{background:none;border:1.5px solid var(--hairline);border-radius:8px;padding:6px 14px;font-family:inherit;font-size:12px;font-weight:700;color:var(--sub);cursor:pointer;justify-self:end;grid-column:3}
 /* lms/admin iframe에 embed된 경우 상위 어드민의 "목록으로"를 대신하는 버튼. 로그아웃 자리를 대신 차지한다 */
@@ -62,26 +66,26 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
 .tab-panel{display:none}
 .tab-panel.active{display:block}
 .section-card{background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:20px;padding:22px;margin-bottom:16px;box-shadow:var(--shadow)}
-.section-title{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:15px;color:var(--ink);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.section-title{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:16px;color:var(--ink);margin-bottom:16px;display:flex;align-items:center;gap:8px}
 
 /* ── 버튼 ── */
-.btn{padding:9px 18px;border-radius:10px;font-family:inherit;font-size:13px;font-weight:700;border:none;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px}
+.btn{padding:9px 18px;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;border:none;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:6px}
 .btn-primary{background:var(--primary);color:#fff}.btn-primary:hover{background:var(--primary-deep)}
-.btn-accent{background:var(--accent-l);color:var(--accent-deep);border:1.5px solid rgba(45,212,191,.3)}.btn-accent:hover{background:rgba(45,212,191,.22)}
+.btn-accent{background:var(--accent-l);color:var(--accent-deep);border:1.5px solid rgba(255,107,61,.3)}.btn-accent:hover{background:rgba(255,107,61,.22)}
 .btn-ghost{background:none;border:1.5px solid var(--hairline);color:var(--sub)}.btn-ghost:hover{border-color:var(--stone);color:var(--ink)}
 .btn-danger{background:var(--insuf-l);color:var(--insuf);border:1.5px solid rgba(220,38,38,.2)}.btn-danger:hover{background:rgba(220,38,38,.16)}
 .btn-sm{padding:5px 12px;font-size:12px;border-radius:7px}
-.btn-xs{padding:4px 10px;font-size:11px;border-radius:6px}
+.btn-xs{padding:4px 10px;font-size:12px;border-radius:6px}
 .btn:disabled{opacity:.4;cursor:default}
 
 /* ── 반 필터 ── */
 .class-filter{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:16px}
-.cf-btn{padding:7px 16px;border-radius:100px;border:1.5px solid var(--hairline);background:var(--canvas);font-family:inherit;font-size:13px;font-weight:700;color:var(--sub);cursor:pointer;transition:.15s}
+.cf-btn{padding:7px 16px;border-radius:100px;border:1.5px solid var(--hairline);background:var(--canvas);font-family:inherit;font-size:14px;font-weight:700;color:var(--sub);cursor:pointer;transition:.15s}
 .cf-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
 
 /* ── 정렬 토글 ── */
 .sort-toggle{display:inline-flex;background:var(--surface);border-radius:100px;padding:3px;border:1px solid var(--hairline-soft)}
-.sort-toggle button{background:transparent;border:none;font-family:inherit;cursor:pointer;color:var(--sub);padding:6px 14px;border-radius:100px;font-size:11px;font-weight:800;letter-spacing:.4px;transition:.15s}
+.sort-toggle button{background:transparent;border:none;font-family:inherit;cursor:pointer;color:var(--sub);padding:6px 14px;border-radius:100px;font-size:12px;font-weight:800;letter-spacing:.4px;transition:.15s}
 .sort-toggle button.active{background:var(--primary);color:#fff}
 
 /* ── 통계 칩 ── */
@@ -99,28 +103,28 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
 .stu-card{background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:14px;box-shadow:var(--shadow);padding:12px 16px;cursor:pointer;transition:.15s;display:flex;flex-direction:row;align-items:center;gap:10px;text-align:left}
 .stu-card:hover{border-color:var(--stone)}
 .grid-3 .stu-card{flex-direction:column;align-items:center;text-align:center;gap:5px;padding:14px 16px}
-.stu-class-badge{flex-shrink:0;padding:3px 8px;border-radius:6px;background:var(--primary-soft);color:var(--primary);font-size:11px;font-weight:800}
+.stu-class-badge{flex-shrink:0;padding:3px 8px;border-radius:6px;background:var(--primary-soft);color:var(--primary);font-size:12px;font-weight:800}
 .grid-3 .stu-class-badge{align-self:center}
 .stu-name{flex:1;min-width:0;font-weight:800;font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .grid-3 .stu-name{flex:none;white-space:normal}
-.stu-id{flex-shrink:0;font-size:11px;color:var(--sub)}
+.stu-id{flex-shrink:0;font-size:12px;color:var(--sub)}
 .stu-days{flex-shrink:0;font-family:'Paperlogy',sans-serif;font-weight:900;font-size:20px;color:var(--accent-deep)}
-.stu-days small{font-size:11px;color:var(--sub);font-weight:600;margin-left:2px}
+.stu-days small{font-size:12px;color:var(--sub);font-weight:600;margin-left:2px}
 
 /* ── 학생 상세 모달 ── */
 .stu-modal-back{position:fixed;inset:0;background:rgba(10,19,23,.55);display:none;align-items:center;justify-content:center;z-index:500;padding:20px}
 .stu-modal-back.open{display:flex}
 .stu-modal-box{background:var(--canvas);border-radius:20px;padding:24px;max-width:480px;width:100%;max-height:82vh;overflow-y:auto}
 .stu-modal-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px}
-.stu-modal-name{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:17px;color:var(--ink)}
+.stu-modal-name{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:18px;color:var(--ink)}
 .stu-modal-close{background:none;border:1.5px solid var(--hairline);border-radius:8px;padding:5px 12px;font-family:inherit;font-size:12px;font-weight:700;color:var(--sub);cursor:pointer;flex-shrink:0}
 .stu-modal-close:hover{background:var(--surface)}
-.stu-modal-sub{font-size:13px;color:var(--sub);margin-bottom:14px}
+.stu-modal-sub{font-size:14px;color:var(--sub);margin-bottom:14px}
 
 /* 누적 일수 직접 수정 */
 .mileage-edit-row{display:flex;align-items:center;gap:8px;margin:14px 0;padding:12px;background:var(--surface);border-radius:10px}
 .mileage-edit-row label{font-size:12px;font-weight:700;color:var(--sub);flex-shrink:0}
-.mileage-edit-row input{width:70px;padding:6px 10px;border:1.5px solid var(--hairline);border-radius:8px;font-family:inherit;font-size:13px;text-align:center;background:var(--canvas)}
+.mileage-edit-row input{width:70px;padding:6px 10px;border:1.5px solid var(--hairline);border-radius:8px;font-family:inherit;font-size:14px;text-align:center;background:var(--canvas)}
 
 /* 학생별 인증 기록 목록 */
 .cert-mini{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--hairline-soft)}
@@ -128,14 +132,14 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
 .cert-mini-thumb{width:52px;height:52px;border-radius:8px;flex-shrink:0;background:var(--surface);border:1px solid var(--hairline-soft);overflow:hidden;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--stone)}
 .cert-mini-thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .cert-mini-body{flex:1;min-width:0}
-.cert-mini-date{font-size:11px;font-weight:800;color:var(--primary);margin-bottom:2px}
+.cert-mini-date{font-size:12px;font-weight:800;color:var(--primary);margin-bottom:2px}
 .cert-mini-text{font-size:12px;color:var(--ink);line-height:1.5}
-.cert-mini-feeling{font-size:11px;color:var(--sub);margin-top:2px;line-height:1.5}
-.no-cert{text-align:center;color:var(--stone);font-size:13px;padding:16px 0}
+.cert-mini-feeling{font-size:12px;color:var(--sub);margin-top:2px;line-height:1.5}
+.no-cert{text-align:center;color:var(--stone);font-size:14px;padding:16px 0}
 
 /* ── 인증 검토 필터 ── */
 .filter-row{display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap;justify-content:center}
-.filter-row select,.filter-row input[type="date"]{padding:8px 12px;border:1.5px solid var(--hairline);border-radius:8px;font-family:inherit;font-size:13px;color:var(--ink);background:var(--canvas);outline:none}
+.filter-row select,.filter-row input[type="date"]{padding:8px 12px;border:1.5px solid var(--hairline);border-radius:8px;font-family:inherit;font-size:14px;color:var(--ink);background:var(--canvas);outline:none}
 .filter-row select:focus,.filter-row input:focus{border-color:var(--primary)}
 
 /* ── 인증 카드 ── */
@@ -145,12 +149,12 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
 .cert-detail .body{flex:1;min-width:0}
 .cert-detail .name{font-weight:800;font-size:14px;color:var(--ink);display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
 .cert-detail .name .meta-inline{font-weight:500;color:var(--sub);font-size:12px}
-.cert-detail .content{font-size:13px;color:var(--ink);margin:4px 0;line-height:1.55}
-.cert-detail .meta{font-size:11px;color:var(--sub)}
+.cert-detail .content{font-size:14px;color:var(--ink);margin:4px 0;line-height:1.55}
+.cert-detail .meta{font-size:12px;color:var(--sub)}
 .cert-detail .actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
 
 /* ── 배지 ── */
-.badge{display:inline-flex;align-items:center;font-size:11px;font-weight:700;padding:3px 10px;border-radius:100px;letter-spacing:.3px}
+.badge{display:inline-flex;align-items:center;font-size:12px;font-weight:700;padding:3px 10px;border-radius:100px;letter-spacing:.3px}
 .badge-pass{background:var(--pass-l);color:var(--pass)}
 .badge-fail{background:var(--insuf-l);color:var(--insuf)}
 .badge-pending{background:var(--warn-l);color:var(--warn)}
