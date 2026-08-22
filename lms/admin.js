@@ -3562,6 +3562,8 @@ async function initGradeTab() {
     }
   } catch(e) {}
 
+  renderGradeClassTags(); // 반 선택 태그는 불러오기 전에도 항상 표시한다
+
   document.getElementById('gradeLoadBtn').addEventListener('click', loadGradeData);
   document.getElementById('gradeSaveBtn').addEventListener('click', saveGradeRecords);
   document.getElementById('gradeScoreLoadBtn').addEventListener('click', loadScoreData);
@@ -3579,9 +3581,9 @@ async function onGradeLessonChange() {
       const d = cfg.data();
       document.getElementById('gradeThinkSel').value = d.thinkLectureDocId || '';
       gradeUpdateThinkLabel(d.thinkLectureDocId || '');
-      document.getElementById('gradeConceptNA').checked = d.conceptEnabled === false;
-      document.getElementById('gradeMissionNA').checked = d.missionEnabled === false;
-      document.getElementById('gradeThinkNA').checked   = d.thinkEnabled   === false;
+      document.getElementById('gradeConceptOn').checked = d.conceptEnabled !== false;
+      document.getElementById('gradeMissionOn').checked = d.missionEnabled !== false;
+      document.getElementById('gradeThinkOn').checked   = d.thinkEnabled   !== false;
       document.getElementById('gradeConceptWeight').value = String(d.conceptWeight || 1);
       document.getElementById('gradeMissionWeight').value = String(d.missionWeight || 1);
       document.getElementById('gradeThinkWeight').value   = String(d.thinkWeight   || 1);
@@ -3592,9 +3594,9 @@ async function onGradeLessonChange() {
       const matched = gradeFindMatchingThinkLec(key);
       document.getElementById('gradeThinkSel').value = matched ? matched.docId : '';
       gradeUpdateThinkLabel(matched ? matched.docId : '');
-      document.getElementById('gradeConceptNA').checked = false;
-      document.getElementById('gradeMissionNA').checked = false;
-      document.getElementById('gradeThinkNA').checked   = false;
+      document.getElementById('gradeConceptOn').checked = true;
+      document.getElementById('gradeMissionOn').checked = true;
+      document.getElementById('gradeThinkOn').checked   = true;
       document.getElementById('gradeConceptWeight').value = '1';
       document.getElementById('gradeMissionWeight').value = '1';
       document.getElementById('gradeThinkWeight').value   = '1';
@@ -3616,7 +3618,52 @@ function gradeUpdateThinkLabel(docId) {
   if (!label) return;
   if (!docId) { label.textContent = '연결된 생각 체크 강의를 찾지 못했습니다'; return; }
   const lec = _thLecCache.find(l => l.docId === docId);
-  label.textContent = lec ? `자동 연결: ${cleanTitle(lec.title)}` : '연결됨';
+  label.textContent = lec ? `생각체크 자동 연결: ${cleanTitle(lec.title)}` : '생각체크 자동 연결됨';
+}
+
+// 학생 명단(_gradeStudents)에서 반 번호 목록을 뽑는다(00000·범위 밖 제외).
+function gradeClassNums() {
+  const set = new Set();
+  _gradeStudents.forEach(s => {
+    if (s.id === '00000') return;
+    const c = Math.floor((parseInt(s.id) - 30000) / 100);
+    if (c >= 1 && c <= 9) set.add(c);
+  });
+  return [...set].sort((a, b) => a - b);
+}
+
+// 반 선택 태그(gradeSubtabBar)를 그린다. 불러오기 전에도 항상 보이며(강의 선택 바로 아래),
+// 클릭하면 현재 반(_currentGradeClass)을 바꾸고 표 필터·통계·반영 바를 갱신한다.
+function renderGradeClassTags() {
+  const bar = document.getElementById('gradeSubtabBar');
+  if (!bar) return;
+  const nums = gradeClassNums();
+  if (!nums.length) { bar.style.display = 'none'; return; }
+  if (_currentGradeClass == null) _currentGradeClass = 'all';
+
+  bar.innerHTML = ['all', ...nums].map(cls => {
+    const active = cls === _currentGradeClass;
+    const pub = (cls !== 'all' && _publishStatus[cls]) ? ' pub' : '';
+    return `<button class="grade-subtab${active ? ' active' : ''}${pub}" data-cls="${cls}">${cls === 'all' ? '전체' : cls + '반'}</button>`;
+  }).join('');
+  bar.style.display = 'flex';
+
+  bar.querySelectorAll('.grade-subtab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const raw = btn.dataset.cls;
+      const cls = raw === 'all' ? 'all' : parseInt(raw);
+      _currentGradeClass = cls;
+      bar.querySelectorAll('.grade-subtab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (!_gradeLessonKey) return; // 아직 불러오기 전이면 필터만 바꾸고 통계·반영 바는 건드리지 않는다
+      document.querySelectorAll('#gradeTableWrap tr[data-cls]').forEach(row => {
+        row.style.display = (cls === 'all' || parseInt(row.dataset.cls) === cls) ? '' : 'none';
+      });
+      syncGradeAllCb();
+      renderGradeStats();
+      renderGradePublishBar(cls === 'all' ? null : cls);
+    });
+  });
 }
 
 async function loadGradeData() {
@@ -3628,9 +3675,9 @@ async function loadGradeData() {
   const thinkDocId  = document.getElementById('gradeThinkSel').value;
   _gradeThinkDocId  = thinkDocId;
   const missionColl = ''; // 미션 체크는 컬렉션 자동 감지 없이 표에서 직접 체크한다.
-  const conceptEnabled = !document.getElementById('gradeConceptNA').checked;
-  const missionEnabled = !document.getElementById('gradeMissionNA').checked;
-  const thinkEnabled   = !document.getElementById('gradeThinkNA').checked;
+  const conceptEnabled = document.getElementById('gradeConceptOn').checked;
+  const missionEnabled = document.getElementById('gradeMissionOn').checked;
+  const thinkEnabled   = document.getElementById('gradeThinkOn').checked;
   const conceptWeight  = parseInt(document.getElementById('gradeConceptWeight').value) || 1;
   const missionWeight  = parseInt(document.getElementById('gradeMissionWeight').value) || 1;
   const thinkWeight    = parseInt(document.getElementById('gradeThinkWeight').value)   || 1;
@@ -3751,12 +3798,17 @@ async function loadGradeData() {
     } catch(e) {}
 
     renderGradeTable();
-    setupSubtabs('gradeTableWrap', 'gradeSubtabBar', (cls) => {
-      _currentGradeClass = cls;
-      syncGradeAllCb();
-      renderGradeStats();
-      renderGradePublishBar(cls === 'all' ? null : cls);
-    }, true);
+    // 반 태그는 이미 항상 떠 있으므로 여기선 반영 상태(뱃지)만 갱신하고,
+    // 현재 선택된 반 기준으로 표 필터·통계·반영 바를 맞춘다.
+    renderGradeClassTags();
+    const cur = (_currentGradeClass == null) ? 'all' : _currentGradeClass;
+    _currentGradeClass = cur;
+    document.querySelectorAll('#gradeTableWrap tr[data-cls]').forEach(row => {
+      row.style.display = (cur === 'all' || parseInt(row.dataset.cls) === cur) ? '' : 'none';
+    });
+    syncGradeAllCb();
+    renderGradeStats();
+    renderGradePublishBar(cur === 'all' ? null : cur);
     document.getElementById('gradeCheckActions').style.display = 'flex';
     refreshGradeSettingsLectures();
   } catch(e) {
@@ -3968,7 +4020,15 @@ function renderGradeTable() {
   const timeSpan = (d, isLate) =>
     `<span style="font-size:12px" class="${isLate?'grade-time-late':''}">${esc(fmtTime(d))}</span>`;
 
-  let html = `<div class="grade-table-wrap"><table class="grade-table">
+  // colgroup으로 열 폭을 고정한다 → 실시/미실시(열 개수)를 바꿔도 각 칸 폭이 그대로 유지된다.
+  let cols = '<col style="width:74px"><col style="width:96px">';
+  if (cE) cols += '<col style="width:56px"><col style="width:56px">';
+  if (mE) cols += '<col style="width:56px"><col style="width:56px"><col style="width:88px">';
+  if (tE) cols += '<col style="width:56px"><col style="width:56px"><col style="width:88px">';
+  cols += '<col style="width:104px">';
+
+  let html = `<div class="grade-table-wrap"><table class="grade-table grade-table-fixed">
+    <colgroup>${cols}</colgroup>
     <thead>
       <tr>
         <th rowspan="2">학번</th><th rowspan="2">이름</th>
@@ -4494,56 +4554,6 @@ async function unpublishClassGrades(classNum) {
     alert('취소 실패: ' + e.message);
     renderGradePublishBar(classNum); // 실패해도 버튼을 다시 눌러진 상태로 되돌린다
   }
-}
-
-async function publishAllClasses() {
-  if (!_gradeLessonKey) return;
-  const bar = document.getElementById('gradeSubtabBar');
-  const classBtns = bar ? [...bar.querySelectorAll('.grade-subtab[data-cls]')] : [];
-  const classNums = classBtns.map(b => parseInt(b.dataset.cls)).filter(n => !isNaN(n));
-  if (!classNums.length) { alert('반 정보가 없습니다.'); return; }
-  const unpublished = classNums.filter(n => !_publishStatus[n]);
-  if (!unpublished.length) { alert('이미 모든 반에 반영되어 있습니다.'); return; }
-  if (!confirm(`${unpublished.join(', ')}반 (총 ${unpublished.length}개 반) 성적을 한꺼번에 반영하시겠습니까?\n학생 성적 조회에 즉시 표시됩니다.`)) return;
-
-  const allBtn = document.getElementById('publishAllBtn');
-  if (allBtn) { allBtn.disabled = true; allBtn.textContent = '반영 중...'; }
-
-  const lesson = _gradeLessons.find(l => l.num === _gradeLessonKey);
-  const lessonTitle = lesson?.title || '';
-
-  for (const classNum of unpublished) {
-    const studentsInClass = _gradeStudents.filter(s => {
-      if (s.id === '00000') return false;
-      return Math.floor((parseInt(s.id) - 30000) / 100) === classNum;
-    });
-    try {
-      await Promise.all(studentsInClass.map(s =>
-        setDoc(doc(db, 'grade_records', `${_gradeLessonKey}_${s.id}`), {
-          lessonKey: _gradeLessonKey, lessonTitle,
-          studentId: s.id, studentName: s.name,
-          concept: _gradeRecords[s.id].concept,
-          mission: _gradeRecords[s.id].mission,
-          think:   _gradeRecords[s.id].think,
-          absent:  _gradeRecords[s.id].absent || false,
-          feedback: _gradeRecords[s.id].feedback || '',
-          published: true, updatedAt: serverTimestamp(),
-        }, { merge: true })
-      ));
-      await setDoc(doc(db, 'grade_publish_status', `${_gradeLessonKey}_${classNum}`), {
-        published: true, publishedAt: serverTimestamp(), lessonKey: _gradeLessonKey, classNum,
-      });
-      _publishStatus[classNum] = true;
-      updateSubtabPublishBadge(classNum, true);
-    } catch(e) {
-      alert(`${classNum}반 반영 실패: ${e.message}`);
-    }
-  }
-
-  if (allBtn) { allBtn.disabled = false; allBtn.textContent = '전체 반 공개'; }
-  const cur = _currentGradeClass && _currentGradeClass !== 'all' ? _currentGradeClass : null;
-  renderGradePublishBar(cur);
-  alert(`전체 ${unpublished.length}개 반 성적 반영 완료!`);
 }
 
 async function saveGradeSettings() {

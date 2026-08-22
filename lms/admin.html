@@ -11,7 +11,7 @@
 <!-- 개념 체크 미리보기가 학생 화면(class/lesson.html)과 100% 동일하게 렌더링되도록 공용 슬라이드 스타일을 그대로 불러온다.
      이 파일의 :root 변수 중 --text/--border는 아래 이 페이지 자체 :root 선언이 나중에 와서 재정의하므로 전역 충돌은 없다. -->
 <link rel="stylesheet" href="slide-style.css?v=20260821a">
-<link rel="stylesheet" href="admin.css?v=20260821a">
+<link rel="stylesheet" href="admin.css?v=20260822a">
   <script src="/hoistory/pwa.js"></script>
 </head>
 <body data-mode="complete">
@@ -554,43 +554,26 @@
 
     <div id="gradeInputSection">
       <div class="grade-config-card">
-        <div class="grade-config-rows">
-          <div class="grade-config-row">
-            <div class="grade-config-row-top">
-              <span class="grade-config-lbl">개념 체크</span>
-              <div style="display:flex;align-items:center;gap:6px">
-                <select id="gradeConceptWeight" class="grade-na-toggle" style="cursor:pointer"><option value="1">1배</option><option value="2">2배</option></select>
-                <label class="grade-na-toggle"><input type="checkbox" id="gradeConceptNA"> 미실시</label>
-              </div>
-            </div>
-            <select id="gradeLessonSel" class="grade-config-sel"><option value="">-- 강의 선택 --</option></select>
+        <div class="grade-config-line">
+          <select id="gradeLessonSel" class="grade-config-sel"><option value="">-- 강의 선택 --</option></select>
+          <!-- 채점 영역 선택: 체크=실시, 해제=미실시. 옆의 드롭다운은 가중치. -->
+          <div class="grade-area-toggles">
+            <label class="grade-area-toggle"><input type="checkbox" id="gradeConceptOn" checked> 개념체크</label>
+            <select id="gradeConceptWeight" class="grade-weight-sel"><option value="1">1배</option><option value="2">2배</option></select>
+            <label class="grade-area-toggle"><input type="checkbox" id="gradeMissionOn" checked> 미션체크</label>
+            <select id="gradeMissionWeight" class="grade-weight-sel"><option value="1">1배</option><option value="2">2배</option></select>
+            <label class="grade-area-toggle"><input type="checkbox" id="gradeThinkOn" checked> 생각체크</label>
+            <select id="gradeThinkWeight" class="grade-weight-sel"><option value="1">1배</option><option value="2">2배</option></select>
           </div>
-          <div class="grade-config-row">
-            <div class="grade-config-row-top">
-              <span class="grade-config-lbl">생각 체크</span>
-              <div style="display:flex;align-items:center;gap:6px">
-                <select id="gradeThinkWeight" class="grade-na-toggle" style="cursor:pointer"><option value="1">1배</option><option value="2">2배</option></select>
-                <label class="grade-na-toggle"><input type="checkbox" id="gradeThinkNA"> 미실시</label>
-              </div>
-            </div>
-            <!-- 개념 체크 강의 선택(gradeLessonSel)만 고르면 같은 번호의 생각 체크 강의가
-                 자동으로 연결된다(gradeThinkSel은 화면에 안 보이는 hidden 값으로만 씀). -->
-            <input type="hidden" id="gradeThinkSel">
-            <div class="grade-auto-status" id="gradeThinkAutoLabel">자동 연결: 강의를 먼저 선택하세요</div>
-          </div>
-          <div class="grade-config-row">
-            <div class="grade-config-row-top">
-              <span class="grade-config-lbl">미션 체크</span>
-              <div style="display:flex;align-items:center;gap:6px">
-                <select id="gradeMissionWeight" class="grade-na-toggle" style="cursor:pointer"><option value="1">1배</option><option value="2">2배</option></select>
-                <label class="grade-na-toggle"><input type="checkbox" id="gradeMissionNA"> 미실시</label>
-              </div>
-            </div>
-            <div class="grade-auto-status">아래 표에서 학생별로 직접 체크합니다.</div>
-          </div>
+          <button class="add-btn p" id="gradeLoadBtn">불러오기</button>
         </div>
-        <button class="add-btn p" id="gradeLoadBtn" style="align-self:stretch;padding:0 22px;writing-mode:initial">불러오기</button>
+        <!-- 개념 체크 강의를 고르면 같은 번호의 생각 체크 강의가 자동 연결된다(hidden 값). -->
+        <input type="hidden" id="gradeThinkSel">
+        <div class="grade-auto-status" id="gradeThinkAutoLabel">생각체크 자동 연결: 강의를 먼저 선택하세요</div>
       </div>
+
+      <!-- 반 선택 (강의 선택 아래에 항상 표시) -->
+      <div class="grade-subtab-bar" id="gradeSubtabBar"></div>
 
       <div class="grade-stats-bar" id="gradeStatsBar">
         <div class="grade-stat-chip">
@@ -607,14 +590,14 @@
         </div>
       </div>
 
-      <div class="grade-score-top">
-        <div class="grade-subtab-bar" id="gradeSubtabBar" style="margin-bottom:0"></div>
-        <div class="grade-check-actions" id="gradeCheckActions" style="display:none">
+      <div class="grade-check-actions" id="gradeCheckActions" style="display:none">
+        <div class="grade-action-btns">
           <button class="add-btn p" id="gradeSaveBtn">임시 저장</button>
-          <button class="add-btn p" onclick="openFeedbackTemplateModal()" style="background:var(--c2);border-color:var(--c2)">피드백 템플릿</button>
-          <button class="add-btn p" id="publishAllBtn" onclick="publishAllClasses()" style="background:var(--accent-deep);border-color:var(--accent-deep)">전체 반 공개</button>
-          <span class="grade-publish-status-lbl" id="gradePublishStatusLbl"></span>
+          <button class="add-btn" onclick="openFeedbackTemplateModal()" style="background:var(--c2);border-color:var(--c2)">피드백 템플릿</button>
           <button class="btn-publish" id="publishActionBtn" style="display:none"></button>
+        </div>
+        <div class="grade-action-status">
+          <span class="grade-publish-status-lbl" id="gradePublishStatusLbl"></span>
         </div>
       </div>
 
@@ -1329,6 +1312,6 @@
 <!-- hwpx 파일(zip+xml) 압축 해제용: 활동지 업로드로 새 강의 자동 생성 기능에 사용 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="slide-render.js?v=20260821c"></script>
-<script type="module" src="admin.js?v=20260821g"></script>
+<script type="module" src="admin.js?v=20260822a"></script>
 </body>
 </html>
