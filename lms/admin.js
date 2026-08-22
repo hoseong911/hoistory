@@ -5155,8 +5155,11 @@ initAdmin();
     infoEl.innerHTML =
       `<div class="th-detail-lbl">질문</div><div class="th-detail-val">${thEsc(cleanTitle(lec?.question))}</div>` +
       `<div class="th-detail-lbl">설명</div><div class="th-detail-val">${thEsc(cleanTitle(lec?.reference) || '없음')}</div>`;
-    if (gradeArea.style.display !== 'none') { thBuildClassTags(); thRenderAnswerClass(); }
-    if (pickArea.style.display  !== 'none') thRenderPick();
+    // 강의를 고르면 채점 화면(반 태그 + 통계 + 답변)을 바로 노출한다.
+    pickArea.style.display = 'none';
+    gradeArea.style.display = '';
+    thBuildClassTags();
+    thRenderAnswerClass();
   };
 
   // 데이터 변경(onSnapshot)·패널 재진입 시 현재 선택 상태에 맞춰 다시 그린다(수정/새 강의 폼은 건드리지 않음).
@@ -5415,7 +5418,7 @@ initAdmin();
           <span class="th-student-name">${thEsc(data.id)} ${thEsc(data.name)} <span class="th-student-meta">｜ ${meta}</span></span>
           <div class="th-answer-actions">
             <button class="edit-btn" style="${isPicked?'background:var(--c3-l);color:var(--c3)':''}" onclick="thTogglePick('${data.subId}')" title="PICK">★</button>
-            <button class="del-btn" onclick="thDeleteSub('${data.subId}')">삭제</button>
+            <button class="th-answer-del" onclick="thDeleteSub('${data.subId}')" title="답변 삭제"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,6 21,6"/><path d="M8,6V4a1,1,0,0,1,1-1h6a1,1,0,0,1,1,1V6"/><path d="M10,11v6M14,11v6"/><rect x="5" y="6" width="14" height="15" rx="1"/></svg></button>
           </div>
         </div>
         <div class="th-answer-text">${thEsc(data.text||'')}</div>
@@ -5471,8 +5474,9 @@ initAdmin();
       thEnsureSubs(lecId, window.thRenderAnswerClass); return;
     }
     const clsNum = parseInt(cls, 10);
-    const classStu = thStudentsReady ? thStudents.filter(s => thClassNum(s.studentId) === clsNum) : [];
-    const classSubs = thSubs.filter(s => s.lectureDocId === lecId && thClassNum(s.id) === clsNum);
+    // 통계·목록 모두 테스트 학번(30600·00000 등)은 제외한다.
+    const classStu = thStudentsReady ? thStudents.filter(s => thClassNum(s.studentId) === clsNum && !isTestId(s.studentId)) : [];
+    const classSubs = thSubs.filter(s => s.lectureDocId === lecId && thClassNum(s.id) === clsNum && !isTestId(s.id));
     const submittedIds = new Set(classSubs.map(s => String(s.id)));
     thActivityData = {
       absent: classStu.filter(s => !submittedIds.has(String(s.studentId))),
@@ -5490,18 +5494,17 @@ initAdmin();
     const passCnt = total > 0 ? Math.max(0, total - failCnt) : 0;
     // 아직 AI 채점하지 않은 제출 수(테스트 학생 제외) — 대시보드 "채점 N" 표시와 동일 기준.
     const ungradedCnt = classSubs.filter(s => !isTestId(s.id) && s.thGraded !== true).length;
+    const pickCnt = classSubs.filter(s => s.isPicked).length;
     if (statsEl) {
       statsEl.style.display = '';
+      // 하나의 칩에 총인원 / 제출 / 통과 / 미흡 (앞 둘 오렌지, 통과 초록, 미흡 빨강)
+      const star = `<svg class="th-star-ic" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2.5l2.9 6.05 6.6.78-4.9 4.5 1.32 6.52L12 17.9 6.08 20.85 7.4 14.33 2.5 9.83l6.6-.78L12 2.5z"/></svg>`;
       statsEl.innerHTML = `
-        <div class="th-stat-chip"><span class="th-num">${classSubs.length}${classStu.length?' / '+classStu.length:''}</span>제출 / ${cls}반</div>
-        <div class="th-stat-chip"><span class="th-num">${classSubs.filter(s=>s.isPicked).length}</span>PICK</div>
-        <div class="th-stat-chip clickable" onclick="thOpenGradeModalWithLoad('fail')">
-          <span class="th-num" style="display:inline">${total?passCnt:'-'}</span><span style="font-size:14px;font-weight:800"> / </span><span class="th-num-red" style="display:inline">${total?failCnt:'-'}</span>
-          <span style="display:block;font-size:12px;margin-top:2px">통과 / 미흡</span>
+        <div class="th-stat-chip th-stat-combo clickable" onclick="thOpenGradeModalWithLoad('fail')" title="총인원 / 제출 / 통과 / 미흡">
+          <span class="thc-o">${total||0}</span><span class="thc-sep">/</span><span class="thc-o">${classSubs.length}</span><span class="thc-sep">/</span><span class="thc-g">${total?passCnt:0}</span><span class="thc-sep">/</span><span class="thc-r">${total?failCnt:0}</span>
         </div>
-        <div class="th-stat-chip clickable" onclick="thOpenGradeModalWithLoad('review')">
-          <span class="th-num" style="font-size:14px">AI</span>채점${ungradedCnt ? ` <b style="color:var(--critical)">${ungradedCnt}</b>` : ''}
-        </div>`;
+        <div class="th-stat-chip th-stat-star" title="PICK된 답변 수">${star}<span class="thc-star-n">${pickCnt}</span></div>
+        <div class="th-stat-chip clickable th-stat-ai" onclick="thOpenGradeModalWithLoad('review')">AI 채점${ungradedCnt ? ` <b>${ungradedCnt}</b>` : ''}</div>`;
     }
     const sorted = [...classSubs].sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
     listEl.innerHTML = sorted.length ? sorted.map(d => thBuildAnswerCard(d, true)).join('') : '<div class="empty-panel">이 반의 제출된 답변이 없습니다.</div>';
