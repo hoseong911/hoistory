@@ -3639,29 +3639,29 @@ function renderGradeClassTags() {
   if (!bar) return;
   const nums = gradeClassNums();
   if (!nums.length) { bar.style.display = 'none'; return; }
-  if (_currentGradeClass == null) _currentGradeClass = 'all';
+  // "전체" 탭 없이 반 태그만 둔다. 기본값은 첫 반(예: 1반).
+  if (_currentGradeClass == null || _currentGradeClass === 'all' || !nums.includes(_currentGradeClass)) {
+    _currentGradeClass = nums[0];
+  }
 
-  bar.innerHTML = ['all', ...nums].map(cls => {
-    const active = cls === _currentGradeClass;
-    const pub = (cls !== 'all' && _publishStatus[cls]) ? ' pub' : '';
-    return `<button class="grade-subtab${active ? ' active' : ''}${pub}" data-cls="${cls}">${cls === 'all' ? '전체' : cls + '반'}</button>`;
-  }).join('');
+  bar.innerHTML = nums.map(cls =>
+    `<button class="grade-subtab${cls === _currentGradeClass ? ' active' : ''}" data-cls="${cls}">${cls}반</button>`
+  ).join('');
   bar.style.display = 'flex';
 
   bar.querySelectorAll('.grade-subtab').forEach(btn => {
     btn.addEventListener('click', () => {
-      const raw = btn.dataset.cls;
-      const cls = raw === 'all' ? 'all' : parseInt(raw);
+      const cls = parseInt(btn.dataset.cls);
       _currentGradeClass = cls;
       bar.querySelectorAll('.grade-subtab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       if (!_gradeLessonKey) return; // 아직 불러오기 전이면 필터만 바꾸고 통계·반영 바는 건드리지 않는다
       document.querySelectorAll('#gradeTableWrap tr[data-cls]').forEach(row => {
-        row.style.display = (cls === 'all' || parseInt(row.dataset.cls) === cls) ? '' : 'none';
+        row.style.display = (parseInt(row.dataset.cls) === cls) ? '' : 'none';
       });
       syncGradeAllCb();
       renderGradeStats();
-      renderGradePublishBar(cls === 'all' ? null : cls);
+      renderGradePublishBar(cls);
     });
   });
 }
@@ -3800,15 +3800,14 @@ async function loadGradeData() {
     renderGradeTable();
     // 반 태그는 이미 항상 떠 있으므로 여기선 반영 상태(뱃지)만 갱신하고,
     // 현재 선택된 반 기준으로 표 필터·통계·반영 바를 맞춘다.
-    renderGradeClassTags();
-    const cur = (_currentGradeClass == null) ? 'all' : _currentGradeClass;
-    _currentGradeClass = cur;
+    renderGradeClassTags(); // 반 태그 갱신 + 기본 반(첫 반) 확정
+    const cur = _currentGradeClass;
     document.querySelectorAll('#gradeTableWrap tr[data-cls]').forEach(row => {
-      row.style.display = (cur === 'all' || parseInt(row.dataset.cls) === cur) ? '' : 'none';
+      row.style.display = (parseInt(row.dataset.cls) === cur) ? '' : 'none';
     });
     syncGradeAllCb();
     renderGradeStats();
-    renderGradePublishBar(cur === 'all' ? null : cur);
+    renderGradePublishBar(cur);
     document.getElementById('gradeCheckActions').style.display = 'flex';
     refreshGradeSettingsLectures();
   } catch(e) {
@@ -4011,7 +4010,6 @@ function renderGradeTable() {
   const cE = _gradeEnabled.concept;
   const mE = _gradeEnabled.mission;
   const tE = _gradeEnabled.think;
-  const totalCols = 2 + (cE?2:0) + (mE?3:0) + (tE?3:0) + 1;
 
   const allCb = (t, f) =>
     `<input type="checkbox" class="grade-all-cb" data-t="${t}" data-f="${f}" title="전체 선택/해제 (현재 반에만 적용)">`;
@@ -4021,11 +4019,12 @@ function renderGradeTable() {
     `<span style="font-size:12px" class="${isLate?'grade-time-late':''}">${esc(fmtTime(d))}</span>`;
 
   // colgroup으로 열 폭을 고정한다 → 실시/미실시(열 개수)를 바꿔도 각 칸 폭이 그대로 유지된다.
-  let cols = '<col style="width:74px"><col style="width:96px">';
-  if (cE) cols += '<col style="width:56px"><col style="width:56px">';
-  if (mE) cols += '<col style="width:56px"><col style="width:56px"><col style="width:88px">';
-  if (tE) cols += '<col style="width:56px"><col style="width:56px"><col style="width:88px">';
-  cols += '<col style="width:104px">';
+  // (미션체크는 제출시간 열 없이 달성/기한 2열만 쓴다.)
+  let cols = '<col style="width:82px"><col style="width:104px">';
+  if (cE) cols += '<col style="width:62px"><col style="width:62px">';
+  if (mE) cols += '<col style="width:62px"><col style="width:62px">';
+  if (tE) cols += '<col style="width:62px"><col style="width:62px"><col style="width:92px">';
+  cols += '<col style="width:110px">';
 
   let html = `<div class="grade-table-wrap"><table class="grade-table grade-table-fixed">
     <colgroup>${cols}</colgroup>
@@ -4033,31 +4032,28 @@ function renderGradeTable() {
       <tr>
         <th rowspan="2">학번</th><th rowspan="2">이름</th>
         ${cE ? `<th colspan="2" class="gh-concept">개념체크</th>` : ''}
-        ${mE ? `<th colspan="3" class="gh-mission">미션체크</th>` : ''}
+        ${mE ? `<th colspan="2" class="gh-mission">미션체크</th>` : ''}
         ${tE ? `<th colspan="3" class="gh-think">생각체크</th>` : ''}
         <th rowspan="2">피드백</th>
       </tr>
       <tr>
         ${cE ? `<th class="gh-concept">${allCb('concept','achieved')}달성</th><th class="gh-concept">${allCb('concept','onTime')}기한</th>` : ''}
-        ${mE ? `<th class="gh-mission">${allCb('mission','achieved')}달성</th><th class="gh-mission">${allCb('mission','onTime')}기한</th><th class="gh-mission">제출시간</th>` : ''}
+        ${mE ? `<th class="gh-mission">${allCb('mission','achieved')}달성</th><th class="gh-mission">${allCb('mission','onTime')}기한</th>` : ''}
         ${tE ? `<th class="gh-think">${allCb('think','achieved')}달성</th><th class="gh-think">${allCb('think','onTime')}기한</th><th class="gh-think">제출시간</th>` : ''}
       </tr>
     </thead><tbody>`;
 
   classNums.forEach(cls => {
     const studs = classes[cls];
-    const tMaj  = majorityDay(_gradeThinkTimes,   studs);
-    const mMaj  = majorityDay(_gradeMissionTimes, studs);
-    html += `<tr class="class-header-row" data-cls="${cls}"><td colspan="${totalCols}">${cls}반 (${studs.length}명)</td></tr>`;
+    const tMaj  = majorityDay(_gradeThinkTimes, studs);
     studs.forEach(s => {
       const r  = _gradeRecords[s.id];
-      const tD = _gradeThinkTimes[s.id]   || null;
-      const mD = _gradeMissionTimes[s.id] || null;
+      const tD = _gradeThinkTimes[s.id] || null;
       html += `<tr data-cls="${cls}" data-sid="${esc(s.id)}" class="${r.absent ? 'absent-row' : ''}">
         <td class="tc-id">${esc(s.id)}</td>
         <td class="tc-name" data-sid="${esc(s.id)}" title="클릭하면 결석으로 표시/해제됩니다">${esc(s.name)}</td>
         ${cE ? `<td>${chk(s.id,'concept','achieved',r.concept.achieved,r.absent)}</td><td>${chk(s.id,'concept','onTime',r.concept.onTime,r.absent)}</td>` : ''}
-        ${mE ? `<td>${chk(s.id,'mission','achieved',r.mission.achieved,r.absent)}</td><td>${chk(s.id,'mission','onTime',r.mission.onTime,r.absent)}</td><td>${timeSpan(mD,!!(mD&&mMaj&&dayKey(mD)!==mMaj))}</td>` : ''}
+        ${mE ? `<td>${chk(s.id,'mission','achieved',r.mission.achieved,r.absent)}</td><td>${chk(s.id,'mission','onTime',r.mission.onTime,r.absent)}</td>` : ''}
         ${tE ? `<td>${chk(s.id,'think','achieved',r.think.achieved,r.absent)}</td><td>${chk(s.id,'think','onTime',r.think.onTime,r.absent)}</td><td>${timeSpan(tD,!!(tD&&tMaj&&dayKey(tD)!==tMaj))}</td>` : ''}
         <td><button class="stu-btn stu-btn-edit" onclick="openGradeFeedbackModal('${esc(s.id)}','${esc(s.name)}')">${r.feedback ? '피드백 수정' : '피드백 작성'}</button></td>
       </tr>`;
@@ -4177,7 +4173,7 @@ function renderGradeStats() {
       el.innerHTML = '<span class="grade-stat-na">미실시</span>';
     } else {
       const n = entries.filter(([, r]) => r[type]?.achieved).length;
-      el.textContent = `${n}명 / ${total}명`;
+      el.textContent = n;
     }
   }
   chip('concept', 'statConcept');
