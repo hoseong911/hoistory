@@ -2802,7 +2802,7 @@ async function initContentsTab() {
   }
 
   mountIconPicker({
-    triggerEl: document.getElementById('contentsIconTrigger'),
+    triggerEl: document.getElementById('contentsIconPreview'),
     previewEl:  document.getElementById('contentsIconPreview'),
     onSelect:  (svg) => { contentsSelectedSvg = svg; },
     storeSize: 28,
@@ -2999,7 +2999,7 @@ async function getMissionCategoryKey() {
 
 async function initArchiveTab() {
   mountIconPicker({
-    triggerEl: document.getElementById('archiveAddIconTrigger'),
+    triggerEl: document.getElementById('archiveAddIconPreview'),
     previewEl:  document.getElementById('archiveAddIconPreview'),
     onSelect:  (svg) => { archiveAddSvg = svg; },
     storeSize: 28,
