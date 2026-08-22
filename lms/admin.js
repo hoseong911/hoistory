@@ -1059,6 +1059,16 @@ window.ceMoveLesson = async function(docId, dir, idx) {
   } catch(e) { alert('순서 변경 실패: ' + e.message); }
 };
 
+// 강의 선택 줄의 ▲▼ — 현재 선택된 강의를 순서 목록에서 위/아래로 옮긴다(순서 모달 대체).
+window.ceMoveCurrentLesson = function(dir) {
+  const num = document.getElementById('lesson-select')?.value;
+  if (!num) { alert('강의를 먼저 선택하세요.'); return; }
+  const list = ceLessonOrderList();
+  const idx = list.findIndex(l => String(l.num) === String(num));
+  if (idx < 0) return;
+  window.ceMoveLesson(list[idx].docId, dir, idx);
+};
+
 window.ceLessonPreview = function() {
   // preview=1 을 붙여 비공개(편집 중) 강의도 미리보기로 열 수 있게 한다.
   if (ceCurrentLessonNum) window.open('lecture.html?num=' + ceCurrentLessonNum + '&mode=complete&preview=1', '_blank', 'noopener');
