@@ -2518,6 +2518,7 @@ async function initMissionTab() {
     const title    = document.getElementById('missionCardTitle').value.trim();
     const url      = document.getElementById('missionCardUrl').value.trim();
     const adminUrl = document.getElementById('missionCardAdminUrl').value.trim();
+    const lessonNum = document.getElementById('missionCardLesson').value.trim();
     if (!title || !url) { alert('제목과 웹앱 주소를 입력해 주세요.'); return; }
     const btn = document.getElementById('missionAddCardBtn');
     btn.disabled = true;
@@ -2526,6 +2527,7 @@ async function initMissionTab() {
       const order = snap.docs.length ? Math.max(...snap.docs.map(d => d.data().order || 0)) + 1 : 0;
       const cardData = { emoji, title, desc: '', url, category: cat, locked: false, order };
       if (adminUrl) cardData.adminUrl = adminUrl;
+      if (lessonNum) cardData.lessonNum = lessonNum; // 연결할 개념체크 강의 번호
       await addDoc(collection(db, 'cards'), cardData);
 
       // 아카이브 정보 저장 (appKey = URL 두 번째 세그먼트)
@@ -2543,6 +2545,7 @@ async function initMissionTab() {
       document.getElementById('missionCardTitle').value = '';
       document.getElementById('missionCardUrl').value = '';
       document.getElementById('missionCardAdminUrl').value = '';
+      document.getElementById('missionCardLesson').value = '';
       document.getElementById('missionArchiveTopic').value = '';
       document.getElementById('missionArchiveIntent').value = '';
       document.getElementById('missionArchiveContent').value = '';
@@ -2592,7 +2595,7 @@ async function renderMissionPreview(cat) {
     const S = {
       eye:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
       eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
-      monitor:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
+      gear:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
       up:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
       down:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>',
       pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
@@ -2612,7 +2615,7 @@ async function renderMissionPreview(cat) {
         </div>
         <div class="item-meta">
           <button class="mi-act ${isLocked?'locked':'open'}" title="${isLocked?'비공개 (클릭 시 공개)':'공개 (클릭 시 비공개)'}" onclick="missionToggleLocked('${item.docId}',${isLocked})">${isLocked?S.eyeOff:S.eye}</button>
-          ${item.adminUrl ? `<button class="mi-act" title="웹앱 어드민 열기" onclick="openAppAdmin('${esc(item.adminUrl)}')">${S.monitor}</button>` : ''}
+          ${item.adminUrl ? `<button class="mi-act" title="웹앱 어드민 열기" onclick="openAppAdmin('${esc(item.adminUrl)}')">${S.gear}</button>` : ''}
           <button class="mi-act" ${idx===0?'disabled':''} title="위로 이동" onclick="missionMoveCard('${item.docId}','up',${idx})">${S.up}</button>
           <button class="mi-act" ${idx===items.length-1?'disabled':''} title="아래로 이동" onclick="missionMoveCard('${item.docId}','down',${idx})">${S.down}</button>
           <button class="mi-act" title="수정" onclick="missionStartEdit('${item.docId}')">${S.pencil}</button>
@@ -2655,6 +2658,7 @@ window.missionStartEdit = async function(docId) {
       <input id="me-title-${docId}" class="form-input" value="${esc(item.title||'')}" placeholder="제목" style="flex:1;min-width:100px">
       <input id="me-url-${docId}" class="form-input" value="${esc(item.url||'')}" placeholder="웹앱 URL" style="flex:2;min-width:140px">
       <input id="me-adminurl-${docId}" class="form-input" value="${esc(item.adminUrl||'')}" placeholder="어드민 URL (선택)" style="flex:2;min-width:140px">
+      <input id="me-lesson-${docId}" class="form-input" value="${esc(item.lessonNum||'')}" placeholder="연결 강의번호" style="flex:none;width:120px">
       <button class="btn-save" style="flex:none;padding:8px 20px;background:var(--c3)" onclick="missionSaveEdit('${docId}')">저장</button>
       <button class="btn-cancel" style="flex:none;padding:8px 20px" onclick="renderMissionPreview(window._missionCat)">취소</button>
     </div>
@@ -2693,9 +2697,10 @@ window.missionSaveEdit = async function(docId) {
   const title    = document.getElementById(`me-title-${docId}`)?.value.trim();
   const url      = document.getElementById(`me-url-${docId}`)?.value.trim();
   const adminUrl = document.getElementById(`me-adminurl-${docId}`)?.value.trim() || '';
+  const lessonNum = document.getElementById(`me-lesson-${docId}`)?.value.trim() || '';
   if (!title) { alert('제목을 입력하세요.'); return; }
   try {
-    await updateDoc(doc(db, 'cards', docId), { emoji, title, url, adminUrl });
+    await updateDoc(doc(db, 'cards', docId), { emoji, title, url, adminUrl, lessonNum });
 
     // 아카이브 정보 저장
     const topic   = document.getElementById(`me-archive-topic-${docId}`)?.value.trim() || '';
@@ -2720,8 +2725,9 @@ window.updateMissionArchiveDot = function() {
   const topic   = document.getElementById('missionArchiveTopic')?.value.trim();
   const intent  = document.getElementById('missionArchiveIntent')?.value.trim();
   const content = document.getElementById('missionArchiveContent')?.value.trim();
-  const dot     = document.getElementById('missionArchiveDot');
-  if (dot) dot.style.background = (topic || intent || content) ? 'var(--c3)' : 'var(--border)';
+  // 아카이브 내용이 있으면 아카이브 버튼을 채워진 상태로 표시.
+  const btn = document.getElementById('missionArchiveToggleBtn');
+  if (btn) btn.classList.toggle('filled', !!(topic || intent || content));
 };
 
 window.missionToggleLocked = async function(docId, currentLocked) {
@@ -5142,8 +5148,8 @@ initAdmin();
     const pickArea  = document.getElementById('th-pick-area');
     const pickSel   = document.getElementById('th-sel-pick');
     if (pickSel) pickSel.value = lecId;
+    if (infoEl) infoEl.style.display = 'none'; // 질문/설명은 "수정"할 때만 크게 노출
     if (!lecId) {
-      infoEl.style.display = 'none';
       gradeArea.style.display = 'none';
       pickArea.style.display = 'none';
       thMainUpdateToggle(null);
@@ -5151,11 +5157,7 @@ initAdmin();
     }
     const lec = thLectures.find(l => l.docId === lecId);
     thMainUpdateToggle(lec);
-    infoEl.style.display = '';
-    infoEl.innerHTML =
-      `<div class="th-detail-lbl">질문</div><div class="th-detail-val">${thEsc(cleanTitle(lec?.question))}</div>` +
-      `<div class="th-detail-lbl">설명</div><div class="th-detail-val">${thEsc(cleanTitle(lec?.reference) || '없음')}</div>`;
-    // 강의를 고르면 채점 화면(반 태그 + 통계 + 답변)을 바로 노출한다.
+    // 강의를 고르면 채점 화면(반 태그 + 통계 + AI 채점 + 답변)을 항상 노출한다.
     pickArea.style.display = 'none';
     gradeArea.style.display = '';
     thBuildClassTags();
@@ -5170,14 +5172,15 @@ initAdmin();
     const infoEl    = document.getElementById('th-main-info');
     const gradeArea = document.getElementById('th-grade-area');
     const pickArea  = document.getElementById('th-pick-area');
+    if (infoEl) infoEl.style.display = 'none';
     if (!lecId) {
-      if (infoEl) infoEl.style.display = 'none';
       if (gradeArea) gradeArea.style.display = 'none';
       if (pickArea) pickArea.style.display = 'none';
       return;
     }
-    if (gradeArea && gradeArea.style.display !== 'none') { thBuildClassTags(); thRenderAnswerClass(); }
-    if (pickArea && pickArea.style.display  !== 'none') thRenderPick();
+    // PICK 보기 중이 아니면 채점 화면(반 태그·통계·AI 채점)을 항상 노출.
+    if (pickArea && pickArea.style.display !== 'none') { thRenderPick(); }
+    else if (gradeArea) { gradeArea.style.display = ''; thBuildClassTags(); thRenderAnswerClass(); }
   };
 
   window.thMainToggleOpen = function() {
