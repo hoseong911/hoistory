@@ -2585,6 +2585,17 @@ function renderMissionSidebarSubnav(items) {
   ).join('');
 }
 
+// 카드 목록 액션 버튼용 SVG(라인 아이콘) — 미션·각종 콘텐츠·아카이브가 모두 같은 세트를 쓴다.
+const MI_ICONS = {
+  eye:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+  eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
+  gear:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  up:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
+  down:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>',
+  pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  trash:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,6 21,6"/><path d="M8,6V4a1,1,0,0,1,1-1h6a1,1,0,0,1,1,1V6"/><path d="M10,11v6M14,11v6"/><rect x="5" y="6" width="14" height="15" rx="1"/></svg>',
+};
+
 async function renderMissionPreview(cat) {
   const container = document.getElementById('missionPreviewList');
   if (!cat) { container.innerHTML = ''; return; }
@@ -2595,16 +2606,7 @@ async function renderMissionPreview(cat) {
     window._missionCat   = cat;
     if (!items.length) { container.innerHTML = '<div class="empty-panel">연결된 미션이 없습니다.</div>'; return; }
     container.innerHTML = '';
-    // 액션 버튼용 SVG(라인 아이콘)
-    const S = {
-      eye:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
-      eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
-      gear:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
-      up:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
-      down:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>',
-      pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
-      trash:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,6 21,6"/><path d="M8,6V4a1,1,0,0,1,1-1h6a1,1,0,0,1,1,1V6"/><path d="M10,11v6M14,11v6"/><rect x="5" y="6" width="14" height="15" rx="1"/></svg>',
-    };
+    const S = MI_ICONS;
     items.forEach((item, idx) => {
       const row = document.createElement('div');
       row.className = 'item-row';
@@ -2871,6 +2873,7 @@ async function renderContentsPreview(cat) {
     renderContentsSidebarSubnav(items);
     if (!items.length) { container.innerHTML = '<div class="empty-panel">이 카테고리에 카드가 없습니다.</div>'; return; }
     container.innerHTML = `<p style="font-size:13px;color:var(--sub);margin-bottom:10px">카드 ${items.length}개</p>`;
+    const S = MI_ICONS;
     items.forEach((item, idx) => {
       const row = document.createElement('div');
       row.className = 'item-row';
@@ -2878,22 +2881,18 @@ async function renderContentsPreview(cat) {
       const iconStr = String(item.emoji||'');
       const isSvg = iconStr.startsWith('<svg');
       const isLocked = !!item.locked;
-      const adminBtn = item.adminUrl
-        ? `<button class="admin-link-btn" onclick="openAppAdmin('${esc(item.adminUrl)}')">어드민</button>`
-        : '';
       row.innerHTML = `
         <div class="item-icon-preview preview-contents">${isSvg ? iconStr : esc(iconStr) || '—'}</div>
         <div class="item-info">
           <div class="item-label">${esc(item.title||'')}</div>
-          <div class="item-url">${esc(item.url||'')}${item.adminUrl?` / 어드민: ${esc(item.adminUrl)}`:''}${item.openInModal?' / 팝업으로 열기':''}</div>
         </div>
         <div class="item-meta">
-          <button class="lock-toggle ${isLocked?'locked':'open'}" onclick="contentsToggleLocked('${item.docId}',${isLocked})">${isLocked?'비공개':'공개'}</button>
-          ${adminBtn}
-          <button class="edit-btn" ${idx===0?'disabled':''} onclick="contentsMoveCard('${item.docId}','up',${idx})">▲</button>
-          <button class="edit-btn" ${idx===items.length-1?'disabled':''} onclick="contentsMoveCard('${item.docId}','down',${idx})">▼</button>
-          <button class="edit-btn" onclick="contentsStartEdit('${item.docId}')">수정</button>
-          <button class="del-btn" onclick="contentsDeleteCard('${item.docId}')">삭제</button>
+          <button class="mi-act ${isLocked?'locked':'open'}" title="${isLocked?'비공개 (클릭 시 공개)':'공개 (클릭 시 비공개)'}" onclick="contentsToggleLocked('${item.docId}',${isLocked})">${isLocked?S.eyeOff:S.eye}</button>
+          ${item.adminUrl ? `<button class="mi-act" title="웹앱 어드민 열기" onclick="openAppAdmin('${esc(item.adminUrl)}')">${S.gear}</button>` : ''}
+          <button class="mi-act" ${idx===0?'disabled':''} title="위로 이동" onclick="contentsMoveCard('${item.docId}','up',${idx})">${S.up}</button>
+          <button class="mi-act" ${idx===items.length-1?'disabled':''} title="아래로 이동" onclick="contentsMoveCard('${item.docId}','down',${idx})">${S.down}</button>
+          <button class="mi-act" title="수정" onclick="contentsStartEdit('${item.docId}')">${S.pencil}</button>
+          <button class="mi-act mi-act-danger" title="삭제" onclick="contentsDeleteCard('${item.docId}')">${S.trash}</button>
         </div>`;
       container.appendChild(row);
     });
@@ -3053,7 +3052,6 @@ function renderArchivePendingList(pending, published, cats) {
       <div class="item-icon-preview preview-mission">${isSvg ? iconStr : esc(iconStr) || '—'}</div>
       <div class="item-info">
         <div class="item-label">${esc(card.title || '')}</div>
-        <div class="item-url">${esc(card.url || '')}</div>
       </div>
       <div class="item-meta">
         ${isPublished
@@ -3140,6 +3138,7 @@ function renderArchiveCardsList(published, cats) {
     return;
   }
   wrap.innerHTML = '';
+  const S = MI_ICONS;
   published.forEach(card => {
     const row = document.createElement('div');
     row.className = 'item-row';
@@ -3147,18 +3146,15 @@ function renderArchiveCardsList(published, cats) {
     const iconStr = String(card.emoji || '');
     const isSvg = iconStr.startsWith('<svg');
     const isLocked = !!card.locked;
-    const cat = cats.find(c => c.key === card.category);
     row.innerHTML = `
       <div class="item-icon-preview preview-contents">${isSvg ? iconStr : esc(iconStr) || '—'}</div>
       <div class="item-info">
         <div class="item-label">${esc(card.title || '')}</div>
-        <div class="item-sublabel">${esc(cat?.en || '')}${cat?.ko ? ' / ' + esc(cat.ko) : ''}</div>
-        <div class="item-url">${esc(card.url || '')}</div>
       </div>
       <div class="item-meta">
-        <button class="lock-toggle ${isLocked ? 'locked' : 'open'}" onclick="archiveToggleLocked('${card.docId}',${isLocked})">${isLocked ? '비공개' : '공개'}</button>
-        <button class="edit-btn" onclick="archiveStartEdit('${card.docId}')">수정</button>
-        <button class="del-btn" onclick="archiveDeleteCard('${card.docId}')">삭제</button>
+        <button class="mi-act ${isLocked ? 'locked' : 'open'}" title="${isLocked?'비공개 (클릭 시 공개)':'공개 (클릭 시 비공개)'}" onclick="archiveToggleLocked('${card.docId}',${isLocked})">${isLocked ? S.eyeOff : S.eye}</button>
+        <button class="mi-act" title="수정" onclick="archiveStartEdit('${card.docId}')">${S.pencil}</button>
+        <button class="mi-act mi-act-danger" title="삭제" onclick="archiveDeleteCard('${card.docId}')">${S.trash}</button>
       </div>`;
     wrap.appendChild(row);
   });
@@ -5534,8 +5530,8 @@ initAdmin();
         <div class="th-stat-chip th-stat-combo clickable" onclick="thOpenGradeModalWithLoad('fail')" title="총인원 / 제출 / 통과 / 미흡">
           <span class="thc-o">${total||0}</span><span class="thc-sep">/</span><span class="thc-o">${classSubs.length}</span><span class="thc-sep">/</span><span class="thc-g">${total?passCnt:0}</span><span class="thc-sep">/</span><span class="thc-r">${total?failCnt:0}</span>
         </div>
-        <div class="th-stat-chip th-stat-star" title="PICK된 답변 수">${star}<span class="thc-star-n">${pickCnt}</span></div>
-        <div class="th-stat-chip clickable th-stat-ai" onclick="thOpenGradeModalWithLoad('review')">AI 채점${ungradedCnt ? ` <b>${ungradedCnt}</b>` : ''}</div>`;
+        <div class="th-stat-chip th-stat-star" title="PICK된 답변 수">${star}<span class="thc-star-n">${pickCnt}</span></div>`;
+      // AI 채점 칩 제거 — 콤보칩 하나로 채점 결과 모달을 열고, 그 안의 "AI 채점" 탭에서 채점한다(버튼 하나면 충분).
     }
     const sorted = [...classSubs].sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
     listEl.innerHTML = sorted.length ? sorted.map(d => thBuildAnswerCard(d, true)).join('') : '<div class="empty-panel">이 반의 제출된 답변이 없습니다.</div>';
