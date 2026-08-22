@@ -3539,7 +3539,7 @@ async function initGradeTab() {
     _gradeLessons = snap.docs
       .map(d => ({ docId: d.id, ...d.data() }))
       .filter(l => l.num)
-      .sort((a, b) => parseInt(a.num) - parseInt(b.num));
+      .sort((a, b) => parseInt(b.num) - parseInt(a.num)); // 최신 강의(번호 큰 것)가 위로 — 개념/생각 드롭다운과 통일
 
     const lessonSel = document.getElementById('gradeLessonSel');
     _gradeLessons.forEach(l => {
@@ -5244,6 +5244,30 @@ initAdmin();
     thRenderAnswerClass();
   };
 
+  // 생각 체크 → 같은 강의의 성적 체크(CHECK) 화면으로 이동해 바로 불러온다.
+  // 생각 강의의 icon(강 번호) == 성적 드롭다운(gradeLessonSel) option value(class_lessons.num).
+  window.thGoToGradeCheck = function() {
+    const lecId = document.getElementById('th-sel-cls-lec')?.value || '';
+    if (!lecId) { alert('강의를 먼저 선택하세요.'); return; }
+    const lec = thLectures.find(l => l.docId === lecId);
+    const num = String(lec?.icon || '').replace(/[^0-9]/g, '');
+    switchNav('grade-check');
+    if (!num) return;
+    // 성적 드롭다운이 아직 안 채워졌을 수 있어(패널 첫 진입) 잠깐 재시도한다.
+    const apply = (tries) => {
+      const sel = document.getElementById('gradeLessonSel');
+      if (!sel) return;
+      if (!Array.from(sel.options).some(o => o.value === num)) {
+        if (tries > 0) setTimeout(() => apply(tries - 1), 150);
+        return;
+      }
+      sel.value = num;
+      sel.dispatchEvent(new Event('change'));
+      document.getElementById('gradeLoadBtn')?.click();
+    };
+    apply(10);
+  };
+
   window.thMainTogglePick = function() {
     const lecId = document.getElementById('th-sel-cls-lec')?.value || '';
     if (!lecId) { alert('강의를 먼저 선택하세요.'); return; }
@@ -5644,6 +5668,7 @@ initAdmin();
       let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
           <button class="th-btn-ai" ${ungraded.length?'':'disabled'} onclick="thRunGrading()">AI 채점 &amp; 포인트 지급${ungraded.length?` (미채점 ${ungraded.length})`:''}</button>
           ${gradedN ? `<button class="th-btn-ai" style="background:none;border:1.5px solid var(--hairline);color:var(--charcoal)" onclick="thRegrade()">재채점 (${gradedN}명)</button>` : ''}
+          <button class="th-btn-ai" style="background:none;border:1.5px solid var(--c4,#B45309);color:var(--c4,#B45309)" onclick="thGoToGradeCheck()" title="이 강의 성적 체크로 이동"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:5px"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>성적 체크로</button>
           <span id="th-ai-status" style="font-size:13px;color:var(--sub);font-weight:700;min-height:18px"></span>
         </div>
         <p style="font-size:12px;color:var(--slate);margin-bottom:12px;line-height:1.6">채점하면 점수가 고정됩니다. 기준과 모델을 바꿔 다시 매기려면 <b>재채점</b>을 누르세요(이전 포인트는 회수 후 재지급).</p>`;
