@@ -207,7 +207,6 @@ function initSidebar() {
 // 메뉴별 서브메뉴 목록 (첫 항목이 기본 진입 페이지)
 const SUBNAV_MAP = {
   concept: ['concept-content', 'concept-design'],
-  think: ['think-question', 'think-answer'],
   grade: ['grade-check', 'grade-grade', 'grade-setting'],
   archive: ['archive-cards', 'archive-category', 'archive-add'],
   xp: ['xp-award', 'xp-ranking', 'xp-settings'],
@@ -219,14 +218,14 @@ const SUBNAV_MAP = {
 // 대신 '그래도 여기서 열기'로 언제든 강제로 불러 쓸 수 있다(하드 차단 아님).
 const MOBILE_PC_ONLY = new Set([
   'panel-concept-content','panel-concept-design','panel-mission',
-  'panel-think-question','panel-grade-setting','panel-contents',
+  'panel-think','panel-grade-setting','panel-contents',
   'panel-archive-cards','panel-archive-category','panel-archive-add',
   'panel-students','panel-settings-system','panel-settings-student',
   'panel-xp-settings','panel-progress'
 ]);
 const PANEL_LABELS = {
   'panel-concept-content':'개념 Check CONTENT','panel-concept-design':'개념 Check DESIGN',
-  'panel-mission':'미션 Check','panel-think-question':'생각 Check QUESTION',
+  'panel-mission':'미션 Check','panel-think':'생각 Check',
   'panel-grade-setting':'성적 Check SETTING','panel-contents':'각종 콘텐츠',
   'panel-archive-cards':'아카이브 CARDS','panel-archive-category':'아카이브 CATEGORY',
   'panel-archive-add':'아카이브 ADD','panel-students':'학생 관리',
@@ -323,9 +322,7 @@ function switchNav(nav, fromHistory) {
 
   // 개념 체크 · 디자인 패널은 숨겨진 동안 미리보기 폭 계산이 0이 되므로, 보일 때마다 다시 계산한다.
   if (panelId === 'panel-concept-design') requestAnimationFrame(rescalePreview);
-  if (panelId === 'panel-think-answer' && window.thRenderAnswerLecture) {
-    window.thRenderAnswerLecture(); window.thRenderAnswerClass(); window.thRenderPick();
-  }
+  if (panelId === 'panel-think' && window.thMainRefresh) window.thMainRefresh();
   if (panelId === 'panel-archive-cards' && typeof renderArchiveCards === 'function') renderArchiveCards();
   if (panelId === 'panel-archive-category' && typeof renderArchiveCategoryEditor === 'function') renderArchiveCategoryEditor();
   // XP 패널 진입 시 데이터 로드
@@ -714,20 +711,20 @@ window.dbEditLesson = function(num) {
   onLessonChange(num);
 };
 
-// 대시보드 → 생각 체크 ANSWER 반별 화면으로 이동(해당 강의 선택)해서 바로 채점하게 한다.
+// 대시보드 → 생각 체크(해당 강의 선택 후 채점 화면)로 이동해 바로 채점하게 한다.
 window.dbGoGrade = function(lecId) {
-  switchNav('think-answer');
-  if (window.thAnswerSubTab) window.thAnswerSubTab('class');
+  switchNav('think');
   const sel = document.getElementById('th-sel-cls-lec');
   if (sel) sel.value = lecId;
-  if (window.thRenderAnswerClass) window.thRenderAnswerClass();
+  if (window.thMainSelect) window.thMainSelect();
+  if (window.thMainGrade) window.thMainGrade();
 };
 
 // 대시보드 → 미션 체크(카드 목록) 편집 화면으로 이동.
 window.dbEditMission = function() { switchNav('mission'); };
 
-// 대시보드 → 생각 체크 QUESTION(강의·질문 편집) 화면으로 이동.
-window.dbEditThink = function() { switchNav('think-question'); };
+// 대시보드 → 생각 체크(강의·질문 편집) 화면으로 이동.
+window.dbEditThink = function() { switchNav('think'); };
 
 // ── Firestore: lms_items (개념·미션·생각 섹션용) ──
 let _items = [];
@@ -5056,10 +5053,8 @@ initAdmin();
         thSortLectures();
         thPopulateSelects();
         thRenderLecList();
-        if (document.getElementById('panel-think-answer')?.classList.contains('active')) {
-          thRenderAnswerLecture();
-          thRenderAnswerClass();
-          thRenderPick();
+        if (document.getElementById('panel-think')?.classList.contains('active')) {
+          window.thMainRefresh();
         }
       },
       err => console.warn('[think] lectures:', err)
@@ -5084,7 +5079,8 @@ initAdmin();
   }
 
   function thPopulateSelects() {
-    ['th-sel-lec', 'th-sel-cls-lec', 'th-sel-pick'].forEach(id => {
+    // 통합 패널에서는 강의 드롭다운이 th-sel-cls-lec 하나뿐이다(th-sel-pick은 hidden 값).
+    ['th-sel-cls-lec'].forEach(id => {
       const sel = document.getElementById(id);
       if (!sel) return;
       const cur = sel.value;
@@ -5100,6 +5096,161 @@ initAdmin();
     // gradeThinkSel은 이제 화면에 없는 hidden 값이라 여기서 직접 손대지 않는다.
     _thLecCache = thLectures.map(l => ({ docId: l.docId, icon: l.icon || '', title: l.title || '' }));
   }
+
+  /* ─ 통합 패널: 강의 드롭다운 + 아이콘 버튼 ─ */
+  function thMainUpdateToggle(lec) {
+    const tog = document.getElementById('th-main-toggle');
+    const lbl = document.getElementById('th-main-toglbl');
+    if (!tog) return;
+    const on = !!(lec && lec.isOpen === true);
+    tog.classList.toggle('on', on);
+    if (lbl) { lbl.textContent = lec ? (on ? '공개 중' : '비공개') : ''; lbl.style.color = on ? 'var(--c3)' : 'var(--sub)'; }
+  }
+
+  // 학생 명단에서 개설된 반 번호만 뽑아 반 선택 태그를 그린다("전체" 없음).
+  function thBuildClassTags() {
+    const bar = document.getElementById('th-cls-tags');
+    if (!bar) return;
+    const set = new Set();
+    thStudents.forEach(s => { const c = thClassNum(s.studentId); if (c >= 1 && c <= 9) set.add(c); });
+    const nums = [...set].sort((a, b) => a - b);
+    if (!nums.length) { bar.innerHTML = ''; bar.style.display = 'none'; return; }
+    const clsSel = document.getElementById('th-sel-cls');
+    let cur = parseInt(clsSel?.value || '0', 10);
+    if (!nums.includes(cur)) { cur = nums[0]; if (clsSel) clsSel.value = String(cur); }
+    bar.innerHTML = nums.map(n =>
+      `<button class="grade-subtab${n === cur ? ' active' : ''}" data-cls="${n}" onclick="thMainSelectClass(${n})">${n}반</button>`
+    ).join('');
+    bar.style.display = 'flex';
+  }
+
+  window.thMainSelectClass = function(n) {
+    const clsSel = document.getElementById('th-sel-cls');
+    if (clsSel) clsSel.value = String(n);
+    document.querySelectorAll('#th-cls-tags .grade-subtab').forEach(b =>
+      b.classList.toggle('active', parseInt(b.dataset.cls, 10) === n));
+    thRenderAnswerClass();
+  };
+
+  // 강의 드롭다운 변경: 정보 표시 + 열려있는 채점/PICK 영역 갱신.
+  window.thMainSelect = function() {
+    const lecId = document.getElementById('th-sel-cls-lec')?.value || '';
+    document.getElementById('th-main-edit').style.display = 'none';
+    document.getElementById('th-new-form').style.display = 'none';
+    const infoEl   = document.getElementById('th-main-info');
+    const gradeArea = document.getElementById('th-grade-area');
+    const pickArea  = document.getElementById('th-pick-area');
+    const pickSel   = document.getElementById('th-sel-pick');
+    if (pickSel) pickSel.value = lecId;
+    if (!lecId) {
+      infoEl.style.display = 'none';
+      gradeArea.style.display = 'none';
+      pickArea.style.display = 'none';
+      thMainUpdateToggle(null);
+      return;
+    }
+    const lec = thLectures.find(l => l.docId === lecId);
+    thMainUpdateToggle(lec);
+    infoEl.style.display = '';
+    infoEl.innerHTML =
+      `<div class="th-detail-lbl">질문</div><div class="th-detail-val">${thEsc(cleanTitle(lec?.question))}</div>` +
+      `<div class="th-detail-lbl">설명</div><div class="th-detail-val">${thEsc(cleanTitle(lec?.reference) || '없음')}</div>`;
+    if (gradeArea.style.display !== 'none') { thBuildClassTags(); thRenderAnswerClass(); }
+    if (pickArea.style.display  !== 'none') thRenderPick();
+  };
+
+  // 데이터 변경(onSnapshot)·패널 재진입 시 현재 선택 상태에 맞춰 다시 그린다(수정/새 강의 폼은 건드리지 않음).
+  window.thMainRefresh = function() {
+    const lecId = document.getElementById('th-sel-cls-lec')?.value || '';
+    const lec = thLectures.find(l => l.docId === lecId);
+    thMainUpdateToggle(lec || null);
+    const infoEl    = document.getElementById('th-main-info');
+    const gradeArea = document.getElementById('th-grade-area');
+    const pickArea  = document.getElementById('th-pick-area');
+    if (!lecId) {
+      if (infoEl) infoEl.style.display = 'none';
+      if (gradeArea) gradeArea.style.display = 'none';
+      if (pickArea) pickArea.style.display = 'none';
+      return;
+    }
+    if (gradeArea && gradeArea.style.display !== 'none') { thBuildClassTags(); thRenderAnswerClass(); }
+    if (pickArea && pickArea.style.display  !== 'none') thRenderPick();
+  };
+
+  window.thMainToggleOpen = function() {
+    const lecId = document.getElementById('th-sel-cls-lec')?.value || '';
+    if (!lecId) { alert('강의를 먼저 선택하세요.'); return; }
+    const lec = thLectures.find(l => l.docId === lecId);
+    const on = !(lec && lec.isOpen === true);
+    if (lec) lec.isOpen = on;
+    thMainUpdateToggle({ isOpen: on });
+    updateDoc(doc(db, 'think_lectures', lecId), { isOpen: on }).catch(e => console.warn(e));
+  };
+
+  window.thMainMove = function(dir) {
+    const lecId = document.getElementById('th-sel-cls-lec')?.value || '';
+    if (lecId && window.thMoveLecture) window.thMoveLecture(lecId, dir);
+  };
+
+  window.thMainEdit = function() {
+    const lecId = document.getElementById('th-sel-cls-lec')?.value || '';
+    if (!lecId) { alert('강의를 먼저 선택하세요.'); return; }
+    const lec = thLectures.find(l => l.docId === lecId);
+    if (!lec) return;
+    document.getElementById('th-me-title').value = lec.title || '';
+    document.getElementById('th-me-q').value = lec.question || '';
+    document.getElementById('th-me-ref').value = lec.reference || '';
+    document.getElementById('th-me-icon').value = lec.icon || '';
+    document.getElementById('th-new-form').style.display = 'none';
+    document.getElementById('th-main-edit').style.display = '';
+  };
+  window.thMainCancelEdit = function() {
+    document.getElementById('th-main-edit').style.display = 'none';
+  };
+  window.thMainSaveEdit = async function() {
+    const lecId = document.getElementById('th-sel-cls-lec')?.value || '';
+    if (!lecId) return;
+    const title = document.getElementById('th-me-title').value.trim();
+    const question = document.getElementById('th-me-q').value.trim();
+    const reference = document.getElementById('th-me-ref').value.trim();
+    const icon = document.getElementById('th-me-icon').value.trim();
+    if (!title || !question) { alert('강의명과 질문은 필수입니다.'); return; }
+    try {
+      await updateDoc(doc(db, 'think_lectures', lecId), { title, question, reference, icon });
+      document.getElementById('th-main-edit').style.display = 'none';
+      window.thMainSelect();
+    } catch(e) { alert('저장 실패: ' + e.message); }
+  };
+
+  window.thMainDelete = function() {
+    const lecId = document.getElementById('th-sel-cls-lec')?.value || '';
+    if (!lecId) { alert('강의를 먼저 선택하세요.'); return; }
+    const lec = thLectures.find(l => l.docId === lecId);
+    if (window.thDeleteLecture) window.thDeleteLecture(lecId, cleanTitle(lec?.title || ''));
+  };
+
+  window.thMainGrade = function() {
+    const lecId = document.getElementById('th-sel-cls-lec')?.value || '';
+    if (!lecId) { alert('강의를 먼저 선택하세요.'); return; }
+    document.getElementById('th-pick-area').style.display = 'none';
+    document.getElementById('th-grade-area').style.display = '';
+    thBuildClassTags();
+    thRenderAnswerClass();
+  };
+
+  window.thMainTogglePick = function() {
+    const lecId = document.getElementById('th-sel-cls-lec')?.value || '';
+    if (!lecId) { alert('강의를 먼저 선택하세요.'); return; }
+    const area = document.getElementById('th-pick-area');
+    const show = area.style.display === 'none';
+    area.style.display = show ? '' : 'none';
+    if (show) {
+      document.getElementById('th-grade-area').style.display = 'none';
+      const pickSel = document.getElementById('th-sel-pick');
+      if (pickSel) pickSel.value = lecId;
+      thRenderPick();
+    }
+  };
 
   /* ─ QUESTION ─ */
   window.thShowNewForm = function() {
@@ -5337,6 +5488,8 @@ initAdmin();
     const total = classStu.length;
     const failCnt = failIds.size;
     const passCnt = total > 0 ? Math.max(0, total - failCnt) : 0;
+    // 아직 AI 채점하지 않은 제출 수(테스트 학생 제외) — 대시보드 "채점 N" 표시와 동일 기준.
+    const ungradedCnt = classSubs.filter(s => !isTestId(s.id) && s.thGraded !== true).length;
     if (statsEl) {
       statsEl.style.display = '';
       statsEl.innerHTML = `
@@ -5347,7 +5500,7 @@ initAdmin();
           <span style="display:block;font-size:12px;margin-top:2px">통과 / 미흡</span>
         </div>
         <div class="th-stat-chip clickable" onclick="thOpenGradeModalWithLoad('review')">
-          <span class="th-num" style="font-size:14px">AI</span>채점
+          <span class="th-num" style="font-size:14px">AI</span>채점${ungradedCnt ? ` <b style="color:var(--critical)">${ungradedCnt}</b>` : ''}
         </div>`;
     }
     const sorted = [...classSubs].sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
@@ -6431,10 +6584,13 @@ window.plGoToThinkEdit = function() {
   if (!_plLecCtx.think) return;
   const docId = _plLecCtx.think.docId;
   window.plCloseLectureModal();
-  switchNav('think-question');
+  switchNav('think');
   setTimeout(() => {
-    if (window.thToggleEdit) window.thToggleEdit(docId, true);
-    document.getElementById(`th-edit-${docId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const sel = document.getElementById('th-sel-cls-lec');
+    if (sel) sel.value = docId;
+    if (window.thMainSelect) window.thMainSelect();
+    if (window.thMainEdit) window.thMainEdit();
+    document.getElementById('th-main-edit')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, 60);
 };
 

@@ -11,7 +11,7 @@
 <!-- 개념 체크 미리보기가 학생 화면(class/lesson.html)과 100% 동일하게 렌더링되도록 공용 슬라이드 스타일을 그대로 불러온다.
      이 파일의 :root 변수 중 --text/--border는 아래 이 페이지 자체 :root 선언이 나중에 와서 재정의하므로 전역 충돌은 없다. -->
 <link rel="stylesheet" href="slide-style.css?v=20260821a">
-<link rel="stylesheet" href="admin.css?v=20260822e">
+<link rel="stylesheet" href="admin.css?v=20260822g">
   <script src="/hoistory/pwa.js"></script>
 </head>
 <body data-mode="complete">
@@ -75,12 +75,8 @@
         <div class="nav-sub" id="subnav-mission" data-title="미션 Check"></div>
       </div>
       <div class="nav-group">
-        <div class="nav-item nav-c5 has-sub" data-nav="think">
-          <span class="nav-ic" data-nic="message-square"></span><span class="nav-label">생각 Check</span><span class="nav-arrow">›</span>
-        </div>
-        <div class="nav-sub" id="subnav-think" data-title="생각 Check">
-          <div class="nav-sub-item" data-subnav="think-question">QUESTION</div>
-          <div class="nav-sub-item" data-subnav="think-answer">ANSWER</div>
+        <div class="nav-item nav-c5" data-nav="think">
+          <span class="nav-ic" data-nic="message-square"></span><span class="nav-label">생각 Check</span>
         </div>
       </div>
       <div class="nav-group">
@@ -470,82 +466,78 @@
 
     <div id="missionPreviewList" class="item-list"></div>
   </div>
-  <div class="adm-panel" id="panel-think-question">
-    <div class="panel-top">
-      <div class="panel-title">생각 Check</div>
-      <button class="add-btn a" onclick="thShowNewForm()">+ 새 강의</button>
-    </div>
-
-    <div id="th-question">
-      <div class="stu-card" id="th-new-form" style="display:none;margin-bottom:14px">
-        <div class="stu-card-head">새 강의 만들기</div>
-        <div class="stu-card-body">
-          <div style="display:flex;gap:10px;align-items:flex-end">
-            <div class="form-group" style="margin-bottom:0;width:80px"><label class="form-label">번호</label><input class="form-input" id="th-new-num" type="text" placeholder="예: 1" style="text-align:center"></div>
-            <div class="form-group" style="margin-bottom:0;flex:1"><label class="form-label">강의명</label><input class="form-input" id="th-new-title" placeholder="예: 선사시대"></div>
-          </div>
-          <div class="form-group"><label class="form-label">오늘의 질문</label><input class="form-input" id="th-new-q" placeholder="생각 질문을 입력하세요"></div>
-          <div class="form-group"><label class="form-label">설명 (선택)</label><textarea class="form-textarea" id="th-new-ref" style="height:90px" placeholder="참고 내용이나 설명을 자유롭게 작성하세요"></textarea></div>
-          <div style="display:flex;gap:10px">
-            <button class="btn-save" style="flex:none;background:var(--c3)" onclick="thAddLecture()">생성</button>
-            <button class="btn-cancel" onclick="thHideNewForm()">취소</button>
-          </div>
-        </div>
-      </div>
-      <div id="th-lec-list"><div class="empty-panel">불러오는 중…</div></div>
-    </div>
-  </div>
-
-  <div class="adm-panel" id="panel-think-answer">
+  <div class="adm-panel" id="panel-think">
     <div class="panel-top">
       <div class="panel-title">생각 Check</div>
     </div>
 
-    <div id="th-answer">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
-        <div class="grade-subtab-bar" style="display:flex;margin-bottom:0">
-          <button class="grade-subtab active" id="th-atab-lecture-btn" onclick="thAnswerSubTab('lecture')">강의별</button>
-          <button class="grade-subtab" id="th-atab-class-btn" onclick="thAnswerSubTab('class')">반별</button>
-          <button class="grade-subtab" id="th-atab-pick-btn" onclick="thAnswerSubTab('pick')">PICK</button>
+    <!-- 강의 선택 줄 (개념 Check 스타일 아이콘 버튼) -->
+    <div class="th-lecbar">
+      <span class="lesson-bar-title">강의 선택</span>
+      <select id="th-sel-cls-lec" onchange="thMainSelect()"><option value="">-- 강의 선택 --</option></select>
+      <button class="th-icon-btn" title="새 강의 추가" onclick="thShowNewForm()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      <span class="th-lecbar-div"></span>
+      <div class="th-toggle" id="th-main-toggle" title="공개/비공개" onclick="thMainToggleOpen()"></div>
+      <span class="th-lecbar-toglbl" id="th-main-toglbl"></span>
+      <button class="th-icon-btn" title="위로 이동" onclick="thMainMove('up')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg></button>
+      <button class="th-icon-btn" title="아래로 이동" onclick="thMainMove('down')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></button>
+      <button class="th-icon-btn" title="수정" onclick="thMainEdit()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+      <button class="th-icon-btn th-icon-danger" title="삭제" onclick="thMainDelete()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,6 21,6"/><path d="M8,6V4a1,1,0,0,1,1-1h6a1,1,0,0,1,1,1V6"/><path d="M10,11v6M14,11v6"/><rect x="5" y="6" width="14" height="15" rx="1"/></svg></button>
+      <button class="add-btn a" id="th-main-grade-btn" style="margin-left:6px" onclick="thMainGrade()">채점하기</button>
+      <button class="add-btn" id="th-main-pick-btn" style="background:var(--c3);border-color:var(--c3)" onclick="thMainTogglePick()">PICK</button>
+    </div>
+
+    <!-- 새 강의 만들기 폼 -->
+    <div class="stu-card" id="th-new-form" style="display:none;margin-bottom:14px">
+      <div class="stu-card-head">새 강의 만들기</div>
+      <div class="stu-card-body">
+        <div style="display:flex;gap:10px;align-items:flex-end">
+          <div class="form-group" style="margin-bottom:0;width:80px"><label class="form-label">번호</label><input class="form-input" id="th-new-num" type="text" placeholder="예: 1" style="text-align:center"></div>
+          <div class="form-group" style="margin-bottom:0;flex:1"><label class="form-label">강의명</label><input class="form-input" id="th-new-title" placeholder="예: 선사시대"></div>
         </div>
-
-        <!-- 강의별 전용 컨트롤 -->
-        <select class="grade-config-sel th-ctrl-lecture" id="th-sel-lec" onchange="thRenderAnswerLecture()"><option value="">강의를 선택하세요</option></select>
-        <div class="th-sort-wrap th-ctrl-lecture" id="th-sort-lec" style="display:none">
-          <button class="th-sort-btn active" onclick="thSetSort('recent',this)">최신순</button>
-          <button class="th-sort-btn" onclick="thSetSort('id-asc',this)">학번↑</button>
-          <button class="th-sort-btn" onclick="thSetSort('id-desc',this)">학번↓</button>
+        <div class="form-group"><label class="form-label">오늘의 질문</label><input class="form-input" id="th-new-q" placeholder="생각 질문을 입력하세요"></div>
+        <div class="form-group"><label class="form-label">설명 (선택)</label><textarea class="form-textarea" id="th-new-ref" style="height:90px" placeholder="참고 내용이나 설명을 자유롭게 작성하세요"></textarea></div>
+        <div style="display:flex;gap:10px">
+          <button class="btn-save" style="flex:none;background:var(--c3)" onclick="thAddLecture()">생성</button>
+          <button class="btn-cancel" onclick="thHideNewForm()">취소</button>
         </div>
-
-        <!-- 반별 전용 컨트롤 -->
-        <select class="grade-config-sel th-ctrl-class" style="max-width:90px;display:none" id="th-sel-cls" onchange="thRenderAnswerClass()">
-          <option value="1">1반</option><option value="2">2반</option><option value="3">3반</option>
-          <option value="4">4반</option><option value="5">5반</option><option value="6">6반</option>
-        </select>
-        <select class="grade-config-sel th-ctrl-class" id="th-sel-cls-lec" style="display:none" onchange="thRenderAnswerClass()"><option value="">강의를 선택하세요</option></select>
-
-        <!-- PICK 전용 컨트롤 -->
-        <select class="grade-config-sel th-ctrl-pick" id="th-sel-pick" style="display:none" onchange="thRenderPick()"><option value="">강의를 선택하세요</option></select>
-      </div>
-
-      <!-- 강의별 -->
-      <div id="th-atab-lecture">
-        <div id="th-lec-stats" class="th-stat-chips" style="display:none"></div>
-        <div id="th-lec-answers"></div>
-      </div>
-
-      <!-- 반별 -->
-      <div id="th-atab-class" style="display:none">
-        <div id="th-cls-stats" class="th-stat-chips" style="display:none"></div>
-        <div id="th-cls-answers"></div>
-      </div>
-
-      <!-- PICK -->
-      <div id="th-atab-pick" style="display:none">
-        <div id="th-pick-stats" class="th-stat-chips" style="display:none"></div>
-        <div id="th-pick-answers"></div>
       </div>
     </div>
+
+    <!-- 강의 수정 폼 (선택된 강의) -->
+    <div class="stu-card" id="th-main-edit" style="display:none;margin-bottom:14px">
+      <div class="stu-card-head">강의 수정</div>
+      <div class="stu-card-body">
+        <div class="form-group"><label class="form-label">강의명</label><input class="form-input" id="th-me-title"></div>
+        <div class="form-group"><label class="form-label">질문</label><input class="form-input" id="th-me-q"></div>
+        <div class="form-group"><label class="form-label">설명</label><textarea class="form-textarea" id="th-me-ref" style="height:80px"></textarea></div>
+        <div class="form-group"><label class="form-label">번호 (아이콘)</label><input class="form-input" id="th-me-icon" style="width:100px" placeholder="예: 1"></div>
+        <div style="display:flex;gap:10px">
+          <button class="btn-save" style="flex:none;background:var(--c3)" onclick="thMainSaveEdit()">저장</button>
+          <button class="btn-cancel" onclick="thMainCancelEdit()">취소</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 선택 강의 질문/설명 -->
+    <div id="th-main-info" class="th-more-detail" style="display:none"></div>
+
+    <!-- 채점 영역 -->
+    <div id="th-grade-area" style="display:none">
+      <div class="grade-subtab-bar" id="th-cls-tags"></div>
+      <div id="th-cls-stats" class="th-stat-chips" style="display:none"></div>
+      <div id="th-cls-answers"></div>
+    </div>
+
+    <!-- PICK 영역 -->
+    <div id="th-pick-area" style="display:none">
+      <div id="th-pick-stats" class="th-stat-chips" style="display:none"></div>
+      <div id="th-pick-answers"></div>
+    </div>
+
+    <!-- thRenderAnswerClass / thRenderPick 가 읽는 hidden 값 -->
+    <input type="hidden" id="th-sel-cls" value="1">
+    <input type="hidden" id="th-sel-pick">
   </div>
   <div class="adm-panel" id="panel-grade-check">
     <div class="panel-top">
@@ -1298,6 +1290,6 @@
 <!-- hwpx 파일(zip+xml) 압축 해제용: 활동지 업로드로 새 강의 자동 생성 기능에 사용 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="slide-render.js?v=20260821c"></script>
-<script type="module" src="admin.js?v=20260822f"></script>
+<script type="module" src="admin.js?v=20260822g"></script>
 </body>
 </html>
