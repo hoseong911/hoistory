@@ -988,17 +988,21 @@ async function ceGetLessonsFromFirestore() {
   return ceLessonsCache;
 }
 
+// ── 강의 선택 드롭다운 공통 정렬 ──
+// 개념·성적(class_lessons)·생각(think_lectures) 세 체크의 강의 선택 드롭다운은 모두
+// 이 비교 함수 하나만 쓴다: order 필드 내림차순(최신 강의가 위, OT/인트로처럼 order 낮은 건 맨 아래).
+// (예전엔 화면마다 asc+reverse / desc / num 파싱 등 기준이 제각각이라 OT(num="OT")가 튀어 올라왔다.)
+function lecSortByOrderDesc(a, b) { return (b.order ?? -1) - (a.order ?? -1); }
+
 function cePopulateLessonSelect() {
   const sel = document.getElementById('lesson-select');
   const cur = sel.value || ceCurrentLessonNum; // 선택 유지 (새 강의 추가/갱신 시)
   sel.innerHTML = '<option value="">— 강의 선택 —</option>' +
-    [...ceLessonsCache].reverse().map(l => `<option value="${esc(l.num)}" ${cur && l.num===cur?'selected':''}>${lecLabel(esc(l.num), esc(String(l.title||'').replace(/\*\*/g,'').replace(/[{}]/g,'')))}</option>`).join('');
+    [...ceLessonsCache].sort(lecSortByOrderDesc).map(l => `<option value="${esc(l.num)}" ${cur && l.num===cur?'selected':''}>${lecLabel(esc(l.num), esc(String(l.title||'').replace(/\*\*/g,'').replace(/[{}]/g,'')))}</option>`).join('');
 }
 
-// 개념 체크 강의 순서 목록(미션 체크 카드처럼 ▲▼로 순서 변경).
-// order는 강 번호 기준이고 ceLessonsCache는 order 오름차순이라, 뒤집어서(order 내림차순 =
-// 강 번호 큰 최신 강의가 맨 위) 보여준다. 드롭다운·대시보드와 위아래가 일치한다.
-function ceLessonOrderList() { return [...ceLessonsCache].reverse(); }
+// 개념 체크 강의 순서 목록(미션 체크 카드처럼 ▲▼로 순서 변경). 드롭다운과 같은 기준으로 정렬한다.
+function ceLessonOrderList() { return [...ceLessonsCache].sort(lecSortByOrderDesc); }
 
 function renderCeLessonOrder() {
   const box = document.getElementById('ce-lesson-order');
@@ -3539,7 +3543,7 @@ async function initGradeTab() {
     _gradeLessons = snap.docs
       .map(d => ({ docId: d.id, ...d.data() }))
       .filter(l => l.num)
-      .sort((a, b) => parseInt(b.num) - parseInt(a.num)); // 최신 강의(번호 큰 것)가 위로 — 개념/생각 드롭다운과 통일
+      .sort(lecSortByOrderDesc); // 개념·생각 드롭다운과 동일한 공통 정렬(order 내림차순)
 
     const lessonSel = document.getElementById('gradeLessonSel');
     _gradeLessons.forEach(l => {
@@ -5047,7 +5051,7 @@ initAdmin();
       missing.forEach(l => { l.order = lecOrderKey(l.icon || l.title); batch.update(doc(db, 'think_lectures', l.docId), { order: l.order }); });
       batch.commit().catch(e => console.warn('[think] order migrate:', e)).finally(() => { thOrderMigrating = false; });
     }
-    thLectures.sort((a, b) => (b.order ?? -1) - (a.order ?? -1));
+    thLectures.sort(lecSortByOrderDesc); // 개념·성적 드롭다운과 동일한 공통 정렬(order 내림차순)
   }
 
   function thStartLecListener() {
