@@ -4,7 +4,7 @@ import {
   addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, writeBatch, serverTimestamp, limit, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getDatabase, ref, get, set, remove, update, onValue, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { mountIconPicker } from '../shared/icon-picker.js?v=20260822a';
 import { icon } from '../shared/icons.js';
@@ -160,15 +160,8 @@ function initSidebar() {
       switchNav(item.dataset.subnav);
     });
   });
-  // 미션 체크는 사이드바 서브메뉴(웹앱 어드민 바로가기)를 두지 않는다.
-  // 각 웹앱 어드민은 미션 패널의 카드별 "어드민" 버튼(openAppAdmin)으로 접속한다.
-  // 각종 콘텐츠 하위 서브메뉴도 미션 체크와 동일하게 카드 목록에서 매번 새로 그려진다.
-  document.getElementById('subnav-contents').addEventListener('click', e => {
-    const item = e.target.closest('[data-appadmin]');
-    if (!item) return;
-    e.stopPropagation();
-    openContentsAppAdmin(item, item.dataset.appadmin);
-  });
+  // 각종 콘텐츠는 사이드바 hover 서브메뉴(웹앱 어드민 바로가기)를 두지 않는다.
+  // 각 웹앱 어드민은 콘텐츠 패널의 카드별 어드민(톱니) 버튼(openAppAdmin)으로 접속한다.
 
   // ── 모바일: 햄버거 드로어 ──
   const menuBtn = document.getElementById('admMenuBtn');
@@ -202,9 +195,8 @@ function initSidebar() {
 const SUBNAV_MAP = {
   concept: ['concept-content', 'concept-design'],
   grade: ['grade-check', 'grade-grade', 'grade-setting'],
-  archive: ['archive-cards', 'archive-category', 'archive-add'],
   xp: ['xp-award', 'xp-ranking', 'xp-settings'],
-  settings: ['settings-system', 'settings-student']
+  settings: ['settings-schedule', 'settings-student', 'settings-system']
 };
 
 // ── 모바일 소프트 게이트 ──
@@ -213,18 +205,17 @@ const SUBNAV_MAP = {
 const MOBILE_PC_ONLY = new Set([
   'panel-concept-content','panel-concept-design','panel-mission',
   'panel-think','panel-grade-setting','panel-contents',
-  'panel-archive-cards','panel-archive-category','panel-archive-add',
-  'panel-students','panel-settings-system','panel-settings-student',
-  'panel-xp-settings','panel-progress'
+  'panel-archive',
+  'panel-settings-system','panel-settings-student','panel-settings-schedule',
+  'panel-xp-settings'
 ]);
 const PANEL_LABELS = {
   'panel-concept-content':'개념 Check CONTENT','panel-concept-design':'개념 Check DESIGN',
   'panel-mission':'미션 Check','panel-think':'생각 Check',
   'panel-grade-setting':'성적 Check SETTING','panel-contents':'각종 콘텐츠',
-  'panel-archive-cards':'아카이브 CARDS','panel-archive-category':'아카이브 CATEGORY',
-  'panel-archive-add':'아카이브 ADD','panel-students':'학생 관리',
+  'panel-archive':'아카이브','panel-settings-schedule':'설정 SCHEDULE',
   'panel-settings-system':'설정 SYSTEM','panel-settings-student':'설정 STUDENT',
-  'panel-xp-settings':'경험치 설정','panel-progress':'수업 스케줄'
+  'panel-xp-settings':'경험치 설정'
 };
 const _mobileForced = new Set(); // 사용자가 '그래도 열기'로 통과시킨 패널
 let _currentNav = 'dashboard', _currentPanelId = 'panel-dashboard';
@@ -288,12 +279,6 @@ function switchNav(nav, fromHistory) {
     const activeSubItem = document.querySelector(`.nav-sub-item[data-subnav="${subNav}"]`);
     if (activeSubItem) activeSubItem.classList.add('active');
   }
-  // 각종 콘텐츠는 서브메뉴를 카드 목록에서 동적으로 채운다.
-  if (mainNav === 'contents') {
-    const contentsSub = document.getElementById('subnav-contents');
-    if (contentsSub) contentsSub.classList.add('open');
-  }
-
   // 패널 전환
   document.querySelectorAll('.adm-panel').forEach(p => p.classList.remove('active'));
   const panelId = subs ? `panel-${subNav}` : `panel-${mainNav}`;
@@ -311,14 +296,16 @@ function switchNav(nav, fromHistory) {
   // 개념 체크 · 디자인 패널은 숨겨진 동안 미리보기 폭 계산이 0이 되므로, 보일 때마다 다시 계산한다.
   if (panelId === 'panel-concept-design') requestAnimationFrame(rescalePreview);
   if (panelId === 'panel-think' && window.thMainRefresh) window.thMainRefresh();
-  if (panelId === 'panel-archive-cards' && typeof renderArchiveCards === 'function') renderArchiveCards();
-  if (panelId === 'panel-archive-category' && typeof renderArchiveCategoryEditor === 'function') renderArchiveCategoryEditor();
+  if (panelId === 'panel-archive') {
+    if (typeof renderArchiveCards === 'function') renderArchiveCards();
+    if (typeof renderArchiveCategoryEditor === 'function') renderArchiveCategoryEditor();
+  }
   // XP 패널 진입 시 데이터 로드
   if (panelId === 'panel-xp-award'    && typeof xpManualLoadStudents === 'function') { xpEnsureConfig(); xpManualLoadStudents(); }
   if (panelId === 'panel-xp-ranking'  && typeof xpLoadStatus         === 'function') xpLoadStatus();
-  if (panelId === 'panel-settings-system' && typeof stRenderTestIds  === 'function') stRenderTestIds();
+  if (panelId === 'panel-settings-student' && typeof stRenderTestIds === 'function') stRenderTestIds();
   if (panelId === 'panel-xp-settings' && typeof xpLoadSettings       === 'function') xpLoadSettings();
-  if (panelId === 'panel-progress'    && typeof plLoad               === 'function') plLoad();
+  if (panelId === 'panel-settings-schedule' && typeof plLoad         === 'function') plLoad();
   if (panelId === 'panel-dashboard') dbLoad();
 
   // 모바일: 저작 패널이면 안내 카드로 대체(강제 열기 전까지), 그리고 열린 드로어를 닫는다.
@@ -4926,17 +4913,30 @@ initAdmin();
     } catch(e) { out.textContent = '확인 중 오류가 발생했습니다.'; }
   };
 
-  window.stSettingsCheckResetConfirm = function() {
-    const val = document.getElementById('st-reset-confirm').value.trim();
-    document.getElementById('st-reset-run-btn').disabled = (val !== '초기화');
-  };
-
   // 문서가 많을 경우를 대비해 배치당 400건씩 끊어서 삭제한다(Firestore 배치 한도 500건).
+  // 실행 전 관리자 로그인 비밀번호로 Firebase 재인증을 요구한다("초기화" 타이핑 대신 본인 확인).
   window.stSettingsRunReset = async function() {
     const target = stSelectedResetCollections();
     const result = document.getElementById('st-reset-result');
-    if (!target.length) { result.textContent = '선택된 항목이 없습니다.'; return; }
-    if (!confirm(`${target.map(c=>c.name).join(', ')}\n위 기록을 영구 삭제합니다. 계속할까요?`)) return;
+    if (!target.length) { result.style.color=''; result.textContent = '선택된 항목이 없습니다.'; return; }
+
+    const pwEl = document.getElementById('st-reset-password');
+    const pw = pwEl?.value || '';
+    const user = auth.currentUser;
+    if (!user || !user.email) { result.style.color='#DC2626'; result.textContent = '로그인 상태를 확인할 수 없습니다. 다시 로그인해 주세요.'; return; }
+    if (!pw) { result.style.color='#DC2626'; result.textContent = '관리자 로그인 비밀번호를 입력하세요.'; return; }
+
+    result.style.color=''; result.textContent = '비밀번호 확인 중…';
+    try {
+      await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, pw));
+    } catch (e) {
+      result.style.color='#DC2626';
+      result.textContent = '비밀번호가 올바르지 않습니다. 삭제를 취소했습니다.';
+      return;
+    }
+
+    result.style.color='';
+    if (!confirm(`${target.map(c=>c.name).join(', ')}\n위 기록을 영구 삭제합니다. 계속할까요?`)) { result.textContent = ''; return; }
 
     const btn = document.getElementById('st-reset-run-btn');
     btn.disabled = true; btn.textContent = '삭제 중…';
@@ -4954,12 +4954,12 @@ initAdmin();
       }
       result.textContent = `완료: 총 ${total}건 삭제되었습니다.`;
       document.getElementById('st-reset-preview').textContent = '';
-      document.getElementById('st-reset-confirm').value = '';
+      if (pwEl) pwEl.value = '';
     } catch(e) {
       result.textContent = '삭제 중 오류가 발생했습니다. 일부만 삭제됐을 수 있습니다.';
     } finally {
       btn.textContent = '선택한 기록 영구 삭제';
-      btn.disabled = true;
+      btn.disabled = false;
     }
   };
 
