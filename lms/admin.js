@@ -6,7 +6,7 @@ import {
 import { getDatabase, ref, get, set, remove, update, onValue, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
-import { mountIconPicker } from '../shared/icon-picker.js';
+import { mountIconPicker } from '../shared/icon-picker.js?v=20260822a';
 import { icon } from '../shared/icons.js';
 
 import { firebaseConfig } from "../shared/firebase-config.js";
@@ -160,14 +160,8 @@ function initSidebar() {
       switchNav(item.dataset.subnav);
     });
   });
-  // 미션 체크 하위 서브메뉴는 카드 목록에 맞춰 매번 새로 그려지므로(renderMissionSidebarSubnav),
-  // 개별 항목에 리스너를 다는 대신 컨테이너에 위임한다.
-  document.getElementById('subnav-mission').addEventListener('click', e => {
-    const item = e.target.closest('[data-appadmin]');
-    if (!item) return;
-    e.stopPropagation();
-    openMissionAppAdmin(item, item.dataset.appadmin);
-  });
+  // 미션 체크는 사이드바 서브메뉴(웹앱 어드민 바로가기)를 두지 않는다.
+  // 각 웹앱 어드민은 미션 패널의 카드별 "어드민" 버튼(openAppAdmin)으로 접속한다.
   // 각종 콘텐츠 하위 서브메뉴도 미션 체크와 동일하게 카드 목록에서 매번 새로 그려진다.
   document.getElementById('subnav-contents').addEventListener('click', e => {
     const item = e.target.closest('[data-appadmin]');
@@ -294,13 +288,7 @@ function switchNav(nav, fromHistory) {
     const activeSubItem = document.querySelector(`.nav-sub-item[data-subnav="${subNav}"]`);
     if (activeSubItem) activeSubItem.classList.add('active');
   }
-  // 미션 체크는 서브메뉴가 카드 목록(어드민 연결된 웹앱)에서 동적으로 채워지므로 SUBNAV_MAP을 쓰지 않는다.
-  // 대신 미션 체크로 들어올 때마다 서브메뉴 트레이만 펼쳐 보여준다(기본 화면은 항상 카드 목록 패널).
-  if (mainNav === 'mission') {
-    const missionSub = document.getElementById('subnav-mission');
-    if (missionSub) missionSub.classList.add('open');
-  }
-  // 각종 콘텐츠도 미션 체크와 동일하게 서브메뉴를 카드 목록에서 동적으로 채운다.
+  // 각종 콘텐츠는 서브메뉴를 카드 목록에서 동적으로 채운다.
   if (mainNav === 'contents') {
     const contentsSub = document.getElementById('subnav-contents');
     if (contentsSub) contentsSub.classList.add('open');
@@ -1079,8 +1067,7 @@ function onLessonChange(num) {
   const prevBtn = document.getElementById('ce-preview-btn');
   if (!num) {
     if (area) area.style.display = 'none';
-    if (prevBtn) prevBtn.style.display = 'none';
-    return;
+    return; // 미리보기 버튼은 항시 표시(강의 미선택 시 클릭해도 무시됨)
   }
   ceCurrentLessonNum = num;
   ceLoadLessonData(num);
@@ -2517,9 +2504,11 @@ async function initMissionTab() {
     try { await setDoc(doc(db, 'settings', 'lms_config'), { mission_category: cat }, { merge: true }); } catch(_) {}
   }
 
+  // 아이콘 미리보기 영역 자체를 클릭하면 선택창이 뜬다(별도 "아이콘 선택" 버튼 없음).
+  const missionIconPreview = document.getElementById('missionIconPreview');
   mountIconPicker({
-    triggerEl: document.getElementById('missionIconTrigger'),
-    previewEl:  document.getElementById('missionIconPreview'),
+    triggerEl: missionIconPreview,
+    previewEl:  missionIconPreview,
     onSelect:  (svg) => { missionSelectedSvg = svg; },
     storeSize: 28,
   });
@@ -2557,11 +2546,10 @@ async function initMissionTab() {
       document.getElementById('missionArchiveTopic').value = '';
       document.getElementById('missionArchiveIntent').value = '';
       document.getElementById('missionArchiveContent').value = '';
-      document.getElementById('missionArchivePanel').style.display = 'none';
-      document.getElementById('missionArchiveToggleBtn').dataset.open = '';
-      document.getElementById('missionArchiveToggleBtn').textContent = '아카이브 정보 입력';
-      document.getElementById('missionArchiveToggleBtn').style.borderColor = '';
-      document.getElementById('missionArchiveToggleBtn').style.color = '';
+      const arcPanel = document.getElementById('missionArchivePanel');
+      const arcBtn = document.getElementById('missionArchiveToggleBtn');
+      if (arcPanel) arcPanel.style.display = 'none';
+      if (arcBtn) arcBtn.classList.remove('active');
       updateMissionArchiveDot();
       renderMissionPreview(cat);
       alert('카드가 추가되었습니다.');
@@ -2598,9 +2586,18 @@ async function renderMissionPreview(cat) {
     const items = snap.docs.map(d => ({ docId: d.id, ...d.data() })).sort((a,b) => (a.order??999)-(b.order??999));
     window._missionItems = items;
     window._missionCat   = cat;
-    renderMissionSidebarSubnav(items);
-    if (!items.length) { container.innerHTML = '<div class="empty-panel">이 카테고리에 카드가 없습니다.</div>'; return; }
-    container.innerHTML = `<p style="font-size:13px;color:var(--sub);margin-bottom:10px">카드 ${items.length}개</p>`;
+    if (!items.length) { container.innerHTML = '<div class="empty-panel">연결된 미션이 없습니다.</div>'; return; }
+    container.innerHTML = '';
+    // 액션 버튼용 SVG(라인 아이콘)
+    const S = {
+      eye:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+      eyeOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>',
+      monitor:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
+      up:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>',
+      down:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>',
+      pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+      trash:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,6 21,6"/><path d="M8,6V4a1,1,0,0,1,1-1h6a1,1,0,0,1,1,1V6"/><path d="M10,11v6M14,11v6"/><rect x="5" y="6" width="14" height="15" rx="1"/></svg>',
+    };
     items.forEach((item, idx) => {
       const row = document.createElement('div');
       row.className = 'item-row';
@@ -2608,22 +2605,18 @@ async function renderMissionPreview(cat) {
       const iconStr = String(item.emoji||'');
       const isSvg = iconStr.startsWith('<svg');
       const isLocked = !!item.locked;
-      const adminBtn = item.adminUrl
-        ? `<button class="admin-link-btn" onclick="openAppAdmin('${esc(item.adminUrl)}')">어드민</button>`
-        : '';
       row.innerHTML = `
         <div class="item-icon-preview preview-mission">${isSvg ? iconStr : esc(iconStr) || '—'}</div>
         <div class="item-info">
           <div class="item-label">${esc(item.title||'')}</div>
-          <div class="item-url">${esc(item.url||'')}${item.adminUrl?` / 어드민: ${esc(item.adminUrl)}`:''}</div>
         </div>
         <div class="item-meta">
-          <button class="lock-toggle ${isLocked?'locked':'open'}" onclick="missionToggleLocked('${item.docId}',${isLocked})">${isLocked?'비공개':'공개'}</button>
-          ${adminBtn}
-          <button class="edit-btn" ${idx===0?'disabled':''} onclick="missionMoveCard('${item.docId}','up',${idx})">▲</button>
-          <button class="edit-btn" ${idx===items.length-1?'disabled':''} onclick="missionMoveCard('${item.docId}','down',${idx})">▼</button>
-          <button class="edit-btn" onclick="missionStartEdit('${item.docId}')">수정</button>
-          <button class="del-btn" onclick="missionDeleteCard('${item.docId}')">삭제</button>
+          <button class="mi-act ${isLocked?'locked':'open'}" title="${isLocked?'비공개 (클릭 시 공개)':'공개 (클릭 시 비공개)'}" onclick="missionToggleLocked('${item.docId}',${isLocked})">${isLocked?S.eyeOff:S.eye}</button>
+          ${item.adminUrl ? `<button class="mi-act" title="웹앱 어드민 열기" onclick="openAppAdmin('${esc(item.adminUrl)}')">${S.monitor}</button>` : ''}
+          <button class="mi-act" ${idx===0?'disabled':''} title="위로 이동" onclick="missionMoveCard('${item.docId}','up',${idx})">${S.up}</button>
+          <button class="mi-act" ${idx===items.length-1?'disabled':''} title="아래로 이동" onclick="missionMoveCard('${item.docId}','down',${idx})">${S.down}</button>
+          <button class="mi-act" title="수정" onclick="missionStartEdit('${item.docId}')">${S.pencil}</button>
+          <button class="mi-act mi-act-danger" title="삭제" onclick="missionDeleteCard('${item.docId}')">${S.trash}</button>
         </div>`;
       container.appendChild(row);
     });
@@ -2662,8 +2655,8 @@ window.missionStartEdit = async function(docId) {
       <input id="me-title-${docId}" class="form-input" value="${esc(item.title||'')}" placeholder="제목" style="flex:1;min-width:100px">
       <input id="me-url-${docId}" class="form-input" value="${esc(item.url||'')}" placeholder="웹앱 URL" style="flex:2;min-width:140px">
       <input id="me-adminurl-${docId}" class="form-input" value="${esc(item.adminUrl||'')}" placeholder="어드민 URL (선택)" style="flex:2;min-width:140px">
-      <button class="btn-save" style="flex:none;padding:7px 16px;background:var(--c3)" onclick="missionSaveEdit('${docId}')">저장</button>
-      <button class="btn-cancel" onclick="renderMissionPreview(window._missionCat)">취소</button>
+      <button class="btn-save" style="flex:none;padding:8px 20px;background:var(--c3)" onclick="missionSaveEdit('${docId}')">저장</button>
+      <button class="btn-cancel" style="flex:none;padding:8px 20px" onclick="renderMissionPreview(window._missionCat)">취소</button>
     </div>
     <div style="padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;display:flex;flex-direction:column;gap:10px;">
       <div style="font-size:11px;font-weight:700;color:var(--c3);letter-spacing:1px;">아카이브 정보</div>
@@ -2718,12 +2711,9 @@ window.missionSaveEdit = async function(docId) {
 window.toggleMissionArchive = function() {
   const panel = document.getElementById('missionArchivePanel');
   const btn   = document.getElementById('missionArchiveToggleBtn');
-  const isOpen = panel.style.display === 'none';
-  panel.style.display = isOpen ? 'block' : 'none';
-  btn.dataset.open = isOpen ? '1' : '';
-  btn.textContent  = isOpen ? '▲ 닫기' : '아카이브 정보 입력';
-  btn.style.borderColor = isOpen ? 'var(--c3)' : '';
-  btn.style.color       = isOpen ? 'var(--c3)' : '';
+  const open  = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  if (btn) btn.classList.toggle('active', open);
 };
 
 window.updateMissionArchiveDot = function() {

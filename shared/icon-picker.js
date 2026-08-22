@@ -168,7 +168,7 @@ const CSS = `
   cursor:pointer;color:#6B7280;white-space:nowrap;transition:.12s;
 }
 .svgpkr-cat:hover{border-color:#1E3A8A;color:#1E3A8A}
-.svgpkr-cat.on{background:#1E3A8A;border-color:#1E3A8A;color:#fff}
+.svgpkr-cat.on{background:#EA580C;border-color:#EA580C;color:#fff}
 .svgpkr-grid{
   display:grid;grid-template-columns:repeat(7,1fr);
   gap:2px;padding:4px 10px 12px;
@@ -181,8 +181,8 @@ const CSS = `
   color:#374151;transition:.1s;
   position:relative;
 }
-.svgpkr-btn:hover{background:#EEF2FF;color:#1E3A8A}
-.svgpkr-btn.on{background:#EEF2FF;outline:2px solid #1E3A8A;outline-offset:-1px}
+.svgpkr-btn:hover{background:#FFF1EA;color:#EA580C}
+.svgpkr-btn.on{background:#FFF1EA;outline:2px solid #EA580C;outline-offset:-1px}
 .svgpkr-btn svg{pointer-events:none}
 .svgpkr-empty{
   grid-column:1/-1;text-align:center;padding:24px 0;
