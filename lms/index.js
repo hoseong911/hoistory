@@ -1186,7 +1186,9 @@ async function doThinkSubmit(triggerId) {
   const activeLabel = activeBtn.textContent;
   activeBtn.textContent = '제출 중...';
   try {
-    await addDoc(collection(db, 'think_submissions'), {
+    // 문서 ID를 "강의ID_학번"으로 고정해 같은 학생·강의 제출이 항상 한 건만 존재하게 한다.
+    // (재입장 잠금에 더해, 동시에 두 기기/탭에서 제출하는 경쟁 상황까지 덮어쓰기로 중복을 차단)
+    await setDoc(doc(db, 'think_submissions', `${_thinkItem.lectureDocId}_${currentStudentId}`), {
       lectureDocId: _thinkItem.lectureDocId, lectureTitle: _thinkItem.lectureTitle,
       id: currentStudentId, name: currentStudentName,
       text, textLength, duration, cheatCount: _thinkCheat,

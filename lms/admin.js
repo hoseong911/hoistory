@@ -147,6 +147,13 @@ function initSidebar() {
   document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', () => switchNav(item.dataset.nav));
   });
+  // 상단 앱 제목을 누르면 대시보드로 이동
+  const admTitle = document.querySelector('.adm-title');
+  if (admTitle) {
+    admTitle.style.cursor = 'pointer';
+    admTitle.title = '대시보드로 이동';
+    admTitle.addEventListener('click', () => switchNav('dashboard'));
+  }
   document.querySelectorAll('.nav-sub-item').forEach(item => {
     item.addEventListener('click', e => {
       e.stopPropagation();
