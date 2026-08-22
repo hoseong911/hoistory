@@ -4021,9 +4021,9 @@ function renderGradeTable() {
   // colgroup으로 열 폭을 고정한다 → 실시/미실시(열 개수)를 바꿔도 각 칸 폭이 그대로 유지된다.
   // (미션체크는 제출시간 열 없이 달성/기한 2열만 쓴다.)
   let cols = '<col style="width:82px"><col style="width:104px">';
-  if (cE) cols += '<col style="width:62px"><col style="width:62px">';
-  if (mE) cols += '<col style="width:62px"><col style="width:62px">';
-  if (tE) cols += '<col style="width:62px"><col style="width:62px"><col style="width:92px">';
+  if (cE) cols += '<col style="width:80px"><col style="width:80px">';
+  if (mE) cols += '<col style="width:80px"><col style="width:80px">';
+  if (tE) cols += '<col style="width:80px"><col style="width:80px"><col style="width:112px">';
   cols += '<col style="width:110px">';
 
   let html = `<div class="grade-table-wrap"><table class="grade-table grade-table-fixed">
@@ -4173,7 +4173,7 @@ function renderGradeStats() {
       el.innerHTML = '<span class="grade-stat-na">미실시</span>';
     } else {
       const n = entries.filter(([, r]) => r[type]?.achieved).length;
-      el.textContent = n;
+      el.textContent = `${n}/${total}`;
     }
   }
   chip('concept', 'statConcept');
