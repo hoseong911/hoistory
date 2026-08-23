@@ -4434,10 +4434,12 @@ function renderGradeSettings() {
 function renderGradePublishBar(classNum) {
   const statusEl = document.getElementById('gradePublishStatusLbl');
   const btn = document.getElementById('publishActionBtn');
+  const refreshBtn = document.getElementById('gradeRefreshBtn');
   if (!classNum || !_gradeLessonKey) {
     statusEl.textContent = '';
     statusEl.className = 'grade-publish-status-lbl';
     btn.style.display = 'none';
+    if (refreshBtn) refreshBtn.style.display = 'none';
     return;
   }
   const published = !!_publishStatus[classNum];
@@ -4450,6 +4452,57 @@ function renderGradePublishBar(classNum) {
   btn.className = published ? 'btn-unpublish' : 'btn-publish';
   btn.textContent = published ? '반영 취소' : '성적 반영하기';
   btn.onclick = () => published ? unpublishClassGrades(classNum) : publishClassGrades(classNum);
+
+  // 갱신: 이미 반영된 반에서만 노출. 취소하지 않고 최신 편집 내용으로 다시 반영한다.
+  if (refreshBtn) {
+    refreshBtn.style.display = published ? '' : 'none';
+    refreshBtn.disabled = false;
+    refreshBtn.textContent = '갱신';
+    refreshBtn.onclick = () => refreshClassGrades(classNum);
+  }
+}
+
+// 반영을 취소하지 않고, 현재 편집 상태(개념/미션/생각/결석/피드백)를 학생 성적에 다시 덮어쓴다.
+async function refreshClassGrades(classNum) {
+  if (!_gradeLessonKey || !_publishStatus[classNum]) return;
+  const studentsInClass = _gradeStudents.filter(s => {
+    if (s.id === '00000') return false;
+    return Math.floor((parseInt(s.id) - 30000) / 100) === classNum;
+  });
+  if (!confirm(`${classNum}반 ${studentsInClass.length}명의 성적을 지금 편집 내용으로 갱신(재반영)하시겠습니까?\n반영을 취소하지 않고 학생 성적 조회를 최신 상태로 덮어씁니다.`)) return;
+
+  const btn = document.getElementById('gradeRefreshBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '갱신 중...'; }
+
+  try {
+    const lesson = _gradeLessons.find(l => l.num === _gradeLessonKey);
+    const lessonTitle = lesson?.title || '';
+
+    await Promise.all(studentsInClass.map(s =>
+      setDoc(doc(db, 'grade_records', `${_gradeLessonKey}_${s.id}`), {
+        lessonKey: _gradeLessonKey, lessonTitle,
+        studentId: s.id, studentName: s.name,
+        concept: _gradeRecords[s.id].concept,
+        mission: _gradeRecords[s.id].mission,
+        think:   _gradeRecords[s.id].think,
+        absent:  _gradeRecords[s.id].absent || false,
+        feedback: _gradeRecords[s.id].feedback || '',
+        published: true,
+        updatedAt: serverTimestamp(),
+      }, { merge: true })
+    ));
+
+    await setDoc(doc(db, 'grade_publish_status', `${_gradeLessonKey}_${classNum}`), {
+      published: true, publishedAt: serverTimestamp(),
+      lessonKey: _gradeLessonKey, classNum,
+    });
+
+    renderGradePublishBar(classNum);
+    alert(`${classNum}반 성적 갱신 완료!`);
+  } catch(e) {
+    alert('갱신 실패: ' + e.message);
+    renderGradePublishBar(classNum);
+  }
 }
 
 function updateSubtabPublishBadge(classNum, published) {
