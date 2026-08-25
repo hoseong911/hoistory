@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>사화에서 살아남기 — 29강 선비 생존 게임</title>
+<title>사화에서 살아남기</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@400;600;800&family=IBM+Plex+Sans+KR:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -155,6 +155,12 @@
     padding:.3rem .2rem;width:min(14rem,100%);color:var(--ink);
   }
   input[type=text]:focus{outline:none;border-bottom-color:var(--rule)}
+  /* 선택 전에 무엇을 고르는 것인지 풀어 주는 안내문 */
+  .pick-help{
+    font-size:.9rem;color:var(--ink-soft);line-height:1.65;
+    margin:-.1rem 0 .7rem;padding-left:.75rem;border-left:2px solid var(--paper-deep);
+  }
+  .pick-help b{font-weight:600;color:var(--ink)}
   .pick{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
   .pick button{
     text-align:left;background:var(--paper-panel);border:1.5px solid var(--ink);
@@ -162,9 +168,17 @@
     color:var(--ink);transition:background .12s;
   }
   .pick button strong{font-family:var(--serif);font-size:1.05rem;display:block;margin-bottom:.2rem}
-  .pick button small{color:var(--ink-soft);font-size:.82rem;line-height:1.5;display:block}
+  .pick button small{color:var(--ink-soft);font-size:.82rem;line-height:1.6;display:block}
+  .pick button small b{font-weight:600;color:var(--ink)}
+  /* 시작 보너스: 고르기 전에 무엇을 얻는지 눈에 띄게 */
+  .pick-start{
+    display:inline-block;margin-top:.4rem;font-family:var(--mono);font-size:.74rem;
+    letter-spacing:.02em;color:var(--rule);
+  }
   .pick button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
   .pick button[aria-pressed=true] small{color:var(--paper-deep)}
+  .pick button[aria-pressed=true] small b{color:var(--paper)}
+  .pick button[aria-pressed=true] .pick-start{color:var(--paper-deep)}
   .pick button:hover{background:var(--paper-deep)}
   .pick button[aria-pressed=true]:hover{background:var(--ink)}
 
@@ -235,20 +249,6 @@
   .qs{max-width:36rem;margin-top:1.6rem}
   .qs li{margin:.5rem 0 .5rem 1.2rem;font-size:.95rem}
 
-  /* ── 교사용 ── */
-  details.teach{
-    border-top:1.5px solid var(--ink);margin-top:2.4rem;padding-top:1rem;max-width:36rem;
-  }
-  details.teach summary{
-    font-family:var(--mono);font-size:.75rem;letter-spacing:.2em;color:var(--ink-soft);
-    cursor:pointer;list-style:none;
-  }
-  details.teach summary::-webkit-details-marker{display:none}
-  details.teach summary::before{content:"▸ ";color:var(--rule)}
-  details.teach[open] summary::before{content:"▾ "}
-  details.teach .body{font-size:.88rem;color:var(--ink-soft);margin-top:.9rem}
-  details.teach .body li{margin:.3rem 0 .3rem 1.2rem}
-  details.teach .body p{margin:.6rem 0}
 
   @media (max-width:760px){
     main{flex-direction:column}
@@ -315,8 +315,10 @@ function drawChronicle(){
 
 /* ── 상태 표시줄 ── */
 function drawBar(){
-  if(S.screen==="title"){ $("#bar").innerHTML =
-    `<span class="gan">史草</span><span class="stat">선비 생존 게임 29강</span>`; return; }
+  // 시작 화면에서는 표시줄 자체를 감춘다(강의 번호·부제를 노출하지 않는다).
+  const bar = $("#bar");
+  if(S.screen==="title"){ bar.innerHTML = ""; bar.style.display = "none"; return; }
+  bar.style.display = "";
   const g = GAN[S.year] ? GAN[S.year]+"년" : "";
   $("#bar").innerHTML = `
     <span class="yr">${S.year}</span>
@@ -341,10 +343,16 @@ function render(){
 /* ══════════ 시작 화면 ══════════ */
 function titleHTML(){
   return `
-  <div class="eyebrow">Ⅳ-2 29강 1498 → 1575</div>
   <h1>사화에서<br>살아남기</h1>
-  <p class="lede">그대는 1498년 조선의 선비다. 앞으로 77년, 네 차례의 사화가 몰아친다.
-  선택할 때마다 사관이 그대의 일을 사초에 적는다. 그 기록이 그대를 살릴 수도, 죽일 수도 있다.</p>
+  <p class="lede">그대는 1498년 조선의 선비다. 갓 벼슬길에 올라 사림(士林)의 한 사람이 되었다.
+  앞으로 77년 동안 <b>사화</b>가 네 번 몰아친다. 사화란 선비들이 무리로 죽임을 당하는 사건을 말한다.
+  <br><br>
+  화면마다 그대는 선택을 한다. 옳은 말을 할 것인가, 입을 다물 것인가. 나설 것인가, 물러설 것인가.
+  정답은 없다. 다만 <b>사관</b>이 그대가 한 일을 <b>사초</b>에 적어 둘 뿐이다. 사초는 임금도 함부로 못 보는 기록이지만,
+  한번 적히면 지워지지 않는다. 그 기록이 훗날 그대를 살릴 수도, 죽일 수도 있다.
+  <br><br>
+  끝까지 살아남는 것이 목표는 아니다. 살아남은 자와 이름을 남긴 자가 서로 다른 사람이라는 것,
+  그것이 이 77년이 보여주는 바다.</p>
 
   <div class="field">
     <label class="label" for="ho">그대의 호(號) <span>— 스스로 지어 붙이는 이름</span></label>
@@ -352,40 +360,38 @@ function titleHTML(){
   </div>
 
   <div class="field">
-    <span class="label">스승을 고르시오 <span>— 지금은 그저 학문의 취향일 뿐이다</span></span>
+    <span class="label">스승을 고르시오 <span>— 누구에게 배웠는지가 훗날 그대의 편을 정한다</span></span>
+    <p class="pick-help">조선의 선비는 스승에게 학문을 배우고, 같은 스승 밑에서 배운 사람들끼리 무리를 이루었다.
+    지금은 그저 "어느 선생님이 마음에 드는가" 하는 문제로 보인다. 하지만 마지막 화면에서 이 선택이
+    그대가 <b>동인</b>이 될지 <b>서인</b>이 될지를 결정한다. 편하게 골라도 좋다.</p>
     <div class="pick" id="pickMaster">
-      <button data-v="dong" aria-pressed="false"><strong>이황 · 조식</strong><small>경(敬)과 실천을 앞세운다. 영남에서 배웠다.</small></button>
-      <button data-v="seo" aria-pressed="false"><strong>이이 · 성혼</strong><small>현실의 경장(更張)을 말한다. 기호에서 배웠다.</small></button>
+      <button data-v="dong" aria-pressed="false"><strong>이황 · 조식</strong>
+        <small>마음가짐을 바르게 하는 공부(敬)를 가장 중요하게 여긴다. 벼슬보다 학문과 몸가짐이 먼저라고 가르친다.
+        주로 <b>영남</b>(지금의 경상도) 지역에서 공부한 선비들이다.</small></button>
+      <button data-v="seo" aria-pressed="false"><strong>이이 · 성혼</strong>
+        <small>잘못된 제도는 뜯어고쳐야 한다(更張)고 말한다. 학문도 결국 세상을 바꾸는 데 쓰여야 한다고 가르친다.
+        주로 <b>기호</b>(지금의 경기도와 충청도) 지역에서 공부한 선비들이다.</small></button>
     </div>
   </div>
 
   <div class="field">
-    <span class="label">기반을 고르시오</span>
+    <span class="label">기반을 고르시오 <span>— 어디에 뿌리를 내리고 살 것인가</span></span>
+    <p class="pick-help">벼슬길에 오른 선비는 두 갈래로 살았다. 한양에 남아 벼슬을 하거나, 고향에 내려가 제자를 기르거나.
+    한쪽은 빨리 높아지지만 사화가 터지면 곧바로 휩쓸린다. 다른 쪽은 느리지만 무너져도 다시 일어설 자리가 남는다.
+    <b>어느 쪽이 유리한지는 끝까지 가 봐야 안다.</b></p>
     <div class="pick" id="pickBase">
-      <button data-v="central" aria-pressed="false"><strong>중앙 관직형</strong><small>한양에 머물며 3사에서 공론을 편다. 오르기 쉽고, 떨어지기도 쉽다.</small></button>
-      <button data-v="local" aria-pressed="false"><strong>향촌 서원형</strong><small>고향에서 학문을 가르치고 향약을 편다. 느리지만 뿌리가 깊다.</small></button>
+      <button data-v="central" aria-pressed="false"><strong>중앙 관직형</strong>
+        <small>한양에 살면서 <b>3사</b>(사헌부·사간원·홍문관)에서 일한다. 잘못된 일을 임금에게 따져 묻는 자리라
+        이름을 알리기 좋다. 대신 조정이 뒤집히면 가장 먼저 걸려든다.
+        <br><span class="pick-start">시작할 때 관직 +2</span></small></button>
+      <button data-v="local" aria-pressed="false"><strong>향촌 서원형</strong>
+        <small>고향에서 <b>서원</b>을 세워 제자를 가르치고 <b>향약</b>으로 마을을 이끈다. 출세는 늦지만
+        나를 기억해 주는 제자와 마을 사람들이 생긴다. 한양에서 밀려나도 돌아갈 곳이 있다.
+        <br><span class="pick-start">시작할 때 명예 +2</span></small></button>
     </div>
   </div>
 
-  <button class="go" id="start">사초를 펼친다</button>
-
-  <details class="teach">
-    <summary>교사용 안내</summary>
-    <div class="body">
-      <p><b>40분 운영</b></p>
-      <ul>
-        <li>5분 — 링크 배포, 호, 스승, 기반 설정 (호는 칠판에 모아 적으면 좋습니다)</li>
-        <li>25분 — 개인 플레이. 먼저 끝난 학생은 다른 선택으로 재도전</li>
-        <li>5분 — 동인·서인으로 교실 좌우에 실제로 갈라 세우고 인원 확인</li>
-        <li>5분 — 결과 화면의 세 질문을 활동지 [생각 Check]에 옮겨 적기</li>
-      </ul>
-      <p><b>설계 의도</b> — 갑자사화는 선택과 무관한 제비뽑기입니다. 무오년에 침묵해서 살아남은 학생이 여기서 억울하게 죽습니다.
-      중종반정 부활은 향촌 서원형에게만 주어지므로, 학생들은 죽고 나서야 서원의 가치를 체감합니다.
-      마지막에 아무 생각 없이 고른 스승이 동인·서인을 결정합니다.</p>
-      <p><b>채점하지 마세요</b> — 관직 1위와 명예 1위가 서로 다른 사람인 것이 이 단원의 메시지입니다.
-      명예 8점 이상이면 죽어도 서원에 배향됩니다.</p>
-    </div>
-  </details>`;
+  <button class="go" id="start">사초를 펼친다</button>`;
 }
 
 function bindTitle(){
