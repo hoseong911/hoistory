@@ -344,6 +344,7 @@ let _dbConcept = [], _dbMission = [], _dbThink = [];
 let _dbStuCount = 0, _dbToday = { attend: 0, thinkSubmit: 0, review: 0 };
 let _dbStudents = []; // 학생 검색용 명단 캐시 ({studentId, name})
 let _dbAnnList = []; // 공지사항(announcements 컬렉션, 패치노트 리스트, 최신순 최대 10건)
+let _dbAnnEditId = null; // 수정 중인 공지 docId (null이면 새 글 작성 모드)
 
 async function dbLoad() {
   const el = document.getElementById('db-content');
@@ -369,17 +370,29 @@ async function dbLoad() {
     _dbThink = tlSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', isOpen: v.isOpen === true, order: v.order ?? -1, ungraded: 0 }; }).sort((a, b) => b.order - a.order).slice(0, 10);
 
     // 제출물: 강의별 미채점 수 + 오늘 제출 수
+    // 미채점 중 가장 최근 제출이 어느 반인지도 같이 기억해 둔다("채점" 버튼이 그 반으로 바로 열리게).
     const tsSnap = await getDocs(collection(db, 'think_submissions'));
     const ungraded = {};
+    const newestUngraded = {}; // lectureDocId → { secs, cls }
     let thinkSubmit = 0;
     tsSnap.docs.forEach(d => {
       const s = d.data();
       if (isTestId(s.id)) return; // 테스트 학생 제출은 집계·채점대기에서 제외
-      if (s.thGraded !== true) ungraded[s.lectureDocId] = (ungraded[s.lectureDocId] || 0) + 1;
       const secs = s.createdAt?.seconds;
+      if (s.thGraded !== true) {
+        ungraded[s.lectureDocId] = (ungraded[s.lectureDocId] || 0) + 1;
+        const cls = parseInt(String(s.id || '').slice(1, 3), 10); // 학번 2~3번째 자리가 반
+        const cur = newestUngraded[s.lectureDocId];
+        if (cls >= 1 && cls <= 9 && (!cur || (secs || 0) > cur.secs)) {
+          newestUngraded[s.lectureDocId] = { secs: secs || 0, cls };
+        }
+      }
       if (secs && kstDate(secs * 1000) === today) thinkSubmit++;
     });
-    _dbThink.forEach(t => t.ungraded = ungraded[t.docId] || 0);
+    _dbThink.forEach(t => {
+      t.ungraded    = ungraded[t.docId] || 0;
+      t.ungradedCls = newestUngraded[t.docId]?.cls || 0;
+    });
 
     // 학생 수 + 오늘 출석/복습(rtdb/xp)
     const stuSnap = await get(ref(rtdb, 'students'));
@@ -408,6 +421,9 @@ function dbRender() {
   const el = document.getElementById('db-content');
   if (!el) return;
   const totalUngraded = _dbThink.reduce((a, t) => a + (t.ungraded || 0), 0);
+  // 수정 중인 공지가 있으면 오른쪽 폼을 "수정" 모드로 그린다(_dbAnnEditId는 목록에서 "수정"을 누를 때 설정).
+  const editing = _dbAnnEditId ? _dbAnnList.find(a => a.docId === _dbAnnEditId) : null;
+  if (_dbAnnEditId && !editing) _dbAnnEditId = null; // 수정 중이던 글이 사라졌으면 작성 모드로 되돌린다
   el.innerHTML = `
     <div class="db-summary-row">
       <div class="db-summary-card"><div class="db-summary-label">오늘 출석</div><div class="db-summary-val">${_dbToday.attend} / ${_dbStuCount}명</div></div>
@@ -430,25 +446,36 @@ function dbRender() {
     </div>
     <div class="stu-card" style="margin-top:14px">
       <div class="stu-card-head">공지사항</div>
-      <div style="padding:12px 18px 16px">
-        <div id="db-ann-list">${dbAnnListHTML()}</div>
-        <hr style="border:none;border-top:1px solid var(--hairline);margin:14px 0">
-        <input id="db-ann-title" class="stu-edit-input" style="width:100%" maxlength="60" placeholder="제목(선택)">
-        <textarea id="db-ann-body" class="stu-edit-input" style="width:100%;height:80px;resize:vertical;border-radius:10px;margin-top:8px" placeholder="예) 8월 25일(화) 역사 수행평가는 개념 체크 3~5강 범위입니다."></textarea>
-        <button class="add-btn" style="margin-top:10px" onclick="dbPostAnnouncement()">게시하기</button>
-        <p style="font-size:12px;color:var(--sub);margin-top:8px;line-height:1.5">게시하면 학생 허브 공지사항 목록 맨 위에 바로 올라갑니다.</p>
+      <div class="db-ann-grid">
+        <div>
+          <div class="db-ann-col-head">등록된 공지</div>
+          <div id="db-ann-list">${dbAnnListHTML()}</div>
+        </div>
+        <div>
+          <div class="db-ann-col-head">${editing ? '공지 수정' : '새 공지 작성'}</div>
+          <input id="db-ann-title" class="stu-edit-input" style="width:100%" maxlength="60" placeholder="제목(선택)" value="${editing ? esc(editing.title || '') : ''}">
+          <textarea id="db-ann-body" class="stu-edit-input" style="width:100%;height:120px;resize:vertical;border-radius:10px;margin-top:8px" placeholder="예) 8월 25일(화) 역사 수행평가는 개념 체크 3~5강 범위입니다.">${editing ? esc(editing.body || '') : ''}</textarea>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="add-btn" onclick="dbPostAnnouncement()">${editing ? '저장하기' : '게시하기'}</button>
+            ${editing ? '<button class="stu-btn stu-btn-cancel" onclick="dbCancelAnnEdit()">취소</button>' : ''}
+          </div>
+          <p style="font-size:12px;color:var(--sub);margin-top:8px;line-height:1.5">${editing ? '저장하면 학생 화면의 공지 내용도 바로 바뀝니다.' : '게시하면 학생 허브 공지사항 목록 맨 위에 바로 올라갑니다.'}</p>
+        </div>
       </div>
     </div>`;
 }
 
-// 대시보드 공지사항 — announcements 컬렉션(패치노트 리스트). 글은 항상 즉시 게시되며, 잘못 쓴 글은 삭제로 정정한다.
+// 대시보드 공지사항 — announcements 컬렉션(패치노트 리스트). 각 글은 오른쪽 폼에서 수정하거나 삭제한다.
 function dbAnnListHTML() {
   if (!_dbAnnList.length) return '<p style="font-size:13px;color:var(--sub);padding:4px 0">등록된 공지가 없습니다.</p>';
   return _dbAnnList.map(a => `
-    <div style="display:flex;align-items:baseline;gap:10px;padding:9px 0;border-bottom:1px solid var(--hairline)">
-      <div style="font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex-shrink:1">${esc(a.title || '(제목 없음)')}</div>
-      <div style="font-size:12px;color:var(--sub);flex-shrink:0">${dbAnnDate(a.createdAt)}</div>
-      <button class="stu-btn stu-btn-del" style="flex-shrink:0;margin-left:auto;padding:6px 12px;font-size:12px" onclick="dbDeleteAnnouncement('${a.docId}')">삭제</button>
+    <div class="db-ann-item${a.docId === _dbAnnEditId ? ' editing' : ''}">
+      <div class="db-ann-item-title">${esc(a.title || '(제목 없음)')}</div>
+      <div class="db-ann-item-date">${dbAnnDate(a.createdAt)}</div>
+      <div class="db-ann-item-btns">
+        <button class="stu-btn stu-btn-edit" style="padding:6px 12px;font-size:12px" onclick="dbEditAnnouncement('${a.docId}')">수정</button>
+        <button class="stu-btn stu-btn-del" style="padding:6px 12px;font-size:12px" onclick="dbDeleteAnnouncement('${a.docId}')">삭제</button>
+      </div>
     </div>`).join('');
 }
 
@@ -458,6 +485,19 @@ function dbAnnDate(ts) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// 목록의 "수정"을 누르면 오른쪽 폼이 그 글의 내용으로 채워진 수정 모드로 바뀐다.
+window.dbEditAnnouncement = function(docId) {
+  _dbAnnEditId = docId;
+  dbRender();
+  document.getElementById('db-ann-body')?.focus();
+};
+
+window.dbCancelAnnEdit = function() {
+  _dbAnnEditId = null;
+  dbRender();
+};
+
+// 새 글이면 게시, 수정 모드면 그 글을 덮어쓴다. 작성 시각(createdAt)은 수정해도 그대로 둔다.
 window.dbPostAnnouncement = async function() {
   const titleEl = document.getElementById('db-ann-title');
   const bodyEl  = document.getElementById('db-ann-body');
@@ -465,10 +505,18 @@ window.dbPostAnnouncement = async function() {
   const body  = (bodyEl?.value  || '').trim();
   if (!body) { alert('내용을 입력해 주세요.'); return; }
   try {
-    const docRef = await addDoc(collection(db, 'announcements'), { title, body, createdAt: serverTimestamp() });
-    _dbAnnList = [{ docId: docRef.id, title, body, createdAt: null }, ..._dbAnnList].slice(0, 10);
+    if (_dbAnnEditId) {
+      const docId = _dbAnnEditId;
+      await updateDoc(doc(db, 'announcements', docId), { title, body });
+      const t = _dbAnnList.find(a => a.docId === docId);
+      if (t) { t.title = title; t.body = body; }
+      _dbAnnEditId = null;
+    } else {
+      const docRef = await addDoc(collection(db, 'announcements'), { title, body, createdAt: serverTimestamp() });
+      _dbAnnList = [{ docId: docRef.id, title, body, createdAt: null }, ..._dbAnnList].slice(0, 10);
+    }
     dbRender();
-  } catch(e) { alert('게시 실패: ' + e.message); }
+  } catch(e) { alert((_dbAnnEditId ? '저장' : '게시') + ' 실패: ' + e.message); }
 };
 
 window.dbDeleteAnnouncement = async function(docId) {
@@ -476,6 +524,7 @@ window.dbDeleteAnnouncement = async function(docId) {
   try {
     await deleteDoc(doc(db, 'announcements', docId));
     _dbAnnList = _dbAnnList.filter(a => a.docId !== docId);
+    if (_dbAnnEditId === docId) _dbAnnEditId = null; // 수정 중이던 글을 지웠으면 폼도 작성 모드로
     dbRender();
   } catch(e) { alert('삭제 실패: ' + e.message); }
 };
@@ -646,8 +695,9 @@ function dbToggleCard(title, list, kind) {
         const open = kind === 'mission' ? !item.locked : item.isOpen;
         const clean = String(item.title || '').replace(/\*\*/g, '').replace(/[{}]/g, ''); // 편집기호 제거
         const label = kind === 'concept' ? lecLabel(item.num, esc(clean)) : esc(clean);
+        // 채점 버튼: 미채점이 남아 있으면 그중 가장 최근 제출이 있는 반으로 바로 열어 준다.
         const gradeBtn = kind === 'think'
-          ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbGoGrade('${item.docId}')">채점${item.ungraded ? ` <b>${item.ungraded}</b>` : ''}</button>`
+          ? `<button class="add-btn" style="font-size:11px;padding:3px 9px"${item.ungradedCls ? ` title="미채점이 남은 ${item.ungradedCls}반으로 이동"` : ''} onclick="dbGoGrade('${item.docId}',${item.ungradedCls || 0})">채점${item.ungraded ? ` <b>${item.ungraded}</b>${item.ungradedCls ? ` (${item.ungradedCls}반)` : ''}` : ''}</button>`
           : '';
         const editBtn =
             kind === 'concept' ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbEditLesson('${esc(String(item.num))}')">수정</button>`
@@ -687,10 +737,14 @@ window.dbEditLesson = function(num) {
 };
 
 // 대시보드 → 생각 체크(해당 강의 선택 후 채점 화면)로 이동해 바로 채점하게 한다.
-window.dbGoGrade = function(lecId) {
+// cls를 주면 그 반이 선택된 채로 열린다(미채점이 남은 반). 반 태그를 그리는 thBuildClassTags가
+// th-sel-cls의 현재 값을 그대로 살려 쓰므로, 화면을 그리기 전에 미리 넣어 둔다.
+window.dbGoGrade = function(lecId, cls) {
   switchNav('think');
   const sel = document.getElementById('th-sel-cls-lec');
   if (sel) sel.value = lecId;
+  const clsSel = document.getElementById('th-sel-cls');
+  if (clsSel && cls) clsSel.value = String(cls);
   if (window.thMainSelect) window.thMainSelect();
   if (window.thMainGrade) window.thMainGrade();
 };
@@ -3451,6 +3505,7 @@ let _gradeLessonKey   = '';
 let _gradeThinkDocId  = '';   // 현재 성적 표에 로드된 생각 체크 강의 docId (이탈 토글 즉시 반영용)
 let _gradeEnabled     = { concept: true, mission: true, think: true };
 let _publishStatus    = {};   // { classNum: boolean }
+let _publishedAt      = {};   // { classNum: ms } 마지막 반영(갱신) 시각 — 반영 바에 함께 표시
 let _currentGradeClass = null;
 // 생각 체크 강의 캐시({docId,icon,title}[]) — "생각 체크" 관리 블록 안의 thLectures를
 // 이 바깥(성적 체크)에서 직접 읽을 수 없어서, thPopulateSelects()가 갱신될 때마다
@@ -3783,6 +3838,7 @@ async function loadGradeData() {
 
     // 반영 상태 로드
     _publishStatus = {};
+    _publishedAt   = {};
     try {
       const pubSnap = await getDocs(query(
         collection(db, 'grade_publish_status'),
@@ -3790,7 +3846,9 @@ async function loadGradeData() {
       ));
       pubSnap.docs.forEach(d => {
         const pd = d.data();
-        if (pd.published) _publishStatus[pd.classNum] = true;
+        if (!pd.published) return;
+        _publishStatus[pd.classNum] = true;
+        if (pd.publishedAt?.seconds) _publishedAt[pd.classNum] = pd.publishedAt.seconds * 1000;
       });
     } catch(e) {}
 
@@ -4430,6 +4488,16 @@ function renderGradeSettings() {
   }).join('');
 }
 
+// 반영 시각 표기 — 올해면 "8월 25일 14:32", 해가 다르면 연도까지 붙인다.
+function gradePublishedAtText(ms) {
+  if (!ms) return '';
+  const d = new Date(ms);
+  if (isNaN(d.getTime())) return '';
+  const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const y = d.getFullYear() === new Date().getFullYear() ? '' : `${d.getFullYear()}년 `;
+  return `${y}${d.getMonth() + 1}월 ${d.getDate()}일 ${hhmm}`;
+}
+
 // ── 성적 반영 바 ──
 function renderGradePublishBar(classNum) {
   const statusEl = document.getElementById('gradePublishStatusLbl');
@@ -4444,7 +4512,11 @@ function renderGradePublishBar(classNum) {
   }
   const published = !!_publishStatus[classNum];
 
-  statusEl.textContent = published ? `✓ 반영됨 (${classNum}반)` : `미반영 (${classNum}반)`;
+  // 반영됨일 때는 마지막으로 반영(또는 갱신)한 시각을 옆에 붙여 준다.
+  const at = published ? gradePublishedAtText(_publishedAt[classNum]) : '';
+  statusEl.innerHTML = published
+    ? `✓ 반영됨 (${classNum}반)${at ? ` <span class="grade-publish-time">${at}</span>` : ''}`
+    : `미반영 (${classNum}반)`;
   statusEl.className = `grade-publish-status-lbl ${published ? 'published' : 'unpublished'}`;
 
   btn.style.display = '';
@@ -4497,6 +4569,7 @@ async function refreshClassGrades(classNum) {
       lessonKey: _gradeLessonKey, classNum,
     });
 
+    _publishedAt[classNum] = Date.now(); // 서버 시각은 다음 로드 때 정확히 다시 읽는다
     renderGradePublishBar(classNum);
     alert(`${classNum}반 성적 갱신 완료!`);
   } catch(e) {
@@ -4558,6 +4631,7 @@ async function publishClassGrades(classNum) {
     });
 
     _publishStatus[classNum] = true;
+    _publishedAt[classNum]   = Date.now(); // 서버 시각은 다음 로드 때 정확히 다시 읽는다
     renderGradePublishBar(classNum);
     updateSubtabPublishBadge(classNum, true);
     alert(`${classNum}반 성적 반영 완료!`);
@@ -4593,6 +4667,7 @@ async function unpublishClassGrades(classNum) {
     ));
 
     _publishStatus[classNum] = false;
+    delete _publishedAt[classNum];
     renderGradePublishBar(classNum);
     updateSubtabPublishBadge(classNum, false);
     alert(`${classNum}반 성적 반영 취소 완료.`);

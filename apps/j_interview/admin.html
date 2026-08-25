@@ -95,19 +95,28 @@
 .q-del-btn:hover { color: var(--hi-negative); border-color: var(--hi-negative); }
 .char-actions { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
 
-/* ── 통계 칩 ── */
-.stats-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px; }
-.stat-chip { background: var(--hi-bg-card); border: 1px solid var(--hi-border); border-radius: 14px; padding: 12px 18px; text-align: center; }
-.stat-chip-label { font-size: 12px; font-weight: 700; color: var(--hi-text-muted); margin-bottom: 6px; }
-.stat-chip-val { font-weight: 900; font-size: 30px; line-height: 1; color: var(--hi-text); }
-.stat-chip.pick-chip .stat-chip-val { color: var(--iv-pick); }
-.stat-dual { display: flex; align-items: center; justify-content: center; gap: 14px; }
-.stat-dual-val { font-weight: 900; font-size: 28px; line-height: 1; }
+/* ── 반 태그 + 통계 칩 (lms/admin 생각 체크 ANSWER와 같은 형태) ──
+   반 태그와 통계 칩을 한 줄에 나란히 두고, 통계는 "총인원 / 제출 / 통과 / 미흡" 콤보 칩
+   하나와 PICK 별 칩 하나로만 압축한다. lms와 달리 여기선 "전체" 태그를 그대로 둔다. */
+.ans-head { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+.ans-head .class-filter, .ans-head .stats-row { margin-bottom: 0; }
+.stats-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center; margin-bottom: 16px; }
+.stat-chip { background: var(--hi-bg-card); border: 1px solid var(--hi-border); border-radius: 12px; padding: 10px 16px; font-size: 14px; color: var(--hi-text-muted); min-width: 80px; text-align: center; }
+.stat-combo { display: inline-flex; align-items: baseline; justify-content: center; gap: 6px; }
+.stat-combo .thc-o { font-size: 18px; font-weight: 800; color: var(--iv-primary); }
+.stat-combo .thc-g { font-size: 18px; font-weight: 800; color: #0E9F6E; }
+.stat-combo .thc-r { font-size: 18px; font-weight: 800; color: #DC2626; }
+.stat-combo .thc-sep { font-size: 16px; font-weight: 700; color: var(--hi-border); }
+.stat-star { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+/* 공용 icons.js의 별은 선(stroke) 아이콘이라, lms 칩과 같은 꽉 찬 별로 보이게 채워 쓴다. */
+.iv-star-ic { display: inline-flex; width: 16px; height: 16px; color: var(--iv-primary); }
+.iv-star-ic svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
+.thc-star-n { font-size: 18px; font-weight: 800; color: var(--hi-text); }
 
 /* ── 반 필터 ── */
-.class-filter { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-bottom: 16px; }
-.cf-btn { padding: 7px 16px; border-radius: 100px; border: 1.5px solid var(--hi-border); background: var(--hi-bg-card); font-family: inherit; font-size: 14px; font-weight: 700; color: var(--hi-text-muted); cursor: pointer; transition: .15s; }
-.cf-btn.active { background: var(--iv-primary); color: #fff; border-color: var(--iv-primary); }
+.class-filter { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; margin-bottom: 16px; }
+.cf-btn { padding: 6px 18px; border-radius: 10px; border: 1.5px solid var(--hi-border); background: none; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--hi-text-muted); cursor: pointer; transition: all .15s; }
+.cf-btn.active, .cf-btn:hover { background: var(--iv-primary); color: #fff; border-color: var(--iv-primary); }
 
 /* ── 학생 카드 ── */
 .student-list { display: flex; flex-direction: column; gap: 8px; }
@@ -233,29 +242,15 @@
         <button class="ans-subtab" data-ans="reply">친구 심화답변</button>
       </div>
       <div class="ansub active" id="ansub-basic">
-      <div class="class-filter" id="class-filter"></div>
-      <div class="stats-row" id="stats-row">
-        <div class="stat-chip">
-          <div class="stat-chip-label">전체 인원</div>
-          <div class="stat-chip-val" id="s-total">0</div>
-        </div>
-        <div class="stat-chip">
-          <div class="stat-chip-label">제출 / 미제출</div>
-          <div class="stat-dual">
-            <div class="stat-dual-val" id="s-sub" style="color:var(--iv-accent-deep)">0</div>
-            <div class="stat-dual-val" id="s-unsub" style="color:var(--hi-text-muted)">0</div>
+      <div class="ans-head">
+        <div class="class-filter" id="class-filter"></div>
+        <div class="stats-row" id="stats-row">
+          <div class="stat-chip stat-combo" title="총인원 / 제출 / 통과 / 미흡">
+            <span class="thc-o" id="s-total">0</span><span class="thc-sep">/</span><span class="thc-o" id="s-sub">0</span><span class="thc-sep">/</span><span class="thc-g" id="s-pass">0</span><span class="thc-sep">/</span><span class="thc-r" id="s-insuf">0</span>
           </div>
-        </div>
-        <div class="stat-chip">
-          <div class="stat-chip-label">통과 / 미흡</div>
-          <div class="stat-dual">
-            <div class="stat-dual-val" id="s-pass" style="color:var(--iv-pass)">0</div>
-            <div class="stat-dual-val" id="s-insuf" style="color:var(--iv-insuf)">0</div>
+          <div class="stat-chip stat-star" title="PICK된 답변 수">
+            <span class="iv-star-ic" data-icon="star" data-icon-size="16"></span><span class="thc-star-n" id="s-pick">0</span>
           </div>
-        </div>
-        <div class="stat-chip pick-chip">
-          <div class="stat-chip-label">PICK</div>
-          <div class="stat-chip-val" id="s-pick">0</div>
         </div>
       </div>
       <div class="adm-action-row">
@@ -720,9 +715,9 @@ function updateStats(){
   const pass=fs.filter(s=>s.status==='pass').length;
   const insuf=fs.filter(s=>s.status==='fail').length+unsub2;
   const pick=fs.filter(s=>s.picked).length;
+  // 콤보 칩은 총인원 / 제출 / 통과 / 미흡만 보여준다(미제출은 미흡에 이미 포함돼 있어 따로 안 띄움).
   document.getElementById('s-total').textContent=expected||fs.length;
   document.getElementById('s-sub').textContent=submitted.length;
-  document.getElementById('s-unsub').textContent=unsub2;
   document.getElementById('s-pass').textContent=pass;
   document.getElementById('s-insuf').textContent=insuf;
   document.getElementById('s-pick').textContent=pick;
