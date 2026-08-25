@@ -345,6 +345,8 @@ let _dbStuCount = 0, _dbToday = { attend: 0, thinkSubmit: 0, review: 0 };
 let _dbStudents = []; // 학생 검색용 명단 캐시 ({studentId, name})
 let _dbAnnList = []; // 공지사항(announcements 컬렉션, 패치노트 리스트, 최신순 최대 10건)
 let _dbAnnEditId = null; // 수정 중인 공지 docId (null이면 새 글 작성 모드)
+let _dbAutoOpen = false; // 수업일 자동 공개 사용 여부 (settings/lms_config.autoOpenBySchedule)
+let _dbAutoOpened = []; // 이번 로드에서 자동 공개된 항목 이름 — 대시보드에 무엇이 열렸는지 알려준다
 
 async function dbLoad() {
   const el = document.getElementById('db-content');
@@ -354,15 +356,25 @@ async function dbLoad() {
 
     // 개념 체크 강의 (상위 10)
     const clSnap = await getDocs(query(collection(db, 'class_lessons'), orderBy('order', 'desc')));
-    _dbConcept = clSnap.docs.map(d => { const v = d.data(); return { docId: d.id, num: v.num, title: v.title || '', isOpen: v.isOpen !== false }; }).slice(0, 10);
+    _dbConcept = clSnap.docs.map(d => { const v = d.data(); return { docId: d.id, num: v.num, title: v.title || '', isOpen: v.isOpen !== false, autoOpenedAt: v.autoOpenedAt || null }; }).slice(0, 10);
 
     // 미션 체크 카드 (mission_category)
     let missionCat = '';
-    try { const cfg = await getDoc(doc(db, 'settings', 'lms_config')); if (cfg.exists()) missionCat = cfg.data().mission_category || ''; } catch (_) {}
+    try {
+      const cfg = await getDoc(doc(db, 'settings', 'lms_config'));
+      if (cfg.exists()) {
+        missionCat  = cfg.data().mission_category || '';
+        _dbAutoOpen = cfg.data().autoOpenBySchedule === true;
+      }
+    } catch (_) {}
     if (missionCat) {
       const mSnap = await getDocs(query(collection(db, 'cards'), where('category', '==', missionCat)));
-      _dbMission = mSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || v.label || '', locked: v.locked === true, order: v.order ?? 999 }; }).sort((a, b) => a.order - b.order);
+      _dbMission = mSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || v.label || '', locked: v.locked === true, order: v.order ?? 999, lessonNum: v.lessonNum || '', autoOpenedAt: v.autoOpenedAt || null }; }).sort((a, b) => a.order - b.order);
     } else _dbMission = [];
+
+    // 수업일이 지난 강의와 미션을 자동 공개(설정이 켜져 있을 때만, 항목당 한 번만).
+    // 여기서 실패해도 대시보드 자체는 그대로 떠야 하므로 따로 감싼다.
+    try { await dbAutoOpenBySchedule(); } catch (e) { console.warn('수업일 자동 공개 실패:', e); }
 
     // 생각 체크 강의 (상위 10)
     const tlSnap = await getDocs(query(collection(db, 'think_lectures'), orderBy('createdAt', 'desc')));
@@ -417,6 +429,79 @@ async function dbLoad() {
   }
 }
 
+// ── 수업일 자동 공개 ──────────────────────────────────────────────
+// 수업 스케줄(class_progress/plan)에서 그 강의를 "가장 먼저 하는 반"의 수업일이 지나면,
+// 개념 체크 강의와 거기에 연결된(lessonNum) 미션 카드를 자동으로 공개로 돌린다.
+// 서버가 없는 정적 사이트라 어드민 대시보드를 열 때 돌아간다 — 즉 수업 날 아침 정각이 아니라
+// 선생님이 그날 어드민을 여는 순간 반영된다.
+//
+// 항목당 딱 한 번만 연다(autoOpenedAt 기록). 그러지 않으면 일부러 비공개로 돌린 강의를
+// 대시보드를 열 때마다 다시 공개로 뒤집어 버린다.
+
+// 강의 번호 → 스케줄에서 가장 빠른 반의 수업일. 스케줄에 없거나 날짜가 하나도 없으면 null.
+// 반 id를 가리지 않고 그 행의 모든 칸을 훑기 때문에, "반 추가"로 만들어 id가 c1~c6 형식이
+// 아닌 반(plAddClass)도 그대로 계산에 들어간다.
+function dbEarliestLessonDate(num) {
+  const raw = String(num == null ? '' : num).trim();
+  if (!raw) return null;
+  const label = lecIsNum(raw) ? `${raw}강` : raw;
+  const row = (_plData.rows || []).find(r => r.label === label);
+  if (!row || !row.cells) return null;
+  const today = plToday();
+  let best = null;
+  Object.values(row.cells).forEach(cell => {
+    const d = plResolveDate(cell, today);
+    if (d && (!best || d < best)) best = d;
+  });
+  return best;
+}
+
+async function dbAutoOpenBySchedule() {
+  _dbAutoOpened = [];
+  if (!_dbAutoOpen) return;
+  await plEnsureLoaded();
+  if (!(_plData.rows || []).length) return;
+  const today = plToday();
+
+  // 개념 체크 — _dbConcept는 강 번호 내림차순 상위 10개라 최근 강의만 대상이 된다(그걸로 충분).
+  for (const t of _dbConcept) {
+    if (t.isOpen || t.autoOpenedAt) continue;
+    const d = dbEarliestLessonDate(t.num);
+    if (!d || d > today) continue;
+    try {
+      await updateDoc(doc(db, 'class_lessons', t.docId), { isOpen: true, autoOpenedAt: serverTimestamp() });
+      t.isOpen = true; t.autoOpenedAt = true;
+      _dbAutoOpened.push(lecLabel(t.num, cleanTitle(t.title)));
+    } catch (e) { console.warn('개념 체크 자동 공개 실패:', t.docId, e); }
+  }
+
+  // 미션 체크 — 카드에 적어 둔 "연결 강의번호"(lessonNum)로 같은 수업일을 따른다.
+  for (const m of _dbMission) {
+    if (!m.locked || m.autoOpenedAt || !m.lessonNum) continue;
+    const d = dbEarliestLessonDate(m.lessonNum);
+    if (!d || d > today) continue;
+    try {
+      await updateDoc(doc(db, 'cards', m.docId), { locked: false, autoOpenedAt: serverTimestamp() });
+      m.locked = false; m.autoOpenedAt = true;
+      _dbAutoOpened.push(cleanTitle(m.title));
+    } catch (e) { console.warn('미션 카드 자동 공개 실패:', m.docId, e); }
+  }
+}
+
+window.dbToggleAutoOpen = async function(el) {
+  const on = !el.classList.contains('on');
+  el.classList.toggle('on', on);
+  try {
+    await setDoc(doc(db, 'settings', 'lms_config'), { autoOpenBySchedule: on }, { merge: true });
+    _dbAutoOpen = on;
+    if (on) await dbLoad(); // 켜는 즉시 이미 수업일이 지난 항목들을 열어 준다
+    else dbRender();
+  } catch (e) {
+    alert('설정 저장 실패: ' + e.message);
+    el.classList.toggle('on', !on);
+  }
+};
+
 function dbRender() {
   const el = document.getElementById('db-content');
   if (!el) return;
@@ -431,6 +516,14 @@ function dbRender() {
       <div class="db-summary-card"><div class="db-summary-label">오늘 복습 퀴즈</div><div class="db-summary-val">${_dbToday.review}명</div></div>
       <div class="db-summary-card"><div class="db-summary-label">채점 대기(생각체크)</div><div class="db-summary-val" style="color:${totalUngraded ? 'var(--critical)' : 'var(--text)'}">${totalUngraded}건</div></div>
     </div>
+    <div class="db-autoopen">
+      <div class="th-toggle ${_dbAutoOpen ? 'on' : ''}" onclick="dbToggleAutoOpen(this)"></div>
+      <div class="db-autoopen-text">
+        <div class="db-autoopen-title">수업일 자동 공개</div>
+        <div class="db-autoopen-desc">수업 스케줄에서 가장 빠른 반의 수업일이 지나면 개념 체크 강의와 연결된 미션 카드를 자동으로 공개합니다. 항목마다 한 번만 열리므로, 나중에 비공개로 돌려도 다시 열리지 않습니다.</div>
+      </div>
+    </div>
+    ${_dbAutoOpened.length ? `<div class="db-autoopen-done">수업일이 되어 ${_dbAutoOpened.length}개를 공개했습니다 — ${esc(_dbAutoOpened.join(', '))}</div>` : ''}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
       ${dbToggleCard('개념 Check', _dbConcept, 'concept')}
       ${dbToggleCard('미션 Check', _dbMission, 'mission')}
@@ -2570,7 +2663,9 @@ async function initMissionTab() {
     try {
       const snap  = await getDocs(query(collection(db, 'cards'), where('category','==',cat)));
       const order = snap.docs.length ? Math.max(...snap.docs.map(d => d.data().order || 0)) + 1 : 0;
-      const cardData = { emoji, title, desc: '', url, category: cat, locked: false, order };
+      // 미션 카드는 비공개로 만들어 둔다 — 연결 강의의 수업일이 되면 대시보드가 자동으로 공개하고,
+      // 급하면 공개 관리 토글로 바로 열 수 있다(dbAutoOpenBySchedule 참고).
+      const cardData = { emoji, title, desc: '', url, category: cat, locked: true, order };
       if (adminUrl) cardData.adminUrl = adminUrl;
       if (lessonNum) cardData.lessonNum = lessonNum; // 연결할 개념체크 강의 번호
       await addDoc(collection(db, 'cards'), cardData);
