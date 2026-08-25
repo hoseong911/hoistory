@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>사화에서 살아남기 : 관리자 모드</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/theme.css">
+<link rel="stylesheet" href="../../shared/admin-base.css">
+<script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
+<style>
+/* lms/admin.html의 :root 토큰과 같은 톤(오렌지 주 + 네이비 보조)을 쓴다. */
+:root{
+  --sh-primary:#FF6B3D;
+  --sh-primary-deep:#E24E1B;
+  --sh-accent:#27384F;
+}
+.adm-header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center}
+.adm-logo{grid-column:1}
+.adm-tabs{grid-column:2}
+.adm-right{grid-column:3;display:flex;justify-content:flex-end;gap:8px}
+body.embedded .adm-logo,body.embedded .adm-logout{display:none}
+
+.section-card{background:var(--hi-bg-surface);border-radius:14px;padding:22px;margin-bottom:16px;border:1px solid var(--hi-border)}
+.section-title{font-weight:700;font-size:var(--adm-title);color:var(--hi-text);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.section-desc{font-size:var(--adm-sub);color:var(--hi-text-muted);line-height:1.6;margin-bottom:16px}
+
+.fld{margin-bottom:14px}
+.fld-label{font-size:12px;font-weight:700;color:var(--hi-text-muted);margin-bottom:5px}
+.meta-input{
+  width:100%;padding:10px 12px;border:1px solid var(--hi-border);border-radius:8px;
+  font-family:inherit;font-size:14px;color:var(--hi-text);background:var(--hi-bg-mid);
+  outline:none;line-height:1.6;
+}
+.meta-input:focus{border-color:var(--sh-primary)}
+textarea.meta-input{resize:vertical}
+
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:720px){.pair{grid-template-columns:1fr}}
+.pair-box{border:1px solid var(--hi-border);border-radius:12px;padding:14px;background:var(--hi-bg-mid)}
+.pair-key{font-family:ui-monospace,monospace;font-size:11px;color:var(--sh-primary);margin-bottom:8px}
+
+.hint{font-size:12px;color:var(--hi-text-muted);line-height:1.6;margin-top:6px}
+.hint code{background:var(--hi-bg);border:1px solid var(--hi-border);border-radius:4px;padding:1px 5px;font-size:11px}
+
+.save-row{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;margin-top:20px}
+.save-msg{font-size:13px;font-weight:700;min-height:18px}
+.btn{padding:9px 18px;border-radius:10px;font-family:inherit;font-size:14px;font-weight:700;border:none;cursor:pointer;transition:.15s}
+.btn-primary{background:var(--sh-primary);color:#fff}
+.btn-primary:hover{background:var(--sh-primary-deep)}
+.btn-ghost{background:none;border:1.5px solid var(--hi-border);color:var(--hi-text-muted)}
+.btn-ghost:hover{border-color:var(--hi-border-light);color:var(--hi-text)}
+</style>
+  <script src="/hoistory/pwa.js"></script>
+</head>
+<body>
+
+<!-- 로그인 -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">사화에서 살아남기</div>
+    <div class="login-sub">관리자 모드</div>
+    <div class="field-group" style="text-align:left;margin-bottom:14px">
+      <label class="form-label">이메일</label>
+      <input type="email" class="hi-input" id="gate-email" placeholder="이메일">
+    </div>
+    <div class="field-group" style="text-align:left;margin-bottom:14px">
+      <label class="form-label">비밀번호</label>
+      <input type="password" class="hi-input" id="gate-pw" placeholder="비밀번호">
+    </div>
+    <div class="login-err" id="gate-err"></div>
+    <button class="login-btn" id="gate-login-btn">접속하기</button>
+  </div>
+</div>
+
+<!-- 어드민 -->
+<div id="adminApp">
+  <header class="adm-header">
+    <div class="adm-logo">사화에서 살아남기<span class="adm-badge">관리자 모드</span></div>
+    <div class="adm-tabs">
+      <button class="adm-tab active" data-tab="intro">INTRO</button>
+    </div>
+    <div class="adm-right">
+      <button class="adm-back" id="back-btn">목록으로</button>
+      <button class="adm-logout" id="logout-btn">로그아웃</button>
+    </div>
+  </header>
+
+  <div class="adm-body">
+  <div class="admin-container">
+    <div class="tab-panel active" id="tab-intro">
+
+      <div class="section-card">
+        <div class="section-title">시작 화면 문구</div>
+        <div class="section-desc">학생이 게임을 열었을 때 가장 먼저 보는 화면입니다. 저장하면 학생 화면에 바로 반영됩니다.</div>
+
+        <div class="fld">
+          <div class="fld-label">큰 제목 (줄바꿈하면 그대로 두 줄로 나옵니다)</div>
+          <textarea class="meta-input" id="f-title" rows="2"></textarea>
+        </div>
+
+        <div class="fld">
+          <div class="fld-label">도입 문단 (빈 줄로 문단을 나눕니다)</div>
+          <textarea class="meta-input" id="f-paras" rows="12"></textarea>
+          <div class="hint"><code>**글자**</code>로 감싸면 굵게 나옵니다. 한 문단이 한 덩어리로 표시됩니다.</div>
+        </div>
+
+        <div class="pair">
+          <div class="fld">
+            <div class="fld-label">호 입력칸 제목</div>
+            <input class="meta-input" id="f-hoLabel">
+          </div>
+          <div class="fld">
+            <div class="fld-label">호 입력칸 부연 설명</div>
+            <input class="meta-input" id="f-hoHint">
+          </div>
+        </div>
+
+        <div class="fld">
+          <div class="fld-label">시작 버튼 문구</div>
+          <input class="meta-input" id="f-startBtn">
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">스승 선택</div>
+        <div class="section-desc">여기서 고른 스승이 마지막 화면의 동인·서인을 결정합니다. 순서와 역할(dong / seo)은 바뀌지 않습니다.</div>
+        <div class="fld">
+          <div class="fld-label">항목 제목</div>
+          <input class="meta-input" id="f-masterLabel">
+        </div>
+        <div class="pair" id="masterBoxes"></div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">기반 선택</div>
+        <div class="section-desc">중앙 관직형(central)은 시작할 때 관직이, 향촌 서원형(local)은 명예가 올라갑니다. 향촌 서원형만 갑자사화에서 죽어도 되살아납니다.</div>
+        <div class="fld">
+          <div class="fld-label">항목 제목</div>
+          <input class="meta-input" id="f-baseLabel">
+        </div>
+        <div class="pair" id="baseBoxes"></div>
+      </div>
+
+      <div class="save-row">
+        <button class="btn btn-ghost" id="reset-btn">기본 문구로 되돌리기</button>
+        <button class="btn btn-primary" id="save-btn">저장 (학생 화면 반영)</button>
+        <span class="save-msg" id="save-msg"></span>
+      </div>
+
+    </div>
+  </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { firebaseConfig } from "../../shared/firebase-config.js";
+
+const app  = initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const auth = getAuth(app);
+const isEmbedded = window.self !== window.top;
+const DOC = doc(db, "settings", "sahwa_content");
+
+/* index.html의 DEFAULT_CONTENT와 같은 값. 되돌리기와 빈 문서일 때의 출발점이다. */
+const DEFAULTS = {
+  title: "사화에서\n살아남기",
+  paragraphs: [
+    "그대는 1498년 조선의 선비다. 갓 벼슬길에 올라 사림(士林)의 한 사람이 되었다. 앞으로 77년 동안 **사화**가 네 번 몰아친다. 사화란 선비들이 무리로 죽임을 당하는 사건을 말한다.",
+    "화면마다 그대는 선택을 한다. 옳은 말을 할 것인가, 입을 다물 것인가. 나설 것인가, 물러설 것인가. 정답은 없다. 다만 **사관**이 그대가 한 일을 **사초**에 적어 둘 뿐이다. 사초는 임금도 함부로 못 보는 기록이지만, 한번 적히면 지워지지 않는다. 그 기록이 훗날 그대를 살릴 수도, 죽일 수도 있다.",
+    "끝까지 살아남는 것이 목표는 아니다. 살아남은 자와 이름을 남긴 자가 서로 다른 사람이라는 것, 그것이 이 77년이 보여주는 바다."
+  ],
+  hoLabel: "그대의 호(號)",
+  hoHint: "스스로 지어 붙이는 이름",
+  masterLabel: "스승을 고르시오",
+  masters: [
+    { key:"dong", name:"이황 · 조식", desc:"마음가짐을 바르게 하는 공부(敬)를 무엇보다 앞세운다. 벼슬에 나아가는 것보다 물러나 자신을 닦는 것을 귀하게 여겨, 임금이 불러도 사양하고 고향에서 제자를 기르는 일이 잦다. 옳지 않은 자리라면 아예 앉지 않는 것이 선비의 도리라고 가르친다. 주로 **영남**(지금의 경상도)에서 공부한 선비들이다." },
+    { key:"seo",  name:"이이 · 성혼", desc:"잘못된 제도는 뜯어고쳐야 한다(更張)고 말한다. 물러나 앉아 몸만 깨끗이 하는 것으로는 백성의 삶이 나아지지 않으니, 조정에 들어가 세금과 군역을 실제로 바꾸어야 한다고 가르친다. 현실에 발을 딛는 학문이다. 주로 **기호**(지금의 경기도와 충청도)에서 공부한 선비들이다." }
+  ],
+  baseLabel: "기반을 고르시오",
+  bases: [
+    { key:"central", name:"중앙 관직형", bonus:"시작할 때 관직 +2", desc:"한양에 살면서 **3사**(사헌부·사간원·홍문관)에서 일한다. 임금의 잘못을 따져 묻고 관리의 비리를 들추는 자리라, 젊은 나이에도 이름을 크게 알릴 수 있다. 다만 조정이 한번 뒤집히면 명단의 맨 앞에 오르는 것도 이 자리다. 빨리 오르고 크게 떨어진다." },
+    { key:"local",   name:"향촌 서원형", bonus:"시작할 때 명예 +2", desc:"고향에 **서원**을 세워 제자를 가르치고 **향약**으로 마을의 규약을 세운다. 벼슬은 늦고 이름도 천천히 퍼지지만, 나를 스승이라 부르는 제자와 나를 기억하는 마을이 생긴다. 한양에서 밀려나도 돌아갈 자리가 있고, 그 자리에서 다시 일어설 수 있다." }
+  ],
+  startBtn: "사초를 펼친다"
+};
+
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+function renderPairs(C){
+  $("#masterBoxes").innerHTML = C.masters.map((m,i)=>`
+    <div class="pair-box">
+      <div class="pair-key">${esc(m.key)} ${m.key==="dong"?"→ 동인":"→ 서인"}</div>
+      <div class="fld"><div class="fld-label">이름</div>
+        <input class="meta-input" data-m="${i}" data-f="name" value="${esc(m.name)}"></div>
+      <div class="fld" style="margin-bottom:0"><div class="fld-label">설명</div>
+        <textarea class="meta-input" data-m="${i}" data-f="desc" rows="7">${esc(m.desc)}</textarea></div>
+    </div>`).join("");
+  $("#baseBoxes").innerHTML = C.bases.map((b,i)=>`
+    <div class="pair-box">
+      <div class="pair-key">${esc(b.key)}</div>
+      <div class="fld"><div class="fld-label">이름</div>
+        <input class="meta-input" data-b="${i}" data-f="name" value="${esc(b.name)}"></div>
+      <div class="fld"><div class="fld-label">시작 보너스 문구</div>
+        <input class="meta-input" data-b="${i}" data-f="bonus" value="${esc(b.bonus)}"></div>
+      <div class="fld" style="margin-bottom:0"><div class="fld-label">설명</div>
+        <textarea class="meta-input" data-b="${i}" data-f="desc" rows="7">${esc(b.desc)}</textarea></div>
+    </div>`).join("");
+}
+
+function fill(C){
+  $("#f-title").value       = C.title;
+  $("#f-paras").value       = C.paragraphs.join("\n\n");
+  $("#f-hoLabel").value     = C.hoLabel;
+  $("#f-hoHint").value      = C.hoHint;
+  $("#f-startBtn").value    = C.startBtn;
+  $("#f-masterLabel").value = C.masterLabel;
+  $("#f-baseLabel").value   = C.baseLabel;
+  renderPairs(C);
+}
+
+function collect(){
+  const grab = (sel)=>[...document.querySelectorAll(sel)];
+  const masters = DEFAULTS.masters.map((m,i)=>({ key:m.key, name:"", desc:"" }));
+  grab('[data-m]').forEach(el=>{ masters[+el.dataset.m][el.dataset.f] = el.value.trim(); });
+  const bases = DEFAULTS.bases.map(b=>({ key:b.key, name:"", bonus:"", desc:"" }));
+  grab('[data-b]').forEach(el=>{ bases[+el.dataset.b][el.dataset.f] = el.value.trim(); });
+  return {
+    title:       $("#f-title").value.trim(),
+    paragraphs:  $("#f-paras").value.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean),
+    hoLabel:     $("#f-hoLabel").value.trim(),
+    hoHint:      $("#f-hoHint").value.trim(),
+    masterLabel: $("#f-masterLabel").value.trim(),
+    masters,
+    baseLabel:   $("#f-baseLabel").value.trim(),
+    bases,
+    startBtn:    $("#f-startBtn").value.trim()
+  };
+}
+
+function msg(t, ok){
+  const el = $("#save-msg");
+  el.textContent = t;
+  el.style.color = ok===false ? "var(--hi-negative)" : (ok ? "var(--hi-positive)" : "var(--hi-text-muted)");
+}
+
+async function load(){
+  let C = DEFAULTS;
+  try{
+    const snap = await getDoc(DOC);
+    if(snap.exists()) C = Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), snap.data());
+  }catch(e){ msg("불러오기 실패: "+e.message, false); }
+  fill(C);
+}
+
+$("#save-btn").addEventListener("click", async ()=>{
+  const C = collect();
+  if(!C.title || !C.paragraphs.length){ msg("제목과 도입 문단은 비울 수 없습니다.", false); return; }
+  msg("저장 중…");
+  try{ await setDoc(DOC, C); msg("저장되었습니다. 학생 화면에 바로 반영됩니다.", true); }
+  catch(e){ msg("저장 실패: "+e.message, false); }
+});
+
+$("#reset-btn").addEventListener("click", ()=>{
+  if(!confirm("입력한 내용을 버리고 기본 문구로 되돌립니다. 저장을 눌러야 학생 화면에 반영됩니다.")) return;
+  fill(JSON.parse(JSON.stringify(DEFAULTS)));
+  msg("기본 문구로 되돌렸습니다. 저장을 눌러야 반영됩니다.");
+});
+
+$("#back-btn").addEventListener("click", ()=>{
+  if(isEmbedded && window.parent.closeAppAdmin) window.parent.closeAppAdmin();
+  else location.href = "index.html";
+});
+$("#logout-btn").addEventListener("click", ()=> signOut(auth));
+
+function start(){
+  $("#loginScreen").style.display = "none";
+  $("#adminApp").classList.add("show");
+  load();
+}
+
+if(isEmbedded){
+  document.body.classList.add("embedded");
+  document.documentElement.classList.add("has-own-back");
+  start();
+} else {
+  onAuthStateChanged(auth, user=>{
+    if(user) start();
+    else { $("#loginScreen").style.display = ""; $("#adminApp").classList.remove("show"); }
+  });
+}
+
+$("#gate-login-btn").addEventListener("click", async ()=>{
+  const email = $("#gate-email").value.trim();
+  const pw    = $("#gate-pw").value;
+  const err   = $("#gate-err");
+  err.classList.remove("show");
+  try{ await signInWithEmailAndPassword(auth, email, pw); }
+  catch(e){ err.textContent = "이메일 또는 비밀번호를 확인해 주세요."; err.classList.add("show"); }
+});
+$("#gate-pw").addEventListener("keydown", e=>{ if(e.key==="Enter") $("#gate-login-btn").click(); });
+</script>
+</body>
+</html>

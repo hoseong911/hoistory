@@ -8,13 +8,16 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@400;600;800&family=IBM+Plex+Sans+KR:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  /* 미니멀 스크롤바: 브라우저 기본 알약형 대신 얇고 은은하게 */
-  *{scrollbar-width:thin;scrollbar-color:rgba(90,84,72,.4) transparent}
+  /* 미니멀 스크롤바: 브라우저 기본 알약형 대신 얇고 은은하게.
+     표준 속성(scrollbar-width/color)을 함께 걸면 Chrome 121+가 webkit 규칙을
+     통째로 무시해 화살표가 되살아나므로, 표준 속성은 Firefox에만 건다. */
   *::-webkit-scrollbar{width:8px;height:8px}
   *::-webkit-scrollbar-track{background:transparent}
-  *::-webkit-scrollbar-thumb{background:rgba(90,84,72,.38);border-radius:2px}
+  *::-webkit-scrollbar-button{display:none;width:0;height:0}
+  *::-webkit-scrollbar-thumb{background:rgba(90,84,72,.38);border-radius:4px}
   *::-webkit-scrollbar-thumb:hover{background:rgba(90,84,72,.6)}
   *::-webkit-scrollbar-corner{background:transparent}
+  @supports (-moz-appearance:none){*{scrollbar-width:thin;scrollbar-color:rgba(90,84,72,.4) transparent}}
   :root{
     --paper:#DDD8C4;
     --paper-panel:#E8E4D4;
@@ -68,34 +71,9 @@
   }
   .tag.dead{background:var(--seal);border-color:var(--seal);color:var(--paper-panel)}
 
-  /* ── 본문 배치 ── */
-  main{flex:1;display:flex;align-items:stretch;gap:0}
+  /* ── 본문 배치 (사초 세로 기둥은 제거했다 — 본문이 화면을 다 쓴다) ── */
+  main{flex:1;display:flex}
   #stage{flex:1;padding:2.4rem 1.5rem 3rem;max-width:46rem;margin:0 auto;width:100%}
-
-  /* ── 사초 세로 기둥 (signature) ── */
-  #chronicle{
-    width:9.5rem;flex:none;border-left:1.5px solid var(--ink);
-    background:
-      repeating-linear-gradient(to left,
-        transparent 0 2.35rem,
-        rgba(168,50,45,.45) 2.35rem 2.4rem);
-    background-color:var(--paper-deep);
-    padding:1rem .5rem;overflow-x:auto;overflow-y:hidden;
-  }
-  #chronicle .head{
-    writing-mode:vertical-rl;font-family:var(--serif);font-weight:800;
-    font-size:1.05rem;letter-spacing:.5em;color:var(--rule);
-    border-bottom:none;margin:0 0 .4rem 0;
-  }
-  .cols{display:flex;flex-direction:row-reverse;justify-content:flex-start;gap:0;height:calc(100% - 3rem)}
-  .col{
-    writing-mode:vertical-rl;font-family:var(--serif);font-size:.86rem;
-    line-height:2.4rem;letter-spacing:.06em;padding:0;width:2.4rem;flex:none;
-    color:var(--ink);animation:bleed .5s ease-out both;
-  }
-  .col .y{font-weight:800;color:var(--rule)}
-  .col.gone{color:var(--ink-faint)}
-  @keyframes bleed{from{opacity:0;filter:blur(3px)}to{opacity:1;filter:none}}
 
   /* ── 활자 ── */
   .eyebrow{
@@ -111,6 +89,10 @@
     line-height:1.3;margin-bottom:.9rem;
   }
   h3{font-family:var(--serif);font-weight:600;font-size:1.1rem;margin-bottom:.5rem}
+  /* 줄글은 전부 양쪽 정렬 */
+  .lede,.situation,.note p,.quiet,.scroll li,.pick button small,.party p,.qs li{
+    text-align:justify;
+  }
   .lede{font-size:1.02rem;color:var(--ink-soft);margin-bottom:1.8rem;max-width:34rem}
   .situation{
     font-size:1.02rem;border-left:3px solid var(--rule);
@@ -118,18 +100,16 @@
   }
   .quiet{color:var(--ink-soft);font-size:.92rem}
 
-  /* ── 선택지 ── */
+  /* ── 선택지 (번호 없이 문장만) ── */
   .choices{display:flex;flex-direction:column;gap:.7rem;max-width:36rem}
   button.choice{
     text-align:left;font-family:var(--sans);font-size:1rem;font-weight:400;
     background:var(--paper-panel);color:var(--ink);
-    border:1.5px solid var(--ink);border-radius:0;padding:.9rem 1.1rem;
-    cursor:pointer;display:flex;gap:.9rem;align-items:baseline;
+    border:1.5px solid var(--ink);border-radius:0;padding:.95rem 1.15rem;
+    cursor:pointer;line-height:1.6;
     transition:background .12s, transform .12s;
   }
-  button.choice .n{font-family:var(--mono);font-size:.8rem;color:var(--rule);flex:none}
   button.choice:hover{background:var(--ink);color:var(--paper);transform:translateX(3px)}
-  button.choice:hover .n{color:var(--paper-deep)}
   button.go{
     font-family:var(--serif);font-weight:600;font-size:1rem;letter-spacing:.06em;
     background:var(--ink);color:var(--paper);border:1.5px solid var(--ink);
@@ -155,24 +135,39 @@
     padding:.3rem .2rem;width:min(14rem,100%);color:var(--ink);
   }
   input[type=text]:focus{outline:none;border-bottom-color:var(--rule)}
-  /* 선택 전에 무엇을 고르는 것인지 풀어 주는 안내문 */
-  .pick-help{
-    font-size:.9rem;color:var(--ink-soft);line-height:1.65;
-    margin:-.1rem 0 .7rem;padding-left:.75rem;border-left:2px solid var(--paper-deep);
+
+  /* ── 호 추천 ── */
+  .ho-row{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;margin-top:.7rem}
+  .ho-sug{display:flex;gap:.5rem;flex-wrap:wrap}
+  .ho-chip{
+    font-family:var(--serif);font-size:1.05rem;font-weight:600;
+    background:var(--paper-panel);border:1.5px solid var(--ink);
+    padding:.4rem 1rem;cursor:pointer;border-radius:0;color:var(--ink);
+    transition:background .12s;
   }
-  .pick-help b{font-weight:600;color:var(--ink)}
+  .ho-chip:hover{background:var(--paper-deep)}
+  .ho-chip[aria-pressed=true]{background:var(--ink);color:var(--paper)}
+  .ho-again{
+    font-family:var(--sans);font-size:.8rem;background:transparent;
+    border:1px solid var(--ink-faint);color:var(--ink-soft);
+    padding:.35rem .8rem;cursor:pointer;border-radius:0;
+  }
+  .ho-again:hover{border-color:var(--ink);color:var(--ink)}
+  .ho-again[disabled]{opacity:.5;cursor:default}
+  .ho-hint{font-size:.8rem;color:var(--ink-faint)}
+
   .pick{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
   .pick button{
     text-align:left;background:var(--paper-panel);border:1.5px solid var(--ink);
-    padding:.8rem .9rem;cursor:pointer;border-radius:0;font-family:var(--sans);
+    padding:.9rem 1rem;cursor:pointer;border-radius:0;font-family:var(--sans);
     color:var(--ink);transition:background .12s;
   }
-  .pick button strong{font-family:var(--serif);font-size:1.05rem;display:block;margin-bottom:.2rem}
-  .pick button small{color:var(--ink-soft);font-size:.82rem;line-height:1.6;display:block}
+  .pick button strong{font-family:var(--serif);font-size:1.05rem;display:block;margin-bottom:.35rem}
+  .pick button small{color:var(--ink-soft);font-size:.84rem;line-height:1.65;display:block}
   .pick button small b{font-weight:600;color:var(--ink)}
   /* 시작 보너스: 고르기 전에 무엇을 얻는지 눈에 띄게 */
   .pick-start{
-    display:inline-block;margin-top:.4rem;font-family:var(--mono);font-size:.74rem;
+    display:inline-block;margin-top:.5rem;font-family:var(--mono);font-size:.74rem;
     letter-spacing:.02em;color:var(--rule);
   }
   .pick button[aria-pressed=true]{background:var(--ink);color:var(--paper)}
@@ -182,7 +177,7 @@
   .pick button:hover{background:var(--paper-deep)}
   .pick button[aria-pressed=true]:hover{background:var(--ink)}
 
-  /* ── 제비뽑기 ── */
+  /* ── 선택 패 (갑자사화 등) ── */
   .lots{display:flex;gap:.7rem;margin:1.4rem 0;flex-wrap:wrap}
   .lot{
     width:3.4rem;height:9rem;background:var(--paper-deep);
@@ -241,27 +236,16 @@
   .party.seo .nm{color:var(--seo)}
   .scroll{
     background:var(--paper-panel);border:1px solid var(--ink-faint);
-    padding:1rem;margin:1.4rem 0;max-width:36rem;
+    padding:1.1rem 1.2rem;margin:1.4rem 0;max-width:36rem;
   }
-  .scroll li{font-family:var(--serif);font-size:.95rem;list-style:none;padding:.25rem 0;border-bottom:1px dotted var(--ink-faint)}
+  .scroll li{
+    font-family:var(--serif);font-size:.95rem;list-style:none;
+    padding:.45rem 0;border-bottom:1px dotted var(--ink-faint);line-height:1.65;
+  }
   .scroll li:last-child{border:none}
-  .scroll li .y{color:var(--rule);font-weight:800;margin-right:.5rem}
-  .qs{max-width:36rem;margin-top:1.6rem}
-  .qs li{margin:.5rem 0 .5rem 1.2rem;font-size:.95rem}
-
+  .scroll li .y{color:var(--rule);font-weight:800;margin-right:.5rem;font-family:var(--mono);font-size:.85rem}
 
   @media (max-width:760px){
-    main{flex-direction:column}
-    #chronicle{
-      width:100%;height:6.5rem;border-left:none;border-top:1.5px solid var(--ink);
-      overflow-x:auto;overflow-y:hidden;padding:.5rem;
-      background:
-        repeating-linear-gradient(to left,transparent 0 2.35rem,rgba(168,50,45,.45) 2.35rem 2.4rem),
-        var(--paper-deep);
-    }
-    #chronicle .head{display:none}
-    .cols{height:100%}
-    .col{font-size:.78rem;line-height:2.4rem}
     #stage{padding:1.6rem 1.1rem 2.4rem}
     .pick{grid-template-columns:1fr}
     .lot{width:2.7rem;height:7rem;font-size:1.2rem}
@@ -277,10 +261,6 @@
   <header class="bar" id="bar"></header>
   <main>
     <section id="stage"></section>
-    <aside id="chronicle">
-      <div class="head">史草</div>
-      <div class="cols" id="cols"></div>
-    </aside>
   </main>
 </div>
 
@@ -289,38 +269,70 @@
 
 const GAN = {1498:"무오",1504:"갑자",1506:"병인",1519:"기묘",1545:"을사",1575:"을해"};
 
+/* 관직(官)·명예(名)의 출발값. 여기서 오르내리며, 0 아래로는 내려가지 않는다.
+   배향 기준도 이 값을 기준으로 잡아, 출발값을 바꿔도 난이도가 유지된다. */
+const BASE = 10;
+const ENSHRINE = BASE + 8;
+
+/* ══════════ 인트로 문구 (관리자 화면에서 고칠 수 있다) ══════════
+   admin.html이 settings/sahwa_content에 저장하면 아래 기본값 위에 덮어씌워진다. */
+const DEFAULT_CONTENT = {
+  title: "사화에서\n살아남기",
+  paragraphs: [
+    "그대는 1498년 조선의 선비다. 갓 벼슬길에 올라 사림(士林)의 한 사람이 되었다. 앞으로 77년 동안 **사화**가 네 번 몰아친다. 사화란 선비들이 무리로 죽임을 당하는 사건을 말한다.",
+    "화면마다 그대는 선택을 한다. 옳은 말을 할 것인가, 입을 다물 것인가. 나설 것인가, 물러설 것인가. 정답은 없다. 다만 **사관**이 그대가 한 일을 **사초**에 적어 둘 뿐이다. 사초는 임금도 함부로 못 보는 기록이지만, 한번 적히면 지워지지 않는다. 그 기록이 훗날 그대를 살릴 수도, 죽일 수도 있다.",
+    "끝까지 살아남는 것이 목표는 아니다. 살아남은 자와 이름을 남긴 자가 서로 다른 사람이라는 것, 그것이 이 77년이 보여주는 바다."
+  ],
+  hoLabel: "그대의 호(號)",
+  hoHint: "스스로 지어 붙이는 이름",
+  masterLabel: "스승을 고르시오",
+  masters: [
+    { key:"dong", name:"이황 · 조식",
+      desc:"마음가짐을 바르게 하는 공부(敬)를 무엇보다 앞세운다. 벼슬에 나아가는 것보다 물러나 자신을 닦는 것을 귀하게 여겨, 임금이 불러도 사양하고 고향에서 제자를 기르는 일이 잦다. 옳지 않은 자리라면 아예 앉지 않는 것이 선비의 도리라고 가르친다. 주로 **영남**(지금의 경상도)에서 공부한 선비들이다." },
+    { key:"seo", name:"이이 · 성혼",
+      desc:"잘못된 제도는 뜯어고쳐야 한다(更張)고 말한다. 물러나 앉아 몸만 깨끗이 하는 것으로는 백성의 삶이 나아지지 않으니, 조정에 들어가 세금과 군역을 실제로 바꾸어야 한다고 가르친다. 현실에 발을 딛는 학문이다. 주로 **기호**(지금의 경기도와 충청도)에서 공부한 선비들이다." }
+  ],
+  baseLabel: "기반을 고르시오",
+  bases: [
+    { key:"central", name:"중앙 관직형", bonus:"시작할 때 관직 +2",
+      desc:"한양에 살면서 **3사**(사헌부·사간원·홍문관)에서 일한다. 임금의 잘못을 따져 묻고 관리의 비리를 들추는 자리라, 젊은 나이에도 이름을 크게 알릴 수 있다. 다만 조정이 한번 뒤집히면 명단의 맨 앞에 오르는 것도 이 자리다. 빨리 오르고 크게 떨어진다." },
+    { key:"local", name:"향촌 서원형", bonus:"시작할 때 명예 +2",
+      desc:"고향에 **서원**을 세워 제자를 가르치고 **향약**으로 마을의 규약을 세운다. 벼슬은 늦고 이름도 천천히 퍼지지만, 나를 스승이라 부르는 제자와 나를 기억하는 마을이 생긴다. 한양에서 밀려나도 돌아갈 자리가 있고, 그 자리에서 다시 일어설 수 있다." }
+  ],
+  startBtn: "사초를 펼친다"
+};
+let CONTENT = JSON.parse(JSON.stringify(DEFAULT_CONTENT));
+
 let S = {};
 function reset(){
   S = {
-    screen:"title", ho:"", master:null, base:null,
-    rank:0, fame:0, alive:true, year:1498,
-    causeOfDeath:null, deathYear:null,
+    ho:"", master:null, base:null,
+    rank:BASE, fame:BASE, alive:true, year:1498,
     betrayed:false, seowon:false,
-    log:[], pending:null
+    deathYear:null, causeOfDeath:null,
+    log:[], screen:"title", pending:null
   };
 }
 reset();
 
 const $ = (s)=>document.querySelector(s);
 const esc = (s)=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+/* **굵게** 표기만 허용하는 아주 작은 서식기 (관리자가 넣은 글에도 그대로 먹는다) */
+const fmt = (s)=>esc(s).replace(/\*\*(.+?)\*\*/g,"<b>$1</b>");
 
+/* 官·名은 0 아래로 내려가지 않는다 */
+function adj(key, n){ S[key] = Math.max(0, S[key] + n); }
 function record(year, text){ S.log.push({year, text}); }
-
-/* ── 사초 기둥 ── */
-function drawChronicle(){
-  $("#cols").innerHTML = S.log.map(e=>
-    `<div class="col ${S.alive?"":"gone"}"><span class="y">${GAN[e.year]||""}</span> ${esc(e.text)}</div>`
-  ).join("");
-}
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 
 /* ── 상태 표시줄 ── */
 function drawBar(){
-  // 시작 화면에서는 표시줄 자체를 감춘다(강의 번호·부제를 노출하지 않는다).
   const bar = $("#bar");
+  // 시작 화면에서는 표시줄 자체를 감춘다.
   if(S.screen==="title"){ bar.innerHTML = ""; bar.style.display = "none"; return; }
   bar.style.display = "";
   const g = GAN[S.year] ? GAN[S.year]+"년" : "";
-  $("#bar").innerHTML = `
+  bar.innerHTML = `
     <span class="yr">${S.year}</span>
     <span class="gan">${g}</span>
     <span class="ho">${esc(S.ho)}</span>
@@ -332,66 +344,93 @@ function drawBar(){
 
 /* ── 화면 ── */
 function render(){
-  drawBar(); drawChronicle();
+  drawBar();
   const st = $("#stage");
   if(S.screen==="title") st.innerHTML = titleHTML();
   else if(S.screen==="round") st.innerHTML = S.pending.html();
   else if(S.screen==="final") st.innerHTML = finalHTML();
-  st.scrollIntoView({block:"start"});
+  window.scrollTo(0,0);
 }
 
 /* ══════════ 시작 화면 ══════════ */
 function titleHTML(){
+  const C = CONTENT;
   return `
-  <h1>사화에서<br>살아남기</h1>
-  <p class="lede">그대는 1498년 조선의 선비다. 갓 벼슬길에 올라 사림(士林)의 한 사람이 되었다.
-  앞으로 77년 동안 <b>사화</b>가 네 번 몰아친다. 사화란 선비들이 무리로 죽임을 당하는 사건을 말한다.
-  <br><br>
-  화면마다 그대는 선택을 한다. 옳은 말을 할 것인가, 입을 다물 것인가. 나설 것인가, 물러설 것인가.
-  정답은 없다. 다만 <b>사관</b>이 그대가 한 일을 <b>사초</b>에 적어 둘 뿐이다. 사초는 임금도 함부로 못 보는 기록이지만,
-  한번 적히면 지워지지 않는다. 그 기록이 훗날 그대를 살릴 수도, 죽일 수도 있다.
-  <br><br>
-  끝까지 살아남는 것이 목표는 아니다. 살아남은 자와 이름을 남긴 자가 서로 다른 사람이라는 것,
-  그것이 이 77년이 보여주는 바다.</p>
+  <h1>${esc(C.title).replace(/\n/g,"<br>")}</h1>
+  ${C.paragraphs.map(p=>`<p class="lede">${fmt(p)}</p>`).join("")}
 
   <div class="field">
-    <label class="label" for="ho">그대의 호(號) <span>— 스스로 지어 붙이는 이름</span></label>
+    <label class="label" for="ho">${esc(C.hoLabel)} <span>— ${esc(C.hoHint)}</span></label>
     <input type="text" id="ho" maxlength="6" placeholder="예) 퇴헌" autocomplete="off">
+    <div class="ho-row">
+      <div class="ho-sug" id="hoSug"></div>
+      <button type="button" class="ho-again" id="hoAgain">다시 추천받기</button>
+    </div>
+    <div class="ho-hint" id="hoHint">추천을 눌러 고르거나, 직접 지어 적어도 된다.</div>
   </div>
 
   <div class="field">
-    <span class="label">스승을 고르시오 <span>— 누구에게 배웠는지가 훗날 그대의 편을 정한다</span></span>
-    <p class="pick-help">조선의 선비는 스승에게 학문을 배우고, 같은 스승 밑에서 배운 사람들끼리 무리를 이루었다.
-    지금은 그저 "어느 선생님이 마음에 드는가" 하는 문제로 보인다. 하지만 마지막 화면에서 이 선택이
-    그대가 <b>동인</b>이 될지 <b>서인</b>이 될지를 결정한다. 편하게 골라도 좋다.</p>
+    <span class="label">${esc(C.masterLabel)}</span>
     <div class="pick" id="pickMaster">
-      <button data-v="dong" aria-pressed="false"><strong>이황 · 조식</strong>
-        <small>마음가짐을 바르게 하는 공부(敬)를 가장 중요하게 여긴다. 벼슬보다 학문과 몸가짐이 먼저라고 가르친다.
-        주로 <b>영남</b>(지금의 경상도) 지역에서 공부한 선비들이다.</small></button>
-      <button data-v="seo" aria-pressed="false"><strong>이이 · 성혼</strong>
-        <small>잘못된 제도는 뜯어고쳐야 한다(更張)고 말한다. 학문도 결국 세상을 바꾸는 데 쓰여야 한다고 가르친다.
-        주로 <b>기호</b>(지금의 경기도와 충청도) 지역에서 공부한 선비들이다.</small></button>
+      ${C.masters.map(m=>`<button data-v="${esc(m.key)}" aria-pressed="false"><strong>${esc(m.name)}</strong><small>${fmt(m.desc)}</small></button>`).join("")}
     </div>
   </div>
 
   <div class="field">
-    <span class="label">기반을 고르시오 <span>— 어디에 뿌리를 내리고 살 것인가</span></span>
-    <p class="pick-help">벼슬길에 오른 선비는 두 갈래로 살았다. 한양에 남아 벼슬을 하거나, 고향에 내려가 제자를 기르거나.
-    한쪽은 빨리 높아지지만 사화가 터지면 곧바로 휩쓸린다. 다른 쪽은 느리지만 무너져도 다시 일어설 자리가 남는다.
-    <b>어느 쪽이 유리한지는 끝까지 가 봐야 안다.</b></p>
+    <span class="label">${esc(C.baseLabel)}</span>
     <div class="pick" id="pickBase">
-      <button data-v="central" aria-pressed="false"><strong>중앙 관직형</strong>
-        <small>한양에 살면서 <b>3사</b>(사헌부·사간원·홍문관)에서 일한다. 잘못된 일을 임금에게 따져 묻는 자리라
-        이름을 알리기 좋다. 대신 조정이 뒤집히면 가장 먼저 걸려든다.
-        <br><span class="pick-start">시작할 때 관직 +2</span></small></button>
-      <button data-v="local" aria-pressed="false"><strong>향촌 서원형</strong>
-        <small>고향에서 <b>서원</b>을 세워 제자를 가르치고 <b>향약</b>으로 마을을 이끈다. 출세는 늦지만
-        나를 기억해 주는 제자와 마을 사람들이 생긴다. 한양에서 밀려나도 돌아갈 곳이 있다.
-        <br><span class="pick-start">시작할 때 명예 +2</span></small></button>
+      ${C.bases.map(b=>`<button data-v="${esc(b.key)}" aria-pressed="false"><strong>${esc(b.name)}</strong><small>${fmt(b.desc)}<br><span class="pick-start">${esc(b.bonus)}</span></small></button>`).join("")}
     </div>
   </div>
 
-  <button class="go" id="start">사초를 펼친다</button>`;
+  <button class="go" id="start">${esc(C.startBtn)}</button>`;
+}
+
+/* ── 호 추천 ── AI가 지어 주되, 실패하면 내장 목록에서 뽑는다 */
+const CLAUDE_PROXY_URL = "https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy";
+const HO_POOL = ["퇴헌","남계","청재","소암","죽계","우헌","매창","송재","눌재","백운",
+                 "한재","서산","동리","만취","지산","석천","운곡","묵재","월담","춘포",
+                 "지헌","소계","청강","우졸","만송"];
+
+async function fetchHoSuggestions(){
+  const prompt = `조선 시대 선비가 스스로 지어 쓰던 호(號)를 3개 지어 주세요.
+조건: 한글 두 글자, 실존 인물의 유명한 호는 피할 것, 자연이나 마음가짐을 담을 것.
+JSON 배열만 출력하세요. 예) ["퇴헌","남계","청재"]`;
+  const res = await fetch(CLAUDE_PROXY_URL, {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ model:"claude-haiku-4-5-20251001", max_tokens:100,
+      messages:[{role:"user",content:prompt}] })
+  });
+  if(!res.ok) throw new Error("API "+res.status);
+  const data = await res.json();
+  let raw = (data.content?.[0]?.text || "[]").replace(/```json|```/g,"").trim();
+  const s = raw.indexOf("["), e = raw.indexOf("]", s);
+  if(s!==-1 && e!==-1) raw = raw.slice(s, e+1);
+  const arr = JSON.parse(raw);
+  const ok = arr.filter(x=>/^[가-힣]{2,3}$/.test(String(x).trim())).map(x=>String(x).trim());
+  if(!ok.length) throw new Error("빈 응답");
+  return ok.slice(0,3);
+}
+function fallbackHo(){ return shuffle(HO_POOL).slice(0,3); }
+
+async function loadHoSuggestions(){
+  const box = $("#hoSug"), btn = $("#hoAgain"), hint = $("#hoHint");
+  if(!box) return;
+  btn.disabled = true;
+  box.innerHTML = `<span class="ho-hint">호를 지어 보는 중…</span>`;
+  let list;
+  try { list = await fetchHoSuggestions(); }
+  catch(e){ list = fallbackHo(); }
+  box.innerHTML = list.map(h=>`<button type="button" class="ho-chip" data-ho="${esc(h)}" aria-pressed="false">${esc(h)}</button>`).join("");
+  box.querySelectorAll(".ho-chip").forEach(chip=>{
+    chip.onclick = ()=>{
+      box.querySelectorAll(".ho-chip").forEach(c=>c.setAttribute("aria-pressed","false"));
+      chip.setAttribute("aria-pressed","true");
+      $("#ho").value = chip.dataset.ho;
+      hint.textContent = "마음에 들지 않으면 직접 고쳐 적어도 된다.";
+    };
+  });
+  btn.disabled = false;
 }
 
 function bindTitle(){
@@ -406,17 +445,18 @@ function bindTitle(){
     });
   };
   wire("#pickMaster","master"); wire("#pickBase","base");
+  const again = $("#hoAgain"); if(again) again.onclick = loadHoSuggestions;
+  loadHoSuggestions();
+
   const go = $("#start"); if(!go) return;
   go.onclick = ()=>{
     const ho = $("#ho").value.trim();
     if(!ho){ $("#ho").focus(); $("#ho").placeholder="호를 지어야 시작한다"; return; }
     if(!S.master || !S.base){ alert("스승과 기반을 모두 고르시오."); return; }
     S.ho = ho;
-    S.fame = S.base==="local" ? 2 : 0;
-    S.rank = S.base==="central" ? 2 : 0;
-    if(S.base==="local") S.seowon = true;
-    record(1498, `${ho}, 사림의 길에 들다`);
-    S.log[0].year = 0;
+    if(S.base==="local"){ adj("fame",2); S.seowon = true; }
+    else adj("rank",2);
+    record(0, `${ho}, 사림의 길에 들다. ${S.base==="local"?"고향에 서원의 터를 보아 두었다.":"한양에 자리를 얻어 3사의 말석에 섰다."}`);
     go1498();
   };
 }
@@ -424,17 +464,19 @@ function bindTitle(){
 /* ── 라운드 헬퍼 ── */
 function scene({year, eyebrow, title, situation, choices, extra=""}){
   S.year = year; S.screen="round";
+  // 선택지는 매번 순서를 섞는다(옆 사람 화면을 보고 따라 고르는 것을 막는다).
+  const order = shuffle(choices);
   S.pending = { html: ()=>`
     <div class="eyebrow">${eyebrow}</div>
     <h2>${title}</h2>
     <div class="situation">${situation}</div>
     ${extra}
     <div class="choices" id="ch">
-      ${choices.map((c,i)=>`<button class="choice" data-i="${i}"><span class="n">${i+1}</span><span>${c.label}</span></button>`).join("")}
+      ${order.map((c,i)=>`<button class="choice" data-i="${i}">${c.label}</button>`).join("")}
     </div>` };
   render();
   $("#ch").querySelectorAll("button").forEach(b=>{
-    b.onclick = ()=> choices[+b.dataset.i].go();
+    b.onclick = ()=> order[+b.dataset.i].go();
   });
 }
 
@@ -451,8 +493,8 @@ function outcome({verdict, bad=false, body, note, delta="", next, seal=null}){
   $("#next").onclick = next;
 }
 
-/* 제비뽑기 */
-function lots({year, eyebrow, title, situation, n, bad, onDone}){
+/* 운에 맡기는 선택 — 패를 하나 고르면 결과가 갈린다 */
+function lots({year, eyebrow, title, situation, guide, n, bad, onDone}){
   S.year = year; S.screen="round";
   const slips = Array.from({length:n},(_,i)=> i<bad ? "禍" : "免");
   for(let i=slips.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [slips[i],slips[j]]=[slips[j],slips[i]]; }
@@ -460,9 +502,9 @@ function lots({year, eyebrow, title, situation, n, bad, onDone}){
     <div class="eyebrow">${eyebrow}</div>
     <h2>${title}</h2>
     <div class="situation">${situation}</div>
-    <p class="quiet">제비를 하나 뽑으시오. 禍는 화를 입고, 免은 화를 면한다.</p>
+    <p class="quiet">${guide || "패를 하나 고르시오. 禍는 화를 입고, 免은 화를 면한다."}</p>
     <div class="lots" id="lots">
-      ${slips.map((_,i)=>`<button class="lot" data-i="${i}" aria-label="제비 ${i+1}">?</button>`).join("")}
+      ${slips.map((_,i)=>`<button class="lot" data-i="${i}" aria-label="패 ${i+1}">?</button>`).join("")}
     </div>` };
   render();
   const box = $("#lots");
@@ -491,31 +533,39 @@ function go1498(){
     year:1498, eyebrow:"제1화 무오사화",
     title:"스승의 글이 사초에 올랐다",
     situation:`사관 김일손이 스승 김종직의 「조의제문」을 사초에 실었다.
-      항우에게 죽은 초나라 의제를 조문하는 글이라 하나, 조정은 이것이 세조의 왕위 찬탈을 비난한 글이라 읽는다.
-      연산군과 훈구 대신들이 그대를 불러 세운다. <b>이 글을 어찌 보는가?</b>`,
+      항우에게 죽임을 당한 초나라 의제를 조문하는 글이라 하나, 조정은 이것을 달리 읽는다.
+      의제는 단종이고 항우는 세조이니, 세조가 조카의 왕위를 빼앗은 일을 빗대어 꾸짖은 글이라는 것이다.
+      <br><br>
+      훈구 대신들에게는 오래 기다린 빌미다. 성종 때부터 조정에 들어와 자기들의 비리를 들추던 사림을
+      한꺼번에 쓸어낼 구실이 생겼다. 연산군 또한 자신을 가르치려 드는 신하들이 진작 거슬렸다.
+      국문장이 차려지고, 사림의 젊은 관원들이 하나씩 불려 나간다.
+      <br><br>
+      이제 그대의 차례다. 대신들이 그 글을 그대 앞에 펼쳐 놓고 묻는다. <b>이 글을 어찌 보는가?</b>`,
     choices:[
-      { label:"스승의 글이 옳다고 아뢴다.", go(){
-          S.fame+=5; record(1498,"스승의 글을 옳다 하다"); die(1498,"무오사화에 연루되어 처형되다");
+      { label:"「조의제문」은 스승께서 옛일을 빌려 도리를 논한 글일 뿐이다. 글에 죄를 물을 수는 없다고 아뢴다.", go(){
+          adj("fame",5); record(1498,"국문장에서 스승의 글을 옳다 하다. 끝내 뜻을 굽히지 않았다.");
+          die(1498,"무오사화에 연루되어 처형되다");
           outcome({ verdict:"그대는 형장으로 끌려갔다.", bad:true, seal:"卒",
-            body:"끝내 글을 굽히지 않았다. 사림은 그대의 이름을 오래 기억할 것이다.",
+            body:"끝내 글을 굽히지 않았다. 국문장에 있던 이들이 그대의 말을 들었고, 그 말은 조정 밖으로 퍼져 나갔다. 사림은 그대의 이름을 오래 기억할 것이다.",
             delta:`名 <b>+5</b> / 사망 1498`,
-            note:"무오사화로 김일손 등은 처형되고 김종직은 부관참시되었습니다. 사초에 실린 글 한 편이 사림 세력을 조정에서 걷어낸 첫 사건입니다.",
+            note:"무오사화로 김일손 등은 처형되고 김종직은 이미 죽은 뒤였음에도 무덤을 파헤쳐 시신을 베는 부관참시를 당했습니다. 사초에 실린 글 한 편이 사림 세력을 조정에서 걷어낸 첫 사건입니다.",
             next: finish });
         }},
-      { label:"입을 다물고 아무 말도 하지 않는다.", go(){
-          S.fame-=2; record(1498,"입을 다물다");
+      { label:"고개를 숙인 채 아무 말도 하지 않는다. 여기서 입을 여는 것은 스승도 나도 구하지 못한다.", go(){
+          adj("fame",-2); record(1498,"국문장에서 끝내 입을 열지 않다. 동문들이 그 침묵을 보았다.");
           outcome({ verdict:"그대는 살아남았다.",
-            body:"아무 말도 하지 않았다. 조정은 그대를 놓아주었고, 동문들은 그대를 오래 쳐다보았다.",
+            body:"아무 말도 하지 않았다. 대신들은 더 물을 것이 없다며 그대를 놓아주었다. 국문장을 나서는 그대의 등 뒤로, 함께 배운 이들의 시선이 오래 머물렀다.",
             delta:`名 <b>-2</b>`,
-            note:"화를 피한 사림 다수는 지방으로 물러나 학문과 교육에 힘썼습니다. 침묵은 안전해 보이지만, 다음 사화가 그것을 봐주지는 않습니다.",
+            note:"화를 피한 사림 다수는 지방으로 물러나 학문과 교육에 힘썼습니다. 침묵은 당장은 안전해 보이지만, 다음에 올 사화가 그 침묵을 봐주지는 않습니다.",
             next: go1504 });
         }},
-      { label:"스승의 글을 문제 삼아 고한다.", go(){
-          S.rank+=3; S.fame-=5; S.betrayed=true; record(1498,"스승의 글을 고하다");
+      { label:"스승의 글에 임금을 능멸하는 뜻이 있음을 아뢴다. 스승보다 내가 먼저 살아야 한다.", go(){
+          adj("rank",3); adj("fame",-5); S.betrayed=true;
+          record(1498,"스승의 글에 역심이 있다 고하다. 훈구가 그 충심을 칭찬했다.");
           outcome({ verdict:"그대는 관직을 얻었다.",
-            body:"훈구 대신들이 그대의 충심을 칭찬했다. 벼슬이 올랐다. 사림은 그대의 이름을 다르게 기억할 것이다.",
+            body:"훈구 대신들이 그대의 충심을 크게 칭찬했고, 벼슬이 올랐다. 그러나 같은 스승 밑에서 배운 이들은 이제 그대를 다른 이름으로 부른다.",
             delta:`官 <b>+3</b> / 名 <b>-5</b> / 훈구에 붙은 자`,
-            note:"실제로 사림 내부에서도 고변한 인물들이 있었습니다. 다만 훈구에 붙었다고 안전한 것은 아니었습니다. 6년 뒤를 보십시오.",
+            note:"실제로 사림 내부에서도 고변한 인물들이 있었습니다. 다만 훈구에 붙었다고 하여 안전해지는 것은 아니었습니다. 6년 뒤를 보십시오.",
             next: go1504 });
         }}
     ]
@@ -524,27 +574,34 @@ function go1498(){
 
 /* ══════════ 1504 갑자사화 ══════════ */
 function go1504(){
-  const bad = 4;
   lots({
     year:1504, eyebrow:"제2화 갑자사화",
-    title:"제비를 뽑으시오",
-    situation:`연산군이 생모 폐비 윤씨가 사약을 받고 죽은 일을 알아냈다.
-      임금은 그 일에 관계된 자를 모조리 찾아내라 명한다. 폐위를 건의한 훈구도, 그 자리에 있었던 사림도 가리지 않는다.
-      <b>이번에는 그대의 선택이 아무것도 지켜주지 못한다.</b>${S.betrayed?" 게다가 그대는 훈구 편에 이름을 올린 자다.":""}`,
-    n:5, bad,
+    title:"선택을 하시오",
+    situation:`연산군이 마침내 생모의 일을 알아냈다. 폐비 윤씨가 왕비 자리에서 쫓겨나 사약을 받고 죽었다는 것,
+      그리고 그 일에 조정의 신하들이 관계했다는 것이다.
+      <br><br>
+      임금은 그때 폐위를 건의한 자, 사약을 들고 간 자, 말리지 않고 지켜본 자를 모조리 찾아내라 명한다.
+      이미 죽은 자는 무덤을 파헤치고, 살아 있는 자는 그 자손까지 끌어낸다. 훈구도 사림도 가리지 않는다.
+      그들을 지켜 줄 명분도, 편을 들어 줄 세력도 이번에는 없다.
+      <br><br>
+      그대가 무오년에 무슨 말을 했는지, 누구의 편에 섰는지는 아무도 묻지 않는다.
+      <b>이번에는 그대의 선택이 아무것도 지켜주지 못한다.</b>`,
+    guide:"패를 하나 고르시오. 무엇을 고르든 결과는 그대의 뜻과 무관하다. 禍는 화를 입고, 免은 화를 면한다.",
+    n:5, bad:4,
     onDone(isBad){
       if(isBad){
-        S.fame+=1; record(1504,"화를 입다"); die(1504,"갑자사화에 연루되어 화를 입다");
+        adj("fame",1); record(1504,"갑자년의 옥사에 휩쓸리다. 묻지도 않고 끌려갔다.");
+        die(1504,"갑자사화에 연루되어 화를 입다");
         outcome({ verdict:"그대는 화를 입었다.", bad:true, seal:"卒",
-          body:"무슨 말을 했는지, 어느 편에 섰는지는 묻지 않았다. 그저 그 자리에 있었을 뿐이다.",
-          delta:`사망 1504`,
-          note:"갑자사화는 훈구와 사림을 가리지 않고 휩쓸었습니다. 몸을 사려 살아남는 전략이 통하지 않는 시기가 있었다는 뜻입니다.",
+          body:"무슨 말을 했는지, 어느 편에 섰는지 묻지 않았다. 그저 그 자리에 있었다는 것만으로 충분했다.",
+          delta:`名 <b>+1</b> / 사망 1504`,
+          note:"갑자사화는 훈구와 사림을 가리지 않고 휩쓸었습니다. 몸을 사려 살아남는 전략이 아예 통하지 않는 시기가 있었다는 뜻입니다.",
           next: go1506 });
       } else {
-        record(1504,"화를 면하다");
+        record(1504,"갑자년의 옥사를 겨우 비켜 가다. 까닭은 알 수 없었다.");
         outcome({ verdict:"그대는 화를 면했다.",
-          body:"이유는 없다. 옆자리의 동문은 끌려갔고 그대는 남았다.",
-          note:"갑자사화 뒤 조정은 텅 비다시피 했습니다. 이 무자비함이 2년 뒤 훈구가 연산군을 몰아내는 빌미가 됩니다.",
+          body:"이유는 없었다. 옆자리에 앉아 있던 이는 끌려갔고 그대는 남았다. 조정에 남은 사람이 눈에 띄게 줄었다.",
+          note:"이 시기 연산군의 폭정은 훈구 세력마저 등을 돌리게 만들었습니다. 그것이 2년 뒤 반정의 배경이 됩니다.",
           next: go1506 });
       }
     }
@@ -556,28 +613,40 @@ function go1506(){
   S.year = 1506;
   if(!S.alive){
     if(S.seowon){
-      S.alive = true; S.deathYear=null; S.causeOfDeath=null; S.fame+=1;
-      record(1506,"서원에서 다시 부름을 받다");
+      S.alive = true; S.deathYear=null; S.causeOfDeath=null; adj("fame",1);
+      record(1506,"서원의 제자들이 이름을 지켜 조정의 부름을 다시 받다.");
       outcome({ verdict:"그대의 학맥이 그대를 살렸다.",
-        body:`그대가 향촌에 남긴 서원과 제자들이 그대의 이름을 지켰다. 새 임금 중종이 사림을 다시 부른다. ${esc(S.ho)}, 그대는 조정으로 돌아왔다.`,
-        delta:`名 <b>+1</b> / 부활`,
+        body:`벼슬은 끊겼고 이름은 조정의 명부에서 지워졌다. 그러나 고향에는 그대가 세운 서원이 남아 있었고,
+          그 안에서 글을 배운 제자들이 스승의 이름을 계속 불렀다.
+          <br><br>
+          연산군이 쫓겨나고 새 임금 중종이 서자, 조정은 훈구를 견제할 사람을 찾는다.
+          제자들이 올린 천거의 글에 그대의 이름이 있었다.
+          <b>${esc(S.ho)}, 그대는 다시 살아 조정으로 돌아왔다.</b>`,
+        delta:`名 <b>+1</b> / <b>부활</b>`,
         note:"사화로 중앙에서 밀려난 사림은 향촌의 서원과 향약을 기반으로 힘을 길러 다시 중앙에 진출했습니다. 서원이 사림의 정치적 기반이었다는 말은 이런 뜻입니다.",
         next: go1519 });
     } else {
       outcome({ verdict:"훈구가 연산군을 몰아냈다.", bad:true,
-        body:"중종이 왕이 되고 사림을 다시 부른다. 그러나 한양에만 기반을 두었던 그대에게는 그대의 이름을 지켜줄 서원도, 제자도 없었다.",
-        note:"중앙 관직만을 기반으로 삼은 사림은 사화 한 번에 뿌리째 사라졌습니다. 서원과 향약을 기반으로 삼은 이들만이 되살아났습니다.",
+        body:`반정이 일어나 연산군이 쫓겨나고 중종이 왕이 되었다. 새 조정은 그동안 화를 입은 사림을 다시 불러들인다.
+          <br><br>
+          그러나 한양의 벼슬자리 하나에만 기대어 살았던 그대에게는 그대의 이름을 대신 말해 줄 사람이 없었다.
+          가르친 제자도, 돌아갈 서원도 없었다. 명부에서 지워진 이름은 그대로 지워진 채 남았다.
+          <b>그대는 돌아오지 못했다.</b>`,
+        note:"중앙 관직만을 기반으로 삼은 사림은 사화 한 번에 뿌리째 사라졌습니다. 서원과 향약이라는 돌아갈 자리를 만들어 둔 이들만이 되살아났습니다.",
         next: finish });
     }
     return;
   }
   const gain = S.base==="central" ? "官 <b>+2</b>" : "名 <b>+2</b>";
-  if(S.base==="central") S.rank+=2; else S.fame+=2;
-  record(1506,"반정의 조정에 서다");
+  if(S.base==="central") adj("rank",2); else adj("fame",2);
+  record(1506,"반정으로 새로 선 조정에 서다. 훈구의 세상은 그대로였다.");
   outcome({ verdict:"중종이 왕이 되었다.",
-    body:"갑자사화에 반발한 훈구 세력이 연산군을 쫓아냈다. 새 임금이 그대를 부른다.",
+    body:`연산군의 폭정이 도를 넘자, 갑자년에 자기들도 피를 본 훈구 세력이 끝내 등을 돌렸다.
+      박원종과 성희안 등이 군사를 일으켜 임금을 쫓아내고 진성대군을 새 임금으로 세웠다.
+      <br><br>
+      새 조정이 그대를 부른다. 그러나 반정을 이끈 것은 훈구였으므로, 공신의 자리는 이미 그들의 것이었다.`,
     delta: gain,
-    note:"반정을 주도한 것은 훈구였습니다. 그래서 중종 초의 조정은 다시 훈구의 것이었고, 중종은 그들을 견제할 사람이 필요했습니다.",
+    note:"반정을 주도한 것은 훈구였습니다. 그래서 중종 초의 조정은 다시 훈구의 것이었고, 왕위를 그들의 손에 빚진 중종은 그들을 견제할 다른 사람이 필요했습니다.",
     next: go1519 });
 }
 
@@ -586,42 +655,58 @@ function go1519(){
   scene({
     year:1519, eyebrow:"제3화 기묘사화",
     title:"조광조가 그대를 부른다",
-    situation:`중종이 훈구를 견제하려 조광조를 불러들였다. 조광조는 밀어붙인다.
-      추천으로 인재를 뽑는 <b>현량과</b>, 거짓 공신의 자격을 빼앗는 <b>위훈 삭제</b>, 도교 행사를 주관하는 <b>소격서 폐지</b>.
-      임금에게조차 높은 도덕을 요구한다. 조광조가 그대에게 함께 서겠느냐 묻는다.`,
+    situation:`훈구에게 눌려 지내던 중종이 마침내 젊은 사림 조광조를 불러들였다. 조광조는 거침이 없다.
+      <br><br>
+      시험 성적이 아니라 사람됨을 보고 뽑겠다며 <b>현량과</b>를 열고, 반정 때 공도 없이 이름만 올린 자들의
+      자격을 도로 빼앗는 <b>위훈 삭제</b>를 밀어붙인다. 도교 제사를 지내던 <b>소격서</b>도 유교의 나라에
+      있을 수 없다며 없앤다. 임금에게조차 성인의 도덕을 요구하니, 중종은 점점 지쳐 간다.
+      <br><br>
+      훈구는 숨을 죽인 채 때를 기다리고 있다. 그 사이 조광조가 그대를 찾아와, 함께 서겠느냐고 묻는다.`,
     choices:[
-      { label:"개혁에 몸을 던진다.", go(){
-          S.fame+=6; record(1519,"개혁에 몸을 던지다"); die(1519,"기묘사화로 사사되다");
+      { label:"함께 서겠다고 답한다. 이 기회를 놓치면 사림이 조정을 바로잡을 날은 다시 오지 않는다.", go(){
+          adj("fame",6); record(1519,"조광조와 함께 개혁의 명부에 이름을 올리다.");
+          die(1519,"기묘사화로 사사되다");
           outcome({ verdict:"주초위왕(走肖爲王).", bad:true, seal:"卒",
-            body:"나뭇잎에 벌레가 갉아먹은 네 글자가 임금 앞에 놓였다. 조(趙)씨가 왕이 된다는 뜻이라 했다. 그대는 조광조와 함께 끌려갔다.",
+            body:`어느 날 궁궐 나뭇잎에 벌레가 갉아먹은 네 글자가 임금 앞에 놓였다. 走와 肖를 합치면 趙,
+              곧 조씨가 왕이 된다는 뜻이라 했다. 꿀로 글자를 써 두면 벌레가 그대로 갉아먹는다는 것을
+              모르는 이는 없었으나, 아무도 그 말을 하지 않았다. 그대는 조광조와 함께 끌려갔다.`,
             delta:`名 <b>+6</b> / 사망 1519`,
-            note:"급진적 개혁, 특히 위훈 삭제에 부담을 느낀 중종이 훈구와 함께 조광조 세력을 제거했습니다. 사림을 불러들인 것도, 죽인 것도 같은 임금이었습니다.",
+            note:"급진적인 개혁, 특히 공신의 자격을 빼앗는 위훈 삭제에 부담을 느낀 중종이 훈구와 손잡고 조광조 세력을 제거했습니다. 사림을 불러들인 것도, 죽인 것도 같은 임금이었습니다.",
             next: finish });
         }},
-      { label:"조심스럽게 지지만 한다. (제비뽑기)", go(){
-          record(1519,"말을 아끼다");
+      { label:"이름을 올리지는 않되 뜻은 같이한다고 답한다. 앞에 나서지 않으면 화가 미치지 않을 것이다.", go(){
+          record(1519,"개혁에 뜻은 같이하되 이름은 올리지 않다.");
           lots({ year:1519, eyebrow:"제3화 기묘사화", title:"그대의 이름은 명단에 있는가",
-            situation:"그대는 앞에 나서지 않았다. 그러나 조광조를 지지한 자들의 명단이 작성되고 있다. 그대의 이름이 거기 있는지는 아무도 모른다.",
+            situation:`그대는 앞에 나서지 않았다. 상소에 이름을 적지도, 조광조의 곁에 서지도 않았다.
+              그러나 훈구가 조광조를 따르는 자들의 명단을 작성하고 있다는 소문이 돈다.
+              누가 어디까지 적어 넣었는지는 그 명단을 쥔 자들만 안다.`,
+            guide:"패를 하나 고르시오. 禍는 명단에 이름이 있었다는 뜻이다.",
             n:5, bad:2,
             onDone(isBad){
-              if(isBad){ S.fame+=3; die(1519,"기묘사화에 연루되어 유배지에서 죽다");
+              if(isBad){ adj("fame",3); record(1519,"명단에 이름이 올라 유배지로 끌려가다.");
+                die(1519,"기묘사화에 연루되어 유배지에서 죽다");
                 outcome({ verdict:"명단에 그대의 이름이 있었다.", bad:true, seal:"卒",
-                  body:"유배지에서 돌아오지 못했다.", delta:`名 <b>+3</b> / 사망 1519`,
-                  note:"기묘사화로 처벌받은 사림을 기묘명현이라 부릅니다. 나서지 않았어도 명단에 오른 이들이 있었습니다.",
+                  body:"나서지 않았다는 말은 통하지 않았다. 그대는 먼 유배지로 보내졌고, 그곳에서 돌아오지 못했다.",
+                  delta:`名 <b>+3</b> / 사망 1519`,
+                  note:"기묘사화로 처벌받은 사림을 기묘명현이라 부릅니다. 앞에 나서지 않았는데도 명단에 이름이 오른 이들이 적지 않았습니다.",
                   next: finish });
-              } else { S.fame+=1;
+              } else { adj("fame",1);
+                record(1519,"명단에 이름이 없어 화를 면하다. 조광조는 사약을 받았다.");
                 outcome({ verdict:"명단에 없었다.",
-                  body:"그대는 살아남았다. 조광조는 사약을 받았다.", delta:`名 <b>+1</b>`,
-                  note:"기묘사화 이후 사림은 다시 향촌으로 물러났습니다. 이때 서원과 향약이 본격적으로 퍼집니다.",
+                  body:"그대는 살아남았다. 조광조는 사약을 받았고, 그를 따르던 젊은 관원들은 유배지로 흩어졌다. 조정은 다시 조용해졌다.",
+                  delta:`名 <b>+1</b>`,
+                  note:"기묘사화 이후 사림은 다시 향촌으로 물러났습니다. 이때부터 서원과 향약이 전국으로 본격적으로 퍼집니다.",
                   next: go1545 });
               }
             }});
         }},
-      { label:"낙향하여 서원을 연다.", go(){
-          S.seowon=true; S.fame+=2; S.rank=0; record(1519,"낙향하여 서원을 열다");
+      { label:"사양하고 벼슬을 버린다. 고향으로 내려가 서원을 열고 제자를 기르겠다.", go(){
+          S.seowon=true; adj("fame",2); const lost = S.rank; S.rank = 0;
+          record(1519,"벼슬을 버리고 낙향하여 서원을 열다. 제자들이 모여들었다.");
           outcome({ verdict:"그대는 고향으로 돌아갔다.",
-            body:"벼슬을 버렸다. 선현에게 제사 지내고 제자를 가르치며 향약을 폈다. 한양에서 무슨 일이 벌어졌는지는 나중에 전해 들었다.",
-            delta:`官 <b>0</b>으로 / 名 <b>+2</b> / 서원`,
+            body:`벼슬을 내려놓고 짐을 꾸렸다. 고향에 서원을 열어 선현에게 제사를 지내고, 모여든 아이들에게 글을 가르쳤다.
+              마을에는 향약을 세워 서로 돕고 잘못을 바로잡게 했다. 한양에서 무슨 일이 벌어졌는지는 한참 뒤에야 전해 들었다.`,
+            delta:`官 <b>${lost} → 0</b> / 名 <b>+2</b> / <b>서원</b>`,
             note:"주세붕이 백운동 서원을 세운 것이 1543년, 이것이 명종 대에 소수서원이라는 최초의 사액 서원이 됩니다. 물러난 것이 곧 진 것은 아니었습니다.",
             next: go1545 });
         }}
@@ -634,40 +719,53 @@ function go1545(){
   scene({
     year:1545, eyebrow:"제4화 을사사화",
     title:"외척과 외척이 맞붙었다",
-    situation:`인종이 즉위 8개월 만에 죽고 어린 명종이 왕이 되었다.
-      인종의 외척 <b>대윤</b>과 명종의 외척 <b>소윤</b>이 권력을 두고 맞선다. 이제 훈구와 사림의 싸움이 아니다.
-      외척끼리의 싸움에 사림이 휩쓸린다. 그대는 어디에 서겠는가?`,
+    situation:`중종이 죽고 인종이 즉위했으나 여덟 달 만에 세상을 떠났다. 뒤를 이은 명종은 아직 열두 살,
+      어머니 문정왕후가 대신 정사를 본다.
+      <br><br>
+      이제 조정은 훈구와 사림의 싸움터가 아니다. 인종의 외삼촌 윤임을 중심으로 한 <b>대윤</b>과,
+      명종의 외삼촌 윤원형을 중심으로 한 <b>소윤</b>이 왕실의 외척끼리 권력을 놓고 맞선다.
+      성이 같은 두 집안의 싸움에 사림이 어느 한쪽으로 끌려 들어간다.
+      <br><br>
+      양쪽 모두 그대에게 사람을 보냈다. 그대는 어디에 서겠는가?`,
     choices:[
-      { label:"대윤에 선다.", go(){
-          S.fame+=2; record(1545,"대윤과 함께 서다"); die(1545,"을사사화로 화를 입다");
+      { label:"대윤에 선다. 인종께서 세우려 하시던 뜻을 이어받는 것이 옳다.", go(){
+          adj("fame",2); record(1545,"대윤에 서다. 이긴 쪽은 소윤이었다.");
+          die(1545,"을사사화로 화를 입다");
           outcome({ verdict:"소윤이 대윤을 몰아냈다.", bad:true, seal:"卒",
-            body:"그대는 대윤과 함께 쓸려나갔다.", delta:`名 <b>+2</b> / 사망 1545`,
-            note:"을사사화는 왕실 외척 간의 권력 다툼이었으나, 그 과정에서 많은 사림이 피해를 입었습니다.",
+            body:"문정왕후가 소윤의 손을 들어 주었다. 윤임과 그를 따르던 이들이 역모로 몰렸고, 그대의 이름도 그 명부에 있었다.",
+            delta:`名 <b>+2</b> / 사망 1545`,
+            note:"을사사화는 본래 왕실 외척 간의 권력 다툼이었으나, 그 과정에서 대윤 편에 섰던 많은 사림이 함께 피해를 입었습니다.",
             next: finish });
         }},
-      { label:"소윤에 선다.", go(){
-          S.rank+=4; S.fame-=4; record(1545,"소윤에 붙다");
+      { label:"소윤에 선다. 지금 권력을 쥔 쪽에 서야 살아남고, 살아남아야 뜻도 펼 수 있다.", go(){
+          adj("rank",4); adj("fame",-4); record(1545,"소윤에 붙어 벼슬이 크게 오르다.");
           outcome({ verdict:"그대는 권력을 얻었다.",
-            body:"소윤이 이겼다. 벼슬이 크게 올랐다. 그러나 사림은 이제 그대를 사림이라 부르지 않는다.",
+            body:"소윤이 이겼다. 벼슬이 크게 올랐고 녹봉도 늘었다. 그러나 사림은 이제 그대를 사림이라 부르지 않는다.",
             delta:`官 <b>+4</b> / 名 <b>-4</b>`,
-            note:"이긴 쪽에 서면 관직은 얻습니다. 다만 이 시기 이후 사림이 다시 조정을 장악할 때, 그 명단에 이름을 올리는 것은 다른 사람들이었습니다.",
+            note:"이긴 쪽에 서면 관직은 얻습니다. 다만 훗날 사림이 다시 조정을 장악할 때, 그 명단에 이름을 올리는 것은 다른 사람들이었습니다.",
             next: go1575 });
         }},
-      { label:"중립을 지킨다. (제비뽑기)", go(){
-          record(1545,"중립을 지키다");
+      { label:"어느 쪽에도 서지 않는다. 외척끼리의 싸움에 선비가 끼어들 일이 아니다.", go(){
+          record(1545,"어느 편에도 서지 않다. 편들지 않은 것도 죄가 되는 때였다.");
           lots({ year:1545, eyebrow:"제4화 을사사화", title:"중립이 지켜지는가",
-            situation:"어느 편에도 서지 않았다. 그러나 사림을 몰아내려는 자들에게는 편들지 않은 것도 이유가 된다.",
+            situation:`그대는 양쪽의 사람을 모두 돌려보냈다. 그러나 이긴 쪽에게는 편들지 않은 것도
+              반대한 것과 다르지 않다. 사림을 조정에서 몰아내려는 자들에게는 그것으로 충분한 이유가 된다.`,
+            guide:"패를 하나 고르시오. 禍는 그대도 연루되었다는 뜻이다.",
             n:5, bad:1,
             onDone(isBad){
-              if(isBad){ S.fame+=1; die(1545,"을사사화에 연루되어 화를 입다");
+              if(isBad){ adj("fame",1); record(1545,"편들지 않은 것이 죄가 되어 화를 입다.");
+                die(1545,"을사사화에 연루되어 화를 입다");
                 outcome({ verdict:"그대도 연루되었다.", bad:true, seal:"卒",
-                  body:"편들지 않았다는 것이 죄가 되었다.", delta:`名 <b>+1</b> / 사망 1545`,
-                  note:"을사사화의 여파는 이후 몇 년간 계속되어(양재역 벽서 사건 등) 사림을 더 쳐냈습니다.",
+                  body:"편들지 않았다는 것이 죄가 되었다. 그대는 끝내 조정으로 돌아오지 못했다.",
+                  delta:`名 <b>+1</b> / 사망 1545`,
+                  note:"을사사화의 여파는 이후 몇 년간 계속되었습니다. 벽서 한 장을 빌미로 또 한 차례 사림을 쳐낸 양재역 벽서 사건이 그 예입니다.",
                   next: finish });
-              } else { S.fame+=1;
+              } else { adj("fame",1);
+                record(1545,"어느 편에도 서지 않은 채 조정이 조용해지기를 기다리다.");
                 outcome({ verdict:"그대는 살아남았다.",
-                  body:"조정이 조용해질 때까지 기다렸다.", delta:`名 <b>+1</b>`,
-                  note:"명종 말년에 외척 세력이 무너지자, 살아남은 사림이 조정을 채웁니다. 이제 상대할 훈구가 없습니다.",
+                  body:"문을 닫아걸고 조정이 조용해질 때까지 기다렸다. 그 사이 많은 이름이 명부에서 지워졌다.",
+                  delta:`名 <b>+1</b>`,
+                  note:"명종 말년에 문정왕후가 죽고 외척 세력이 무너지자, 살아남은 사림이 조정을 채웁니다. 이제 상대할 훈구가 없습니다.",
                   next: go1575 });
               }
             }});
@@ -682,15 +780,23 @@ function go1575(){
   scene({
     year:1575, eyebrow:"제5화 붕당의 형성",
     title:"자리는 하나뿐이다",
-    situation:`77년이 지났다. 훈구는 사라졌고 조정은 사림의 것이 되었다.
-      이제 <b>이조 전랑</b> 자리가 비었다. 품계는 낮으나 관리 인사를 좌우하고 후임을 스스로 추천하는 자리다.
-      살아남은 사림이 모두 이 자리를 본다. 그대도 손을 들겠는가?`,
+    situation:`77년이 지났다. 훈구는 사라졌고 조정은 마침내 사림의 것이 되었다.
+      그러나 이긴 자들에게는 이제 함께 싸울 상대가 없다.
+      <br><br>
+      비어 있는 <b>이조 전랑</b> 자리에 모두의 눈이 쏠린다. 정5품에 지나지 않는 낮은 벼슬이지만,
+      관리의 인사를 실질적으로 좌우하고 후임자를 자기 손으로 추천해 대를 잇는다.
+      이 자리를 잡는 쪽이 앞으로 조정을 잡는다는 것을 모두가 안다.
+      <br><br>
+      한쪽에서는 김효원을 밀고, 다른 쪽에서는 심의겸이 그를 막아선다. 그대도 이 다툼 앞에 섰다.`,
     choices:[
-      { label:"손을 든다. 내가 그 자리에 앉겠다.", go(){
-          S.rank+=2; record(1575,"전랑의 자리를 다투다"); finish();
+      { label:"직접 그 자리를 다툰다. 인사를 쥐어야 사람을 쓸 수 있고, 사람을 써야 뜻을 편다.", go(){
+          adj("rank",2); record(1575,"전랑의 자리를 직접 다투다."); finish();
         }},
-      { label:"손을 들지 않는다. 다만 누가 앉는지는 지켜본다.", go(){
-          S.fame+=1; record(1575,"전랑의 자리를 지켜보다"); finish();
+      { label:"같은 스승 밑에서 배운 이를 민다. 내가 앉지 않아도 우리 쪽이 앉으면 된다.", go(){
+          adj("rank",1); adj("fame",1); record(1575,"같은 학맥의 사람을 전랑으로 밀다."); finish();
+        }},
+      { label:"다투지 않고 지켜본다. 자리 하나를 두고 선비끼리 갈라서는 것이 옳은지 모르겠다.", go(){
+          adj("fame",1); record(1575,"전랑의 다툼에서 물러나 지켜보다."); finish();
         }}
     ]
   });
@@ -698,13 +804,13 @@ function go1575(){
 
 /* ══════════ 결말 ══════════ */
 function finish(){
-  if(S.alive) record(1575,"길이 갈리다");
+  if(S.alive) record(1575, "사림이 두 갈래로 갈라서다. 그대가 배운 학문이 그대의 편을 정했다.");
   S.screen="final"; render();
 }
 
 function finalHTML(){
   const dong = S.master==="dong";
-  const enshrined = S.fame >= 8;
+  const enshrined = S.fame >= ENSHRINE;
   const seal = enshrined ? "配享" : (S.alive ? "生" : "卒");
 
   const fate = S.alive
@@ -722,7 +828,7 @@ function finalHTML(){
     split:"이후 북인과 남인으로 갈라진다."
   } : {
     cls:"seo", nm:"서인(西人)",
-    why:"그대의 스승 이이와 성혼의 학문을 이은 이들은 심의겸을 중심으로 모였다. 심의겸의 집이 한양 서쪽에 있었으므로 사람들은 그들을 서인이라 불렀다.",
+    why:"그대의 스승 이이와 성혼의 학문을 이은 이들은 심의겸을 중심으로 모였다. 심의겸의 집이 한양 서쪽 정릉방에 있었으므로 사람들은 그들을 서인이라 불렀다.",
     base:"경기·충청 지역 사림 중심",
     split:"이후 노론과 소론으로 갈라진다."
   };
@@ -744,11 +850,10 @@ function finalHTML(){
 
   <div class="scroll">
     <h3>${esc(S.ho)}의 사초</h3>
-    <ul>${S.log.map(e=>`<li><span class="y">${e.year?e.year:"　"}</span>${esc(e.text)}</li>`).join("")}</ul>
+    <ul>${S.log.map(e=>`<li><span class="y">${e.year?e.year:"　　"}</span>${esc(e.text)}</li>`).join("")}</ul>
   </div>
 
-  <button class="go" id="again">처음으로 돌아가기</button>
-  <button class="ghost" id="thinkcheck">생각 체크 작성</button>`;
+  <button class="go" id="again">처음으로 돌아가기</button>`;
 }
 
 /* ── 이벤트 위임 ── */
@@ -756,8 +861,27 @@ document.addEventListener("click", (e)=>{
   if(e.target.id==="again"){ reset(); render(); bindTitle(); }
 });
 
+/* 관리자 화면에서 저장한 인트로 문구를 덮어쓴다(모듈 스크립트가 호출). */
+window.applyIntroContent = function(c){
+  if(!c || typeof c !== "object") return;
+  CONTENT = Object.assign(JSON.parse(JSON.stringify(DEFAULT_CONTENT)), c);
+  if(S.screen === "title"){ render(); bindTitle(); }
+};
+
 render();
 bindTitle();
+</script>
+
+<script type="module">
+/* 인트로 문구를 Firestore에서 불러온다. 실패하면 기본 문구 그대로 진행한다. */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { firebaseConfig } from "../../shared/firebase-config.js";
+try{
+  const db = getFirestore(initializeApp(firebaseConfig));
+  const snap = await getDoc(doc(db, "settings", "sahwa_content"));
+  if(snap.exists()) window.applyIntroContent(snap.data());
+}catch(e){ /* 오프라인이어도 게임은 그대로 돌아간다 */ }
 </script>
 </body>
 </html>

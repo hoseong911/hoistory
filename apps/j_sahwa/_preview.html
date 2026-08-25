@@ -90,8 +90,7 @@ const SCENES = [
   {g:'1498 무오사화', t:'② 입을 다물다 (생존)',     r:`setup(); go1498(); pick(1);`},
   {g:'1498 무오사화', t:'③ 스승을 고하다 (관직)',   r:`setup(); go1498(); pick(2);`},
 
-  {g:'1504 갑자사화', t:'제비뽑기 화면',            r:`setup(); go1504();`},
-  {g:'1504 갑자사화', t:'제비뽑기 화면 (배신자)',    r:`setup(); S.betrayed=true; go1504();`},
+  {g:'1504 갑자사화', t:'선택 화면 (패 고르기)',     r:`setup(); go1504();`},
   {g:'1504 갑자사화', t:'禍 화를 입다 (사망)',       r:`setup(); forceLot(true); go1504();`},
   {g:'1504 갑자사화', t:'免 화를 면하다',            r:`setup(); forceLot(false); go1504();`},
 
@@ -102,7 +101,7 @@ const SCENES = [
 
   {g:'1519 기묘사화', t:'선택 화면',                r:`setup(); go1519();`},
   {g:'1519 기묘사화', t:'① 개혁 (주초위왕, 사망)',   r:`setup(); go1519(); pick(0);`},
-  {g:'1519 기묘사화', t:'② 제비뽑기 화면',           r:`setup(); go1519(); pick(1);`},
+  {g:'1519 기묘사화', t:'② 명단 확인 화면',           r:`setup(); go1519(); pick(1);`},
   {g:'1519 기묘사화', t:'② 명단에 있었다 (사망)',    r:`setup(); forceLot(true); go1519(); pick(1);`},
   {g:'1519 기묘사화', t:'② 명단에 없었다',           r:`setup(); forceLot(false); go1519(); pick(1);`},
   {g:'1519 기묘사화', t:'③ 낙향하여 서원을 열다',    r:`setup(); go1519(); pick(2);`},
@@ -110,37 +109,40 @@ const SCENES = [
   {g:'1545 을사사화', t:'선택 화면',                r:`setup(); go1545();`},
   {g:'1545 을사사화', t:'① 대윤에 서다 (사망)',      r:`setup(); go1545(); pick(0);`},
   {g:'1545 을사사화', t:'② 소윤에 붙다 (권력)',      r:`setup(); go1545(); pick(1);`},
-  {g:'1545 을사사화', t:'③ 제비뽑기 화면',           r:`setup(); go1545(); pick(2);`},
+  {g:'1545 을사사화', t:'③ 중립 확인 화면',           r:`setup(); go1545(); pick(2);`},
   {g:'1545 을사사화', t:'③ 연루되다 (사망)',         r:`setup(); forceLot(true); go1545(); pick(2);`},
   {g:'1545 을사사화', t:'③ 살아남다',                r:`setup(); forceLot(false); go1545(); pick(2);`},
 
   {g:'1575 붕당',   t:'이조 전랑 — 선택 화면',      r:`setup(); go1575();`},
 
-  {g:'결말', t:'생존 — 동인',             r:`setup('local','dong'); S.rank=4; S.fame=5; fill(); finish();`},
-  {g:'결말', t:'생존 — 서인',             r:`setup('central','seo'); S.rank=7; S.fame=3; fill(); finish();`},
-  {g:'결말', t:'생존 — 서원 배향(名 8↑)', r:`setup('local','dong'); S.rank=1; S.fame=9; fill(); finish();`},
-  {g:'결말', t:'사망 — 학맥이 남다',       r:`setup('central','seo'); S.rank=3; S.fame=6; fill(); kill(1519,'기묘사화로 사사되다'); finish();`},
-  {g:'결말', t:'사망 + 배향(名 8↑)',       r:`setup('local','dong'); S.rank=2; S.fame=11; fill(); kill(1519,'기묘사화로 사사되다'); finish();`},
+  {g:'결말', t:'생존 — 동인',             r:`setup('local','dong'); S.rank=14; S.fame=15; fill(); finish();`},
+  {g:'결말', t:'생존 — 서인',             r:`setup('central','seo'); S.rank=17; S.fame=13; fill(); finish();`},
+  {g:'결말', t:'생존 — 서원 배향(名 18↑)', r:`setup('local','dong'); S.rank=11; S.fame=19; fill(); finish();`},
+  {g:'결말', t:'사망 — 학맥이 남다',       r:`setup('central','seo'); S.rank=13; S.fame=16; fill(); kill(1519,'기묘사화로 사사되다'); finish();`},
+  {g:'결말', t:'사망 + 배향(名 18↑)',       r:`setup('local','dong'); S.rank=12; S.fame=21; fill(); kill(1519,'기묘사화로 사사되다'); finish();`},
 ];
 
 /* 각 iframe 전역에 심는 드라이버 헬퍼.
    S/GAN은 let/const라 window 속성이 아니지만, 전역 스코프 eval에서는 보인다. */
 const DRIVER = `
+  // 본 게임은 선택지 순서를 매번 섞는다. 프리뷰에서는 pick(0/1/2)가 원본 순서와
+  // 어긋나면 안 되므로 섞기를 끈다(학생 화면에서는 그대로 섞인다).
+  shuffle = function(a){ return a.slice(); };
   window.setup = function(base, master){
     reset();
     S.ho='퇴헌'; S.master = master || 'dong'; S.base = base || 'central';
-    S.fame = S.base==='local' ? 2 : 0;
-    S.rank = S.base==='central' ? 2 : 0;
-    if(S.base==='local') S.seowon = true;
-    record(1498, S.ho + ', 사림의 길에 들다');
-    S.log[0].year = 0;
+    if(S.base==='local'){ adj('fame',2); S.seowon = true; } else adj('rank',2);
+    record(0, S.ho + ', 사림의 길에 들다.');
   };
   // 실제 흐름에서는 그 해 장면이 S.year를 이미 올려놓은 상태로 죽는다.
   window.kill = function(y, cause){ S.year = y; die(y, cause); };
   window.fill = function(){
-    record(1498,'입을 다물다'); record(1504,'화를 면하다');
-    record(1506,'반정의 조정에 서다'); record(1519,'말을 아끼다');
-    record(1545,'중립을 지키다'); record(1575,'전랑의 자리를 다투다');
+    record(1498,'국문장에서 끝내 입을 열지 않다. 동문들이 그 침묵을 보았다.');
+    record(1504,'갑자년의 옥사를 겨우 비켜 가다. 까닭은 알 수 없었다.');
+    record(1506,'반정으로 새로 선 조정에 서다. 훈구의 세상은 그대로였다.');
+    record(1519,'벼슬을 버리고 낙향하여 서원을 열다. 제자들이 모여들었다.');
+    record(1545,'어느 편에도 서지 않은 채 조정이 조용해지기를 기다리다.');
+    record(1575,'전랑의 자리를 직접 다투다.');
     S.year = 1575;
   };
   window.pick = function(i){
