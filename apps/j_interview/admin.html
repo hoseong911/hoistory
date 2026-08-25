@@ -686,13 +686,18 @@ function renderClassFilter(){
   const fromSubmitted=students.map(s=>classNumOf(s.id));
   const classNums=[...new Set([...fromRoster,...fromSubmitted])].filter(n=>n!=null).sort((a,b)=>a-b);
   const classes=['전체',...classNums];
-  document.getElementById('class-filter').innerHTML=classes.map(c=>`
+  // 심화 질문·친구 심화답변 서브탭도 같은 .cf-btn을 쓰므로, 반드시 이 탭의 필터 상자
+  // 안으로 범위를 좁혀야 한다. document 전체로 잡으면 다른 탭 태그에까지 기본 답변용
+  // 핸들러가 붙어서(제출이 들어올 때마다 중복으로 쌓인다) 심화 탭에서 반을 고르면
+  // 기본 답변 탭 필터가 같이 바뀌고, 탭들의 선택 표시도 서로 지워 버린다.
+  const box=document.getElementById('class-filter');
+  box.innerHTML=classes.map(c=>`
     <button class="cf-btn${String(c)===currentFilter?' active':''}" data-c="${c}">${c==='전체'?'전체':c+'반'}</button>
   `).join('');
-  document.querySelectorAll('.cf-btn').forEach(btn=>{
+  box.querySelectorAll('.cf-btn').forEach(btn=>{
     btn.addEventListener('click',()=>{
       currentFilter=btn.dataset.c;
-      document.querySelectorAll('.cf-btn').forEach(b=>b.classList.remove('active'));
+      box.querySelectorAll('.cf-btn').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       updateStats();
       renderStudentList();
