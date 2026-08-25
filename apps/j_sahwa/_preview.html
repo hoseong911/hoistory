@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사화에서 살아남기 — 전 장면 프리뷰(임시)</title>
+<style>
+  :root{ --pcW:1280px; --pcH:900px; --mbW:390px; --mbH:820px; --s:.46; --ms:.72; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:'IBM Plex Sans KR','Malgun Gothic',sans-serif;background:#1c1a17;color:#e8e4d4}
+  #wrap{display:flex;height:100vh}
+
+  #side{width:17rem;flex:none;overflow-y:auto;border-right:1px solid #45403a;padding:.8rem}
+  #side h1{font-size:.78rem;letter-spacing:.15em;color:#a8a08c;margin:.3rem 0 .8rem;font-weight:600}
+  .item{display:block;width:100%;text-align:left;background:none;border:none;color:#cfc9b8;
+        font:inherit;font-size:.8rem;padding:.4rem .55rem;cursor:pointer;border-radius:4px;line-height:1.4}
+  .item:hover{background:#2b2823}
+  .item.on{background:#A8322D;color:#fff}
+  .grp{font-size:.66rem;letter-spacing:.14em;color:#6f6a5e;margin:.85rem 0 .25rem .55rem}
+
+  #main{flex:1;display:flex;flex-direction:column;min-width:0}
+  #top{display:flex;align-items:center;gap:.7rem;padding:.55rem .9rem;
+       border-bottom:1px solid #45403a;font-size:.82rem;flex-wrap:wrap}
+  #top button{background:#2b2823;border:1px solid #55504a;color:#e8e4d4;font:inherit;
+              padding:.3rem .8rem;border-radius:4px;cursor:pointer}
+  #top button:hover{background:#3a3630}
+  #top button.tgl.off{opacity:.45}
+  #cap{font-weight:600}
+  #num{color:#8c8674;font-variant-numeric:tabular-nums}
+  #top label{color:#8c8674;display:flex;align-items:center;gap:.35rem}
+  #top input[type=range]{width:7rem}
+
+  /* 창이 좁으면 가로로 밀지 말고 아래로 접어 준다 */
+  #view{flex:1;overflow:auto;padding:1.1rem;display:flex;gap:1.4rem;flex-wrap:wrap;
+        justify-content:center;align-items:flex-start;align-content:flex-start}
+  .dev{flex:none}
+  .dev h2{font-size:.72rem;letter-spacing:.16em;color:#8c8674;font-weight:600;
+          margin:0 0 .45rem;text-align:center}
+  .dev .shell{position:relative;overflow:hidden;border:1px solid #55504a;
+              box-shadow:0 6px 30px rgba(0,0,0,.5);background:#DDD8C4}
+  .dev iframe{border:0;display:block;transform-origin:top left}
+  /* PC */
+  #pcDev .shell{width:calc(var(--pcW) * var(--s));height:calc(var(--pcH) * var(--s))}
+  #pcDev iframe{width:var(--pcW);height:var(--pcH);transform:scale(var(--s))}
+  /* 모바일 — 실제 좁은 뷰포트라 index.html의 @media(max-width:760px)가 그대로 걸린다 */
+  #mbDev .shell{width:calc(var(--mbW) * var(--ms));height:calc(var(--mbH) * var(--ms));border-radius:14px}
+  #mbDev iframe{width:var(--mbW);height:var(--mbH);transform:scale(var(--ms))}
+  .hide{display:none}
+  #err{color:#f88;font-size:.8rem;padding:0 .9rem .4rem}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <nav id="side"><h1>전 장면 프리뷰</h1><div id="list"></div></nav>
+  <div id="main">
+    <div id="top">
+      <button id="prev">◀ 이전</button>
+      <button id="next">다음 ▶</button>
+      <span id="num"></span>
+      <span id="cap"></span>
+      <span style="flex:1"></span>
+      <button class="tgl" id="tPc">PC</button>
+      <button class="tgl" id="tMb">모바일</button>
+      <label>크기 <input type="range" id="scale" min="30" max="80" value="46"></label>
+    </div>
+    <div id="err"></div>
+    <div id="view">
+      <div class="dev" id="pcDev">
+        <h2>PC · 1280×900</h2>
+        <div class="shell"><iframe id="pc" src="index.html"></iframe></div>
+      </div>
+      <div class="dev" id="mbDev">
+        <h2>모바일 · 390×820</h2>
+        <div class="shell"><iframe id="mb" src="index.html"></iframe></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══ 전 장면 목록 ══
+   index.html의 <script>는 일반 스크립트라 go1498 등이 전역에 있다.
+   제비뽑기(lots)는 결과가 무작위라, 드라이버에서 lots를 갈아끼워 결과를 강제한다.
+   PC·모바일 두 iframe에 같은 명령을 동시에 넣어 같은 장면을 나란히 띄운다. */
+const SCENES = [
+  {g:'시작',    t:'시작 화면',                    r:`reset(); render(); bindTitle();`},
+
+  {g:'1498 무오사화', t:'선택 화면',               r:`setup(); go1498();`},
+  {g:'1498 무오사화', t:'① 스승의 글이 옳다 (사망)', r:`setup(); go1498(); pick(0);`},
+  {g:'1498 무오사화', t:'② 입을 다물다 (생존)',     r:`setup(); go1498(); pick(1);`},
+  {g:'1498 무오사화', t:'③ 스승을 고하다 (관직)',   r:`setup(); go1498(); pick(2);`},
+
+  {g:'1504 갑자사화', t:'제비뽑기 화면',            r:`setup(); go1504();`},
+  {g:'1504 갑자사화', t:'제비뽑기 화면 (배신자)',    r:`setup(); S.betrayed=true; go1504();`},
+  {g:'1504 갑자사화', t:'禍 화를 입다 (사망)',       r:`setup(); forceLot(true); go1504();`},
+  {g:'1504 갑자사화', t:'免 화를 면하다',            r:`setup(); forceLot(false); go1504();`},
+
+  {g:'1506 중종반정', t:'생존자 — 중앙 관직형',      r:`setup('central'); go1506();`},
+  {g:'1506 중종반정', t:'생존자 — 향촌 서원형',      r:`setup('local'); go1506();`},
+  {g:'1506 중종반정', t:'부활 — 서원이 살렸다',      r:`setup('local'); kill(1504,'갑자사화에 연루되어 화를 입다'); go1506();`},
+  {g:'1506 중종반정', t:'부활 실패 — 뿌리가 없었다', r:`setup('central'); kill(1504,'갑자사화에 연루되어 화를 입다'); go1506();`},
+
+  {g:'1519 기묘사화', t:'선택 화면',                r:`setup(); go1519();`},
+  {g:'1519 기묘사화', t:'① 개혁 (주초위왕, 사망)',   r:`setup(); go1519(); pick(0);`},
+  {g:'1519 기묘사화', t:'② 제비뽑기 화면',           r:`setup(); go1519(); pick(1);`},
+  {g:'1519 기묘사화', t:'② 명단에 있었다 (사망)',    r:`setup(); forceLot(true); go1519(); pick(1);`},
+  {g:'1519 기묘사화', t:'② 명단에 없었다',           r:`setup(); forceLot(false); go1519(); pick(1);`},
+  {g:'1519 기묘사화', t:'③ 낙향하여 서원을 열다',    r:`setup(); go1519(); pick(2);`},
+
+  {g:'1545 을사사화', t:'선택 화면',                r:`setup(); go1545();`},
+  {g:'1545 을사사화', t:'① 대윤에 서다 (사망)',      r:`setup(); go1545(); pick(0);`},
+  {g:'1545 을사사화', t:'② 소윤에 붙다 (권력)',      r:`setup(); go1545(); pick(1);`},
+  {g:'1545 을사사화', t:'③ 제비뽑기 화면',           r:`setup(); go1545(); pick(2);`},
+  {g:'1545 을사사화', t:'③ 연루되다 (사망)',         r:`setup(); forceLot(true); go1545(); pick(2);`},
+  {g:'1545 을사사화', t:'③ 살아남다',                r:`setup(); forceLot(false); go1545(); pick(2);`},
+
+  {g:'1575 붕당',   t:'이조 전랑 — 선택 화면',      r:`setup(); go1575();`},
+
+  {g:'결말', t:'생존 — 동인',             r:`setup('local','dong'); S.rank=4; S.fame=5; fill(); finish();`},
+  {g:'결말', t:'생존 — 서인',             r:`setup('central','seo'); S.rank=7; S.fame=3; fill(); finish();`},
+  {g:'결말', t:'생존 — 서원 배향(名 8↑)', r:`setup('local','dong'); S.rank=1; S.fame=9; fill(); finish();`},
+  {g:'결말', t:'사망 — 학맥이 남다',       r:`setup('central','seo'); S.rank=3; S.fame=6; fill(); kill(1519,'기묘사화로 사사되다'); finish();`},
+  {g:'결말', t:'사망 + 배향(名 8↑)',       r:`setup('local','dong'); S.rank=2; S.fame=11; fill(); kill(1519,'기묘사화로 사사되다'); finish();`},
+];
+
+/* 각 iframe 전역에 심는 드라이버 헬퍼.
+   S/GAN은 let/const라 window 속성이 아니지만, 전역 스코프 eval에서는 보인다. */
+const DRIVER = `
+  window.setup = function(base, master){
+    reset();
+    S.ho='퇴헌'; S.master = master || 'dong'; S.base = base || 'central';
+    S.fame = S.base==='local' ? 2 : 0;
+    S.rank = S.base==='central' ? 2 : 0;
+    if(S.base==='local') S.seowon = true;
+    record(1498, S.ho + ', 사림의 길에 들다');
+    S.log[0].year = 0;
+  };
+  // 실제 흐름에서는 그 해 장면이 S.year를 이미 올려놓은 상태로 죽는다.
+  window.kill = function(y, cause){ S.year = y; die(y, cause); };
+  window.fill = function(){
+    record(1498,'입을 다물다'); record(1504,'화를 면하다');
+    record(1506,'반정의 조정에 서다'); record(1519,'말을 아끼다');
+    record(1545,'중립을 지키다'); record(1575,'전랑의 자리를 다투다');
+    S.year = 1575;
+  };
+  window.pick = function(i){
+    var b = document.querySelector('#ch button[data-i="'+i+'"]');
+    if(b) b.click();
+  };
+  window.__forceLot = null;
+  window.forceLot = function(v){ window.__forceLot = v; };
+  window.__origLots = lots;
+  lots = function(o){
+    if(window.__forceLot === null) return window.__origLots(o);
+    var f = window.__forceLot; window.__forceLot = null;
+    o.onDone(f);   // 제비 화면을 건너뛰고 결과 화면으로
+  };
+  window.__ready = true;
+`;
+
+const frames = [document.getElementById('pc'), document.getElementById('mb')];
+let idx = 0, ready = 0;
+
+frames.forEach(fr=>{
+  fr.addEventListener('load', ()=>{
+    try{ fr.contentWindow.eval(DRIVER); }catch(e){ showErr('드라이버 주입 실패: '+e.message); }
+    if(++ready === frames.length){ buildList(); show(idx); }
+  });
+});
+
+function showErr(m){ document.getElementById('err').textContent = m || ''; }
+
+function buildList(){
+  const box = document.getElementById('list');
+  let last = '';
+  box.innerHTML = SCENES.map((s,i)=>{
+    const head = s.g !== last ? `<div class="grp">${s.g}</div>` : '';
+    last = s.g;
+    return head + `<button class="item" data-i="${i}">${s.t}</button>`;
+  }).join('');
+  box.onclick = e=>{ const b = e.target.closest('.item'); if(b) show(+b.dataset.i); };
+}
+
+function show(i){
+  idx = (i + SCENES.length) % SCENES.length;
+  const sc = SCENES[idx];
+  showErr('');
+  frames.forEach(fr=>{
+    const W = fr.contentWindow;
+    if(!W || !W.__ready) return;
+    try{ W.eval(sc.r); W.scrollTo(0,0); }
+    catch(err){ showErr(fr.id.toUpperCase()+' 오류: '+err.message); }
+  });
+  document.getElementById('cap').textContent = sc.g + ' · ' + sc.t;
+  document.getElementById('num').textContent = (idx+1) + ' / ' + SCENES.length;
+  document.querySelectorAll('.item').forEach(b=>b.classList.toggle('on', +b.dataset.i === idx));
+  const on = document.querySelector('.item.on');
+  if(on) on.scrollIntoView({block:'nearest'});
+}
+
+document.getElementById('prev').onclick = ()=>show(idx-1);
+document.getElementById('next').onclick = ()=>show(idx+1);
+document.addEventListener('keydown', e=>{
+  if(e.target.tagName === 'INPUT') return;
+  if(e.key==='ArrowLeft')  show(idx-1);
+  if(e.key==='ArrowRight') show(idx+1);
+});
+
+/* PC·모바일 개별 표시 토글 */
+function wireToggle(btnId, devId){
+  const btn = document.getElementById(btnId), dev = document.getElementById(devId);
+  btn.onclick = ()=>{
+    const off = dev.classList.toggle('hide');
+    btn.classList.toggle('off', off);
+  };
+}
+wireToggle('tPc','pcDev');
+wireToggle('tMb','mbDev');
+
+/* 크기 슬라이더 — PC는 슬라이더 값, 모바일은 읽기 좋게 조금 더 크게 */
+document.getElementById('scale').oninput = e=>{
+  const s = +e.target.value / 100;
+  document.documentElement.style.setProperty('--s', s);
+  document.documentElement.style.setProperty('--ms', Math.min(1, s + .26));
+};
+</script>
+</body>
+</html>
