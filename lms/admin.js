@@ -372,14 +372,16 @@ async function dbLoad() {
       _dbMission = mSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || v.label || '', locked: v.locked === true, order: v.order ?? 999, lessonNum: v.lessonNum || '', autoOpenedAt: v.autoOpenedAt || null }; }).sort((a, b) => a.order - b.order);
     } else _dbMission = [];
 
-    // 수업일이 지난 강의와 미션을 자동 공개(설정이 켜져 있을 때만, 항목당 한 번만).
-    // 여기서 실패해도 대시보드 자체는 그대로 떠야 하므로 따로 감싼다.
-    try { await dbAutoOpenBySchedule(); } catch (e) { console.warn('수업일 자동 공개 실패:', e); }
-
     // 생각 체크 강의 (상위 10)
     const tlSnap = await getDocs(query(collection(db, 'think_lectures'), orderBy('createdAt', 'desc')));
     // order는 강 번호 기준 → 내림차순으로 강 번호 큰(최신) 강의가 맨 위. 개념 Check 카드와 방향 일치.
-    _dbThink = tlSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', isOpen: v.isOpen === true, order: v.order ?? -1, ungraded: 0 }; }).sort((a, b) => b.order - a.order).slice(0, 10);
+    // icon에 강의수("24"·"OT" 등)가 들어 있어 수업 스케줄 매칭에 쓴다(thScheduledDate와 같은 기준).
+    _dbThink = tlSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', isOpen: v.isOpen === true, order: v.order ?? -1, ungraded: 0, icon: v.icon || '', autoOpenedAt: v.autoOpenedAt || null }; }).sort((a, b) => b.order - a.order).slice(0, 10);
+
+    // 수업일이 지난 강의와 미션을 자동 공개(설정이 켜져 있을 때만, 항목당 한 번만).
+    // 개념·미션·생각 세 가지를 모두 보므로 _dbThink까지 채운 뒤에 부른다.
+    // 여기서 실패해도 대시보드 자체는 그대로 떠야 하므로 따로 감싼다.
+    try { await dbAutoOpenBySchedule(); } catch (e) { console.warn('수업일 자동 공개 실패:', e); }
 
     // 제출물: 강의별 미채점 수 + 오늘 제출 수
     // 미채점 중 가장 최근 제출이 어느 반인지도 같이 기억해 둔다("채점" 버튼이 그 반으로 바로 열리게).
@@ -431,7 +433,8 @@ async function dbLoad() {
 
 // ── 수업일 자동 공개 ──────────────────────────────────────────────
 // 수업 스케줄(class_progress/plan)에서 그 강의를 "가장 먼저 하는 반"의 수업일이 지나면,
-// 개념 체크 강의와 거기에 연결된(lessonNum) 미션 카드를 자동으로 공개로 돌린다.
+// 개념 체크 강의(num), 생각 체크 질문(icon), 거기에 연결된 미션 카드(lessonNum)를
+// 자동으로 공개로 돌린다. 셋 다 강의수를 들고 있어 같은 스케줄 행에 붙는다.
 // 서버가 없는 정적 사이트라 어드민 대시보드를 열 때 돌아간다 — 즉 수업 날 아침 정각이 아니라
 // 선생님이 그날 어드민을 여는 순간 반영된다.
 //
@@ -486,6 +489,18 @@ async function dbAutoOpenBySchedule() {
       _dbAutoOpened.push(cleanTitle(m.title));
     } catch (e) { console.warn('미션 카드 자동 공개 실패:', m.docId, e); }
   }
+
+  // 생각 체크 — 강의수가 icon에 들어 있다(지연 제출 판정의 thScheduledDate와 같은 기준).
+  for (const t of _dbThink) {
+    if (t.isOpen || t.autoOpenedAt || !t.icon) continue;
+    const d = dbEarliestLessonDate(t.icon);
+    if (!d || d > today) continue;
+    try {
+      await updateDoc(doc(db, 'think_lectures', t.docId), { isOpen: true, autoOpenedAt: serverTimestamp() });
+      t.isOpen = true; t.autoOpenedAt = true;
+      _dbAutoOpened.push(cleanTitle(t.title));
+    } catch (e) { console.warn('생각 체크 자동 공개 실패:', t.docId, e); }
+  }
 }
 
 window.dbToggleAutoOpen = async function(el) {
@@ -520,7 +535,7 @@ function dbRender() {
       <div class="th-toggle ${_dbAutoOpen ? 'on' : ''}" onclick="dbToggleAutoOpen(this)"></div>
       <div class="db-autoopen-text">
         <div class="db-autoopen-title">수업일 자동 공개</div>
-        <div class="db-autoopen-desc">수업 스케줄에서 가장 빠른 반의 수업일이 지나면 개념 체크 강의와 연결된 미션 카드를 자동으로 공개합니다. 항목마다 한 번만 열리므로, 나중에 비공개로 돌려도 다시 열리지 않습니다.</div>
+        <div class="db-autoopen-desc">수업 스케줄에서 가장 빠른 반의 수업일이 지나면 개념 체크, 생각 체크, 연결된 미션 카드를 자동으로 공개합니다. 항목마다 한 번만 열리므로, 나중에 비공개로 돌려도 다시 열리지 않습니다.</div>
       </div>
     </div>
     ${_dbAutoOpened.length ? `<div class="db-autoopen-done">수업일이 되어 ${_dbAutoOpened.length}개를 공개했습니다 — ${esc(_dbAutoOpened.join(', '))}</div>` : ''}
