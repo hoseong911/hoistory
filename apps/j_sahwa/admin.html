@@ -427,6 +427,8 @@ function paintRun(){
   const players = Object.values(ROOM.players || {});
   const answers = (ROOM.answers && ROOM.answers[phase]) || {};
   const answered = Object.keys(answers).length;
+  // 시간이 다 되어 자동으로 기록된 것(직접 고른 것과 구분해서 보여 준다)
+  const autoN = Object.values(answers).filter(a=>a && a.auto).length;
   // 살아 있는 학생만 선택 대상이다(죽은 학생은 관전)
   const expect = players.filter(p=>p.alive).length || players.length;
 
@@ -435,7 +437,7 @@ function paintRun(){
     <span class="ph">${PHASE_LABEL[phase] || phase}</span>
     <span class="st ${state}">${stName}</span>
     ${ROOM.endsAt ? `<span class="tmr" id="r-tmr">${fmtLeft(ROOM.endsAt-Date.now())}</span>` : ""}
-    <span class="cnt">제출 <b>${answered}</b> / ${expect}명</span>`;
+    <span class="cnt">제출 <b>${answered}</b> / ${expect}명${autoN ? ` <span style="font-size:12px;color:var(--hi-text-muted)">(시간 초과 ${autoN})</span>` : ""}</span>`;
   if(ROOM.endsAt){
     RTICK = setInterval(()=>{
       const el = $("#r-tmr"); if(!el){ clearInterval(RTICK); RTICK=null; return; }

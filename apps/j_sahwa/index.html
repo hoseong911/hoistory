@@ -379,6 +379,7 @@ const EVENTS = {
 
 "1498": {
   eyebrow:"제1화 무오사화", title:"스승의 글이 사초에 올랐다",
+  defaultKey:"silence",   /* 시간이 다 되도록 안 고르면 = 아무 말도 하지 않은 것 */
   situation:`사관 김일손이 스승 김종직의 「조의제문」을 사초에 실었다.
     항우에게 죽임을 당한 초나라 의제를 조문하는 글이라 하나, 조정은 이것을 달리 읽는다.
     의제는 단종이고 항우는 세조이니, 세조가 조카의 왕위를 빼앗은 일을 빗대어 꾸짖은 글이라는 것이다.
@@ -497,6 +498,7 @@ const EVENTS = {
 
 "1519": {
   eyebrow:"제4화 기묘사화", title:"조광조가 그대를 부른다",
+  defaultKey:"quiet",     /* 안 고르면 = 이름을 올리지 않은 것 */
   situation:`훈구에게 눌려 지내던 중종이 마침내 젊은 사림 조광조를 불러들였다. 조광조는 거침이 없다.
     <br><br>
     시험 성적이 아니라 사람됨을 보고 뽑겠다며 <b>현량과</b>를 열고, 반정 때 공도 없이 이름만 올린 자들의
@@ -559,6 +561,7 @@ const EVENTS = {
 
 "1545": {
   eyebrow:"제5화 을사사화", title:"외척과 외척이 맞붙었다",
+  defaultKey:"neutral",   /* 안 고르면 = 어느 편에도 서지 않은 것 */
   situation:`중종이 죽고 인종이 즉위했으나 여덟 달 만에 세상을 떠났다. 뒤를 이은 명종은 아직 열두 살,
     어머니 문정왕후가 대신 정사를 본다.
     <br><br>
@@ -617,6 +620,7 @@ const EVENTS = {
 
 "1575": {
   eyebrow:"제6화 붕당의 형성", title:"자리는 하나뿐이다",
+  defaultKey:"watch",     /* 안 고르면 = 다투지 않고 지켜본 것 */
   situation:`77년이 지났다. 훈구는 사라졌고 조정은 마침내 사림의 것이 되었다.
     그러나 이긴 자들에게는 이제 함께 싸울 상대가 없다.
     <br><br>
@@ -1072,32 +1076,51 @@ function roomRender(){
   // 사건 열림 — 아직 안 냈으면 선택, 냈으면 대기
   if(room.state === "open"){
     if(MODE.answered === phase + ":" + (room.round||0)){ paintSubmitted(ev, room); return; }
-    MODE.screen = "round";
-    playPhase(phase, P, (res, key)=>{
-      MODE.lastRes = res;
-      MODE.answered = phase + ":" + (room.round||0);
-      const ev2 = EVENTS[phase];
-      MODE.answeredLabel = (ev2.choices||[]).find(c=>c.key===key)?.label
-        || (ev2.shortOf && ev2.shortOf[key]) || key;
-      SahwaNet.submit(MODE.cls, phase, P.id, key, P);
-      // 서버가 되돌려 줄 때까지 기다리지 않고 바로 그린다(쓰기가 늦거나 실패해도 화면이 흔들리지 않게).
-      paintSubmitted(ev, ROOM && ROOM.phase ? ROOM : room);
-    });
+    MODE.screen = "round"; MODE.autoPicked = false;
+    playPhase(phase, P, (res, key)=> submitChoice(phase, room, res, key));
     // playPhase가 그린 뒤에 표시줄의 타이머만 덧붙인다
     $("#bar").innerHTML = barHTML(P, timerHTML(room));
-    startTick(room);
+    startTick(room, ()=> autoSubmit(phase, room));
     return;
   }
 
   paint(`<div class="wait"><div class="big">잠시 기다리시오<span class="dots"></span></div></div>`);
 }
 
+/* 고른 것을 서버에 올리고 곧바로 대기 화면으로 (서버 응답을 기다리지 않는다) */
+function submitChoice(phase, room, res, key){
+  const P = MODE.P, ev = EVENTS[phase];
+  MODE.lastRes = res;
+  MODE.answered = phase + ":" + (room.round||0);
+  MODE.answeredLabel = (ev.choices||[]).find(c=>c.key===key)?.label
+    || (ev.shortOf && ev.shortOf[key]) || key;
+  SahwaNet.submit(MODE.cls, phase, P.id, key, P, MODE.autoPicked);
+  paintSubmitted(ev, ROOM && ROOM.phase ? ROOM : room);
+}
+
+/* 시간이 다 되도록 안 골랐으면 "아무것도 하지 않은 것"에 해당하는 선지로 대신 낸다.
+   그냥 두면 그 학생만 다음 사건에서 상태가 비어 버린다. */
+function autoSubmit(phase, room){
+  const P = MODE.P, ev = EVENTS[phase];
+  if(!P.alive || MODE.answered === phase + ":" + (room.round||0)) return;
+  MODE.autoPicked = true;
+  if(ev.kind === "lots"){
+    const isBad = Math.random() < ev.bad / ev.n;
+    submitChoice(phase, room, ev.apply(P, isBad), ev.keyOf(isBad));
+    return;
+  }
+  const c = (ev.choices||[]).find(x=>x.key===ev.defaultKey) || (ev.choices||[])[0];
+  if(!c) return;
+  const res = c.lot ? c.apply(P, Math.random() < c.lot.bad / c.lot.n) : c.apply(P);
+  submitChoice(phase, room, res, c.key);
+}
+
 /* 이미 낸 학생이 보는 화면 */
 function paintSubmitted(ev, room){
   MODE.screen = "round";
   paint(`<div class="eyebrow">${ev.eyebrow}</div>
-    <h2>제출했다</h2>
-    <div class="picked"><div class="t">그대의 선택</div>${esc(MODE.answeredLabel||"")}</div>
+    <h2>${MODE.autoPicked ? "시간이 다 되었다" : "제출했다"}</h2>
+    <div class="picked"><div class="t">${MODE.autoPicked ? "고르지 않아 이렇게 기록되었다" : "그대의 선택"}</div>${esc(MODE.answeredLabel||"")}</div>
     <div class="wait"><div class="big">다른 이들을 기다리는 중<span class="dots"></span></div>
       <div class="sub">모두가 고르면 결과가 함께 공개된다.</div>
       ${roomRosterHTML(room)}</div>`, timerHTML(room));
@@ -1109,14 +1132,16 @@ function timerHTML(room){
   const left = room.endsAt - Date.now();
   return `<span class="timer ${left<15000?"low":""}" id="tmr">${fmtLeft(left)}</span>`;
 }
-function startTick(room){
+function startTick(room, onExpire){
   if(!room.endsAt) return;
   TICK = setInterval(()=>{
-    const el = $("#tmr"); if(!el){ clearInterval(TICK); TICK=null; return; }
+    const el = $("#tmr");
     const left = room.endsAt - Date.now();
-    el.textContent = fmtLeft(left);
-    el.classList.toggle("low", left < 15000);
-    if(left <= 0){ clearInterval(TICK); TICK=null; }
+    if(el){ el.textContent = fmtLeft(left); el.classList.toggle("low", left < 15000); }
+    if(left <= 0){
+      clearInterval(TICK); TICK = null;
+      if(onExpire) onExpire();
+    }
   }, 500);
 }
 
@@ -1193,9 +1218,9 @@ window.SahwaNet = {
     return set(ref(rtdb, `${ROOMS}/${cls}/players/${P.id}`), slim(P)).catch(()=>{});
   },
 
-  submit(cls, phase, sid, key, P){
+  submit(cls, phase, sid, key, P, auto){
     const u = {};
-    u[`${ROOMS}/${cls}/answers/${phase}/${sid}`] = { choice:String(key||""), at:serverTimestamp() };
+    u[`${ROOMS}/${cls}/answers/${phase}/${sid}`] = { choice:String(key||""), at:serverTimestamp(), auto:!!auto };
     u[`${ROOMS}/${cls}/players/${sid}`] = slim(P);
     return update(ref(rtdb), u).catch(()=>{});
   },
