@@ -119,6 +119,15 @@
 .iv-star-ic svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
 .thc-star-n { font-size: 18px; font-weight: 800; color: var(--hi-text); }
 
+/* ── 답변 수정 모달 ──
+   공용 .scoring-modal-textarea는 높이가 220px이라 답변이 여러 개면 너무 길어진다.
+   이 모달 안에서만 낮춰 쓴다. */
+.edit-modal-meta { font-size: 13px; color: var(--hi-text); margin-bottom: 16px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.edit-modal-body { display: flex; flex-direction: column; gap: 14px; }
+.edit-q-block { display: flex; flex-direction: column; gap: 6px; }
+.edit-q-label { font-size: 13px; font-weight: 700; color: var(--hi-text-muted); line-height: 1.5; }
+#edit-modal-backdrop .scoring-modal-textarea { height: 96px; }
+
 /* ── 반 필터 ── */
 .class-filter { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; margin-bottom: 16px; }
 .cf-btn { padding: 6px 14px; border-radius: 10px; border: 1.5px solid var(--hi-border); background: none; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--hi-text-muted); cursor: pointer; transition: all .15s; }
@@ -305,7 +314,7 @@
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import{getFirestore,doc,getDoc,setDoc,deleteDoc,collection,onSnapshot,writeBatch,updateDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{getFirestore,doc,getDoc,getDocs,setDoc,deleteDoc,collection,onSnapshot,writeBatch,updateDoc,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import{getDatabase,ref,get,set}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import{getStorage,ref as sRef,uploadBytes,getDownloadURL}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
@@ -849,7 +858,7 @@ function renderStudentList(){
           <button class="std-pick${picked?' picked':''}" data-sid="${s.studentId}" onclick="togglePickStatus(this,'${s.studentId}',${picked})">
             <span style="color:${picked?'#eab308':'#cbd5e1'}">${icon('star',18)}</span>
           </button>
-          <button class="std-edit">${icon('pencil',16)}</button>
+          <button class="std-edit" title="답변 수정" onclick="openEditAnswer('${s.studentId}')">${icon('pencil',16)}</button>
           <button class="std-del" onclick="deleteAnswer('${s.studentId}')">${icon('x',16)}</button>
         </div>
       </div>
@@ -892,7 +901,112 @@ window.deleteAnswer=async(sid)=>{
   catch(e){alert('오류: '+e.message);}
 };
 
-window.exportExcel=()=>{alert('엑셀 내보내기 기능은 준비 중입니다.');};
+/* ─ 답변 수정 (카드의 연필 버튼) ─
+   학생이 낸 답변을 선생님이 직접 고친다. 오타나 잘못 붙여넣은 답변을 학생을 다시
+   부르지 않고 정리하려는 용도. 질문 목록은 그 학생이 고른 인물 기준으로 만든다. */
+let _editSid=null;
+window.openEditAnswer=(sid)=>{
+  const s=students.find(x=>String(x.studentId)===String(sid));
+  if(!s){alert('학생 정보를 찾지 못했습니다.');return;}
+  _editSid=String(sid);
+  const char=CONTENT.characters.find(c=>c.id===s.charId);
+  const qs=char?.questions||[];
+  const answers=s.answers||{};
+  document.getElementById('edit-modal-meta').innerHTML=
+    `<span class="amc-chip">${escHtml(String(classNumOf(s.studentId)||'?'))}반</span> `
+    +`<b>${escHtml(s.name||'')}</b> ${escHtml(s.studentId||'')}`
+    +(char?` <span style="opacity:.7">— ${escHtml(char.name)}</span>`:' <span style="opacity:.7">— 인물 미선택</span>');
+  const body=document.getElementById('edit-modal-body');
+  if(!qs.length){
+    // 인물을 안 골랐거나 인물이 지워진 경우. 남아 있는 답변만이라도 고칠 수 있게 한다.
+    const keys=Object.keys(answers).sort((a,b)=>+a-+b);
+    body.innerHTML=keys.length
+      ? keys.map(k=>`<div class="edit-q-block"><div class="edit-q-label">답변 ${+k+1}</div>
+          <textarea class="scoring-modal-textarea edit-a" data-qi="${k}">${escHtml(answers[k]||'')}</textarea></div>`).join('')
+      : '<div class="no-data">이 학생은 아직 제출한 답변이 없습니다.</div>';
+  } else {
+    body.innerHTML=qs.map((q,qi)=>`<div class="edit-q-block">
+      <div class="edit-q-label">Q${qi+1}. ${escHtml(q)}</div>
+      <textarea class="scoring-modal-textarea edit-a" data-qi="${qi}" placeholder="미작성">${escHtml(answers[qi]||'')}</textarea>
+    </div>`).join('');
+  }
+  // 심화 질문은 이 문서가 아니라 interview_joseon_deep 컬렉션에 따로 있어서 여기서 손대지 않는다.
+  const msg=document.getElementById('edit-modal-msg');
+  msg.textContent=''; msg.style.color='var(--hi-text-muted)';
+  document.getElementById('edit-modal-backdrop').classList.add('open');
+};
+window.closeEditModal=()=>{
+  document.getElementById('edit-modal-backdrop').classList.remove('open');
+  _editSid=null;
+};
+window.saveEditedAnswer=async()=>{
+  if(!_editSid)return;
+  const msg=document.getElementById('edit-modal-msg');
+  const tas=[...document.querySelectorAll('#edit-modal-body .edit-a')];
+  const answers={};
+  tas.forEach(ta=>{answers[ta.dataset.qi]=ta.value.trim();});
+  const payload={answers,editedByAdmin:true,editedAt:serverTimestamp()};
+  msg.style.color='var(--hi-text-muted)'; msg.textContent='저장 중…';
+  try{
+    await updateDoc(doc(db,'interview_joseon_answers',_editSid),payload);
+    msg.style.color='var(--hi-positive)'; msg.textContent='저장되었습니다.';
+    setTimeout(closeEditModal,700);
+  }catch(e){msg.style.color='var(--hi-negative)'; msg.textContent='저장 실패: '+e.message;}
+};
+
+/* ─ 엑셀 내보내기 (CSV) ─
+   지금 화면에 보이는 목록(반 필터·픽 모아보기 반영)을 학번순으로 내려받는다.
+   엑셀이 UTF-8로 열도록 맨 앞에 BOM을 붙인다. */
+function csvCell(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';}
+window.exportExcel=async()=>{
+  let list=filteredStudents();
+  if(answerPickOnly)list=list.filter(s=>s.picked);
+  if(!list.length){alert('내보낼 답변이 없습니다.');return;}
+  list=[...list].sort((a,b)=>String(a.studentId||'').localeCompare(String(b.studentId||''),undefined,{numeric:true}));
+
+  // 심화 질문은 답변 문서가 아니라 interview_joseon_deep에 따로 쌓인다. 심화 질문 탭을
+  // 한 번도 안 열었어도 내보내기에는 들어가야 하므로 여기서 직접 한 번 읽는다.
+  const deepByStudent={};
+  try{
+    const snap=await getDocs(collection(db,'interview_joseon_deep'));
+    snap.forEach(d=>{
+      const v=d.data(); const k=String(v.studentId||'');
+      if(!k||!v.question)return;
+      (deepByStudent[k]=deepByStudent[k]||[]).push(String(v.question).trim());
+    });
+  }catch(e){/* 못 읽으면 심화 질문 칸만 빈다 */}
+
+  // 인물마다 질문 수가 달라서, 가장 많은 인물에 맞춰 질문/답변 열을 만든다.
+  const maxQ=Math.max(1,...CONTENT.characters.map(c=>(c.questions||[]).length));
+  const head=['반','학번','이름','인물','상태','PICK','제출시각'];
+  for(let i=0;i<maxQ;i++)head.push(`질문${i+1}`,`답변${i+1}`);
+  head.push('심화 질문');
+
+  const ST={pass:'통과',fail:'미흡'};
+  const rows=list.map(s=>{
+    const char=CONTENT.characters.find(c=>c.id===s.charId);
+    const qs=char?.questions||[];
+    const answers=s.answers||{};
+    const r=[
+      classNumOf(s.studentId)||'', s.studentId||'', s.name||'',
+      char?char.name:(s.charName||''), ST[s.status]||'미채점',
+      s.picked?'O':'', formatSubmitTime(s)
+    ];
+    for(let i=0;i<maxQ;i++)r.push(qs[i]||'', (answers[i]||'').trim());
+    r.push((deepByStudent[String(s.studentId||'')]||[]).join(' / '));
+    return r;
+  });
+
+  // 엑셀이 UTF-8로 열도록 BOM(﻿)을 맨 앞에 붙인다.
+  const csv='﻿'+[head,...rows].map(r=>r.map(csvCell).join(',')).join('\r\n');
+  const d=new Date();
+  const stamp=`${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`;
+  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  const a=document.createElement('a');
+  a.href=url; a.download=`조선의기틀_답변_${stamp}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+};
 
 window.runAiPick=async()=>{
   const candidates=filteredStudents().filter(s=>s.charId&&s.answers&&Object.values(s.answers).some(v=>v&&v.trim()));
@@ -1036,6 +1150,20 @@ function formatSubmitTime(s){
     <div class="scoring-modal-footer">
       <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="closeSettingsModal()">취소</button>
       <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="saveSettings()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 답변 수정 모달 (답변 카드의 연필 버튼) -->
+<div class="scoring-modal-backdrop" id="edit-modal-backdrop" onclick="if(event.target===this)closeEditModal()">
+  <div class="scoring-modal">
+    <div class="scoring-modal-title">답변 수정</div>
+    <div class="edit-modal-meta" id="edit-modal-meta"></div>
+    <div class="edit-modal-body" id="edit-modal-body"></div>
+    <div class="scoring-modal-msg" id="edit-modal-msg"></div>
+    <div class="scoring-modal-footer">
+      <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="closeEditModal()">취소</button>
+      <button class="hi-btn hi-btn-primary hi-btn-sm" onclick="saveEditedAnswer()">저장</button>
     </div>
   </div>
 </div>
