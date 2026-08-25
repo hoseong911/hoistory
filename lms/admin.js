@@ -389,15 +389,7 @@ async function dbLoad() {
     const xpSnap = await get(ref(rtdb, `${XP_ROOT}/students`));
     const xp = xpSnap.exists() ? (xpSnap.val() || {}) : {};
     let attend = 0, review = 0;
-    // 복습 퀴즈는 강의당 여러 번 받을 수 있어 날짜 필드(lastTypingReview)를 쓰지 않는다.
-    // 오늘 한 번이라도 적립한 학생 수를 히스토리에서 센다(횟수가 아니라 인원).
-    Object.entries(xp).forEach(([sid, x]) => {
-      if (!x || isTestId(sid)) return;
-      if (x.lastAttendance === today) attend++;
-      const did = Object.values(x.history || {})
-        .some(e => e && e.type === 'typingReview' && e.ts && kstDate(e.ts) === today);
-      if (did) review++;
-    });
+    Object.entries(xp).forEach(([sid, x]) => { if (!x || isTestId(sid)) return; if (x.lastAttendance === today) attend++; if (x.lastTypingReview === today) review++; });
     _dbToday = { attend, thinkSubmit, review };
 
     // 공지사항(패치노트 리스트, 최신 10건)
@@ -5968,7 +5960,7 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
 import { loadXPConfig, saveXPConfig, adminAddXP, adminRemoveXPEntries, DEFAULT_LEVELS, DEFAULT_FORMULA, DEFAULT_ACTIVITIES, calcLevel } from '../shared/xp.js';
 
 const XP_ROOT = 'xp';
-const ACT_LABELS = { attendance:'출석 체크', mileage:'히스토리 마일리지', thinkCheck:'생각 체크', typingReview:'타이핑 복습 (강의당 10회)', oxQuiz:'OX 퀴즈 (일일 최대)' };
+const ACT_LABELS = { attendance:'출석 체크', mileage:'히스토리 마일리지', thinkCheck:'생각 체크', typingReview:'타이핑 복습 (일일 1회, 강의당 10회까지)', oxQuiz:'OX 퀴즈 (일일 최대)' };
 const fbFns = { ref, get, set, push, update, onValue };
 
 let _xpCfg    = null;

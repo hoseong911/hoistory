@@ -680,8 +680,9 @@ async function init() {
   }
 
   // 완료 버튼을 눌렀을 때만 채점하고, 90% 이상이면 XP를 적립한다(신원(sid)이 있을 때만 대상).
-  // 한 강의에서 XP를 받을 수 있는 횟수는 정해져 있지만(xp.js의 perLectureMax) 복습 참여 자체는
-  // 횟수 제한이 없어, 상한을 넘긴 뒤에도 채점 결과는 그대로 보여준다. 입력 도중에는 지급하지 않는다.
+  // XP는 하루 1회 + 한 강의로는 총 10회까지만 붙지만(xp.js 참고) 복습 참여 자체는 제한이 없어,
+  // 상한을 넘긴 뒤에도 채점 결과는 그대로 보여준다. 입력 도중에는 지급하지 않는다.
+  // 어느 경우든 결과 토스트가 자동으로 떴다가 스스로 사라진다.
   completeBtn.addEventListener('click', finishTypingReview);
   async function finishTypingReview() {
     const inputs  = slidesEl.querySelectorAll('.blank-input');
@@ -700,15 +701,19 @@ async function init() {
     }
     typingXpBusy = true;
     try {
-      const res = await addTypingReviewXP(XP_NUM); // 상한을 넘겼으면 null
-      if (res) {
+      const res = await addTypingReviewXP(XP_NUM);
+      if (res && res.pt) {
         const sub = [
           res.levelUp ? `레벨 업! Lv.${res.newLevel}` : '',
           res.max ? `이 강의 ${res.used}/${res.max}회` : ''
-        ].filter(Boolean).join(' · ');
+        ].filter(Boolean).join(', ');
         showTypingToast('party-popper', `타이핑 복습 완료! <b>+${res.pt} XP</b>`, sub);
+      } else if (res && res.blocked === 'lecture') {
+        showTypingToast('party-popper', `타이핑 복습 완료! (${correct} / ${total})`, `이 강의로 받을 수 있는 XP는 다 받았어요 (${res.used}/${res.max}회)`);
+      } else if (res && res.blocked === 'today') {
+        showTypingToast('party-popper', `타이핑 복습 완료! (${correct} / ${total})`, '오늘 XP는 이미 받았어요');
       } else {
-        showTypingToast('party-popper', `타이핑 복습 완료! (${correct} / ${total})`, '이 강의에서 받을 수 있는 XP는 다 받았어요');
+        showTypingToast('party-popper', `타이핑 복습 완료! (${correct} / ${total})`, '');
       }
     } catch (e) {
       showTypingToast('party-popper', `타이핑 복습 완료! (${correct} / ${total})`, '');
@@ -717,14 +722,24 @@ async function init() {
     }
   }
 
+  // 완료 버튼을 누르면 바로 뜨고 3.2초 뒤 저절로 사라진다. 연달아 눌러도 같은 자리에
+  // 겹쳐 쌓이지 않도록, 새로 띄우기 전에 떠 있던 토스트와 대기 중인 타이머를 정리한다.
+  let _toastTimers = [];
   function showTypingToast(iconName, mainHTML, subHTML, cls) {
+    _toastTimers.forEach(clearTimeout);
+    _toastTimers = [];
+    document.querySelectorAll('.typing-reward').forEach(old => old.remove());
+
     const el = document.createElement('div');
     el.className = 'typing-reward' + (cls ? ' ' + cls : '');
     el.innerHTML = `<div class="tr-main">${icon(iconName, 20)}<span>${mainHTML}</span></div>`
       + (subHTML ? `<div class="tr-sub">${subHTML}</div>` : '');
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('show'));
-    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 400); }, 3200);
+    _toastTimers.push(setTimeout(() => {
+      el.classList.remove('show');
+      _toastTimers.push(setTimeout(() => el.remove(), 400));
+    }, 3200));
   }
 
   // 빈칸 클릭 시 그 항목만 개별 공개(빈칸형 전용). 타이핑 모드에선 .blank가 숨겨져 입력칸이 대신 잡힌다.

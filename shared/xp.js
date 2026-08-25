@@ -15,7 +15,7 @@ export const DEFAULT_ACTIVITIES = {
   attendance:   { pt: 5,  enabled: true },
   mileage:      { pt: 20, enabled: true },
   thinkCheck:   { pt: 30, enabled: true }, // pt = 최대치. 실제 지급은 제출 AI 채점으로 10~pt 차등.
-  typingReview: { pt: 20, perLectureMax: 10, enabled: true }, // perLectureMax = 한 강의에서 XP를 받을 수 있는 최대 횟수(참여 자체는 무제한)
+  typingReview: { pt: 20, perLectureMax: 10, enabled: true }, // 하루 1회 + perLectureMax = 한 강의로 받을 수 있는 총 횟수(≈10일치)
   oxQuiz:       { ptPer: 1, dailyMax: 20, enabled: true },
 };
 
@@ -98,15 +98,16 @@ export function calcNextThreshold(total, levels, formula) {
 // gate를 주면 "읽고→확인→쓰기" 사이 시간차로 같은 지급이 여러 번 통과하는 레이스 컨디션을
 // 막기 위해 RTDB 트랜잭션 하나로 게이트 확인 + 합계 갱신 + 기록 추가를 원자적으로 처리한다.
 // (로그인 화면 연타, 다중 탭 등으로 같은 함수가 거의 동시에 여러 번 호출돼도 상한을 넘지 않음)
-// gate 형태 두 가지:
+// gate 형태:
 //   - 문자열: 날짜 게이트. cur[gate]가 오늘이면 중단(하루 1회)
-//   - { map, key, max }: 횟수 게이트. cur[map][key]가 max 이상이면 중단, 아니면 1 증가
+//   - { day, map, key, max }: 날짜 게이트(day, 선택) + 횟수 게이트를 함께 건다.
+//     cur[map][key]가 max 이상이면 중단, 통과하면 1 증가. 날짜 게이트에 막히면 횟수는 안 는다.
 export async function addXP(type, pt, note, gate) {
   if (!_rtdb || !_sid) return null;
   const base = `${XP_ROOT}/students/${_sid}`;
   const today   = _today();
-  const dayGate = typeof gate === 'string' ? gate : null;
-  const cap     = (gate && typeof gate === 'object') ? gate : null;
+  const dayGate = typeof gate === 'string' ? gate : (gate && gate.day) || null;
+  const cap     = (gate && typeof gate === 'object' && gate.map) ? gate : null;
   const histKey = _fb.push(_fb.ref(_rtdb, `${base}/history`)).key; // 키만 미리 뽑아둔다(트랜잭션 함수는 순수해야 함)
   let result = null;
   const txRes = await _fb.runTransaction(_fb.ref(_rtdb, base), cur => {
@@ -145,9 +146,15 @@ export async function addMileageXP() {
   return addXP('mileage', _config.activities.mileage.pt ?? 20, '히스토리 마일리지 완주', 'lastMileage');
 }
 
-// 타이핑 복습: 한 강의당 최대 perLectureMax회(기본 10회)까지만 XP를 준다. 상한에 도달해도
-// 참여 자체는 막지 않으며(호출부가 null을 받고 XP 없이 진행), 횟수는 강의별로 따로 센다.
+// 타이핑 복습: 하루 1회(lastTypingReview 날짜 게이트, 강 무관)를 그대로 두고, 여기에
+// "한 강의로는 총 perLectureMax회(기본 10회)까지" 상한을 더한다. 즉 같은 강의로는 최대
+// 10일치만 채울 수 있고, 그 뒤로는 그 강의를 아무리 복습해도 XP가 붙지 않는다.
+// 참여 자체는 어느 쪽 상한에도 막히지 않는다(호출부가 XP 없이 채점 결과만 보여줌).
 // 누적 횟수 저장 위치: xp/students/{sid}/typingReviewCounts/{강의번호}
+//
+// 반환값: 지급 성공 시 addXP의 결과({pt, used, max, ...}),
+//         못 받았으면 이유를 담은 { blocked: 'today' | 'lecture', used, max },
+//         비활성/강의번호 없음 등은 null.
 export async function addTypingReviewXP(lectureNum) {
   const act = _config?.activities?.typingReview;
   if (!act?.enabled) return null;
@@ -155,7 +162,21 @@ export async function addTypingReviewXP(lectureNum) {
   if (!key) return null; // 강의 번호를 모르면 어느 강의 몫인지 셀 수 없으므로 지급하지 않는다
   const max = Number(act.perLectureMax ?? DEFAULT_ACTIVITIES.typingReview.perLectureMax) || 0;
   if (max <= 0) return null;
-  return addXP('typingReview', act.pt ?? 20, '타이핑 복습', { map: 'typingReviewCounts', key, max });
+
+  const res = await addXP('typingReview', act.pt ?? 20, '타이핑 복습',
+    { day: 'lastTypingReview', map: 'typingReviewCounts', key, max });
+  if (res) return res;
+
+  // 못 받았을 때 "오늘 이미 받음"인지 "이 강의 상한 소진"인지 구분해서 알려준다
+  // (안내 문구가 달라야 하므로 한 번 더 읽는다).
+  try {
+    const snap = await _fb.get(_fb.ref(_rtdb, `${XP_ROOT}/students/${_sid}`));
+    const cur  = snap.exists() ? (snap.val() || {}) : {};
+    const used = Number((cur.typingReviewCounts || {})[key]) || 0;
+    if (used >= max) return { blocked: 'lecture', used, max };
+    if (cur.lastTypingReview === _today()) return { blocked: 'today', used, max };
+  } catch (e) { /* 읽기 실패 시엔 이유 없이 처리 */ }
+  return null;
 }
 
 // RTDB 키로 쓸 수 없는 문자(. # $ [ ] /)를 치환한 강의 키
