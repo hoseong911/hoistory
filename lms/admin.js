@@ -4488,14 +4488,13 @@ function renderGradeSettings() {
   }).join('');
 }
 
-// 반영 시각 표기 — 올해면 "8월 25일 14:32", 해가 다르면 연도까지 붙인다.
+// 반영 시각 표기 — mm/dd HH:MM
 function gradePublishedAtText(ms) {
   if (!ms) return '';
   const d = new Date(ms);
   if (isNaN(d.getTime())) return '';
-  const hhmm = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-  const y = d.getFullYear() === new Date().getFullYear() ? '' : `${d.getFullYear()}년 `;
-  return `${y}${d.getMonth() + 1}월 ${d.getDate()}일 ${hhmm}`;
+  const p = n => String(n).padStart(2, '0');
+  return `${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
 // ── 성적 반영 바 ──
