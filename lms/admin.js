@@ -4873,6 +4873,10 @@ Object.assign(window, {
   openFeedbackTemplateModal, closeFeedbackTemplateModal,
   editFeedbackTemplate, resetTemplateForm, saveFeedbackTemplate, deleteFeedbackTemplate,
   applyFeedbackTemplate,
+  // 아래 다섯은 인라인 핸들러에서 부르는데 노출이 빠져 있어 눌러도 아무 일도 안 났다.
+  // dbLoad = 대시보드 "새로고침", autoResizeTa = 콘텐츠 편집 textarea 자동 높이,
+  // render*Preview / renderArchiveCards = 카드 편집 폼의 "취소".
+  dbLoad, autoResizeTa, renderMissionPreview, renderContentsPreview, renderArchiveCards,
 });
 
 // 정적 HTML에 박아둔 아이콘 자리(data-icon)를 SVG로 채운다. (shared/icons.js 공용 헬퍼)
