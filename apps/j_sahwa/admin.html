@@ -50,6 +50,48 @@ textarea.meta-input{resize:vertical}
 .btn-primary:hover{background:var(--sh-primary-deep)}
 .btn-ghost{background:none;border:1.5px solid var(--hi-border);color:var(--hi-text-muted)}
 .btn-ghost:hover{border-color:var(--hi-border-light);color:var(--hi-text)}
+
+/* ── 진행(RUN) ── */
+.run-top{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.run-sel{width:auto;min-width:9rem;flex:0 0 auto}
+.run-state{
+  background:var(--hi-bg-mid);border:1px solid var(--hi-border);border-radius:10px;
+  padding:14px 16px;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+}
+.run-state .ph{font-weight:800;font-size:16px}
+.run-state .st{
+  font-size:12px;font-weight:800;letter-spacing:.06em;padding:3px 10px;border-radius:100px;
+  background:var(--hi-bg);border:1px solid var(--hi-border);color:var(--hi-text-muted);
+}
+.run-state .st.open{background:rgba(255,107,61,.14);border-color:var(--sh-primary);color:var(--sh-primary)}
+.run-state .st.revealed{background:rgba(39,56,79,.14);border-color:var(--sh-accent);color:var(--sh-accent)}
+.run-state .tmr{font-family:ui-monospace,Consolas,monospace;font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.run-state .cnt{margin-left:auto;font-family:ui-monospace,Consolas,monospace;font-size:15px}
+.run-state .cnt b{font-size:20px;color:var(--sh-primary)}
+.run-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.run-stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.rs{background:var(--hi-bg-mid);border:1px solid var(--hi-border);border-radius:10px;padding:10px 16px;min-width:7rem}
+.rs .k{font-size:11px;font-weight:700;color:var(--hi-text-muted);letter-spacing:.08em;margin-bottom:3px}
+.rs .v{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+.rs.dong .v{color:#2E4A62}.rs.seo .v{color:#7A5C1E}
+
+.bar-row{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:13px}
+.bar-row .lb{width:9rem;flex:none;font-weight:700}
+.bar-row .tr{flex:1;height:14px;background:var(--hi-bg-mid);border:1px solid var(--hi-border);border-radius:100px;overflow:hidden}
+.bar-row .fl{height:100%;background:var(--sh-primary)}
+.bar-row .n{width:3rem;text-align:right;font-family:ui-monospace,Consolas,monospace;flex:none}
+
+.plist{display:grid;grid-template-columns:repeat(auto-fill,minmax(9rem,1fr));gap:6px;margin-top:14px}
+.pcell{
+  border:1px solid var(--hi-border);border-radius:8px;padding:6px 9px;font-size:12px;
+  display:flex;justify-content:space-between;gap:6px;background:var(--hi-bg-mid);
+}
+.pcell.gone{opacity:.5}
+.pcell.done{border-color:var(--sh-primary)}
+.pcell .h{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pcell .s{font-family:ui-monospace,Consolas,monospace;color:var(--hi-text-muted);flex:none}
+.sub-h{font-size:12px;font-weight:700;color:var(--hi-text-muted);letter-spacing:.08em;margin:16px 0 6px}
 </style>
   <script src="/hoistory/pwa.js"></script>
 </head>
@@ -78,7 +120,8 @@ textarea.meta-input{resize:vertical}
   <header class="adm-header">
     <div class="adm-logo">사화에서 살아남기<span class="adm-badge">관리자 모드</span></div>
     <div class="adm-tabs">
-      <button class="adm-tab active" data-tab="intro">INTRO</button>
+      <button class="adm-tab active" data-tab="run">RUN</button>
+      <button class="adm-tab" data-tab="intro">INTRO</button>
     </div>
     <div class="adm-right">
       <button class="adm-back" id="back-btn">목록으로</button>
@@ -88,7 +131,46 @@ textarea.meta-input{resize:vertical}
 
   <div class="adm-body">
   <div class="admin-container">
-    <div class="tab-panel active" id="tab-intro">
+
+    <!-- 진행 -->
+    <div class="tab-panel active" id="tab-run">
+      <div class="section-card">
+        <div class="section-title">반별 진행</div>
+        <div class="section-desc">사건을 열면 그 반 학생들의 화면이 동시에 바뀝니다. 시간이 끝나거나 "지금 공개"를 누르면 모두가 함께 결과를 봅니다.</div>
+
+        <div class="run-top">
+          <select class="meta-input run-sel" id="r-cls"></select>
+          <select class="meta-input run-sel" id="r-phase"></select>
+          <select class="meta-input run-sel" id="r-secs">
+            <option value="60">60초</option>
+            <option value="90" selected>90초</option>
+            <option value="120">120초</option>
+            <option value="180">180초</option>
+            <option value="0">시간 제한 없음</option>
+          </select>
+        </div>
+
+        <div class="run-state" id="r-state">방을 불러오는 중…</div>
+
+        <div class="run-btns">
+          <button class="btn btn-primary" id="r-open">사건 시작</button>
+          <button class="btn btn-ghost"   id="r-reveal">지금 공개</button>
+          <button class="btn btn-ghost"   id="r-more">30초 더</button>
+          <button class="btn btn-ghost"   id="r-next">다음 사건</button>
+          <button class="btn btn-ghost"   id="r-final">결말로</button>
+          <button class="btn btn-ghost"   id="r-reset" style="margin-left:auto;color:var(--hi-negative)">방 초기화</button>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">현황</div>
+        <div class="run-stats" id="r-stats"></div>
+        <div id="r-dist"></div>
+        <div id="r-players"></div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tab-intro">
 
       <div class="section-card">
         <div class="section-title">시작 화면 문구</div>
@@ -157,10 +239,12 @@ textarea.meta-input{resize:vertical}
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getDatabase, ref, update, remove, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { firebaseConfig } from "../../shared/firebase-config.js";
 
 const app  = initializeApp(firebaseConfig);
 const db   = getFirestore(app);
+const rtdb = getDatabase(app);
 const auth = getAuth(app);
 const isEmbedded = window.self !== window.top;
 const DOC = doc(db, "settings", "sahwa_content");
@@ -271,6 +355,137 @@ $("#reset-btn").addEventListener("click", ()=>{
   msg("기본 문구로 되돌렸습니다. 저장을 눌러야 반영됩니다.");
 });
 
+/* ══════════════════ 진행(RUN) ══════════════════ */
+const ROOMS = "sahwa_rooms";
+const PHASES = ["1498","1504","1506","1519","1545","1575"];
+const PHASE_LABEL = {
+  "lobby":"대기실","1498":"제1화 무오사화","1504":"제2화 갑자사화","1506":"제3화 중종반정",
+  "1519":"제4화 기묘사화","1545":"제5화 을사사화","1575":"제6화 붕당의 형성","final":"결말"
+};
+/* 학생 화면의 선지 key를 사람이 읽을 말로 (index.html의 EVENTS와 짝을 맞춘다) */
+const SHORT = {
+  "1498":{ defend:"스승을 옹호", silence:"침묵", betray:"스승을 고발" },
+  "1504":{ hwa:"화를 입음", myeon:"화를 면함" },
+  "1506":{ revive:"부활", lost:"돌아오지 못함", stay:"조정에 서다" },
+  "1519":{ reform:"개혁에 가담", quiet:"이름은 올리지 않음", retire:"낙향하여 서원" },
+  "1545":{ daeyun:"대윤", soyun:"소윤", neutral:"중립" },
+  "1575":{ contest:"직접 다툼", back:"같은 학맥을 밂", watch:"물러나 지켜봄" }
+};
+
+let RCLS = null, ROOM = {}, RUNSUB = null, RTICK = null;
+
+function fmtLeft(ms){
+  const s = Math.max(0, Math.ceil(ms/1000));
+  return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0");
+}
+function roomRef(p){ return ref(rtdb, `${ROOMS}/${RCLS}${p?"/"+p:""}`); }
+
+function initRun(){
+  const cls = $("#r-cls");
+  cls.innerHTML = [1,2,3,4,5,6,7,8,9].map(n=>`<option value="${n}">${n}반</option>`).join("");
+  $("#r-phase").innerHTML = PHASES.map(p=>`<option value="${p}">${PHASE_LABEL[p]}</option>`).join("");
+  cls.onchange = ()=> watchRoom(+cls.value);
+  watchRoom(+cls.value);
+
+  $("#r-open").onclick = ()=>{
+    const phase = $("#r-phase").value;
+    const secs  = +$("#r-secs").value;
+    update(roomRef(), {
+      phase, state:"open", round:(ROOM.round||0)+1,
+      endsAt: secs ? Date.now() + secs*1000 : null
+    });
+  };
+  $("#r-reveal").onclick = ()=> update(roomRef(), { state:"revealed", endsAt:null });
+  $("#r-more").onclick   = ()=> update(roomRef(), { endsAt: Math.max(Date.now(), ROOM.endsAt||Date.now()) + 30000 });
+  $("#r-next").onclick   = ()=>{
+    const i = PHASES.indexOf(String(ROOM.phase));
+    const nx = i>=0 && i<PHASES.length-1 ? PHASES[i+1] : "final";
+    $("#r-phase").value = PHASES.includes(nx) ? nx : PHASES[PHASES.length-1];
+    if(nx === "final") update(roomRef(), { phase:"final", state:"revealed", endsAt:null });
+    else update(roomRef(), { phase:nx, state:"open", round:(ROOM.round||0)+1,
+      endsAt: +$("#r-secs").value ? Date.now() + (+$("#r-secs").value)*1000 : null });
+  };
+  $("#r-final").onclick  = ()=> update(roomRef(), { phase:"final", state:"revealed", endsAt:null });
+  $("#r-reset").onclick  = async ()=>{
+    if(!confirm(`${RCLS}반 방을 초기화합니다.\n학생들의 진행 상황과 사초가 모두 지워집니다. 되돌릴 수 없습니다.`)) return;
+    await remove(roomRef());
+    // 학생 화면이 "빈 스냅샷"을 전송 실패로 오해하지 않도록 대기실 상태를 명시적으로 다시 써 준다.
+    await update(roomRef(), { phase:"lobby", state:"waiting", round:0, endsAt:null });
+  };
+}
+
+function watchRoom(cls){
+  if(RUNSUB){ RUNSUB(); RUNSUB = null; }
+  RCLS = cls;
+  RUNSUB = onValue(roomRef(), snap=>{ ROOM = snap.exists() ? snap.val() : {}; paintRun(); });
+}
+
+function paintRun(){
+  if(RTICK){ clearInterval(RTICK); RTICK = null; }
+  const phase = ROOM.phase ? String(ROOM.phase) : "lobby";
+  const state = ROOM.state || "waiting";
+  const players = Object.values(ROOM.players || {});
+  const answers = (ROOM.answers && ROOM.answers[phase]) || {};
+  const answered = Object.keys(answers).length;
+  // 살아 있는 학생만 선택 대상이다(죽은 학생은 관전)
+  const expect = players.filter(p=>p.alive).length || players.length;
+
+  const stName = state==="open" ? "진행 중" : state==="revealed" ? "공개됨" : "대기";
+  $("#r-state").innerHTML = `
+    <span class="ph">${PHASE_LABEL[phase] || phase}</span>
+    <span class="st ${state}">${stName}</span>
+    ${ROOM.endsAt ? `<span class="tmr" id="r-tmr">${fmtLeft(ROOM.endsAt-Date.now())}</span>` : ""}
+    <span class="cnt">제출 <b>${answered}</b> / ${expect}명</span>`;
+  if(ROOM.endsAt){
+    RTICK = setInterval(()=>{
+      const el = $("#r-tmr"); if(!el){ clearInterval(RTICK); RTICK=null; return; }
+      const left = ROOM.endsAt - Date.now();
+      el.textContent = fmtLeft(left);
+      if(left <= 0){ clearInterval(RTICK); RTICK=null; }
+    }, 500);
+  }
+
+  const alive = players.filter(p=>p.alive).length;
+  const dong  = players.filter(p=>p.master==="dong").length;
+  $("#r-stats").innerHTML = `
+    <div class="rs"><div class="k">들어온 사람</div><div class="v">${players.length}</div></div>
+    <div class="rs"><div class="k">생존</div><div class="v">${alive}</div></div>
+    <div class="rs"><div class="k">졸(卒)</div><div class="v">${players.length-alive}</div></div>
+    <div class="rs dong"><div class="k">동인</div><div class="v">${dong}</div></div>
+    <div class="rs seo"><div class="k">서인</div><div class="v">${players.length-dong}</div></div>`;
+
+  // 이번 사건의 선택 분포
+  const tally = {};
+  Object.values(answers).forEach(a=>{ const k=a.choice||"?"; tally[k]=(tally[k]||0)+1; });
+  const keys = Object.keys(tally);
+  $("#r-dist").innerHTML = keys.length ? `<div class="sub-h">이번 사건의 선택</div>` + keys
+    .sort((a,b)=>tally[b]-tally[a])
+    .map(k=>{
+      const n = tally[k], pct = answered ? Math.round(n/answered*100) : 0;
+      const lb = (SHORT[phase] && SHORT[phase][k]) || k;
+      return `<div class="bar-row"><span class="lb">${lb}</span>
+        <span class="tr"><span class="fl" style="width:${pct}%"></span></span>
+        <span class="n">${n}명</span></div>`;
+    }).join("") : `<div class="sub-h">이번 사건의 선택</div><div style="font-size:13px;color:var(--hi-text-muted)">아직 제출이 없습니다.</div>`;
+
+  $("#r-players").innerHTML = players.length ? `<div class="sub-h">학생</div>` +
+    `<div class="plist">` + players
+      .sort((a,b)=>String(a.id).localeCompare(String(b.id)))
+      .map(p=>`<div class="pcell ${p.alive?"":"gone"} ${answers[p.id]?"done":""}">
+        <span class="h">${p.ho || p.name || p.id}</span>
+        <span class="s">${p.rank}·${p.fame}</span></div>`).join("") + `</div>` : "";
+}
+
+/* 탭 전환 */
+document.querySelectorAll(".adm-tab").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll(".adm-tab").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
+  });
+});
+
 $("#back-btn").addEventListener("click", ()=>{
   if(isEmbedded && window.parent.closeAppAdmin) window.parent.closeAppAdmin();
   else location.href = "index.html";
@@ -281,6 +496,7 @@ function start(){
   $("#loginScreen").style.display = "none";
   $("#adminApp").classList.add("show");
   load();
+  initRun();
 }
 
 if(isEmbedded){
