@@ -389,7 +389,15 @@ async function dbLoad() {
     const xpSnap = await get(ref(rtdb, `${XP_ROOT}/students`));
     const xp = xpSnap.exists() ? (xpSnap.val() || {}) : {};
     let attend = 0, review = 0;
-    Object.entries(xp).forEach(([sid, x]) => { if (!x || isTestId(sid)) return; if (x.lastAttendance === today) attend++; if (x.lastTypingReview === today) review++; });
+    // 복습 퀴즈는 강의당 여러 번 받을 수 있어 날짜 필드(lastTypingReview)를 쓰지 않는다.
+    // 오늘 한 번이라도 적립한 학생 수를 히스토리에서 센다(횟수가 아니라 인원).
+    Object.entries(xp).forEach(([sid, x]) => {
+      if (!x || isTestId(sid)) return;
+      if (x.lastAttendance === today) attend++;
+      const did = Object.values(x.history || {})
+        .some(e => e && e.type === 'typingReview' && e.ts && kstDate(e.ts) === today);
+      if (did) review++;
+    });
     _dbToday = { attend, thinkSubmit, review };
 
     // 공지사항(패치노트 리스트, 최신 10건)
@@ -5724,7 +5732,7 @@ initAdmin();
           <button class="th-btn-ai" style="background:none;border:1.5px solid var(--c4,#B45309);color:var(--c4,#B45309)" onclick="thGoToGradeCheck()" title="이 강의 성적 체크로 이동"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:5px"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>성적 체크로</button>
           <span id="th-ai-status" style="font-size:13px;color:var(--sub);font-weight:700;min-height:18px"></span>
         </div>
-        <p style="font-size:12px;color:var(--slate);margin-bottom:12px;line-height:1.6">채점하면 점수가 고정됩니다. 기준과 모델을 바꿔 다시 매기려면 <b>재채점</b>을 누르세요(이전 포인트는 회수 후 재지급).</p>`;
+        <p style="font-size:12px;color:var(--slate);margin-bottom:12px;line-height:1.6">채점하면 점수가 고정됩니다. 기준과 모델을 바꿔 다시 매기려면 <b>재채점</b>을 누르세요(이전 지급 내역은 삭제되고 새 채점 내역만 남습니다).</p>`;
       if (!subs.length) { body.innerHTML = html + '<div class="empty-panel">이 반의 제출이 없습니다.</div>'; return; }
       html += subs.map(s => {
         const v = s.aiVerdict || '';
@@ -5889,7 +5897,8 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
       const local = (thSubs || []).find(x => x.subId === s.subId);
       if (local) { local.aiScore = score == null ? null : score; local.aiVerdict = verdict; local.aiPt = pt; local.xpAwarded = pt > 0; local.thGraded = true; }
       if (pt > 0) {
-        try { await adminAddXP(rtdb, s.id, s.name, pt, `생각 체크: ${cleanTitle(lec.title)}`, fbFns, _xpCfg.levels, _xpCfg.levelFormula); } catch (e) { console.warn(e); }
+        // src/lecId 표식을 남겨 두면 재채점 때 강의 제목이 바뀌었어도 이 기록만 골라 지울 수 있다.
+        try { await adminAddXP(rtdb, s.id, s.name, pt, `생각 체크: ${cleanTitle(lec.title)}`, fbFns, _xpCfg.levels, _xpCfg.levelFormula, { src: 'thinkCheck', lecId }); } catch (e) { console.warn(e); }
       }
     }
     for (const { s, verdict } of structFail) await commit(s, 0, verdict, null);
@@ -5910,7 +5919,9 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
     thUpdateGradeSummary(); thRenderGradeBody(); window.thRenderAnswerClass();
   };
 
-  // 재채점: 이미 채점된 제출의 점수를 초기화하고(지급된 포인트는 회수) 다시 채점한다.
+  // 재채점: 이미 채점된 제출의 점수를 초기화하고 다시 채점한다.
+  // 이전 지급은 "회수" 기록(마이너스 항목)을 새로 남기지 않고 원래 지급 기록 자체를 지운다 —
+  // 학생 경험치 내역에는 재채점 흔적 없이 새 채점 결과 한 줄만 남는다.
   window.thRegrade = async function() {
     const { lecId, cls } = thGradeCtx;
     const lec = thLectures.find(l => l.docId === lecId);
@@ -5918,17 +5929,24 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
     const clsNum = parseInt(cls, 10);
     const graded = (thSubs||[]).filter(s => s.lectureDocId === lecId && thClassNum(s.id) === clsNum && s.thGraded);
     if (!graded.length) return;
-    if (!confirm(`${cls}반 ${graded.length}명의 채점을 초기화하고 다시 채점합니다.\n이미 지급된 포인트는 회수한 뒤 새 기준으로 재지급됩니다. 진행할까요?`)) return;
+    if (!confirm(`${cls}반 ${graded.length}명의 채점을 초기화하고 다시 채점합니다.\n이전 지급 내역은 삭제되고 새 채점 내역만 남습니다. 진행할까요?`)) return;
 
     const statusEl = document.getElementById('th-ai-status');
     document.querySelectorAll('.th-btn-ai').forEach(b => b.disabled = true);
     if (statusEl) statusEl.textContent = '이전 채점 초기화 중…';
     await xpEnsureConfig();
 
+    // 이 강의의 생각 체크 지급 기록을 찾는 조건.
+    // src/lecId 표식은 이 기능 이후 지급분에만 있으므로, 그 전 기록은 note로 잡는다.
+    // note에는 이전 방식이 남긴 "…재채점(이전 점수 회수)" 마이너스 항목도 포함시켜야
+    // 남은 마이너스 때문에 누적 XP가 깎인 채로 남지 않는다.
+    const lecTitle = cleanTitle(lec.title);
+    const legacyNotes = [`생각 체크: ${lecTitle}`, `생각 체크 재채점(이전 점수 회수): ${lecTitle}`];
+    const isThisLecture = e =>
+      (e.src === 'thinkCheck' && e.lecId === lecId) || legacyNotes.includes(e.note);
+
     for (const s of graded) {
-      if (s.aiPt > 0) {
-        try { await adminAddXP(rtdb, s.id, s.name, -s.aiPt, `생각 체크 재채점(이전 점수 회수): ${cleanTitle(lec.title)}`, fbFns, _xpCfg.levels, _xpCfg.levelFormula); } catch (e) { console.warn(e); }
-      }
+      try { await adminRemoveXPEntries(rtdb, s.id, isThisLecture, fbFns, _xpCfg.levels, _xpCfg.levelFormula); } catch (e) { console.warn(e); }
       try {
         await updateDoc(doc(db, 'think_submissions', s.subId), { thGraded: false, aiPt: null, aiScore: null, aiVerdict: null, xpAwarded: false });
       } catch (e) {}
@@ -5947,10 +5965,10 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
 // ══════════════════════════════════════════════════════════════
 // 경험치 관리
 // ══════════════════════════════════════════════════════════════
-import { loadXPConfig, saveXPConfig, adminAddXP, DEFAULT_LEVELS, DEFAULT_FORMULA, DEFAULT_ACTIVITIES, calcLevel } from '../shared/xp.js';
+import { loadXPConfig, saveXPConfig, adminAddXP, adminRemoveXPEntries, DEFAULT_LEVELS, DEFAULT_FORMULA, DEFAULT_ACTIVITIES, calcLevel } from '../shared/xp.js';
 
 const XP_ROOT = 'xp';
-const ACT_LABELS = { attendance:'출석 체크', mileage:'히스토리 마일리지', thinkCheck:'생각 체크', typingReview:'타이핑 복습 (일일 1회)', oxQuiz:'OX 퀴즈 (일일 최대)' };
+const ACT_LABELS = { attendance:'출석 체크', mileage:'히스토리 마일리지', thinkCheck:'생각 체크', typingReview:'타이핑 복습 (강의당 10회)', oxQuiz:'OX 퀴즈 (일일 최대)' };
 const fbFns = { ref, get, set, push, update, onValue };
 
 let _xpCfg    = null;
