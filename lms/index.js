@@ -8,10 +8,11 @@ import { getDatabase, ref as rtdbRef, get as rtdbGet, set as rtdbSet, push as rt
 import { initAuth, verifyStudentId, verifyStudentName, isStudentMapLoaded } from "../shared/auth.js";
 import "../shared/offline.js";
 import { firebaseConfig } from "../shared/firebase-config.js";
-import { initXP, onXPChange, checkAndAddAttendance } from "../shared/xp.js";
+import { initXP, onXPChange, checkAndAddAttendance, calcLevel } from "../shared/xp.js";
 import { findBadWord } from "../shared/profanity.js";
 import { icon } from "../shared/icons.js";
 import { blockPaste } from "../shared/textLimit.js";
+import { typingBlockReason } from "../shared/util.js?v=20260826";
 
 // 학생 화면 복사/붙여넣기·우클릭 차단(부정행위 방지). 관리자(admin.html)는 대상 아님.
 blockPaste(document);
@@ -23,6 +24,14 @@ const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctio
 const app  = initializeApp(firebaseConfig);
 const db   = getFirestore(app);
 const rtdb = getDatabase(app);
+
+// ── 서버 시각 보정 ──
+// 복습하기 시간 제한이 기기 시계를 바꾸는 것만으로 뚫리지 않도록, RTDB가 알려주는
+// 서버-기기 시각 차이를 받아 두고 시간 판정에는 항상 serverNow()를 쓴다.
+let _serverTimeOffset = 0;
+function serverNow() { return Date.now() + _serverTimeOffset; }
+rtdbOnValue(rtdbRef(rtdb, '.info/serverTimeOffset'), s => { _serverTimeOffset = s.val() || 0; }, () => {});
+
 initAuth(rtdb);
 
 // ── 접속 제한(점검 모드): 로그인 여부와 무관하게 즉시 화면을 가린다 ──
@@ -438,21 +447,82 @@ function _xpBuildRanking(studentsObj, testIds) {
   list.forEach((e, i) => { e.rank = (prev && _xpSameRank(prev, e)) ? prev.rank : i + 1; prev = e; });
   return list;
 }
+// 모달을 한 번 열 때 학생 전체를 한 번만 읽어, 헤드의 '현재 랭킹'과 랭킹 탭이 같은 결과를 쓴다.
+let _rankLoad = null;
+function _loadRanking() {
+  if (_rankLoad) return _rankLoad;
+  _rankLoad = (async () => {
+    const testIds = await _loadRankTestIds();
+    const snap = await rtdbGet(rtdbRef(rtdb, 'xp/students'));
+    const all  = snap.exists() ? (snap.val() || {}) : {};
+    return { testIds, ranked: _xpBuildRanking(all, testIds) };
+  })();
+  return _rankLoad;
+}
+
 async function _updateRankStat() {
   const el = document.getElementById('xpHistRank');
   if (!el) return;
   try {
-    const testIds = await _loadRankTestIds();
+    const { testIds, ranked } = await _loadRanking();
     if (testIds.has(String(currentStudentId).trim())) { el.textContent = '제외'; return; }
-    const snap = await rtdbGet(rtdbRef(rtdb, 'xp/students'));
-    const all  = snap.exists() ? (snap.val() || {}) : {};
-    const ranked = _xpBuildRanking(all, testIds);
-    const mine   = ranked.find(e => e.sid === String(currentStudentId));
+    const mine = ranked.find(e => e.sid === String(currentStudentId));
     if (!mine) { el.textContent = '-'; return; }
     const shared = ranked.filter(e => e.rank === mine.rank).length > 1;
     el.textContent = `${shared ? '공동 ' : ''}${mine.rank}위`;
   } catch (e) { el.textContent = '-'; }
 }
+
+// ── 포인트 랭킹 탭 (1~10등만 노출) ──
+// 경험치=레벨, 포인트=누적 XP. 순위 규칙은 '현재 랭킹'과 동일(_xpBuildRanking).
+function _xpRankRowHTML(e) {
+  const s    = e.data || {};
+  const lv   = s.level || calcLevel(s.total || 0);
+  const me   = e.sid === String(currentStudentId);
+  const cls  = ['xp-rank-row', e.rank <= 3 ? `top${e.rank}` : '', me ? 'is-me' : ''].filter(Boolean).join(' ');
+  return `<div class="${cls}">
+    <span class="xp-rank-no">${e.rank}</span>
+    <span class="xp-rank-who">
+      <span class="xp-rank-name">${esc(s.name || '')}</span>
+      <span class="xp-rank-sid">${esc(e.sid)}</span>
+    </span>
+    <span class="xp-rank-lv">Lv.${lv}</span>
+    <span class="xp-rank-pt">${(s.total || 0).toLocaleString()} pt</span>
+  </div>`;
+}
+
+async function _renderXPRanking() {
+  const box = document.getElementById('xpRankList');
+  if (!box) return;
+  box.innerHTML = '<div class="xp-rank-empty">로딩 중...</div>';
+  try {
+    const { ranked } = await _loadRanking();
+    // 공동 순위 때문에 10등이 여러 명일 수 있으므로 개수가 아니라 등수로 자른다.
+    const top = ranked.filter(e => e.rank <= 10);
+    if (!top.length) { box.innerHTML = '<div class="xp-rank-empty">아직 랭킹이 없어요.</div>'; return; }
+    box.innerHTML = `<div class="xp-rank-head">
+        <span class="xp-rank-no">순위</span>
+        <span class="xp-rank-who">학번 / 이름</span>
+        <span class="xp-rank-h-lv">경험치</span>
+        <span class="xp-rank-h-pt">포인트</span>
+      </div>` + top.map(_xpRankRowHTML).join('');
+  } catch (e) {
+    box.innerHTML = '<div class="xp-rank-empty">랭킹을 불러올 수 없어요.</div>';
+  }
+}
+
+// 탭 전환. 랭킹은 처음 열 때만 그린다(같은 캐시를 쓰므로 재조회 없음).
+let _rankDrawn = false;
+window._switchXPTab = function(kind) {
+  const onRank = kind === 'rank';
+  const title = document.querySelector('#xpHistoryModal .xp-hist-title');
+  if (title) title.textContent = onRank ? '포인트 랭킹' : '경험치 내역';
+  document.getElementById('xpTabHistory').classList.toggle('is-on', !onRank);
+  document.getElementById('xpTabRank').classList.toggle('is-on', onRank);
+  document.getElementById('xpHistList').hidden = onRank;
+  document.getElementById('xpRankList').hidden = !onRank;
+  if (onRank && !_rankDrawn) { _rankDrawn = true; _renderXPRanking(); }
+};
 
 function _xpItemHTML(r) {
   const d  = new Date(r.ts || 0);
@@ -476,6 +546,8 @@ function _xpItemHTML(r) {
 async function _openXPHistory() {
   const modal = document.getElementById('xpHistoryModal');
   modal.classList.add('open');
+  _rankLoad = null; _rankDrawn = false; // 열 때마다 최신 랭킹으로 다시 받는다
+  window._switchXPTab('history');
   _updateRankStat();
   const list = document.getElementById('xpHistList');
   list.innerHTML = '<div style="padding:24px;text-align:center;color:#9CA3AF;font-size:13px">로딩 중...</div>';
@@ -1410,6 +1482,7 @@ const _cpEl = document.getElementById('conceptPicker');
 function openConceptPicker(item) {
   _cpItem = item;
   document.getElementById('cpTitle').textContent = item.label || '';
+  document.getElementById('cpTyping').classList.toggle('is-locked', !!typingBlockReason(serverNow()));
   _cpEl.classList.add('show');
 }
 function closeConceptPicker() { _cpEl.classList.remove('show'); _cpItem = null; }
@@ -1422,6 +1495,9 @@ document.getElementById('cpBlank').addEventListener('click', () => {
   closeConceptPicker();
 });
 document.getElementById('cpTyping').addEventListener('click', () => {
+  // 수업 시간에는 복습 슬라이드를 열 수 없다(규칙은 shared/util.js의 typingBlockReason).
+  const blocked = typingBlockReason(serverNow());
+  if (blocked) { showToast(blocked, 6000, 'clock-3'); closeConceptPicker(); return; }
   // 타이핑 복습은 학생 신원(sid/이름)을 URL로 넘겨 lecture.html에서 90% 이상 정답 시 XP를 적립한다.
   if (_cpItem) {
     const q = `num=${_cpItem.num}&mode=typing&sid=${encodeURIComponent(currentStudentId)}&sn=${encodeURIComponent(currentStudentName)}`;

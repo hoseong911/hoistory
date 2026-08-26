@@ -530,7 +530,7 @@
     const style = slide.layout === 'bottom' ? 'flex: 1 1 0; min-height: 0' : `flex: 0 0 ${imgSize}%`;
     return `
       <div class="clayout-img" style="${style}">
-        <img src="${imgBase}.png" alt="${slide.imgCaption || ''}" onerror="SlideRenderImgFallback(this,'${imgBase}',0)">
+        <img src="${imgBase}.png" decoding="async" alt="${slide.imgCaption || ''}" onerror="SlideRenderImgFallback(this,'${imgBase}',0)">
         ${slide.imgCaption ? `<p class="clayout-caption">${slide.imgCaption}</p>` : ''}
       </div>`;
   }
@@ -641,13 +641,13 @@
         const base = `/hoistory/lms/img/${lesson.num}_${im.img}`;
         return `
           <div class="grid-img-cell">
-            <img src="${base}.png" alt="${im.caption || slide.title || ''}" class="grid-img" onerror="SlideRenderImgFallback(this,'${base}',0)">
+            <img src="${base}.png" decoding="async" alt="${im.caption || slide.title || ''}" class="grid-img" onerror="SlideRenderImgFallback(this,'${base}',0)">
             ${im.caption ? `<p class="grid-img-caption">${im.caption}</p>` : ''}
           </div>`;
       }
       return `
         <div class="grid-img-cell">
-          <img src="${im.src || ''}" alt="${im.caption || slide.title || ''}" class="grid-img">
+          <img src="${im.src || ''}" decoding="async" alt="${im.caption || slide.title || ''}" class="grid-img">
           ${im.caption ? `<p class="grid-img-caption">${im.caption}</p>` : ''}
         </div>`;
     }).join('');
@@ -816,9 +816,9 @@
       const sizeStyle = sz < 100 ? ` style="width:${sz}%;height:${sz}%;object-fit:contain"` : '';
       if (slide.img != null) {
         const base = `/hoistory/lms/img/${lesson.num}_${slide.img}`;
-        inner = `<img class="full-img"${sizeStyle} src="${base}.png" alt="" onerror="SlideRenderImgFallback(this,'${base}',0)">`;
+        inner = `<img class="full-img"${sizeStyle} decoding="async" src="${base}.png" alt="" onerror="SlideRenderImgFallback(this,'${base}',0)">`;
       } else if (slide.url) {
-        inner = `<img class="full-img"${sizeStyle} src="${slide.url}" alt="">`;   // 예전 업로드분 호환
+        inner = `<img class="full-img"${sizeStyle} decoding="async" src="${slide.url}" alt="">`;   // 예전 업로드분 호환
       } else {
         inner = `<div class="slide-media-empty" style="color:#999">이미지 없음</div>`;
       }

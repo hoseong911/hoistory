@@ -16,7 +16,7 @@ const db   = getFirestore(app);
 const rtdb = getDatabase(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
-import { CLAUDE_PROXY_URL, kstDate } from '../shared/util.js';
+import { CLAUDE_PROXY_URL, kstDate } from '../shared/util.js?v=20260826';
 
 // ── 관리자 로그인 (Firebase Authentication) ──
 function showAdminView() {

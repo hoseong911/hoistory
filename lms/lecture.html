@@ -38,6 +38,14 @@
       top: 0; left: 0;
       transform: translateY(100%);
       transition: transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    /* 지금 보이는 슬라이드와 전환 중인 두 장만 그린다. 나머지를 숨기지 않으면
+       아이폰이 대기 중인 슬라이드까지 전부 그려 두다 메모리 한계로 탭을 종료한다. */
+    body:not(.mobile-scroll) #slides > .slide:not(.is-active):not(.is-anim) {
+      visibility: hidden;
+    }
+    /* will-change는 전환하는 순간에만. 상시로 걸면 슬라이드 수만큼 레이어가 쌓인다. */
+    body:not(.mobile-scroll) #slides > .slide.is-anim {
       will-change: transform;
     }
 
@@ -215,6 +223,9 @@
       border-radius: 14px;
       box-shadow: 0 2px 10px rgba(0,0,0,0.14);
       flex-shrink: 0;
+      /* 화면 밖 슬라이드는 그리지 않는다(아이폰 메모리 절약).
+         프레임 높이는 width + aspect-ratio로 정해지므로 내용이 빠져도 흔들리지 않는다. */
+      content-visibility: auto;
     }
     body.mobile-scroll .slide,
     body.mobile-scroll .slide-cover {
@@ -308,7 +319,7 @@
   <div class="rh-sub">화면을 가로로 돌리면<br>글자와 빈칸이 크게 잘 보여요</div>
 </div>
 
-<script src="slide-render.js?v=20260821c"></script>
+<script src="slide-render.js?v=20260826"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
@@ -318,6 +329,7 @@ import { getDatabase, ref, get, set, push, update, onValue, runTransaction } fro
 import { initXP, addTypingReviewXP } from '../shared/xp.js';
 import { icon } from '../shared/icons.js';
 import { blockPaste } from '../shared/textLimit.js';
+import { typingBlockReason } from '../shared/util.js?v=20260826';
 
 // 학생 화면 복사/붙여넣기·우클릭 차단(부정행위 방지)
 blockPaste(document);
@@ -422,9 +434,24 @@ function showError(msg) {
 function goBack() { location.href = 'index.html'; }
 window.goBack = goBack;
 
+// RTDB가 알려주는 서버-기기 시각 차이. 복습 시간 제한 판정에 쓴다(못 받으면 기기 시각 그대로).
+async function serverNow() {
+  try {
+    const snap = await get(ref(rtdb, '.info/serverTimeOffset'));
+    return Date.now() + (snap.val() || 0);
+  } catch (_) { return Date.now(); }
+}
+
 async function init() {
   const num = new URLSearchParams(location.search).get('num');
   if (!num) { showError('강의 번호(?num=)가 없습니다.'); return; }
+
+  // 복습 모드는 수업 시간에 열 수 없다(규칙은 shared/util.js의 typingBlockReason).
+  // index.js가 버튼에서 이미 막지만, 주소 직접 입력·예전 탭 새로고침 경로가 남아 여기서도 확인한다.
+  if (new URLSearchParams(location.search).get('mode') === 'typing') {
+    const blocked = typingBlockReason(await serverNow());
+    if (blocked) { showError(blocked); return; }
+  }
   initTypingXP(); // sid가 URL에 있으면 타이핑 복습 XP를 준비(없으면 아무것도 안 함)
 
   const [lessonSnap, designSnap] = await Promise.all([
@@ -667,7 +694,7 @@ async function init() {
     let si = slides.indexOf(slide) + dir;
     while (si >= 0 && si < slides.length && !slides[si].querySelector('.blank-input')) si += dir;
     if (si < 0 || si >= slides.length) return; // 더 이동할 입력칸 없음: 그대로 둔다
-    scrollToSlide(si);
+    if (!scrollToSlide(si)) return; // 아직 전환 중 → 다음 칸은 아직 안 그려져 포커스가 안 먹는다
     const targets = slides[si].querySelectorAll('.blank-input');
     const target  = dir > 0 ? targets[0] : targets[targets.length - 1];
     if (target) target.focus({ preventScroll: true });
@@ -775,6 +802,8 @@ async function init() {
     slides.forEach((s, i) => {
       s.style.transition = 'none';
       s.style.transform  = i === 0 ? 'translateY(0)' : 'translateY(100%)';
+      s.classList.toggle('is-active', i === 0); // 활성 한 장만 그린다(iOS 메모리)
+      s.classList.remove('is-anim');
     });
     currentSlideIdx = 0;
     transitioning   = false;
@@ -796,18 +825,34 @@ async function init() {
       });
     });
   }
-  /* 모바일은 네이티브 스크롤이라 넘김 개념이 약해, 영상들을 미리 로드해 둔다(자동재생은
-     브라우저 정책상 안 되므로 사용자가 눌러야 재생됨). */
+  /* 모바일은 네이티브 스크롤이라 넘김 개념이 약해 영상을 미리 붙여 뒀는데,
+     iframe을 전부 한꺼번에 띄우면 아이폰이 메모리 한계로 탭을 종료한다.
+     화면 근처(한 화면 앞뒤)에 들어온 영상만 붙이고, 멀어지면 src를 비워 되돌린다. */
   function loadAllVideos() {
-    slidesEl.querySelectorAll('iframe[data-vsrc]').forEach(f => {
-      if (!f.getAttribute('src')) f.setAttribute('src', f.dataset.vsrc);
-    });
+    const frames = Array.from(slidesEl.querySelectorAll('iframe[data-vsrc]'));
+    if (!frames.length) return;
+    if (!('IntersectionObserver' in window)) {           // 폴백: 예전 동작 그대로
+      frames.forEach(el => { if (!el.getAttribute('src')) el.setAttribute('src', el.dataset.vsrc); });
+      return;
+    }
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(en => {
+        const el = en.target;
+        if (en.isIntersecting) {
+          if (!el.getAttribute('src')) el.setAttribute('src', el.dataset.vsrc);
+        } else if (el.getAttribute('src')) {
+          el.setAttribute('src', '');                    // 화면 밖 영상은 정지 + 메모리 반환
+        }
+      });
+    }, { rootMargin: '100% 0px' });
+    frames.forEach(el => io.observe(el));
   }
 
+  // 실제로 전환했으면 true, 이미 그 슬라이드거나 전환 중이라 건너뛰었으면 false.
   function scrollToSlide(targetIdx) {
     const slides = Array.from(slidesEl.querySelectorAll('.slide'));
     targetIdx = Math.max(0, Math.min(targetIdx, slides.length - 1));
-    if (targetIdx === currentSlideIdx || transitioning) return;
+    if (targetIdx === currentSlideIdx || transitioning) return false;
 
     SlideRender.closeLightbox(); // 확대된 이미지가 있으면 슬라이드 전환과 함께 닫는다
 
@@ -815,7 +860,10 @@ async function init() {
     const fromSlide = slides[currentSlideIdx];
     const toSlide   = slides[targetIdx];
 
-    /* 진입 슬라이드를 진입 방향 바깥에 즉시 배치 */
+    /* 진입 슬라이드를 진입 방향 바깥에 즉시 배치.
+       전환하는 두 장만 is-anim으로 그려지고 will-change도 이때만 붙는다. */
+    fromSlide.classList.add('is-anim');
+    toSlide.classList.add('is-anim');
     toSlide.style.transition = 'none';
     toSlide.style.transform  = `translateY(${dir * 100}%)`;
     toSlide.getBoundingClientRect(); /* reflow 강제 */
@@ -831,7 +879,14 @@ async function init() {
     if (currentSlideIdx === 0) coverArmed = true; // 표지로 돌아오면 진입 연출 다시 대기
     updateCounter();
     syncActiveVideos(targetIdx);
-    setTimeout(() => { transitioning = false; }, 580);
+    setTimeout(() => {
+      transitioning = false;
+      // 전환이 끝나면 도착한 슬라이드만 활성으로 남기고 레이어를 놓아준다.
+      fromSlide.classList.remove('is-anim', 'is-active');
+      toSlide.classList.remove('is-anim');
+      toSlide.classList.add('is-active');
+    }, 580);
+    return true;
   }
 
   /* 표지 진입 연출: 표지에서 처음 앞으로 넘기면 제목 스플릿을 재생하고 그 자리에 머문다.
