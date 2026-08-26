@@ -185,9 +185,17 @@
    펼침 패널용 여백(.ans-block 기본값)보다 촘촘하게 눌러 쓴다. */
 .std-answers .ans-block { margin-bottom: 8px; }
 .std-answers .ans-block:last-child { margin-bottom: 0; }
-.std-answers .ans-q-label { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.std-answers .ans-text, .std-answers .ans-empty { font-size: 13px; padding: 8px 10px; line-height: 1.55; }
+/* 중요한 건 답변이다. 질문은 회색으로 눌러 맥락만 알려주고, 답변을 키워 먼저 읽히게 한다. */
+.std-answers .ans-q-label { font-size: 11px; font-weight: 600; color: var(--hi-text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+.std-answers .ans-text { font-size: 14px; font-weight: 500; color: var(--hi-text); padding: 9px 11px; line-height: 1.6; }
+.std-answers .ans-empty { font-size: 13px; padding: 8px 10px; line-height: 1.55; }
 .std-nosub { font-size: 13px; color: var(--hi-text-muted); }
+
+/* 인물 배지 / 결과 / 제출 시각을 카드 맨 위 한 줄에. 시각만 오른쪽 끝으로 민다. */
+.std-meta-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.std-meta-row .status-badge { padding: 3px 9px; border-radius: 100px; font-size: 11px; }
+.std-meta-time { margin-left: auto; font-size: 11px; color: var(--hi-text-muted); }
 /* 카드가 길어졌으니 버튼은 세로 가운데가 아니라 맨 위에 붙인다. */
 .std-card-row .std-actions { align-self: start; }
 .scoring-bar { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 28px; }
@@ -964,9 +972,13 @@ function renderStudentList(){
           <div class="std-name">${escHtml(s.name||'')}</div>
         </div>
         <div class="std-content">
-          ${char?`<div class="std-badge-row"><span class="std-badge char-c${charIdx%6}">${escHtml(s.charName||s.charId||'')}</span></div>`:''}
+          <div class="std-meta-row">
+            ${char?`<span class="std-badge char-c${charIdx%6}">${escHtml(s.charName||s.charId||'')}</span>`:''}
+            <span class="status-badge ${statusBadgeClass(status)}">${statusLabel(status)}</span>
+            ${picked?'<span class="status-badge sb-pick">PICK</span>':''}
+            ${formatSubmitTime(s)?`<span class="std-meta-time">${formatSubmitTime(s)}</span>`:''}
+          </div>
           <div class="std-answers">${s.charId&&qs.length?ansHtml:'<div class="std-nosub">미제출</div>'}</div>
-          <div class="std-content-sub">${statusLabel(status)}${picked?' / PICK':''}${formatSubmitTime(s)?` / ${formatSubmitTime(s)}`:''}</div>
         </div>
         <div class="std-actions" onclick="event.stopPropagation()">
           <button class="std-pick${picked?' picked':''}" data-sid="${s.studentId}" onclick="togglePickStatus(this,'${s.studentId}',${picked})">
