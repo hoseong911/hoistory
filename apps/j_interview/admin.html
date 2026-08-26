@@ -145,6 +145,18 @@
 .edit-q-label { font-size: 13px; font-weight: 700; color: var(--hi-text-muted); line-height: 1.5; }
 #edit-modal-backdrop .scoring-modal-textarea { height: 96px; }
 
+/* ── 버튼 모양 ──
+   공용 .hi-btn / .sort-box / .sort-btn / .filter-toggle은 알약(9999px)이 기본이다.
+   이 어드민에서는 반 필터(.cf-btn 10px)와 같은 라운드 사각형으로 통일한다.
+   공용 CSS를 고치면 다른 앱까지 따라 바뀌므로 여기서만 덮어쓴다. */
+.hi-btn, .sort-box, .filter-toggle { border-radius: 10px; }
+.sort-btn { border-radius: 8px; }   /* sort-box(10px) 안쪽이라 한 단계 작게 */
+
+/* 정렬 묶음과 픽 모아보기는 항상 붙어서 오른쪽 끝에. 자리가 모자라면 둘이 같이 다음 줄로
+   넘어간다(따로 두면 "픽 모아보기"만 혼자 떨어져 어수선해진다). */
+.ans-right-group { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.adm-action-row .ans-right-group .sort-box { margin-left: 0; }
+
 /* ── 반 필터 ── */
 .class-filter { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; margin-bottom: 16px; }
 .cf-btn { padding: 6px 14px; border-radius: 10px; border: 1.5px solid var(--hi-border); background: none; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--hi-text-muted); cursor: pointer; transition: all .15s; }
@@ -305,16 +317,20 @@
       </div>
       <div class="adm-action-row">
         <button class="hi-btn hi-btn-primary hi-btn-sm" id="score-btn">채점하기</button>
+        <!-- 이미 채점된 학생을 지금 기준으로 다시 매긴다. 대상이 없으면 JS가 숨긴다. -->
+        <button class="hi-btn hi-btn-outline hi-btn-sm" id="regrade-btn" style="display:none">재채점</button>
         <!-- 채점 진행 상황 표시. 이 자리가 비어 있어서 채점 코드가 null을 건드리고 터졌었다. -->
         <span class="score-info" id="score-info"></span>
         <button class="hi-btn hi-btn-outline hi-btn-sm" id="aiPickBtn" onclick="runAiPick()"><span data-icon="sparkles" data-icon-size="15"></span> AI 픽</button>
         <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="exportExcel()">엑셀 내보내기</button>
         <button class="scoring-prompt-btn" onclick="openSettingsModal()" title="AI 설정"><span data-icon="settings" data-icon-size="18"></span></button>
-        <div class="sort-box">
-          <button class="sort-btn active" id="sortNewest" onclick="setAnswerSort('newest')">최신순</button>
-          <button class="sort-btn" id="sortSid" onclick="setAnswerSort('sid')">학번순</button>
+        <div class="ans-right-group">
+          <div class="sort-box">
+            <button class="sort-btn active" id="sortNewest" onclick="setAnswerSort('newest')">최신순</button>
+            <button class="sort-btn" id="sortSid" onclick="setAnswerSort('sid')">학번순</button>
+          </div>
+          <button class="filter-toggle" id="answerPickOnlyBtn" onclick="toggleAnswerPickOnly()">픽 모아보기</button>
         </div>
-        <button class="filter-toggle" id="answerPickOnlyBtn" onclick="toggleAnswerPickOnly()">픽 모아보기</button>
       </div>
       <div class="loading-bar" id="loading-bar"></div>
       <div class="student-list" id="student-list"></div>
@@ -774,6 +790,7 @@ function updateStats(){
   document.getElementById('s-pass').textContent=b.pass.length;
   document.getElementById('s-insuf').textContent=b.aiFail.length+b.absent.length;
   document.getElementById('s-pick').textContent=pick;
+  refreshScoreButtons();
   // 명단 모달이 열려 있는 동안 채점하거나 반을 바꾸면 명단도 같이 다시 그린다.
   if(document.getElementById('roster-modal-backdrop')?.classList.contains('open')){
     renderRosterSummary();
@@ -868,20 +885,37 @@ window.switchRosterTab = function(tab, btn){
 };
 
 /* ─────────── 채점 ─────────── */
-document.getElementById('score-btn').addEventListener('click',async()=>{
-  const toScore=filteredStudents().filter(s=>!s.status||s.status==='pending');
+/* 채점은 "아직 안 매긴 학생"과 "이미 매긴 학생 다시 매기기(재채점)" 둘 다
+   같은 함수를 쓴다. 늦게 낸 학생이 생기거나 점수가 이상해서 다시 매기고 싶을 때
+   생각 체크처럼 재채점 버튼으로 덮어쓸 수 있다. */
+function gradedStudents(){ return filteredStudents().filter(s=>s.status==='pass'||s.status==='fail'); }
+function ungradedStudents(){ return filteredStudents().filter(s=>!s.status||s.status==='pending'); }
+
+let gradingBusy=false;   // 채점이 도는 동안엔 버튼을 잠가 두 번 돌지 않게 한다.
+
+// 채점하기 / 재채점 버튼의 라벨과 활성 상태를 지금 인원수에 맞춘다.
+function refreshScoreButtons(){
+  const un=ungradedStudents().length, gd=gradedStudents().length;
+  const sb=document.getElementById('score-btn');
+  if(sb){ sb.textContent=un?`채점하기 (${un}명)`:'채점하기'; sb.disabled=gradingBusy||!un; }
+  const rb=document.getElementById('regrade-btn');
+  if(rb){ rb.textContent=`재채점 (${gd}명)`; rb.disabled=gradingBusy||!gd; rb.style.display=gd?'':'none'; }
+}
+
+async function runGrading(toScore,label){
+  if(gradingBusy)return;
   if(!toScore.length){document.getElementById('score-info').textContent='채점할 학생이 없습니다.';return;}
   let customPrompt='';
   try{const snap=await get(ref(rtdb,SCORING_PROMPT_PATH));customPrompt=snap.exists()?snap.val():'';}catch(e){}
   if(!customPrompt){document.getElementById('score-info').textContent='채점 프롬프트를 설정해주세요. (설정 버튼)';return;}
   const lb=document.getElementById('loading-bar');
   lb.style.display='block';
-  const scoreBtn=document.getElementById('score-btn');
-  scoreBtn.disabled=true;
+  gradingBusy=true;
+  refreshScoreButtons();
   const statuses={};
   for(let i=0;i<toScore.length;i++){
     const s=toScore[i];
-    document.getElementById('score-info').textContent=`채점 중… (${i+1}/${toScore.length})`;
+    document.getElementById('score-info').textContent=`${label} 중… (${i+1}/${toScore.length})`;
     const char=CONTENT.characters.find(c=>c.id===s.charId);
     const qs=char?.questions||[];
     const answers=s.answers||{};
@@ -905,10 +939,24 @@ document.getElementById('score-btn').addEventListener('click',async()=>{
     const batch=writeBatch(db);
     Object.entries(statuses).forEach(([sid,status])=>{batch.update(doc(db,'interview_joseon_answers',sid),{status});});
     await batch.commit();
-    document.getElementById('score-info').textContent=`${toScore.length}명 채점 완료`;
+    document.getElementById('score-info').textContent=`${toScore.length}명 ${label} 완료`;
   }catch(e){document.getElementById('score-info').textContent='저장 오류: '+e.message;}
   lb.style.display='none';
-  scoreBtn.disabled=false;
+  gradingBusy=false;
+  refreshScoreButtons();
+}
+
+document.getElementById('score-btn').addEventListener('click',()=>runGrading(ungradedStudents(),'채점'));
+
+// 재채점: 이미 매긴 학생의 통과/미흡을 새 채점 결과로 덮어쓴다.
+// (경험치를 주는 기능이 아니라서 되돌릴 지급 내역은 없다 — 상태만 다시 쓴다.)
+document.getElementById('regrade-btn').addEventListener('click',()=>{
+  const gd=gradedStudents();
+  if(!gd.length){document.getElementById('score-info').textContent='재채점할 학생이 없습니다.';return;}
+  const where=currentFilter==='전체'?'전체':`${currentFilter}반`;
+  if(!confirm(`${where} 이미 채점된 ${gd.length}명을 다시 채점합니다.
+지금 채점 기준으로 통과/미흡이 새로 정해집니다. 진행할까요?`))return;
+  runGrading(gd,'재채점');
 });
 
 function autoScore(s){
