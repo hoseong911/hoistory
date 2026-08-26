@@ -63,12 +63,9 @@
 .ans-subtab.active { color:var(--iv-primary); border-bottom-color:var(--iv-primary); }
 .ansub { display:none; }
 .ansub.active { display:block; }
-.adm-mini-card { background:var(--hi-bg-card); border:1.5px solid var(--hi-border); border-radius:14px; padding:14px 16px; margin-bottom:10px; }
-.amc-meta { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--hi-text-muted); font-weight:700; margin-bottom:7px; flex-wrap:wrap; }
+/* 답변 수정 모달의 반 표시용. (심화·친구 답변 목록도 기본 답변과 같은 .std-card 폼을
+   쓰게 되면서 나머지 미니 카드 스타일은 쓰이지 않아 걷어냈다.) */
 .amc-chip { background:var(--iv-primary-soft); color:var(--iv-primary); border-radius:100px; padding:2px 9px; font-size:12px; font-weight:800; }
-.amc-name { font-weight:800; color:var(--hi-text); }
-.amc-q { font-size:14px; color:var(--hi-text-muted); line-height:1.5; margin-bottom:6px; }
-.amc-a { font-size:14px; color:var(--hi-text); line-height:1.6; word-break:break-word; white-space:pre-wrap; }
 
 .char-editor { border: 1px solid var(--hi-border); border-radius: 14px; padding: 16px; background: var(--hi-bg-card); }
 .char-editor-empty { text-align: center; color: var(--hi-text-muted); font-size: 14px; padding: 24px; }
@@ -202,6 +199,9 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
 .std-answers .ans-text { font-size: 14px; font-weight: 500; color: var(--hi-text); padding: 9px 11px; line-height: 1.6; }
 .std-answers .ans-empty { font-size: 13px; padding: 8px 10px; line-height: 1.55; }
+/* 심화 질문·친구 심화답변 카드는 블록이 하나뿐이라, 질문을 한 줄로 자르지 않고 그대로 편다. */
+.std-answers.single .ans-q-label { white-space: normal; overflow: visible; text-overflow: clip; }
+.std-meta-note { font-size: 11px; color: var(--hi-text-muted); font-weight: 700; }
 .std-nosub { font-size: 13px; color: var(--hi-text-muted); }
 
 /* 인물 배지 / 결과 / 제출 시각을 카드 맨 위 한 줄에. 시각만 오른쪽 끝으로 민다. */
@@ -502,6 +502,38 @@ function ansClassFilter(containerId, values, current, onPick){
   el.innerHTML=['전체',...classNums].map(c=>`<button class="cf-btn${String(c)===current?' active':''}" data-c="${c}">${c==='전체'?'전체':c+'반'}</button>`).join('');
   el.querySelectorAll('.cf-btn').forEach(b=>b.addEventListener('click',()=>onPick(b.dataset.c)));
 }
+// 인물 배지: 기본 답변 카드와 같은 색이 나오게 CONTENT 순서로 인덱스를 찾는다.
+function charBadgeHTML(charId,charName){
+  const label=charName||charId||'';
+  if(!label)return '';
+  const idx=CONTENT.characters.findIndex(c=>c.id===charId);
+  return `<span class="std-badge char-c${(idx===-1?0:idx)%6}">${escHtml(label)}</span>`;
+}
+
+// 심화 질문 / 친구 심화답변도 기본 답변과 같은 카드 폼으로 그린다.
+// (학번·이름 열 + 상단 메타 한 줄 + 질문은 회색, 답변은 진하게)
+function stdCardHTML({ studentId, name, meta, qLabel, body, emptyText }){
+  return `<div class="std-card">
+    <div class="std-card-row">
+      <div>
+        <div class="std-sid">${escHtml(String(studentId||''))}</div>
+        <div class="std-name">${escHtml(name||'')}</div>
+      </div>
+      <div class="std-content">
+        <div class="std-meta-row">${meta}</div>
+        <div class="std-answers single">
+          <div class="ans-block">
+            <div class="ans-q-label">${qLabel}</div>
+            ${(body||'').trim()
+              ? `<div class="ans-text">${escHtml(body)}</div>`
+              : `<div class="ans-empty">${escHtml(emptyText||'미작성')}</div>`}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function sortByClassSid(a,b){return (classNumOf(a.studentId)||0)-(classNumOf(b.studentId)||0)||String(a.studentId||'').localeCompare(String(b.studentId||''));}
 function renderDeepAdmin(){
   ansClassFilter('deep-class-filter',deepData,deepFilter,c=>{deepFilter=c;renderDeepAdmin();});
@@ -509,10 +541,13 @@ function renderDeepAdmin(){
   list=[...list].sort(sortByClassSid);
   const el=document.getElementById('deep-list-admin');
   if(!list.length){el.innerHTML='<div class="no-data">아직 심화 질문이 없습니다.</div>';return;}
-  el.innerHTML=list.map(d=>`<div class="adm-mini-card">
-    <div class="amc-meta"><span class="amc-chip">${escHtml(String(classNumOf(d.studentId)||'?'))}반</span><span class="amc-name">${escHtml(d.name||'')}</span><span>${escHtml(d.studentId||'')}</span><span>${escHtml(d.charName||'')}</span></div>
-    <div class="amc-a">${escHtml(d.question||'')}</div>
-  </div>`).join('');
+  el.innerHTML=list.map(d=>stdCardHTML({
+    studentId: d.studentId, name: d.name,
+    meta: charBadgeHTML(d.charId, d.charName)
+        + (formatSubmitTime(d) ? `<span class="std-meta-time">${formatSubmitTime(d)}</span>` : ''),
+    qLabel: '이 인물에게 던진 심화 질문',
+    body: d.question, emptyText: '질문 없음',
+  })).join('');
 }
 function renderReplyAdmin(){
   ansClassFilter('reply-class-filter',replyData,replyFilter,c=>{replyFilter=c;renderReplyAdmin();});
@@ -520,11 +555,14 @@ function renderReplyAdmin(){
   list=[...list].sort(sortByClassSid);
   const el=document.getElementById('reply-list-admin');
   if(!list.length){el.innerHTML='<div class="no-data">아직 친구 심화답변이 없습니다.</div>';return;}
-  el.innerHTML=list.map(d=>`<div class="adm-mini-card">
-    <div class="amc-meta"><span class="amc-chip">${escHtml(String(classNumOf(d.studentId)||'?'))}반</span><span class="amc-name">${escHtml(d.name||'')}</span><span>${escHtml(d.studentId||'')}</span></div>
-    <div class="amc-q">Q. ${escHtml(d.deepQuestion||'')} <span style="opacity:.7">(${escHtml(d.deepCharName||'')}, ${escHtml(d.deepAuthorName||'')})</span></div>
-    <div class="amc-a">${escHtml(d.replyText||'')}</div>
-  </div>`).join('');
+  el.innerHTML=list.map(d=>stdCardHTML({
+    studentId: d.studentId, name: d.name,
+    meta: charBadgeHTML(d.deepCharId, d.deepCharName)
+        + (d.deepAuthorName ? `<span class="std-meta-note">${escHtml(d.deepAuthorName)} 학생의 질문</span>` : '')
+        + (formatSubmitTime(d) ? `<span class="std-meta-time">${formatSubmitTime(d)}</span>` : ''),
+    qLabel: escHtml(d.deepQuestion||'(질문 없음)'),
+    body: d.replyText, emptyText: '미작성',
+  })).join('');
 }
 function startDeepListener(){ if(deepUnsub)return; deepUnsub=onSnapshot(collection(db,'interview_joseon_deep'),snap=>{deepData=[];snap.forEach(d=>deepData.push({id:d.id,...d.data()}));renderDeepAdmin();}); }
 function startReplyListener(){ if(replyUnsub)return; replyUnsub=onSnapshot(collection(db,'interview_joseon_deep_reply'),snap=>{replyData=[];snap.forEach(d=>replyData.push({id:d.id,...d.data()}));renderReplyAdmin();}); }
@@ -1296,7 +1334,9 @@ document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.datase
 
 function escHtml(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function formatSubmitTime(s){
-  const ms=s.submittedAt?.seconds?s.submittedAt.seconds*1000:(s.timestamp||0);
+  // 기본 답변은 submittedAt/timestamp, 심화 질문과 친구 심화답변은 createdAt을 쓴다.
+  const ts=s.submittedAt||s.createdAt;
+  const ms=ts?.seconds?ts.seconds*1000:(s.timestamp||0);
   if(!ms)return'';
   const d=new Date(ms);
   return`${d.getMonth()+1}.${d.getDate()}. ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
