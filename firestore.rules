@@ -136,6 +136,21 @@ service cloud.firestore {
       );
     }
 
+    // ── 사화 네컷 (j_4cut): 완성 작품 공유 + 친구 작품 좋아요 ──
+    //    작품 이미지는 base64 JPEG라 문서 하나를 통째로 쓴다. 좋아요는 다른 학생이
+    //    누르므로 likes/likedBy만 바꾸는 수정을 따로 열어둔다.
+    match /fourcut_works/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.studentId is string &&
+        request.resource.data.studentName is string && request.resource.data.studentName.size() <= 50 &&
+        request.resource.data.image is string &&
+        request.resource.data.likes == 0
+      );
+      allow update: if isAdmin() ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likedBy']);
+    }
+
     // ── 역사 도미노 (j_wartimeline): 순서 맞추기 + 인과 잇기 결과 ──
     match /j_wartimeline_results/{studentId} {
       allow read: if true;
