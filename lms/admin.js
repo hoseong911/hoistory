@@ -3891,7 +3891,9 @@ async function loadGradeData() {
           absent:  r.absent  || false,
           feedback: r.feedback || '',
         };
-        savedSet.add(r.studentId);
+        // 피드백만 먼저 저장된 문서(concept/mission/think 없음)는 "채점 저장됨"으로 치지 않는다.
+        // 여기에 넣어버리면 아래 자동감지가 onTime을 건너뛰어 제출했는데도 기한 체크가 빠진다.
+        if (r.concept || r.mission || r.think) savedSet.add(r.studentId);
       }
     });
 
@@ -3983,9 +3985,26 @@ async function loadGradeData() {
 }
 
 // ── 강의별 학생 피드백 ──
-// 체크박스와 마찬가지로 여기서는 메모리(_gradeRecords)만 바꾸고, 실제 저장은
-// 기존 "임시 저장"/"반영하기" 흐름을 그대로 타야 학생 화면에 반영된다.
+// 체크(개념/미션/생각)는 메모리(_gradeRecords)에만 두고 "임시 저장"/"반영하기" 흐름을 타지만,
+// 피드백만은 예외로 작성 즉시 Firestore에 저장한다(반영하기를 누르지 않아도 학생에게 보임).
+// 학생 index.js도 미반영 강의의 피드백을 따로 모아 보여주도록 맞춰져 있다.
 let _gradeFeedbackSid = null;
+
+// 피드백 필드만 grade_records에 즉시 병합 저장한다. 채점 결과(concept/mission/think)는
+// 건드리지 않으므로 "임시 저장"/"반영하기" 흐름과 충돌하지 않는다.
+async function persistFeedbackOnly(entries) {
+  if (!_gradeLessonKey || !entries.length) return;
+  const lesson = _gradeLessons.find(l => l.num === _gradeLessonKey);
+  const lessonTitle = lesson?.title || '';
+  await Promise.all(entries.map(({ sid, feedback }) => {
+    const stu = _gradeStudents.find(s => s.id === sid);
+    return setDoc(doc(db, 'grade_records', `${_gradeLessonKey}_${sid}`), {
+      lessonKey: _gradeLessonKey, lessonTitle,
+      studentId: sid, studentName: stu?.name || '',
+      feedback, updatedAt: serverTimestamp(),
+    }, { merge: true });
+  }));
+}
 function openGradeFeedbackModal(sid, name) {
   if (!_gradeRecords[sid]) return;
   _gradeFeedbackSid = sid;
@@ -3997,15 +4016,24 @@ function closeGradeFeedbackModal() {
   document.getElementById('gradeFeedbackBackdrop').classList.remove('open');
   _gradeFeedbackSid = null;
 }
-function saveGradeFeedback() {
+async function saveGradeFeedback() {
   if (!_gradeFeedbackSid) return;
+  const sid = _gradeFeedbackSid;
   const val = document.getElementById('gradeFeedbackInput').value.trim();
-  if (_gradeRecords[_gradeFeedbackSid]) _gradeRecords[_gradeFeedbackSid].feedback = val;
+  const prev = _gradeRecords[sid]?.feedback || '';
+  if (_gradeRecords[sid]) _gradeRecords[sid].feedback = val;
   closeGradeFeedbackModal();
   renderGradeTable();
+  try {
+    await persistFeedbackOnly([{ sid, feedback: val }]);
+  } catch (e) {
+    if (_gradeRecords[sid]) _gradeRecords[sid].feedback = prev; // 저장 실패 시 화면도 되돌린다
+    renderGradeTable();
+    alert('피드백 저장 실패: ' + e.message);
+  }
 }
 
-// ── 피드백 템플릿 (설정은 즉시 Firestore에 저장, 학생별 적용은 기존 임시 저장/반영하기 흐름을 탄다) ──
+// ── 피드백 템플릿 (템플릿 설정도, 학생별 적용도 즉시 Firestore에 저장된다) ──
 let _feedbackTemplates = [];
 let _editingTemplateId = null;
 
@@ -4089,7 +4117,7 @@ function renderFeedbackTemplateApplySelect() {
     _feedbackTemplates.map(t => `<option value="${esc(t.id)}">${esc(t.label)}</option>`).join('');
 }
 
-function applyFeedbackTemplate() {
+async function applyFeedbackTemplate() {
   const tplId = document.getElementById('templateApplySel').value;
   const target = document.getElementById('templateApplyTarget').value;
   const tpl = _feedbackTemplates.find(t => t.id === tplId);
@@ -4105,7 +4133,7 @@ function applyFeedbackTemplate() {
     targets = targets.filter(s => Math.floor((parseInt(s.id) - 30000) / 100) === _currentGradeClass);
   }
 
-  let count = 0;
+  const applied = [];
   targets.forEach(s => {
     const r = _gradeRecords[s.id];
     if (!r || (r.feedback && r.feedback.trim())) return; // 비어있는 학생만
@@ -4117,12 +4145,19 @@ function applyFeedbackTemplate() {
       false;
     if (!matches) return;
     r.feedback = tpl.text;
-    count++;
+    applied.push({ sid: s.id, feedback: tpl.text });
   });
 
   closeFeedbackTemplateModal();
   renderGradeTable();
-  alert(`${count}명에게 적용했습니다. (임시 저장 또는 반영하기를 눌러야 학생에게 반영됩니다)`);
+  try {
+    await persistFeedbackOnly(applied);
+    alert(`${applied.length}명에게 적용했습니다. 학생 화면에 바로 보입니다.`);
+  } catch (e) {
+    applied.forEach(({ sid }) => { if (_gradeRecords[sid]) _gradeRecords[sid].feedback = ''; });
+    renderGradeTable();
+    alert('피드백 저장 실패: ' + e.message);
+  }
 }
 
 function syncGradeAllCb() {

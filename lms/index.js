@@ -733,9 +733,14 @@ async function loadStudentGrade() {
 
     let cA=0, cN=0, mA=0, mN=0, tA=0, tN=0;
     const lectureDetails = [];
+    // 선생님 피드백은 성적 반영(grade_publish_status)과 무관하게, 작성되는 즉시 보여준다.
+    // 점수·세부 채점 내역은 그대로 반영된 강의만 쓰므로 lectureDetails와 따로 모은다.
+    const feedbacks = [];
 
     selectedLectures.forEach(key => {
-      if (!publishedSet.has(key)) return; // 미반영 강의 제외
+      const fb = records[key]?.feedback || '';
+      if (fb) feedbacks.push({ key, title: titleMap[key], feedback: fb });
+      if (!publishedSet.has(key)) return; // 점수 집계는 미반영 강의 제외
       const r  = records[key];
       const en = enabledMap[key];
       // 어드민과 동일: 항목당 체크 2개(달성 achieved + 기한 onTime)를 가중치만큼 집계
@@ -771,6 +776,7 @@ async function loadStudentGrade() {
       total: concept.score + mission.score + think.score,
       max: maxScore,
       lectureDetails,
+      feedbacks,
       totalPublished,
       totalSelected: selectedLectures.length,
     };
@@ -793,8 +799,8 @@ function showToast(msg, duration, iconName) {
 
 // ── 새 선생님 피드백 감지 (입장 시 1회 토스트) ──
 function _feedbackSig(g) {
-  if (!g || !g.lectureDetails) return '';
-  return g.lectureDetails.filter(d => d.feedback).map(d => `${d.key}:${d.feedback}`).join('||');
+  if (!g || !g.feedbacks) return '';
+  return g.feedbacks.map(d => `${d.key}:${d.feedback}`).join('||');
 }
 let _fbToastShown = false;
 function _maybeNotifyFeedback() {
@@ -824,6 +830,8 @@ function renderGradeSummaryHTML(g) {
       </div>
     </div>`;
   const hasDetail = g.lectureDetails && g.lectureDetails.length > 0;
+  // 피드백은 미반영 강의에도 붙을 수 있으므로 세부 채점 내역과 별도로 판단한다.
+  const hasFeedback = g.feedbacks && g.feedbacks.length > 0;
   return `<div class="grade-summary">
     <div class="grade-cols">
       ${col('개념', 'c1', g.concept)}
@@ -834,9 +842,9 @@ function renderGradeSummaryHTML(g) {
       <span>총점</span>
       <span><strong>${g.total}</strong> / ${g.max}점</span>
     </div>
-    ${hasDetail ? `<div class="grade-btns">
-      <button class="btn-grade-detail" onclick="openGradeDetail()">세부 채점 내역</button>
-      <button class="btn-grade-detail" onclick="openGradeFeedback()">선생님 피드백</button>
+    ${(hasDetail || hasFeedback) ? `<div class="grade-btns">
+      ${hasDetail ? `<button class="btn-grade-detail" onclick="openGradeDetail()">세부 채점 내역</button>` : ''}
+      ${hasFeedback ? `<button class="btn-grade-detail" onclick="openGradeFeedback()">선생님 피드백</button>` : ''}
     </div>` : ''}
   </div>`;
 }
@@ -1431,8 +1439,8 @@ document.getElementById('gradeDetailModal').addEventListener('click', e => {
 // ── 선생님 피드백 모달 ──
 window.openGradeFeedback = async function() {
   const g = sectionData.grade;
-  if (!g || !g.lectureDetails || !g.lectureDetails.length) return;
-  const withFeedback = g.lectureDetails.filter(d => d.feedback);
+  if (!g) return;
+  const withFeedback = g.feedbacks || [];
   const body = withFeedback.length
     ? withFeedback.map(d => `<div class="feedback-card">
         <div class="feedback-lec">${esc(stripEmph(d.title))}</div>
