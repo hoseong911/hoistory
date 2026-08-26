@@ -118,6 +118,23 @@
 .iv-star-ic { display: inline-flex; width: 16px; height: 16px; color: var(--iv-primary); }
 .iv-star-ic svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
 .thc-star-n { font-size: 18px; font-weight: 800; color: var(--hi-text); }
+/* 통계 칩을 누르면 통과/미흡 명단 모달이 열린다(lms 생각 체크 ANSWER와 같은 동작). */
+.stat-chip.clickable { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.stat-chip.clickable:hover { border-color: var(--iv-primary); box-shadow: var(--hi-shadow-card); }
+
+/* ── 명단 모달 (통과 / 미흡 / 미채점) ── */
+.rost-summary { font-size: 13px; color: var(--hi-text-muted); font-weight: 700; margin-bottom: 12px; }
+.rost-body { max-height: 60vh; overflow-y: auto; }
+.rost-count { font-size: 13px; color: var(--hi-text-muted); margin-bottom: 10px; }
+.rost-group { margin-bottom: 16px; }
+.rost-group:last-child { margin-bottom: 0; }
+.rost-group-hd { font-size: 13px; font-weight: 800; color: var(--hi-text-muted); letter-spacing: .04em; margin-bottom: 8px; }
+.rost-chip { display: inline-block; padding: 5px 12px; border-radius: 100px; font-size: 14px; font-weight: 700; margin: 3px; }
+.rost-chip-pass  { background: rgba(14,159,110,.08);  border: 1px solid rgba(14,159,110,.25);  color: #0E9F6E; }
+.rost-chip-fail  { background: rgba(220,38,38,.08);   border: 1px solid rgba(220,38,38,.25);   color: #DC2626; }
+.rost-chip-absent{ background: rgba(217,119,6,.08);   border: 1px solid rgba(217,119,6,.25);   color: #B45309; }
+.rost-chip-none  { background: var(--hi-bg-mid);      border: 1px solid var(--hi-border);      color: var(--hi-text-muted); }
+.rost-empty { text-align: center; padding: 32px 0; font-weight: 700; color: #0E9F6E; }
 
 /* ── 답변 수정 모달 ──
    공용 .scoring-modal-textarea는 높이가 220px이라 답변이 여러 개면 너무 길어진다.
@@ -163,6 +180,16 @@
 .ans-empty { font-size: 14px; color: var(--hi-text-muted); font-style: italic; padding: 10px 12px; background: var(--hi-bg-mid); border-radius: 8px; }
 .deep-block { border-top: 1px solid var(--hi-border); padding-top: 12px; margin-top: 4px; }
 .deep-q-label { font-size: 12px; font-weight: 800; color: var(--iv-accent-deep); margin-bottom: 4px; }
+/* ── 카드에 펼친 답변 ──
+   카드마다 첫 답변만 보이던 걸 세 개 전부 보이게 바꿨다. 한 화면에 학생이 많으므로
+   펼침 패널용 여백(.ans-block 기본값)보다 촘촘하게 눌러 쓴다. */
+.std-answers .ans-block { margin-bottom: 8px; }
+.std-answers .ans-block:last-child { margin-bottom: 0; }
+.std-answers .ans-q-label { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.std-answers .ans-text, .std-answers .ans-empty { font-size: 13px; padding: 8px 10px; line-height: 1.55; }
+.std-nosub { font-size: 13px; color: var(--hi-text-muted); }
+/* 카드가 길어졌으니 버튼은 세로 가운데가 아니라 맨 위에 붙인다. */
+.std-card-row .std-actions { align-self: start; }
 .scoring-bar { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 28px; }
 .score-info { font-size: 12px; color: var(--hi-text-muted); }
 .no-data { text-align: center; padding: 40px 20px; color: var(--hi-text-muted); font-size: 14px; }
@@ -260,7 +287,7 @@
       <div class="ans-head">
         <div class="class-filter" id="class-filter"></div>
         <div class="stats-row" id="stats-row">
-          <div class="stat-chip stat-combo" title="총인원 / 제출 / 통과 / 미흡">
+          <div class="stat-chip stat-combo clickable" onclick="openRosterModal('fail')" title="누르면 통과 / 미흡 명단을 봅니다">
             <span class="thc-o" id="s-total">0</span><span class="thc-sep">/</span><span class="thc-o" id="s-sub">0</span><span class="thc-sep">/</span><span class="thc-g" id="s-pass">0</span><span class="thc-sep">/</span><span class="thc-r" id="s-insuf">0</span>
           </div>
           <div class="stat-chip stat-star" title="PICK된 답변 수">
@@ -730,20 +757,107 @@ function expectedCount(){
 
 /* ─────────── 통계 ─────────── */
 function updateStats(){
-  const fs=filteredStudents();
-  const submitted=fs.filter(s=>s.charId&&s.answers&&Object.values(s.answers).some(v=>v&&v.trim()));
-  const expected=expectedCount();
-  const unsub2=Math.max(0,expected-submitted.length);
-  const pass=fs.filter(s=>s.status==='pass').length;
-  const insuf=fs.filter(s=>s.status==='fail').length+unsub2;
-  const pick=fs.filter(s=>s.picked).length;
+  // 칩 숫자와 명단 모달이 어긋나지 않게 집계는 rosterBuckets() 한 곳에서만 한다.
+  const b=rosterBuckets();
+  const pick=filteredStudents().filter(s=>s.picked).length;
   // 콤보 칩은 총인원 / 제출 / 통과 / 미흡만 보여준다(미제출은 미흡에 이미 포함돼 있어 따로 안 띄움).
-  document.getElementById('s-total').textContent=expected||fs.length;
-  document.getElementById('s-sub').textContent=submitted.length;
-  document.getElementById('s-pass').textContent=pass;
-  document.getElementById('s-insuf').textContent=insuf;
+  document.getElementById('s-total').textContent=b.total;
+  document.getElementById('s-sub').textContent=b.submitted.length;
+  document.getElementById('s-pass').textContent=b.pass.length;
+  document.getElementById('s-insuf').textContent=b.aiFail.length+b.absent.length;
   document.getElementById('s-pick').textContent=pick;
+  // 명단 모달이 열려 있는 동안 채점하거나 반을 바꾸면 명단도 같이 다시 그린다.
+  if(document.getElementById('roster-modal-backdrop')?.classList.contains('open')){
+    renderRosterSummary();
+    renderRosterBody();
+  }
 }
+
+/* ─────────── 통과 / 미흡 명단 모달 ─────────── */
+/* 통계 칩을 누르면 숫자만 보이던 통과·미흡이 실제 학생 명단으로 펼쳐진다
+   (lms 생각 체크 ANSWER의 채점 결과 모달과 같은 형태). */
+let rosterTab = 'fail';
+
+// 답을 하나라도 쓴 학생만 '제출'로 친다(updateStats와 같은 기준).
+function rosterSubmitted(s){ return !!(s.charId && s.answers && Object.values(s.answers).some(v=>v&&v.trim())); }
+
+// 지금 반 필터 기준으로 통과 / 미흡(AI 미흡 + 미제출) / 미채점 명단을 만든다.
+function rosterBuckets(){
+  const fs = filteredStudents();
+  const submittedIds = new Set(fs.filter(rosterSubmitted).map(s=>String(s.studentId||s.id||'')));
+  // 명단(roster)이 있으면 그걸 기준으로 미제출을 뽑는다. 명단을 못 읽었을 때는
+  // 문서만 있고 답이 비어 있는 학생을 미제출로 대신 센다(숫자가 줄어들지 않게).
+  const absent = roster.length
+    ? rosterForFilter().filter(r=>!submittedIds.has(String(r.studentId)))
+    : fs.filter(s=>!rosterSubmitted(s));
+  const absentIds = new Set(absent.map(r=>String(r.studentId||r.id||'')));
+  const pass    = fs.filter(s=>s.status==='pass');
+  // 미제출인데 손으로 '미흡'을 찍어 둔 학생은 더 구체적인 사유인 미제출 쪽에만 남긴다(중복 집계 방지).
+  const aiFail  = fs.filter(s=>s.status==='fail' && !absentIds.has(String(s.studentId||s.id||'')));
+  const pending = fs.filter(s=>rosterSubmitted(s) && s.status!=='pass' && s.status!=='fail');
+  const submitted = fs.filter(rosterSubmitted);
+  const total     = expectedCount() || fs.length;
+  return { pass, aiFail, absent, pending, submitted, total };
+}
+
+function rosterName(s){ return s.name || s.studentName || ''; }
+function rosterChip(sid, name, cls){
+  return `<span class="rost-chip ${cls}">${escHtml(String(sid||''))} ${escHtml(name||'')}</span>`;
+}
+function rosterGroup(title, items, cls){
+  if(!items.length) return '';
+  return `<div class="rost-group"><div class="rost-group-hd">${escHtml(title)} ${items.length}명</div>
+    <div>${items.map(x=>rosterChip(x.studentId||x.id, rosterName(x), cls)).join('')}</div></div>`;
+}
+
+function renderRosterBody(){
+  const b = rosterBuckets();
+  const body = document.getElementById('rost-body');
+  if(!body) return;
+  if(rosterTab==='pass'){
+    body.innerHTML = b.pass.length
+      ? `<div class="rost-count">총 <strong style="color:#0E9F6E">${b.pass.length}명</strong> 통과</div>
+         <div>${b.pass.map(s=>rosterChip(s.studentId||s.id, rosterName(s), 'rost-chip-pass')).join('')}</div>`
+      : '<div class="rost-empty" style="color:var(--hi-text-muted)">통과한 학생이 없습니다.</div>';
+  } else if(rosterTab==='fail'){
+    const n = b.aiFail.length + b.absent.length;
+    if(!n){ body.innerHTML = '<div class="rost-empty">미흡 학생 없음!</div>'; return; }
+    body.innerHTML = `<div class="rost-count">총 <strong style="color:#DC2626">${n}명</strong> 미흡</div>`
+      + rosterGroup('미제출', b.absent, 'rost-chip-absent')
+      + rosterGroup('채점 미흡', b.aiFail, 'rost-chip-fail');
+  } else {
+    body.innerHTML = b.pending.length
+      ? `<div class="rost-count">제출했지만 아직 채점하지 않은 학생 <strong>${b.pending.length}명</strong></div>
+         <div>${b.pending.map(s=>rosterChip(s.studentId||s.id, rosterName(s), 'rost-chip-none')).join('')}</div>`
+      : '<div class="rost-empty">미채점 학생 없음!</div>';
+  }
+}
+
+function renderRosterSummary(){
+  const b = rosterBuckets();
+  const el = document.getElementById('rost-summary');
+  if(!el) return;
+  const where = currentFilter==='전체' ? '전체' : `${currentFilter}반`;
+  el.textContent = `${where}  통과 ${b.pass.length}명 / 미흡 ${b.aiFail.length + b.absent.length}명 / 전체 ${b.total}명`;
+}
+
+window.openRosterModal = function(tab){
+  rosterTab = tab || 'fail';
+  document.querySelectorAll('#roster-modal-backdrop .modal-tab').forEach(x=>x.classList.remove('active'));
+  document.getElementById('rost-tab-'+rosterTab)?.classList.add('active');
+  renderRosterSummary();
+  renderRosterBody();
+  document.getElementById('roster-modal-backdrop').classList.add('open');
+};
+window.closeRosterModal = function(){
+  document.getElementById('roster-modal-backdrop').classList.remove('open');
+};
+window.switchRosterTab = function(tab, btn){
+  rosterTab = tab;
+  document.querySelectorAll('#roster-modal-backdrop .modal-tab').forEach(x=>x.classList.remove('active'));
+  btn.classList.add('active');
+  renderRosterBody();
+};
 
 /* ─────────── 채점 ─────────── */
 document.getElementById('score-btn').addEventListener('click',async()=>{
@@ -834,7 +948,7 @@ function renderStudentList(){
     const answers=s.answers||{};
     const status=s.status||'pending';
     const picked=!!s.picked;
-    const firstAnswer=qs.length>0?(answers[0]||'').trim():'';
+    // 카드에 세 답변을 모두 편다. 질문 원문은 한 줄로 눌러 두고 답변에 자리를 준다.
     const ansHtml=qs.map((q,qi)=>`
       <div class="ans-block">
         <div class="ans-q-label">Q${qi+1}. ${escHtml(q)}</div>
@@ -851,7 +965,7 @@ function renderStudentList(){
         </div>
         <div class="std-content">
           ${char?`<div class="std-badge-row"><span class="std-badge char-c${charIdx%6}">${escHtml(s.charName||s.charId||'')}</span></div>`:''}
-          <div class="std-content-main">${firstAnswer?escHtml(firstAnswer):'<span style="color:var(--hi-text-muted)">미제출</span>'}</div>
+          <div class="std-answers">${s.charId&&qs.length?ansHtml:'<div class="std-nosub">미제출</div>'}</div>
           <div class="std-content-sub">${statusLabel(status)}${picked?' / PICK':''}${formatSubmitTime(s)?` / ${formatSubmitTime(s)}`:''}</div>
         </div>
         <div class="std-actions" onclick="event.stopPropagation()">
@@ -868,7 +982,6 @@ function renderStudentList(){
           <button class="ssb ssb-insuf${status==='fail'?' active':''}" data-sid="${s.studentId}" data-st="fail" onclick="event.stopPropagation();setSsb(this)">미흡</button>
           <button class="ssb ssb-pick${picked?' active':''}" data-sid="${s.studentId}" onclick="event.stopPropagation();togglePickStatus(this,'${s.studentId}',${picked})">PICK</button>
         </div>
-        ${s.charId?ansHtml:'<div class="ans-empty">제출된 답변이 없습니다.</div>'}
         ${s.deepQuestion?`<div class="deep-block">
           <div class="deep-q-label">심화 질문 제작</div>
           <div class="ans-text">${escHtml(s.deepQuestion)}</div>
@@ -1155,6 +1268,22 @@ function formatSubmitTime(s){
 </div>
 
 <!-- 답변 수정 모달 (답변 카드의 연필 버튼) -->
+<div class="scoring-modal-backdrop" id="roster-modal-backdrop" onclick="if(event.target===this)closeRosterModal()">
+  <div class="scoring-modal">
+    <div class="scoring-modal-title">채점 결과</div>
+    <div class="rost-summary" id="rost-summary"></div>
+    <div class="modal-tabs" style="margin-bottom:14px;">
+      <button class="modal-tab" id="rost-tab-pass"    onclick="switchRosterTab('pass', this)">통과</button>
+      <button class="modal-tab" id="rost-tab-fail"    onclick="switchRosterTab('fail', this)">미흡</button>
+      <button class="modal-tab" id="rost-tab-pending" onclick="switchRosterTab('pending', this)">미채점</button>
+    </div>
+    <div class="rost-body" id="rost-body"></div>
+    <div class="scoring-modal-footer">
+      <button class="hi-btn hi-btn-outline hi-btn-sm" onclick="closeRosterModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div class="scoring-modal-backdrop" id="edit-modal-backdrop" onclick="if(event.target===this)closeEditModal()">
   <div class="scoring-modal">
     <div class="scoring-modal-title">답변 수정</div>
