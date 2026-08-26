@@ -169,11 +169,11 @@
 .stu-name { font-weight: 800; font-size: 14px; }
 .stu-id { font-size: 12px; color: var(--hi-text-muted); }
 .stu-char { font-size: 12px; color: var(--hi-text-muted); margin-left: 6px; }
-.status-badge { flex-shrink: 0; padding: 4px 10px; border-radius: 7px; font-size: 12px; font-weight: 800; }
-.sb-pending { background: var(--hi-bg-mid); color: var(--hi-text-muted); border: 1px solid var(--hi-border); }
-.sb-pass { background: var(--iv-pass-l); color: var(--iv-pass); }
-.sb-insuf { background: var(--iv-insuf-l); color: var(--iv-insuf); }
-.sb-pick { background: var(--iv-pick-l); color: var(--iv-pick); }
+.status-badge { flex-shrink: 0; padding: 4px 10px; border-radius: 7px; font-size: 12px; font-weight: 800; border: 1.5px solid transparent; }
+.sb-pending { background: var(--hi-bg-mid); color: var(--hi-text-muted); border-color: var(--hi-border); }
+.sb-pass { background: var(--iv-pass-l); color: var(--iv-pass); border-color: rgba(34,197,94,.35); }
+.sb-insuf { background: var(--iv-insuf-l); color: var(--iv-insuf); border-color: rgba(243,114,127,.35); }
+.sb-pick { background: var(--iv-pick-l); color: var(--iv-pick); border-color: rgba(177,140,242,.35); }
 .stu-toggle { font-size: 16px; color: var(--hi-text-muted); flex-shrink: 0; }
 .stu-card.open .stu-toggle { color: var(--iv-primary); }
 .stu-body { display: none; padding: 0 16px 16px; border-top: 1px solid var(--hi-border); }
@@ -204,12 +204,27 @@
 .std-meta-note { font-size: 11px; color: var(--hi-text-muted); font-weight: 700; }
 .std-nosub { font-size: 13px; color: var(--hi-text-muted); }
 
-/* 인물 배지 / 결과 / 제출 시각을 카드 맨 위 한 줄에. 시각만 오른쪽 끝으로 민다. */
-.std-meta-row { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-.std-meta-row .status-badge { padding: 3px 9px; border-radius: 100px; font-size: 11px; }
-.std-meta-time { margin-left: auto; font-size: 11px; color: var(--hi-text-muted); }
-/* 카드가 길어졌으니 버튼은 세로 가운데가 아니라 맨 위에 붙인다. */
-.std-card-row .std-actions { align-self: start; }
+/* ── 카드 상단 바 ──
+   [학번·이름] [상태: 제출 시각 → 선택한 인물 배지 → 통과/미흡 배지] [액션바] 를 한 줄에
+   나란히 두고, 답변은 그 아래에서 카드 폭을 전부 쓴다. */
+.std-card-head { display: flex; align-items: center; gap: 10px; padding: 11px 14px 9px; }
+.std-who { flex-shrink: 0; display: flex; align-items: baseline; gap: 6px; }
+.std-who .std-sid { font-size: 11px; font-weight: 700; color: var(--hi-text-muted); letter-spacing: .3px; }
+.std-who .std-name { font-size: 14px; font-weight: 700; color: var(--hi-text); margin-top: 0; white-space: nowrap; }
+.std-status { flex: 1; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.std-meta-time { font-size: 11px; color: var(--hi-text-muted); }
+/* 인물 배지와 통과·미흡 배지는 색만 다르고 크기·모양은 같아야 한 줄이 정돈돼 보인다. */
+.std-status .std-badge,
+.std-status .status-badge {
+  display: inline-block; flex-shrink: 0; white-space: nowrap;
+  padding: 3px 10px; border-radius: 100px;
+  font-size: 11px; font-weight: 700; line-height: 1.5;
+  border-width: 1.5px; border-style: solid;
+}
+/* 액션바는 상단 바 오른쪽 끝에 가로로 눕힌다. */
+.std-card-head .std-actions { flex-direction: row; align-items: center; gap: 2px; margin-left: auto; align-self: center; }
+/* 답변은 상단 바 아래 카드 폭 전체 */
+.std-card > .std-answers { padding: 0 14px 12px; }
 .scoring-bar { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-bottom: 28px; }
 .score-info { font-size: 12px; color: var(--hi-text-muted); }
 .no-data { text-align: center; padding: 40px 20px; color: var(--hi-text-muted); font-size: 14px; }
@@ -511,28 +526,26 @@ function charBadgeHTML(charId,charName){
 }
 
 // 심화 질문 / 친구 심화답변도 기본 답변과 같은 카드 폼으로 그린다.
-// (학번·이름 열 + 상단 메타 한 줄 + 질문은 회색, 답변은 진하게)
+// (상단 바: 학번·이름 / 상태 / 액션바 → 그 아래 답변이 카드 폭 전체)
 function stdCardHTML({ studentId, name, meta, qLabel, body, emptyText, onDelete }){
   return `<div class="std-card">
-    <div class="std-card-row">
-      <div>
-        <div class="std-sid">${escHtml(String(studentId||''))}</div>
-        <div class="std-name">${escHtml(name||'')}</div>
+    <div class="std-card-head">
+      <div class="std-who">
+        <span class="std-sid">${escHtml(String(studentId||''))}</span>
+        <span class="std-name">${escHtml(name||'')}</span>
       </div>
-      <div class="std-content">
-        <div class="std-meta-row">${meta}</div>
-        <div class="std-answers single">
-          <div class="ans-block">
-            <div class="ans-q-label">${qLabel}</div>
-            ${(body||'').trim()
-              ? `<div class="ans-text">${escHtml(body)}</div>`
-              : `<div class="ans-empty">${escHtml(emptyText||'미작성')}</div>`}
-          </div>
-        </div>
-      </div>
+      <div class="std-status">${meta}</div>
       ${onDelete ? `<div class="std-actions">
         <button class="std-del" title="삭제" onclick="${onDelete}">${icon('x',16)}</button>
       </div>` : ''}
+    </div>
+    <div class="std-answers single">
+      <div class="ans-block">
+        <div class="ans-q-label">${qLabel}</div>
+        ${(body||'').trim()
+          ? `<div class="ans-text">${escHtml(body)}</div>`
+          : `<div class="ans-empty">${escHtml(emptyText||'미작성')}</div>`}
+      </div>
     </div>
   </div>`;
 }
@@ -546,8 +559,8 @@ function renderDeepAdmin(){
   if(!list.length){el.innerHTML='<div class="no-data">아직 심화 질문이 없습니다.</div>';return;}
   el.innerHTML=list.map(d=>stdCardHTML({
     studentId: d.studentId, name: d.name,
-    meta: charBadgeHTML(d.charId, d.charName)
-        + (formatSubmitTime(d) ? `<span class="std-meta-time">${formatSubmitTime(d)}</span>` : ''),
+    meta: (formatSubmitTime(d) ? `<span class="std-meta-time">${formatSubmitTime(d)}</span>` : '')
+        + charBadgeHTML(d.charId, d.charName),
     qLabel: '이 인물에게 던진 심화 질문',
     body: d.question, emptyText: '질문 없음',
     onDelete: `deleteDeep('${escHtml(d.id||'')}')`,
@@ -561,9 +574,9 @@ function renderReplyAdmin(){
   if(!list.length){el.innerHTML='<div class="no-data">아직 친구 심화답변이 없습니다.</div>';return;}
   el.innerHTML=list.map(d=>stdCardHTML({
     studentId: d.studentId, name: d.name,
-    meta: charBadgeHTML(d.deepCharId, d.deepCharName)
-        + (d.deepAuthorName ? `<span class="std-meta-note">${escHtml(d.deepAuthorName)} 학생의 질문</span>` : '')
-        + (formatSubmitTime(d) ? `<span class="std-meta-time">${formatSubmitTime(d)}</span>` : ''),
+    meta: (formatSubmitTime(d) ? `<span class="std-meta-time">${formatSubmitTime(d)}</span>` : '')
+        + charBadgeHTML(d.deepCharId, d.deepCharName)
+        + (d.deepAuthorName ? `<span class="std-meta-note">${escHtml(d.deepAuthorName)} 학생의 질문</span>` : ''),
     qLabel: escHtml(d.deepQuestion||'(질문 없음)'),
     body: d.replyText, emptyText: '미작성',
     onDelete: `deleteReply('${escHtml(d.id||'')}')`,
@@ -1068,19 +1081,16 @@ function renderStudentList(){
       </div>
     `).join('');
     return`<div class="std-card" style="cursor:pointer;" data-idx="${i}" onclick="toggleCard(this)">
-      <div class="std-card-row">
-        <div>
-          <div class="std-sid">${escHtml(String(s.studentId||''))}</div>
-          <div class="std-name">${escHtml(s.name||'')}</div>
+      <div class="std-card-head">
+        <div class="std-who">
+          <span class="std-sid">${escHtml(String(s.studentId||''))}</span>
+          <span class="std-name">${escHtml(s.name||'')}</span>
         </div>
-        <div class="std-content">
-          <div class="std-meta-row">
-            ${char?`<span class="std-badge char-c${charIdx%6}">${escHtml(s.charName||s.charId||'')}</span>`:''}
-            <span class="status-badge ${statusBadgeClass(status)}">${statusLabel(status)}</span>
-            ${picked?'<span class="status-badge sb-pick">PICK</span>':''}
-            ${formatSubmitTime(s)?`<span class="std-meta-time">${formatSubmitTime(s)}</span>`:''}
-          </div>
-          <div class="std-answers">${s.charId&&qs.length?ansHtml:'<div class="std-nosub">미제출</div>'}</div>
+        <div class="std-status">
+          ${formatSubmitTime(s)?`<span class="std-meta-time">${formatSubmitTime(s)}</span>`:''}
+          ${char?`<span class="std-badge char-c${charIdx%6}">${escHtml(s.charName||s.charId||'')}</span>`:''}
+          <span class="status-badge ${statusBadgeClass(status)}">${statusLabel(status)}</span>
+          ${picked?'<span class="status-badge sb-pick">PICK</span>':''}
         </div>
         <div class="std-actions" onclick="event.stopPropagation()">
           <button class="std-pick${picked?' picked':''}" data-sid="${s.studentId}" onclick="togglePickStatus(this,'${s.studentId}',${picked})">
@@ -1090,7 +1100,8 @@ function renderStudentList(){
           <button class="std-del" onclick="deleteAnswer('${s.studentId}')">${icon('x',16)}</button>
         </div>
       </div>
-      <div class="stu-body" style="display:none; padding:0 16px 14px;">
+      <div class="std-answers">${s.charId&&qs.length?ansHtml:'<div class="std-nosub">미제출</div>'}</div>
+      <div class="stu-body" style="display:none; padding:0 14px 12px;">
         <div class="stu-status-btns">
           <button class="ssb ssb-pass${status==='pass'?' active':''}" data-sid="${s.studentId}" data-st="pass" onclick="event.stopPropagation();setSsb(this)">통과</button>
           <button class="ssb ssb-insuf${status==='fail'?' active':''}" data-sid="${s.studentId}" data-st="fail" onclick="event.stopPropagation();setSsb(this)">미흡</button>
