@@ -512,7 +512,7 @@ function charBadgeHTML(charId,charName){
 
 // 심화 질문 / 친구 심화답변도 기본 답변과 같은 카드 폼으로 그린다.
 // (학번·이름 열 + 상단 메타 한 줄 + 질문은 회색, 답변은 진하게)
-function stdCardHTML({ studentId, name, meta, qLabel, body, emptyText }){
+function stdCardHTML({ studentId, name, meta, qLabel, body, emptyText, onDelete }){
   return `<div class="std-card">
     <div class="std-card-row">
       <div>
@@ -530,6 +530,9 @@ function stdCardHTML({ studentId, name, meta, qLabel, body, emptyText }){
           </div>
         </div>
       </div>
+      ${onDelete ? `<div class="std-actions">
+        <button class="std-del" title="삭제" onclick="${onDelete}">${icon('x',16)}</button>
+      </div>` : ''}
     </div>
   </div>`;
 }
@@ -547,6 +550,7 @@ function renderDeepAdmin(){
         + (formatSubmitTime(d) ? `<span class="std-meta-time">${formatSubmitTime(d)}</span>` : ''),
     qLabel: '이 인물에게 던진 심화 질문',
     body: d.question, emptyText: '질문 없음',
+    onDelete: `deleteDeep('${escHtml(d.id||'')}')`,
   })).join('');
 }
 function renderReplyAdmin(){
@@ -562,8 +566,20 @@ function renderReplyAdmin(){
         + (formatSubmitTime(d) ? `<span class="std-meta-time">${formatSubmitTime(d)}</span>` : ''),
     qLabel: escHtml(d.deepQuestion||'(질문 없음)'),
     body: d.replyText, emptyText: '미작성',
+    onDelete: `deleteReply('${escHtml(d.id||'')}')`,
   })).join('');
 }
+window.deleteDeep=async(id)=>{
+  if(!id||!confirm('이 심화 질문을 삭제하시겠습니까?'))return;
+  try{await deleteDoc(doc(db,'interview_joseon_deep',id));}
+  catch(e){alert('오류: '+e.message);}
+};
+window.deleteReply=async(id)=>{
+  if(!id||!confirm('이 친구 심화답변을 삭제하시겠습니까?'))return;
+  try{await deleteDoc(doc(db,'interview_joseon_deep_reply',id));}
+  catch(e){alert('오류: '+e.message);}
+};
+
 function startDeepListener(){ if(deepUnsub)return; deepUnsub=onSnapshot(collection(db,'interview_joseon_deep'),snap=>{deepData=[];snap.forEach(d=>deepData.push({id:d.id,...d.data()}));renderDeepAdmin();}); }
 function startReplyListener(){ if(replyUnsub)return; replyUnsub=onSnapshot(collection(db,'interview_joseon_deep_reply'),snap=>{replyData=[];snap.forEach(d=>replyData.push({id:d.id,...d.data()}));renderReplyAdmin();}); }
 document.querySelectorAll('.ans-subtab').forEach(btn=>{
