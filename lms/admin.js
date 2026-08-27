@@ -870,7 +870,7 @@ function startListening() {
 // 학생 화면(class/lesson.html)과 미리보기가 항상 100% 동일하게 렌더링되도록 한다.
 const CE_FONT_KEYS = ['title','body','label','obj','cover','coverTagline','coverMeta','think','thinkGuide',
   'coverScript','coverNum','diveQ','diveGuide','diveKicker','badge','qtSub','qtText','qtSrc',
-  'chosung','chosungNum'];
+  'chosung','chosungNum','colsTitle','colsHead','colsBody'];
 const CE_FONT_VAR_MAP = {
   title: '--fs-slide-title', body: '--fs-body', label: '--fs-label', obj: '--fs-obj',
   cover: '--fs-cover-title', coverTagline: '--fs-cover-tagline', coverMeta: '--fs-cover-meta',
@@ -879,6 +879,7 @@ const CE_FONT_VAR_MAP = {
   diveQ: '--fs-dive-q', diveGuide: '--fs-dive-guide', diveKicker: '--fs-dive-kicker',
   badge: '--fs-badge', qtSub: '--fs-qt-sub', qtText: '--fs-qt-text', qtSrc: '--fs-qt-src',
   chosung: '--fs-chosung', chosungNum: '--fs-chosung-num',
+  colsTitle: '--fs-cols-title', colsHead: '--fs-cols-head', colsBody: '--fs-cols-body',
 };
 const CE_LH_KEYS = ['body','label','obj','think','thinkGuide'];
 const CE_LH_VAR_MAP = {
@@ -888,7 +889,8 @@ const CE_LH_VAR_MAP = {
 const CE_SD = {
   fonts: { title: 40, body: 60, label: 70, obj: 70, cover: 200, coverTagline: 40, coverMeta: 40, think: 80, thinkGuide: 50,
     coverScript: 680, coverNum: 100, diveQ: 80, diveGuide: 50, diveKicker: 40, badge: 30, qtSub: 40, qtText: 60, qtSrc: 40,
-    chosung: 48, chosungNum: 110 },
+    chosung: 48, chosungNum: 110,
+    colsTitle: 70, colsHead: 60, colsBody: 60 },
   lineHeights: { body: 1.6, label: 1.6, obj: 1.6, think: 1.6, thinkGuide: 1.6 },
   letterSpacing: -15, // -20~10 슬라이더 값, 100분의 1em 단위 (-15 = -0.15em)
   textWidth: 95,      // % (장평, scaleX = 값/100)
@@ -1488,6 +1490,15 @@ function setLineFontSize(target, i, v) {
   ceRenderPreview();
 }
 
+// 중앙 나열 페이지의 대제목만 따로 키우거나 줄인다. 비우면 디자인 탭 기본값을 따른다.
+function setColsTitleSize(target, i, v) {
+  const line = ceLinesFor(target)[i];
+  const n = parseInt(v, 10);
+  if (v === '' || isNaN(n)) delete line.colsTitleSize;
+  else line.colsTitleSize = n;
+  ceRenderPreview();
+}
+
 function autoResizeTa(ta) {
   ta.style.height = '1px';
   ta.style.height = ta.scrollHeight + 'px';
@@ -1791,7 +1802,8 @@ function ceRenderContentLines(target) {
                 <div class="cl-fmt-opts">
                   ${fmt === 'rows' ? `<label class="cl-opt"><input type="checkbox" class="cl-opt-labelpos" ${div.labelPos === 'left' ? 'checked' : ''} onclick="event.stopPropagation();toggleLabelPos('${target}',${divIdx},this.checked)"> 라벨 좌측</label>` : ''}
                   ${fmt !== 'notice' ? `<label class="cl-opt"><input type="checkbox" ${div.hideBadge ? 'checked' : ''} onclick="event.stopPropagation();toggleHideBadge('${target}',${divIdx},this.checked)"> 배지 숨김</label>` : ''}
-                  <label class="cl-opt">글자 크기 <input type="number" min="10" max="140" placeholder="기본" value="${div.fontSize != null ? div.fontSize : ''}" oninput="setLineFontSize('${target}',${divIdx},this.value)"> px</label>
+                  <label class="cl-opt">${fmt === 'cols' ? '글자 크기(소제목/내용)' : '글자 크기'} <input type="number" min="10" max="140" placeholder="기본" value="${div.fontSize != null ? div.fontSize : ''}" oninput="setLineFontSize('${target}',${divIdx},this.value)"> px</label>
+                  ${fmt === 'cols' ? `<label class="cl-opt">글자 크기(대제목) <input type="number" min="10" max="200" placeholder="기본" value="${div.colsTitleSize != null ? div.colsTitleSize : ''}" oninput="setColsTitleSize('${target}',${divIdx},this.value)"> px</label>` : ''}
                 </div>
                 ${fmt === 'rows' ? ceBottomQuoteEditor(target,divIdx,div) : ''}
               </div>
@@ -5048,7 +5060,7 @@ Object.assign(window, {
   switchSubTab, addLesson, deleteLesson, onLessonChange,
   addSlide, addDivider, addContentRow, addImageSlide, toggleDividerImg, deleteLine, deletePair, moveLine,
   addRowToGroup, addPageToGroup, addTitledPageAfter, moveSlideBlock, ceShowAddMenu, deleteGroup, deleteRow, updateGroupTitle, ceToggleFmt,
-  setLineFormat, toggleLabelPos, toggleHideBadge, setLineFontSize, updateImgLayout,
+  setLineFormat, toggleLabelPos, toggleHideBadge, setLineFontSize, setColsTitleSize, updateImgLayout,
   updateEventField, updateEventContent, addEvent, removeEvent,
   updateCompareField, updateCompareItems,
   updateStageField, addStage, removeStage,

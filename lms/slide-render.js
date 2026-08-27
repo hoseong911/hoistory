@@ -726,7 +726,10 @@
           else if (fmt === 'quote') { current.text = line.quoteText || ''; current.source = line.quoteSource || ''; current.quoteLabel = line.quoteLabel || ''; }
           else if (fmt === 'flow-h' || fmt === 'flow-v') current.stages = line.stages || [];
           else if (fmt === 'notice') current.noticeText = line.noticeText || '';
-          else if (fmt === 'cols') { current.cols = line.cols || []; current.colsTitle = line.colsTitle || ''; }
+          else if (fmt === 'cols') {
+            current.cols = line.cols || []; current.colsTitle = line.colsTitle || '';
+            if (line.colsTitleSize != null) current.colsTitleSize = line.colsTitleSize; // 페이지별 대제목 크기
+          }
         } else if (line.labelPos) {
           current.labelPos = line.labelPos;
         }
@@ -847,7 +850,19 @@
       extraClass = ' slide-think';
       inner = thinkHTML(slide, lesson);
     }
-    const fsStyle = slide.fontSize ? ` style="--fs-body:${slide.fontSize}px"` : ''; // 페이지별 본문 글자 크기 오버라이드
+    // 페이지별 본문 글자 크기 오버라이드. 중앙 나열(cols)은 소제목/내용이 전용 변수를 쓰므로
+    // --fs-body만 덮어써서는 안 먹는다 — 그 페이지에 한해 전용 변수도 같이 덮어쓴다.
+    let fsStyle = '';
+    if (slide.fontSize) {
+      fsStyle = slide.format === 'cols'
+        ? ` style="--fs-body:${slide.fontSize}px;--fs-cols-head:${slide.fontSize}px;--fs-cols-body:${slide.fontSize}px"`
+        : ` style="--fs-body:${slide.fontSize}px"`;
+    }
+    if (slide.colsTitleSize) {
+      fsStyle = fsStyle
+        ? fsStyle.replace(/"$/, `;--fs-cols-title:${slide.colsTitleSize}px"`)
+        : ` style="--fs-cols-title:${slide.colsTitleSize}px"`;
+    }
     return `<div class="slide${extraClass}"${fsStyle}>${inner}</div>`;
   }
 
