@@ -179,6 +179,7 @@ import{getFirestore,doc,getDoc,setDoc,updateDoc,deleteDoc,collection,onSnapshot,
 import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import{firebaseConfig}from"../../shared/firebase-config.js";
 import{icon}from"../../shared/icons.js";
+import { loadTestIds, isTestId } from "../../shared/testIds.js";
 
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
@@ -451,12 +452,13 @@ window.saveContent=async()=>{
 };
 
 /* ── 제출물 ── */
-function startWorks(){
+async function startWorks(){
+  await loadTestIds(db);
   if(unsubWorks)unsubWorks();
   const q=query(collection(db,'fourcut_works'),orderBy('timestamp','desc'));
-  unsubWorks=onSnapshot(q,snap=>{works=[];snap.forEach(d=>works.push({id:d.id,...d.data()}));renderWorksFilter();renderWorks();},
+  unsubWorks=onSnapshot(q,snap=>{works=[];snap.forEach(d=>{if(!isTestId(d.data().studentId))works.push({id:d.id,...d.data()});});renderWorksFilter();renderWorks();},
     ()=>{ // 정렬 인덱스 없을 때 대비
-      onSnapshot(collection(db,'fourcut_works'),s=>{works=[];s.forEach(d=>works.push({id:d.id,...d.data()}));works.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));renderWorksFilter();renderWorks();});
+      onSnapshot(collection(db,'fourcut_works'),s=>{works=[];s.forEach(d=>{if(!isTestId(d.data().studentId))works.push({id:d.id,...d.data()});});works.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));renderWorksFilter();renderWorks();});
     });
 }
 window.setWorksFilter=(f,btn)=>{worksFilter=f;document.querySelectorAll('#worksFilter .cf-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderWorks();};

@@ -5479,7 +5479,8 @@ initAdmin();
         Object.entries(data).forEach(([key, val]) => {
           const sid = String(val.studentId || key);
           const sname = val.name || val.studentName || val.realName || '';
-          if (sid && sname) list.push({ studentId: sid, studentName: sname });
+          // 테스트 학번은 여기서 통째로 뺀다 — 총인원·미제출 명단·채점 대상 전부에서 빠진다.
+          if (sid && sname && !isTestId(sid)) list.push({ studentId: sid, studentName: sname });
         });
       }
       list.sort((a, b) => a.studentId.localeCompare(b.studentId));
@@ -5826,7 +5827,8 @@ initAdmin();
     thSubs = null;
     thSubUnsub = onSnapshot(
       query(collection(db, 'think_submissions'), where('lectureDocId', '==', lecId)),
-      snap => { thSubs = snap.docs.map(d => ({ subId: d.id, ...d.data() })); cb(); },
+      // 테스트 학번 제출은 여기서 걸러 낸다 — 답변 목록·통계·AI 채점·재채점·PICK 전부에 적용된다.
+      snap => { thSubs = snap.docs.map(d => ({ subId: d.id, ...d.data() })).filter(s => !isTestId(s.id)); cb(); },
       err => console.warn('[think] submissions:', err)
     );
   }
@@ -6612,7 +6614,7 @@ async function xpManualLoadStudents() {
   const snap = await get(ref(rtdb, 'students'));
   if (!snap.exists()) return;
   _xpAllStudents = Object.values(snap.val() || {})
-    .filter(s => s && (s.studentId || s.id))
+    .filter(s => s && (s.studentId || s.id) && !isTestId(String(s.studentId || s.id)))
     .map(s => ({ sid: String(s.studentId || s.id), name: s.name || '' }))
     .sort((a, b) => a.sid.localeCompare(b.sid, undefined, { numeric: true }));
   xpManualLogLoad();

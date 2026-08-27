@@ -169,6 +169,7 @@ import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/1
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
 import { firebaseConfig } from "../../shared/firebase-config.js";
+import { loadTestIds, isTestId } from "../../shared/testIds.js";
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const rtdb = getDatabase(app);
@@ -219,9 +220,10 @@ onAuthStateChanged(auth, user => {
   }
 });
 
-function startListeners() {
+async function startListeners() {
+  await loadTestIds(db);
   onSnapshot(collection(db, COL), snap => {
-    allDocs = []; snap.forEach(d => allDocs.push({ id: d.id, ...d.data() }));
+    allDocs = []; snap.forEach(d => { if (!isTestId(d.data().studentId || d.id)) allDocs.push({ id: d.id, ...d.data() }); });
     document.getElementById('stTotal').textContent = allDocs.length;
     document.getElementById('stPass').textContent = allDocs.filter(d => d.status === 'pass').length;
     document.getElementById('stFail').textContent = allDocs.filter(d => d.status === 'fail').length;

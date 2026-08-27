@@ -532,6 +532,7 @@ import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
 /* ===== Firebase ===== */
 import { firebaseConfig } from "../../shared/firebase-config.js";
 import { icon } from "../../shared/icons.js";
+import { loadTestIds, isTestId } from "../../shared/testIds.js";
 
 // data-ic="아이콘명" 요소에 SVG 주입 (정적 HTML 아이콘용)
 function injectIcons(root = document) {
@@ -647,7 +648,8 @@ onAuthStateChanged(auth, user => {
 });
 
 /* ===== Firebase 구독 ===== */
-function startListening() {
+async function startListening() {
+  await loadTestIds(fsdb);
   // 학생 명단 (sadaebu의 ../../shared/auth.js와 동일 경로)
   onValue(ref(db, 'students'), snap => {
     const data = snap.val();
@@ -656,6 +658,7 @@ function startListening() {
       Object.entries(data).forEach(([key, val]) => {
         const sid = val.studentId || '';
         const name = val.name || val.studentName || val.realName || '';
+        if (isTestId(sid)) return;
         allStudents.push({ _key: key, studentId: sid, name });
         if (sid && name) studentMap[sid] = name;
       });
@@ -665,7 +668,7 @@ function startListening() {
   });
   // 게임 결과
   onSnapshot(query(collection(fsdb, 'goryeo_choice_results'), orderBy('timestamp', 'desc')), snap => {
-    allResults = snap.docs.map(d => ({ _key: d.id, ...d.data() }));
+    allResults = snap.docs.map(d => ({ _key: d.id, ...d.data() })).filter(r => !isTestId(r.studentId));
     renderAll();
   });
 }

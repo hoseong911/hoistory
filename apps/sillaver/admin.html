@@ -180,6 +180,7 @@ import { getDatabase, ref, onValue, get, set } from "https://www.gstatic.com/fir
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
 
 import { firebaseConfig } from "../../shared/firebase-config.js";
+import { loadTestIds, isTestId } from "../../shared/testIds.js";
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const rtdb = getDatabase(app);
@@ -238,7 +239,8 @@ onAuthStateChanged(auth, user => {
   }
 });
 
-function startListeners() {
+async function startListeners() {
+  await loadTestIds(db);
   onValue(studentsRef, snap => {
     const data = snap.val();
     studentMap = {}; studentList = [];
@@ -253,7 +255,7 @@ function startListeners() {
     renderSubmissions();
   });
   onSnapshot(query(collection(db, 'silla_v3'), orderBy('timestamp', 'desc')), snap => {
-    allDocs = []; snap.forEach(d => allDocs.push({ id: d.id, ...d.data() }));
+    allDocs = []; snap.forEach(d => { if (!isTestId(d.data().studentId || d.id)) allDocs.push({ id: d.id, ...d.data() }); });
     renderSubmissions();
   });
   if (!guidesLoaded) { guidesLoaded = true; loadGuides(); }

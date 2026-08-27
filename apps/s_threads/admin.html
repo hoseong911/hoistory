@@ -527,6 +527,7 @@ import { getFirestore, collection, doc, onSnapshot, query, orderBy, updateDoc, d
 
 import { firebaseConfig } from "../../shared/firebase-config.js";
 import { icon } from "../../shared/icons.js";
+import { loadTestIds, isTestId } from "../../shared/testIds.js";
 
 // data-ic="아이콘명" 요소에 SVG 주입 (정적 HTML 아이콘용)
 function injectIcons(root = document) {
@@ -613,7 +614,8 @@ onAuthStateChanged(auth, user => {
 });
 
 // Firebase 구독
-function startListening() {
+async function startListening() {
+  await loadTestIds(fsdb);
   onValue(ref(db, 'students'), snap => {
     const data = snap.val();
     allStudents = []; studentMap = {};
@@ -621,6 +623,7 @@ function startListening() {
       Object.entries(data).forEach(([key, val]) => {
         const sid = val.studentId || '';
         const name = val.name || val.studentName || val.realName || '';
+        if (isTestId(sid)) return;
         allStudents.push({ _key: key, studentId: sid, name });
         if (sid && name) studentMap[sid] = name;
       });
@@ -629,7 +632,7 @@ function startListening() {
     renderAll();
   });
   onSnapshot(query(collection(fsdb, 's_threads_posts'), orderBy('timestamp', 'desc')), snap => {
-    allPosts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    allPosts = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => !isTestId(p.studentId));
     renderAll();
   });
 }

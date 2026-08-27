@@ -181,6 +181,7 @@ import{getDatabase,ref,get}from"https://www.gstatic.com/firebasejs/10.12.2/fireb
 import{getStorage,ref as sRef,uploadBytes,getDownloadURL}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { firebaseConfig } from "../../shared/firebase-config.js";
 import { icon, resolveIcon, ICON_NAMES } from "../../shared/icons.js";
+import { loadTestIds, isTestId } from "../../shared/testIds.js";
 
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
@@ -349,11 +350,12 @@ async function loadRoster(){
 }
 
 /* ── 실시간 리스너 ── */
-function startListeners(){
+async function startListeners(){
+  await loadTestIds(db);
   if(cardsUnsub)cardsUnsub();
   if(votesUnsub)votesUnsub();
   cardsUnsub=onSnapshot(collection(db,'j_science_cards'),snap=>{
-    cards=[];snap.forEach(d=>{if(classNumOf(d.id)!==0)cards.push({id:d.id,...d.data()});});
+    cards=[];snap.forEach(d=>{if(classNumOf(d.id)!==0&&!isTestId(d.data().studentId||d.id))cards.push({id:d.id,...d.data()});});
     cards.sort((a,b)=>(classNumOf(a.id)||0)-(classNumOf(b.id)||0)||String(a.id).localeCompare(String(b.id)));
     renderAll();
   });

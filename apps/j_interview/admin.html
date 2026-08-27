@@ -386,6 +386,7 @@ import{getDatabase,ref,get,set}from"https://www.gstatic.com/firebasejs/10.12.2/f
 import{getStorage,ref as sRef,uploadBytes,getDownloadURL}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 import { firebaseConfig } from "../../shared/firebase-config.js";
 import { icon, resolveIcon } from "../../shared/icons.js";
+import { loadTestIds, isTestId } from "../../shared/testIds.js";
 
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
@@ -795,11 +796,12 @@ document.getElementById('reset-confirm-btn').addEventListener('click',async()=>{
 });
 
 /* ─────────── 실시간 리스너 ─────────── */
-function startAnswerListener(){
+async function startAnswerListener(){
+  await loadTestIds(db);
   if(unsub)unsub();
   unsub=onSnapshot(collection(db,'interview_joseon_answers'),snap=>{
     students=[];
-    snap.forEach(d=>{if(classNumOf(d.id)!==0)students.push({id:d.id,...d.data()});});
+    snap.forEach(d=>{if(classNumOf(d.id)!==0&&!isTestId(d.id))students.push({id:d.id,...d.data()});});
     students.sort((a,b)=>(classNumOf(a.id)||0)-(classNumOf(b.id)||0)||String(a.studentId).localeCompare(String(b.studentId)));
     renderClassFilter();
     updateStats();

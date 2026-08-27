@@ -211,6 +211,7 @@ import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
 
 import { firebaseConfig } from "../../shared/firebase-config.js";
 import { icon } from "../../shared/icons.js";
+import { loadTestIds, isTestId } from "../../shared/testIds.js";
 
 // data-ic="아이콘명" 요소에 SVG 주입 (정적 HTML 아이콘용)
 function injectIcons(root = document) {
@@ -272,7 +273,8 @@ onAuthStateChanged(auth, user => {
   }
 });
 
-function startListeners() {
+async function startListeners() {
+  await loadTestIds(fsdb);
   onValue(studentsRef, snap => {
     const data = snap.val();
     studentMap = {}; studentList = [];
@@ -287,7 +289,7 @@ function startListeners() {
     renderAll();
   });
   onSnapshot(query(collection(fsdb, 'blind_ryeo_posts'), orderBy('timestamp', 'desc')), snap => {
-    allPosts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    allPosts = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(p => !isTestId(p.studentId));
     renderAll();
     window.updateExportPreview();
     if (document.getElementById('gradeModal').classList.contains('show')) {

@@ -305,62 +305,6 @@ function enterHub(id, name) {
   startListening();
   _initXPForStudent(id, name);
   _listenMileage(id);
-  autoHideExpiredThink(); // 진도 늦은 반 기준 8일 지난 생각 체크 자동 비공개
-}
-
-// ── 생각 체크 자동 비공개 ──
-// 수업 스케줄(class_progress/plan)에서 각 반이 해당 강의를 진행한 날짜를 읽어,
-// 가장 진도가 늦은 반(제일 늦게 진행한 날짜)으로부터 8일이 지났으면 그 생각 체크를 비공개로 바꾼다.
-// 매칭 기준: think_lectures.icon(강 번호) ↔ class_progress rows[].label("{번호}강").
-// 학생 허브 로드 때 1회 검사(정적 호스팅이라 서버 크론 대신 이 방식 사용).
-const THINK_AUTO_HIDE_DAYS = 8;
-function hubTodayMidnight() {
-  const n = new Date();
-  return new Date(n.getFullYear(), n.getMonth(), n.getDate());
-}
-// 'M/D' 문자열을 오늘과 가장 가까운 연도의 Date로 해석(연말 경계 안전 처리) — admin의 plResolveDate와 동일.
-function hubResolveDate(mmdd, today) {
-  const mt = /^(\d{1,2})\s*\/\s*(\d{1,2})$/.exec((mmdd || '').trim());
-  if (!mt) return null;
-  const m = +mt[1], d = +mt[2];
-  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
-  const ty = today.getFullYear();
-  let best = null;
-  [ty - 1, ty, ty + 1].forEach(yy => {
-    const cand = new Date(yy, m - 1, d);
-    const diff = Math.abs(cand - today);
-    if (!best || diff < best.diff) best = { date: cand, diff };
-  });
-  return best.date;
-}
-async function autoHideExpiredThink() {
-  try {
-    const planSnap = await getDoc(doc(db, 'class_progress', 'plan'));
-    if (!planSnap.exists()) return;
-    const rows = planSnap.data().rows || [];
-    if (!rows.length) return;
-    const today = hubTodayMidnight();
-    const openSnap = await getDocs(query(collection(db, 'think_lectures'), where('isOpen', '==', true)));
-    for (const dref of openSnap.docs) {
-      const lec = dref.data();
-      const icon = String(lec.icon || '').trim();
-      if (!icon) continue;
-      const label = /^\d+$/.test(icon) ? `${icon}강` : icon;
-      const row = rows.find(r => r.label === label);
-      if (!row || !row.cells) continue;
-      // 각 반의 수업일 중 가장 늦은(최근) 날짜 = 가장 진도 늦은 반의 진행일.
-      let maxDate = null;
-      Object.keys(row.cells).forEach(k => {
-        const dt = hubResolveDate(row.cells[k], today);
-        if (dt && (!maxDate || dt > maxDate)) maxDate = dt;
-      });
-      if (!maxDate) continue; // 스케줄 정보 없음 → 판단 보류(비공개 안 함)
-      const days = Math.floor((today - maxDate) / 86400000);
-      if (days >= THINK_AUTO_HIDE_DAYS) {
-        try { await updateDoc(doc(db, 'think_lectures', dref.id), { isOpen: false }); } catch (_) {}
-      }
-    }
-  } catch (_) {}
 }
 
 // ── 역사 열공 마일리지 누적 일수 (hismile 앱과 공유하는 RTDB 경로) ──

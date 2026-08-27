@@ -188,6 +188,7 @@ import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https:
 import{getDatabase,ref,get}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { firebaseConfig } from "../../shared/firebase-config.js";
 import { icon } from "../../shared/icons.js";
+import { loadTestIds, isTestId } from "../../shared/testIds.js";
 
 const app=initializeApp(firebaseConfig);
 const db=getFirestore(app);
@@ -413,10 +414,11 @@ async function loadRoster(){
 }
 
 /* ── 결과 리스너 ── */
-function startListener(){
+async function startListener(){
+  await loadTestIds(db);
   if(resultsUnsub)resultsUnsub();
   resultsUnsub=onSnapshot(collection(db,'j_wartimeline_results'),snap=>{
-    results=[];snap.forEach(d=>{if(classNumOf(d.id)!==0)results.push({id:d.id,...d.data()});});
+    results=[];snap.forEach(d=>{if(classNumOf(d.id)!==0&&!isTestId(d.id))results.push({id:d.id,...d.data()});});
     results.sort((a,b)=>(classNumOf(a.id)||0)-(classNumOf(b.id)||0)||String(a.id).localeCompare(String(b.id)));
     renderClassFilter();updateStats();renderResultList();
   });
