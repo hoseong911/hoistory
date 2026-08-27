@@ -153,12 +153,17 @@ service cloud.firestore {
 
     //    LMS 성적 체크의 미션 자동 연동이 읽는 제출 요약(이미지 없음, 학번당 1문서).
     //    작품 문서는 이미지 때문에 무거워 전량 조회를 못 하므로 이걸 따로 남긴다.
+    //    채점 결과(status)는 선생님만 쓸 수 있다 — 학생 쪽 쓰기는 제출 사실만 남긴다.
     match /fourcut_submissions/{studentId} {
       allow read: if true;
-      allow write: if isAdmin() || (
+      allow create: if isAdmin() || (
         request.resource.data.studentId is string &&
-        request.resource.data.studentName is string && request.resource.data.studentName.size() <= 50
+        request.resource.data.studentName is string && request.resource.data.studentName.size() <= 50 &&
+        !request.resource.data.keys().hasAny(['status'])
       );
+      allow update: if isAdmin() ||
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['studentId', 'studentName', 'classNum', 'lastAt', 'createdAt']);
     }
 
     // ── 역사 도미노 (j_wartimeline): 순서 맞추기 + 인과 잇기 결과 ──

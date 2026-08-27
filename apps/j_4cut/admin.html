@@ -66,6 +66,15 @@
   .fc-work .wlike .hi-ic{fill:currentColor}
   .eb .dh .hi-ic,.fc-work .wdel .hi-ic{display:block}
   .fc-work .wdel{background:none;border:none;color:var(--hi-negative);cursor:pointer;font-size:14px}
+  /* 채점 (통과/미흡) — LMS 성적 체크의 미션 달성으로 그대로 넘어간다 */
+  .fc-work .wgrade{display:flex;gap:6px;padding:0 10px 10px}
+  .ssb{flex:1;padding:6px 0;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;border:1.5px solid transparent;cursor:pointer;transition:.15s}
+  .ssb-pass{background:rgba(22,163,74,.12);color:#16a34a;border-color:rgba(22,163,74,.2)}
+  .ssb-pass.active,.ssb-pass:hover{background:#16a34a;color:#fff}
+  .ssb-fail{background:rgba(220,38,38,.1);color:#dc2626;border-color:rgba(220,38,38,.2)}
+  .ssb-fail.active,.ssb-fail:hover{background:#dc2626;color:#fff}
+  .fc-work.graded-pass{border-color:rgba(22,163,74,.45)}
+  .fc-work.graded-fail{border-color:rgba(220,38,38,.4)}
   .fc-lb{display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.85);align-items:center;justify-content:center;padding:20px}
   .fc-lb.show{display:flex}
   .fc-lb img{max-width:100%;max-height:100%}
@@ -154,6 +163,7 @@
       <div class="class-filter" id="worksFilter">
         <button class="cf-btn active" onclick="setWorksFilter('all',this)">전체</button>
       </div>
+      <div class="class-filter" id="worksStFilter"></div>
       <div class="admin-container fc-section">
         <div id="worksList"><div class="loading-state"><div class="spinner"></div><span>불러오는 중…</span></div></div>
       </div>
@@ -165,7 +175,7 @@
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import{getFirestore,doc,getDoc,setDoc,deleteDoc,collection,onSnapshot,query,orderBy}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{getFirestore,doc,getDoc,setDoc,updateDoc,deleteDoc,collection,onSnapshot,query,orderBy}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import{firebaseConfig}from"../../shared/firebase-config.js";
 import{icon}from"../../shared/icons.js";
@@ -196,7 +206,7 @@ let images={};            // eventId -> dataURL|null (로드된 것)
 let imagesDirty={};       // eventId -> true (이번에 바뀐 것만 저장)
 let activeEv=EVENTS[0].id;
 let selected=null;        // {ci,bi}
-let works=[],worksFilter='all',worksEvFilter='all',unsubWorks=null;
+let works=[],worksFilter='all',worksEvFilter='all',worksStFilter='all',unsubWorks=null;
 
 const curEvent=()=>CONTENT.events.find(e=>e.id===activeEv);
 
@@ -451,6 +461,7 @@ function startWorks(){
 }
 window.setWorksFilter=(f,btn)=>{worksFilter=f;document.querySelectorAll('#worksFilter .cf-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderWorks();};
 window.setWorksEvFilter=(f,btn)=>{worksEvFilter=f;document.querySelectorAll('#worksEvFilter .cf-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderWorks();};
+window.setWorksStFilter=(f,btn)=>{worksStFilter=f;document.querySelectorAll('#worksStFilter .cf-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderWorks();};
 function renderWorksFilter(){
   const ef=document.getElementById('worksEvFilter');
   ef.innerHTML=`<button class="cf-btn ${worksEvFilter==='all'?'active':''}" onclick="setWorksEvFilter('all',this)">전체 사건 (${works.length})</button>`
@@ -459,24 +470,73 @@ function renderWorksFilter(){
   const f=document.getElementById('worksFilter');
   f.innerHTML=`<button class="cf-btn ${worksFilter==='all'?'active':''}" onclick="setWorksFilter('all',this)">전체 반</button>`
     +cls.map(n=>`<button class="cf-btn ${worksFilter==n?'active':''}" onclick="setWorksFilter(${n},this)">${n}반</button>`).join("");
+  // 채점 상태 필터 — 아직 안 본 작품만 골라내기 위한 것이라 "미채점"을 함께 센다.
+  const n=st=>works.filter(w=>st==='pending'?(w.status!=='pass'&&w.status!=='fail'):w.status===st).length;
+  document.getElementById('worksStFilter').innerHTML=
+    [['all','전체 채점',works.length],['pending','미채점',n('pending')],['pass','통과',n('pass')],['fail','미흡',n('fail')]]
+      .map(([k,label,cnt])=>`<button class="cf-btn ${worksStFilter===k?'active':''}" onclick="setWorksStFilter('${k}',this)">${label} (${cnt})</button>`).join("");
 }
 function renderWorks(){
   const list=works.filter(w=>
     (worksEvFilter==='all'||w.eventId===worksEvFilter)&&
-    (worksFilter==='all'||w.classNum===worksFilter));
+    (worksFilter==='all'||w.classNum===worksFilter)&&
+    (worksStFilter==='all'||(worksStFilter==='pending'?(w.status!=='pass'&&w.status!=='fail'):w.status===worksStFilter)));
   const el=document.getElementById('worksList');
   if(!list.length){el.innerHTML=`<div class="empty-state">제출된 작품이 없습니다.</div>`;return;}
   el.innerHTML=`<div class="fc-works">${list.map(w=>`
-    <div class="fc-work">
+    <div class="fc-work${w.status==='pass'?' graded-pass':w.status==='fail'?' graded-fail':''}">
       <img src="${w.image}" alt="" onclick="lb('${w.id}')">
       <div class="wev">${esc(w.eventName||'사건 미기록')}</div>
       <div class="wm"><span>${esc(w.studentName)} ${w.classNum?`<span style="color:var(--hi-text-muted);font-size:12px">${w.classNum}반</span>`:''}</span>
         <span class="wlike">${icon('heart',13)} ${w.likes||0}</span>
         <button class="wdel" onclick="delWork('${w.id}')">${icon('x',14)}</button></div>
+      <div class="wgrade">
+        <button class="ssb ssb-pass${w.status==='pass'?' active':''}" onclick="setWorkStatus('${w.id}','pass')">통과</button>
+        <button class="ssb ssb-fail${w.status==='fail'?' active':''}" onclick="setWorkStatus('${w.id}','fail')">미흡</button>
+      </div>
     </div>`).join("")}</div>`;
 }
+
+/* 채점 결과를 LMS가 읽는 요약 문서(fourcut_submissions)에 반영한다.
+   작품 문서는 base64 이미지 때문에 무거워 LMS가 전량 조회를 못 하므로 학번당 1문서로 따로 남긴다.
+   한 학생이 사건별로 여러 장을 낼 수 있어, LMS 규칙(전부 통과해야 달성)에 맞춰 여기서 합산한다.
+   하나라도 아직 안 봤으면 status를 비워 LMS에서 빈칸(선생님 판단)으로 남게 한다. */
+async function syncSubmissionSummary(sid){
+  const mine=works.filter(w=>String(w.studentId||'')===String(sid));
+  if(!sid||!mine.length)return;
+  const sts=mine.map(w=>w.status);
+  const status=sts.some(s=>s!=='pass'&&s!=='fail')?null:(sts.every(s=>s==='pass')?'pass':'fail');
+  const first=Math.min(...mine.map(w=>w.timestamp||Infinity));
+  const head=mine[0];
+  await setDoc(doc(db,'fourcut_submissions',String(sid)),{
+    studentId:String(sid),studentName:head.studentName||'',classNum:head.classNum??null,
+    status,
+    ...(isFinite(first)?{createdAt:new Date(first)}:{}),
+  },{merge:true});
+}
+
+window.setWorkStatus=async(id,st)=>{
+  const cur=works.find(w=>w.id===id);
+  if(!cur)return;
+  const next=(cur.status===st)?null:st; // 같은 버튼을 다시 누르면 미채점으로 되돌린다
+  try{
+    await updateDoc(doc(db,'fourcut_works',id),{status:next});
+    cur.status=next; // 스냅샷이 도착하기 전에도 아래 합산이 맞도록 먼저 반영
+    await syncSubmissionSummary(cur.studentId);
+    renderWorksFilter();renderWorks();
+  }catch(e){alert('채점 저장 실패: '+(e.message||e));}
+};
 window.lb=id=>{const w=works.find(x=>x.id===id);if(!w)return;document.getElementById('fcLbImg').src=w.image;document.getElementById('fcLb').classList.add('show');};
-window.delWork=async id=>{if(!confirm('이 작품을 삭제하시겠습니까?'))return;try{await deleteDoc(doc(db,'fourcut_works',id));}catch(e){alert('삭제 실패: '+(e.message||e));}};
+window.delWork=async id=>{
+  if(!confirm('이 작품을 삭제하시겠습니까?'))return;
+  const cur=works.find(w=>w.id===id);
+  try{
+    await deleteDoc(doc(db,'fourcut_works',id));
+    // 남은 작품 기준으로 요약을 다시 계산한다(스냅샷을 기다리지 않고 로컬에서 먼저 뺀다).
+    works=works.filter(w=>w.id!==id);
+    if(cur)await syncSubmissionSummary(cur.studentId);
+  }catch(e){alert('삭제 실패: '+(e.message||e));}
+};
 </script>
 </body>
 </html>

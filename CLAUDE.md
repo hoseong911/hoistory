@@ -164,3 +164,21 @@ LMS에서 미션 카드를 만들고 공개(잠금 해제)하면, 같은 Firesto
 - **컬렉션을 나누지 않기로 함**: 문서 단위로 이미 독립된 사본이 생성되므로(다른 docId), LMS 쪽에서 원본 미션 카드를 나중에 삭제해도(수업에서 더 이상 안 씀) 루트에 이미 공개된 사본은 영향받지 않는다. 컬렉션을 분리하면 index.html 쿼리·firestore.rules를 이중으로 관리해야 해서 오히려 복잡도만 늘어난다고 판단(2026-07-21 결정, 사용자 질문에 대한 답변).
 - 이미 사본이 만들어진 미션 카드는 목록에서 "✓ 공개됨" 배지로 표시되고 버튼이 사라짐(같은 카드를 실수로 중복 게시하는 것 방지, `sourceMissionId` 매칭으로 판별).
 
+
+## LMS 미션 체크 자동 연동 (2026-08-27)
+
+`lms/admin.js`의 **성적 체크**는 미션 항목을 손으로 체크하지 않고, 강의에 연결된 미션 앱의 제출·채점 결과를 그대로 끌어온다.
+
+- **연결 고리**: 미션 카드(`cards`)의 `lessonNum`(연결 강의번호) == 성적 체크에서 고른 개념 강의 번호. 카드 `url`의 `apps/<앱키>/...`에서 앱키를 뽑아 `MISSION_SOURCES` 표를 찾는다.
+- **`MISSION_SOURCES`** (`lms/admin.js`, `missionAutoDetect()` 바로 위): `{ coll, timeFields, graded }`. 새 앱을 연동하려면 여기 한 줄만 추가한다. 표에 없는 앱은 예전처럼 수동 체크.
+- **판정 규칙** (2026-08-27 사용자 확정):
+  - 달성 = 그 학생 제출물이 **전부** `status === 'pass'`. 하나라도 `fail`이면 미달성.
+  - 하나라도 미채점(`pass`/`fail`이 아님)이면 그 학생은 **아예 건드리지 않는다**(빈칸 = 선생님 판단).
+  - 기한 = `class_progress` 스케줄의 그 반 수업일과 **가장 이른 제출 시각**을 비교. 스케줄 정보가 없으면 통과로 둔다(정보 부족으로 불이익 주지 않음). 판정 함수는 생각 체크와 같은 `thScheduledDate()`를 재사용.
+  - 이미 저장된 채점 기록이 있는 학생(`savedSet`)과 결석 학생은 자동 감지가 덮어쓰지 않는다.
+- **연동된 앱**: `j_interview`(interview_joseon_answers), `j_wartimeline`(j_wartimeline_results), `j_4cut`(fourcut_submissions).
+- **`fourcut_submissions` 예외**: 네컷 작품 문서(`fourcut_works`)에는 base64 JPEG가 통째로 들어 있어 LMS가 전량 조회하면 수십 MB가 오간다. 그래서 학번당 1문서짜리 가벼운 요약 컬렉션을 따로 둔다 — 학생이 공유할 때 제출 사실·시각을 남기고(`apps/j_4cut/index.html`의 `saveSubmissionMark`), 선생님이 작품별 통과/미흡을 누를 때 합산 `status`를 써 넣는다(`apps/j_4cut/admin.html`의 `syncSubmissionSummary`). **채점 결과를 제출 문서 자신에 둔다는 표준 스키마의 유일한 예외**이며, 이유는 오직 이미지 용량이다. 작품별 `status`는 표준대로 `fourcut_works` 문서에 그대로 남는다.
+
+## 성적 피드백 즉시 노출 (2026-08-27)
+
+성적 체크의 개념/미션/생각 체크는 메모리에만 두고 "임시 저장"/"반영하기"를 눌러야 저장되지만, **피드백만은 예외로 작성 즉시 Firestore에 저장**된다(`persistFeedbackOnly()`). 학생 `lms/index.js`도 미반영 강의의 피드백을 `feedbacks` 배열로 따로 모아 보여주므로, 성적을 반영하지 않아도 피드백은 바로 보인다. 점수와 "세부 채점 내역"은 그대로 반영된 강의만 쓴다.
