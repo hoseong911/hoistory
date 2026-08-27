@@ -245,6 +245,38 @@ function closeAdmDrawer() {
   document.getElementById('admSidebarScrim')?.classList.remove('open');
 }
 
+/* ── 버튼 폭 고정 ──
+   어드민 버튼은 진행 상태에 따라 문구가 바뀐다("불러오기" → "불러오는 중…", "임시 저장" →
+   "저장 중…"). 그때마다 폭이 달라지면 옆 버튼이 밀려 줄이 통째로 출렁이고 심하면 줄바꿈까지
+   생긴다. 그래서 버튼마다 "지금까지 본 가장 넓은 폭"을 min-width로 박아 두고 다시는 줄어들지
+   않게 한다. 문구를 바꾸는 코드가 스무 군데 넘게 흩어져 있어서, 각 호출부를 고치는 대신
+   버튼 안 글자가 바뀌는 것을 MutationObserver로 감시해 한 곳에서 처리한다.
+   숨어 있는 버튼은 폭이 0으로 잡히므로 건너뛰고, 패널이 보이는 순간 다시 잰다(switchNav). */
+function pinButtonWidths(root) {
+  (root || document).querySelectorAll('button').forEach(pinOneButton);
+}
+function pinOneButton(btn) {
+  if (!btn || btn.offsetParent === null) return;      // 안 보이는 버튼은 폭이 0이라 의미 없다
+  const w = btn.getBoundingClientRect().width;
+  if (!w) return;
+  const cur = parseFloat(btn.dataset.wpin || 0);
+  if (w > cur + 0.5) {
+    btn.dataset.wpin = w;
+    btn.style.minWidth = Math.ceil(w) + 'px';
+  }
+}
+function watchButtonWidths() {
+  pinButtonWidths(document);
+  new MutationObserver(muts => {
+    const seen = new Set();
+    muts.forEach(m => {
+      const node = m.target.nodeType === 1 ? m.target : m.target.parentElement;
+      const btn = node && node.closest ? node.closest('button') : null;
+      if (btn && !seen.has(btn)) { seen.add(btn); pinOneButton(btn); }
+    });
+  }).observe(document.body, { subtree: true, childList: true, characterData: true });
+}
+
 function switchNav(nav, fromHistory) {
   // 웹앱 어드민 iframe이 열려있는 상태에서 다른 메뉴로 이동하면 오버레이부터 닫는다.
   const overlay = document.getElementById('app-admin-overlay');
@@ -292,6 +324,9 @@ function switchNav(nav, fromHistory) {
     const titleEl = panel.querySelector('.panel-title');
     if (titleEl && groupTitle && subLabel) titleEl.textContent = `${groupTitle} - ${subLabel}`;
   }
+
+  // 숨어 있던 동안엔 폭이 0이라 버튼 크기를 잴 수 없다. 패널이 보이는 순간 한 번 재서 고정한다.
+  if (panel) requestAnimationFrame(() => pinButtonWidths(panel));
 
   // 개념 체크 · 디자인 패널은 숨겨진 동안 미리보기 폭 계산이 0이 되므로, 보일 때마다 다시 계산한다.
   if (panelId === 'panel-concept-design') requestAnimationFrame(rescalePreview);
@@ -5119,6 +5154,7 @@ document.querySelectorAll('[data-icon]').forEach(el => {
 
 // 스크립트 최상위 const/let 선언이 모두 끝난 뒤에 호출해야 TDZ 에러가 안 난다.
 initAdmin();
+watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게 감시 시작
 
 /* ════ 학생 관리 ════ */
 {

@@ -52,7 +52,9 @@ input,textarea,select{font-size:16px}
 .hi-ptitle{font-family:'Pretendard';font-weight:900;font-size:var(--fs-md);letter-spacing:-.01em;color:#111}
 
 /* ===== 인트로 (전체 중앙정렬) ===== */
-#intro-main{text-align:center}
+/* 세로도 화면 가운데에 오도록. 내용이 길어 화면을 넘치면 위에서부터 흐르게 둔다. */
+#screen-intro{justify-content:center;min-height:calc(100vh - 62px)}
+#intro-main{text-align:center;width:100%}
 .hi-intro-lead{font-size:var(--fs-md);color:var(--charcoal);line-height:2.0;word-break:keep-all}
 .hi-intro-lead b{color:#111;font-weight:800;box-shadow:inset 0 -8px 0 var(--lime-pale)}
 .hi-ideo-caption{font-size:var(--fs-xs);font-weight:800;letter-spacing:.04em;color:var(--mute)}
@@ -64,13 +66,23 @@ input,textarea,select{font-size:16px}
 .hi-ideo-item .d{font-size:var(--fs-sm);color:var(--charcoal);line-height:1.75;word-break:keep-all}
 
 /* ===== 분류(한 문항씩) ===== */
-.hi-progress{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .hi-progress-num{font-size:var(--fs-md);font-weight:800;color:var(--charcoal)}
 .hi-progress-num b{color:#111}
-.hi-dots{display:flex;gap:7px;flex-wrap:wrap}
-.hi-dot{width:9px;height:9px;border-radius:50%;background:var(--hairline);transition:.15s;cursor:pointer}
-.hi-dot.on{background:var(--lime-deep)}
-.hi-dot.cur{box-shadow:0 0 0 3px var(--lime-pale);background:#111}
+/* 주제 바로가기 2x4 — 어드민 학생별 분류 칸(hi-stu-cell)과 같은 모양.
+   번호 칩 + 주제 이름, 분류한 칸은 라임으로 채우고 지금 보는 칸은 검은 테두리로 표시. */
+.hi-topics{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.hi-topic{display:flex;align-items:center;gap:7px;min-width:0;padding:9px 10px;border-radius:8px;
+  background:#fff;border:1px solid var(--hairline-soft);font-family:inherit;cursor:pointer;
+  text-align:left;transition:.12s}
+.hi-topic .tn{flex-shrink:0;width:19px;height:19px;border-radius:5px;background:var(--cloud);color:var(--mute);
+  font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.hi-topic .tt{font-size:var(--fs-sm);font-weight:700;color:var(--charcoal);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hi-topic.on{background:var(--lime-pale);border-color:var(--lime-deep)}
+.hi-topic.on .tn{background:var(--lime-deep);color:#111}
+.hi-topic.on .tt{color:#111}
+.hi-topic.cur{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+@media(max-width:600px){.hi-topics{grid-template-columns:repeat(2,1fr)}}
 
 /* 정책 카드 — 박스 없이 일반 텍스트로 그냥 깔기 (공용 theme.css .hi-card의 그림자·모서리·배경 무력화) */
 .hi-card{background:transparent;padding:6px 2px 2px;box-shadow:none;border:none;border-radius:0}
@@ -117,8 +129,9 @@ input,textarea,select{font-size:16px}
         <div class="hi-eyebrow">생각하고 활동하고 질문하는 역사 수업</div>
         <h1 class="hi-appttl">유교로 나라를 다스린다는 것</h1>
       </header>
-      <p class="hi-intro-lead" id="intro-lead" style="margin:14px 0 4px"></p>
-      <div class="hi-ideo-caption" style="margin-bottom:8px">네 가지 유교 이념</div>
+      <p class="hi-intro-lead" id="intro-lead" style="margin:18px 0 0"></p>
+      <!-- 도입 문구와 네 이념 사이를 확실히 띄운다 -->
+      <div class="hi-ideo-caption" style="margin:38px 0 10px">네 가지 유교 이념</div>
       <div class="hi-ideo-table" id="intro-ideo"></div>
       <div style="margin-top:18px">
         <button class="hi-btn hi-btn-primary hi-btn-block" id="intro-start">분류 시작하기</button>
@@ -130,11 +143,11 @@ input,textarea,select{font-size:16px}
   <div class="hi-screen" id="screen-sort">
     <div class="hi-phead">
       <div class="hi-ptitle">정책 분류하기</div>
-    </div>
-    <div class="hi-progress">
       <div class="hi-progress-num"><b id="prog-cur">1</b> / <span id="prog-total">8</span></div>
-      <div class="hi-dots" id="prog-dots"></div>
     </div>
+    <!-- 주제 바로가기 — 구분선 바로 아래 2x4. 눌러서 아무 문항으로나 건너뛴다(수정·되돌아보기용).
+         아래 이전/다음 버튼은 그대로 한 칸씩 움직인다. -->
+    <div class="hi-topics" id="prog-topics"></div>
     <div id="card-slot"></div>
     <div class="hi-nav">
       <button class="hi-btn hi-btn-outline" id="nav-prev">이전</button>
@@ -263,18 +276,23 @@ function openSort(idx){
   renderCard();
   showScreen('screen-sort');
 }
-function renderDots(){
-  document.getElementById('prog-dots').innerHTML=CARDS.map((c,i)=>{
-    const cls=i===curIdx?'cur':(placements[c.id]?'on':'');
-    return`<span class="hi-dot ${cls}" data-i="${i}"></span>`;
+/* 상단 주제 바로가기(2x4). 어드민 학생별 분류 카드(hi-stu-cell)와 같은 모양으로,
+   번호 칩 + 주제 이름을 한 칸에 담는다. 분류를 마친 칸은 채워지고 지금 보는 칸은 테두리로 표시. */
+function renderTopics(){
+  const wrap=document.getElementById('prog-topics');
+  wrap.innerHTML=CARDS.map((c,i)=>{
+    const cls=(i===curIdx?' cur':'')+(placements[c.id]?' on':'');
+    return`<button type="button" class="hi-topic${cls}" data-i="${i}" title="${esc(c.title)}">
+      <span class="tn">${i+1}</span><span class="tt">${esc(c.title)}</span>
+    </button>`;
   }).join('');
-  document.querySelectorAll('#prog-dots .hi-dot').forEach(d=>
-    d.addEventListener('click',()=>{curIdx=+d.dataset.i;renderCard();}));
+  wrap.querySelectorAll('.hi-topic').forEach(b=>
+    b.addEventListener('click',()=>{curIdx=+b.dataset.i;renderCard();window.scrollTo(0,0);}));
 }
 function renderCard(){
   const c=CARDS[curIdx];if(!c)return;
   document.getElementById('prog-cur').textContent=curIdx+1;
-  renderDots();
+  renderTopics();
   const sel=placements[c.id];
   document.getElementById('card-slot').innerHTML=`
     <div class="hi-card">
