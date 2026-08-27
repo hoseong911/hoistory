@@ -1104,7 +1104,7 @@
     return f;
   }
 
-  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, closeLightbox, buildSlidesFromData, circledGroups, lessonNumTag, lessonTitleLabel, ensureSlideFonts,
+  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, closeLightbox, buildSlidesFromData, buildCheckSlides, circledGroups, lessonNumTag, lessonTitleLabel, ensureSlideFonts,
     FONT_SPEC, FONT_KEYS, FONT_VARS, normalizeFonts, applyFontVars };
 
 })(window);

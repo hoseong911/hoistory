@@ -1362,6 +1362,25 @@ function ceEnsureNewFields(cd) {
   if (!Array.isArray(cd.dive.chosungItems)) cd.dive.chosungItems = [];
   delete cd.opening;
   if (!cd.mission || !Array.isArray(cd.mission.contentLines)) cd.mission = { contentLines: [] };
+  ceNormalizeContentLines(cd.contentLines);
+  ceNormalizeContentLines(cd.mission.contentLines);
+}
+
+// row는 반드시 앞선 divider(=페이지)에 딸려야 한다는 것이 편집기의 전제다. 그런데 페이지
+// 사이에 이미지·전면 이미지·영상이 끼어들면 그 뒤 row들이 divider를 잃어버리는 경우가 생긴다.
+// 이렇게 붕 뜬 row를 편집기(ceBuildGroups)는 통째로 버려서 화면에서 사라지지만, 슬라이드
+// 렌더러(SlideRender.buildCheckSlides)는 제목 없는 슬라이드로 그려 준다 — 편집기에서는
+// 안 보이는데 실제 슬라이드에는 나오는 상태다. 로드 시점에 제목 없는 divider를 끼워 넣어
+// 두 쪽 해석을 일치시킨다. (title:''은 렌더러가 만드는 슬라이드와 같은 값)
+function ceNormalizeContentLines(lines) {
+  if (!Array.isArray(lines)) return lines;
+  for (let i = 0; i < lines.length; i++) {
+    if (!lines[i] || lines[i].type !== 'row') continue;
+    const prev = lines[i - 1];
+    if (prev && (prev.type === 'divider' || prev.type === 'row')) continue;
+    lines.splice(i, 0, { type: 'divider', title: '' });
+  }
+  return lines;
 }
 
 // Firestore에 저장된 content가 지금 코드가 기대하는 구조(lesson/contentLines/think)와
@@ -1802,7 +1821,13 @@ function ceRenderContentLines(target) {
       const slidesHtml = slides.map(({ divIdx, rowIndices }) => {
         const div = lines[divIdx];
         const hasImg = div.img != null, fmt = div.format || 'rows';
-        const pg = ++pageNum;
+        // 내용이 빈 페이지는 슬라이드 렌더러가 덱에서 빼버린다(slide-render.js의 buildCheckSlides).
+        // 편집기가 따로 판정하면 또 어긋나므로 그 함수를 그대로 불러 쓰고, 덱에 나오는 페이지에만
+        // 번호를 준다. 그래야 여기 번호와 실제 슬라이드 번호가 항상 같다.
+        const willRender = SlideRender.buildCheckSlides(
+          [div, ...rowIndices.map(ri => lines[ri])], target === 'mission' ? 'mission' : 'concept'
+        ).length > 0;
+        const pg = willRender ? ++pageNum : null;
         // 페이지 단위 공통 액션바(가로, 페이지/형식 표시 옆) — 모든 형식에서 동일한 모양으로 쓴다.
         const blockEnd = divIdx + 1 + rowIndices.length;   // 이 페이지 블록의 끝(다음 블록 시작 인덱스)
         const canUp = divIdx > 0, canDown = blockEnd < lines.length;
@@ -1855,7 +1880,7 @@ function ceRenderContentLines(target) {
           <div class="cl-slide-item" data-div-idx="${divIdx}">
             <div class="cl-slide-head">
               ${pageHandle}
-              <span class="cl-slide-meta">${pg}페이지 <span class="cl-meta-sep">｜</span> ${CE_FORMAT_LABELS[fmt]}</span>
+              <span class="cl-slide-meta${pg ? '' : ' cl-slide-ghost'}">${pg ? `${pg}페이지` : '슬라이드 없음'} <span class="cl-meta-sep">｜</span> ${CE_FORMAT_LABELS[fmt]}</span>
               ${pageActions}
             </div>
             <details class="cl-fmt-details" style="margin:0 12px 6px">
