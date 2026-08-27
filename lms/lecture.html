@@ -168,6 +168,27 @@
     #typing-complete-btn[hidden] { display: none; }
     body.mobile-scroll #typing-complete-btn { bottom: 18px; padding: 12px 24px; font-size: 0.92rem; }
 
+    /* 영상 슬라이드 전용 넘김 버튼 — 재생 컨트롤을 가리지 않게 오른쪽 아래 구석에 둔다. */
+    #video-next-btn {
+      position: fixed;
+      right: 28px;
+      bottom: 28px;
+      z-index: 200;
+      padding: 11px 22px;
+      border: none;
+      border-radius: 999px;
+      background: rgba(255,255,255,.88);
+      color: #111;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      opacity: .55;
+      transition: opacity .15s;
+    }
+    #video-next-btn:hover { opacity: 1; }
+    #video-next-btn[hidden] { display: none; }
+
     #slide-counter {
       position: fixed;
       bottom: 22px;
@@ -309,6 +330,8 @@
   <div id="typing-score" hidden></div>
 </div>
 <button id="typing-complete-btn" hidden></button>
+<!-- 영상 슬라이드에서만 뜨는 넘김 버튼. 유튜브 iframe이 화면을 꽉 채워 키보드·휠이 안 먹을 때의 탈출구. -->
+<button id="video-next-btn" hidden>다음 슬라이드</button>
 <div    id="slide-counter" hidden></div>
 <div    id="load-error"    hidden></div>
 
@@ -824,6 +847,13 @@ async function init() {
         if (f.getAttribute('src') !== want) f.setAttribute('src', want);
       });
     });
+    // 영상 슬라이드일 때만 넘김 버튼을 띄운다(iframe이 키보드·휠을 먹는 경우의 탈출구).
+    const nextBtn = document.getElementById('video-next-btn');
+    if (nextBtn) {
+      const cur = slides[activeIdx];
+      const isVideo = !!(cur && cur.querySelector('iframe[data-vsrc]'));
+      nextBtn.hidden = !isVideo || activeIdx >= slides.length - 1;
+    }
   }
   /* 모바일은 네이티브 스크롤이라 넘김 개념이 약해 영상을 미리 붙여 뒀는데,
      iframe을 전부 한꺼번에 띄우면 아이폰이 메모리 한계로 탭을 종료한다.
@@ -946,6 +976,35 @@ async function init() {
       else scrollToSlide(currentIdx() - 1);
     }, { passive: true });
   }
+
+  /* ── 유튜브 영상 슬라이드 뒤 넘김 복구 ──
+     영상을 재생하려고 iframe을 클릭하면 키보드 포커스가 iframe(다른 출처) 안으로 들어간다.
+     그때부터 화살표·PageDown이 유튜브 플레이어로 가버려서 위의 keydown 핸들러에 닿지 않고,
+     iframe 위에서 굴린 휠도 부모로 올라오지 않아 "영상 다 보고 넘기려는데 안 넘어가는" 상태가 된다.
+     그래서 포커스를 빼앗긴 걸 감지해 두고, 마우스가 영상 밖으로 나오는 순간 문서로 되돌린다. */
+  document.getElementById('video-next-btn')?.addEventListener('click', () => {
+    const el = document.activeElement;
+    if (el && el.tagName === 'IFRAME' && el.blur) el.blur();
+    window.focus();
+    videoFocusStolen = false;
+    scrollToSlide(currentIdx() + 1);
+  });
+
+  let videoFocusStolen = false;
+  window.addEventListener('blur', () => {
+    setTimeout(() => {
+      const el = document.activeElement;
+      if (el && el.tagName === 'IFRAME') videoFocusStolen = true;
+    }, 0);
+  });
+  document.addEventListener('mouseover', e => {
+    if (!videoFocusStolen) return;
+    if (e.target && e.target.tagName === 'IFRAME') return; // 아직 영상 위에 있다
+    videoFocusStolen = false;
+    const el = document.activeElement;
+    if (el && el.tagName === 'IFRAME' && el.blur) el.blur();
+    window.focus();
+  });
 
   /* ── 해상도 대응 scale ── */
   function rescaleSlides() {

@@ -14,6 +14,20 @@
     );
   }
 
+  // 유튜브 주소에 붙은 시작 시간(t / start)을 초로 바꾼다. "90", "90s", "1m30s", "1h2m3s" 모두 처리.
+  // admin.js의 ceParseYouTubeStart와 같은 규칙 — 저장된 videoStart가 없는 예전 슬라이드도
+  // 원본 url에서 바로 읽어 쓸 수 있게 여기에도 둔다.
+  function youTubeStartSec(url) {
+    if (!url) return 0;
+    const m = String(url).match(/[?&#](?:t|start)=([0-9hms]+)/i);
+    if (!m) return 0;
+    const raw = m[1].toLowerCase();
+    if (/^\d+s?$/.test(raw)) return parseInt(raw, 10) || 0;
+    const hms = raw.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
+    if (!hms) return 0;
+    return (+(hms[1] || 0)) * 3600 + (+(hms[2] || 0)) * 60 + (+(hms[3] || 0));
+  }
+
   // 빈칸({})이나 괄호 축소 없이 **굵게** 문법만 적용. 생각 Check 질문처럼 빈칸 문법이
   // 필요 없는 일반 텍스트에 쓴다.
   function boldOnly(str) {
@@ -738,7 +752,8 @@
         raw.push({ type: 'fullimage', img: line.img != null ? line.img : null, url: line.url || '', size: line.size != null ? line.size : 100 });
         current = null;
       } else if (line.type === 'video') {
-        raw.push({ type: 'video', videoId: line.videoId || '' });
+        // videoStart가 저장돼 있으면 그걸 쓰고, 없으면(예전에 만든 슬라이드) 원본 url에서 읽는다.
+        raw.push({ type: 'video', videoId: line.videoId || '', videoStart: line.videoStart || youTubeStartSec(line.url) });
         current = null;
       } else {
         if (!current) { current = { type, title: '', rows: [] }; raw.push(current); }
@@ -825,7 +840,8 @@
     } else if (slide.type === 'video') {
       extraClass = ' slide-video';
       inner = slide.videoId
-        ? `<iframe class="video-frame" data-vsrc="https://www.youtube-nocookie.com/embed/${slide.videoId}?rel=0&modestbranding=1" src="" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`
+        // start= 를 붙이면 유튜브 주소에 적힌 시작 시간부터 재생된다(없으면 0이라 붙이지 않는다).
+        ? `<iframe class="video-frame" data-vsrc="https://www.youtube-nocookie.com/embed/${slide.videoId}?rel=0&modestbranding=1${slide.videoStart ? '&start=' + slide.videoStart : ''}" src="" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`
         : `<div class="slide-media-empty" style="color:#fff">영상 URL 없음</div>`;
     } else if (slide.type === 'think') {
       extraClass = ' slide-think';

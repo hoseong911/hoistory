@@ -530,13 +530,7 @@ function dbRender() {
       <div class="db-summary-card"><div class="db-summary-label">오늘 생각체크 제출</div><div class="db-summary-val">${_dbToday.thinkSubmit}건</div></div>
       <div class="db-summary-card"><div class="db-summary-label">오늘 복습 퀴즈</div><div class="db-summary-val">${_dbToday.review}명</div></div>
       <div class="db-summary-card"><div class="db-summary-label">채점 대기(생각체크)</div><div class="db-summary-val" style="color:${totalUngraded ? 'var(--critical)' : 'var(--text)'}">${totalUngraded}건</div></div>
-    </div>
-    <div class="db-autoopen">
-      <div class="th-toggle ${_dbAutoOpen ? 'on' : ''}" onclick="dbToggleAutoOpen(this)"></div>
-      <div class="db-autoopen-text">
-        <div class="db-autoopen-title">수업일 자동 공개</div>
-        <div class="db-autoopen-desc">수업 스케줄에서 가장 빠른 반의 수업일이 지나면 개념 체크, 생각 체크, 연결된 미션 카드를 자동으로 공개합니다. 항목마다 한 번만 열리므로, 나중에 비공개로 돌려도 다시 열리지 않습니다.</div>
-      </div>
+      <div class="db-summary-card db-autoopen"><div class="db-summary-label">수업일 자동 공개</div><div class="th-toggle ${_dbAutoOpen ? 'on' : ''}" onclick="dbToggleAutoOpen(this)"></div></div>
     </div>
     ${_dbAutoOpened.length ? `<div class="db-autoopen-done">수업일이 되어 ${_dbAutoOpened.length}개를 공개했습니다 — ${esc(_dbAutoOpened.join(', '))}</div>` : ''}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
@@ -567,7 +561,6 @@ function dbRender() {
             <button class="add-btn" onclick="dbPostAnnouncement()">${editing ? '저장하기' : '게시하기'}</button>
             ${editing ? '<button class="stu-btn stu-btn-cancel" onclick="dbCancelAnnEdit()">취소</button>' : ''}
           </div>
-          <p style="font-size:12px;color:var(--sub);margin-top:8px;line-height:1.5">${editing ? '저장하면 학생 화면의 공지 내용도 바로 바뀝니다.' : '게시하면 학생 허브 공지사항 목록 맨 위에 바로 올라갑니다.'}</p>
         </div>
       </div>
     </div>`;
@@ -2082,14 +2075,29 @@ function ceParseYouTubeId(url) {
   if (/^[A-Za-z0-9_-]{11}$/.test(url.trim())) return url.trim();
   return '';
 }
+
+// 유튜브 주소에 붙은 시작 시간(t 또는 start)을 초로 바꾼다.
+// "공유"로 복사하면 t=90 또는 t=90s, 주소창에서 그대로 가져오면 t=1m30s / t=1h2m3s 형태다.
+// 시작 시간이 없으면 0.
+function ceParseYouTubeStart(url) {
+  if (!url) return 0;
+  const m = String(url).match(/[?&#](?:t|start)=([0-9hms]+)/i);
+  if (!m) return 0;
+  const raw = m[1].toLowerCase();
+  if (/^\d+s?$/.test(raw)) return parseInt(raw, 10) || 0;
+  const hms = raw.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
+  if (!hms) return 0;
+  return (+(hms[1] || 0)) * 3600 + (+(hms[2] || 0)) * 60 + (+(hms[3] || 0));
+}
 function addVideoSlide(target) {
-  ceLinesFor(target).push({ type:'video', url:'', videoId:'' });
+  ceLinesFor(target).push({ type:'video', url:'', videoId:'', videoStart:0 });
   ceRenderContentLines(target); ceRenderPreview();
 }
 function updateVideoUrl(target, i, v) {
   const line = ceLinesFor(target)[i];
   line.url = v.trim();
   line.videoId = ceParseYouTubeId(v);
+  line.videoStart = ceParseYouTubeStart(v); // 주소에 시작 시간이 있으면 그 지점부터 재생한다
   if (v.trim() && !line.videoId) alert('유효한 유튜브 URL을 인식하지 못했습니다. 주소를 확인해 주세요.');
   ceRenderContentLines(target); ceRenderPreview();
 }
