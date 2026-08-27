@@ -868,19 +868,10 @@ function startListening() {
 // ══════════ 개념 체크 (class/admin.html 이식) ══════════
 // slide-render.js(classic script, 전역 SlideRender)와 slide-style.css를 그대로 이어받아
 // 학생 화면(class/lesson.html)과 미리보기가 항상 100% 동일하게 렌더링되도록 한다.
-const CE_FONT_KEYS = ['title','body','label','obj','cover','coverTagline','coverMeta','think','thinkGuide',
-  'coverScript','coverNum','diveQ','diveGuide','diveKicker','badge','qtSub','qtText','qtSrc',
-  'chosung','chosungNum','colsTitle','colsHead','colsBody'];
-const CE_FONT_VAR_MAP = {
-  title: '--fs-slide-title', body: '--fs-body', label: '--fs-label', obj: '--fs-obj',
-  cover: '--fs-cover-title', coverTagline: '--fs-cover-tagline', coverMeta: '--fs-cover-meta',
-  think: '--fs-question', thinkGuide: '--fs-think-guide',
-  coverScript: '--fs-cover-script', coverNum: '--fs-cover-num',
-  diveQ: '--fs-dive-q', diveGuide: '--fs-dive-guide', diveKicker: '--fs-dive-kicker',
-  badge: '--fs-badge', qtSub: '--fs-qt-sub', qtText: '--fs-qt-text', qtSrc: '--fs-qt-src',
-  chosung: '--fs-chosung', chosungNum: '--fs-chosung-num',
-  colsTitle: '--fs-cols-title', colsHead: '--fs-cols-head', colsBody: '--fs-cols-body',
-};
+// 글꼴 크기 항목 정의는 slide-render.js의 FONT_SPEC 한 곳에만 둔다 — 어드민 패널과
+// 수업 화면(lecture.html)이 같은 표를 읽어야 항목이 어긋나지 않는다.
+const CE_FONT_KEYS = SlideRender.FONT_KEYS;
+const CE_FONT_VAR_MAP = SlideRender.FONT_VARS;
 const CE_LH_KEYS = ['body','label','obj','think','thinkGuide'];
 const CE_LH_VAR_MAP = {
   body: '--lh-body', label: '--lh-label', obj: '--lh-obj',
@@ -975,16 +966,47 @@ async function ceInitDesign() {
   requestAnimationFrame(rescalePreview);
 }
 
+/* 글꼴 크기 패널을 FONT_SPEC대로 그린다. 항목이 50개 가까이 되므로 섹션(표지/Dive/개념/
+   미션/생각)마다 접었다 펴는 형태로 두고, 그 안에서 슬라이드 형식별로 묶는다.
+   슬라이더 개수가 많아 HTML로 일일이 적어 두면 관리가 안 되므로 스펙에서 생성한다. */
+let _fontPanelDrawn = false;
+function ceRenderFontPanel() {
+  const wrap = document.getElementById('fs-panel');
+  if (!wrap || _fontPanelDrawn) return;
+  const row = r => {
+    const min = r.min != null ? r.min : 10;
+    const max = r.max != null ? r.max : 200;
+    return `<div class="fs-row">
+      <span class="fs-name">${esc(r.label)}</span>
+      <input type="range" class="fs-slider" id="fs-${r.key}" min="${min}" max="${max}" step="1" oninput="onFsSliderInput('${r.key}')">
+      <input type="number" class="fs-val" id="fv-${r.key}" min="${min}" max="${max}" oninput="onFsNumberInput('${r.key}')">
+    </div>`;
+  };
+  wrap.innerHTML = SlideRender.FONT_SPEC.map((sec, i) => `
+    <details class="fs-sec"${i === 0 ? ' open' : ''}>
+      <summary class="fs-sec-sum">${esc(sec.name)}</summary>
+      <div class="fs-sec-body">
+        ${sec.groups.map(g => `
+          <div class="fs-group">
+            ${sec.groups.length > 1 || g.name !== sec.name ? `<div class="fs-section">${esc(g.name)}</div>` : ''}
+            ${g.rows.map(row).join('')}
+          </div>`).join('')}
+      </div>
+    </details>`).join('');
+  _fontPanelDrawn = true;
+}
+
 function ceLoadDesignInputs() {
-  const f = ceCs.fonts;
+  // 예전 설정(label/body/bodyMission 3개)만 있으면 형식별 값으로 펴 준다.
+  // 이미 있는 값은 그대로 두므로 처음 열었을 때 화면이 지금과 똑같다.
+  const f = SlideRender.normalizeFonts(ceCs.fonts);
+  ceCs.fonts = f;
+  ceRenderFontPanel();
   CE_FONT_KEYS.forEach(k => {
-    document.getElementById('fs-' + k).value = f[k];
-    document.getElementById('fv-' + k).value = f[k];
+    const s = document.getElementById('fs-' + k), n = document.getElementById('fv-' + k);
+    if (s) s.value = f[k];
+    if (n) n.value = f[k];
   });
-  // 미션 본문: 저장값이 없으면 개념 본문값을 기본으로 따른다(기존 강의는 변화 없음).
-  const bm = f.bodyMission != null ? f.bodyMission : f.body;
-  document.getElementById('fs-bodyMission').value = bm;
-  document.getElementById('fv-bodyMission').value = bm;
   const lh = ceCs.lineHeights || CE_SD.lineHeights;
   CE_LH_KEYS.forEach(k => {
     document.getElementById('lh-' + k).value = lh[k];
@@ -1006,9 +1028,15 @@ function ceLoadDesignInputs() {
 }
 
 function ceReadDesignInputs() {
-  const fonts = {};
-  CE_FONT_KEYS.forEach(k => { fonts[k] = +document.getElementById('fs-' + k).value; });
-  fonts.bodyMission = +document.getElementById('fs-bodyMission').value; // 미션 본문(개념과 별도)
+  // 예전 키(label/body/bodyMission)는 이제 슬라이더가 없지만, 값은 그대로 들고 간다.
+  // 스펙에 아직 안 올라온 규칙이 남아 있어도 예전처럼 동작하게 하는 안전판이다.
+  const prev = ceCs.fonts || {};
+  const fonts = { label: prev.label, body: prev.body, bodyMission: prev.bodyMission };
+  CE_FONT_KEYS.forEach(k => {
+    const el = document.getElementById('fs-' + k);
+    if (el) fonts[k] = +el.value;
+    else if (prev[k] != null) fonts[k] = prev[k];
+  });
   const lineHeights = {};
   CE_LH_KEYS.forEach(k => { lineHeights[k] = +document.getElementById('lh-' + k).value; });
   ceCs = {
@@ -1103,16 +1131,15 @@ function ceSetSlideVars(el, cfg) {
   el.style.setProperty('--think-guide-color', c.thinkGuideColor || CE_SD.thinkGuideColor);
   el.style.setProperty('--badge-color',       c.badgeColor      || CE_SD.badgeColor);
   el.style.setProperty('--font',              c.fontFamily      || CE_SD.fontFamily);
-  CE_FONT_KEYS.forEach(k => {
-    el.style.setProperty(CE_FONT_VAR_MAP[k], (f[k] || CE_SD.fonts[k]) + 'px');
-  });
+  // 글꼴 크기 변수는 slide-render.js가 스펙대로 한 번에 걸어 준다(수업 화면과 같은 코드).
+  const nf = SlideRender.applyFontVars(el, f);
   // 미션 본문 전용 변수. 저장값 없으면 개념 본문값을 따른다.
-  el.style.setProperty('--fs-body-mission', ((f.bodyMission != null ? f.bodyMission : f.body) || CE_SD.fonts.body) + 'px');
+  el.style.setProperty('--fs-body-mission', ((nf.bodyMission != null ? nf.bodyMission : nf.body) || CE_SD.fonts.body) + 'px');
   // 초성 퀴즈 쪽 나눔은 화면 밖 임시 DOM(document.body 밑)에서 줄 수를 재기 때문에,
   // 이 두 값만은 문서 루트에도 같이 걸어 줘야 미리보기와 학생 화면의 쪽 나눔이 일치한다.
   // 이름이 --fs-chosung* 으로 고유해서 어드민 자체 CSS 토큰과 부딪히지 않는다.
-  document.documentElement.style.setProperty('--fs-chosung',     (f.chosung    || CE_SD.fonts.chosung)    + 'px');
-  document.documentElement.style.setProperty('--fs-chosung-num', (f.chosungNum || CE_SD.fonts.chosungNum) + 'px');
+  document.documentElement.style.setProperty('--fs-chosung',     (nf.chosung    || CE_SD.fonts.chosung)    + 'px');
+  document.documentElement.style.setProperty('--fs-chosung-num', (nf.chosungNum || CE_SD.fonts.chosungNum) + 'px');
   const lh = c.lineHeights || CE_SD.lineHeights;
   CE_LH_KEYS.forEach(k => {
     el.style.setProperty(CE_LH_VAR_MAP[k], lh[k] || CE_SD.lineHeights[k]);
@@ -1128,6 +1155,7 @@ async function saveDesign() {
 }
 async function resetDesign() {
   ceCs = ceDeepMerge(CE_SD, {});
+  ceCs.fonts = SlideRender.normalizeFonts(ceCs.fonts); // 형식별 값까지 채워서 저장
   await setDoc(doc(db, 'settings', 'class_design'), ceCs);
   ceLoadDesignInputs();
   ceApplyDesignPreview();

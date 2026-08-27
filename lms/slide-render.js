@@ -938,6 +938,173 @@
     return _fontsP;
   }
 
-  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, closeLightbox, buildSlidesFromData, circledGroups, lessonNumTag, lessonTitleLabel, ensureSlideFonts };
+  /* ════════════ 글꼴 크기 설정 스펙 ════════════
+     디자인 탭의 "글꼴 크기" 패널과 실제 CSS 변수를 한 곳에서 정의한다. 어드민(미리보기)과
+     lecture.html(수업 화면)이 이 표를 같이 읽으므로, 항목을 늘릴 때 여기만 고치면 양쪽에
+     동시에 반영된다.
+
+     구조: 섹션(표지/Dive/개념/미션/생각) > 그룹(슬라이드 형식) > 행(조절 항목).
+     행의 key는 settings/class_design 의 fonts 안에 저장되는 이름이고, v는 CSS 변수명이다.
+
+     개념과 미션은 같은 CSS 규칙을 쓰기 때문에, 미션 값은 변수 이름 뒤에 -m을 붙여 따로
+     두고 slide-style.css의 `.slide-mission { ... }` 블록에서 갈아끼운다. */
+  const FONT_SPEC = [
+    { name: '표지', groups: [
+      { name: '표지', rows: [
+        { key: 'cover',        label: '제목',         v: '--fs-cover-title',   max: 260 },
+        { key: 'coverTagline', label: '태그라인',     v: '--fs-cover-tagline' },
+        { key: 'coverMeta',    label: '단원/쪽수',    v: '--fs-cover-meta' },
+        { key: 'coverScript',  label: '필기체(배경)', v: '--fs-cover-script', min: 100, max: 900 },
+        { key: 'coverNum',     label: '강 숫자',      v: '--fs-cover-num',    max: 260 },
+      ]},
+    ]},
+    { name: 'Dive', groups: [
+      { name: 'Opening Question', rows: [
+        { key: 'diveQ',      label: '질문',       v: '--fs-dive-q' },
+        { key: 'diveGuide',  label: '안내 문구',  v: '--fs-dive-guide' },
+        { key: 'diveKicker', label: '라벨',       v: '--fs-dive-kicker' },
+      ]},
+      { name: '학습 목표', rows: [
+        { key: 'obj',    label: '항목', v: '--fs-obj' },
+        { key: 'objNum', label: '번호', v: '--fs-obj-num', max: 240 },
+      ]},
+      { name: '초성 퀴즈', rows: [
+        { key: 'chosung',    label: '항목', v: '--fs-chosung' },
+        { key: 'chosungNum', label: '번호', v: '--fs-chosung-num', max: 240 },
+      ]},
+    ]},
+    { name: '개념 Check', groups: [
+      { name: '공통', rows: [
+        { key: 'title', label: '슬라이드 제목', v: '--fs-slide-title' },
+      ]},
+      { name: '행 나열', rows: [
+        { key: 'rowsLabel', label: '행 라벨', v: '--fs-rows-label' },
+        { key: 'rowsBody',  label: '본문',    v: '--fs-rows-body' },
+      ]},
+      { name: '연표 (가로/세로)', rows: [
+        { key: 'tlYear', label: '연도', v: '--fs-tl-year' },
+        { key: 'tlText', label: '내용', v: '--fs-tl-text' },
+      ]},
+      { name: '비교표', rows: [
+        { key: 'cmpHead', label: '머리', v: '--fs-cmp-head' },
+        { key: 'cmpBody', label: '내용', v: '--fs-cmp-body' },
+      ]},
+      { name: '사료 인용', rows: [
+        { key: 'qtSub',  label: '소제목', v: '--fs-qt-sub' },
+        { key: 'qtText', label: '본문',   v: '--fs-qt-text' },
+        { key: 'qtSrc',  label: '출처',   v: '--fs-qt-src' },
+      ]},
+      { name: '플로우 (가로/세로)', rows: [
+        { key: 'flLabel', label: '단계 라벨', v: '--fs-fl-label' },
+        { key: 'flText',  label: '내용',      v: '--fs-fl-text' },
+      ]},
+      { name: '안내 (OT/수행)', rows: [
+        { key: 'notice', label: '본문', v: '--fs-notice' },
+      ]},
+      { name: '중앙 나열', rows: [
+        { key: 'colsTitle', label: '대제목', v: '--fs-cols-title' },
+        { key: 'colsHead',  label: '소제목', v: '--fs-cols-head' },
+        { key: 'colsBody',  label: '내용',   v: '--fs-cols-body' },
+      ]},
+    ]},
+    { name: '미션 Check', groups: [
+      { name: '공통', rows: [
+        { key: 'mTitle', label: '슬라이드 제목', v: '--fs-slide-title-m' },
+      ]},
+      { name: '행 나열', rows: [
+        { key: 'mRowsLabel', label: '행 라벨', v: '--fs-rows-label-m' },
+        { key: 'mRowsBody',  label: '본문',    v: '--fs-rows-body-m' },
+      ]},
+      { name: '연표 (가로/세로)', rows: [
+        { key: 'mTlYear', label: '연도', v: '--fs-tl-year-m' },
+        { key: 'mTlText', label: '내용', v: '--fs-tl-text-m' },
+      ]},
+      { name: '비교표', rows: [
+        { key: 'mCmpHead', label: '머리', v: '--fs-cmp-head-m' },
+        { key: 'mCmpBody', label: '내용', v: '--fs-cmp-body-m' },
+      ]},
+      { name: '사료 인용', rows: [
+        { key: 'mQtSub',  label: '소제목', v: '--fs-qt-sub-m' },
+        { key: 'mQtText', label: '본문',   v: '--fs-qt-text-m' },
+        { key: 'mQtSrc',  label: '출처',   v: '--fs-qt-src-m' },
+      ]},
+      { name: '플로우 (가로/세로)', rows: [
+        { key: 'mFlLabel', label: '단계 라벨', v: '--fs-fl-label-m' },
+        { key: 'mFlText',  label: '내용',      v: '--fs-fl-text-m' },
+      ]},
+      { name: '안내 (OT/수행)', rows: [
+        { key: 'mNotice', label: '본문', v: '--fs-notice-m' },
+      ]},
+      { name: '중앙 나열', rows: [
+        { key: 'mColsTitle', label: '대제목', v: '--fs-cols-title-m' },
+        { key: 'mColsHead',  label: '소제목', v: '--fs-cols-head-m' },
+        { key: 'mColsBody',  label: '내용',   v: '--fs-cols-body-m' },
+      ]},
+    ]},
+    { name: '생각 Check', groups: [
+      { name: '생각 Check', rows: [
+        { key: 'think',      label: '질문',      v: '--fs-question' },
+        { key: 'thinkGuide', label: '안내 문구', v: '--fs-think-guide' },
+      ]},
+    ]},
+    { name: '공통', groups: [
+      { name: '공통', rows: [
+        { key: 'badge', label: '배지', v: '--fs-badge', max: 120 },
+      ]},
+    ]},
+  ];
+
+  // 스펙을 한 줄짜리 목록으로 편다.
+  function fontRows() {
+    const out = [];
+    FONT_SPEC.forEach(sec => sec.groups.forEach(g => g.rows.forEach(r => out.push(r))));
+    return out;
+  }
+  const FONT_KEYS = fontRows().map(r => r.key);
+  const FONT_VARS = fontRows().reduce((m, r) => (m[r.key] = r.v, m), {});
+
+  /* 예전 설정(개념/미션이 label·body·bodyMission 세 값만 갖고 있던 시절)을 형식별 값으로 편다.
+     이미 있는 값은 절대 건드리지 않으므로, 처음 열었을 때 화면이 지금과 똑같이 나온다. */
+  function normalizeFonts(fonts) {
+    const f = Object.assign({}, fonts || {});
+    const label = f.label != null ? f.label : 70;
+    const body  = f.body  != null ? f.body  : 60;
+    const mBody = f.bodyMission != null ? f.bodyMission : body;
+    const put = (k, v) => { if (f[k] == null) f[k] = v; };
+
+    put('objNum', 130);
+    put('chosung', 48); put('chosungNum', 110);   // slide-style.css의 기본값과 같은 값
+    // 개념 — 예전엔 라벨 계열은 전부 --fs-label, 본문 계열은 전부 --fs-body를 썼다.
+    put('rowsLabel', label);        put('rowsBody', body);
+    put('tlYear', Math.round(label * 1.1)); put('tlText', body);   // 연표 연도는 라벨의 1.1배였다
+    put('cmpHead', label);          put('cmpBody', body);
+    put('flLabel', label);          put('flText', body);
+    put('notice', body);
+    put('qtSub', 40); put('qtText', 60); put('qtSrc', 40);
+    put('colsTitle', label); put('colsHead', body); put('colsBody', body);
+    // 미션 — 본문 계열만 bodyMission을 따랐고 나머지는 개념과 같은 값을 썼다.
+    put('mTitle', f.title != null ? f.title : 40);
+    put('mRowsLabel', label);       put('mRowsBody', mBody);
+    put('mTlYear', Math.round(label * 1.1)); put('mTlText', mBody);
+    put('mCmpHead', label);         put('mCmpBody', mBody);
+    put('mFlLabel', label);         put('mFlText', mBody);
+    put('mNotice', mBody);
+    put('mQtSub', f.qtSub); put('mQtText', f.qtText); put('mQtSrc', f.qtSrc);
+    put('mColsTitle', f.colsTitle); put('mColsHead', f.colsHead); put('mColsBody', f.colsBody);
+    return f;
+  }
+
+  /* fonts 객체를 CSS 변수로 el(문서 루트 또는 미리보기 컨테이너)에 건다. */
+  function applyFontVars(el, fonts) {
+    const f = normalizeFonts(fonts);
+    FONT_KEYS.forEach(k => { if (f[k] != null) el.style.setProperty(FONT_VARS[k], f[k] + 'px'); });
+    // 예전 변수도 남겨 둔다 — 혹시 스펙에 안 올라온 규칙이 있어도 예전처럼 동작하도록.
+    if (f.label != null) el.style.setProperty('--fs-label', f.label + 'px');
+    if (f.body  != null) el.style.setProperty('--fs-body',  f.body  + 'px');
+    return f;
+  }
+
+  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, closeLightbox, buildSlidesFromData, circledGroups, lessonNumTag, lessonTitleLabel, ensureSlideFonts,
+    FONT_SPEC, FONT_KEYS, FONT_VARS, normalizeFonts, applyFontVars };
 
 })(window);
