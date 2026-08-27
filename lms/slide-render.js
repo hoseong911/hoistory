@@ -898,6 +898,31 @@
   // 강 번호 + 제목 결합 표기: 숫자면 "N강. 제목", 문자면 "OT: 제목".
   function lessonTitleLabel(num, title) { return isNumericNum(num) ? `${num}강. ${title}` : `${num}: ${title}`; }
 
-  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, closeLightbox, buildSlidesFromData, circledGroups, lessonNumTag, lessonTitleLabel };
+  /* 슬라이드에서 쓰는 웹폰트를 실제로 내려받을 때까지 기다린다.
+
+     쪽 나눔(줄 수·높이 측정)은 폰트 메트릭에 그대로 좌우되는데, document.fonts.ready만
+     기다리면 "그 시점까지 요청된" 폰트만 보장된다. Paperlogy나 Gowun Batang은 슬라이드가
+     DOM에 들어가기 전까지 아무도 안 쓰므로 아직 요청조차 안 된 상태이고, 그러면 측정은
+     대체 폰트(맑은 고딕 등) 기준으로 이뤄진다. 폰트가 이미 캐시된 컴퓨터는 진짜 폰트로,
+     처음 접속한 컴퓨터는 대체 폰트로 재는 바람에 컴퓨터마다 한 슬라이드에 들어가는
+     줄 수가 달라졌다. 그래서 필요한 폰트를 이름으로 콕 집어 먼저 받아 둔다.
+     한글 표본을 같이 넘겨야 한글 서브셋까지 받아온다(구글 폰트는 unicode-range로 쪼개져 있다). */
+  let _fontsP = null;
+  function ensureSlideFonts() {
+    if (_fontsP) return _fontsP;
+    if (typeof document === 'undefined' || !document.fonts) return (_fontsP = Promise.resolve());
+    const SAMPLE = '가나다라마바사아자차카타파하 0123456789';
+    const wanted = [
+      '400 60px Pretendard', '500 60px Pretendard', '700 60px Pretendard', '900 60px Pretendard',
+      '400 60px Paperlogy', '600 60px Paperlogy', '700 60px Paperlogy', '900 60px Paperlogy',
+      '400 60px "Gowun Batang"', '700 60px "Gowun Batang"',
+    ];
+    _fontsP = Promise.all(wanted.map(f => document.fonts.load(f, SAMPLE).catch(() => {})))
+      .then(() => document.fonts.ready)
+      .catch(() => {});
+    return _fontsP;
+  }
+
+  global.SlideRender = { parseText, renderWithBreaks, parseItemText, renderSlideHTML, wireLightbox, closeLightbox, buildSlidesFromData, circledGroups, lessonNumTag, lessonTitleLabel, ensureSlideFonts };
 
 })(window);

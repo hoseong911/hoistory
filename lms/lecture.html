@@ -428,6 +428,9 @@ function applySettings(raw) {
   root.style.setProperty('--fs-question',      f.think        + 'px');
   root.style.setProperty('--fs-think-guide',   f.thinkGuide   + 'px');
   root.style.setProperty('--fs-obj',           f.obj          + 'px');
+  // 초성 퀴즈 — 저장된 값이 없으면 CSS 기본값(48/110px)을 그대로 쓴다.
+  if (f.chosung    != null) root.style.setProperty('--fs-chosung',     f.chosung    + 'px');
+  if (f.chosungNum != null) root.style.setProperty('--fs-chosung-num', f.chosungNum + 'px');
   // 요소별 세부 크기(재디자인)
   root.style.setProperty('--fs-cover-script',  f.coverScript  + 'px');
   root.style.setProperty('--fs-cover-num',     f.coverNum     + 'px');
@@ -503,8 +506,10 @@ async function init() {
     .replace(/\*\*/g, '').replace(/[{}]/g, '').replace(/\s*\n\s*/g, ' ').trim();
   document.title = SlideRender.lessonTitleLabel(LESSON.num, plainTitle);
 
-  // 폰트 로드 완료 후 측정해야 정확한 높이가 나옴
-  await document.fonts.ready;
+  // 폰트 로드 완료 후 측정해야 정확한 높이가 나온다.
+  // document.fonts.ready만으로는 아직 화면에 안 쓰인 슬라이드 폰트(Paperlogy 등)를 안 기다려서,
+  // 폰트가 캐시된 컴퓨터와 아닌 컴퓨터의 쪽 나눔이 서로 달라졌다(SlideRender.ensureSlideFonts 주석 참고).
+  await SlideRender.ensureSlideFonts();
 
   // 복습(타이핑) 모드는 개념 체크 슬라이드만 보여준다(표지·학습목표·생각 체크 등은 제외).
   const modeParam  = new URLSearchParams(location.search).get('mode');

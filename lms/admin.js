@@ -869,7 +869,8 @@ function startListening() {
 // slide-render.js(classic script, 전역 SlideRender)와 slide-style.css를 그대로 이어받아
 // 학생 화면(class/lesson.html)과 미리보기가 항상 100% 동일하게 렌더링되도록 한다.
 const CE_FONT_KEYS = ['title','body','label','obj','cover','coverTagline','coverMeta','think','thinkGuide',
-  'coverScript','coverNum','diveQ','diveGuide','diveKicker','badge','qtSub','qtText','qtSrc'];
+  'coverScript','coverNum','diveQ','diveGuide','diveKicker','badge','qtSub','qtText','qtSrc',
+  'chosung','chosungNum'];
 const CE_FONT_VAR_MAP = {
   title: '--fs-slide-title', body: '--fs-body', label: '--fs-label', obj: '--fs-obj',
   cover: '--fs-cover-title', coverTagline: '--fs-cover-tagline', coverMeta: '--fs-cover-meta',
@@ -877,6 +878,7 @@ const CE_FONT_VAR_MAP = {
   coverScript: '--fs-cover-script', coverNum: '--fs-cover-num',
   diveQ: '--fs-dive-q', diveGuide: '--fs-dive-guide', diveKicker: '--fs-dive-kicker',
   badge: '--fs-badge', qtSub: '--fs-qt-sub', qtText: '--fs-qt-text', qtSrc: '--fs-qt-src',
+  chosung: '--fs-chosung', chosungNum: '--fs-chosung-num',
 };
 const CE_LH_KEYS = ['body','label','obj','think','thinkGuide'];
 const CE_LH_VAR_MAP = {
@@ -885,7 +887,8 @@ const CE_LH_VAR_MAP = {
 };
 const CE_SD = {
   fonts: { title: 40, body: 60, label: 70, obj: 70, cover: 200, coverTagline: 40, coverMeta: 40, think: 80, thinkGuide: 50,
-    coverScript: 680, coverNum: 100, diveQ: 80, diveGuide: 50, diveKicker: 40, badge: 30, qtSub: 40, qtText: 60, qtSrc: 40 },
+    coverScript: 680, coverNum: 100, diveQ: 80, diveGuide: 50, diveKicker: 40, badge: 30, qtSub: 40, qtText: 60, qtSrc: 40,
+    chosung: 48, chosungNum: 110 },
   lineHeights: { body: 1.6, label: 1.6, obj: 1.6, think: 1.6, thinkGuide: 1.6 },
   letterSpacing: -15, // -20~10 슬라이더 값, 100분의 1em 단위 (-15 = -0.15em)
   textWidth: 95,      // % (장평, scaleX = 값/100)
@@ -1079,6 +1082,8 @@ function ceApplyDesignPreview() {
 
 // slide-style.css가 실제로 쓰는 변수 이름(--navy, --fs-slide-title 등)에 그대로 값을 설정한다.
 // 미리보기 컨테이너에만 스코프해서 설정하므로 이 페이지의 다른 --navy/--text 등에는 영향이 없다.
+let ceFontsReady = false; // 슬라이드 폰트를 한 번 받아 뒀는지(미리보기 쪽 나눔 정확도용)
+
 function ceSetSlideVars(el, cfg) {
   const c = cfg || ceCs;
   const f = c.fonts || CE_SD.fonts;
@@ -1101,6 +1106,11 @@ function ceSetSlideVars(el, cfg) {
   });
   // 미션 본문 전용 변수. 저장값 없으면 개념 본문값을 따른다.
   el.style.setProperty('--fs-body-mission', ((f.bodyMission != null ? f.bodyMission : f.body) || CE_SD.fonts.body) + 'px');
+  // 초성 퀴즈 쪽 나눔은 화면 밖 임시 DOM(document.body 밑)에서 줄 수를 재기 때문에,
+  // 이 두 값만은 문서 루트에도 같이 걸어 줘야 미리보기와 학생 화면의 쪽 나눔이 일치한다.
+  // 이름이 --fs-chosung* 으로 고유해서 어드민 자체 CSS 토큰과 부딪히지 않는다.
+  document.documentElement.style.setProperty('--fs-chosung',     (f.chosung    || CE_SD.fonts.chosung)    + 'px');
+  document.documentElement.style.setProperty('--fs-chosung-num', (f.chosungNum || CE_SD.fonts.chosungNum) + 'px');
   const lh = c.lineHeights || CE_SD.lineHeights;
   CE_LH_KEYS.forEach(k => {
     el.style.setProperty(CE_LH_VAR_MAP[k], lh[k] || CE_SD.lineHeights[k]);
@@ -1363,6 +1373,12 @@ function ceRenderOpenToggle() {
   if (!tog) return;
   tog.classList.toggle('on', isOpen);
   tog.title = isOpen ? '공개 중 (클릭하면 비공개)' : '비공개 (클릭하면 공개)';
+  // 생각 Check의 강의 선택 줄과 같은 자리에 같은 문구를 띄운다.
+  const lbl = document.getElementById('ce-open-toglbl');
+  if (lbl) {
+    lbl.textContent = lesson ? (isOpen ? '공개 중' : '비공개') : '';
+    lbl.style.color = isOpen ? 'var(--c3)' : 'var(--sub)';
+  }
 }
 async function ceToggleLessonOpen() {
   const lesson = ceLessonsCache.find(l => l.num === ceCurrentLessonNum);
@@ -2621,6 +2637,12 @@ async function ceHandleFileUpload(file) {
 function ceRenderPreview(pickSample) {
   const inner = document.getElementById('design-pv-inner');
   if (!inner || !ceCd.contentLines) return;
+  // 슬라이드 폰트가 아직 안 받아졌으면 초성 퀴즈 쪽 나눔이 대체 폰트 기준으로 잡힌다.
+  // 처음 한 번만 기다렸다가 다시 그린다(그 뒤로는 즉시 통과).
+  if (!ceFontsReady) {
+    SlideRender.ensureSlideFonts().then(() => { ceFontsReady = true; ceRenderPreview(pickSample); });
+    return;
+  }
   const slides = SlideRender.buildSlidesFromData(ceCd);
   const sample = pickSample ? pickSample(slides) : (slides.find(s => s.type === 'concept') || slides[0]);
   inner.innerHTML = SlideRender.renderSlideHTML(sample, ceCd.lesson);

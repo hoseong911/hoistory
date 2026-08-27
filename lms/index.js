@@ -551,7 +551,7 @@ function startListening() {
     _announcements = snap.docs.map(d => { const v = d.data(); return { id: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt }; });
     renderAnnounceList();
     const unread = _announcements.filter(a => !_annReadSet.has(a.id)).length;
-    if (unread && !_annToastShown) { _annToastShown = true; showToast(`새 공지가 ${unread}건 있어요`, undefined, 'megaphone'); }
+    if (unread && !_annToastShown) { _annToastShown = true; _queueEntryNotice({ ann: unread }); }
   });
 
   // 1. 개념 체크 — class_lessons (어드민 강의 목록과 동일한 order 내림차순: 큰 번호=최신이 위, OT가 맨 아래)
@@ -741,7 +741,32 @@ function showToast(msg, duration, iconName) {
   el._t = setTimeout(() => el.classList.remove('show'), duration || 5000);
 }
 
-// ── 새 선생님 피드백 감지 (입장 시 1회 토스트) ──
+// ── 입장 시 미확인 알림 (공지 + 선생님 피드백) ──
+// 공지는 onSnapshot으로, 피드백은 성적 로드가 끝난 뒤에 따로 도착한다. 각자 토스트를 띄우면
+// 토스트 요소가 하나뿐이라 나중 것이 앞선 것을 덮어써서 둘 중 하나만 보였다. 그래서 잠깐
+// 모았다가 한 번에 알려 준다.
+let _entryNotice = { ann: 0, fb: false };
+let _entryNoticeTimer = null;
+let _entryNoticeDone = false;
+function _queueEntryNotice(patch) {
+  if (_entryNoticeDone) return;
+  if (patch.ann) _entryNotice.ann = patch.ann;
+  if (patch.fb)  _entryNotice.fb  = true;
+  clearTimeout(_entryNoticeTimer);
+  _entryNoticeTimer = setTimeout(_flushEntryNotice, 1200); // 둘 다 도착할 여유
+}
+function _flushEntryNotice() {
+  if (_entryNoticeDone) return;
+  const { ann, fb } = _entryNotice;
+  if (!ann && !fb) return;
+  _entryNoticeDone = true;
+  let msg, iconName;
+  if (ann && fb)   { msg = `새 공지 ${ann}건과 선생님 피드백이 있어요`; iconName = 'megaphone'; }
+  else if (ann)    { msg = `새 공지가 ${ann}건 있어요`;                 iconName = 'megaphone'; }
+  else             { msg = '새 선생님 피드백이 있어요. 성적에서 확인하세요'; iconName = 'mail'; }
+  showToast(msg, 8000, iconName);
+}
+
 function _feedbackSig(g) {
   if (!g || !g.feedbacks) return '';
   return g.feedbacks.map(d => `${d.key}:${d.feedback}`).join('||');
@@ -755,14 +780,18 @@ function _maybeNotifyFeedback() {
   try { seen = localStorage.getItem('lms_seen_fb_' + currentStudentId) || ''; } catch(_) {}
   if (sig !== seen) {
     _fbToastShown = true;
-    showToast('새 선생님 피드백이 있어요. 성적에서 확인하세요', undefined, 'mail');
+    _queueEntryNotice({ fb: true });
   }
 }
 
 function renderGradeSummaryHTML(g) {
   if (!g._summary) return `<div class="grade-no-data">성적 정보가 없습니다</div>`;
   if (g.totalPublished === 0) {
-    return `<div class="grade-pending">아직 반영된 성적이 없습니다.<br>선생님이 반영 후 확인 가능합니다.</div>`;
+    // 성적은 아직 반영 전이어도 선생님 피드백은 바로 볼 수 있어야 한다.
+    const fbOnly = g.feedbacks && g.feedbacks.length
+      ? `<div class="grade-btns"><button class="btn-grade-detail" onclick="openGradeFeedback()">선생님 피드백</button></div>`
+      : '';
+    return `<div class="grade-pending">아직 반영된 성적이 없습니다.<br>선생님이 반영 후 확인 가능합니다.</div>${fbOnly}`;
   }
   const col = (label, cls, d) =>
     `<div class="grade-col">
