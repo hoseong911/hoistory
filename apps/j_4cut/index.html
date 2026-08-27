@@ -242,7 +242,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import{getFirestore,doc,getDoc,addDoc,updateDoc,deleteField,collection,getDocs,query,orderBy,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{getFirestore,doc,getDoc,setDoc,addDoc,updateDoc,deleteField,collection,getDocs,query,orderBy,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import{firebaseConfig}from"../../shared/firebase-config.js";
 import{icon}from"../../shared/icons.js";
 
@@ -581,6 +581,22 @@ async function composeImage(){
   return canvas.toDataURL('image/jpeg',0.85);
 }
 
+// LMS 성적 체크(미션 자동 연동)가 제출 여부만 가볍게 확인할 수 있도록 요약 문서를 남긴다.
+// 작품 문서(fourcut_works)는 base64 이미지가 통째로 들어 있어 전량 조회가 너무 무겁다.
+// createdAt은 첫 제출 때만 쓴다 — 기한 판정은 처음 낸 시각을 기준으로 하기 때문.
+async function saveSubmissionMark(){
+  try{
+    const sref=doc(db,'fourcut_submissions',student.studentId);
+    const cur=await getDoc(sref);
+    const payload={
+      studentId:student.studentId,studentName:student.studentName,
+      classNum:classNumOf(student.studentId),lastAt:serverTimestamp()
+    };
+    if(!cur.exists())payload.createdAt=serverTimestamp();
+    await setDoc(sref,payload,{merge:true});
+  }catch(e){}
+}
+
 function renderDone(dataUrl){
   $("#doneBody").innerHTML=`
     <img class="result-img" src="${dataUrl}" alt="완성한 네컷">
@@ -605,6 +621,7 @@ function renderDone(dataUrl){
         likes:0,likedBy:{},
         createdAt:serverTimestamp(),timestamp:Date.now()
       });
+      await saveSubmissionMark();
       $("#submitNote").textContent="공유 완료! 아래 '친구 작품 감상하기'에서 친구들 작품에 좋아요를 남겨보세요.";
       btn.innerHTML=`${icon('check',15)} 공유 완료`;
     }catch(e){btn.disabled=false;btn.textContent="친구들에게 공유하기";$("#submitNote").textContent="공유 실패: "+(e.message||e);}

@@ -151,6 +151,16 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likedBy']);
     }
 
+    //    LMS 성적 체크의 미션 자동 연동이 읽는 제출 요약(이미지 없음, 학번당 1문서).
+    //    작품 문서는 이미지 때문에 무거워 전량 조회를 못 하므로 이걸 따로 남긴다.
+    match /fourcut_submissions/{studentId} {
+      allow read: if true;
+      allow write: if isAdmin() || (
+        request.resource.data.studentId is string &&
+        request.resource.data.studentName is string && request.resource.data.studentName.size() <= 50
+      );
+    }
+
     // ── 역사 도미노 (j_wartimeline): 순서 맞추기 + 인과 잇기 결과 ──
     match /j_wartimeline_results/{studentId} {
       allow read: if true;

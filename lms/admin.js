@@ -3635,6 +3635,132 @@ function thScheduledDate(icon, classNum) {
   return plResolveDate(cell, plToday());
 }
 
+// ── 미션 체크 자동 연동 ──
+// 미션 카드의 "연결 강의번호"(lessonNum)가 성적 체크에서 고른 강의와 같으면, 그 카드가 가리키는
+// 웹앱의 제출 데이터를 읽어 미션 달성·기한을 자동으로 채운다. 앱마다 컬렉션 이름과 문서 모양이
+// 달라서 여기 한 곳에 표로 모아 둔다(새 앱을 연동하려면 이 표에 한 줄 추가).
+//   coll       : 학생 제출물이 쌓이는 Firestore 컬렉션
+//   timeFields : 제출 시각 필드 — 앞에서부터 먼저 값이 있는 걸 쓴다(기한 판정과 제출시간 표시용)
+//   graded     : true면 status('pass'/'fail') 채점 결과를 따르고, 아직 채점 안 된 학생은
+//                건드리지 않는다(선생님이 직접 판단하도록 빈칸으로 남김).
+//                false면 채점 기능이 없는 앱이라 제출 자체를 달성으로 본다.
+const MISSION_SOURCES = {
+  j_interview:   { coll: 'interview_joseon_answers', timeFields: ['submittedAt'],            graded: true  },
+  j_wartimeline: { coll: 'j_wartimeline_results',    timeFields: ['submittedAt'],            graded: true  },
+  // 네컷은 작품 문서(fourcut_works)에 base64 이미지가 통째로 들어 있어 전량 조회가 너무 무겁다.
+  // 학생이 제출할 때 같이 남기는 가벼운 요약 문서(fourcut_submissions)만 읽는다.
+  j_4cut:        { coll: 'fourcut_submissions',      timeFields: ['createdAt'],   graded: false },
+};
+
+// 미션 카드 url("apps/j_interview/index.html")에서 앱 폴더 이름을 뽑는다.
+function missionAppKey(url) {
+  const parts = String(url || '').split('/').filter(Boolean);
+  const i = parts.indexOf('apps');
+  return i >= 0 ? (parts[i + 1] || '') : (parts[1] || '');
+}
+
+function missionToDate(v) {
+  if (!v) return null;
+  if (v.toDate) return v.toDate();
+  const d = new Date(v);
+  return isNaN(d) ? null : d;
+}
+
+// 이 강의(lessonKey)에 연결된 미션 앱들의 제출 데이터를 읽어 학생별 판정을 돌려준다.
+// 반환값: { map: { [학번]: { achieved, onTime, at } }, apps: [연동된 앱 이름] }
+// map에서 빠져 있는 학번은 "빈칸"(아직 채점 전이라 선생님 판단으로 남긴 것).
+async function missionAutoDetect(lessonKey) {
+  const empty = { map: {}, apps: [] };
+  const cat = await getMissionCategoryKey();
+  if (!cat) return empty;
+
+  let cards = [];
+  try {
+    const snap = await getDocs(query(collection(db, 'cards'), where('category', '==', cat)));
+    cards = snap.docs.map(d => d.data());
+  } catch (e) { return empty; }
+
+  // lessonNum이 비어 있는 카드는 어느 강의 건지 알 수 없으므로 자동 연동 대상이 아니다.
+  const matched = cards
+    .filter(c => String(c.lessonNum || '') === String(lessonKey))
+    .map(c => ({ card: c, src: MISSION_SOURCES[missionAppKey(c.url)] }))
+    .filter(x => x.src);
+  if (!matched.length) return empty;
+  const sources = matched.map(x => x.src);
+  const apps = matched.map(x => x.card.title || missionAppKey(x.card.url));
+
+  await plEnsureLoaded(); // 기한 판정에 필요한 수업 스케줄(class_progress)
+
+  const perSource = await Promise.all(sources.map(async src => {
+    const byStudent = {};
+    try {
+      const snap = await getDocs(collection(db, src.coll));
+      snap.docs.forEach(d => {
+        const data = d.data();
+        const sid = String(data.studentId || d.id || '');
+        if (!_gradeRecords[sid]) return; // 로스터에 없는 학번(테스트 계정 등)은 무시
+        (byStudent[sid] || (byStudent[sid] = [])).push(data);
+      });
+    } catch (e) { return { src, byStudent: {}, failed: true }; }
+    return { src, byStudent };
+  }));
+
+  const out = {};
+  Object.keys(_gradeRecords).forEach(sid => {
+    if (sid === '00000') return;
+    const classNum = sid.length >= 3 ? parseInt(sid.slice(1, 3), 10) : null;
+    const sched = thScheduledDate(lessonKey, classNum);
+    let achieved = true, onTime = true, at = null, blank = false;
+
+    for (const { src, byStudent, failed } of perSource) {
+      if (failed) { blank = true; break; } // 읽기 실패한 앱이 있으면 판정하지 않는다
+      const docs = byStudent[sid] || [];
+      if (!docs.length) { achieved = false; onTime = false; continue; } // 미제출
+
+      if (src.graded) {
+        const statuses = docs.map(d => d.status);
+        // 하나라도 아직 채점 전(pending 등)이면 선생님 판단으로 남긴다.
+        if (statuses.some(st => st !== 'pass' && st !== 'fail')) { blank = true; break; }
+        if (!statuses.every(st => st === 'pass')) achieved = false; // 전부 통과해야 달성
+      }
+
+      // 제출 시각은 가장 이른 것을 기준으로 삼는다 — 수업 시간에 한 번 냈으면, 나중에
+      // 작품을 하나 더 올렸다고 지각으로 뒤집히면 안 된다.
+      let first = null;
+      docs.forEach(d => {
+        const t = missionToDate(src.timeFields.map(f => d[f]).find(v => v != null));
+        if (t && (!first || t < first)) first = t;
+      });
+      if (first && (!at || first < at)) at = first;
+      if (first && sched) {
+        const dayOnly = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+        if (dayOnly(first) > dayOnly(sched)) onTime = false; // 수업일보다 늦게 제출
+      }
+    }
+
+    if (!blank) out[sid] = { achieved, onTime, at };
+  });
+
+  return { map: out, apps };
+}
+
+// 미션 자동 연동이 실제로 걸렸는지 강의 선택 줄 아래에 알려 준다. 연결이 안 됐는데 표가
+// 전부 빈칸으로 보이면 선생님이 원인을 알 수 없어서, 왜 비었는지까지 문구로 남긴다.
+function renderMissionLinkNote(apps, filledCount) {
+  const el = document.getElementById('gradeMissionLinkNote');
+  if (!el) return;
+  if (!apps || !apps.length) {
+    el.style.display = 'none';
+    el.textContent = '';
+    return;
+  }
+  const total = _gradeStudents.filter(s => s.id !== '00000').length;
+  const pending = Math.max(0, total - filledCount);
+  el.style.display = '';
+  el.textContent = `미션체크 자동 연동: ${apps.join(', ')}`
+    + (pending ? ` (아직 채점 전인 ${pending}명은 빈칸으로 두었습니다)` : '');
+}
+
 // 생각 체크 최종 판정: 문구(verdict)·달성(achieved)·기한(onTime) 세 가지를 한 번에 계산한다.
 // 우선순위(동시에 여러 개 어겨도 하나만 표시): 이탈 5회↑ > 50자 미만 > AI 미흡(조금 미흡)
 // > 지연 제출 > 통과. 각 사유별 표시 규칙은 다음과 같다(사용자 확정 기준):
@@ -3836,7 +3962,8 @@ async function loadGradeData() {
 
   const thinkDocId  = document.getElementById('gradeThinkSel').value;
   _gradeThinkDocId  = thinkDocId;
-  const missionColl = ''; // 미션 체크는 컬렉션 자동 감지 없이 표에서 직접 체크한다.
+  // 미션 체크는 강의에 연결된 미션 카드(lessonNum)를 따라가 자동 감지한다 — MISSION_SOURCES 참고.
+  // 연결된 카드가 없거나 표에 없는 앱이면 예전처럼 표에서 직접 체크하면 된다.
   const conceptEnabled = document.getElementById('gradeConceptOn').checked;
   const missionEnabled = document.getElementById('gradeMissionOn').checked;
   const thinkEnabled   = document.getElementById('gradeThinkOn').checked;
@@ -3850,7 +3977,6 @@ async function loadGradeData() {
     const lesson = _gradeLessons.find(l => l.num === _gradeLessonKey);
     await setDoc(doc(db, 'grade_lecture_config', _gradeLessonKey), {
       thinkLectureDocId: thinkDocId,
-      missionCollection: missionColl,
       lessonTitle: lesson?.title || lecTag(_gradeLessonKey),
       conceptEnabled, missionEnabled, thinkEnabled,
       conceptWeight, missionWeight, thinkWeight,
@@ -3932,20 +4058,21 @@ async function loadGradeData() {
       });
     }
 
-    // 미션체크 자동감지 (제출시간 수집)
-    if (missionColl) {
+    // 미션체크 자동감지 — 연결된 미션 앱(MISSION_SOURCES)의 제출·채점 결과를 그대로 가져온다.
+    // 이미 저장된 채점 기록이 있는 학생(savedSet)은 선생님이 손으로 고친 값일 수 있어 덮어쓰지 않는다.
+    if (missionEnabled) {
       try {
-        const mSnap = await getDocs(collection(db, missionColl));
-        mSnap.docs.forEach(d => {
-          const data = d.data();
-          const sid  = data.studentId || d.id;
-          if (!_gradeRecords[sid]) return;
-          _gradeRecords[sid].mission.achieved = true;
-          if (!savedSet.has(sid)) _gradeRecords[sid].mission.onTime = true;
-          const ts = data.createdAt;
-          if (ts) _gradeMissionTimes[sid] = ts.toDate ? ts.toDate() : new Date(ts);
+        const { map, apps } = await missionAutoDetect(_gradeLessonKey);
+        Object.entries(map).forEach(([sid, v]) => {
+          if (v.at) _gradeMissionTimes[sid] = v.at;
+          if (savedSet.has(sid) || _gradeRecords[sid].absent) return; // 결석은 미달성 고정
+          _gradeRecords[sid].mission.achieved = v.achieved;
+          _gradeRecords[sid].mission.onTime   = v.onTime;
         });
-      } catch(e) {}
+        renderMissionLinkNote(apps, Object.keys(map).length);
+      } catch(e) { renderMissionLinkNote([], 0); }
+    } else {
+      renderMissionLinkNote([], 0);
     }
 
     // 반영 상태 로드
@@ -4219,10 +4346,9 @@ function renderGradeTable() {
     `<span style="font-size:12px" class="${isLate?'grade-time-late':''}">${esc(fmtTime(d))}</span>`;
 
   // colgroup으로 열 폭을 고정한다 → 실시/미실시(열 개수)를 바꿔도 각 칸 폭이 그대로 유지된다.
-  // (미션체크는 제출시간 열 없이 달성/기한 2열만 쓴다.)
   let cols = '<col style="width:82px"><col style="width:104px">';
   if (cE) cols += '<col style="width:80px"><col style="width:80px">';
-  if (mE) cols += '<col style="width:80px"><col style="width:80px">';
+  if (mE) cols += '<col style="width:80px"><col style="width:80px"><col style="width:112px">';
   if (tE) cols += '<col style="width:80px"><col style="width:80px"><col style="width:112px">';
   cols += '<col style="width:110px">';
 
@@ -4232,13 +4358,13 @@ function renderGradeTable() {
       <tr>
         <th rowspan="2">학번</th><th rowspan="2">이름</th>
         ${cE ? `<th colspan="2" class="gh-concept">개념체크</th>` : ''}
-        ${mE ? `<th colspan="2" class="gh-mission">미션체크</th>` : ''}
+        ${mE ? `<th colspan="3" class="gh-mission">미션체크</th>` : ''}
         ${tE ? `<th colspan="3" class="gh-think">생각체크</th>` : ''}
         <th rowspan="2">피드백</th>
       </tr>
       <tr>
         ${cE ? `<th class="gh-concept">${allCb('concept','achieved')}달성</th><th class="gh-concept">${allCb('concept','onTime')}기한</th>` : ''}
-        ${mE ? `<th class="gh-mission">${allCb('mission','achieved')}달성</th><th class="gh-mission">${allCb('mission','onTime')}기한</th>` : ''}
+        ${mE ? `<th class="gh-mission">${allCb('mission','achieved')}달성</th><th class="gh-mission">${allCb('mission','onTime')}기한</th><th class="gh-mission">제출시간</th>` : ''}
         ${tE ? `<th class="gh-think">${allCb('think','achieved')}달성</th><th class="gh-think">${allCb('think','onTime')}기한</th><th class="gh-think">제출시간</th>` : ''}
       </tr>
     </thead><tbody>`;
@@ -4246,14 +4372,16 @@ function renderGradeTable() {
   classNums.forEach(cls => {
     const studs = classes[cls];
     const tMaj  = majorityDay(_gradeThinkTimes, studs);
+    const mMaj  = majorityDay(_gradeMissionTimes, studs);
     studs.forEach(s => {
       const r  = _gradeRecords[s.id];
       const tD = _gradeThinkTimes[s.id] || null;
+      const mD = _gradeMissionTimes[s.id] || null;
       html += `<tr data-cls="${cls}" data-sid="${esc(s.id)}" class="${r.absent ? 'absent-row' : ''}">
         <td class="tc-id">${esc(s.id)}</td>
         <td class="tc-name" data-sid="${esc(s.id)}" title="클릭하면 결석으로 표시/해제됩니다">${esc(s.name)}</td>
         ${cE ? `<td>${chk(s.id,'concept','achieved',r.concept.achieved,r.absent)}</td><td>${chk(s.id,'concept','onTime',r.concept.onTime,r.absent)}</td>` : ''}
-        ${mE ? `<td>${chk(s.id,'mission','achieved',r.mission.achieved,r.absent)}</td><td>${chk(s.id,'mission','onTime',r.mission.onTime,r.absent)}</td>` : ''}
+        ${mE ? `<td>${chk(s.id,'mission','achieved',r.mission.achieved,r.absent)}</td><td>${chk(s.id,'mission','onTime',r.mission.onTime,r.absent)}</td><td>${timeSpan(mD,!!(mD&&mMaj&&dayKey(mD)!==mMaj))}</td>` : ''}
         ${tE ? `<td>${chk(s.id,'think','achieved',r.think.achieved,r.absent)}</td><td>${chk(s.id,'think','onTime',r.think.onTime,r.absent)}</td><td>${timeSpan(tD,!!(tD&&tMaj&&dayKey(tD)!==tMaj))}</td>` : ''}
         <td><button class="stu-btn stu-btn-edit" onclick="openGradeFeedbackModal('${esc(s.id)}','${esc(s.name)}')">${r.feedback ? '피드백 수정' : '피드백 작성'}</button></td>
       </tr>`;
