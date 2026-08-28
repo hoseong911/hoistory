@@ -74,22 +74,33 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 .film-date{color:var(--accent);font-weight:700}
 .film-foot{padding:10px 2px 0;text-align:center;font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:rgba(239,231,214,.5)}
 
-/* ── 세로 스트립(네 컷이 한 장으로 이어진 만화) ──
-   만화는 사건당 이미지 1장이고, 그 1장을 높이로 4등분해 컷1~컷4 영역으로 삼는다.
-   화면이 길어지므로 스트립만 따로 세로 스크롤한다. */
-.strip-scroll{max-height:min(72vh,900px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;border-radius:3px;background:var(--panel-bg)}
-.strip{position:relative;width:100%;border:3px solid var(--cream);border-radius:3px;overflow:hidden;background:var(--panel-bg);user-select:none}
-.strip img.bg{display:block;width:100%;height:auto;pointer-events:none}
-.strip .noimg{display:flex;align-items:center;justify-content:center;aspect-ratio:3/8;color:#b7b2a5;font-size:14px;font-weight:600;text-align:center;padding:20px;line-height:1.7}
-/* 컷 영역: 이미지 높이의 25%씩. 경계선은 옅게만 보인다. */
-.cut-zone{position:absolute;left:0;width:100%;height:25%}
-.cut-zone+.cut-zone{border-top:1px dashed rgba(30,27,22,.18)}
-.cut-zone .zone-num{position:absolute;top:7px;left:9px;z-index:4;font-family:'Gaegu',cursive;font-weight:700;font-size:17px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.65);pointer-events:none}
+/* ── 한 컷씩 보기 ──
+   만화는 사건당 이미지 1장이고, 그 1장이 세로로 네 컷 이어져 있다. 대사를 쓸 때는
+   그중 한 컷만 창 크기로 키워 보여주고 나머지는 잘라 감춘다 — 컷을 옮기는 건 아래 번호.
+   창의 세로 비율(--cut-ar)은 그림이 실제로 뜬 뒤 자연 크기에서 계산해 넣는다. */
+/* 테두리는 border 대신 box-shadow로 그린다 — border가 있으면 창의 안쪽 높이가 테두리만큼
+   줄어드는데 그림은 바깥 폭에 맞춰 그려져서, 컷을 넘길수록 옆 컷이 몇 px씩 삐져나온다. */
+.cutpage{position:relative;width:100%;aspect-ratio:var(--cut-ar,4/3);overflow:hidden;border-radius:3px;background:var(--panel-bg);user-select:none;box-shadow:0 0 0 3px var(--cream),inset 0 0 0 1px rgba(30,27,22,.08)}
+/* 그림은 네 컷 전체 높이(창의 4배)라, 컷 번호만큼 위로 밀어 해당 컷만 창에 남긴다. */
+.cutpage img.bg{position:absolute;left:0;width:100%;height:auto;display:block;pointer-events:none}
+.cutpage .noimg{display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:#b7b2a5;font-size:14px;font-weight:600;text-align:center;padding:20px;line-height:1.7}
+.cutpage .zone-num{position:absolute;top:8px;left:11px;z-index:4;font-family:'Gaegu',cursive;font-weight:700;font-size:19px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.65);pointer-events:none}
 /* 그림이 아직 없으면 흰 글씨가 안 보이므로 잉크색으로 뒤집는다 */
-.strip.empty .zone-num{color:var(--muted);text-shadow:none}
-.zone-add{position:absolute;top:6px;right:8px;z-index:6;display:flex;gap:5px}
-.zone-add button{font-family:inherit;font-size:11px;font-weight:700;padding:5px 9px;border-radius:100px;border:1.5px solid rgba(30,27,22,.5);background:rgba(255,255,255,.9);color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(3px)}
+.cutpage.empty .zone-num{color:var(--muted);text-shadow:none}
+.zone-add{position:absolute;top:7px;right:9px;z-index:6;display:flex;gap:5px}
+.zone-add button{font-family:inherit;font-size:12px;font-weight:700;padding:6px 11px;border-radius:100px;border:1.5px solid rgba(30,27,22,.5);background:rgba(255,255,255,.9);color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent;backdrop-filter:blur(3px)}
 .zone-add button:active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ── 컷 이동 ── */
+.cutnav{display:flex;align-items:center;gap:10px;margin-top:14px}
+.cutnav .btn{padding:11px 14px;font-size:14px;flex-shrink:0}
+.cutnav .btn:disabled{opacity:.35;cursor:not-allowed;box-shadow:none;transform:none}
+.cutdots{flex:1;display:flex;justify-content:center;gap:7px}
+.cutdot{font-family:var(--mono);font-size:14px;font-weight:700;width:38px;height:38px;border-radius:50%;border:2px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:.12s;position:relative}
+.cutdot.on{background:var(--accent);color:#fff;border-color:var(--ink)}
+/* 대사를 하나라도 쓴 컷은 점을 찍어, 어디를 아직 안 채웠는지 한눈에 보이게 한다. */
+.cutdot.done::after{content:'';position:absolute;left:50%;bottom:4px;transform:translateX(-50%);width:5px;height:5px;border-radius:50%;background:var(--teal)}
+.cutdot.on.done::after{background:#fff}
 
 /* ── 말풍선 ── */
 .bubble{position:absolute;background:var(--bubble);border:2.5px solid var(--bubble-line);display:flex;align-items:center;justify-content:center}
@@ -158,15 +169,14 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 </head>
 <body>
 
-<!-- ── 이름 입력 게이트 (비로그인 시에만) ── -->
-<section id="nameGate" class="screen">
+<!-- ── 로그인 안내 (LMS 미로그인 시) ──
+     학생은 LMS 허브를 거쳐 들어오므로 이름을 직접 받지 않는다. 갤러리는 로그인 없이도 열린다. -->
+<section id="loginGate" class="screen">
   <div class="wrap">
     <div class="intro-card">
       <div class="intro-title" id="gateTitle">사화 네컷</div>
-      <div class="intro-sub" id="gateSub">말풍선을 눌러 대사를 쓰면 글자가 풍선에 딱 맞게 들어가요.</div>
-      <div class="namebox"><label>이름을 입력하세요</label><input id="nameInput" maxlength="10" placeholder="예) 홍길동" autocomplete="off"></div>
-      <button class="btn btn-primary btn-block" id="nameNextBtn">다음</button>
-      <button class="btn btn-ghost btn-block" id="gateArcBtn" style="margin-top:10px">친구들 작품 보기</button>
+      <div class="intro-sub">로그인이 필요해요.<br>LMS 허브에서 로그인한 뒤 이 활동에 들어와 주세요.</div>
+      <button class="btn btn-ghost btn-block" id="gateArcBtn" style="margin-top:18px">친구들 작품 보기</button>
     </div>
   </div>
 </section>
@@ -192,11 +202,16 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
     <div class="who-mini" id="barWho"></div>
   </div>
   <div class="wrap">
-    <div class="hint">컷 오른쪽 위 <b>+ 대사 / + 생각</b>으로 말풍선을 올리세요(컷당 2개까지). 풍선을 눌러 대사를 쓰면 글자 크기가 자동으로 맞춰지고, 왼쪽 위 손잡이를 끌어 위치를 옮길 수 있어요.</div>
+    <div class="hint">한 번에 <b>한 컷씩</b> 보여요. 오른쪽 위 <b>+ 대사 / + 생각</b>으로 말풍선을 올리고(컷당 2개까지), 풍선을 눌러 대사를 쓰면 글자 크기가 자동으로 맞춰져요. 왼쪽 위 손잡이를 끌면 위치를 옮길 수 있고, 아래 번호로 컷을 넘깁니다.</div>
     <div class="filmstrip">
       <div class="film-top"><span class="film-brand" id="filmBrand">4 CUT FILM</span><span class="film-date" id="filmDate"></span></div>
-      <div class="strip-scroll"><div class="strip" id="strip"></div></div>
-      <div class="film-foot">위아래로 넘겨 네 컷을 모두 채워보세요</div>
+      <div class="cutpage" id="cutPage"></div>
+      <div class="film-foot" id="filmFoot">1 / 4</div>
+    </div>
+    <div class="cutnav">
+      <button class="btn btn-ghost" id="cutPrev">이전 컷</button>
+      <div class="cutdots" id="cutDots"></div>
+      <button class="btn btn-ghost" id="cutNext">다음 컷</button>
     </div>
     <div class="toolbar">
       <button class="btn btn-ghost" id="backIntroBtn">사건 바꾸기</button>
@@ -266,7 +281,6 @@ const MAX_BUBBLES_PER_CUT=2;  // 컷당 말풍선 상한
 /* 기본 콘텐츠 (어드민 미설정 시) */
 const DEFAULT_CONTENT={
   title:"사화 네컷",
-  intro:"말풍선을 눌러 대사를 쓰면 글자가 풍선에 딱 맞게 들어가요.",
   introTitle:"사화(士禍), 선비들이 화를 입다",
   introBody:"조선의 조정에 새바람을 일으킨 사림.\n하지만 개혁의 길목마다 피바람이 불었습니다.\n무오사화 · 갑자사화 · 기묘사화 —\n세 번의 사화 속 인물이 되어, 그날의 대사를 채워보세요.",
   introBtn:"사건 고르고 시작하기",
@@ -312,7 +326,6 @@ function warn(msg){
 function normalize(d){
   const c={
     title:d.title||DEFAULT_CONTENT.title,
-    intro:d.intro||DEFAULT_CONTENT.intro,
     introTitle:d.introTitle||DEFAULT_CONTENT.introTitle,
     introBody:d.introBody||DEFAULT_CONTENT.introBody,
     introBtn:d.introBtn||DEFAULT_CONTENT.introBtn,
@@ -344,7 +357,6 @@ async function init(){
   }catch(e){}
 
   $("#gateTitle").textContent=CONTENT.title;
-  $("#gateSub").textContent=CONTENT.intro;
   $("#introTitle").textContent=CONTENT.introTitle;
   $("#introBody").textContent=CONTENT.introBody;
   $("#startBtn").textContent=CONTENT.introBtn;
@@ -354,7 +366,7 @@ async function init(){
   renderEventPick();
 
   student=getStudentFromLMS();
-  showScreen(student?'introScreen':'nameGate');
+  showScreen(student?'introScreen':'loginGate');
 }
 
 /* ── 화면 전환 ── */
@@ -397,9 +409,11 @@ async function loadEventImage(evId){
 }
 
 function enterEditor(){
-  $("#barWho").textContent=student.studentId==="00000"?student.studentName:`${student.studentName} (${student.studentId})`;
+  $("#barWho").textContent=`${student.studentName} (${student.studentId})`;
   $("#filmBrand").textContent=curEvent.name;
-  renderStrip();
+  curCut=0;
+  applyCutAspect();
+  renderCutPage();
   showScreen('editScreen');
 }
 $("#backIntroBtn").onclick=()=>{
@@ -408,7 +422,10 @@ $("#backIntroBtn").onclick=()=>{
   showScreen('introScreen');
 };
 
-/* ── 세로 스트립 렌더 ── */
+/* ── 한 컷씩 렌더 ──
+   그림 한 장에 네 컷이 이어져 있으므로, 지금 보는 컷만큼 그림을 위로 밀어(top: -N00%)
+   창에 그 컷만 남긴다. 말풍선 좌표(x/y/w/h)는 예전 컷 영역과 같은 "컷 기준 %"라 그대로 쓴다. */
+let curCut=0;
 function bubbleHTML(b,ci,bi){
   const st=`left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%`;
   const tail=b.type==="thought"?`<span class="tail"></span><span class="tail2"></span>`:`<span class="tail"></span>`;
@@ -417,48 +434,77 @@ function bubbleHTML(b,ci,bi){
       <div class="bhandle" data-act="move">${icon('move',12)}</div><div class="bdel" data-act="del">${icon('x',13)}</div>
       <div class="btext" contenteditable="true" data-ci="${ci}" data-bi="${bi}" data-ph="${ph}">${esc(b.text)}</div>${tail}</div>`;
 }
-function renderStrip(){
-  const strip=$("#strip");
+function renderCutPage(){
+  const page=$("#cutPage");
+  const c=work[curCut];
   const bg=curImage
-    ?`<img class="bg" src="${curImage}" alt="${esc(curEvent.name)} 네컷 만화">`
+    ?`<img class="bg" src="${curImage}" alt="${esc(curEvent.name)} ${curCut+1}컷" style="top:${-curCut*100}%">`
     :`<div class="noimg">${esc(curEvent.name)} 만화가 아직 준비되지 않았어요.<br>선생님께 알려주세요.</div>`;
-  const zones=work.map((c,ci)=>`
-    <div class="cut-zone" data-ci="${ci}" style="top:${ci*(100/CUTS)}%;height:${100/CUTS}%">
-      <span class="zone-num">${ci+1}컷</span>
-      <div class="zone-add">
-        <button data-add="speech" data-ci="${ci}">+ 대사</button>
-        <button data-add="thought" data-ci="${ci}">+ 생각</button>
-      </div>
-      ${c.bubbles.map((b,bi)=>bubbleHTML(b,ci,bi)).join("")}
-    </div>`).join("");
-  strip.className='strip'+(curImage?'':' empty');
-  strip.innerHTML=bg+zones;
-  bindStrip();
+  page.className='cutpage'+(curImage?'':' empty');
+  page.innerHTML=bg
+    +`<span class="zone-num">${curCut+1}컷</span>`
+    +`<div class="zone-add"><button data-add="speech">+ 대사</button><button data-add="thought">+ 생각</button></div>`
+    +c.bubbles.map((b,bi)=>bubbleHTML(b,curCut,bi)).join("");
+  bindCutPage();
+  $("#filmFoot").textContent=`${curCut+1} / ${CUTS}`;
+  $("#cutPrev").disabled=curCut===0;
+  $("#cutNext").disabled=curCut===CUTS-1;
+  renderCutDots();
   requestAnimationFrame(()=>fitAll());
 }
 
-function bindStrip(){
-  const strip=$("#strip");
-  strip.querySelectorAll('[data-add]').forEach(btn=>btn.onclick=()=>{
-    const ci=+btn.dataset.ci;
-    if(work[ci].bubbles.length>=MAX_BUBBLES_PER_CUT){
+/* 아래 번호: 지금 보는 컷은 채워진 원, 대사를 하나라도 쓴 컷은 아래에 점을 찍는다.
+   컷을 넘겨 가며 쓰다 보면 어디를 안 채웠는지 잊기 쉬워서 표시가 필요하다. */
+function renderCutDots(){
+  const dots=$("#cutDots");
+  dots.innerHTML=work.map((c,i)=>{
+    const done=c.bubbles.some(b=>b.text&&b.text.trim());
+    return `<button class="cutdot${i===curCut?' on':''}${done?' done':''}" data-i="${i}">${i+1}</button>`;
+  }).join("");
+  dots.querySelectorAll('.cutdot').forEach(b=>b.onclick=()=>goCut(+b.dataset.i));
+}
+function goCut(i){if(i<0||i>=CUTS||i===curCut)return;curCut=i;renderCutPage();}
+$("#cutPrev").onclick=()=>goCut(curCut-1);
+$("#cutNext").onclick=()=>goCut(curCut+1);
+
+/* 컷 창의 세로 비율은 그림의 자연 크기에서 정한다. 4등분이 아닌 비율로 올라와도
+   창 높이가 한 컷과 어긋나지 않는다. 그림이 없으면 CSS 기본값(4/3)을 쓴다. */
+function applyCutAspect(){
+  const page=$("#cutPage");
+  page.style.removeProperty('--cut-ar');
+  if(!curImage)return;
+  const im=new Image();
+  im.onload=()=>{
+    if(!im.naturalWidth||!im.naturalHeight)return;
+    page.style.setProperty('--cut-ar',`${im.naturalWidth} / ${im.naturalHeight/CUTS}`);
+    requestAnimationFrame(fitAll);
+  };
+  im.src=curImage;
+}
+
+function bindCutPage(){
+  const page=$("#cutPage");
+  page.querySelectorAll('[data-add]').forEach(btn=>btn.onclick=()=>{
+    const c=work[curCut];
+    if(c.bubbles.length>=MAX_BUBBLES_PER_CUT){
       warn(`말풍선은 한 컷에 ${MAX_BUBBLES_PER_CUT}개까지만 올릴 수 있어요.`);return;
     }
     // 이미 있는 풍선과 겹치지 않게 두 번째는 아래쪽에 놓는다
-    const n=work[ci].bubbles.length;
-    work[ci].bubbles.push({type:btn.dataset.add,x:n?38:8,y:n?54:10,w:50,h:34,text:""});
-    renderStrip();
+    const n=c.bubbles.length;
+    c.bubbles.push({type:btn.dataset.add,x:n?38:8,y:n?54:10,w:50,h:34,text:""});
+    renderCutPage();
   });
-  strip.querySelectorAll('.bdel').forEach(el=>el.onclick=ev=>{
+  page.querySelectorAll('.bdel').forEach(el=>el.onclick=ev=>{
     ev.stopPropagation();
-    const p=el.parentElement,ci=+p.dataset.ci,bi=+p.dataset.bi;
-    work[ci].bubbles.splice(bi,1);renderStrip();
+    const b=el.parentElement;
+    work[+b.dataset.ci].bubbles.splice(+b.dataset.bi,1);renderCutPage();
   });
-  strip.querySelectorAll('.bhandle').forEach(el=>el.addEventListener('pointerdown',ev=>startDrag(ev,el.parentElement)));
-  strip.querySelectorAll('.btext[contenteditable]').forEach(el=>{
+  page.querySelectorAll('.bhandle').forEach(el=>el.addEventListener('pointerdown',ev=>startDrag(ev,el.parentElement)));
+  page.querySelectorAll('.btext[contenteditable]').forEach(el=>{
     el.addEventListener('input',()=>{
       work[+el.dataset.ci].bubbles[+el.dataset.bi].text=el.textContent;
       fitText(el);
+      renderCutDots();   // 아래 번호의 "쓴 컷" 표시를 바로 갱신 (컷 창 밖이라 입력이 끊기지 않는다)
     });
     el.addEventListener('focus',()=>{editingEl&&editingEl.classList.remove('editing');editingEl=el.parentElement;editingEl.classList.add('editing');});
     el.addEventListener('blur',()=>{el.parentElement.classList.remove('editing');});
@@ -507,18 +553,10 @@ function fitText(el){
   let guard=0;
   while(size>8&&(el.scrollHeight>maxH||el.scrollWidth>maxW)&&guard<60){size--;el.style.fontSize=size+'px';guard++;}
 }
-function fitAll(){document.querySelectorAll('#strip .btext').forEach(fitText);}
+function fitAll(){document.querySelectorAll('#cutPage .btext').forEach(fitText);}
 window.addEventListener('resize',()=>requestAnimationFrame(fitAll));
-// 이미지가 늦게 뜨면 컷 영역 높이가 바뀌므로 다시 맞춘다
-new ResizeObserver(()=>requestAnimationFrame(fitAll)).observe(document.getElementById('strip'));
-
-/* ── 이름 게이트 ── */
-$("#nameNextBtn").onclick=()=>{
-  const v=($("#nameInput")?.value||"").trim();
-  if(!v){$("#nameInput")?.focus();return;}
-  student={studentId:"00000",studentName:v};
-  showScreen('introScreen');
-};
+// 이미지가 늦게 뜨면 컷 창 높이가 바뀌므로 다시 맞춘다
+new ResizeObserver(()=>requestAnimationFrame(fitAll)).observe(document.getElementById('cutPage'));
 
 /* ── 완성 → 이미지 합성 ── */
 $("#doneBtn").onclick=async()=>{

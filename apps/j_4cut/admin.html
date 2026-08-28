@@ -10,74 +10,142 @@
 <link rel="stylesheet" href="../../shared/admin-base.css">
 <script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
 <style>
-  .fc-section{max-width:900px;margin:0 auto}
-  .fc-meta{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
-  .fc-meta input,.fc-meta textarea{font-family:inherit;font-size:14px;padding:10px 12px;border:1.5px solid var(--hi-border);border-radius:10px;background:var(--hi-bg-card);color:var(--hi-text);width:100%}
-  .fc-meta textarea{resize:vertical;min-height:52px}
-  .fc-label{font-size:12px;font-weight:700;color:var(--hi-text-muted);margin-bottom:4px}
-  .fc-sub{font-size:11px;color:var(--hi-text-muted);margin-top:4px;line-height:1.6}
-  .fc-group{border:1px solid var(--hi-border);border-radius:14px;padding:16px;background:var(--hi-bg-card);margin-bottom:18px}
-  .fc-group-title{font-size:14px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:8px}
-  /* 사건 전환 탭 (무오/갑자/기묘) */
-  .fc-evtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
-  .fc-evtab{font-family:inherit;font-size:13px;font-weight:700;padding:8px 15px;border-radius:100px;border:1.5px solid var(--hi-border);background:var(--hi-bg-card);color:var(--hi-text-muted);cursor:pointer}
-  .fc-evtab.active{background:var(--hi-accent);border-color:var(--hi-accent);color:#fff}
-  .fc-evtab .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--hi-negative);margin-right:6px;vertical-align:middle}
-  .fc-evtab .dot.ok{background:var(--hi-positive)}
-  /* 세로 스트립 에디터 */
-  .fc-editor{display:grid;grid-template-columns:minmax(0,320px) 1fr;gap:20px;align-items:start}
-  @media(max-width:720px){.fc-editor{grid-template-columns:1fr}}
-  .fc-stage{position:relative;width:100%;background:#efece3;border:2px solid #1c1c1c;border-radius:6px;overflow:hidden;touch-action:none;user-select:none}
-  .fc-stage img.bg{display:block;width:100%;height:auto;pointer-events:none}
-  .fc-stage .noimg{display:flex;align-items:center;justify-content:center;aspect-ratio:3/8;color:#b7b2a5;font-size:14px;font-weight:600;text-align:center;padding:16px;line-height:1.7}
-  .fc-zone{position:absolute;left:0;width:100%}
-  .fc-zone+.fc-zone{border-top:1px dashed rgba(28,28,28,.35)}
-  .fc-zone-num{position:absolute;top:5px;left:7px;z-index:4;font-family:'Gaegu',cursive;font-weight:700;font-size:16px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.65);pointer-events:none}
-  /* 그림이 아직 없으면 흰 글씨가 안 보이므로 잉크색으로 뒤집는다 */
-  .fc-stage.empty .fc-zone-num{color:#9a9384;text-shadow:none}
-  .fc-stage.empty .noimg{align-items:flex-start;padding-top:34%}
-  .eb{position:absolute;background:#fff;border:2.5px solid #1c1c1c;display:flex;align-items:center;justify-content:center;cursor:move;font-family:'Gaegu',cursive;font-weight:700;font-size:14px;color:#888}
-  .eb.speech{border-radius:14px}
-  .eb.thought{border-radius:50%}
-  .eb.sel{box-shadow:0 0 0 3px rgba(37,99,235,.55)}
-  .eb .rh{position:absolute;right:-9px;bottom:-9px;width:18px;height:18px;background:var(--hi-accent);border:2px solid #fff;border-radius:50%;cursor:nwse-resize}
-  .eb .dh{position:absolute;right:-9px;top:-9px;width:18px;height:18px;background:var(--hi-negative);border:2px solid #fff;border-radius:50%;cursor:pointer;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
-  .fc-side{display:flex;flex-direction:column;gap:12px}
-  .fc-cut-row{border:1px solid var(--hi-border);border-radius:10px;padding:10px 12px}
-  .fc-cut-row-head{display:flex;align-items:center;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:8px}
-  .fc-cut-count{font-size:11px;font-weight:700;color:var(--hi-text-muted)}
-  .fc-cut-count.full{color:var(--hi-negative)}
-  .fc-cut-actions{display:flex;gap:6px;flex-wrap:wrap}
-  .fc-btn{font-family:inherit;font-size:12px;font-weight:600;padding:7px 11px;border-radius:9px;border:1.5px solid var(--hi-border);background:var(--hi-bg-card);color:var(--hi-text);cursor:pointer}
-  .fc-btn:disabled{opacity:.45;cursor:not-allowed}
-  .fc-btn.up{border-color:var(--hi-accent);color:var(--hi-accent)}
-  .fc-btn.del{border-color:var(--hi-negative);color:var(--hi-negative)}
-  .fc-upstatus{font-size:12px;color:var(--hi-text-muted);margin-top:6px;line-height:1.6}
-  .fc-upstatus.err{color:var(--hi-negative)}
-  .fc-save-row{display:flex;align-items:center;gap:12px;margin:22px 0}
-  .fc-save-msg{font-size:14px;font-weight:600}
-  /* 제출물 */
-  .fc-works{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px}
-  .fc-work{border:1px solid var(--hi-border);border-radius:12px;overflow:hidden;background:var(--hi-bg-card);display:flex;flex-direction:column}
-  .fc-work img{width:100%;display:block;cursor:zoom-in}
-  .fc-work .wev{font-size:11px;font-weight:700;color:var(--hi-accent);padding:8px 10px 0}
-  .fc-work .wm{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:6px 10px 8px;font-size:14px;font-weight:600}
-  .fc-work .wlike{font-size:12px;font-weight:700;color:var(--hi-text-muted);white-space:nowrap;display:inline-flex;align-items:center;gap:3px}
-  .fc-work .wlike .hi-ic{fill:currentColor}
-  .eb .dh .hi-ic,.fc-work .wdel .hi-ic{display:block}
-  .fc-work .wdel{background:none;border:none;color:var(--hi-negative);cursor:pointer;font-size:14px}
-  /* 채점 (통과/미흡) — LMS 성적 체크의 미션 달성으로 그대로 넘어간다 */
-  .fc-work .wgrade{display:flex;gap:6px;padding:0 10px 10px}
-  .ssb{flex:1;padding:6px 0;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;border:1.5px solid transparent;cursor:pointer;transition:.15s}
-  .ssb-pass{background:rgba(22,163,74,.12);color:#16a34a;border-color:rgba(22,163,74,.2)}
-  .ssb-pass.active,.ssb-pass:hover{background:#16a34a;color:#fff}
-  .ssb-fail{background:rgba(220,38,38,.1);color:#dc2626;border-color:rgba(220,38,38,.2)}
-  .ssb-fail.active,.ssb-fail:hover{background:#dc2626;color:#fff}
-  .fc-work.graded-pass{border-color:rgba(22,163,74,.45)}
-  .fc-work.graded-fail{border-color:rgba(220,38,38,.4)}
-  .fc-lb{display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.85);align-items:center;justify-content:center;padding:20px}
-  .fc-lb.show{display:flex}
-  .fc-lb img{max-width:100%;max-height:100%}
+/* LMS 어드민과 같은 톤(오렌지 주 + 네이비 보조)으로 맞춘다.
+   shared/admin-base.css가 --hi-accent를 이미 오렌지로 주므로 그건 덮어쓰지 않고,
+   이 앱 전용 --fc-* 토큰만 j_interview 어드민의 --iv-* 와 같은 팔레트로 둔다. */
+:root{
+  --fc-primary:#FF6B3D; --fc-primary-soft:rgba(255,107,61,.12); --fc-primary-deep:#E24E1B;
+  --fc-navy:#27384F; --fc-navy-deep:#172554; --fc-navy-l:rgba(39,56,79,.12);
+  --fc-pass:#22c55e; --fc-pass-l:rgba(34,197,94,.12);
+  --fc-fail:var(--hi-negative); --fc-fail-l:rgba(243,114,127,.1);
+}
+.fc-section{max-width:900px;margin:0 auto}
+
+/* ── 섹션 카드 (j_interview 어드민 .section-card와 같은 규격) ── */
+.fc-group{background:var(--hi-bg-surface);border:1px solid var(--hi-border);border-radius:14px;padding:22px;margin-bottom:16px}
+.fc-group-title{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:var(--adm-title);color:var(--hi-text);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.fc-meta{display:flex;flex-direction:column;gap:10px}
+.fc-meta input,.fc-meta textarea{font-family:inherit;font-size:var(--adm-sub);padding:10px 12px;border:1.5px solid var(--hi-border);border-radius:10px;background:var(--hi-bg-mid);color:var(--hi-text);width:100%;transition:border-color .15s}
+.fc-meta input:focus,.fc-meta textarea:focus{outline:none;border-color:var(--fc-primary)}
+.fc-meta textarea{resize:vertical;min-height:52px}
+.fc-label{font-size:var(--adm-label);font-weight:700;color:var(--hi-text-muted);margin-bottom:4px}
+.fc-sub{font-size:var(--adm-label);color:var(--hi-text-muted);margin-top:4px;line-height:1.6}
+
+/* 사건 전환 탭 (무오/갑자/기묘) */
+.fc-evtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px}
+.fc-evtab{font-family:inherit;font-size:var(--adm-sub);font-weight:700;padding:8px 15px;border-radius:100px;border:1.5px solid var(--hi-border);background:var(--hi-bg-card);color:var(--hi-text-muted);cursor:pointer;transition:.15s}
+.fc-evtab:hover{border-color:var(--fc-primary);color:var(--hi-text)}
+.fc-evtab.active{background:var(--fc-primary);border-color:var(--fc-primary);color:#fff}
+.fc-evtab .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--hi-negative);margin-right:6px;vertical-align:middle}
+.fc-evtab .dot.ok{background:var(--fc-pass)}
+.fc-evtab.active .dot{background:rgba(255,255,255,.5)}
+.fc-evtab.active .dot.ok{background:#fff}
+
+/* ── 세로 스트립 에디터 ── */
+.fc-editor{display:grid;grid-template-columns:minmax(0,320px) 1fr;gap:20px;align-items:start}
+@media(max-width:720px){.fc-editor{grid-template-columns:1fr}}
+.fc-stage{position:relative;width:100%;background:var(--hi-bg-elevated);border:1.5px solid var(--hi-border-light);border-radius:10px;overflow:hidden;touch-action:none;user-select:none}
+.fc-stage img.bg{display:block;width:100%;height:auto;pointer-events:none}
+.fc-stage .noimg{display:flex;align-items:center;justify-content:center;aspect-ratio:3/8;color:var(--hi-text-muted);font-size:var(--adm-sub);font-weight:600;text-align:center;padding:16px;line-height:1.7}
+.fc-zone{position:absolute;left:0;width:100%}
+.fc-zone+.fc-zone{border-top:1px dashed rgba(39,56,79,.4)}
+.fc-zone-num{position:absolute;top:5px;left:7px;z-index:4;font-family:'Gaegu',cursive;font-weight:700;font-size:16px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.65);pointer-events:none}
+/* 그림이 아직 없으면 흰 글씨가 안 보이므로 잉크색으로 뒤집는다 */
+.fc-stage.empty .fc-zone-num{color:var(--hi-text-muted);text-shadow:none}
+.fc-stage.empty .noimg{align-items:flex-start;padding-top:34%}
+/* 말풍선 미리보기는 학생 화면과 같은 모양이어야 하므로 흰 풍선·검은 테두리를 유지한다 */
+.eb{position:absolute;background:#fff;border:2.5px solid #1c1c1c;display:flex;align-items:center;justify-content:center;cursor:move;font-family:'Gaegu',cursive;font-weight:700;font-size:14px;color:#888}
+.eb.speech{border-radius:14px}
+.eb.thought{border-radius:50%}
+.eb.sel{box-shadow:0 0 0 3px rgba(39,56,79,.55)}
+.eb .rh{position:absolute;right:-9px;bottom:-9px;width:18px;height:18px;background:var(--fc-primary);border:2px solid #fff;border-radius:50%;cursor:nwse-resize}
+.eb .dh{position:absolute;right:-9px;top:-9px;width:18px;height:18px;background:var(--hi-negative);border:2px solid #fff;border-radius:50%;cursor:pointer;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
+.eb .dh .hi-ic{display:block}
+.fc-side{display:flex;flex-direction:column;gap:12px}
+.fc-cut-row{border:1px solid var(--hi-border);border-radius:10px;padding:10px 12px;background:var(--hi-bg-card)}
+.fc-cut-row-head{display:flex;align-items:center;justify-content:space-between;font-size:var(--adm-sub);font-weight:700;margin-bottom:8px}
+.fc-cut-count{font-size:var(--adm-label);font-weight:700;color:var(--hi-text-muted)}
+.fc-cut-count.full{color:var(--hi-negative)}
+.fc-cut-actions{display:flex;gap:6px;flex-wrap:wrap}
+.fc-btn{font-family:inherit;font-size:var(--adm-label);font-weight:700;padding:7px 11px;border-radius:9px;border:1.5px solid var(--hi-border);background:var(--hi-bg-card);color:var(--hi-text);cursor:pointer;transition:.15s}
+.fc-btn:hover:not(:disabled){border-color:var(--hi-border-light)}
+.fc-btn:disabled{opacity:.45;cursor:not-allowed}
+.fc-btn.up{border-color:var(--fc-primary);color:var(--fc-primary)}
+.fc-btn.up:hover{background:var(--fc-primary-soft)}
+.fc-btn.del{border-color:var(--hi-negative);color:var(--hi-negative)}
+.fc-upstatus{font-size:var(--adm-label);color:var(--hi-text-muted);margin-top:6px;line-height:1.6}
+.fc-upstatus.err{color:var(--hi-negative)}
+.fc-save-row{display:flex;align-items:center;gap:12px;margin:22px 0}
+.fc-save-msg{font-size:var(--adm-sub);font-weight:600}
+
+/* ── ANSWER 패널 ──
+   j_interview 어드민 ANSWER와 같은 머리(반 태그 + 통계 칩)와 카드 상단 바를 쓴다.
+   다만 네컷은 학생이 만든 그림을 봐야 채점이 되므로, 카드를 세로로 쌓는 대신
+   그림이 보이는 격자를 유지한다(전면 카드 전환은 추후 논의). */
+.ans-head{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:nowrap;margin-bottom:12px}
+.ans-head .class-filter,.ans-head .stats-row{margin-bottom:0}
+/* 반 태그는 줄바꿈하지 않는다. 폭이 모자라면 태그 묶음 안에서만 옆으로 밀어 본다. */
+.ans-head .class-filter{flex:0 1 auto;min-width:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.ans-head .class-filter::-webkit-scrollbar{display:none}
+.ans-head .class-filter .cf-btn{flex:0 0 auto}
+.ans-head .stats-row{flex:0 0 auto;flex-wrap:nowrap}
+@media(max-width:640px){.ans-head{flex-wrap:wrap}}
+/* 칩 안의 숫자는 반을 "전체"로 바꾸면 자릿수가 늘어난다. 세 자리분 폭을 미리 잡아
+   값이 바뀌어도 칩 크기가 그대로 유지되게 한다(인터뷰 어드민과 같은 처리). */
+.stat-combo .thc-o,.stat-combo .thc-g,.stat-combo .thc-r,.stat-combo .thc-n,.thc-star-n{
+  display:inline-block;min-width:2.6ch;text-align:center;
+  font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;
+}
+.stat-combo{display:inline-flex;align-items:baseline;justify-content:center;gap:6px}
+.stat-combo .thc-o{font-size:18px;font-weight:800;color:var(--fc-primary)}
+.stat-combo .thc-g{font-size:18px;font-weight:800;color:#0E9F6E}
+.stat-combo .thc-r{font-size:18px;font-weight:800;color:#DC2626}
+.stat-combo .thc-n{font-size:18px;font-weight:800;color:var(--hi-text-muted)}
+.stat-combo .thc-sep{font-size:16px;font-weight:700;color:var(--hi-border)}
+.stat-star{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+/* 공용 icons.js의 하트는 선 아이콘이라, lms 칩과 같은 꽉 찬 하트로 보이게 채워 쓴다. */
+.fc-heart-ic{display:inline-flex;width:16px;height:16px;color:var(--fc-primary)}
+.fc-heart-ic svg{width:16px;height:16px;fill:currentColor;stroke:none}
+.thc-star-n{font-size:18px;font-weight:800;color:var(--hi-text)}
+
+/* 작품 격자 — 카드 껍데기는 공용 .std-card 규격(둥근 모서리·연한 테두리·그림자)을 따른다. */
+.fc-works{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.fc-work{background:var(--hi-bg-card);border:1px solid var(--hi-border-soft);border-radius:14px;overflow:hidden;box-shadow:var(--hi-shadow-card);display:flex;flex-direction:column}
+.fc-work.graded-pass{border-color:rgba(34,197,94,.45)}
+.fc-work.graded-fail{border-color:rgba(243,114,127,.45)}
+/* 카드 상단 바: [학번·이름] [액션] — 좁은 격자라 배지 줄은 아래로 내린다. */
+.fc-work-head{display:flex;align-items:center;gap:8px;padding:10px 12px 8px}
+.fc-work-head .std-who{flex:1;min-width:0;display:flex;align-items:baseline;gap:6px}
+.fc-work-head .std-sid{font-size:var(--adm-label);font-weight:700;color:var(--hi-text-muted);letter-spacing:.3px}
+.fc-work-head .std-name{font-size:var(--adm-sub);font-weight:700;color:var(--hi-text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fc-work-head .std-actions{flex-shrink:0;display:flex;align-items:center;margin-left:auto}
+.fc-work-head .std-del{background:none;border:none;color:var(--hi-negative);cursor:pointer;padding:4px;border-radius:6px;display:flex}
+.fc-work-head .std-del:hover{background:var(--hi-bg-elevated)}
+.fc-work-head .std-del .hi-ic{display:block}
+/* 상태 줄: 제출 시각 → 사건 배지 → 좋아요. 인터뷰의 .std-status와 같은 배지 규격. */
+.fc-work-status{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:0 12px 9px}
+.fc-work-status .std-meta-time{font-size:var(--adm-label);color:var(--hi-text-muted)}
+.fc-work-status .std-badge{display:inline-block;flex-shrink:0;white-space:nowrap;padding:3px 10px;border-radius:100px;font-size:var(--adm-label);font-weight:700;line-height:1.5;border-width:1.5px;border-style:solid}
+.fc-work-status .ev-badge{background:var(--fc-primary-soft);border-color:rgba(255,107,61,.35);color:var(--fc-primary-deep)}
+.fc-work-status .cls-badge{background:var(--fc-navy-l);border-color:rgba(39,56,79,.3);color:var(--fc-navy-deep)}
+.fc-work-status .like-badge{background:var(--hi-bg-mid);border-color:var(--hi-border);color:var(--hi-text-muted);display:inline-flex;align-items:center;gap:4px}
+.fc-work-status .like-badge .hi-ic{fill:currentColor}
+.fc-work img{width:100%;display:block;cursor:zoom-in;border-top:1px solid var(--hi-border-soft)}
+/* 채점 토글 — 인터뷰 ANSWER의 .std-grade-toggle과 같은 알약 두 개.
+   켜진 쪽을 다시 누르면 미채점으로 되돌아간다(성적 체크가 빈칸으로 남긴다). */
+.std-grade-toggle{display:flex;gap:6px;padding:10px 12px}
+.std-grade-toggle .sgt{flex:1;padding:5px 0;border-radius:100px;cursor:pointer;font-family:inherit;font-size:var(--adm-label);font-weight:700;line-height:1.5;border-width:1.5px;border-style:solid;transition:.15s}
+.std-grade-toggle .sgt-pass{background:var(--fc-pass-l);color:var(--fc-pass);border-color:rgba(34,197,94,.35)}
+.std-grade-toggle .sgt-insuf{background:var(--fc-fail-l);color:var(--fc-fail);border-color:rgba(243,114,127,.35)}
+.std-grade-toggle .sgt:not(.active){background:transparent;color:var(--hi-text-muted);border-color:var(--hi-border)}
+.std-grade-toggle .sgt-pass.active{background:var(--fc-pass);color:#000;border-color:var(--fc-pass)}
+.std-grade-toggle .sgt-insuf.active{background:var(--fc-fail);color:#fff;border-color:var(--fc-fail)}
+.std-grade-toggle .sgt:hover{filter:brightness(.96)}
+.no-data{text-align:center;padding:40px 20px;color:var(--hi-text-muted);font-size:var(--adm-sub)}
+
+.fc-lb{display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,.85);align-items:center;justify-content:center;padding:20px}
+.fc-lb.show{display:flex}
+.fc-lb img{max-width:100%;max-height:100%}
 </style>
   <script src="/hoistory/pwa.js"></script>
 </head>
@@ -103,8 +171,8 @@
   <header class="adm-header">
     <div class="adm-logo">사화 네컷<span class="adm-badge">관리자 모드</span></div>
     <div class="adm-tabs">
-      <button class="adm-tab active" onclick="showPanel('edit',this)">CUTS</button>
-      <button class="adm-tab" onclick="showPanel('works',this)">WORKS</button>
+      <button class="adm-tab active" onclick="showPanel('contents',this)">CONTENTS</button>
+      <button class="adm-tab" onclick="showPanel('answer',this)">ANSWER</button>
     </div>
     <button class="adm-logout" onclick="logoutAdmin()">로그아웃</button>
     <button class="adm-back" onclick="window.parent.closeAppAdmin&&window.parent.closeAppAdmin()">목록으로</button>
@@ -112,7 +180,7 @@
 
   <div class="adm-body">
     <!-- 편집 패널 -->
-    <div id="panel-edit" class="tab-panel active">
+    <div id="panel-contents" class="tab-panel active">
       <div class="admin-container fc-section">
 
         <!-- 인트로 안내문 -->
@@ -123,13 +191,12 @@
             <div><div class="fc-label">인트로 제목</div><input id="fcIntroTitle" placeholder="사화(士禍), 선비들이 화를 입다" maxlength="60"></div>
             <div><div class="fc-label">인트로 본문</div><textarea id="fcIntroBody" rows="5" placeholder="줄바꿈한 대로 학생 화면에 보입니다."></textarea></div>
             <div><div class="fc-label">시작 버튼 문구</div><input id="fcIntroBtn" placeholder="사건 고르고 시작하기" maxlength="30"></div>
-            <div><div class="fc-label">이름 입력 화면 안내 문구 (LMS 미로그인 학생용)</div><textarea id="fcIntro" rows="2" placeholder="말풍선을 눌러 대사를 쓰면 글자가 풍선에 딱 맞게 들어가요."></textarea></div>
           </div>
         </div>
 
-        <!-- 사건별 만화 이미지와 말풍선 기본 배치 -->
+        <!-- 이미지 배치 -->
         <div class="fc-group">
-          <div class="fc-group-title">사건별 만화 이미지와 말풍선 기본 배치</div>
+          <div class="fc-group-title">이미지 배치</div>
           <div class="fc-evtabs" id="fcEvTabs"></div>
           <div class="fc-editor">
             <div>
@@ -157,14 +224,23 @@
       </div>
     </div>
 
-    <!-- 제출물 패널 -->
-    <div id="panel-works" class="tab-panel">
-      <div class="class-filter" id="worksEvFilter"></div>
-      <div class="class-filter" id="worksFilter">
-        <button class="cf-btn active" onclick="setWorksFilter('all',this)">전체</button>
-      </div>
-      <div class="class-filter" id="worksStFilter"></div>
+    <!-- 제출물(ANSWER) 패널 -->
+    <div id="panel-answer" class="tab-panel">
       <div class="admin-container fc-section">
+        <!-- 반 태그 + 통계 칩: j_interview 어드민 ANSWER의 .ans-head와 같은 구성 -->
+        <div class="ans-head">
+          <div class="class-filter" id="worksFilter"></div>
+          <div class="stats-row">
+            <div class="stat-chip stat-combo" title="제출 / 통과 / 미흡 / 미채점">
+              <span class="thc-o" id="s-total">0</span><span class="thc-sep">/</span><span class="thc-g" id="s-pass">0</span><span class="thc-sep">/</span><span class="thc-r" id="s-fail">0</span><span class="thc-sep">/</span><span class="thc-n" id="s-pending">0</span>
+            </div>
+            <div class="stat-chip stat-star" title="받은 좋아요 합계">
+              <span class="fc-heart-ic" data-icon="heart" data-icon-size="16"></span><span class="thc-star-n" id="s-likes">0</span>
+            </div>
+          </div>
+        </div>
+        <div class="class-filter" id="worksEvFilter"></div>
+        <div class="class-filter" id="worksStFilter"></div>
         <div id="worksList"><div class="loading-state"><div class="spinner"></div><span>불러오는 중…</span></div></div>
       </div>
     </div>
@@ -201,7 +277,7 @@ const IMG_WARN_BYTES=900*1024;   // 문서 상한(약 1MB)에 닿기 전에 미�
 function emptyCuts(){return Array.from({length:CUTS},()=>({bubbles:[]}));}
 
 /* ── 상태 ── */
-let CONTENT={title:"",intro:"",introTitle:"",introBody:"",introBtn:"",
+let CONTENT={title:"",introTitle:"",introBody:"",introBtn:"",
              events:EVENTS.map(e=>({id:e.id,name:e.name,cuts:emptyCuts()}))};
 let images={};            // eventId -> dataURL|null (로드된 것)
 let imagesDirty={};       // eventId -> true (이번에 바뀐 것만 저장)
@@ -249,7 +325,7 @@ async function loadContent(){
         ? d.cuts.slice(0,CUTS).map(x=>({bubbles:(x&&Array.isArray(x.bubbles)?x.bubbles:[]).slice(0,MAX_BUBBLES_PER_CUT)}))
         : null;
       CONTENT={
-        title:d.title||"",intro:d.intro||"",
+        title:d.title||"",
         introTitle:d.introTitle||"",introBody:d.introBody||"",introBtn:d.introBtn||"",
         events:EVENTS.map(meta=>{
           const e=byId[meta.id];
@@ -264,7 +340,6 @@ async function loadContent(){
     }
   }catch(e){}
   document.getElementById('fcTitle').value=CONTENT.title;
-  document.getElementById('fcIntro').value=CONTENT.intro;
   document.getElementById('fcIntroTitle').value=CONTENT.introTitle;
   document.getElementById('fcIntroBody').value=CONTENT.introBody;
   document.getElementById('fcIntroBtn').value=CONTENT.introBtn;
@@ -432,7 +507,6 @@ function downscale(file,maxSize,quality){
 window.saveContent=async()=>{
   const msg=document.getElementById('fcSaveMsg');
   CONTENT.title=document.getElementById('fcTitle').value.trim()||"사화 네컷";
-  CONTENT.intro=document.getElementById('fcIntro').value.trim();
   CONTENT.introTitle=document.getElementById('fcIntroTitle').value.trim();
   CONTENT.introBody=document.getElementById('fcIntroBody').value.trim();
   CONTENT.introBtn=document.getElementById('fcIntroBtn').value.trim();
@@ -464,42 +538,86 @@ async function startWorks(){
       onSnapshot(collection(db,'fourcut_works'),s=>{works=[];s.forEach(d=>{if(!isTestId(d.data().studentId))works.push({id:d.id,...d.data()});});works.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));renderWorksFilter();renderWorks();});
     });
 }
-window.setWorksFilter=(f,btn)=>{worksFilter=f;document.querySelectorAll('#worksFilter .cf-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderWorks();};
-window.setWorksEvFilter=(f,btn)=>{worksEvFilter=f;document.querySelectorAll('#worksEvFilter .cf-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderWorks();};
-window.setWorksStFilter=(f,btn)=>{worksStFilter=f;document.querySelectorAll('#worksStFilter .cf-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderWorks();};
+/* 제출 시각은 카드 상단 상태 줄에 인터뷰 ANSWER와 같은 MM-DD HH:mm 형식으로 둔다. */
+function fmtSubmitTime(w){
+  const t=w.timestamp||(w.createdAt&&w.createdAt.toMillis&&w.createdAt.toMillis());
+  if(!t)return '';
+  const d=new Date(t),p=n=>String(n).padStart(2,'0');
+  return `${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+/* 아직 안 본 작품은 status가 없다. 세 갈래(통과/미흡/미채점)로 좁혀 두면 필터도 통계도 같은 기준을 쓴다. */
+const stOf=w=>(w.status==='pass'||w.status==='fail')?w.status:'pending';
+
 function renderWorksFilter(){
-  const ef=document.getElementById('worksEvFilter');
-  ef.innerHTML=`<button class="cf-btn ${worksEvFilter==='all'?'active':''}" onclick="setWorksEvFilter('all',this)">전체 사건 (${works.length})</button>`
-    +EVENTS.map(e=>`<button class="cf-btn ${worksEvFilter===e.id?'active':''}" onclick="setWorksEvFilter('${e.id}',this)">${e.name} (${works.filter(w=>w.eventId===e.id).length})</button>`).join("");
+  // 반 태그는 인터뷰 ANSWER와 같이 숫자 없이 '전체 / N반'만 둔다 — 개수는 통계 칩이 맡는다.
   const cls=[...new Set(works.map(w=>w.classNum).filter(n=>n!=null))].sort((a,b)=>a-b);
   const f=document.getElementById('worksFilter');
-  f.innerHTML=`<button class="cf-btn ${worksFilter==='all'?'active':''}" onclick="setWorksFilter('all',this)">전체 반</button>`
-    +cls.map(n=>`<button class="cf-btn ${worksFilter==n?'active':''}" onclick="setWorksFilter(${n},this)">${n}반</button>`).join("");
-  // 채점 상태 필터 — 아직 안 본 작품만 골라내기 위한 것이라 "미채점"을 함께 센다.
-  const n=st=>works.filter(w=>st==='pending'?(w.status!=='pass'&&w.status!=='fail'):w.status===st).length;
-  document.getElementById('worksStFilter').innerHTML=
-    [['all','전체 채점',works.length],['pending','미채점',n('pending')],['pass','통과',n('pass')],['fail','미흡',n('fail')]]
-      .map(([k,label,cnt])=>`<button class="cf-btn ${worksStFilter===k?'active':''}" onclick="setWorksStFilter('${k}',this)">${label} (${cnt})</button>`).join("");
+  f.innerHTML=[`<button class="cf-btn ${worksFilter==='all'?'active':''}" data-c="all">전체</button>`]
+    .concat(cls.map(n=>`<button class="cf-btn ${worksFilter===n?'active':''}" data-c="${n}">${n}반</button>`)).join("");
+  f.querySelectorAll('.cf-btn').forEach(b=>b.onclick=()=>{
+    worksFilter=b.dataset.c==='all'?'all':+b.dataset.c;renderWorksFilter();renderWorks();
+  });
+
+  // 사건·채점 상태 필터는 개수를 함께 보여준다 — 아직 안 본 작품을 골라내는 용도라 숫자가 필요하다.
+  const inClass=works.filter(w=>worksFilter==='all'||w.classNum===worksFilter);
+  const ef=document.getElementById('worksEvFilter');
+  ef.innerHTML=[`<button class="cf-btn ${worksEvFilter==='all'?'active':''}" data-f="all">전체 사건 (${inClass.length})</button>`]
+    .concat(EVENTS.map(e=>`<button class="cf-btn ${worksEvFilter===e.id?'active':''}" data-f="${e.id}">${esc(e.name)} (${inClass.filter(w=>w.eventId===e.id).length})</button>`)).join("");
+  ef.querySelectorAll('.cf-btn').forEach(b=>b.onclick=()=>{worksEvFilter=b.dataset.f;renderWorksFilter();renderWorks();});
+
+  const inEv=inClass.filter(w=>worksEvFilter==='all'||w.eventId===worksEvFilter);
+  const cnt=st=>inEv.filter(w=>stOf(w)===st).length;
+  const sf=document.getElementById('worksStFilter');
+  sf.innerHTML=[['all','전체 채점',inEv.length],['pending','미채점',cnt('pending')],['pass','통과',cnt('pass')],['fail','미흡',cnt('fail')]]
+    .map(([k,label,n])=>`<button class="cf-btn ${worksStFilter===k?'active':''}" data-f="${k}">${label} (${n})</button>`).join("");
+  sf.querySelectorAll('.cf-btn').forEach(b=>b.onclick=()=>{worksStFilter=b.dataset.f;renderWorksFilter();renderWorks();});
+
+  renderWorksStats(inEv);
 }
+
+/* 통계 칩은 반·사건 필터까지만 반영한다. 채점 상태 필터로 좁힌 값을 쓰면
+   "통과 3 / 미흡 0"처럼 분모가 사라져 한눈에 진행도를 못 본다. */
+function renderWorksStats(list){
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
+  set('s-total',list.length);
+  set('s-pass',list.filter(w=>w.status==='pass').length);
+  set('s-fail',list.filter(w=>w.status==='fail').length);
+  set('s-pending',list.filter(w=>stOf(w)==='pending').length);
+  set('s-likes',list.reduce((a,w)=>a+(w.likes||0),0));
+}
+
 function renderWorks(){
   const list=works.filter(w=>
-    (worksEvFilter==='all'||w.eventId===worksEvFilter)&&
     (worksFilter==='all'||w.classNum===worksFilter)&&
-    (worksStFilter==='all'||(worksStFilter==='pending'?(w.status!=='pass'&&w.status!=='fail'):w.status===worksStFilter)));
+    (worksEvFilter==='all'||w.eventId===worksEvFilter)&&
+    (worksStFilter==='all'||stOf(w)===worksStFilter));
   const el=document.getElementById('worksList');
-  if(!list.length){el.innerHTML=`<div class="empty-state">제출된 작품이 없습니다.</div>`;return;}
-  el.innerHTML=`<div class="fc-works">${list.map(w=>`
-    <div class="fc-work${w.status==='pass'?' graded-pass':w.status==='fail'?' graded-fail':''}">
-      <img src="${w.image}" alt="" onclick="lb('${w.id}')">
-      <div class="wev">${esc(w.eventName||'사건 미기록')}</div>
-      <div class="wm"><span>${esc(w.studentName)} ${w.classNum?`<span style="color:var(--hi-text-muted);font-size:12px">${w.classNum}반</span>`:''}</span>
-        <span class="wlike">${icon('heart',13)} ${w.likes||0}</span>
-        <button class="wdel" onclick="delWork('${w.id}')">${icon('x',14)}</button></div>
-      <div class="wgrade">
-        <button class="ssb ssb-pass${w.status==='pass'?' active':''}" onclick="setWorkStatus('${w.id}','pass')">통과</button>
-        <button class="ssb ssb-fail${w.status==='fail'?' active':''}" onclick="setWorkStatus('${w.id}','fail')">미흡</button>
+  if(!list.length){el.innerHTML=`<div class="no-data">제출된 작품이 없습니다.</div>`;return;}
+  el.innerHTML=`<div class="fc-works">${list.map(w=>{
+    const t=fmtSubmitTime(w);
+    return `<div class="fc-work${w.status==='pass'?' graded-pass':w.status==='fail'?' graded-fail':''}">
+      <div class="fc-work-head">
+        <div class="std-who">
+          <span class="std-sid">${esc(w.studentId||'')}</span>
+          <span class="std-name">${esc(w.studentName||'')}</span>
+        </div>
+        <div class="std-actions">
+          <button class="std-del" title="삭제" onclick="delWork('${w.id}')">${icon('x',16)}</button>
+        </div>
       </div>
-    </div>`).join("")}</div>`;
+      <div class="fc-work-status">
+        ${t?`<span class="std-meta-time">${t}</span>`:''}
+        ${w.classNum?`<span class="std-badge cls-badge">${w.classNum}반</span>`:''}
+        <span class="std-badge ev-badge">${esc(w.eventName||'사건 미기록')}</span>
+        <span class="std-badge like-badge">${icon('heart',12)} ${w.likes||0}</span>
+      </div>
+      <img src="${w.image}" alt="${esc(w.studentName||'')}의 네컷" onclick="lb('${w.id}')">
+      <div class="std-grade-toggle">
+        <button class="sgt sgt-pass${w.status==='pass'?' active':''}" onclick="setWorkStatus('${w.id}','pass')">통과</button>
+        <button class="sgt sgt-insuf${w.status==='fail'?' active':''}" onclick="setWorkStatus('${w.id}','fail')">미흡</button>
+      </div>
+    </div>`;
+  }).join("")}</div>`;
 }
 
 /* 채점 결과를 LMS가 읽는 요약 문서(fourcut_submissions)에 반영한다.
@@ -542,6 +660,9 @@ window.delWork=async id=>{
     if(cur)await syncSubmissionSummary(cur.studentId);
   }catch(e){alert('삭제 실패: '+(e.message||e));}
 };
+
+/* 정적 HTML에 박아둔 아이콘 자리(data-icon)를 SVG로 채운다. (shared/icons.js 공용 헬퍼) */
+document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon,el.dataset.iconSize?+el.dataset.iconSize:24));
 </script>
 </body>
 </html>
