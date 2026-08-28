@@ -1244,6 +1244,9 @@ function makeIconItem(item) {
 
 // ── 생각 체크 모달 ──
 let _thinkItem = null, _thinkStart = null, _thinkCheat = 0, _thinkMyAnswer = '';
+// 채점 전이라 고쳐 쓸 수 있는 기존 제출물. null이면 이번이 첫 제출이다.
+// cheatCount는 이어서 더한다 — 다시 쓰면서 0으로 초기화되면 이탈 벌칙을 피할 수 있다.
+let _thinkPrev = null;
 // AI 도움 상태 — 도움 질문도, 제출 전 점검도 답변당 딱 1회씩.
 // 점검을 다 쓴 뒤 "제출하기"를 누르면 점검 없이 바로 제출된다.
 let _thinkHintUsed = false, _thinkCheckCount = 0, _thinkFlagged = 0, _thinkFixed = false;
@@ -1301,7 +1304,7 @@ function loadThinkDraft(lectureDocId) {
 }
 
 async function openThinkModal(item) {
-  _thinkItem  = item; _thinkStart = Date.now(); _thinkCheat = 0;
+  _thinkItem  = item; _thinkStart = Date.now(); _thinkCheat = 0; _thinkPrev = null;
   document.getElementById('thinkModalTitle').textContent    = stripEmph(item.lectureTitle);
   document.getElementById('thinkModalQuestion').textContent = stripEmph(item.question);
   const refEl = document.getElementById('thinkModalRef');
@@ -1314,6 +1317,8 @@ async function openThinkModal(item) {
   ta.value = draft;
   const draftNote = document.getElementById('thinkDraftNote');
   if (draftNote) draftNote.style.display = draft ? '' : 'none';
+  const editNoteEl = document.getElementById('thinkEditNote');
+  if (editNoteEl) editNoteEl.style.display = 'none';
   document.getElementById('thinkWriteArea').style.display   = 'flex';
   document.getElementById('thinkDoneBox').style.display     = 'none';
   document.getElementById('thinkDoneMsg').textContent       = '✓ 제출 완료! 잘 했어요.';
@@ -1325,23 +1330,39 @@ async function openThinkModal(item) {
   document.getElementById('thinkModal').style.display = 'flex';
   setTimeout(() => ta.focus(), 100);
 
-  // 이미 제출한 답변이 있으면 다시 쓰지 못하게 잠근다(제출 완료 화면으로 바로 전환).
-  // 예전엔 "내가 쓴 답변 보기" 버튼만 얹고 입력칸은 그대로 열어둬서, 학생이 재입장 후
-  // 또 제출하면 같은 강의에 제출물이 2개 생기고 채점 때 포인트가 두 번 지급되는
-  // 사고가 있었다(30416 윤세준 등). 이제 기존 제출이 있으면 아예 다시 못 쓰게 막는다.
+  /* 이미 낸 답이 있으면 두 갈래로 갈린다.
+       · 아직 채점 전  → 고쳐 쓸 수 있게 그 답을 입력칸에 채워 준다(덮어쓰기).
+       · 채점이 끝났으면 → 잠근다. 채점 결과·포인트가 이미 나간 뒤라 답만 바뀌면 어긋난다.
+         선생님이 "채점 취소"를 누르면 다시 고칠 수 있게 풀린다.
+     문서 ID가 "강의ID_학번"으로 고정돼 있어 다시 내도 덮어쓰기만 되고 제출물이 두 개
+     생기지 않는다(예전에 포인트가 두 번 지급되던 사고의 원인은 그 중복이었다). */
   try {
     const snap = await getDocs(query(collection(db, 'think_submissions'),
       where('lectureDocId', '==', item.lectureDocId), where('id', '==', currentStudentId)));
     if (!snap.empty && _thinkItem === item) {
-      const subs = snap.docs.map(d => d.data())
-        .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-      _thinkMyAnswer = subs[0].text || '';
-      document.getElementById('thinkWriteArea').style.display = 'none';
-      document.getElementById('thinkDoneMsg').textContent = '이미 제출했습니다.';
-      const ansBox = document.getElementById('thinkDoneAnswerBox');
-      ansBox.textContent = _thinkMyAnswer;
-      ansBox.style.display = 'block';
-      document.getElementById('thinkDoneBox').style.display = 'block';
+      const docs = snap.docs
+        .sort((a, b) => (b.data().createdAt?.seconds || 0) - (a.data().createdAt?.seconds || 0));
+      const prev = docs[0].data();
+      _thinkMyAnswer = prev.text || '';
+      _thinkPrev = { docId: docs[0].id, cheatCount: prev.cheatCount || 0, editCount: prev.editCount || 0 };
+
+      if (prev.thGraded === true) {
+        // 채점 끝 — 읽기 전용
+        _thinkPrev = null;
+        document.getElementById('thinkWriteArea').style.display = 'none';
+        document.getElementById('thinkDoneMsg').textContent = '채점이 끝나 수정할 수 없습니다.';
+        const ansBox = document.getElementById('thinkDoneAnswerBox');
+        ansBox.textContent = _thinkMyAnswer;
+        ansBox.style.display = 'block';
+        document.getElementById('thinkDoneBox').style.display = 'block';
+      } else {
+        // 채점 전 — 고쳐 쓰기. 쓰다 만 임시 저장본이 있으면 그쪽이 더 최신이므로 그대로 둔다.
+        if (!draft) { ta.value = _thinkMyAnswer; if (draftNote) draftNote.style.display = 'none'; }
+        const editNote = document.getElementById('thinkEditNote');
+        if (editNote) editNote.style.display = '';
+        document.getElementById('thinkSubmitBtn').textContent = '수정해서 다시 제출';
+        updateThinkMeta();
+      }
     }
   } catch(_) {}
 }
@@ -1539,16 +1560,36 @@ async function doThinkSubmit(triggerId) {
     // 안내도 없다. 시간이 넘으면 실패로 간주하고 버튼을 되살려 다시 누를 수 있게 한다.
     // (실제로는 SDK가 뒤에서 재시도해 나중에 저장될 수도 있지만, 문서 ID가 고정이라
     //  다시 눌러도 같은 문서를 덮어쓸 뿐 중복 제출은 생기지 않는다.)
-    await withTimeout(setDoc(doc(db, 'think_submissions', `${_thinkItem.lectureDocId}_${currentStudentId}`), {
+    const docRef = doc(db, 'think_submissions', `${_thinkItem.lectureDocId}_${currentStudentId}`);
+    const common = {
       lectureDocId: _thinkItem.lectureDocId, lectureTitle: _thinkItem.lectureTitle,
-      id: currentStudentId, name: currentStudentName,
-      text, textLength, duration, cheatCount: _thinkCheat,
+      name: currentStudentName,
+      text, textLength, duration,
       // AI 도움 사용 기록 — 채점 참고용이며 점수에는 관여하지 않는다.
       aiHintUsed: _thinkHintUsed, spellFlagged: _thinkFlagged,
       spellFixed: _thinkFixed, hasProfanity: _thinkProfane,
-      isPicked: false, createdAt: serverTimestamp(), source: 'lms'
-    }), 20000);
+      source: 'lms',
+    };
+    if (_thinkPrev) {
+      // 고쳐 쓰기 — createdAt은 건드리지 않는다. 최초 제출 시각이 밀리면 수업 당일에 낸
+      // 학생이 나중에 오타 하나 고쳤다는 이유로 "지연 제출"로 뒤집힌다.
+      // 이탈 횟수는 이어서 더한다(다시 쓸 때마다 0으로 돌아가면 이탈 벌칙을 피할 수 있다).
+      await withTimeout(updateDoc(docRef, {
+        ...common,
+        cheatCount: (_thinkPrev.cheatCount || 0) + _thinkCheat,
+        editCount: (_thinkPrev.editCount || 0) + 1,
+        editedAt: serverTimestamp(),
+      }), 20000);
+    } else {
+      await withTimeout(setDoc(docRef, {
+        ...common,
+        id: currentStudentId, cheatCount: _thinkCheat,
+        isPicked: false, createdAt: serverTimestamp(),
+      }), 20000);
+    }
     clearThinkDraft(_thinkItem.lectureDocId); // 제출됐으니 임시 저장본은 지운다
+    document.getElementById('thinkDoneMsg').textContent = _thinkPrev
+      ? '✓ 수정한 답으로 다시 제출했어요.' : '✓ 제출 완료! 잘 했어요.';
     document.getElementById('thinkWriteArea').style.display = 'none';
     document.getElementById('thinkDoneBox').style.display   = 'block';
   } catch(err) {

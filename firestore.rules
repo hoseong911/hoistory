@@ -36,20 +36,29 @@ service cloud.firestore {
         request.resource.data.id is string &&
         request.resource.data.name is string && request.resource.data.name.size() <= 50 &&
         request.resource.data.text is string && request.resource.data.text.size() <= 5000 &&
-        request.resource.data.isPicked == false
+        request.resource.data.isPicked == false &&
+        // 채점 관련 필드를 스스로 달고 제출할 수는 없다. thGraded를 미리 켜 버리면
+        // 아래 update 잠금에 스스로 걸려 고쳐 쓰지 못하고, AI 채점 대상에서도 빠진다.
+        !request.resource.data.keys().hasAny([
+          'thGraded', 'aiPt', 'aiScore', 'aiVerdict', 'xpAwarded', 'xpAwardedAt', 'editCount'
+        ])
       );
-      // 다시 제출(덮어쓰기) 허용 — 학생 화면은 문서 ID를 "강의ID_학번"으로 고정해 중복 제출을
-      // 막는데, update가 막혀 있으면 네트워크가 끊겼다 다시 누르는 정상적인 재시도까지
-      // 권한 오류로 실패했다. 같은 학생(id 불변)이 자기가 쓴 필드만 바꾸는 경우로 한정하고,
-      // 채점 결과 필드(aiVerdict/thGraded/aiPt 등)는 목록에서 빼 교사만 쓸 수 있게 남긴다.
+      // 고쳐 쓰기 / 다시 제출 —
+      //  · 채점이 끝난 제출물(thGraded == true)은 잠근다. 채점 결과와 답이 어긋나면 안 되고,
+      //    포인트도 이미 지급된 뒤다. 선생님이 "채점 취소"를 누르면 thGraded가 false로
+      //    돌아가면서 학생이 다시 고칠 수 있게 된다.
+      //  · createdAt은 바꿀 수 없다. 최초 제출 시각이 밀리면 수업 당일에 낸 학생이
+      //    나중에 오타 하나 고쳤다는 이유로 "지연 제출"로 뒤집힌다.
+      //  · 채점 결과 필드(aiVerdict/thGraded/aiPt/isPicked)는 목록에서 빼 교사 전용으로 남긴다.
       allow update: if isAdmin() || (
+        (!('thGraded' in resource.data) || resource.data.thGraded != true) &&
         request.resource.data.id == resource.data.id &&
         request.resource.data.text is string && request.resource.data.text.size() <= 5000 &&
         request.resource.data.isPicked == resource.data.isPicked &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'lectureDocId', 'lectureTitle', 'name', 'text', 'textLength', 'duration',
           'cheatCount', 'aiHintUsed', 'spellFlagged', 'spellFixed', 'hasProfanity',
-          'createdAt', 'source'
+          'source', 'editedAt', 'editCount'
         ])
       );
     }

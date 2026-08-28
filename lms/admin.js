@@ -6727,10 +6727,16 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
                 <button class="th-grade-btn pass ${isPass?'active':''}" onclick="thToggleOverride('${s.subId}','pass')">통과</button>
                 <button class="th-grade-btn fail ${!isPass?'active':''}" onclick="thToggleOverride('${s.subId}','fail')">미흡</button>
               </div>` : '';
+        // 채점 전이면 학생이 답을 고쳐서 다시 낼 수 있다. 고친 적이 있으면 표시해 둔다
+        // (채점 직전에 내용이 바뀌었을 수 있으니 선생님이 알고 보게).
+        const edited = (s.editCount || 0) > 0
+          ? `<span style="font-size:11px;font-weight:800;color:var(--c4,#B45309);border:1px solid var(--c4,#B45309);border-radius:100px;padding:1px 8px">수정 ${s.editCount}회</span>`
+          : '';
         return `<div class="th-review-card">
             <div class="th-review-card-top">
               <span class="th-review-card-name">${thEsc(s.id)} ${thEsc(s.name)}</span>
               ${chip}
+              ${edited}
               ${toggle}
             </div>
             <div class="th-review-card-text">${thEsc(s.text||'')}</div>
