@@ -75,8 +75,110 @@ async function initAdmin() {
   initGradeSettings();
   initContentsTab();
   initArchiveTab();
+  initInboxTab();
   await loadTestIds();                    // 집계 제외용 테스트 학번(랭킹·집계보다 먼저 로드)
   dbLoad();
+}
+
+/* ══════ 학생 문의 (선생님께 연락하기) ══════
+   학생 허브에서 보낸 글이 student_messages에 쌓인다. 여기서 읽고 답장을 달면
+   학생 화면(문의 목록)에 바로 뜬다. 안 읽은 개수는 어느 화면에 있든 사이드바
+   뱃지로 알려 준다(구독을 패널 진입과 무관하게 계속 걸어 두는 이유).      */
+let _inboxAll    = [];
+let _inboxFilter = 'unread';
+
+function initInboxTab() {
+  const tabs = document.getElementById('inboxTabs');
+  if (tabs) {
+    tabs.querySelectorAll('.inbox-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabs.querySelectorAll('.inbox-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        _inboxFilter = btn.dataset.f;
+        renderInbox();
+      });
+    });
+  }
+  document.getElementById('inboxRefreshBtn')?.addEventListener('click', renderInbox);
+
+  onSnapshot(query(collection(db, 'student_messages'), orderBy('createdAt', 'desc'), limit(300)), snap => {
+    _inboxAll = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+    renderInboxBadge();
+    renderInbox();
+  }, () => {
+    const list = document.getElementById('inboxList');
+    if (list) list.innerHTML = '<div class="empty-panel">문의를 불러오지 못했습니다.</div>';
+  });
+}
+
+function renderInboxBadge() {
+  const badge = document.getElementById('inboxNavBadge');
+  if (!badge) return;
+  const n = _inboxAll.filter(m => !m.read).length;
+  badge.hidden = n === 0;
+  badge.textContent = n > 99 ? '99+' : String(n);
+}
+
+function inboxDate(ts) {
+  if (!ts || !ts.seconds) return '';
+  const d = new Date(ts.seconds * 1000);
+  return `${d.getMonth() + 1}.${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function renderInbox() {
+  const list = document.getElementById('inboxList');
+  if (!list) return;
+  const rows = _inboxFilter === 'unread' ? _inboxAll.filter(m => !m.read) : _inboxAll;
+  if (!rows.length) {
+    list.innerHTML = `<div class="empty-panel">${_inboxFilter === 'unread' ? '안 읽은 문의가 없습니다.' : '들어온 문의가 없습니다.'}</div>`;
+    return;
+  }
+  list.innerHTML = rows.map(m => `
+    <div class="ib-card${m.read ? '' : ' unread'}">
+      <div class="ib-head">
+        <span class="ib-who">${esc(m.studentName || '')}</span>
+        <span class="ib-cls">${esc(m.studentId || '')}</span>
+        <span class="ib-cat">${esc(m.category || '문의')}</span>
+        ${m.read ? '' : '<span class="ib-new">NEW</span>'}
+        <span class="ib-date">${esc(inboxDate(m.createdAt))}</span>
+      </div>
+      <div class="ib-text">${esc(m.text || '')}</div>
+      ${m.reply ? `<div class="ib-reply-done">
+        <div class="ib-reply-lbl">보낸 답장</div>
+        <div class="ib-reply-text">${esc(m.reply)}</div>
+      </div>` : ''}
+      <div class="ib-actions">
+        <textarea class="ib-reply-input" rows="1" data-id="${esc(m.docId)}" placeholder="${m.reply ? '답장 고쳐 쓰기' : '답장 쓰기'}"></textarea>
+        <button class="add-btn p" onclick="inboxReply('${esc(m.docId)}', this)">답장</button>
+        ${m.read ? '' : `<button class="add-btn" onclick="inboxMarkRead('${esc(m.docId)}')">읽음</button>`}
+        <button class="add-btn" style="color:var(--critical);border-color:var(--critical)" onclick="inboxDelete('${esc(m.docId)}')">삭제</button>
+      </div>
+    </div>`).join('');
+}
+
+// 답장을 쓰면 자동으로 읽음 처리까지 같이 한다(따로 두 번 누르지 않게).
+async function inboxReply(docId, btn) {
+  const ta = document.querySelector(`.ib-reply-input[data-id="${docId}"]`);
+  const text = (ta?.value || '').trim();
+  if (!text) { alert('답장 내용을 입력해 주세요.'); return; }
+  btn.disabled = true;
+  try {
+    await updateDoc(doc(db, 'student_messages', docId), {
+      reply: text, repliedAt: serverTimestamp(), read: true,
+    });
+  } catch (e) { alert('답장 실패: ' + e.message); }
+  finally { btn.disabled = false; }
+}
+
+async function inboxMarkRead(docId) {
+  try { await updateDoc(doc(db, 'student_messages', docId), { read: true }); }
+  catch (e) { alert('실패: ' + e.message); }
+}
+
+async function inboxDelete(docId) {
+  if (!confirm('이 문의를 삭제할까요? 학생 화면에서도 사라집니다.')) return;
+  try { await deleteDoc(doc(db, 'student_messages', docId)); }
+  catch (e) { alert('삭제 실패: ' + e.message); }
 }
 
 // ── 테스트 학생(집계 제외) ──
@@ -226,7 +328,9 @@ function applyMobileGate(panelId, nav) {
   if (!notice) return;
   const panel = document.getElementById(panelId);
   // 모바일에서는 대시보드만 그대로 쓰고, 그 외 모든 패널은 PC 이용 안내를 띄운다.
-  const gated = isMobileAdmin() && panelId !== 'panel-dashboard' && !_mobileForced.has(panelId);
+  // 학생 문의는 읽고 답장만 하면 되는 화면이라 폰에서도 그대로 쓸 수 있게 열어 둔다.
+  const gated = isMobileAdmin() && panelId !== 'panel-dashboard' && panelId !== 'panel-inbox'
+             && !_mobileForced.has(panelId);
   if (gated) {
     if (panel) panel.classList.remove('active');
     notice.dataset.panel = panelId;
@@ -3874,9 +3978,78 @@ async function missionAutoDetect(lessonKey) {
   return { map: out, apps };
 }
 
+/* ── 미션 채점 실시간 반영 ──────────────────────────────────────────
+   웹앱 어드민(예: 인터뷰 ANSWER의 통과/미흡 토글)에서 채점을 고치면, 성적 체크 표를
+   다시 불러오지 않아도 그 자리에서 따라 바뀌게 한다. 예전에는 자동 감지가 "불러오기"를
+   누르는 순간에만 한 번 돌아서, 채점을 고친 뒤 표를 새로 불러오지 않으면 옛 값이
+   그대로 남아 있었다(선생님이 반영이 안 된다고 느끼는 지점).
+
+   이미 저장된 학생(_gradeSavedSet)은 여기서도 건드리지 않는다 — 선생님이 표에서 손으로
+   고쳐 둔 값을 웹앱 채점이 덮어쓰면 안 되기 때문(불러오기 때와 같은 규칙). */
+let _missionUnsubs   = [];
+let _gradeSavedSet   = new Set(); // 이번에 불러온 강의에서 "이미 저장된 채점"이 있는 학번
+
+function stopMissionLive() {
+  _missionUnsubs.forEach(u => { try { u(); } catch (_) {} });
+  _missionUnsubs = [];
+}
+
+// 이 강의에 연결된 미션 앱들의 제출 컬렉션 이름을 돌려준다(중복 제거).
+async function missionLiveCollections(lessonKey) {
+  const cat = await getMissionCategoryKey();
+  if (!cat) return [];
+  let cards = [];
+  try {
+    const snap = await getDocs(query(collection(db, 'cards'), where('category', '==', cat)));
+    cards = snap.docs.map(d => d.data());
+  } catch (e) { return []; }
+  return [...new Set(
+    cards.filter(c => String(c.lessonNum || '') === String(lessonKey))
+         .map(c => MISSION_SOURCES[missionAppKey(c.url)])
+         .filter(Boolean)
+         .map(src => src.coll)
+  )];
+}
+
+async function startMissionLive(lessonKey) {
+  stopMissionLive();
+  const colls = await missionLiveCollections(lessonKey);
+  if (!colls.length) return;
+
+  let timer = null;
+  const seeded = new Set(); // 컬렉션마다 첫 스냅샷은 불러오기가 이미 반영한 값이라 넘긴다
+  const refresh = () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      if (_gradeLessonKey !== lessonKey) return; // 그새 다른 강의를 불러왔으면 무시
+      try {
+        const { map, apps } = await missionAutoDetect(lessonKey);
+        if (_gradeLessonKey !== lessonKey) return;
+        Object.entries(map).forEach(([sid, v]) => {
+          if (v.at) _gradeMissionTimes[sid] = v.at;
+          if (_gradeSavedSet.has(sid) || _gradeRecords[sid]?.absent) return;
+          _gradeRecords[sid].mission.achieved = v.achieved;
+          _gradeRecords[sid].mission.onTime   = v.onTime;
+        });
+        renderGradeTable();
+        renderGradeStats();
+        renderMissionLinkNote(apps, Object.keys(map).length, true);
+      } catch (_) {}
+    }, 400); // 여러 학생을 연달아 채점하면 스냅샷이 몰아치므로 잠깐 모았다 한 번만 다시 그린다
+  };
+
+  colls.forEach(coll => {
+    const unsub = onSnapshot(collection(db, coll), () => {
+      if (!seeded.has(coll)) { seeded.add(coll); return; }
+      refresh();
+    }, () => {});
+    _missionUnsubs.push(unsub);
+  });
+}
+
 // 미션 자동 연동이 실제로 걸렸는지 강의 선택 줄 아래에 알려 준다. 연결이 안 됐는데 표가
 // 전부 빈칸으로 보이면 선생님이 원인을 알 수 없어서, 왜 비었는지까지 문구로 남긴다.
-function renderMissionLinkNote(apps, filledCount) {
+function renderMissionLinkNote(apps, filledCount, live) {
   const el = document.getElementById('gradeMissionLinkNote');
   if (!el) return;
   if (!apps || !apps.length) {
@@ -3886,9 +4059,13 @@ function renderMissionLinkNote(apps, filledCount) {
   }
   const total = _gradeStudents.filter(s => s.id !== '00000').length;
   const pending = Math.max(0, total - filledCount);
+  const now = new Date();
+  const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   el.style.display = '';
   el.textContent = `미션체크 자동 연동: ${apps.join(', ')}`
-    + (pending ? ` (아직 채점 전인 ${pending}명은 빈칸으로 두었습니다)` : '');
+    + (pending ? ` (아직 채점 전인 ${pending}명은 빈칸으로 두었습니다)` : '')
+    // 웹앱에서 채점을 고쳐 표가 저절로 바뀐 경우, 언제 따라왔는지 남겨 둔다.
+    + (live ? ` · 웹앱 채점 반영됨 ${hhmm}` : '');
 }
 
 // 생각 체크 최종 판정: 문구(verdict)·달성(achieved)·기한(onTime) 세 가지를 한 번에 계산한다.
@@ -4152,6 +4329,7 @@ async function loadGradeData() {
         if (r.concept || r.mission || r.think) savedSet.add(r.studentId);
       }
     });
+    _gradeSavedSet = savedSet; // 실시간 반영(startMissionLive)도 같은 기준을 써야 한다
 
     // 생각체크 자동감지 (제출시간 수집)
     // thinkVerdict() 기준대로 달성(achieved)·기한(onTime)을 함께 계산한다(통과/미흡(지연 제출)/
@@ -4190,6 +4368,7 @@ async function loadGradeData() {
 
     // 미션체크 자동감지 — 연결된 미션 앱(MISSION_SOURCES)의 제출·채점 결과를 그대로 가져온다.
     // 이미 저장된 채점 기록이 있는 학생(savedSet)은 선생님이 손으로 고친 값일 수 있어 덮어쓰지 않는다.
+    stopMissionLive(); // 이전 강의에 걸어 둔 실시간 구독은 정리하고 다시 건다
     if (missionEnabled) {
       try {
         const { map, apps } = await missionAutoDetect(_gradeLessonKey);
@@ -4200,6 +4379,8 @@ async function loadGradeData() {
           _gradeRecords[sid].mission.onTime   = v.onTime;
         });
         renderMissionLinkNote(apps, Object.keys(map).length);
+        // 표를 열어 둔 채 웹앱 어드민에서 채점을 고쳐도 따라 바뀌도록 구독을 건다.
+        startMissionLive(_gradeLessonKey);
       } catch(e) { renderMissionLinkNote([], 0); }
     } else {
       renderMissionLinkNote([], 0);
@@ -5170,6 +5351,8 @@ Object.assign(window, {
   // dbLoad = 대시보드 "새로고침", autoResizeTa = 콘텐츠 편집 textarea 자동 높이,
   // render*Preview / renderArchiveCards = 카드 편집 폼의 "취소".
   dbLoad, autoResizeTa, renderMissionPreview, renderContentsPreview, renderArchiveCards,
+  // 학생 문의 카드의 답장·읽음·삭제 버튼(인라인 onclick)
+  inboxReply, inboxMarkRead, inboxDelete,
 });
 
 // 정적 HTML에 박아둔 아이콘 자리(data-icon)를 SVG로 채운다. (shared/icons.js 공용 헬퍼)

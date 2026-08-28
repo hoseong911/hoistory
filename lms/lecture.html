@@ -352,10 +352,14 @@ import { getDatabase, ref, get, set, push, update, onValue, runTransaction } fro
 import { initXP, addTypingReviewXP } from '../shared/xp.js';
 import { icon } from '../shared/icons.js';
 import { blockPaste } from '../shared/textLimit.js';
+import { applyScreenProtection } from '../shared/protect.js?v=20260828';
 import { typingBlockReason } from '../shared/util.js?v=20260826';
 
 // 학생 화면 복사/붙여넣기·우클릭 차단(부정행위 방지)
 blockPaste(document);
+// 개념 체크 슬라이드 보호 — 우클릭·드래그·선택·인쇄 차단과 캡처 억제.
+// (OS 스크린샷 자체는 웹에서 막을 수 없다. 자세한 한계는 shared/protect.js 주석 참고.)
+applyScreenProtection(document);
 
 const app = initializeApp({
   apiKey: "AIzaSyDAc5S87JK-LtXzk5-iTR9rt7RnHWnUXTQ",
@@ -802,6 +806,10 @@ async function init() {
       currentSlideIdx = 0;
       updateCounter();
       rescaleMobileSlides();
+      // hidden을 막 푼 직후라 첫 계산이 0으로 나올 수 있다 — 레이아웃이 끝난 다음 프레임에
+      // 한 번 더 확실히 계산하고, 이후로는 ResizeObserver가 알아서 맞춘다.
+      requestAnimationFrame(rescaleMobileSlides);
+      watchMobileSlideSize();
       setupMobileScrollTracking();
       loadAllVideos();
       return;
@@ -1003,16 +1011,59 @@ async function init() {
     overlayBtns.style.right = `${80 * scale}px`;
   }
 
-  /* 모바일: 프레임 폭 기준으로 슬라이드 각각을 개별 scale */
+  /* 모바일: 프레임 폭 기준으로 슬라이드 각각을 개별 scale
+     ────────────────────────────────────────────────────────────
+     여기서 폭을 잘못 재면 슬라이드가 통째로 안 보인다. 실제로 겪은 증상:
+     아이폰에서 홈 화면에 추가한 뒤(standalone) 개념 체크를 열면 흰 화면만 나온다.
+     원인은 두 가지가 겹친 것.
+       (1) startSlides()가 #slides의 hidden을 막 푼 직후에 이 함수를 부른다. 사파리는
+           그 시점에 레이아웃을 아직 안 끝내 clientWidth가 0으로 나올 수 있고,
+           그러면 scale(0) → 모든 슬라이드가 크기 0이 되어 사라진다.
+       (2) 크롬/모바일 사파리는 주소창이 접혔다 펴지며 resize가 한 번은 발생해 저절로
+           복구되지만, standalone에는 주소창이 없어 resize가 영영 오지 않는다.
+     그래서 폭이 0이면 값을 쓰지 않고 다음 프레임에 다시 재고, 아래 ResizeObserver로
+     레이아웃이 확정되는 순간 자동으로 다시 계산하게 걸어 둔다.
+
+     높이도 JS로 직접 지정한다. CSS의 aspect-ratio만 믿으면 사파리에서 세로 flex
+     컨테이너 안의 항목 높이가 0으로 잡히는 경우가 있어(그 역시 빈 화면이 된다),
+     폭을 아는 시점에 16:9 높이를 그대로 박아 준다. */
+  let _mobileScaleRetry = 0;
   function rescaleMobileSlides() {
     const frames = slidesEl.querySelectorAll('.mobile-slide-frame');
     if (!frames.length) return;
-    const scale = frames[0].clientWidth / 1920;
+    const w = frames[0].clientWidth || frames[0].getBoundingClientRect().width;
+    if (!w) {
+      // 아직 레이아웃 전 — 다음 프레임에 다시 시도(무한 재시도는 하지 않는다).
+      if (_mobileScaleRetry++ < 30) requestAnimationFrame(rescaleMobileSlides);
+      return;
+    }
+    _mobileScaleRetry = 0;
+    const scale = w / 1920;
     document.documentElement.style.setProperty('--slide-scale', scale);
+    const h = Math.round(w * 1080 / 1920);
     frames.forEach(f => {
+      f.style.height = h + 'px';
       const inner = f.firstElementChild;
       if (inner) inner.style.transform = `scale(${scale})`;
     });
+  }
+
+  /* 레이아웃이 확정되거나 창 크기가 바뀌는 모든 순간에 다시 계산한다.
+     resize 이벤트가 오지 않는 standalone(홈 화면 추가) 대비. */
+  function watchMobileSlideSize() {
+    const first = slidesEl.querySelector('.mobile-slide-frame');
+    if (first && 'ResizeObserver' in window) {
+      let lastW = 0;
+      new ResizeObserver(() => {
+        const w = first.clientWidth;
+        if (w && w !== lastW) { lastW = w; rescaleMobileSlides(); }
+      }).observe(first);
+    }
+    window.addEventListener('orientationchange', () => setTimeout(rescaleMobileSlides, 150));
+    window.addEventListener('pageshow', () => rescaleMobileSlides());          // bfcache 복귀
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) rescaleMobileSlides(); });
+    // 웹폰트가 늦게 붙으면서 레이아웃이 한 번 더 바뀌는 경우까지 덮는다.
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => rescaleMobileSlides());
   }
 
   /* 모바일: 화면에 절반 이상 보이는 슬라이드를 기준으로 카운터 갱신 */

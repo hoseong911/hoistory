@@ -38,6 +38,37 @@ service cloud.firestore {
         request.resource.data.text is string && request.resource.data.text.size() <= 5000 &&
         request.resource.data.isPicked == false
       );
+      // 다시 제출(덮어쓰기) 허용 — 학생 화면은 문서 ID를 "강의ID_학번"으로 고정해 중복 제출을
+      // 막는데, update가 막혀 있으면 네트워크가 끊겼다 다시 누르는 정상적인 재시도까지
+      // 권한 오류로 실패했다. 같은 학생(id 불변)이 자기가 쓴 필드만 바꾸는 경우로 한정하고,
+      // 채점 결과 필드(aiVerdict/thGraded/aiPt 등)는 목록에서 빼 교사만 쓸 수 있게 남긴다.
+      allow update: if isAdmin() || (
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.text is string && request.resource.data.text.size() <= 5000 &&
+        request.resource.data.isPicked == resource.data.isPicked &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'lectureDocId', 'lectureTitle', 'name', 'text', 'textLength', 'duration',
+          'cheatCount', 'aiHintUsed', 'spellFlagged', 'spellFixed', 'hasProfanity',
+          'createdAt', 'source'
+        ])
+      );
+    }
+
+    // ── 선생님께 연락하기 (학생 → 교사 문의, 교사 답장) ──
+    //    학생은 새 문의를 남기는 것만 할 수 있다. 읽음 표시(read)와 답장(reply)은
+    //    교사만 쓸 수 있어야 하므로 create 단계에서 아예 못 넣게 막고, update는
+    //    아래 catch-all로 떨어져 관리자 전용이 된다.
+    match /student_messages/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.studentId is string &&
+        request.resource.data.studentName is string && request.resource.data.studentName.size() <= 50 &&
+        request.resource.data.category is string && request.resource.data.category.size() <= 20 &&
+        request.resource.data.text is string &&
+        request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 1000 &&
+        request.resource.data.read == false &&
+        !request.resource.data.keys().hasAny(['reply', 'repliedAt'])
+      );
     }
 
     match /lms_auth/{studentId} {

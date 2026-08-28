@@ -1,7 +1,7 @@
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
-  getFirestore, collection, query, orderBy, where, onSnapshot, getDocs, limit,
+  initializeFirestore, collection, query, orderBy, where, onSnapshot, getDocs, limit,
   doc, getDoc, setDoc, addDoc, updateDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getDatabase, ref as rtdbRef, get as rtdbGet, set as rtdbSet, push as rtdbPush, update as rtdbUpdate, onValue as rtdbOnValue, runTransaction as rtdbRunTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
@@ -12,7 +12,7 @@ import { initXP, onXPChange, checkAndAddAttendance, calcLevel } from "../shared/
 import { findBadWord } from "../shared/profanity.js";
 import { icon } from "../shared/icons.js";
 import { blockPaste } from "../shared/textLimit.js";
-import { typingBlockReason } from "../shared/util.js?v=20260826";
+import { typingBlockReason, kstDate } from "../shared/util.js?v=20260828";
 
 // 학생 화면 복사/붙여넣기·우클릭 차단(부정행위 방지). 관리자(admin.html)는 대상 아님.
 blockPaste(document);
@@ -22,7 +22,13 @@ blockPaste(document);
 const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
 
 const app  = initializeApp(firebaseConfig);
-const db   = getFirestore(app);
+// getFirestore(app) 대신 initializeFirestore로 여는 이유 —
+// 파이어스토어는 기본적으로 WebChannel(스트리밍)로 통신하는데, iOS 사파리(특히 홈 화면에
+// 추가한 standalone 모드)나 학교 와이파이 프록시 조합에서 이 연결이 열린 채 멈추는 일이 있다.
+// 그러면 setDoc()이 성공도 실패도 하지 않고 영영 pending으로 남아 "제출하기를 눌렀는데
+// '제출 중...'에서 안 넘어간다"는 증상이 된다. autoDetectLongPolling을 켜면 SDK가 첫 연결에서
+// 스트리밍 가능 여부를 판별해, 막히는 환경에서는 롱폴링으로 자동 전환한다.
+const db   = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
 const rtdb = getDatabase(app);
 
 // ── 서버 시각 보정 ──
@@ -541,8 +547,73 @@ function lecTag(n) { return /^\d+$/.test(String(n == null ? '' : n).trim()) ? `$
 // hismile(역사 열공 마일리지)은 전용 마일리지 버튼으로 노출하므로 미션/콘텐츠 카드 목록에서는 제외한다.
 function notHismile(x) { return !/hismile/i.test(x.url || ''); }
 
+/* ══════ 생각 체크 자동 숨김 ══════
+   이미 제출했고, 그 강의를 우리 반이 수업한 지 8일이 지났으면 허브 목록에서 뺀다.
+   두 조건을 모두 만족해야 한다 — 아직 안 낸 학생에게는 계속 보여야 하고(밀린 과제),
+   방금 낸 학생에게도 한동안은 "냈다"는 걸 확인할 수 있게 남겨 둔다.
+   숨기는 건 목록 표시일 뿐이고 제출물·성적은 그대로다.               */
+const THINK_HIDE_DAYS = 8;
+
+let _thinkRaw       = [];    // think_lectures에서 온 원본 목록(숨김 적용 전)
+let _thinkRawReady  = false; // 강의 목록이 한 번이라도 도착했는가(도착 전엔 '불러오는 중'을 유지)
+let _thinkMineSet   = new Set(); // 내가 제출한 lectureDocId
+let _plRows         = null;  // class_progress/plan의 rows (없으면 null = 스케줄 모름)
+
+// "8/27" 같은 칸 값을 올해 기준 날짜로 푼다(연말/연초에 해가 넘어가도 가장 가까운 해로).
+// 어드민(admin.js plResolveDate)과 같은 규칙.
+function _resolveMMDD(mmdd, today) {
+  const mt = /^(\d{1,2})\s*\/\s*(\d{1,2})$/.exec(String(mmdd || '').trim());
+  if (!mt) return null;
+  const m = +mt[1], d = +mt[2];
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  const ty = today.getFullYear();
+  let best = null;
+  [ty - 1, ty, ty + 1].forEach(yy => {
+    const cand = new Date(yy, m - 1, d);
+    const diff = Math.abs(cand - today);
+    if (!best || diff < best.diff) best = { date: cand, diff };
+  });
+  return best.date;
+}
+function _todayKST() {
+  const [y, m, d] = kstDate(serverNow()).split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+// 이 학생의 반이 그 강의를 수업한 날. 스케줄에 없으면 null(모르면 숨기지 않는다).
+function _myLessonDate(icon) {
+  if (!_plRows || !icon) return null;
+  const raw = String(icon).trim();
+  const label = /^\d+$/.test(raw) ? `${raw}강` : raw;
+  const row = _plRows.find(r => r.label === label);
+  if (!row || !row.cells) return null;
+  const cls = Math.floor((parseInt(currentStudentId) - 30000) / 100);
+  return _resolveMMDD(row.cells['c' + cls], _todayKST());
+}
+function _thinkIsExpired(item) {
+  if (!_thinkMineSet.has(item.lectureDocId)) return false; // 아직 안 냈으면 계속 보여준다
+  const d = _myLessonDate(item.icon);
+  if (!d) return false;                                    // 수업일을 모르면 판단 보류
+  const days = Math.floor((_todayKST() - d) / 86400000);
+  return days >= THINK_HIDE_DAYS;
+}
+function applyThinkVisibility() {
+  if (!_thinkRawReady) return; // 아직 강의 목록 전 — sectionData.think는 null(불러오는 중)로 둔다
+  sectionData.think = _thinkRaw.filter(it => !_thinkIsExpired(it));
+  renderAll();
+}
+
+/* ── 선생님께 연락하기 상태 ──
+   실제 동작(모달·전송·목록)은 파일 아래쪽 "선생님께 연락하기" 구역에 있다.
+   startListening()이 이 값들을 초기화하므로 선언은 그보다 위에 둔다. */
+const CONTACT_MAX   = 1000;
+let _contactCat     = '질문';
+let _contactMine    = [];
+let _contactSending = false;
+
 function startListening() {
   ['concept','mission','think','grade','contents'].forEach(k => sectionData[k] = null);
+  _thinkRaw = []; _thinkRawReady = false; _thinkMineSet = new Set(); _plRows = null;
+  _contactMine = []; renderContactChip();
   renderAll();
 
   // 0. 공지사항(패치노트 리스트, 최신 30건) — 미확인 글은 뱃지 표시 + 입장 시 1회 토스트
@@ -580,12 +651,23 @@ function startListening() {
     });
   }).catch(() => { sectionData.mission = []; renderAll(); });
 
+  // 3-0. 생각 체크 자동 숨김에 필요한 두 가지를 먼저 받아 둔다.
+  //      (수업 스케줄 / 내가 이미 낸 제출물) — 나중에 도착해도 applyThinkVisibility()가
+  //      다시 걸러 주므로 순서를 신경 쓰지 않아도 된다.
+  getDoc(doc(db, 'class_progress', 'plan'))
+    .then(s => { _plRows = s.exists() ? (s.data().rows || []) : []; applyThinkVisibility(); })
+    .catch(() => {});
+  onSnapshot(query(collection(db, 'think_submissions'), where('id', '==', currentStudentId)), snap => {
+    _thinkMineSet = new Set(snap.docs.map(d => d.data().lectureDocId).filter(Boolean));
+    applyThinkVisibility();
+  }, () => {});
+
   // 3. 생각 체크 — open lectures
   onSnapshot(query(collection(db, 'think_lectures'), where('isOpen','==', true)), snap => {
     function extractNum(title) { const m = String(title).match(/(\d+)/); return m ? parseInt(m[1], 10) : 9999; }
     // 어드민(thSortLectures)과 동일한 기준: order 필드가 있으면(수동 이동 결과 포함) 그걸 우선하고,
     // 없으면 강 번호(lecOrderKey와 동일한 규칙)로 대체해 최신 강의가 자동으로 위에 오게 한다.
-    sectionData.think = snap.docs
+    _thinkRaw = snap.docs
       .map(d => {
         const l = d.data();
         const n = extractNum(l.title);
@@ -597,8 +679,19 @@ function startListening() {
           _n: n, _order: typeof l.order === 'number' ? l.order : autoOrder };
       })
       .sort((a, b) => b._order - a._order); // 어드민(생각 체크)과 동일한 order 내림차순(수동 이동이 최우선)
-    renderAll();
+    _thinkRawReady = true;
+    applyThinkVisibility();
   });
+
+  // 3-1. 내가 보낸 문의 + 선생님 답장 (선생님께 연락하기)
+  onSnapshot(query(collection(db, 'student_messages'), where('studentId', '==', currentStudentId)), snap => {
+    _contactMine = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    renderContactChip();
+    // 모달이 열려 있는 동안 답장이 도착하면 그 자리에서 갱신된다
+    if (document.getElementById('contactModal').style.display === 'flex') renderContactLog();
+  }, () => {});
 
   // 4. 성적 확인 — grade_records 기반 계산
   loadStudentGrade();
@@ -1297,7 +1390,14 @@ async function doThinkSubmit(triggerId) {
   try {
     // 문서 ID를 "강의ID_학번"으로 고정해 같은 학생·강의 제출이 항상 한 건만 존재하게 한다.
     // (재입장 잠금에 더해, 동시에 두 기기/탭에서 제출하는 경쟁 상황까지 덮어쓰기로 중복을 차단)
-    await setDoc(doc(db, 'think_submissions', `${_thinkItem.lectureDocId}_${currentStudentId}`), {
+    //
+    // 20초 타임아웃을 씌운 이유 — 파이어스토어는 네트워크가 반쯤 막힌 환경(iOS 사파리 +
+    // 학교 와이파이 프록시 등)에서 쓰기 프라미스를 성공도 실패도 없이 무한정 붙들고 있을 수
+    // 있다. 그러면 버튼이 "제출 중..."에 멈춰 학생은 제출이 안 된다고 느끼는데 화면엔 아무
+    // 안내도 없다. 시간이 넘으면 실패로 간주하고 버튼을 되살려 다시 누를 수 있게 한다.
+    // (실제로는 SDK가 뒤에서 재시도해 나중에 저장될 수도 있지만, 문서 ID가 고정이라
+    //  다시 눌러도 같은 문서를 덮어쓸 뿐 중복 제출은 생기지 않는다.)
+    await withTimeout(setDoc(doc(db, 'think_submissions', `${_thinkItem.lectureDocId}_${currentStudentId}`), {
       lectureDocId: _thinkItem.lectureDocId, lectureTitle: _thinkItem.lectureTitle,
       id: currentStudentId, name: currentStudentName,
       text, textLength, duration, cheatCount: _thinkCheat,
@@ -1305,14 +1405,24 @@ async function doThinkSubmit(triggerId) {
       aiHintUsed: _thinkHintUsed, spellFlagged: _thinkFlagged,
       spellFixed: _thinkFixed, hasProfanity: _thinkProfane,
       isPicked: false, createdAt: serverTimestamp(), source: 'lms'
-    });
+    }), 20000);
     document.getElementById('thinkWriteArea').style.display = 'none';
     document.getElementById('thinkDoneBox').style.display   = 'block';
-  } catch(_) {
+  } catch(err) {
     btns.forEach(b => b.disabled = false);
     activeBtn.textContent = activeLabel;
-    alert('제출 중 오류가 발생했습니다. 다시 시도해 주세요.');
+    alert(err && err.message === 'timeout'
+      ? '네트워크가 느려 제출이 끝나지 않았습니다.\n인터넷 연결을 확인하고 제출하기를 다시 눌러주세요. (여러 번 눌러도 중복 제출되지 않습니다)'
+      : '제출 중 오류가 발생했습니다. 다시 시도해 주세요.');
   }
+}
+
+// 프라미스가 ms 안에 끝나지 않으면 'timeout' 오류로 거절한다(원래 프라미스는 계속 진행).
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+  ]);
 }
 
 document.getElementById('thinkReviseBtn').addEventListener('click', () => {
@@ -1457,6 +1567,22 @@ document.getElementById('contentAppModalClose').addEventListener('click', closeC
 document.getElementById('contentAppModal').addEventListener('click', e => {
   if (e.target === document.getElementById('contentAppModal')) closeContentAppModal();
 });
+// ── 개념 체크 강의 열기 ──
+// 홈 화면에 추가해 실행한 상태(standalone)에서는 새 창을 쓰지 않는다. iOS는 standalone
+// 웹앱에서 window.open('_blank')을 막거나 사파리로 튕겨 보내서, 학생 입장에서는 개념 체크를
+// 눌러도 아무 일이 없거나 빈 화면이 뜬다. 이때는 같은 창에서 이동하면 되고,
+// lecture.html의 '목록으로'(goBack)가 index.html로 되돌려 주므로 흐름도 그대로다.
+function isStandaloneApp() {
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+      || window.navigator.standalone === true;
+}
+function openLecture(url) {
+  if (isStandaloneApp()) { location.href = url; return; }
+  // 팝업 차단 등으로 창이 안 열리면(null) 같은 창 이동으로 대체한다.
+  const w = window.open(url, '_blank', 'noopener');
+  if (!w) location.href = url;
+}
+
 // ── 개념 체크 모드 선택 토스트 ──
 let _cpItem = null;
 const _cpEl = document.getElementById('conceptPicker');
@@ -1468,11 +1594,11 @@ function openConceptPicker(item) {
 }
 function closeConceptPicker() { _cpEl.classList.remove('show'); _cpItem = null; }
 document.getElementById('cpComplete').addEventListener('click', () => {
-  if (_cpItem) window.open(`lecture.html?num=${_cpItem.num}&mode=complete`, '_blank', 'noopener');
+  if (_cpItem) openLecture(`lecture.html?num=${_cpItem.num}&mode=complete`);
   closeConceptPicker();
 });
 document.getElementById('cpBlank').addEventListener('click', () => {
-  if (_cpItem) window.open(`lecture.html?num=${_cpItem.num}&mode=blank`, '_blank', 'noopener');
+  if (_cpItem) openLecture(`lecture.html?num=${_cpItem.num}&mode=blank`);
   closeConceptPicker();
 });
 document.getElementById('cpTyping').addEventListener('click', () => {
@@ -1482,12 +1608,126 @@ document.getElementById('cpTyping').addEventListener('click', () => {
   // 타이핑 복습은 학생 신원(sid/이름)을 URL로 넘겨 lecture.html에서 90% 이상 정답 시 XP를 적립한다.
   if (_cpItem) {
     const q = `num=${_cpItem.num}&mode=typing&sid=${encodeURIComponent(currentStudentId)}&sn=${encodeURIComponent(currentStudentName)}`;
-    window.open(`lecture.html?${q}`, '_blank', 'noopener');
+    openLecture(`lecture.html?${q}`);
   }
   closeConceptPicker();
 });
 document.addEventListener('click', e => {
   if (_cpItem && !_cpEl.contains(e.target)) closeConceptPicker();
+});
+
+/* ══════ 선생님께 연락하기 ══════
+   학생이 질문·건의를 남기고, 선생님 답장을 같은 자리에서 확인한다.
+   문서는 student_messages 컬렉션에 쌓이고(학생은 생성만 가능),
+   읽음 표시와 답장은 어드민에서만 쓸 수 있다(firestore.rules 참고).           */
+function _contactReadKey() { return 'lms_contact_read_' + currentStudentId; }
+function _contactSeenReplies() {
+  try { return new Set(JSON.parse(localStorage.getItem(_contactReadKey()) || '[]')); }
+  catch (_) { return new Set(); }
+}
+function _contactMarkRepliesSeen() {
+  const ids = _contactMine.filter(m => m.reply).map(m => m.id);
+  try { localStorage.setItem(_contactReadKey(), JSON.stringify(ids.slice(-200))); } catch (_) {}
+  renderContactChip();
+}
+
+function renderContactChip() {
+  const chip = document.getElementById('contactBlock');
+  const sub  = document.getElementById('contactChipSub');
+  if (!chip || !sub) return;
+  const seen = _contactSeenReplies();
+  const unseen = _contactMine.filter(m => m.reply && !seen.has(m.id)).length;
+  chip.classList.toggle('has-reply', unseen > 0);
+  sub.textContent = unseen ? `선생님 답장 ${unseen}개`
+                  : _contactMine.length ? `보낸 문의 ${_contactMine.length}개`
+                  : '질문·건의를 남겨보세요';
+}
+
+function _contactDate(ts) {
+  if (!ts || !ts.seconds) return '';
+  const d = new Date(ts.seconds * 1000);
+  return `${d.getMonth() + 1}.${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function renderContactLog() {
+  const box = document.getElementById('contactLog');
+  if (!box) return;
+  if (!_contactMine.length) {
+    box.innerHTML = '<div class="contact-log-empty">아직 보낸 문의가 없습니다.</div>';
+    return;
+  }
+  box.innerHTML = _contactMine.map(m => `
+    <div class="contact-item">
+      <div class="contact-item-head">
+        <span class="contact-item-cat">${esc(m.category || '문의')}</span>
+        <span class="contact-item-date">${esc(_contactDate(m.createdAt))}</span>
+      </div>
+      <div class="contact-item-text">${esc(m.text || '')}</div>
+      ${m.reply ? `<div class="contact-reply">
+        <div class="contact-reply-lbl">선생님 답장</div>
+        <div class="contact-reply-text">${esc(m.reply)}</div>
+      </div>` : ''}
+    </div>`).join('');
+}
+
+function updateContactMeta() {
+  const ta = document.getElementById('contactText');
+  const n  = ta.value.trim().length;
+  document.getElementById('contactCount').textContent = `${n}자`;
+  document.getElementById('contactSend').disabled = _contactSending || n === 0 || n > CONTACT_MAX;
+}
+
+function openContactModal() {
+  document.getElementById('contactModal').style.display = 'flex';
+  renderContactLog();
+  updateContactMeta();
+  _contactMarkRepliesSeen(); // 열어 봤으면 답장 알림 점은 끈다
+}
+function closeContactModal() {
+  document.getElementById('contactModal').style.display = 'none';
+}
+
+async function sendContact() {
+  const ta = document.getElementById('contactText');
+  const text = ta.value.trim();
+  if (!text || text.length > CONTACT_MAX || _contactSending) return;
+  const btn = document.getElementById('contactSend');
+  _contactSending = true;
+  btn.disabled = true; btn.textContent = '보내는 중...';
+  try {
+    await withTimeout(addDoc(collection(db, 'student_messages'), {
+      studentId: currentStudentId,
+      studentName: currentStudentName,
+      classNum: String(Math.floor((parseInt(currentStudentId) - 30000) / 100)),
+      category: _contactCat,
+      text,
+      read: false,
+      createdAt: serverTimestamp(),
+    }), 20000);
+    ta.value = '';
+    showToast('선생님께 전달했습니다.', 3000, 'circle-check');
+  } catch (_) {
+    alert('전송에 실패했습니다. 인터넷 연결을 확인하고 다시 보내주세요.');
+  } finally {
+    _contactSending = false;
+    btn.textContent = '보내기';
+    updateContactMeta();
+  }
+}
+
+document.getElementById('contactBlock').addEventListener('click', openContactModal);
+document.getElementById('contactClose').addEventListener('click', closeContactModal);
+document.getElementById('contactModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('contactModal')) closeContactModal();
+});
+document.getElementById('contactText').addEventListener('input', updateContactMeta);
+document.getElementById('contactSend').addEventListener('click', sendContact);
+document.querySelectorAll('.contact-cat').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.contact-cat').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    _contactCat = btn.dataset.cat;
+  });
 });
 
 // 정적 HTML에 박아둔 아이콘 자리(data-icon)를 SVG로 채운다. (shared/icons.js 공용 헬퍼)
