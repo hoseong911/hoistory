@@ -5489,6 +5489,30 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
     } catch(e) { alert('저장에 실패했습니다.'); }
   };
 
+  /* 학생 앱 강제 새로고침 —
+     settings/app_version 의 reloadToken 을 새 값으로 바꾸면, 그 문서를 구독하고 있는
+     학생 화면이 "처음 보는 토큰"으로 인식해 스스로 새로고침한다(index.js 참고).
+     토큰 값 자체에는 의미가 없고 "바뀌었다"는 사실만 쓴다. */
+  window.stSettingsPushAppUpdate = async function() {
+    if (!confirm('지금 접속 중인 모든 학생 화면을 새로고침할까요?\n(글을 쓰는 중인 학생은 다 쓴 뒤에 새로고침됩니다)')) return;
+    try {
+      await setDoc(doc(db, 'settings', 'app_version'), {
+        reloadToken: String(Date.now()),
+        pushedAt: serverTimestamp(),
+      }, { merge: true });
+      stSettingsRenderAppUpdate(new Date());
+      alert('학생 화면에 새로고침을 알렸습니다.');
+    } catch (e) { alert('실패: ' + e.message); }
+  };
+
+  function stSettingsRenderAppUpdate(d) {
+    const el = document.getElementById('st-appupdate-when');
+    if (!el) return;
+    el.textContent = d
+      ? `마지막 알림 ${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+      : '';
+  }
+
   window.stSettingsRefreshRoster = async function() {
     const el = document.getElementById('st-roster-count');
     if (el) el.textContent = '…';
@@ -5612,6 +5636,11 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
         getDoc(doc(db, 'settings', 'lockdown')),
         getDoc(doc(db, 'settings', 'menu_visibility')),
       ]);
+      try {
+        const avSnap = await getDoc(doc(db, 'settings', 'app_version'));
+        const at = avSnap.exists() ? avSnap.data().pushedAt : null;
+        stSettingsRenderAppUpdate(at && at.seconds ? new Date(at.seconds * 1000) : null);
+      } catch (_) {}
       if (lockSnap.exists()) lockData = { enabled: !!lockSnap.data().enabled, message: lockSnap.data().message || '' };
       if (menuSnap.exists()) menuVis  = Object.assign({}, menuVis, menuSnap.data());
     } catch(e) {}

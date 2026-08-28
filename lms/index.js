@@ -40,6 +40,78 @@ rtdbOnValue(rtdbRef(rtdb, '.info/serverTimeOffset'), s => { _serverTimeOffset = 
 
 initAuth(rtdb);
 
+/* ══════ 자동 업데이트 ══════
+   홈 화면에 추가한 앱(standalone)은 학생이 끄지 않으면 며칠씩 그대로 떠 있다.
+   그동안 파일을 새로 올려도 이미 돌고 있는 화면은 옛 코드 그대로라, 고쳐 놓은 버그가
+   학생 기기에는 닿지 않는다(실제로 옛 방식으로 제출된 기록이 여럿 있었다).
+   그래서 두 겹으로 스스로 최신 코드를 받아오게 한다.
+
+     1) settings/app_version 의 reloadToken(선생님이 버튼을 누른 시각)이 이 화면을 켠
+        시각보다 나중이면 → 새로고침. 어드민 버튼 하나로 전 학생 화면을 갱신할 수 있다.
+     2) 앱을 오래(4시간 이상) 백그라운드에 뒀다가 돌아오면 → 새로고침.
+        1)을 깜빡 잊어도 며칠 켜둔 앱이 저절로 최신이 된다.
+
+   reloadToken 은 선생님이 버튼을 누른 시각(밀리초)이다. 그래서 판정이 아주 단순해진다 —
+   "내가 이 화면을 켠 시각보다 나중에 눌렀다면 내 코드는 낡은 것"이므로 새로고침하고,
+   내가 켠 뒤라면(=이미 최신 파일을 받아 켰다면) 무시한다. 버전 번호를 코드에 박아 두고
+   맞춰 가는 방식은 값이 어긋나면 켤 때마다 새로고침이 반복되는데, 이 방식은 새로고침하고
+   나면 켠 시각이 토큰보다 나중이 되므로 저절로 멎는다.
+
+   글을 쓰는 중(생각 체크 모달이 열려 있거나 입력칸에 글자가 있음)에는 절대 새로고침하지
+   않는다. 쓰던 답이 날아가면 안 되므로, 다 쓰고 닫을 때까지 미뤘다가 적용한다. */
+const BG_RELOAD_MS = 4 * 60 * 60 * 1000; // 백그라운드 4시간 이상이면 새로고침
+
+let _wantToken  = '';   // 적용 대기 중인 새로고침 신호
+let _hiddenAt   = 0;
+const _bootedAt = Date.now();
+
+// 학생이 무언가 쓰고 있는 중인가 — 이때는 새로고침하지 않는다.
+function isWritingSomething() {
+  const modal = document.getElementById('thinkModal');
+  if (modal && modal.style.display === 'flex') return true;
+  return Array.from(document.querySelectorAll('textarea')).some(t => t.value.trim());
+}
+
+// 서비스워커에게 새 파일을 받아오라고 먼저 알린 뒤 새로고침한다.
+function reloadForUpdate() {
+  const go = () => location.reload();
+  if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
+    navigator.serviceWorker.getRegistration().then(r => r && r.update()).catch(() => {}).then(go);
+  } else go();
+}
+
+function applyPendingUpdate() {
+  if (!_wantToken) return;
+  if (Date.now() - _bootedAt < 15000) return; // 막 켠 직후엔 건드리지 않는다
+  if (isWritingSomething()) return;           // 쓰는 중이면 다 쓸 때까지 기다린다
+  // 기기 시계가 많이 틀어져 있어도 같은 신호로 두 번 새로고침하지는 않게 한 겹 더 잠근다.
+  const key = 'lms_reloaded_' + _wantToken;
+  if (sessionStorage.getItem(key)) { _wantToken = ''; return; }
+  sessionStorage.setItem(key, '1');
+  _wantToken = '';
+  reloadForUpdate();
+}
+
+onSnapshot(doc(db, 'settings', 'app_version'), snap => {
+  const token = Number(snap.exists() ? snap.data().reloadToken : 0);
+  if (!token) return;
+  if (token <= _bootedAt) return; // 내가 켜기 전에 누른 신호 = 이미 최신 파일로 켠 상태
+  _wantToken = String(token);
+  applyPendingUpdate();
+}, () => {});
+
+// 화면으로 돌아올 때마다 확인: 밀린 업데이트가 있으면 적용하고,
+// 아주 오래 꺼져 있었다면 버전 표시가 없어도 한 번 새로고침한다.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { _hiddenAt = Date.now(); return; }
+  const away = _hiddenAt ? Date.now() - _hiddenAt : 0;
+  _hiddenAt = 0;
+  if (away > BG_RELOAD_MS && !isWritingSomething()) { location.reload(); return; }
+  applyPendingUpdate();
+});
+// 글을 다 쓰고 모달을 닫는 등 상황이 바뀔 수 있으니 주기적으로도 확인한다.
+setInterval(applyPendingUpdate, 60000);
+
 // ── 접속 제한(점검 모드): 로그인 여부와 무관하게 즉시 화면을 가린다 ──
 onSnapshot(doc(db, 'settings', 'lockdown'), snap => {
   const d = snap.exists() ? snap.data() : {};
