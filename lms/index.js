@@ -602,18 +602,9 @@ function applyThinkVisibility() {
   renderAll();
 }
 
-/* ── 선생님께 연락하기 상태 ──
-   실제 동작(모달·전송·목록)은 파일 아래쪽 "선생님께 연락하기" 구역에 있다.
-   startListening()이 이 값들을 초기화하므로 선언은 그보다 위에 둔다. */
-const CONTACT_MAX   = 1000;
-let _contactCat     = '질문';
-let _contactMine    = [];
-let _contactSending = false;
-
 function startListening() {
   ['concept','mission','think','grade','contents'].forEach(k => sectionData[k] = null);
   _thinkRaw = []; _thinkRawReady = false; _thinkMineSet = new Set(); _plRows = null;
-  _contactMine = []; renderContactChip();
   renderAll();
 
   // 0. 공지사항(패치노트 리스트, 최신 30건) — 미확인 글은 뱃지 표시 + 입장 시 1회 토스트
@@ -682,16 +673,6 @@ function startListening() {
     _thinkRawReady = true;
     applyThinkVisibility();
   });
-
-  // 3-1. 내가 보낸 문의 + 선생님 답장 (선생님께 연락하기)
-  onSnapshot(query(collection(db, 'student_messages'), where('studentId', '==', currentStudentId)), snap => {
-    _contactMine = snap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-    renderContactChip();
-    // 모달이 열려 있는 동안 답장이 도착하면 그 자리에서 갱신된다
-    if (document.getElementById('contactModal').style.display === 'flex') renderContactLog();
-  }, () => {});
 
   // 4. 성적 확인 — grade_records 기반 계산
   loadStudentGrade();
@@ -1614,120 +1595,6 @@ document.getElementById('cpTyping').addEventListener('click', () => {
 });
 document.addEventListener('click', e => {
   if (_cpItem && !_cpEl.contains(e.target)) closeConceptPicker();
-});
-
-/* ══════ 선생님께 연락하기 ══════
-   학생이 질문·건의를 남기고, 선생님 답장을 같은 자리에서 확인한다.
-   문서는 student_messages 컬렉션에 쌓이고(학생은 생성만 가능),
-   읽음 표시와 답장은 어드민에서만 쓸 수 있다(firestore.rules 참고).           */
-function _contactReadKey() { return 'lms_contact_read_' + currentStudentId; }
-function _contactSeenReplies() {
-  try { return new Set(JSON.parse(localStorage.getItem(_contactReadKey()) || '[]')); }
-  catch (_) { return new Set(); }
-}
-function _contactMarkRepliesSeen() {
-  const ids = _contactMine.filter(m => m.reply).map(m => m.id);
-  try { localStorage.setItem(_contactReadKey(), JSON.stringify(ids.slice(-200))); } catch (_) {}
-  renderContactChip();
-}
-
-function renderContactChip() {
-  const chip = document.getElementById('contactBlock');
-  const sub  = document.getElementById('contactChipSub');
-  if (!chip || !sub) return;
-  const seen = _contactSeenReplies();
-  const unseen = _contactMine.filter(m => m.reply && !seen.has(m.id)).length;
-  chip.classList.toggle('has-reply', unseen > 0);
-  sub.textContent = unseen ? `선생님 답장 ${unseen}개`
-                  : _contactMine.length ? `보낸 문의 ${_contactMine.length}개`
-                  : '질문·건의를 남겨보세요';
-}
-
-function _contactDate(ts) {
-  if (!ts || !ts.seconds) return '';
-  const d = new Date(ts.seconds * 1000);
-  return `${d.getMonth() + 1}.${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-}
-
-function renderContactLog() {
-  const box = document.getElementById('contactLog');
-  if (!box) return;
-  if (!_contactMine.length) {
-    box.innerHTML = '<div class="contact-log-empty">아직 보낸 문의가 없습니다.</div>';
-    return;
-  }
-  box.innerHTML = _contactMine.map(m => `
-    <div class="contact-item">
-      <div class="contact-item-head">
-        <span class="contact-item-cat">${esc(m.category || '문의')}</span>
-        <span class="contact-item-date">${esc(_contactDate(m.createdAt))}</span>
-      </div>
-      <div class="contact-item-text">${esc(m.text || '')}</div>
-      ${m.reply ? `<div class="contact-reply">
-        <div class="contact-reply-lbl">선생님 답장</div>
-        <div class="contact-reply-text">${esc(m.reply)}</div>
-      </div>` : ''}
-    </div>`).join('');
-}
-
-function updateContactMeta() {
-  const ta = document.getElementById('contactText');
-  const n  = ta.value.trim().length;
-  document.getElementById('contactCount').textContent = `${n}자`;
-  document.getElementById('contactSend').disabled = _contactSending || n === 0 || n > CONTACT_MAX;
-}
-
-function openContactModal() {
-  document.getElementById('contactModal').style.display = 'flex';
-  renderContactLog();
-  updateContactMeta();
-  _contactMarkRepliesSeen(); // 열어 봤으면 답장 알림 점은 끈다
-}
-function closeContactModal() {
-  document.getElementById('contactModal').style.display = 'none';
-}
-
-async function sendContact() {
-  const ta = document.getElementById('contactText');
-  const text = ta.value.trim();
-  if (!text || text.length > CONTACT_MAX || _contactSending) return;
-  const btn = document.getElementById('contactSend');
-  _contactSending = true;
-  btn.disabled = true; btn.textContent = '보내는 중...';
-  try {
-    await withTimeout(addDoc(collection(db, 'student_messages'), {
-      studentId: currentStudentId,
-      studentName: currentStudentName,
-      classNum: String(Math.floor((parseInt(currentStudentId) - 30000) / 100)),
-      category: _contactCat,
-      text,
-      read: false,
-      createdAt: serverTimestamp(),
-    }), 20000);
-    ta.value = '';
-    showToast('선생님께 전달했습니다.', 3000, 'circle-check');
-  } catch (_) {
-    alert('전송에 실패했습니다. 인터넷 연결을 확인하고 다시 보내주세요.');
-  } finally {
-    _contactSending = false;
-    btn.textContent = '보내기';
-    updateContactMeta();
-  }
-}
-
-document.getElementById('contactBlock').addEventListener('click', openContactModal);
-document.getElementById('contactClose').addEventListener('click', closeContactModal);
-document.getElementById('contactModal').addEventListener('click', e => {
-  if (e.target === document.getElementById('contactModal')) closeContactModal();
-});
-document.getElementById('contactText').addEventListener('input', updateContactMeta);
-document.getElementById('contactSend').addEventListener('click', sendContact);
-document.querySelectorAll('.contact-cat').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.contact-cat').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    _contactCat = btn.dataset.cat;
-  });
 });
 
 // 정적 HTML에 박아둔 아이콘 자리(data-icon)를 SVG로 채운다. (shared/icons.js 공용 헬퍼)

@@ -75,110 +75,8 @@ async function initAdmin() {
   initGradeSettings();
   initContentsTab();
   initArchiveTab();
-  initInboxTab();
   await loadTestIds();                    // 집계 제외용 테스트 학번(랭킹·집계보다 먼저 로드)
   dbLoad();
-}
-
-/* ══════ 학생 문의 (선생님께 연락하기) ══════
-   학생 허브에서 보낸 글이 student_messages에 쌓인다. 여기서 읽고 답장을 달면
-   학생 화면(문의 목록)에 바로 뜬다. 안 읽은 개수는 어느 화면에 있든 사이드바
-   뱃지로 알려 준다(구독을 패널 진입과 무관하게 계속 걸어 두는 이유).      */
-let _inboxAll    = [];
-let _inboxFilter = 'unread';
-
-function initInboxTab() {
-  const tabs = document.getElementById('inboxTabs');
-  if (tabs) {
-    tabs.querySelectorAll('.inbox-tab').forEach(btn => {
-      btn.addEventListener('click', () => {
-        tabs.querySelectorAll('.inbox-tab').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        _inboxFilter = btn.dataset.f;
-        renderInbox();
-      });
-    });
-  }
-  document.getElementById('inboxRefreshBtn')?.addEventListener('click', renderInbox);
-
-  onSnapshot(query(collection(db, 'student_messages'), orderBy('createdAt', 'desc'), limit(300)), snap => {
-    _inboxAll = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
-    renderInboxBadge();
-    renderInbox();
-  }, () => {
-    const list = document.getElementById('inboxList');
-    if (list) list.innerHTML = '<div class="empty-panel">문의를 불러오지 못했습니다.</div>';
-  });
-}
-
-function renderInboxBadge() {
-  const badge = document.getElementById('inboxNavBadge');
-  if (!badge) return;
-  const n = _inboxAll.filter(m => !m.read).length;
-  badge.hidden = n === 0;
-  badge.textContent = n > 99 ? '99+' : String(n);
-}
-
-function inboxDate(ts) {
-  if (!ts || !ts.seconds) return '';
-  const d = new Date(ts.seconds * 1000);
-  return `${d.getMonth() + 1}.${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-}
-
-function renderInbox() {
-  const list = document.getElementById('inboxList');
-  if (!list) return;
-  const rows = _inboxFilter === 'unread' ? _inboxAll.filter(m => !m.read) : _inboxAll;
-  if (!rows.length) {
-    list.innerHTML = `<div class="empty-panel">${_inboxFilter === 'unread' ? '안 읽은 문의가 없습니다.' : '들어온 문의가 없습니다.'}</div>`;
-    return;
-  }
-  list.innerHTML = rows.map(m => `
-    <div class="ib-card${m.read ? '' : ' unread'}">
-      <div class="ib-head">
-        <span class="ib-who">${esc(m.studentName || '')}</span>
-        <span class="ib-cls">${esc(m.studentId || '')}</span>
-        <span class="ib-cat">${esc(m.category || '문의')}</span>
-        ${m.read ? '' : '<span class="ib-new">NEW</span>'}
-        <span class="ib-date">${esc(inboxDate(m.createdAt))}</span>
-      </div>
-      <div class="ib-text">${esc(m.text || '')}</div>
-      ${m.reply ? `<div class="ib-reply-done">
-        <div class="ib-reply-lbl">보낸 답장</div>
-        <div class="ib-reply-text">${esc(m.reply)}</div>
-      </div>` : ''}
-      <div class="ib-actions">
-        <textarea class="ib-reply-input" rows="1" data-id="${esc(m.docId)}" placeholder="${m.reply ? '답장 고쳐 쓰기' : '답장 쓰기'}"></textarea>
-        <button class="add-btn p" onclick="inboxReply('${esc(m.docId)}', this)">답장</button>
-        ${m.read ? '' : `<button class="add-btn" onclick="inboxMarkRead('${esc(m.docId)}')">읽음</button>`}
-        <button class="add-btn" style="color:var(--critical);border-color:var(--critical)" onclick="inboxDelete('${esc(m.docId)}')">삭제</button>
-      </div>
-    </div>`).join('');
-}
-
-// 답장을 쓰면 자동으로 읽음 처리까지 같이 한다(따로 두 번 누르지 않게).
-async function inboxReply(docId, btn) {
-  const ta = document.querySelector(`.ib-reply-input[data-id="${docId}"]`);
-  const text = (ta?.value || '').trim();
-  if (!text) { alert('답장 내용을 입력해 주세요.'); return; }
-  btn.disabled = true;
-  try {
-    await updateDoc(doc(db, 'student_messages', docId), {
-      reply: text, repliedAt: serverTimestamp(), read: true,
-    });
-  } catch (e) { alert('답장 실패: ' + e.message); }
-  finally { btn.disabled = false; }
-}
-
-async function inboxMarkRead(docId) {
-  try { await updateDoc(doc(db, 'student_messages', docId), { read: true }); }
-  catch (e) { alert('실패: ' + e.message); }
-}
-
-async function inboxDelete(docId) {
-  if (!confirm('이 문의를 삭제할까요? 학생 화면에서도 사라집니다.')) return;
-  try { await deleteDoc(doc(db, 'student_messages', docId)); }
-  catch (e) { alert('삭제 실패: ' + e.message); }
 }
 
 // ── 테스트 학생(집계 제외) ──
@@ -328,9 +226,7 @@ function applyMobileGate(panelId, nav) {
   if (!notice) return;
   const panel = document.getElementById(panelId);
   // 모바일에서는 대시보드만 그대로 쓰고, 그 외 모든 패널은 PC 이용 안내를 띄운다.
-  // 학생 문의는 읽고 답장만 하면 되는 화면이라 폰에서도 그대로 쓸 수 있게 열어 둔다.
-  const gated = isMobileAdmin() && panelId !== 'panel-dashboard' && panelId !== 'panel-inbox'
-             && !_mobileForced.has(panelId);
+  const gated = isMobileAdmin() && panelId !== 'panel-dashboard' && !_mobileForced.has(panelId);
   if (gated) {
     if (panel) panel.classList.remove('active');
     notice.dataset.panel = panelId;
@@ -5351,8 +5247,6 @@ Object.assign(window, {
   // dbLoad = 대시보드 "새로고침", autoResizeTa = 콘텐츠 편집 textarea 자동 높이,
   // render*Preview / renderArchiveCards = 카드 편집 폼의 "취소".
   dbLoad, autoResizeTa, renderMissionPreview, renderContentsPreview, renderArchiveCards,
-  // 학생 문의 카드의 답장·읽음·삭제 버튼(인라인 onclick)
-  inboxReply, inboxMarkRead, inboxDelete,
 });
 
 // 정적 HTML에 박아둔 아이콘 자리(data-icon)를 SVG로 채운다. (shared/icons.js 공용 헬퍼)
