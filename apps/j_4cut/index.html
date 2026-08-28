@@ -128,6 +128,8 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 .result-img{width:100%;border:3px solid var(--ink);border-radius:6px;display:block;margin:14px 0;box-shadow:6px 6px 0 rgba(30,27,22,.14)}
 .result-actions{display:flex;flex-direction:column;gap:10px;margin-top:8px}
 .saving{text-align:center;padding:30px;color:var(--muted)}
+.done-msg{text-align:center;font-weight:700;font-size:15px;line-height:1.6;color:var(--teal-deep);background:#fff;border:1.5px dashed var(--teal);border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.done-msg.err{color:var(--accent-deep);border-color:var(--accent)}
 .spin{width:26px;height:26px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 1s linear infinite;margin:0 auto 12px}
 @keyframes sp{to{transform:rotate(360deg)}}
 
@@ -215,9 +217,9 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
     </div>
     <div class="toolbar">
       <button class="btn btn-ghost" id="backIntroBtn">사건 바꾸기</button>
-      <button class="btn btn-primary" style="flex:1" id="doneBtn">완성! 이미지로 저장</button>
+      <button class="btn btn-primary" style="flex:1" id="doneBtn">완성! 제출하기</button>
     </div>
-    <div class="foot-note">완성하면 그림으로 저장되고, 친구들 작품 갤러리에 공유할 수 있어요.</div>
+    <div class="foot-note">완성을 누르면 바로 제출되고, 친구들 작품 갤러리에도 올라가요.</div>
   </div>
 </section>
 
@@ -257,7 +259,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import{getFirestore,doc,getDoc,setDoc,addDoc,updateDoc,deleteField,collection,getDocs,query,orderBy,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{getFirestore,doc,getDoc,setDoc,updateDoc,deleteField,increment,collection,getDocs,query,orderBy,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import{firebaseConfig}from"../../shared/firebase-config.js";
 import{icon}from"../../shared/icons.js";
 
@@ -559,18 +561,25 @@ window.addEventListener('resize',()=>requestAnimationFrame(fitAll));
 new ResizeObserver(()=>requestAnimationFrame(fitAll)).observe(document.getElementById('cutPage'));
 
 /* ── 완성 → 이미지 합성 ── */
+/* 완성을 누르면 그림을 굽고 곧바로 제출한다. 예전엔 완성 화면에서 "공유하기"를 따로
+   눌러야 기록이 남아, 그림만 내려받은 학생이 본인은 냈다고 여기는데 미제출이 됐다.
+   제출된 작품은 예외 없이 갤러리에도 올라간다. */
 $("#doneBtn").onclick=async()=>{
-  if(!curImage){warn('만화 이미지가 없어 저장할 수 없어요.');return;}
+  if(!curImage){warn('만화 이미지가 없어 제출할 수 없어요.');return;}
   const filled=work.some(c=>c.bubbles.some(b=>b.text&&b.text.trim()));
   if(!filled){alert('말풍선에 대사를 하나 이상 써주세요.');return;}
   showScreen('doneScreen');
-  $("#doneBody").innerHTML=`<div class="saving"><div class="spin"></div>이미지를 만드는 중이에요…</div>`;
+  $("#doneBody").innerHTML=`<div class="saving"><div class="spin"></div>완성한 네컷을 제출하는 중이에요…</div>`;
+  let dataUrl;
   try{
-    const dataUrl=await composeImage();
-    renderDone(dataUrl);
+    dataUrl=await composeImage();
   }catch(e){
     $("#doneBody").innerHTML=`<div class="saving">이미지 생성에 실패했어요.<br>${esc(e.message||e)}</div><button class="btn btn-ghost btn-block" onclick="location.reload()" style="margin-top:14px">다시 시도</button>`;
+    return;
   }
+  let err=null;
+  try{await submitWork(dataUrl);}catch(e){err=e;}
+  renderDone(dataUrl,err);
 };
 
 async function buildExportDOM(){
@@ -619,10 +628,37 @@ async function composeImage(){
   return canvas.toDataURL('image/jpeg',0.85);
 }
 
+/* 느린 망에서 "제출하는 중"이 영영 멈춘 것처럼 보이지 않게 끊는다. */
+const SUBMIT_TIMEOUT=20000;
+function withTimeout(pr,ms,msg){
+  return Promise.race([pr,new Promise((_,rej)=>setTimeout(()=>rej(new Error(msg)),ms))]);
+}
+
+/* 문서 id가 곧 학번이다 — 1인 1장이라 다시 만들어 내면 그대로 덮어쓴다.
+   다시 낸 경우 받은 좋아요는 남기고 채점 결과(status)만 지운다. 통과를 받은 뒤
+   내용을 바꿔치기하지 못하게, 선생님이 새 내용을 다시 보도록 하는 장치다. */
+async function submitWork(dataUrl){
+  const wref=doc(db,'fourcut_works',student.studentId);
+  const cur=await withTimeout(getDoc(wref),SUBMIT_TIMEOUT,'네트워크가 느려 제출하지 못했어요.');
+  const payload={
+    studentId:student.studentId,studentName:student.studentName,
+    classNum:classNumOf(student.studentId),
+    eventId:curEvent.id,eventName:curEvent.name,
+    image:dataUrl,title:CONTENT.title,
+    // 말풍선을 좌표까지 남긴다(수백 바이트). 어드민이 원본 만화 위에 그대로 재현할 수 있다.
+    cuts:work.map(c=>({bubbles:c.bubbles.map(b=>({type:b.type,x:b.x,y:b.y,w:b.w,h:b.h,text:b.text||""}))})),
+    timestamp:Date.now(),updatedAt:serverTimestamp()
+  };
+  if(cur.exists())payload.status=deleteField();   // 규칙상 다시 낼 땐 status가 남아 있으면 안 된다
+  else{payload.likes=0;payload.likedBy={};payload.createdAt=serverTimestamp();}
+  await withTimeout(setDoc(wref,payload,{merge:true}),SUBMIT_TIMEOUT,'제출이 오래 걸려요. 잠시 뒤 다시 시도해 주세요.');
+  await saveSubmissionMark(cur.exists());
+}
+
 // LMS 성적 체크(미션 자동 연동)가 제출 여부만 가볍게 확인할 수 있도록 요약 문서를 남긴다.
 // 작품 문서(fourcut_works)는 base64 이미지가 통째로 들어 있어 전량 조회가 너무 무겁다.
 // createdAt은 첫 제출 때만 쓴다 — 기한 판정은 처음 낸 시각을 기준으로 하기 때문.
-async function saveSubmissionMark(){
+async function saveSubmissionMark(isResubmit){
   try{
     const sref=doc(db,'fourcut_submissions',student.studentId);
     const cur=await getDoc(sref);
@@ -631,38 +667,33 @@ async function saveSubmissionMark(){
       classNum:classNumOf(student.studentId),lastAt:serverTimestamp()
     };
     if(!cur.exists())payload.createdAt=serverTimestamp();
+    // 작품의 채점을 지웠으면 요약도 같이 비운다 — 안 그러면 LMS에만 통과가 남는다.
+    if(isResubmit)payload.status=null;
     await setDoc(sref,payload,{merge:true});
   }catch(e){}
 }
 
-function renderDone(dataUrl){
+function renderDone(dataUrl,err){
   $("#doneBody").innerHTML=`
     <img class="result-img" src="${dataUrl}" alt="완성한 네컷">
+    <div class="done-msg${err?' err':''}">${err
+      ? '제출하지 못했어요.<br>'+esc(err.message||err)
+      : '제출 완료! 친구들 작품 갤러리에도 올라갔어요.'}</div>
     <div class="result-actions">
-      <button class="btn btn-primary btn-block" id="dlBtn">그림 저장 (내려받기)</button>
-      <button class="btn btn-primary btn-block" id="submitBtn">친구들에게 공유하기</button>
+      ${err?`<button class="btn btn-primary btn-block" id="retryBtn">다시 제출하기</button>`:''}
+      <button class="btn ${err?'btn-ghost':'btn-primary'} btn-block" id="dlBtn">그림 저장 (내려받기)</button>
       <button class="btn btn-ghost btn-block" id="galBtn">친구 작품 감상하기</button>
       <button class="btn btn-ghost btn-block" id="backEditBtn">다시 고치기</button>
-    </div>
-    <div class="foot-note" id="submitNote"></div>`;
+    </div>`;
   $("#dlBtn").onclick=()=>{const a=document.createElement('a');a.href=dataUrl;a.download=`사화네컷_${curEvent.name}_${student.studentName}.jpg`;a.click();};
   $("#backEditBtn").onclick=()=>showScreen('editScreen');
   $("#galBtn").onclick=openArchive;
-  $("#submitBtn").onclick=async()=>{
-    const btn=$("#submitBtn");btn.disabled=true;btn.textContent="공유하는 중…";
-    try{
-      await addDoc(collection(db,'fourcut_works'),{
-        studentId:student.studentId,studentName:student.studentName,
-        classNum:classNumOf(student.studentId),
-        eventId:curEvent.id,eventName:curEvent.name,
-        image:dataUrl,title:CONTENT.title,
-        likes:0,likedBy:{},
-        createdAt:serverTimestamp(),timestamp:Date.now()
-      });
-      await saveSubmissionMark();
-      $("#submitNote").textContent="공유 완료! 아래 '친구 작품 감상하기'에서 친구들 작품에 좋아요를 남겨보세요.";
-      btn.innerHTML=`${icon('check',15)} 공유 완료`;
-    }catch(e){btn.disabled=false;btn.textContent="친구들에게 공유하기";$("#submitNote").textContent="공유 실패: "+(e.message||e);}
+  const rb=$("#retryBtn");
+  if(rb)rb.onclick=async()=>{
+    rb.disabled=true;rb.textContent="다시 제출하는 중…";
+    let e2=null;
+    try{await submitWork(dataUrl);}catch(e){e2=e;}
+    renderDone(dataUrl,e2);
   };
 }
 
@@ -736,8 +767,9 @@ async function toggleLike(id,btn){
   if(liked)delete w.likedBy[me];else w.likedBy[me]=true;
   renderArc();
   try{
+    // 절대값을 쓰면 갤러리를 연 시점의 값을 덮어써서, 둘이 동시에 누를 때 하나가 사라진다.
     await updateDoc(doc(db,'fourcut_works',id),{
-      likes:w.likes,
+      likes:increment(liked?-1:1),
       [`likedBy.${me}`]:liked?deleteField():true
     });
   }catch(e){
