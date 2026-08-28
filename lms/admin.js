@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
-  getFirestore, collection, query, orderBy, where, onSnapshot,
+  initializeFirestore, collection, query, orderBy, where, onSnapshot,
   addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, writeBatch, serverTimestamp, limit, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getDatabase, ref, get, set, remove, update, onValue, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
@@ -12,7 +12,10 @@ import { icon } from '../shared/icons.js';
 import { firebaseConfig } from "../shared/firebase-config.js";
 
 const app  = initializeApp(firebaseConfig);
-const db   = getFirestore(app);
+// 스트리밍(WebChannel)이 막히는 망에서는 요청이 성공도 실패도 없이 멈춘 채로 남는다.
+// 대시보드가 "불러오는 중..."에서 안 넘어가던 원인 중 하나라, 학생 화면과 같이
+// 롱폴링 자동 전환을 켠다.
+const db   = initializeFirestore(app, { experimentalAutoDetectLongPolling: true });
 const rtdb = getDatabase(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
@@ -383,35 +386,69 @@ let _dbAnnEditId = null; // 수정 중인 공지 docId (null이면 새 글 작�
 let _dbAutoOpen = false; // 수업일 자동 공개 사용 여부 (settings/lms_config.autoOpenBySchedule)
 let _dbAutoOpened = []; // 이번 로드에서 자동 공개된 항목 이름 — 대시보드에 무엇이 열렸는지 알려준다
 
+/* 응답이 끝내 오지 않는 요청 때문에 화면 전체가 멈추지 않게 하는 안전장치.
+   ms 안에 안 끝나면 fallback 값으로 넘어가고, 원래 요청은 뒤에서 알아서 끝난다. */
+async function dbSafe(promise, fallback, ms = 12000) {
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms)),
+    ]);
+  } catch (_) { return fallback; }
+}
+
+let _dbLoading = false;
+
+/* 대시보드는 예전엔 조회를 한 줄씩 await로 이어 붙였다. 그래서 그중 하나라도 응답이
+   안 오면(느린 망, 스트리밍이 막힌 네트워크) "불러오는 중..."에서 영영 안 넘어갔고,
+   오류도 안 떠서 원인을 알 수 없었다. 이제
+     · 서로 무관한 조회는 한꺼번에 보내고(Promise.all),
+     · 각 조회에 시간 제한을 둬서 늦으면 그 부분만 비운 채로 그리며,
+     · 무엇을 못 받았는지 화면에 적고 다시 시도할 수 있게 한다. */
 async function dbLoad() {
   const el = document.getElementById('db-content');
+  if (_dbLoading) return;              // 메뉴를 연달아 눌러도 조회가 겹치지 않게
+  _dbLoading = true;
   if (el) el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--sub);font-size:14px">불러오는 중...</div>';
   try {
     const today = kstDate(); // 한국시간 기준 (shared/util.js)
+    const late = []; // 시간 안에 못 받아온 항목 이름
+
+    const [clSnap, cfgSnap, tlSnap, tsSnap, stuSnap, xpSnap, annSnap] = await Promise.all([
+      dbSafe(getDocs(query(collection(db, 'class_lessons'), orderBy('order', 'desc'))), null),
+      dbSafe(getDoc(doc(db, 'settings', 'lms_config')), null),
+      dbSafe(getDocs(query(collection(db, 'think_lectures'), orderBy('createdAt', 'desc'))), null),
+      dbSafe(getDocs(collection(db, 'think_submissions')), null, 20000), // 가장 무거운 조회
+      dbSafe(get(ref(rtdb, 'students')), null),
+      dbSafe(get(ref(rtdb, `${XP_ROOT}/students`)), null),
+      dbSafe(getDocs(query(collection(db, 'announcements'), orderBy('createdAt', 'desc'))), null),
+      dbLoadAnnReads(),
+    ]);
 
     // 개념 체크 강의 (상위 10)
-    const clSnap = await getDocs(query(collection(db, 'class_lessons'), orderBy('order', 'desc')));
-    _dbConcept = clSnap.docs.map(d => { const v = d.data(); return { docId: d.id, num: v.num, title: v.title || '', isOpen: v.isOpen !== false, autoOpenedAt: v.autoOpenedAt || null }; }).slice(0, 10);
+    if (clSnap) {
+      _dbConcept = clSnap.docs.map(d => { const v = d.data(); return { docId: d.id, num: v.num, title: v.title || '', isOpen: v.isOpen !== false, autoOpenedAt: v.autoOpenedAt || null }; }).slice(0, 10);
+    } else late.push('개념 체크');
 
     // 미션 체크 카드 (mission_category)
     let missionCat = '';
-    try {
-      const cfg = await getDoc(doc(db, 'settings', 'lms_config'));
-      if (cfg.exists()) {
-        missionCat  = cfg.data().mission_category || '';
-        _dbAutoOpen = cfg.data().autoOpenBySchedule === true;
-      }
-    } catch (_) {}
+    if (cfgSnap && cfgSnap.exists()) {
+      missionCat  = cfgSnap.data().mission_category || '';
+      _dbAutoOpen = cfgSnap.data().autoOpenBySchedule === true;
+    }
     if (missionCat) {
-      const mSnap = await getDocs(query(collection(db, 'cards'), where('category', '==', missionCat)));
-      _dbMission = mSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || v.label || '', locked: v.locked === true, order: v.order ?? 999, lessonNum: v.lessonNum || '', autoOpenedAt: v.autoOpenedAt || null }; }).sort((a, b) => a.order - b.order);
+      const mSnap = await dbSafe(getDocs(query(collection(db, 'cards'), where('category', '==', missionCat))), null);
+      if (mSnap) {
+        _dbMission = mSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || v.label || '', locked: v.locked === true, order: v.order ?? 999, lessonNum: v.lessonNum || '', autoOpenedAt: v.autoOpenedAt || null }; }).sort((a, b) => a.order - b.order);
+      } else late.push('미션 체크');
     } else _dbMission = [];
 
     // 생각 체크 강의 (상위 10)
-    const tlSnap = await getDocs(query(collection(db, 'think_lectures'), orderBy('createdAt', 'desc')));
     // order는 강 번호 기준 → 내림차순으로 강 번호 큰(최신) 강의가 맨 위. 개념 Check 카드와 방향 일치.
     // icon에 강의수("24"·"OT" 등)가 들어 있어 수업 스케줄 매칭에 쓴다(thScheduledDate와 같은 기준).
-    _dbThink = tlSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', isOpen: v.isOpen === true, order: v.order ?? -1, ungraded: 0, icon: v.icon || '', autoOpenedAt: v.autoOpenedAt || null }; }).sort((a, b) => b.order - a.order).slice(0, 10);
+    if (tlSnap) {
+      _dbThink = tlSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', isOpen: v.isOpen === true, order: v.order ?? -1, ungraded: 0, icon: v.icon || '', autoOpenedAt: v.autoOpenedAt || null }; }).sort((a, b) => b.order - a.order).slice(0, 10);
+    } else late.push('생각 체크');
 
     // 수업일이 지난 강의와 미션을 자동 공개(설정이 켜져 있을 때만, 항목당 한 번만).
     // 개념·미션·생각 세 가지를 모두 보므로 _dbThink까지 채운 뒤에 부른다.
@@ -420,11 +457,11 @@ async function dbLoad() {
 
     // 제출물: 강의별 미채점 수 + 오늘 제출 수
     // 미채점 중 가장 최근 제출이 어느 반인지도 같이 기억해 둔다("채점" 버튼이 그 반으로 바로 열리게).
-    const tsSnap = await getDocs(collection(db, 'think_submissions'));
+    if (!tsSnap) late.push('제출 현황');
     const ungraded = {};
     const newestUngraded = {}; // lectureDocId → { secs, cls }
     let thinkSubmit = 0;
-    tsSnap.docs.forEach(d => {
+    (tsSnap ? tsSnap.docs : []).forEach(d => {
       const s = d.data();
       if (isTestId(s.id)) return; // 테스트 학생 제출은 집계·채점대기에서 제외
       const secs = s.createdAt?.seconds;
@@ -444,26 +481,41 @@ async function dbLoad() {
     });
 
     // 학생 수 + 오늘 출석/복습(rtdb/xp)
-    const stuSnap = await get(ref(rtdb, 'students'));
-    const stuData = stuSnap.exists() ? (stuSnap.val() || {}) : {};
+    if (!stuSnap) late.push('학생 명단');
+    const stuData = stuSnap && stuSnap.exists() ? (stuSnap.val() || {}) : {};
     _dbStudents = Object.values(stuData).filter(v => v && v.studentId).map(v => ({ studentId: String(v.studentId), name: v.name || v.studentName || '' }));
     _dbStuCount = _dbStudents.filter(s => !isTestId(s.studentId)).length; // 테스트 학생은 총원에서 제외(이름 조회는 유지)
-    const xpSnap = await get(ref(rtdb, `${XP_ROOT}/students`));
-    const xp = xpSnap.exists() ? (xpSnap.val() || {}) : {};
+    const xp = xpSnap && xpSnap.exists() ? (xpSnap.val() || {}) : {};
     let attend = 0, review = 0;
     Object.entries(xp).forEach(([sid, x]) => { if (!x || isTestId(sid)) return; if (x.lastAttendance === today) attend++; if (x.lastTypingReview === today) review++; });
     _dbToday = { attend, thinkSubmit, review };
 
     // 공지사항(패치노트 리스트, 최신 10건)
-    try {
-      const annSnap = await getDocs(query(collection(db, 'announcements'), orderBy('createdAt', 'desc')));
-      _dbAnnList = annSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt }; }).slice(0, 10);
-    } catch(_) { _dbAnnList = []; }
+    _dbAnnList = annSnap
+      ? annSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt }; }).slice(0, 10)
+      : [];
 
     dbRender();
+    dbRenderLateNote(late);
   } catch(e) {
-    if (el) el.innerHTML = `<div style="padding:32px;color:var(--critical);font-size:14px">로드 실패: ${esc(e.message)}</div>`;
+    if (el) el.innerHTML = `<div style="padding:32px;color:var(--critical);font-size:14px">로드 실패: ${esc(e.message)}
+      <div style="margin-top:12px"><button class="add-btn" onclick="dbLoad()">다시 시도</button></div></div>`;
+  } finally {
+    _dbLoading = false;
   }
+}
+
+// 일부만 못 받아왔을 때, 화면 위쪽에 무엇이 비었는지 적고 다시 시도할 길을 준다.
+function dbRenderLateNote(late) {
+  const el = document.getElementById('db-content');
+  if (!el || !late || !late.length) return;
+  const note = document.createElement('div');
+  note.style.cssText = 'margin-bottom:14px;padding:11px 15px;border-radius:12px;background:rgba(220,38,38,.07);'
+    + 'border:1px solid rgba(220,38,38,.3);color:var(--critical);font-size:13px;font-weight:700;'
+    + 'display:flex;align-items:center;gap:10px;flex-wrap:wrap';
+  note.innerHTML = `${esc(late.join(', '))} 정보를 시간 안에 받지 못했습니다. 그 부분은 비어 있을 수 있어요.
+    <button class="add-btn" style="padding:5px 12px;font-size:12px" onclick="dbLoad()">다시 시도</button>`;
+  el.prepend(note);
 }
 
 // ── 수업일 자동 공개 ──────────────────────────────────────────────
@@ -609,11 +661,67 @@ function dbAnnListHTML() {
       <div class="db-ann-item-title">${esc(a.title || '(제목 없음)')}</div>
       <div class="db-ann-item-date">${dbAnnDate(a.createdAt)}</div>
       <div class="db-ann-item-btns">
+        <button class="stu-btn stu-btn-edit" style="padding:6px 12px;font-size:12px" onclick="openAnnStats('${a.docId}')" title="누가 읽었는지 / 좋아요를 눌렀는지 봅니다">${annStatLabel(a.docId)}</button>
         <button class="stu-btn stu-btn-edit" style="padding:6px 12px;font-size:12px" onclick="dbEditAnnouncement('${a.docId}')">수정</button>
         <button class="stu-btn stu-btn-del" style="padding:6px 12px;font-size:12px" onclick="dbDeleteAnnouncement('${a.docId}')">삭제</button>
       </div>
     </div>`).join('');
 }
+
+/* ── 공지 열람 명단 · 좋아요 ──
+   학생 화면에서 글을 열면 announcement_reads에 "공지ID_학번" 문서가 한 건 남고,
+   좋아요를 누르면 그 문서의 liked가 켜진다. 여기서는 그 기록을 공지별로 모아
+   읽음/좋아요 수를 목록에 붙이고, 눌렀을 때 명단(안 읽은 학생 포함)을 보여 준다. */
+let _dbAnnReads = {}; // { [공지ID]: [{ studentId, studentName, liked }] }
+
+async function dbLoadAnnReads() {
+  try {
+    const snap = await dbSafe(getDocs(collection(db, 'announcement_reads')), null);
+    if (!snap) return;
+    const by = {};
+    snap.docs.forEach(d => {
+      const v = d.data();
+      if (!v.annId || isTestId(v.studentId)) return;
+      (by[v.annId] || (by[v.annId] = [])).push({
+        studentId: String(v.studentId || ''), studentName: v.studentName || '', liked: v.liked === true,
+      });
+    });
+    _dbAnnReads = by;
+  } catch (_) {}
+}
+
+function annStatLabel(annId) {
+  const rows = _dbAnnReads[annId] || [];
+  const likes = rows.filter(r => r.liked).length;
+  return `읽음 ${rows.length} · ♥ ${likes}`;
+}
+
+window.openAnnStats = function(annId) {
+  const ann  = _dbAnnList.find(a => a.docId === annId);
+  const rows = _dbAnnReads[annId] || [];
+  const readIds = new Set(rows.map(r => r.studentId));
+  const all = _dbStudents.filter(s => !isTestId(s.studentId));
+  const unread = all.filter(s => !readIds.has(s.studentId));
+  const liked  = rows.filter(r => r.liked);
+
+  const chip = (sid, name, cls) => `<span class="ann-chip ${cls}">${esc(sid)} ${esc(name)}</span>`;
+  const group = (label, list, cls) => `
+    <div class="ann-group">
+      <div class="ann-group-hd">${label} ${list.length}명</div>
+      <div>${list.length ? list.join('') : '<span class="ann-empty">없음</span>'}</div>
+    </div>`;
+
+  document.getElementById('annStatsTitle').textContent = `${ann?.title || '공지'} · 열람 현황`;
+  document.getElementById('annStatsBody').innerHTML =
+      `<div class="ann-summary">전체 ${all.length}명 중 <strong>${rows.length}명</strong>이 읽었고, <strong>${liked.length}명</strong>이 좋아요를 눌렀습니다.</div>`
+    + group('♥ 좋아요', liked.sort((a,b)=>a.studentId.localeCompare(b.studentId)).map(r => chip(r.studentId, r.studentName, 'ann-chip-like')), 'like')
+    + group('읽음', rows.sort((a,b)=>a.studentId.localeCompare(b.studentId)).map(r => chip(r.studentId, r.studentName, 'ann-chip-read')), 'read')
+    + group('아직 안 읽음', unread.map(s => chip(s.studentId, s.name, 'ann-chip-unread')), 'unread');
+  document.getElementById('annStatsBackdrop').classList.add('open');
+};
+window.closeAnnStats = function() {
+  document.getElementById('annStatsBackdrop').classList.remove('open');
+};
 
 function dbAnnDate(ts) {
   if (!ts || !ts.seconds) return '방금 전';
@@ -3874,6 +3982,44 @@ async function missionAutoDetect(lessonKey) {
   return { map: out, apps };
 }
 
+// 생각 체크 제출물을 읽어 학생별 달성·기한을 계산한다(불러오기와 실시간 반영이 같이 쓴다).
+// 반환값: { map: { [학번]: {achieved,onTime} }, times: { [학번]: Date } }
+async function thinkAutoDetect(thinkDocId) {
+  const out = { map: {}, times: {} };
+  if (!thinkDocId) return out;
+  await plEnsureLoaded(); // 지연 제출 판정에 필요한 수업 스케줄(class_progress)
+
+  let thinkLec = null;
+  try {
+    const lecSnap = await getDoc(doc(db, 'think_lectures', thinkDocId));
+    if (lecSnap.exists()) thinkLec = lecSnap.data();
+  } catch (e) {}
+
+  const overrides = {};
+  await Promise.all([1,2,3,4,5,6].map(async cls => {
+    try {
+      const ovSnap = await getDoc(doc(db, 'gradeOverrides', `${thinkDocId}_${cls}`));
+      if (ovSnap.exists()) Object.assign(overrides, ovSnap.data());
+    } catch (e) {}
+  }));
+
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'think_submissions'),
+      where('lectureDocId', '==', thinkDocId)
+    ));
+    snap.docs.forEach(d => {
+      const sub = d.data();
+      if (!sub.id) return;
+      const { achieved, onTime } = thinkVerdict(sub, thinkLec, overrides[d.id]);
+      out.map[sub.id] = { achieved, onTime };
+      const ts = sub.createdAt;
+      if (ts) out.times[sub.id] = ts.toDate ? ts.toDate() : new Date(ts);
+    });
+  } catch (e) {}
+  return out;
+}
+
 /* ── 미션 채점 실시간 반영 ──────────────────────────────────────────
    웹앱 어드민(예: 인터뷰 ANSWER의 통과/미흡 토글)에서 채점을 고치면, 성적 체크 표를
    다시 불러오지 않아도 그 자리에서 따라 바뀌게 한다. 예전에는 자동 감지가 "불러오기"를
@@ -3883,11 +4029,22 @@ async function missionAutoDetect(lessonKey) {
    이미 저장된 학생(_gradeSavedSet)은 여기서도 건드리지 않는다 — 선생님이 표에서 손으로
    고쳐 둔 값을 웹앱 채점이 덮어쓰면 안 되기 때문(불러오기 때와 같은 규칙). */
 let _missionUnsubs   = [];
-let _gradeSavedSet   = new Set(); // 이번에 불러온 강의에서 "이미 저장된 채점"이 있는 학번
+let _gradeSavedSet   = new Set(); // 불러온 시점에 "이미 저장된 채점"이 있던 학번
+let _gradeAutoSaved  = new Set(); // 이번 세션에 실시간 반영으로 자동 저장한 학번
+let _gradeManualEdit = new Set(); // 이번 세션에 선생님이 표에서 손으로 고친 학번
 
 function stopMissionLive() {
   _missionUnsubs.forEach(u => { try { u(); } catch (_) {} });
   _missionUnsubs = [];
+}
+
+// 이 학생의 값을 자동 감지 결과로 덮어써도 되는가.
+// 선생님이 손으로 고친 값(이번 세션의 체크박스 조작, 또는 예전에 저장해 둔 기록)은 지킨다.
+// 다만 실시간 반영이 스스로 저장한 학생은 계속 따라가야 하므로 예외로 둔다.
+function gradeCanAutoApply(sid) {
+  if (!_gradeRecords[sid] || _gradeRecords[sid].absent) return false;
+  if (_gradeManualEdit.has(sid)) return false;
+  return !_gradeSavedSet.has(sid) || _gradeAutoSaved.has(sid);
 }
 
 // 이 강의에 연결된 미션 앱들의 제출 컬렉션 이름을 돌려준다(중복 제거).
@@ -3907,35 +4064,127 @@ async function missionLiveCollections(lessonKey) {
   )];
 }
 
+/* 학생이 제출·채점될 때마다 표를 다시 계산하고, 이미 반영한 반은 학생 성적까지 곧바로
+   덮어쓴다. 아직 반영하지 않은 반은 표만 갱신한다 — 언제 공개할지는 선생님이 정하는
+   것이라, 실시간 반영이 대신 공개해 버리면 안 된다.                                  */
+async function gradeLiveRefresh(lessonKey) {
+  if (_gradeLessonKey !== lessonKey) return;
+
+  const changed = new Set();
+  const mark = (sid, block, achieved, onTime) => {
+    const r = _gradeRecords[sid][block];
+    if (r.achieved !== achieved || r.onTime !== onTime) changed.add(sid);
+    r.achieved = achieved; r.onTime = onTime;
+  };
+
+  let apps = [], filled = 0;
+  if (_gradeEnabled.mission) {
+    try {
+      const res = await missionAutoDetect(lessonKey);
+      if (_gradeLessonKey !== lessonKey) return;
+      apps = res.apps; filled = Object.keys(res.map).length;
+      Object.entries(res.map).forEach(([sid, v]) => {
+        if (v.at) _gradeMissionTimes[sid] = v.at;
+        if (gradeCanAutoApply(sid)) mark(sid, 'mission', v.achieved, v.onTime);
+      });
+    } catch (_) {}
+  }
+  if (_gradeEnabled.think && _gradeThinkDocId) {
+    try {
+      const res = await thinkAutoDetect(_gradeThinkDocId);
+      if (_gradeLessonKey !== lessonKey) return;
+      Object.assign(_gradeThinkTimes, res.times);
+      Object.entries(res.map).forEach(([sid, v]) => {
+        if (gradeCanAutoApply(sid)) mark(sid, 'think', v.achieved, v.onTime);
+      });
+    } catch (_) {}
+  }
+
+  renderGradeTable();
+  renderGradeStats();
+  if (apps.length) renderMissionLinkNote(apps, filled, true);
+  if (changed.size) await gradePushLive([...changed]);
+}
+
+// 값이 바뀐 학생 중 "이미 반영된 반"에 속한 학생만 성적 문서를 갱신한다.
+async function gradePushLive(sids) {
+  const targets = sids.filter(sid => {
+    const cls = Math.floor((parseInt(sid) - 30000) / 100);
+    return _publishStatus[cls];
+  });
+  if (!targets.length) return;
+  const lesson = _gradeLessons.find(l => l.num === _gradeLessonKey);
+  const lessonTitle = lesson?.title || '';
+  try {
+    await Promise.all(targets.map(sid => {
+      const stu = _gradeStudents.find(s => s.id === sid);
+      return setDoc(doc(db, 'grade_records', `${_gradeLessonKey}_${sid}`), {
+        lessonKey: _gradeLessonKey, lessonTitle,
+        studentId: sid, studentName: stu?.name || '',
+        concept: _gradeRecords[sid].concept,
+        mission: _gradeRecords[sid].mission,
+        think:   _gradeRecords[sid].think,
+        absent:  _gradeRecords[sid].absent || false,
+        feedback: _gradeRecords[sid].feedback || '',
+        published: true,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    }));
+    // 자동으로 저장한 학생은 앞으로도 계속 자동 감지를 따라가야 한다(gradeCanAutoApply 참고).
+    targets.forEach(sid => _gradeAutoSaved.add(sid));
+    const clsSet = [...new Set(targets.map(sid => Math.floor((parseInt(sid) - 30000) / 100)))];
+    await Promise.all(clsSet.map(c =>
+      setDoc(doc(db, 'grade_publish_status', `${_gradeLessonKey}_${c}`), {
+        published: true, publishedAt: serverTimestamp(),
+        lessonKey: _gradeLessonKey, classNum: c,
+      })
+    ));
+    clsSet.forEach(c => { _publishedAt[c] = Date.now(); });
+    renderGradePublishBar(_currentGradeClass);
+    gradeLiveToast(`${targets.length}명 성적 자동 반영`);
+  } catch (_) {}
+}
+
+// 자동으로 성적이 바뀌면 조용히 지나가지 않게 짧게 알린다(무엇이 왜 바뀌었는지 몰라 혼란스럽지 않게).
+function gradeLiveToast(msg) {
+  let el = document.getElementById('gradeLiveToast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'gradeLiveToast';
+    el.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:9999;background:#1A1A1A;color:#fff;'
+      + "font-family:inherit;font-size:13px;font-weight:700;padding:10px 16px;border-radius:100px;"
+      + 'box-shadow:0 6px 20px rgba(0,0,0,.25);opacity:0;transition:opacity .2s;pointer-events:none';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.opacity = '1';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.opacity = '0'; }, 2600);
+}
+
 async function startMissionLive(lessonKey) {
   stopMissionLive();
   const colls = await missionLiveCollections(lessonKey);
-  if (!colls.length) return;
+  // 생각 체크 제출도 같이 지켜본다 — 학생이 답을 내거나 AI 채점이 끝나면 표가 따라 움직인다.
+  const watch = colls.map(c => ({ coll: c, q: collection(db, c) }));
+  if (_gradeThinkDocId) {
+    watch.push({
+      coll: 'think_submissions',
+      q: query(collection(db, 'think_submissions'), where('lectureDocId', '==', _gradeThinkDocId)),
+    });
+  }
+  if (!watch.length) return;
 
   let timer = null;
   const seeded = new Set(); // 컬렉션마다 첫 스냅샷은 불러오기가 이미 반영한 값이라 넘긴다
   const refresh = () => {
     clearTimeout(timer);
-    timer = setTimeout(async () => {
-      if (_gradeLessonKey !== lessonKey) return; // 그새 다른 강의를 불러왔으면 무시
-      try {
-        const { map, apps } = await missionAutoDetect(lessonKey);
-        if (_gradeLessonKey !== lessonKey) return;
-        Object.entries(map).forEach(([sid, v]) => {
-          if (v.at) _gradeMissionTimes[sid] = v.at;
-          if (_gradeSavedSet.has(sid) || _gradeRecords[sid]?.absent) return;
-          _gradeRecords[sid].mission.achieved = v.achieved;
-          _gradeRecords[sid].mission.onTime   = v.onTime;
-        });
-        renderGradeTable();
-        renderGradeStats();
-        renderMissionLinkNote(apps, Object.keys(map).length, true);
-      } catch (_) {}
-    }, 400); // 여러 학생을 연달아 채점하면 스냅샷이 몰아치므로 잠깐 모았다 한 번만 다시 그린다
+    // 여러 학생이 연달아 제출하면 스냅샷이 몰아치므로 잠깐 모았다 한 번만 다시 그린다.
+    timer = setTimeout(() => gradeLiveRefresh(lessonKey), 700);
   };
 
-  colls.forEach(coll => {
-    const unsub = onSnapshot(collection(db, coll), () => {
+  watch.forEach(({ coll, q }) => {
+    const unsub = onSnapshot(q, () => {
       if (!seeded.has(coll)) { seeded.add(coll); return; }
       refresh();
     }, () => {});
@@ -3945,6 +4194,8 @@ async function startMissionLive(lessonKey) {
 
 // 미션 자동 연동이 실제로 걸렸는지 강의 선택 줄 아래에 알려 준다. 연결이 안 됐는데 표가
 // 전부 빈칸으로 보이면 선생님이 원인을 알 수 없어서, 왜 비었는지까지 문구로 남긴다.
+// 연동된 앱 이름 뒤에 (채점 N / 미채점 N)을 붙인다. 표가 비어 보일 때 "연결이 안 된 건지,
+// 아직 채점을 안 한 건지"를 한눈에 구분하려는 것 — 미채점자는 표에서 빈칸으로 남는다.
 function renderMissionLinkNote(apps, filledCount, live) {
   const el = document.getElementById('gradeMissionLinkNote');
   if (!el) return;
@@ -3953,15 +4204,14 @@ function renderMissionLinkNote(apps, filledCount, live) {
     el.textContent = '';
     return;
   }
-  const total = _gradeStudents.filter(s => s.id !== '00000').length;
+  const total   = _gradeStudents.filter(s => s.id !== '00000').length;
   const pending = Math.max(0, total - filledCount);
   const now = new Date();
   const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   el.style.display = '';
-  el.textContent = `미션체크 자동 연동: ${apps.join(', ')}`
-    + (pending ? ` (아직 채점 전인 ${pending}명은 빈칸으로 두었습니다)` : '')
+  el.textContent = `${apps.join(', ')} (채점 ${filledCount} / 미채점 ${pending})`
     // 웹앱에서 채점을 고쳐 표가 저절로 바뀐 경우, 언제 따라왔는지 남겨 둔다.
-    + (live ? ` · 웹앱 채점 반영됨 ${hhmm}` : '');
+    + (live ? ` · 반영 ${hhmm}` : '');
 }
 
 // 생각 체크 최종 판정: 문구(verdict)·달성(achieved)·기한(onTime) 세 가지를 한 번에 계산한다.
@@ -4057,6 +4307,7 @@ async function initGradeTab() {
 
   document.getElementById('gradeLoadBtn').addEventListener('click', loadGradeData);
   document.getElementById('gradeSaveBtn').addEventListener('click', saveGradeRecords);
+  document.getElementById('gradeRefreshAllBtn')?.addEventListener('click', () => refreshAllPublishedClasses(false));
   document.getElementById('gradeScoreLoadBtn').addEventListener('click', loadScoreData);
   document.getElementById('gradeExportBtn').addEventListener('click', exportScoreCSV);
 
@@ -4194,6 +4445,8 @@ async function loadGradeData() {
     _gradeRecords      = {};
     _gradeThinkTimes   = {};
     _gradeMissionTimes = {};
+    _gradeAutoSaved    = new Set();
+    _gradeManualEdit   = new Set();
     _gradeStudents.forEach(s => {
       _gradeRecords[s.id] = {
         concept: { achieved: false, onTime: false },
@@ -4232,33 +4485,12 @@ async function loadGradeData() {
     // 조금 미흡/미흡(50자 미만)/미흡(이탈)/미흡(미제출) 6가지 — 자세한 규칙은 thinkVerdict 주석 참고).
     // 아예 미제출이면 달성·기한 모두 기본값(false)으로 남는다.
     if (thinkDocId) {
-      await plEnsureLoaded(); // 지연 제출 판정에 필요한 수업 스케줄(class_progress) 데이터
-      let thinkLec = null;
-      try {
-        const lecSnap = await getDoc(doc(db, 'think_lectures', thinkDocId));
-        if (lecSnap.exists()) thinkLec = lecSnap.data();
-      } catch (e) {}
-
-      const thinkOverrides = {};
-      await Promise.all([1,2,3,4,5,6].map(async cls => {
-        try {
-          const ovSnap = await getDoc(doc(db, 'gradeOverrides', `${thinkDocId}_${cls}`));
-          if (ovSnap.exists()) Object.assign(thinkOverrides, ovSnap.data());
-        } catch(e) {}
-      }));
-
-      const tSnap = await getDocs(query(
-        collection(db, 'think_submissions'),
-        where('lectureDocId', '==', thinkDocId)
-      ));
-      tSnap.docs.forEach(d => {
-        const sub = d.data();
-        if (!_gradeRecords[sub.id]) return;
-        const { achieved, onTime } = thinkVerdict(sub, thinkLec, thinkOverrides[d.id]);
-        _gradeRecords[sub.id].think.achieved = achieved;
-        if (!savedSet.has(sub.id)) _gradeRecords[sub.id].think.onTime = onTime;
-        const ts = sub.createdAt;
-        if (ts) _gradeThinkTimes[sub.id] = ts.toDate ? ts.toDate() : new Date(ts);
+      const { map, times } = await thinkAutoDetect(thinkDocId);
+      Object.assign(_gradeThinkTimes, times);
+      Object.entries(map).forEach(([sid, v]) => {
+        if (!_gradeRecords[sid]) return;
+        _gradeRecords[sid].think.achieved = v.achieved;
+        if (!savedSet.has(sid)) _gradeRecords[sid].think.onTime = v.onTime;
       });
     }
 
@@ -4275,12 +4507,14 @@ async function loadGradeData() {
           _gradeRecords[sid].mission.onTime   = v.onTime;
         });
         renderMissionLinkNote(apps, Object.keys(map).length);
-        // 표를 열어 둔 채 웹앱 어드민에서 채점을 고쳐도 따라 바뀌도록 구독을 건다.
-        startMissionLive(_gradeLessonKey);
       } catch(e) { renderMissionLinkNote([], 0); }
     } else {
       renderMissionLinkNote([], 0);
     }
+
+    // 표를 열어 둔 채 학생이 제출하거나 웹앱에서 채점을 고쳐도 따라 바뀌도록 구독을 건다.
+    // (미션을 미실시로 둔 강의여도 생각 체크는 지켜봐야 하므로 미션 여부와 무관하게 건다.)
+    startMissionLive(_gradeLessonKey);
 
     // 반영 상태 로드
     _publishStatus = {};
@@ -4590,7 +4824,7 @@ function renderGradeTable() {
         ${cE ? `<td>${chk(s.id,'concept','achieved',r.concept.achieved,r.absent)}</td><td>${chk(s.id,'concept','onTime',r.concept.onTime,r.absent)}</td>` : ''}
         ${mE ? `<td>${chk(s.id,'mission','achieved',r.mission.achieved,r.absent)}</td><td>${chk(s.id,'mission','onTime',r.mission.onTime,r.absent)}</td><td>${timeSpan(mD,!!(mD&&mMaj&&dayKey(mD)!==mMaj))}</td>` : ''}
         ${tE ? `<td>${chk(s.id,'think','achieved',r.think.achieved,r.absent)}</td><td>${chk(s.id,'think','onTime',r.think.onTime,r.absent)}</td><td>${timeSpan(tD,!!(tD&&tMaj&&dayKey(tD)!==tMaj))}</td>` : ''}
-        <td><button class="stu-btn stu-btn-edit" onclick="openGradeFeedbackModal('${esc(s.id)}','${esc(s.name)}')">${r.feedback ? '피드백 수정' : '피드백 작성'}</button></td>
+        <td><button class="stu-btn ${r.feedback ? 'stu-btn-fb-done' : 'stu-btn-edit'}" onclick="openGradeFeedbackModal('${esc(s.id)}','${esc(s.name)}')">${r.feedback ? '피드백 수정' : '피드백 작성'}</button></td>
       </tr>`;
     });
   });
@@ -4610,6 +4844,7 @@ function renderGradeTable() {
     cb.addEventListener('change', e => {
       const { sid, t, f } = e.target.dataset;
       if (_gradeRecords[sid]) _gradeRecords[sid][t][f] = e.target.checked;
+      _gradeManualEdit.add(sid); // 손으로 고친 값은 실시간 자동 감지가 덮어쓰지 않는다
       syncGradeAllCb();
       if (f === 'achieved') renderGradeStats();
     });
@@ -4628,6 +4863,7 @@ function renderGradeTable() {
         if (_gradeRecords[sid]?.absent) return;
         c.checked = checked;
         if (_gradeRecords[sid]) _gradeRecords[sid][t][f] = checked;
+        _gradeManualEdit.add(sid);
       });
       syncGradeAllCb();
       if (f === 'achieved') renderGradeStats();
@@ -4645,6 +4881,7 @@ function renderGradeTable() {
       const sid = td.dataset.sid;
       const r = _gradeRecords[sid];
       if (!r) return;
+      _gradeManualEdit.add(sid); // 결석 처리도 선생님 판단이므로 자동 감지가 덮어쓰지 않게 한다
       r.absent = !r.absent;
       if (r.absent) {
         r.concept.achieved = false; r.concept.onTime = false;
@@ -4719,6 +4956,9 @@ function renderGradeStats() {
 
 // ── 성적 조회 ──
 let _scoreData = [];
+// 학생 이름을 눌렀을 때 "이 점수가 어느 강의에서 왔는지" 펼쳐 보이기 위해, 불러올 때
+// 쓴 강의별 원자료를 그대로 들고 있는다(다시 조회하지 않으려는 것).
+let _scoreDetail = { lectures: [], enabled: {}, titles: {}, records: {}, published: new Set() };
 
 async function loadScoreData() {
   const btn = document.getElementById('gradeScoreLoadBtn');
@@ -4762,13 +5002,22 @@ async function loadScoreData() {
 
     // 강의별 grade_records 전체 로드
     const recByLec = {};
+    const titleMap = {};
     await Promise.all(selectedLectures.map(async key => {
       try {
         const snap = await getDocs(query(collection(db, 'grade_records'), where('lessonKey','==',key)));
         recByLec[key] = {};
-        snap.docs.forEach(d => { const r = d.data(); recByLec[key][r.studentId] = r; });
+        snap.docs.forEach(d => {
+          const r = d.data();
+          recByLec[key][r.studentId] = r;
+          if (!titleMap[key] && r.lessonTitle) titleMap[key] = r.lessonTitle;
+        });
       } catch(e) {}
     }));
+    _scoreDetail = {
+      lectures: selectedLectures, enabled: enabledMap, titles: titleMap,
+      records: recByLec, published: publishedSet,
+    };
 
     function calcScore(achieved, total, type) {
       if (!total) return { achieved:0, total:0, pct:0, score:0 };
@@ -4812,11 +5061,56 @@ async function loadScoreData() {
   }
 }
 
+/* 반별 평균 요약 — 반 태그 위에 한 표로 올려 둔다.
+   가로는 1~6반과 전체, 세로는 개념·미션·생각·총점의 "평균 점수"만 둔다
+   (달성 횟수·퍼센트는 아래 개별 표에서 보므로 여기서는 뺀다). */
+function renderScoreSummary(maxScore) {
+  const box = document.getElementById('gradeScoreSummary');
+  if (!box) return;
+  if (!_scoreData.length) { box.innerHTML = ''; box.style.display = 'none'; return; }
+
+  const clsNums = [...new Set(_scoreData.map(s => s.cls))].sort((a, b) => a - b);
+  const cols = [...clsNums, 'all'];
+  const avg = (rows, pick) => rows.length
+    ? (rows.reduce((n, s) => n + pick(s), 0) / rows.length) : null;
+  const fmt = v => v == null ? '—' : (Math.round(v * 10) / 10).toFixed(1);
+  const pick = {
+    concept: s => s.concept.score, mission: s => s.mission.score,
+    think:   s => s.think.score,   total:   s => s.total,
+  };
+  const rowsDef = [
+    ['개념체크', 'concept', 'sh-c'],
+    ['미션체크', 'mission', 'sh-m'],
+    ['생각체크', 'think',   'sh-t'],
+    ['총점',     'total',   'sh-tot'],
+  ];
+  const groupOf = c => c === 'all' ? _scoreData : _scoreData.filter(s => s.cls === c);
+
+  box.style.display = '';
+  box.innerHTML = `
+    <table class="grade-summary-table">
+      <thead><tr><th>평균 점수</th>${cols.map(c =>
+        `<th class="${c === 'all' ? 'gs-all' : ''}">${c === 'all' ? '전체' : c + '반'}</th>`).join('')}</tr></thead>
+      <tbody>
+        ${rowsDef.map(([label, key, cls]) => `
+          <tr class="${key === 'total' ? 'gs-total-row' : ''}">
+            <th class="${cls}">${label}</th>
+            ${cols.map(c => `<td class="${c === 'all' ? 'gs-all' : ''}">${fmt(avg(groupOf(c), pick[key]))}</td>`).join('')}
+          </tr>`).join('')}
+        <tr class="gs-n-row"><th>인원</th>${cols.map(c =>
+          `<td class="${c === 'all' ? 'gs-all' : ''}">${groupOf(c).length}</td>`).join('')}</tr>
+      </tbody>
+    </table>
+    <div class="grade-summary-note">총점 만점 ${maxScore}점 기준</div>`;
+}
+
 function renderScoreTable(maxScore) {
   if (!_scoreData.length) {
     document.getElementById('gradeScoreWrap').innerHTML = '<div class="empty-panel">성적 데이터가 없습니다.</div>';
+    renderScoreSummary(maxScore);
     return;
   }
+  renderScoreSummary(maxScore);
   const classes = {};
   _scoreData.forEach(s => { if (!classes[s.cls]) classes[s.cls]=[]; classes[s.cls].push(s); });
 
@@ -4843,7 +5137,7 @@ function renderScoreTable(maxScore) {
       const c=s.concept, m=s.mission, t=s.think;
       html += `<tr data-cls="${cls}">
         <td style="font-size:12px;color:var(--sub)">${esc(s.id)}</td>
-        <td style="font-weight:600">${esc(s.name)}</td>
+        <td class="sc-name" data-sid="${esc(s.id)}" title="누르면 강의별 성적을 볼 수 있습니다">${esc(s.name)}</td>
         <td>${c.total?`${c.achieved}/${c.total}`:'미실시'}</td><td>${c.total?c.pct+'%':'—'}</td><td style="font-weight:700;color:var(--c1)">${c.total?c.score:'—'}</td>
         <td>${m.total?`${m.achieved}/${m.total}`:'미실시'}</td><td>${m.total?m.pct+'%':'—'}</td><td style="font-weight:700;color:var(--c2)">${m.total?m.score:'—'}</td>
         <td>${t.total?`${t.achieved}/${t.total}`:'미실시'}</td><td>${t.total?t.pct+'%':'—'}</td><td style="font-weight:700;color:var(--c1)">${t.total?t.score:'—'}</td>
@@ -4852,7 +5146,55 @@ function renderScoreTable(maxScore) {
     });
   });
   html += '</tbody></table></div>';
-  document.getElementById('gradeScoreWrap').innerHTML = html;
+  const wrap = document.getElementById('gradeScoreWrap');
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('.sc-name').forEach(td => {
+    td.addEventListener('click', () => openScoreDetail(td.dataset.sid));
+  });
+}
+
+/* 학생 한 명의 강의별 성적 내역. 총점이 어디서 깎였는지 바로 짚어 주려는 화면이라,
+   영역별 달성/기한 O·X와 결석 여부, 반영이 안 된 강의(집계 제외)까지 그대로 보여 준다. */
+function openScoreDetail(sid) {
+  const s = _scoreData.find(x => x.id === sid);
+  if (!s) return;
+  document.getElementById('scoreDetailTitle').textContent = `${s.name} (${s.id}) · 강의별 성적`;
+
+  const ox = v => v ? '<span class="sd-o">O</span>' : '<span class="sd-x">X</span>';
+  const cls = s.cls;
+  const rows = _scoreDetail.lectures.map(key => {
+    const en  = _scoreDetail.enabled[key] || { concept:true, mission:true, think:true };
+    const rec = _scoreDetail.records[key]?.[sid];
+    const pub = _scoreDetail.published.has(`${key}_${cls}`);
+    const cell = (on, block) => {
+      if (!on) return '<td class="sd-off">미실시</td>';
+      const b = rec?.[block];
+      if (!b) return '<td class="sd-off">—</td>';
+      return `<td>${ox(b.achieved)} ${ox(b.onTime)}</td>`;
+    };
+    return `<tr class="${pub ? '' : 'sd-unpub'}">
+      <td class="sd-lec">${esc(lecTag(key))}<div class="sd-lec-t">${esc(cleanTitle(_scoreDetail.titles[key] || ''))}</div></td>
+      ${cell(en.concept, 'concept')}${cell(en.mission, 'mission')}${cell(en.think, 'think')}
+      <td>${rec?.absent ? '<span class="sd-x">결석</span>' : (pub ? '반영됨' : '<span class="sd-off">미반영</span>')}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('scoreDetailBody').innerHTML = `
+    <div class="sd-tot">
+      개념 ${s.concept.total ? s.concept.score : '—'} ·
+      미션 ${s.mission.total ? s.mission.score : '—'} ·
+      생각 ${s.think.total ? s.think.score : '—'}
+      <strong>총점 ${s.total}</strong>
+    </div>
+    <table class="sd-table">
+      <thead><tr><th>강의</th><th class="sh-c">개념<br><span>달성·기한</span></th><th class="sh-m">미션<br><span>달성·기한</span></th><th class="sh-t">생각<br><span>달성·기한</span></th><th>상태</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="5">반영할 강의가 없습니다.</td></tr>'}</tbody>
+    </table>
+    <p class="sd-note">회색 줄은 아직 반영(공개)하지 않아 점수 집계에서 빠진 강의입니다.</p>`;
+  document.getElementById('scoreDetailBackdrop').classList.add('open');
+}
+function closeScoreDetail() {
+  document.getElementById('scoreDetailBackdrop').classList.remove('open');
 }
 
 function exportScoreCSV() {
@@ -5057,6 +5399,56 @@ async function refreshClassGrades(classNum) {
   }
 }
 
+/* 전체 갱신 — 이미 반영한 반을 하나씩 골라 [갱신]을 누르던 것을 한 번에 처리한다.
+   아직 반영하지 않은 반은 건드리지 않는다(반영 시점은 선생님이 정하는 것이므로,
+   이 버튼이 대신 공개해 버리면 안 된다). 저장만 필요한 반은 임시 저장을 쓰면 된다. */
+async function refreshAllPublishedClasses(silent) {
+  if (!_gradeLessonKey) { if (!silent) alert('강의를 먼저 불러와 주세요.'); return; }
+  const targets = gradeClassNums().filter(c => _publishStatus[c]);
+  if (!targets.length) {
+    if (!silent) alert('아직 반영된 반이 없습니다.\n반별로 "성적 반영하기"를 먼저 눌러주세요.');
+    return;
+  }
+  if (!silent && !confirm(`이미 반영된 ${targets.join('반, ')}반의 성적을 지금 표 내용으로 다시 반영할까요?`)) return;
+
+  const btn = document.getElementById('gradeRefreshAllBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '갱신 중...'; }
+  try {
+    const lesson = _gradeLessons.find(l => l.num === _gradeLessonKey);
+    const lessonTitle = lesson?.title || '';
+    const students = _gradeStudents.filter(s =>
+      s.id !== '00000' && targets.includes(Math.floor((parseInt(s.id) - 30000) / 100)));
+
+    await Promise.all(students.map(s =>
+      setDoc(doc(db, 'grade_records', `${_gradeLessonKey}_${s.id}`), {
+        lessonKey: _gradeLessonKey, lessonTitle,
+        studentId: s.id, studentName: s.name,
+        concept: _gradeRecords[s.id].concept,
+        mission: _gradeRecords[s.id].mission,
+        think:   _gradeRecords[s.id].think,
+        absent:  _gradeRecords[s.id].absent || false,
+        feedback: _gradeRecords[s.id].feedback || '',
+        published: true,
+        updatedAt: serverTimestamp(),
+      }, { merge: true })
+    ));
+    await Promise.all(targets.map(c =>
+      setDoc(doc(db, 'grade_publish_status', `${_gradeLessonKey}_${c}`), {
+        published: true, publishedAt: serverTimestamp(),
+        lessonKey: _gradeLessonKey, classNum: c,
+      })
+    ));
+    targets.forEach(c => { _publishedAt[c] = Date.now(); });
+    renderGradePublishBar(_currentGradeClass);
+    if (!silent) alert(`${targets.join('반, ')}반 ${students.length}명 갱신 완료!`);
+    return students.length;
+  } catch (e) {
+    if (!silent) alert('전체 갱신 실패: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '전체 갱신'; }
+  }
+}
+
 function updateSubtabPublishBadge(classNum, published) {
   const bar = document.getElementById('gradeSubtabBar');
   const btn = bar?.querySelector(`.grade-subtab[data-cls="${classNum}"]`);
@@ -5247,6 +5639,8 @@ Object.assign(window, {
   // dbLoad = 대시보드 "새로고침", autoResizeTa = 콘텐츠 편집 textarea 자동 높이,
   // render*Preview / renderArchiveCards = 카드 편집 폼의 "취소".
   dbLoad, autoResizeTa, renderMissionPreview, renderContentsPreview, renderArchiveCards,
+  // 성적 GRADE에서 학생 이름을 눌렀을 때 열리는 강의별 상세
+  openScoreDetail, closeScoreDetail,
 });
 
 // 정적 HTML에 박아둔 아이콘 자리(data-icon)를 SVG로 채운다. (shared/icons.js 공용 헬퍼)
@@ -6555,7 +6949,7 @@ const fbFns = { ref, get, set, push, update, onValue };
 
 let _xpCfg    = null;
 let _xpStuAll = {};       // { sid: { total, level, name, ... } }
-let _xpManSel = null;     // { sid, name }
+let _xpManPicked = [];    // 수동 지급 대상 명단 [{ sid, name }] — 검색해 고를 때마다 쌓인다
 
 // ── 공통: 설정 로드 ──
 async function xpEnsureConfig() {
@@ -6868,25 +7262,65 @@ window.xpManualSearch = function(q) {
   ).join('');
 };
 
+/* 검색해서 고른 학생을 명단에 쌓아 두고 한 번에 지급한다.
+   같은 사유로 여러 명에게 줄 일이 대부분이라, 한 명씩 고르고 지급하기를 반복하지
+   않게 했다. 칩의 x로 하나씩 뺄 수 있다. */
 window.xpManualSelect = function(sid, name) {
-  _xpManSel = { sid, name };
-  document.getElementById('xp-manual-search').value = `${sid} ${name}`;
+  if (!_xpManPicked.some(s => s.sid === sid)) _xpManPicked.push({ sid, name });
+  const input = document.getElementById('xp-manual-search');
+  input.value = '';                 // 다음 학생을 바로 이어서 검색할 수 있게 비운다
   document.getElementById('xp-manual-dropdown').style.display = 'none';
-  const tgt = document.getElementById('xp-manual-target');
-  tgt.style.display = '';
-  tgt.textContent   = `선택: ${sid} ${name}`;
+  xpRenderPicked();
+  input.focus();
 };
 
+window.xpManualRemove = function(sid) {
+  _xpManPicked = _xpManPicked.filter(s => s.sid !== sid);
+  xpRenderPicked();
+};
+
+window.xpManualClear = function() {
+  _xpManPicked = [];
+  xpRenderPicked();
+};
+
+function xpRenderPicked() {
+  const tgt = document.getElementById('xp-manual-target');
+  if (!tgt) return;
+  if (!_xpManPicked.length) { tgt.style.display = 'none'; tgt.innerHTML = ''; return; }
+  tgt.style.display = '';
+  tgt.innerHTML = `
+    <div class="xp-pick-head">
+      <span>지급 대상 ${_xpManPicked.length}명</span>
+      <button type="button" class="xp-pick-clear" onclick="xpManualClear()">전체 지우기</button>
+    </div>
+    <div class="xp-pick-list">
+      ${_xpManPicked.map(s => `<span class="xp-pick-chip">${esc(s.sid)} ${esc(s.name)}
+        <button type="button" title="명단에서 빼기" onclick="xpManualRemove('${esc(s.sid)}')">✕</button></span>`).join('')}
+    </div>`;
+}
+
 window.xpManualAward = async function() {
-  if (!_xpManSel) { alert('학생을 먼저 선택하세요.'); return; }
+  if (!_xpManPicked.length) { alert('학생을 먼저 검색해서 명단에 추가하세요.'); return; }
   const pt   = Number(document.getElementById('xp-manual-pt')?.value) || 0;
   const note = document.getElementById('xp-manual-note')?.value.trim() || '수동 지급';
   if (!pt) { alert('경험치 양을 입력하세요.'); return; }
+  if (_xpManPicked.length > 1 &&
+      !confirm(`${_xpManPicked.length}명에게 ${pt > 0 ? '+' : ''}${pt} pt를 지급할까요?`)) return;
+
   await xpEnsureConfig();
-  const { newTotal, newLevel } = await adminAddXP(rtdb, _xpManSel.sid, _xpManSel.name, pt, note, fbFns, _xpCfg.levels, _xpCfg.levelFormula);
   const res = document.getElementById('xp-manual-result');
-  res.textContent = `완료: ${_xpManSel.name} → 총 ${newTotal} pt (Lv.${newLevel})`;
-  res.style.color = 'var(--success)';
+  const ok = [], fail = [];
+  // 한 명이 실패해도 나머지는 그대로 지급되게 하나씩 처리한다(누가 실패했는지도 알려 준다).
+  for (const s of _xpManPicked) {
+    try {
+      await adminAddXP(rtdb, s.sid, s.name, pt, note, fbFns, _xpCfg.levels, _xpCfg.levelFormula);
+      ok.push(s.name);
+    } catch (e) { fail.push(s.name); }
+  }
+  res.textContent = `완료: ${ok.length}명 지급` + (fail.length ? ` · 실패 ${fail.length}명(${fail.join(', ')})` : '');
+  res.style.color = fail.length ? 'var(--critical)' : 'var(--success)';
+  if (!fail.length) xpManualClear();
   xpManualLogLoad();
 };
 
@@ -6899,7 +7333,13 @@ async function xpManualLogLoad() {
   Object.entries(snap.val() || {}).forEach(([sid, s]) => {
     if (!s.history) return;
     Object.values(s.history).forEach(h => {
-      if (h.type === 'manual') rows.push({ sid, name: s.name || '', ...h });
+      if (h.type !== 'manual') return;
+      // 생각 체크 AI 채점 포인트도 내부적으로는 manual로 기록된다(src로 구분).
+      // 이 표는 "임의 가감용 수동 지급" 확인용이라 생각 체크 건은 빼서 묻히지 않게 한다.
+      // src가 없던 옛 기록까지 걸러내려고 사유 문구도 함께 본다.
+      if (h.src === 'thinkCheck') return;
+      if (/생각\s*체크/.test(h.note || '')) return;
+      rows.push({ sid, name: s.name || '', ...h });
     });
   });
   rows.sort((a, b) => (b.ts || 0) - (a.ts || 0));

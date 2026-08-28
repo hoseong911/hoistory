@@ -54,6 +54,26 @@ service cloud.firestore {
       );
     }
 
+    // ── 공지 열람 기록 + 좋아요 ──
+    //    문서 ID는 "공지ID_학번". 학생은 자기 열람 기록을 만들고 좋아요만 켰다 껐다 한다.
+    //    수정 시 누구의 기록인지(studentId)는 못 바꾸게 고정한다.
+    match /announcement_reads/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.studentId is string &&
+        request.resource.data.studentName is string && request.resource.data.studentName.size() <= 50 &&
+        request.resource.data.annId is string &&
+        request.resource.data.liked is bool
+      );
+      allow update: if isAdmin() || (
+        request.resource.data.studentId == resource.data.studentId &&
+        request.resource.data.annId == resource.data.annId &&
+        request.resource.data.liked is bool &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['liked', 'likedAt', 'readAt', 'studentName', 'classNum'])
+      );
+    }
+
     match /lms_auth/{studentId} {
       allow read: if true;
       allow write: if isAdmin() || (

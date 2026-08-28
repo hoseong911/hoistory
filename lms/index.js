@@ -714,6 +714,14 @@ function startListening() {
     });
   }).catch(() => { sectionData.mission = []; renderAll(); });
 
+  // 0-1. 내 공지 열람·좋아요 기록 (좋아요 버튼 상태 표시용)
+  onSnapshot(query(collection(db, 'announcement_reads'), where('studentId', '==', currentStudentId)), snap => {
+    _annMyReads = {};
+    snap.docs.forEach(d => { const v = d.data(); if (v.annId) _annMyReads[v.annId] = { liked: v.liked === true }; });
+    const modal = document.getElementById('announceDetailModal');
+    if (modal && modal.style.display === 'flex' && _annOpenId) renderAnnounceLike(_annOpenId);
+  }, () => {});
+
   // 3-0. 생각 체크 자동 숨김에 필요한 두 가지를 먼저 받아 둔다.
   //      (수업 스케줄 / 내가 이미 낸 제출물) — 나중에 도착해도 applyThinkVisibility()가
   //      다시 걸러 주므로 순서를 신경 쓰지 않아도 된다.
@@ -1036,6 +1044,52 @@ function renderAnnounceList() {
     btn.addEventListener('click', () => openAnnounceDetail(btn.dataset.id));
   });
 }
+/* ── 공지 열람 기록 + 좋아요 ──
+   글을 열면 "읽었다"를 남기고, 좋아요는 학생이 직접 누른다. 선생님은 어드민에서
+   누가 읽었는지·좋아요를 눌렀는지 명단으로 본다. 문서 ID를 "공지ID_학번"으로 고정해
+   같은 학생이 여러 번 열어도 기록이 한 건만 쌓인다. */
+let _annMyReads = {}; // { [공지ID]: { liked } }
+let _annOpenId  = '';  // 지금 열려 있는 공지(실시간 갱신 때 어느 글을 다시 그릴지)
+
+function annReadDocId(annId) { return `${annId}_${currentStudentId}`; }
+
+async function markAnnounceRead(annId) {
+  if (!currentStudentId) return;
+  try {
+    await setDoc(doc(db, 'announcement_reads', annReadDocId(annId)), {
+      annId, studentId: currentStudentId, studentName: currentStudentName,
+      classNum: String(Math.floor((parseInt(currentStudentId) - 30000) / 100)),
+      liked: _annMyReads[annId]?.liked === true,
+      readAt: serverTimestamp(),
+    }, { merge: true });
+  } catch (_) {}
+}
+
+async function toggleAnnounceLike(annId) {
+  if (!currentStudentId) return;
+  const next = !(_annMyReads[annId]?.liked);
+  _annMyReads[annId] = { ...(_annMyReads[annId] || {}), liked: next }; // 화면은 먼저 바꿔 준다
+  renderAnnounceLike(annId);
+  try {
+    await setDoc(doc(db, 'announcement_reads', annReadDocId(annId)), {
+      annId, studentId: currentStudentId, studentName: currentStudentName,
+      classNum: String(Math.floor((parseInt(currentStudentId) - 30000) / 100)),
+      liked: next, likedAt: serverTimestamp(), readAt: serverTimestamp(),
+    }, { merge: true });
+  } catch (_) {
+    _annMyReads[annId] = { ...(_annMyReads[annId] || {}), liked: !next }; // 실패하면 되돌린다
+    renderAnnounceLike(annId);
+  }
+}
+
+function renderAnnounceLike(annId) {
+  const btn = document.getElementById('announceLikeBtn');
+  if (!btn) return;
+  const liked = _annMyReads[annId]?.liked === true;
+  btn.classList.toggle('liked', liked);
+  btn.querySelector('.alb-txt').textContent = liked ? '좋아요 취소' : '좋아요';
+}
+
 function openAnnounceDetail(id) {
   const a = _announcements.find(x => x.id === id);
   if (!a) return;
@@ -1046,6 +1100,11 @@ function openAnnounceDetail(id) {
     .replace(/https?:\/\/[^\s<&]+/g, url => `<a href="${url}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;font-weight:700">${url}</a>`);
   document.getElementById('announceDetailBody').innerHTML = html;
   document.getElementById('announceDetailModal').style.display = 'flex';
+  _annOpenId = id;
+  renderAnnounceLike(id);
+  const likeBtn = document.getElementById('announceLikeBtn');
+  if (likeBtn) likeBtn.onclick = () => toggleAnnounceLike(id);
+  markAnnounceRead(id);
   if (!_annReadSet.has(id)) {
     _annReadSet.add(id);
     _saveAnnReadSet();
@@ -1054,6 +1113,7 @@ function openAnnounceDetail(id) {
 }
 function closeAnnounceDetail() {
   document.getElementById('announceDetailModal').style.display = 'none';
+  _annOpenId = '';
 }
 document.getElementById('announceDetailClose').addEventListener('click', closeAnnounceDetail);
 document.getElementById('announceDetailModal').addEventListener('click', e => {
@@ -1218,6 +1278,28 @@ function hideThinkCheck() {
   resetThinkButtons();
 }
 
+/* ── 쓰다 만 답 되살리기 ──
+   앱이 꺼지거나 실수로 창을 닫아도 쓰던 글이 날아가지 않게, 입력할 때마다 이 기기에
+   임시 저장해 둔다(서버로 보내지 않는다 — 제출 전 글이라 남의 눈에 띌 이유가 없다).
+   제출이 끝나면 지운다. 강의별·학생별로 따로 보관한다.                              */
+function thinkDraftKey(lectureDocId) {
+  return `lms_think_draft_${currentStudentId}_${lectureDocId}`;
+}
+function saveThinkDraft() {
+  if (!_thinkItem) return;
+  const v = thinkTextarea.value;
+  try {
+    if (v.trim()) localStorage.setItem(thinkDraftKey(_thinkItem.lectureDocId), v);
+    else localStorage.removeItem(thinkDraftKey(_thinkItem.lectureDocId));
+  } catch (_) {}
+}
+function clearThinkDraft(lectureDocId) {
+  try { localStorage.removeItem(thinkDraftKey(lectureDocId)); } catch (_) {}
+}
+function loadThinkDraft(lectureDocId) {
+  try { return localStorage.getItem(thinkDraftKey(lectureDocId)) || ''; } catch (_) { return ''; }
+}
+
 async function openThinkModal(item) {
   _thinkItem  = item; _thinkStart = Date.now(); _thinkCheat = 0;
   document.getElementById('thinkModalTitle').textContent    = stripEmph(item.lectureTitle);
@@ -1227,7 +1309,11 @@ async function openThinkModal(item) {
   else { refEl.style.display = 'none'; }
 
   const ta = document.getElementById('thinkTextarea');
-  ta.value = '';
+  // 지난번에 쓰다 만 글이 있으면 그대로 되살린다.
+  const draft = loadThinkDraft(item.lectureDocId);
+  ta.value = draft;
+  const draftNote = document.getElementById('thinkDraftNote');
+  if (draftNote) draftNote.style.display = draft ? '' : 'none';
   document.getElementById('thinkWriteArea').style.display   = 'flex';
   document.getElementById('thinkDoneBox').style.display     = 'none';
   document.getElementById('thinkDoneMsg').textContent       = '✓ 제출 완료! 잘 했어요.';
@@ -1271,7 +1357,10 @@ document.getElementById('thinkModal').addEventListener('click', e => { if (e.tar
 
 const thinkTextarea = document.getElementById('thinkTextarea');
 const THINK_MAX_CHARS = 1000;
-thinkTextarea.addEventListener('input', updateThinkMeta);
+thinkTextarea.addEventListener('input', () => { updateThinkMeta(); saveThinkDraft(); });
+// 창을 닫거나 앱이 백그라운드로 넘어가는 순간에도 한 번 더 확실히 저장한다.
+window.addEventListener('pagehide', saveThinkDraft);
+document.addEventListener('visibilitychange', () => { if (document.hidden) saveThinkDraft(); });
 thinkTextarea.addEventListener('paste', e => e.preventDefault());
 
 function updateThinkMeta() {
@@ -1459,6 +1548,7 @@ async function doThinkSubmit(triggerId) {
       spellFixed: _thinkFixed, hasProfanity: _thinkProfane,
       isPicked: false, createdAt: serverTimestamp(), source: 'lms'
     }), 20000);
+    clearThinkDraft(_thinkItem.lectureDocId); // 제출됐으니 임시 저장본은 지운다
     document.getElementById('thinkWriteArea').style.display = 'none';
     document.getElementById('thinkDoneBox').style.display   = 'block';
   } catch(err) {

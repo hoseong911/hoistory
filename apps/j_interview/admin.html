@@ -100,11 +100,25 @@
    반이 아주 많아지면 태그 묶음 안에서만 줄바꿈되고, 통계 칩은 계속 같은 줄에 남는다. */
 .ans-head { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: nowrap; margin-bottom: 16px; }
 .ans-head .class-filter, .ans-head .stats-row { margin-bottom: 0; }
-.ans-head .class-filter { flex: 0 1 auto; min-width: 0; }
+/* 반 태그는 줄바꿈하지 않는다. 폭이 모자라면 태그 묶음 안에서만 옆으로 밀어 볼 수 있게
+   가로 스크롤로 흘리고(스크롤바는 숨김), 통계 칩은 계속 같은 줄에 남게 한다. */
+.ans-head .class-filter {
+  flex: 0 1 auto; min-width: 0; flex-wrap: nowrap;
+  overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;
+}
+.ans-head .class-filter::-webkit-scrollbar { display: none; }
+.ans-head .class-filter .cf-btn { flex: 0 0 auto; }
 .ans-head .stats-row { flex: 0 0 auto; flex-wrap: nowrap; }
 @media (max-width: 640px) { .ans-head { flex-wrap: wrap; } }
 .stats-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center; margin-bottom: 16px; }
-.stat-chip { background: var(--hi-bg-card); border: 1px solid var(--hi-border); border-radius: 12px; padding: 10px 16px; font-size: 14px; color: var(--hi-text-muted); min-width: 80px; text-align: center; }
+/* 칩 안의 숫자는 반을 "전체"로 바꾸면 한 자리에서 세 자리까지 늘어난다. 그때마다 칩 폭이
+   달라지면 줄이 밀려 두 줄이 됐다. 숫자마다 세 자리분 폭을 미리 잡아 두어, 값이 바뀌어도
+   칩 크기가 그대로 유지되게 한다. */
+.stat-chip { background: var(--hi-bg-card); border: 1px solid var(--hi-border); border-radius: 12px; padding: 10px 16px; font-size: 14px; color: var(--hi-text-muted); min-width: 80px; text-align: center; white-space: nowrap; flex-shrink: 0; }
+.stat-combo .thc-o, .stat-combo .thc-g, .stat-combo .thc-r, .thc-star-n {
+  display: inline-block; min-width: 2.6ch; text-align: center;
+  font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1;
+}
 .stat-combo { display: inline-flex; align-items: baseline; justify-content: center; gap: 6px; }
 .stat-combo .thc-o { font-size: 18px; font-weight: 800; color: var(--iv-primary); }
 .stat-combo .thc-g { font-size: 18px; font-weight: 800; color: #0E9F6E; }
@@ -153,6 +167,12 @@
    넘어간다(따로 두면 "픽 모아보기"만 혼자 떨어져 어수선해진다). */
 .ans-right-group { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .adm-action-row .ans-right-group .sort-box { margin-left: 0; }
+/* 버튼 줄도 한 줄로. "채점하기 (12명)"처럼 문구가 길어져도 아래로 접히지 않게 하고,
+   정말 좁으면 옆으로 밀어 본다(스크롤바는 숨김). */
+.adm-action-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.adm-action-row::-webkit-scrollbar { display: none; }
+.adm-action-row > *, .ans-right-group > * { flex-shrink: 0; }
+.adm-action-row .hi-btn, .adm-action-row .filter-toggle, .adm-action-row .sort-btn { white-space: nowrap; }
 
 /* ── 반 필터 ── */
 .class-filter { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; margin-bottom: 16px; }
@@ -1385,6 +1405,34 @@ window.setAnswerSort=(s)=>{
   document.getElementById('sortSid').classList.toggle('active',s==='sid');
   renderStudentList();
 };
+/* 버튼 폭 고정 (lms/admin.js watchButtonWidths와 같은 방식) —
+   "채점하기" → "채점하기 (12명)" → "채점 중…"처럼 문구가 바뀌는 버튼이 여럿이라, 그때마다
+   폭이 달라지면 옆 버튼이 밀리고 줄이 통째로 출렁인다. 버튼마다 지금까지 본 가장 넓은
+   폭을 min-width로 박아 두고 다시는 줄어들지 않게 한다. 문구를 바꾸는 곳이 스무 군데라
+   각 호출부를 고치는 대신 글자 변화를 한 곳에서 감시한다. */
+function ivPinButton(btn){
+  if(!btn||btn.offsetParent===null)return;      // 안 보이는 버튼은 폭이 0이라 의미 없다
+  const w=btn.getBoundingClientRect().width;
+  if(!w)return;
+  if(w>parseFloat(btn.dataset.wpin||0)+0.5){ btn.dataset.wpin=w; btn.style.minWidth=Math.ceil(w)+'px'; }
+}
+function ivWatchButtonWidths(){
+  document.querySelectorAll('button').forEach(ivPinButton);
+  new MutationObserver(muts=>{
+    const seen=new Set();
+    muts.forEach(m=>{
+      const node=m.target.nodeType===1?m.target:m.target.parentElement;
+      const btn=node&&node.closest?node.closest('button'):null;
+      if(btn&&!seen.has(btn)){seen.add(btn);ivPinButton(btn);}
+    });
+  }).observe(document.body,{subtree:true,childList:true,characterData:true});
+}
+// 탭을 처음 열면 그때야 버튼이 보이므로(숨은 동안엔 폭이 0), 탭이 바뀔 때 다시 재 둔다.
+document.querySelectorAll('.adm-tab').forEach(b=>b.addEventListener('click',()=>{
+  requestAnimationFrame(()=>document.querySelectorAll('.tab-panel.active button').forEach(ivPinButton));
+}));
+ivWatchButtonWidths();
+
 window.toggleAnswerPickOnly=()=>{
   answerPickOnly=!answerPickOnly;
   document.getElementById('answerPickOnlyBtn').classList.toggle('active',answerPickOnly);
