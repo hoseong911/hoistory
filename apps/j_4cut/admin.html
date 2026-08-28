@@ -377,14 +377,17 @@ function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 
 /* ── 이미지 업로드 / 삭제 ──
    세로로 긴 그림이라 긴 변 기준으로 줄인다. 문서 상한에 걸리지 않을 때까지
-   품질을 낮춰가며 다시 굽는다. */
+   품질을 낮춰가며 다시 굽는다.
+   첫 단이 2400인 이유 — 네 컷 세로 만화는 대개 긴 변이 2000~2200px이라 그대로 통과한다.
+   여기서 더 줄이면 완성 이미지에서 스트립을 968px 폭으로 그릴 때 확대돼 흐려진다.
+   (724x2172 q.82 = base64 452KB로 상한 900KB의 절반만 쓴다) */
 document.getElementById('fcImgInput').onchange=async e=>{
   const file=e.target.files[0];if(!file)return;
   const status=document.getElementById('fcImgStatus');
   status.className='fc-upstatus';status.textContent='불러오는 중…';
   try{
     let url=null;
-    for(const[max,q]of[[1600,.82],[1400,.75],[1200,.7],[1000,.65]]){
+    for(const[max,q]of[[2400,.82],[2000,.8],[1600,.78],[1400,.72],[1200,.68],[1000,.62]]){
       url=await downscale(file,max,q);
       if(url.length<=IMG_WARN_BYTES)break;
     }
