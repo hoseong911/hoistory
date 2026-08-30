@@ -200,8 +200,6 @@
 .stu-card.open .stu-body { display: block; }
 .stu-status-btns { display: flex; gap: 6px; justify-content: center; margin: 12px 0 14px; }
 .ssb { padding: 6px 14px; border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 700; border: 1.5px solid transparent; cursor: pointer; transition: .15s; }
-.ssb-pass { background: var(--iv-pass-l); color: var(--iv-pass); border-color: rgba(34,197,94,.2); } .ssb-pass.active,.ssb-pass:hover { background: var(--iv-pass); color: #000; }
-.ssb-insuf { background: var(--iv-insuf-l); color: var(--iv-insuf); border-color: rgba(243,114,127,.2); } .ssb-insuf.active,.ssb-insuf:hover { background: var(--iv-insuf); color: #fff; }
 .ssb-pick { background: var(--iv-pick-l); color: var(--iv-pick); border-color: rgba(177,140,242,.2); } .ssb-pick.active,.ssb-pick:hover { background: var(--iv-pick); color: #000; }
 .ans-block { margin-bottom: 14px; }
 .ans-q-label { font-size: 12px; font-weight: 800; color: var(--iv-primary-deep); margin-bottom: 4px; }
@@ -242,24 +240,21 @@
   border-width: 1.5px; border-style: solid;
 }
 /* ── 카드 상단 바의 통과/미흡 토글 ──
-   예전엔 채점 버튼이 카드를 펼쳐야(.stu-body) 나왔다. 채점을 고치려면 매번 카드를
-   열어야 해서, 잘못 매긴 걸 바로잡기가 번거로웠다. 이제 상단 바에 항상 띄워 두고
-   한 번 눌러 통과↔미흡을 바꾼다. 이미 켜진 쪽을 다시 누르면 '미채점'으로 되돌린다
-   (성적 체크는 미채점 학생을 빈칸으로 두므로, 판단을 보류하고 싶을 때 쓸 수 있다). */
-.std-grade-toggle { display: inline-flex; flex-shrink: 0; gap: 4px; }
-.std-grade-toggle .sgt {
+   예전엔 '통과'와 '미흡' 배지를 둘 다 띄워 놓고 선택 안 된 쪽을 회색으로 눌러 뒀는데,
+   배지가 두 개라 지금 상태가 무엇인지 한눈에 안 들어왔다. 지금은 배지 하나만 두고 그
+   배지에 현재 상태(통과/미흡/미채점)를 적는다. 누를 때마다 통과 → 미흡 → 미채점 →
+   통과 순으로 돈다. */
+.sgt {
+  display: inline-block; flex-shrink: 0; white-space: nowrap;
   padding: 3px 10px; border-radius: 100px; cursor: pointer;
   font-family: inherit; font-size: 11px; font-weight: 700; line-height: 1.5;
   border-width: 1.5px; border-style: solid; transition: .15s;
 }
-.std-grade-toggle .sgt-pass  { background: var(--iv-pass-l);  color: var(--iv-pass);  border-color: rgba(34,197,94,.35); }
-.std-grade-toggle .sgt-insuf { background: var(--iv-insuf-l); color: var(--iv-insuf); border-color: rgba(243,114,127,.35); }
-/* 선택 안 된 쪽은 회색으로 눌러 두어, 지금 상태가 한눈에 보이게 한다. */
-.std-grade-toggle .sgt:not(.active) { background: transparent; color: var(--hi-text-muted); border-color: var(--hi-border); }
-.std-grade-toggle .sgt-pass.active  { background: var(--iv-pass);  color: #000; border-color: var(--iv-pass); }
-.std-grade-toggle .sgt-insuf.active { background: var(--iv-insuf); color: #fff; border-color: var(--iv-insuf); }
-.std-grade-toggle .sgt:hover { filter: brightness(0.96); }
-.std-grade-toggle .sgt[disabled] { opacity: .55; cursor: progress; }
+.sgt-pass  { background: var(--iv-pass);  color: #000; border-color: var(--iv-pass); }
+.sgt-insuf { background: var(--iv-insuf); color: #fff; border-color: var(--iv-insuf); }
+.sgt-none  { background: transparent; color: var(--hi-text-muted); border-color: var(--hi-border); }
+.sgt:hover { filter: brightness(0.96); }
+.sgt[disabled] { opacity: .55; cursor: progress; }
 
 /* 액션바는 상단 바 오른쪽 끝에 가로로 눕힌다. */
 .std-card-head .std-actions { flex-direction: row; align-items: center; gap: 2px; margin-left: auto; align-self: center; }
@@ -1084,6 +1079,11 @@ function autoScore(s){
 }
 
 /* ─────────── 학생 목록 ─────────── */
+function sgtClass(status){
+  if(status==='pass')return'sgt-pass';
+  if(status==='fail')return'sgt-insuf';
+  return'sgt-none';
+}
 function statusBadgeClass(status){
   if(status==='pass')return'sb-pass';
   if(status==='fail')return'sb-insuf';
@@ -1135,10 +1135,9 @@ function renderStudentList(){
         <div class="std-status">
           ${formatSubmitTime(s)?`<span class="std-meta-time">${formatSubmitTime(s)}</span>`:''}
           ${char?`<span class="std-badge char-c${charIdx%6}">${escHtml(s.charName||s.charId||'')}</span>`:''}
-          <span class="std-grade-toggle" onclick="event.stopPropagation()">
-            <button type="button" class="sgt sgt-pass${status==='pass'?' active':''}"  data-sid="${s.studentId}" data-st="pass"  onclick="setSsb(this)">통과</button>
-            <button type="button" class="sgt sgt-insuf${status==='fail'?' active':''}" data-sid="${s.studentId}" data-st="fail"  onclick="setSsb(this)">미흡</button>
-          </span>
+          <button type="button" class="sgt ${sgtClass(status)}" data-sid="${s.studentId}"
+                  title="누를 때마다 통과 → 미흡 → 미채점 순으로 바뀝니다"
+                  onclick="event.stopPropagation();cycleGrade(this,'${status||''}')">${statusLabel(status)}</button>
           ${picked?'<span class="status-badge sb-pick">PICK</span>':''}
         </div>
         <div class="std-actions" onclick="event.stopPropagation()">
@@ -1152,8 +1151,6 @@ function renderStudentList(){
       <div class="std-answers">${s.charId&&qs.length?ansHtml:'<div class="std-nosub">미제출</div>'}</div>
       <div class="stu-body" style="display:none; padding:0 14px 12px;">
         <div class="stu-status-btns">
-          <button class="ssb ssb-pass${status==='pass'?' active':''}" data-sid="${s.studentId}" data-st="pass" onclick="event.stopPropagation();setSsb(this)">통과</button>
-          <button class="ssb ssb-insuf${status==='fail'?' active':''}" data-sid="${s.studentId}" data-st="fail" onclick="event.stopPropagation();setSsb(this)">미흡</button>
           <button class="ssb ssb-pick${picked?' active':''}" data-sid="${s.studentId}" onclick="event.stopPropagation();togglePickStatus(this,'${s.studentId}',${picked})">PICK</button>
         </div>
         ${s.deepQuestion?`<div class="deep-block">
@@ -1170,13 +1167,14 @@ window.toggleCard=(card)=>{
   body.style.display=body.style.display==='none'?'':'none';
 };
 
-/* 통과/미흡 토글. 이미 켜진 쪽을 다시 누르면 '미채점'(pending)으로 되돌린다.
+/* 통과/미흡 토글. 배지 하나를 누를 때마다 통과 → 미흡 → 미채점 순으로 돈다.
    문서를 고치면 onSnapshot이 목록을 다시 그리므로 여기서 화면을 직접 손대지 않는다.
    같은 컬렉션을 LMS 성적 체크(미션 자동 연동)도 구독하고 있어, 여기서 누른 결과가
-   열려 있는 성적 표에 그대로 따라 바뀐다. */
-window.setSsb=async(btn)=>{
+   열려 있는 성적 표의 미션 달성 체크에 그대로 따라 바뀐다. */
+const GRADE_CYCLE={ '':'pass', pending:'pass', pass:'fail', fail:'pending' };
+window.cycleGrade=async(btn,current)=>{
   const sid=btn.dataset.sid;
-  const next=btn.classList.contains('active')?'pending':btn.dataset.st;
+  const next=GRADE_CYCLE[current||'']||'pass';
   btn.disabled=true;
   try{await updateDoc(doc(db,'interview_joseon_answers',sid),{status:next});}
   catch(err){alert('오류: '+err.message);}

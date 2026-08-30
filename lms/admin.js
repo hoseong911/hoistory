@@ -3879,8 +3879,7 @@ function thScheduledDate(icon, classNum) {
 // 달라서 여기 한 곳에 표로 모아 둔다(새 앱을 연동하려면 이 표에 한 줄 추가).
 //   coll       : 학생 제출물이 쌓이는 Firestore 컬렉션
 //   timeFields : 제출 시각 필드 — 앞에서부터 먼저 값이 있는 걸 쓴다(기한 판정과 제출시간 표시용)
-//   graded     : true면 status('pass'/'fail') 채점 결과를 따르고, 아직 채점 안 된 학생은
-//                건드리지 않는다(선생님이 직접 판단하도록 빈칸으로 남김).
+//   graded     : true면 status('pass'/'fail') 채점 결과를 그대로 따른다(아직 채점 전이면 미달성).
 //                false면 채점 기능이 없는 앱이라 제출 자체를 달성으로 본다.
 const MISSION_SOURCES = {
   j_interview:   { coll: 'interview_joseon_answers', timeFields: ['submittedAt'],            graded: true  },
@@ -3906,7 +3905,7 @@ function missionToDate(v) {
 
 // 이 강의(lessonKey)에 연결된 미션 앱들의 제출 데이터를 읽어 학생별 판정을 돌려준다.
 // 반환값: { map: { [학번]: { achieved, onTime, at } }, apps: [연동된 앱 이름] }
-// map에서 빠져 있는 학번은 "빈칸"(아직 채점 전이라 선생님 판단으로 남긴 것).
+// map에서 빠져 있는 학번은 판정 보류(제출 컬렉션을 읽지 못한 경우) — 표를 건드리지 않는다.
 async function missionAutoDetect(lessonKey) {
   const empty = { map: {}, apps: [] };
   const cat = await getMissionCategoryKey();
@@ -3956,10 +3955,10 @@ async function missionAutoDetect(lessonKey) {
       if (!docs.length) { achieved = false; onTime = false; continue; } // 미제출
 
       if (src.graded) {
-        const statuses = docs.map(d => d.status);
-        // 하나라도 아직 채점 전(pending 등)이면 선생님 판단으로 남긴다.
-        if (statuses.some(st => st !== 'pass' && st !== 'fail')) { blank = true; break; }
-        if (!statuses.every(st => st === 'pass')) achieved = false; // 전부 통과해야 달성
+        // 아직 채점 전(pending 등)이면 미달성으로 둔다. 예전에는 "선생님 판단"으로 빈칸에
+        // 남겨 뒀는데, 그러면 채점 결과가 표에 따라오지 않아 손이 더 갔다. 지금은 웹앱
+        // 어드민에서 통과/미흡을 누르는 순간 실시간 구독이 이 값을 다시 계산한다.
+        if (!docs.every(d => d.status === 'pass')) achieved = false; // 전부 통과해야 달성
       }
 
       // 제출 시각은 가장 이른 것을 기준으로 삼는다 — 수업 시간에 한 번 냈으면, 나중에
@@ -4026,12 +4025,16 @@ async function thinkAutoDetect(thinkDocId) {
    누르는 순간에만 한 번 돌아서, 채점을 고친 뒤 표를 새로 불러오지 않으면 옛 값이
    그대로 남아 있었다(선생님이 반영이 안 된다고 느끼는 지점).
 
-   이미 저장된 학생(_gradeSavedSet)은 여기서도 건드리지 않는다 — 선생님이 표에서 손으로
-   고쳐 둔 값을 웹앱 채점이 덮어쓰면 안 되기 때문(불러오기 때와 같은 규칙). */
+   예전에는 "이미 저장된 기록이 있는 학생"을 통째로 잠갔는데(_gradeSavedSet), 저장할 때
+   개념/미션/생각을 학생 전원에 대해 한꺼번에 쓰기 때문에 [성적 반영]을 한 번이라도 누른
+   강의는 그 순간부터 자동 감지가 영구히 죽어 버렸다. 지금은 웹앱 채점이 언제나 기준이고,
+   이번 세션에 표에서 직접 체크를 만진 학생만 예외로 지킨다. 점수를 고칠 일이 있으면
+   웹앱 어드민(예: 인터뷰 ANSWER)에서 고치면 표가 그대로 따라온다. */
 let _missionUnsubs   = [];
-let _gradeSavedSet   = new Set(); // 불러온 시점에 "이미 저장된 채점"이 있던 학번
-let _gradeAutoSaved  = new Set(); // 이번 세션에 실시간 반영으로 자동 저장한 학번
-let _gradeManualEdit = new Set(); // 이번 세션에 선생님이 표에서 손으로 고친 학번
+// 이번 세션에 선생님이 손으로 고친 칸. 항목별로 잠가야 한다 — 생각 체크를 손으로 뒤집었다고
+// 인터뷰 미션 채점까지 따라오지 않으면 곤란하므로, 'sid|mission' 같은 열쇠로 따로 담는다.
+let _gradeManualEdit = new Set();
+const gradeEditKey = (sid, block) => `${sid}|${block}`;
 
 function stopMissionLive() {
   _missionUnsubs.forEach(u => { try { u(); } catch (_) {} });
@@ -4039,12 +4042,10 @@ function stopMissionLive() {
 }
 
 // 이 학생의 값을 자동 감지 결과로 덮어써도 되는가.
-// 선생님이 손으로 고친 값(이번 세션의 체크박스 조작, 또는 예전에 저장해 둔 기록)은 지킨다.
-// 다만 실시간 반영이 스스로 저장한 학생은 계속 따라가야 하므로 예외로 둔다.
-function gradeCanAutoApply(sid) {
+// 결석 처리와, 이번 세션에 표에서 직접 만진 체크만 지킨다(그 외에는 웹앱 채점이 기준).
+function gradeCanAutoApply(sid, block) {
   if (!_gradeRecords[sid] || _gradeRecords[sid].absent) return false;
-  if (_gradeManualEdit.has(sid)) return false;
-  return !_gradeSavedSet.has(sid) || _gradeAutoSaved.has(sid);
+  return !_gradeManualEdit.has(gradeEditKey(sid, block));
 }
 
 // 이 강의에 연결된 미션 앱들의 제출 컬렉션 이름을 돌려준다(중복 제거).
@@ -4082,10 +4083,10 @@ async function gradeLiveRefresh(lessonKey) {
     try {
       const res = await missionAutoDetect(lessonKey);
       if (_gradeLessonKey !== lessonKey) return;
-      apps = res.apps; filled = Object.keys(res.map).length;
+      apps = res.apps; filled = Object.values(res.map).filter(v => v.achieved).length;
       Object.entries(res.map).forEach(([sid, v]) => {
         if (v.at) _gradeMissionTimes[sid] = v.at;
-        if (gradeCanAutoApply(sid)) mark(sid, 'mission', v.achieved, v.onTime);
+        if (gradeCanAutoApply(sid, 'mission')) mark(sid, 'mission', v.achieved, v.onTime);
       });
     } catch (_) {}
   }
@@ -4095,7 +4096,7 @@ async function gradeLiveRefresh(lessonKey) {
       if (_gradeLessonKey !== lessonKey) return;
       Object.assign(_gradeThinkTimes, res.times);
       Object.entries(res.map).forEach(([sid, v]) => {
-        if (gradeCanAutoApply(sid)) mark(sid, 'think', v.achieved, v.onTime);
+        if (gradeCanAutoApply(sid, 'think')) mark(sid, 'think', v.achieved, v.onTime);
       });
     } catch (_) {}
   }
@@ -4130,8 +4131,6 @@ async function gradePushLive(sids) {
         updatedAt: serverTimestamp(),
       }, { merge: true });
     }));
-    // 자동으로 저장한 학생은 앞으로도 계속 자동 감지를 따라가야 한다(gradeCanAutoApply 참고).
-    targets.forEach(sid => _gradeAutoSaved.add(sid));
     const clsSet = [...new Set(targets.map(sid => Math.floor((parseInt(sid) - 30000) / 100)))];
     await Promise.all(clsSet.map(c =>
       setDoc(doc(db, 'grade_publish_status', `${_gradeLessonKey}_${c}`), {
@@ -4193,10 +4192,9 @@ async function startMissionLive(lessonKey) {
 }
 
 // 미션 자동 연동이 실제로 걸렸는지 강의 선택 줄 아래에 알려 준다. 연결이 안 됐는데 표가
-// 전부 빈칸으로 보이면 선생님이 원인을 알 수 없어서, 왜 비었는지까지 문구로 남긴다.
-// 연동된 앱 이름 뒤에 (채점 N / 미채점 N)을 붙인다. 표가 비어 보일 때 "연결이 안 된 건지,
-// 아직 채점을 안 한 건지"를 한눈에 구분하려는 것 — 미채점자는 표에서 빈칸으로 남는다.
-function renderMissionLinkNote(apps, filledCount, live) {
+// 전부 미달성으로 보이면 선생님이 원인을 알 수 없어서, 연동된 앱 이름과 지금 반영된
+// 달성/미달성 인원을 같이 남긴다(문구 자체가 안 뜨면 그 강의에 연결된 미션 카드가 없다는 뜻).
+function renderMissionLinkNote(apps, achievedCount, live) {
   const el = document.getElementById('gradeMissionLinkNote');
   if (!el) return;
   if (!apps || !apps.length) {
@@ -4204,12 +4202,12 @@ function renderMissionLinkNote(apps, filledCount, live) {
     el.textContent = '';
     return;
   }
-  const total   = _gradeStudents.filter(s => s.id !== '00000').length;
-  const pending = Math.max(0, total - filledCount);
+  const total = _gradeStudents.filter(s => s.id !== '00000').length;
+  const rest  = Math.max(0, total - achievedCount);
   const now = new Date();
   const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   el.style.display = '';
-  el.textContent = `${apps.join(', ')} (채점 ${filledCount} / 미채점 ${pending})`
+  el.textContent = `${apps.join(', ')} (달성 ${achievedCount} / 미달성 ${rest})`
     // 웹앱에서 채점을 고쳐 표가 저절로 바뀐 경우, 언제 따라왔는지 남겨 둔다.
     + (live ? ` · 반영 ${hhmm}` : '');
 }
@@ -4445,7 +4443,6 @@ async function loadGradeData() {
     _gradeRecords      = {};
     _gradeThinkTimes   = {};
     _gradeMissionTimes = {};
-    _gradeAutoSaved    = new Set();
     _gradeManualEdit   = new Set();
     _gradeStudents.forEach(s => {
       _gradeRecords[s.id] = {
@@ -4462,7 +4459,6 @@ async function loadGradeData() {
       collection(db, 'grade_records'),
       where('lessonKey', '==', _gradeLessonKey)
     ));
-    const savedSet = new Set();
     existing.docs.forEach(d => {
       const r = d.data();
       if (_gradeRecords[r.studentId]) {
@@ -4473,12 +4469,16 @@ async function loadGradeData() {
           absent:  r.absent  || false,
           feedback: r.feedback || '',
         };
-        // 피드백만 먼저 저장된 문서(concept/mission/think 없음)는 "채점 저장됨"으로 치지 않는다.
-        // 여기에 넣어버리면 아래 자동감지가 onTime을 건너뛰어 제출했는데도 기한 체크가 빠진다.
-        if (r.concept || r.mission || r.think) savedSet.add(r.studentId);
       }
     });
-    _gradeSavedSet = savedSet; // 실시간 반영(startMissionLive)도 같은 기준을 써야 한다
+
+    // 자동 감지가 저장된 값을 무엇으로 바꿨는지 나중에 비교하려고 "불러온 직후" 상태를 떠 둔다.
+    // 달라진 학생은 이미 반영된 반이라면 아래에서 학생 성적까지 곧바로 갱신한다.
+    const blockKey = b => `${b.achieved ? 1 : 0}${b.onTime ? 1 : 0}`;
+    const loadedSnapshot = {};
+    Object.keys(_gradeRecords).forEach(sid => {
+      loadedSnapshot[sid] = blockKey(_gradeRecords[sid].mission) + blockKey(_gradeRecords[sid].think);
+    });
 
     // 생각체크 자동감지 (제출시간 수집)
     // thinkVerdict() 기준대로 달성(achieved)·기한(onTime)을 함께 계산한다(통과/미흡(지연 제출)/
@@ -4488,25 +4488,25 @@ async function loadGradeData() {
       const { map, times } = await thinkAutoDetect(thinkDocId);
       Object.assign(_gradeThinkTimes, times);
       Object.entries(map).forEach(([sid, v]) => {
-        if (!_gradeRecords[sid]) return;
+        if (!gradeCanAutoApply(sid, 'think')) return;
         _gradeRecords[sid].think.achieved = v.achieved;
-        if (!savedSet.has(sid)) _gradeRecords[sid].think.onTime = v.onTime;
+        _gradeRecords[sid].think.onTime   = v.onTime;
       });
     }
 
     // 미션체크 자동감지 — 연결된 미션 앱(MISSION_SOURCES)의 제출·채점 결과를 그대로 가져온다.
-    // 이미 저장된 채점 기록이 있는 학생(savedSet)은 선생님이 손으로 고친 값일 수 있어 덮어쓰지 않는다.
+    // 웹앱 어드민의 채점이 언제나 기준이다(결석 학생만 미달성 고정 — gradeCanAutoApply 참고).
     stopMissionLive(); // 이전 강의에 걸어 둔 실시간 구독은 정리하고 다시 건다
     if (missionEnabled) {
       try {
         const { map, apps } = await missionAutoDetect(_gradeLessonKey);
         Object.entries(map).forEach(([sid, v]) => {
           if (v.at) _gradeMissionTimes[sid] = v.at;
-          if (savedSet.has(sid) || _gradeRecords[sid].absent) return; // 결석은 미달성 고정
+          if (!gradeCanAutoApply(sid, 'mission')) return;
           _gradeRecords[sid].mission.achieved = v.achieved;
           _gradeRecords[sid].mission.onTime   = v.onTime;
         });
-        renderMissionLinkNote(apps, Object.keys(map).length);
+        renderMissionLinkNote(apps, Object.values(map).filter(v => v.achieved).length);
       } catch(e) { renderMissionLinkNote([], 0); }
     } else {
       renderMissionLinkNote([], 0);
@@ -4545,6 +4545,13 @@ async function loadGradeData() {
     renderGradePublishBar(cur);
     document.getElementById('gradeCheckActions').style.display = 'flex';
     refreshGradeSettingsLectures();
+
+    // 불러오는 사이에 웹앱 채점이 바뀌어 저장된 값과 달라졌다면, 이미 반영한 반은
+    // [갱신]을 따로 누르지 않아도 학생 성적까지 바로 맞춰 둔다(안 한 반은 표만 바뀐다).
+    const drifted = Object.keys(_gradeRecords).filter(sid =>
+      loadedSnapshot[sid] !== undefined &&
+      loadedSnapshot[sid] !== blockKey(_gradeRecords[sid].mission) + blockKey(_gradeRecords[sid].think));
+    if (drifted.length) await gradePushLive(drifted);
   } catch(e) {
     alert('불러오기 실패: ' + e.message);
   } finally {
@@ -4844,7 +4851,7 @@ function renderGradeTable() {
     cb.addEventListener('change', e => {
       const { sid, t, f } = e.target.dataset;
       if (_gradeRecords[sid]) _gradeRecords[sid][t][f] = e.target.checked;
-      _gradeManualEdit.add(sid); // 손으로 고친 값은 실시간 자동 감지가 덮어쓰지 않는다
+      _gradeManualEdit.add(gradeEditKey(sid, t)); // 손으로 고친 칸은 자동 감지가 덮어쓰지 않는다
       syncGradeAllCb();
       if (f === 'achieved') renderGradeStats();
     });
@@ -4863,7 +4870,7 @@ function renderGradeTable() {
         if (_gradeRecords[sid]?.absent) return;
         c.checked = checked;
         if (_gradeRecords[sid]) _gradeRecords[sid][t][f] = checked;
-        _gradeManualEdit.add(sid);
+        _gradeManualEdit.add(gradeEditKey(sid, t));
       });
       syncGradeAllCb();
       if (f === 'achieved') renderGradeStats();
@@ -4881,7 +4888,8 @@ function renderGradeTable() {
       const sid = td.dataset.sid;
       const r = _gradeRecords[sid];
       if (!r) return;
-      _gradeManualEdit.add(sid); // 결석 처리도 선생님 판단이므로 자동 감지가 덮어쓰지 않게 한다
+      // 결석 처리도 선생님 판단이므로 자동 감지가 덮어쓰지 않게 한다(해제해도 그대로 둔다).
+      ['concept', 'mission', 'think'].forEach(b => _gradeManualEdit.add(gradeEditKey(sid, b)));
       r.absent = !r.absent;
       if (r.absent) {
         r.concept.achieved = false; r.concept.onTime = false;
@@ -6746,26 +6754,102 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
     }
   }
 
+  // 교사가 손으로 통과/미흡을 뒤집었을 때 같이 움직여야 하는 것 두 가지 —
+  // (1) 포인트: 미흡으로 내리면 이 강의로 준 생각 체크 포인트를 회수하고,
+  //     통과로 올리면(회수됐거나 애초에 0점이면) 10포인트를 준다.
+  // (2) 성적 체크의 "달성" 체크: thSyncGradeAchieved()가 표를 고치고, 이미 반영된
+  //     반이면 학생 성적 문서까지 바로 갱신한다.
+  const THINK_OVERRIDE_PT = 10;
+
   window.thToggleOverride = async function(subId, value) {
-    if (thOverrides[subId] === value) delete thOverrides[subId]; else thOverrides[subId] = value;
+    const newVal = thOverrides[subId] === value ? null : value;
+    if (newVal === null) delete thOverrides[subId]; else thOverrides[subId] = newVal;
     await thSaveOverrides();
     thUpdateGradeSummary(); thRenderGradeBody(); window.thRenderAnswerClass();
-    thSyncGradeAchieved(subId);
+    await thSyncGradeAchieved(subId);
+    try { await thApplyOverrideXP(subId, newVal); } catch (e) { console.warn('토글 포인트 반영 실패:', e); }
+    thRenderGradeBody();
   };
 
-  // 성적 표(성적 체크)가 같은 생각 체크 강의로 로드돼 있으면, 이탈 통과/미흡 토글 즉시
-  // 해당 학생의 "달성" 체크를 다시 계산해 표와 통계를 갱신한다(불러오기 다시 안 해도 됨).
-  function thSyncGradeAchieved(subId) {
+  // 이 학생이 이 강의 생각 체크로 지금 들고 있는 포인트가 있는지 본다(회수 후 재지급 판단용).
+  async function thHasLectureXP(sid, match) {
+    try {
+      const snap = await fbFns.get(fbFns.ref(rtdb, `xp/students/${sid}/history`));
+      if (!snap.exists()) return false;
+      const hist = snap.val() || {};
+      return Object.keys(hist).some(k => hist[k] && match(hist[k]) && (Number(hist[k].pt) || 0) > 0);
+    } catch (e) { return false; }
+  }
+
+  /* 토글에 따라 포인트를 맞춘다. 되돌릴 수 있어야 하므로 "지금 토글이 만들어 둔 효과"를
+     제출 문서에 적어 둔다(ovrState / ovrRemovedPt / ovrGrantedPt). 토글을 바꾸거나 해제할
+     때는 이전 효과를 먼저 되돌린 뒤 새 효과를 적용해, 여러 번 눌러도 포인트가 어긋나지 않는다. */
+  async function thApplyOverrideXP(subId, newVal) {
+    const sub = (thSubs || []).find(x => x.subId === subId);
+    const lecId = thGradeCtx.lecId;
+    const lec = thLectures.find(l => l.docId === lecId);
+    if (!sub || !lec) return;
+    const prev = sub.ovrState || null;
+    if (prev === newVal) return;
+
+    await xpEnsureConfig();
+    const lecTitle = cleanTitle(lec.title);
+    // thRegrade()와 같은 조건 — src/lecId 표식이 없던 예전 지급분은 note로 잡는다.
+    const legacyNotes = [`생각 체크: ${lecTitle}`, `생각 체크 재채점(이전 점수 회수): ${lecTitle}`];
+    const isThisLecture   = e => (e.src === 'thinkCheck' && e.lecId === lecId) || legacyNotes.includes(e.note);
+    const isOverrideGrant = e => e.src === 'thinkCheck' && e.lecId === lecId && e.ovr === true;
+    const patch = {};
+
+    // 1) 이전 토글이 만든 효과를 되돌린다.
+    if (prev === 'fail' && (sub.ovrRemovedPt || 0) > 0) {
+      await adminAddXP(rtdb, sub.id, sub.name, sub.ovrRemovedPt, `생각 체크: ${lecTitle}`,
+        fbFns, _xpCfg.levels, _xpCfg.levelFormula, { src: 'thinkCheck', lecId });
+      patch.ovrRemovedPt = 0;
+    } else if (prev === 'pass' && (sub.ovrGrantedPt || 0) > 0) {
+      await adminRemoveXPEntries(rtdb, sub.id, isOverrideGrant, fbFns, _xpCfg.levels, _xpCfg.levelFormula);
+      patch.ovrGrantedPt = 0;
+    }
+
+    // 2) 새 토글 효과를 적용한다.
+    if (newVal === 'fail') {
+      const r = await adminRemoveXPEntries(rtdb, sub.id, isThisLecture, fbFns, _xpCfg.levels, _xpCfg.levelFormula);
+      patch.ovrRemovedPt = r ? r.removedPt : 0;
+      patch.ovrGrantedPt = 0;
+      patch.xpAwarded = false;
+    } else if (newVal === 'pass') {
+      // 이미 이 강의로 포인트를 들고 있으면(AI가 준 점수 그대로) 더 주지 않는다.
+      if (!(await thHasLectureXP(sub.id, isThisLecture))) {
+        await adminAddXP(rtdb, sub.id, sub.name, THINK_OVERRIDE_PT, `생각 체크(교사 통과): ${lecTitle}`,
+          fbFns, _xpCfg.levels, _xpCfg.levelFormula, { src: 'thinkCheck', lecId, ovr: true });
+        patch.ovrGrantedPt = THINK_OVERRIDE_PT;
+        patch.xpAwarded = true;
+      }
+    }
+
+    patch.ovrState = newVal;
+    try { await updateDoc(doc(db, 'think_submissions', subId), patch); } catch (e) {}
+    Object.assign(sub, patch);
+  }
+
+  // 성적 표(성적 체크)가 같은 생각 체크 강의로 로드돼 있으면, 통과/미흡 토글 즉시 해당
+  // 학생의 "달성" 체크를 다시 계산해 표와 통계를 갱신한다(불러오기 다시 안 해도 됨).
+  // 그 반이 이미 반영된 상태라면 학생 성적 문서까지 바로 덮어써, 학생 화면에도 곧 보인다.
+  async function thSyncGradeAchieved(subId) {
     if (!_gradeThinkDocId || _gradeThinkDocId !== thGradeCtx.lecId) return;
     const sub = (thSubs || []).find(s => s.subId === subId);
     const rec = sub && _gradeRecords[sub.id];
     if (!rec || rec.absent) return;   // 결석 학생은 미달성 고정 — 건드리지 않는다.
     const lec = thLectures.find(l => l.docId === thGradeCtx.lecId);
     const { achieved, onTime } = thinkVerdict(sub, lec, thOverrides[subId]);
+    const changed = rec.think.achieved !== achieved || rec.think.onTime !== onTime;
     rec.think.achieved = achieved;
     rec.think.onTime = onTime;
+    // 손으로 뒤집은 생각 체크는 자동 감지가 도로 덮어쓰지 않게 표시해 둔다
+    // (미션 체크는 그대로 웹앱 채점을 따라간다).
+    _gradeManualEdit.add(gradeEditKey(sub.id, 'think'));
     renderGradeTable();
     renderGradeStats();
+    if (changed) await gradePushLive([sub.id]);
   }
 
   // AI 채점 & 포인트 지급: 아직 채점 안 된 제출만 채점한다(채점된 학생은 고정).
@@ -6930,10 +7014,10 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
     for (const s of graded) {
       try { await adminRemoveXPEntries(rtdb, s.id, isThisLecture, fbFns, _xpCfg.levels, _xpCfg.levelFormula); } catch (e) { console.warn(e); }
       try {
-        await updateDoc(doc(db, 'think_submissions', s.subId), { thGraded: false, aiPt: null, aiScore: null, aiVerdict: null, xpAwarded: false });
+        await updateDoc(doc(db, 'think_submissions', s.subId), { thGraded: false, aiPt: null, aiScore: null, aiVerdict: null, xpAwarded: false, ovrState: null, ovrRemovedPt: 0, ovrGrantedPt: 0 });
       } catch (e) {}
       const local = (thSubs || []).find(x => x.subId === s.subId);
-      if (local) { local.thGraded = false; local.aiPt = null; local.aiScore = null; local.aiVerdict = null; local.xpAwarded = false; }
+      if (local) { local.thGraded = false; local.aiPt = null; local.aiScore = null; local.aiVerdict = null; local.xpAwarded = false; local.ovrState = null; local.ovrRemovedPt = 0; local.ovrGrantedPt = 0; }
     }
     // 초기화 후 곧바로 재채점(미채점 상태가 된 제출을 다시 매긴다).
     await thRunGrading();
