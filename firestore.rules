@@ -181,7 +181,9 @@ service cloud.firestore {
 
     // ── 사화 네컷 (j_4cut): 완성 작품 자동 제출 + 친구 작품 좋아요 ──
     //    문서 id가 곧 학번이다 — 1인 1장을 구조로 강제하고, 다시 만들면 덮어쓴다.
-    //    작품 이미지는 base64 JPEG라 문서 하나를 통째로 쓴다.
+    //    그림 본문은 여기 없다(fourcut_images로 뺐다). 갤러리와 어드민이 목록을 만들 때
+    //    문서를 통째로 받는데, 그림까지 들어 있으면 한 건이 750KB라 160명이면 117MB가
+    //    오갔다. 여기는 1.5KB짜리 메타데이터만 두고 그림은 보는 것만 따로 가져온다.
     match /fourcut_works/{studentId} {
       allow read: if true;
 
@@ -190,7 +192,6 @@ service cloud.firestore {
         request.resource.data.studentId is string &&
         request.resource.data.studentId == studentId &&
         request.resource.data.studentName is string && request.resource.data.studentName.size() <= 50 &&
-        request.resource.data.image is string &&
         request.resource.data.likes == 0 &&
         !request.resource.data.keys().hasAny(['status'])
       );
@@ -198,19 +199,30 @@ service cloud.firestore {
       allow update: if isAdmin()
         //  좋아요는 다른 학생이 누르므로 likes/likedBy만 바꾸는 수정을 따로 연다.
         || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likedBy'])
-        //  다시 만들어 낸 경우. 받은 좋아요는 그대로 두고 그림·대사만 갈아끼운다.
+        //  다시 만들어 낸 경우. 받은 좋아요는 그대로 두고 대사와 배치만 갈아끼운다.
         //  status는 반드시 지워 선생님이 새 내용을 다시 보게 한다 — 통과를 받은 뒤
         //  내용을 바꿔치기하는 걸 막는 장치다.
         || (
           request.resource.data.studentId == studentId &&
-          request.resource.data.image is string &&
           request.resource.data.likes == resource.data.likes &&
           request.resource.data.likedBy == resource.data.likedBy &&
           !request.resource.data.keys().hasAny(['status'])
         );
 
       //  어드민의 작품 삭제. 여기에 delete가 없어서 그동안 삭제 버튼이 막혀 있었다.
-      //  (이 줄만 배포하면 되고, 위 규칙은 지금 배포돼 있는 것과 같다.)
+      allow delete: if isAdmin();
+    }
+
+    //    작품 그림 본문(base64 JPEG). 목록을 가볍게 두려고 작품 문서에서 떼어 냈다.
+    //    문서 id는 작품과 같은 학번이라 짝이 저절로 맞는다. 좋아요나 채점 같은 건 여기
+    //    없으므로 학생은 자기 그림만 쓰고, 지우는 건 선생님만 한다.
+    match /fourcut_images/{studentId} {
+      allow read: if true;
+      allow create, update: if isAdmin() || (
+        request.resource.data.studentId == studentId &&
+        request.resource.data.image is string &&
+        request.resource.data.keys().hasOnly(['studentId', 'image', 'updatedAt'])
+      );
       allow delete: if isAdmin();
     }
 

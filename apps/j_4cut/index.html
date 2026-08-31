@@ -233,6 +233,8 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 .like-btn .hi-ic{fill:none}
 .like-btn.liked .hi-ic{fill:currentColor}
 .arc-empty{text-align:center;color:var(--hi-text-muted,#6b7280);padding:50px 20px}
+/* 그림을 따로 받아오는 동안 자리를 지켜 주는 칸(높이가 확 튀지 않게). */
+.arc-imgload{display:flex;align-items:center;justify-content:center;min-height:260px;color:var(--hi-text-muted,#6b7280);font-size:13px;font-weight:600}
 .lightbox{display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.85);align-items:center;justify-content:center;padding:20px}
 .lightbox.show{display:flex}
 .lightbox img{max-width:100%;max-height:100%;border-radius:8px}
@@ -893,15 +895,24 @@ function withTimeout(pr,ms,msg){
 
 /* 문서 id가 곧 학번이다 — 1인 1장이라 다시 만들어 내면 그대로 덮어쓴다.
    다시 낸 경우 받은 좋아요는 남기고 채점 결과(status)만 지운다. 통과를 받은 뒤
-   내용을 바꿔치기하지 못하게, 선생님이 새 내용을 다시 보도록 하는 장치다. */
+   내용을 바꿔치기하지 못하게, 선생님이 새 내용을 다시 보도록 하는 장치다.
+   그림은 fourcut_images/{학번}에 따로 넣는다 — fourcut_works는 목록을 만들 때 통째로
+   받아 가는 문서라 가벼워야 한다. */
 async function submitWork(dataUrl){
   const wref=doc(db,'fourcut_works',student.studentId);
   const cur=await withTimeout(getDoc(wref),SUBMIT_TIMEOUT,'네트워크가 느려 제출하지 못했어요.');
+
+  // 그림을 먼저 쓰고 목록 문서를 나중에 쓴다. 반대 순서로 하면 목록에는 떴는데 그림이
+  // 아직 없는 순간이 생겨, 그 사이 갤러리를 연 친구에게 빈 칸으로 보인다.
+  await withTimeout(setDoc(doc(db,'fourcut_images',student.studentId),{
+    studentId:student.studentId,image:dataUrl,updatedAt:serverTimestamp()
+  }),SUBMIT_TIMEOUT,'그림을 올리지 못했어요. 잠시 뒤 다시 시도해 주세요.');
+
   const payload={
     studentId:student.studentId,studentName:student.studentName,
     classNum:classNumOf(student.studentId),
     eventId:curEvent.id,eventName:curEvent.name,
-    image:dataUrl,title:CONTENT.title,
+    title:CONTENT.title,
     // 말풍선을 좌표까지 남긴다(수백 바이트). 어드민이 원본 만화 위에 그대로 재현할 수 있다.
     cuts:work.map(c=>({bubbles:c.bubbles.map(b=>({type:b.type,x:b.x,y:b.y,w:b.w,h:b.h,text:b.text||"",tail:tailOf(b)}))})),
     timestamp:Date.now(),updatedAt:serverTimestamp()
@@ -1013,6 +1024,19 @@ function filteredWorks(){
     ? list.sort((a,b)=>String(a.studentId||'').localeCompare(String(b.studentId||'')))
     : list.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
 }
+/* 그림은 목록에 없다(fourcut_images에 따로 있다). 지금 보는 한 장만 가져오고,
+   한 번 가져온 건 담아 둬 앞뒤로 넘길 때 다시 받지 않는다. */
+const workImg={};
+async function loadWorkImage(w){
+  if(w.image)return w.image;                    // 그림이 문서 안에 있던 시절의 작품
+  if(workImg[w.id]!==undefined)return workImg[w.id];
+  try{
+    const s=await getDoc(doc(db,'fourcut_images',w.id));
+    workImg[w.id]=s.exists()?(s.data().image||null):null;
+  }catch(e){workImg[w.id]=null;}
+  return workImg[w.id];
+}
+
 function renderArc(){
   const list=filteredWorks();
   const stage=$("#arcStage");
@@ -1022,9 +1046,12 @@ function renderArc(){
   if(arcIdx<0)arcIdx=0;
   const w=list[arcIdx];
   const liked=!!(w.likedBy&&w.likedBy[likeKey()]);
+  const cached=w.image||workImg[w.id];
   stage.innerHTML=`
     <div class="work">
-      <img src="${w.image}" alt="${esc(w.studentName)}의 네컷" onclick="showLightbox('${w.id}')">
+      ${cached
+        ? `<img src="${cached}" alt="${esc(w.studentName)}의 네컷" onclick="showLightbox('${w.id}')">`
+        : `<div class="arc-imgload" id="arcImgLoad">그림 불러오는 중…</div>`}
     </div>
     <div class="arc-meta">
       <span class="sid">${esc(w.studentId||'')}</span>
@@ -1040,8 +1067,27 @@ function renderArc(){
   stage.querySelector('.like-btn').onclick=e=>toggleLike(e.currentTarget.dataset.id,e.currentTarget);
   $("#arcPrev").onclick=()=>{if(arcIdx>0){arcIdx--;renderArc();}};
   $("#arcNext").onclick=()=>{if(arcIdx<list.length-1){arcIdx++;renderArc();}};
+
+  if(!cached){
+    loadWorkImage(w).then(url=>{
+      // 받아오는 사이에 다른 작품으로 넘어갔으면 버린다.
+      if(filteredWorks()[arcIdx]!==w)return;
+      const box=$("#arcImgLoad");
+      if(!box)return;
+      if(!url){box.textContent='그림을 불러오지 못했어요.';return;}
+      box.outerHTML=`<img src="${url}" alt="${esc(w.studentName)}의 네컷" onclick="showLightbox('${w.id}')">`;
+    });
+  }
+  // 다음 장을 미리 받아 둔다 — 넘길 때 기다리지 않게.
+  const nx=list[arcIdx+1];
+  if(nx)loadWorkImage(nx);
 }
-window.showLightbox=(id)=>{const w=arcWorks.find(x=>x.id===id);if(!w)return;$("#lightboxImg").src=w.image;$("#lightbox").classList.add('show');};
+window.showLightbox=(id)=>{
+  const w=arcWorks.find(x=>x.id===id);if(!w)return;
+  const url=w.image||workImg[w.id];   // 보고 있는 그림이라 이미 담겨 있다
+  if(!url)return;
+  $("#lightboxImg").src=url;$("#lightbox").classList.add('show');
+};
 
 /* 좋아요: 1인 1작품 1회, 다시 누르면 취소되는 토글 */
 async function toggleLike(id,btn){
