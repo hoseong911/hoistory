@@ -249,7 +249,7 @@ function closeAdmDrawer() {
 }
 
 /* ── 버튼 폭 고정 ──
-   어드민 버튼은 진행 상태에 따라 문구가 바뀐다("불러오기" → "불러오는 중…", "임시 저장" →
+   어드민 버튼은 진행 상태에 따라 문구가 바뀐다("불러오기" → "불러오는 중…", "설정 저장" →
    "저장 중…"). 그때마다 폭이 달라지면 옆 버튼이 밀려 줄이 통째로 출렁이고 심하면 줄바꿈까지
    생긴다. 그래서 버튼마다 "지금까지 본 가장 넓은 폭"을 min-width로 박아 두고 다시는 줄어들지
    않게 한다. 문구를 바꾸는 코드가 스무 군데 넘게 흩어져 있어서, 각 호출부를 고치는 대신
@@ -439,7 +439,7 @@ async function dbLoad() {
     if (missionCat) {
       const mSnap = await dbSafe(getDocs(query(collection(db, 'cards'), where('category', '==', missionCat))), null);
       if (mSnap) {
-        _dbMission = mSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || v.label || '', locked: v.locked === true, order: v.order ?? 999, lessonNum: v.lessonNum || '', autoOpenedAt: v.autoOpenedAt || null }; }).sort((a, b) => a.order - b.order);
+        _dbMission = mSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || v.label || '', locked: v.locked === true, order: v.order ?? 999, lessonNum: v.lessonNum || '', adminUrl: v.adminUrl || '', autoOpenedAt: v.autoOpenedAt || null }; }).sort((a, b) => a.order - b.order);
       } else late.push('미션 체크');
     } else _dbMission = [];
 
@@ -945,7 +945,11 @@ function dbToggleCard(title, list, kind) {
           : '';
         const editBtn =
             kind === 'concept' ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbEditLesson('${esc(String(item.num))}')">수정</button>`
-          : kind === 'mission' ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbEditMission()">수정</button>`
+          // 미션은 카드 설정보다 웹앱 어드민(채점·답변 관리)을 열 일이 훨씬 많다.
+          // 어드민 URL을 적어 둔 카드는 [수정]이 곧바로 그 웹앱 어드민을 연다.
+          : kind === 'mission' ? (item.adminUrl
+              ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" title="웹앱 어드민 열기" onclick="openAppAdmin('${esc(item.adminUrl)}')">수정</button>`
+              : `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbEditMission()">수정</button>`)
           : kind === 'think'   ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbEditThink()">수정</button>`
           : '';
         return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--hairline-soft)">
@@ -4310,8 +4314,6 @@ async function initGradeTab() {
   renderGradeClassTags(); // 반 선택 태그는 불러오기 전에도 항상 표시한다
 
   document.getElementById('gradeLoadBtn').addEventListener('click', loadGradeData);
-  document.getElementById('gradeSaveBtn').addEventListener('click', saveGradeRecords);
-  document.getElementById('gradeRefreshAllBtn')?.addEventListener('click', () => refreshAllPublishedClasses(false));
   document.getElementById('gradeScoreLoadBtn').addEventListener('click', loadScoreData);
   document.getElementById('gradeExportBtn').addEventListener('click', exportScoreCSV);
 
@@ -4450,6 +4452,10 @@ async function loadGradeData() {
     _gradeThinkTimes   = {};
     _gradeMissionTimes = {};
     _gradeManualEdit   = new Set();
+    // 이전 강의의 저장 대기열이 남아 있으면 엉뚱한 강의에 써 버린다.
+    clearTimeout(_gradeSaveTimer);
+    _gradePendingSave.clear();
+    gradeAutoSaveLbl('', '');
     _gradeStudents.forEach(s => {
       _gradeRecords[s.id] = {
         concept: { achieved: false, onTime: false },
@@ -4566,13 +4572,13 @@ async function loadGradeData() {
 }
 
 // ── 강의별 학생 피드백 ──
-// 체크(개념/미션/생각)는 메모리(_gradeRecords)에만 두고 "임시 저장"/"반영하기" 흐름을 타지만,
-// 피드백만은 예외로 작성 즉시 Firestore에 저장한다(반영하기를 누르지 않아도 학생에게 보임).
+// 체크와 마찬가지로 작성 즉시 Firestore에 저장한다. 다만 피드백은 반이 아직 공개되지
+// 않았어도 학생에게 보이는 게 맞아서, 반영 상태를 건드리지 않고 feedback 필드만 병합한다.
 // 학생 index.js도 미반영 강의의 피드백을 따로 모아 보여주도록 맞춰져 있다.
 let _gradeFeedbackSid = null;
 
-// 피드백 필드만 grade_records에 즉시 병합 저장한다. 채점 결과(concept/mission/think)는
-// 건드리지 않으므로 "임시 저장"/"반영하기" 흐름과 충돌하지 않는다.
+// 피드백 필드만 grade_records에 즉시 병합 저장한다. 채점 결과(concept/mission/think)와
+// 반영 상태(published)는 건드리지 않으므로 체크 쪽 저장과 서로 덮어쓰지 않는다.
 async function persistFeedbackOnly(entries) {
   if (!_gradeLessonKey || !entries.length) return;
   const lesson = _gradeLessons.find(l => l.num === _gradeLessonKey);
@@ -4911,6 +4917,7 @@ function renderGradeTable() {
       syncGradeAllCb();
       syncGradeRowCb(sid);
       if (f === 'achieved') renderGradeStats();
+      gradeQueueSave([sid]);
     });
   });
 
@@ -4920,6 +4927,7 @@ function renderGradeTable() {
     cb.addEventListener('change', e => {
       const { t, f } = e.target.dataset;
       const checked = e.target.checked;
+      const touched = [];
       wrap.querySelectorAll(`.grade-cb.${t}[data-f="${f}"]`).forEach(c => {
         const sid = c.dataset.sid;
         const row = c.closest('tr');
@@ -4928,10 +4936,12 @@ function renderGradeTable() {
         c.checked = checked;
         if (_gradeRecords[sid]) _gradeRecords[sid][t][f] = checked;
         _gradeManualEdit.add(gradeEditKey(sid, t));
+        touched.push(sid);
       });
       syncGradeAllCb();
       syncAllGradeRowCbs();
       if (f === 'achieved') renderGradeStats();
+      gradeQueueSave(touched);
     });
   });
 
@@ -4953,6 +4963,7 @@ function renderGradeTable() {
       wrap.querySelectorAll(`.grade-cb[data-sid="${sid}"]`).forEach(c => { c.checked = checked; });
       syncGradeAllCb();
       renderGradeStats();
+      gradeQueueSave([sid]);
     });
   });
 
@@ -4977,8 +4988,7 @@ function renderGradeTable() {
       }
       renderGradeTable();
       renderGradeStats();
-      // 이미 반영한 반이면 결석 처리도 학생 성적에 바로 반영한다(안 한 반은 표만 바뀐다).
-      gradePushLive([sid]);
+      gradeQueueSave([sid]);
     });
   });
 }
@@ -5408,16 +5418,107 @@ function gradePublishedAtText(ms) {
   return `${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+/* ── 체크 = 즉시 반영 ──────────────────────────────────────────────
+   예전에는 표를 다 만진 뒤 [임시 저장] → [성적 반영하기] → (고치면) [갱신]을 차례로
+   눌러야 학생에게 보였다. 누르는 걸 잊으면 표만 맞고 성적은 옛날 값인 채로 남았다.
+   지금은 체크를 하나 누르는 순간(전체 선택이든 이름 앞 체크든) 그 학생 성적이
+   그대로 저장되고 공개된다. 그래서 임시 저장·갱신 버튼이 사라졌다.
+
+   비용 걱정은 안 해도 된다 — Claude API가 아니라 Firestore 문서 쓰기이고, 체크 한 번에
+   문서 하나다. 연달아 누르면 아래 디바운스가 모아서 한 번에 쓴다.
+
+   한 가지만 예외 — 아직 한 번도 공개하지 않은 반에서 처음 체크를 누르면, 그 반 전체를
+   같이 저장한다. 한 명만 써 두고 반을 공개해 버리면 나머지 학생 화면이 비기 때문이다. */
+let _gradePendingSave = new Set();
+let _gradeSaveTimer   = null;
+
+function gradeClassOf(sid) {
+  return Math.floor((parseInt(sid) - 30000) / 100);
+}
+
+// 저장 상태를 버튼 자리에 짧게 알려 준다(저장 중 / 저장됨 시각 / 실패).
+function gradeAutoSaveLbl(state, text) {
+  const el = document.getElementById('gradeAutoSaveLbl');
+  if (!el) return;
+  el.className = 'grade-autosave-lbl' + (state ? ' ' + state : '');
+  el.textContent = text || '';
+}
+
+// 체크가 바뀐 학생을 모았다가 잠시 뒤 한 번에 쓴다(전체 선택처럼 한꺼번에 바뀔 때 대비).
+function gradeQueueSave(sids) {
+  if (!_gradeLessonKey) return;
+  sids.forEach(sid => _gradePendingSave.add(sid));
+  gradeAutoSaveLbl('saving', '저장 중…');
+  clearTimeout(_gradeSaveTimer);
+  _gradeSaveTimer = setTimeout(gradeFlushSave, 400);
+}
+
+async function gradeFlushSave() {
+  if (!_gradeLessonKey || !_gradePendingSave.size) return;
+  const sids = [..._gradePendingSave];
+  _gradePendingSave.clear();
+
+  const lesson = _gradeLessons.find(l => l.num === _gradeLessonKey);
+  const lessonTitle = lesson?.title || '';
+
+  // 이번에 처음 공개되는 반은 그 반 전체를 함께 써 준다(빈 성적이 남지 않게).
+  const classes = [...new Set(sids.map(gradeClassOf))].filter(c => c >= 1 && c <= 9);
+  const opening = classes.filter(c => !_publishStatus[c]);
+  const targets = new Set(sids);
+  if (opening.length) {
+    _gradeStudents.forEach(s => {
+      if (s.id !== '00000' && opening.includes(gradeClassOf(s.id))) targets.add(s.id);
+    });
+  }
+
+  try {
+    const batch = writeBatch(db);
+    [...targets].forEach(sid => {
+      const r = _gradeRecords[sid];
+      if (!r) return;
+      const stu = _gradeStudents.find(s => s.id === sid);
+      batch.set(doc(db, 'grade_records', `${_gradeLessonKey}_${sid}`), {
+        lessonKey: _gradeLessonKey, lessonTitle,
+        studentId: sid, studentName: stu?.name || '',
+        concept: r.concept, mission: r.mission, think: r.think,
+        absent: r.absent || false,
+        feedback: r.feedback || '',
+        published: true,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    });
+    classes.forEach(c => {
+      batch.set(doc(db, 'grade_publish_status', `${_gradeLessonKey}_${c}`), {
+        published: true, publishedAt: serverTimestamp(),
+        lessonKey: _gradeLessonKey, classNum: c,
+      });
+    });
+    await batch.commit();
+
+    classes.forEach(c => { _publishStatus[c] = true; _publishedAt[c] = Date.now(); });
+    opening.forEach(c => updateSubtabPublishBadge(c, true));
+    renderGradePublishBar(_currentGradeClass);
+    const now = new Date();
+    const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    gradeAutoSaveLbl('saved', `저장됨 ${hhmm}`);
+    if (opening.length) gradeLiveToast(`${opening.join('반, ')}반 성적을 공개했습니다`);
+  } catch (e) {
+    // 실패한 학생은 다시 큐에 넣어 둔다 — 다음 체크 때 같이 저장된다.
+    sids.forEach(sid => _gradePendingSave.add(sid));
+    gradeAutoSaveLbl('failed', '저장 실패');
+    console.warn('성적 즉시 저장 실패:', e);
+  }
+}
+
 // ── 성적 반영 바 ──
 function renderGradePublishBar(classNum) {
   const statusEl = document.getElementById('gradePublishStatusLbl');
   const btn = document.getElementById('publishActionBtn');
-  const refreshBtn = document.getElementById('gradeRefreshBtn');
-  if (!classNum || !_gradeLessonKey) {
+  // "전체" 탭은 어느 반을 말하는지 정할 수 없으므로 반영 상태를 비워 둔다.
+  if (!classNum || classNum === 'all' || !_gradeLessonKey) {
     statusEl.textContent = '';
     statusEl.className = 'grade-publish-status-lbl';
     btn.style.display = 'none';
-    if (refreshBtn) refreshBtn.style.display = 'none';
     return;
   }
   const published = !!_publishStatus[classNum];
@@ -5434,108 +5535,6 @@ function renderGradePublishBar(classNum) {
   btn.className = published ? 'btn-unpublish' : 'btn-publish';
   btn.textContent = published ? '반영 취소' : '성적 반영하기';
   btn.onclick = () => published ? unpublishClassGrades(classNum) : publishClassGrades(classNum);
-
-  // 갱신: 이미 반영된 반에서만 노출. 취소하지 않고 최신 편집 내용으로 다시 반영한다.
-  if (refreshBtn) {
-    refreshBtn.style.display = published ? '' : 'none';
-    refreshBtn.disabled = false;
-    refreshBtn.textContent = '갱신';
-    refreshBtn.onclick = () => refreshClassGrades(classNum);
-  }
-}
-
-// 반영을 취소하지 않고, 현재 편집 상태(개념/미션/생각/결석/피드백)를 학생 성적에 다시 덮어쓴다.
-async function refreshClassGrades(classNum) {
-  if (!_gradeLessonKey || !_publishStatus[classNum]) return;
-  const studentsInClass = _gradeStudents.filter(s => {
-    if (s.id === '00000') return false;
-    return Math.floor((parseInt(s.id) - 30000) / 100) === classNum;
-  });
-  if (!confirm(`${classNum}반 ${studentsInClass.length}명의 성적을 지금 편집 내용으로 갱신(재반영)하시겠습니까?\n반영을 취소하지 않고 학생 성적 조회를 최신 상태로 덮어씁니다.`)) return;
-
-  const btn = document.getElementById('gradeRefreshBtn');
-  if (btn) { btn.disabled = true; btn.textContent = '갱신 중...'; }
-
-  try {
-    const lesson = _gradeLessons.find(l => l.num === _gradeLessonKey);
-    const lessonTitle = lesson?.title || '';
-
-    await Promise.all(studentsInClass.map(s =>
-      setDoc(doc(db, 'grade_records', `${_gradeLessonKey}_${s.id}`), {
-        lessonKey: _gradeLessonKey, lessonTitle,
-        studentId: s.id, studentName: s.name,
-        concept: _gradeRecords[s.id].concept,
-        mission: _gradeRecords[s.id].mission,
-        think:   _gradeRecords[s.id].think,
-        absent:  _gradeRecords[s.id].absent || false,
-        feedback: _gradeRecords[s.id].feedback || '',
-        published: true,
-        updatedAt: serverTimestamp(),
-      }, { merge: true })
-    ));
-
-    await setDoc(doc(db, 'grade_publish_status', `${_gradeLessonKey}_${classNum}`), {
-      published: true, publishedAt: serverTimestamp(),
-      lessonKey: _gradeLessonKey, classNum,
-    });
-
-    _publishedAt[classNum] = Date.now(); // 서버 시각은 다음 로드 때 정확히 다시 읽는다
-    renderGradePublishBar(classNum);
-    alert(`${classNum}반 성적 갱신 완료!`);
-  } catch(e) {
-    alert('갱신 실패: ' + e.message);
-    renderGradePublishBar(classNum);
-  }
-}
-
-/* 전체 갱신 — 이미 반영한 반을 하나씩 골라 [갱신]을 누르던 것을 한 번에 처리한다.
-   아직 반영하지 않은 반은 건드리지 않는다(반영 시점은 선생님이 정하는 것이므로,
-   이 버튼이 대신 공개해 버리면 안 된다). 저장만 필요한 반은 임시 저장을 쓰면 된다. */
-async function refreshAllPublishedClasses(silent) {
-  if (!_gradeLessonKey) { if (!silent) alert('강의를 먼저 불러와 주세요.'); return; }
-  const targets = gradeClassNums().filter(c => _publishStatus[c]);
-  if (!targets.length) {
-    if (!silent) alert('아직 반영된 반이 없습니다.\n반별로 "성적 반영하기"를 먼저 눌러주세요.');
-    return;
-  }
-  if (!silent && !confirm(`이미 반영된 ${targets.join('반, ')}반의 성적을 지금 표 내용으로 다시 반영할까요?`)) return;
-
-  const btn = document.getElementById('gradeRefreshAllBtn');
-  if (btn) { btn.disabled = true; btn.textContent = '갱신 중...'; }
-  try {
-    const lesson = _gradeLessons.find(l => l.num === _gradeLessonKey);
-    const lessonTitle = lesson?.title || '';
-    const students = _gradeStudents.filter(s =>
-      s.id !== '00000' && targets.includes(Math.floor((parseInt(s.id) - 30000) / 100)));
-
-    await Promise.all(students.map(s =>
-      setDoc(doc(db, 'grade_records', `${_gradeLessonKey}_${s.id}`), {
-        lessonKey: _gradeLessonKey, lessonTitle,
-        studentId: s.id, studentName: s.name,
-        concept: _gradeRecords[s.id].concept,
-        mission: _gradeRecords[s.id].mission,
-        think:   _gradeRecords[s.id].think,
-        absent:  _gradeRecords[s.id].absent || false,
-        feedback: _gradeRecords[s.id].feedback || '',
-        published: true,
-        updatedAt: serverTimestamp(),
-      }, { merge: true })
-    ));
-    await Promise.all(targets.map(c =>
-      setDoc(doc(db, 'grade_publish_status', `${_gradeLessonKey}_${c}`), {
-        published: true, publishedAt: serverTimestamp(),
-        lessonKey: _gradeLessonKey, classNum: c,
-      })
-    ));
-    targets.forEach(c => { _publishedAt[c] = Date.now(); });
-    renderGradePublishBar(_currentGradeClass);
-    if (!silent) alert(`${targets.join('반, ')}반 ${students.length}명 갱신 완료!`);
-    return students.length;
-  } catch (e) {
-    if (!silent) alert('전체 갱신 실패: ' + e.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '전체 갱신'; }
-  }
 }
 
 function updateSubtabPublishBadge(classNum, published) {
@@ -5657,45 +5656,6 @@ async function saveGradeSettings() {
     alert('저장 실패: ' + e.message);
   } finally {
     btn.disabled = false; btn.textContent = '설정 저장';
-  }
-}
-
-async function saveGradeRecords() {
-  if (!_gradeLessonKey || !_gradeStudents.length) return;
-  const lesson = _gradeLessons.find(l => l.num === _gradeLessonKey);
-  const lessonTitle = lesson?.title || '';
-
-  // 체크박스 전체선택/해제와 마찬가지로, 저장도 지금 보고 있는 반에만 적용된다
-  // ("전체" 탭에서 누르면 학년 전체가 저장된다). 팝업에 뜨는 인원수도 실제로
-  // 저장된 범위와 일치시킨다.
-  const cls = _currentGradeClass;
-  const targets = (cls == null || cls === 'all')
-    ? _gradeStudents
-    : _gradeStudents.filter(s => Math.floor((parseInt(s.id) - 30000) / 100) === cls);
-  const scopeLabel = (cls == null || cls === 'all') ? '전체' : `${cls}반`;
-
-  const btn = document.getElementById('gradeSaveBtn');
-  btn.disabled = true; btn.textContent = '저장 중…';
-  try {
-    await Promise.all(targets.map(s =>
-      setDoc(doc(db, 'grade_records', `${_gradeLessonKey}_${s.id}`), {
-        lessonKey:   _gradeLessonKey,
-        lessonTitle,
-        studentId:   s.id,
-        studentName: s.name,
-        concept:     _gradeRecords[s.id].concept,
-        mission:     _gradeRecords[s.id].mission,
-        think:       _gradeRecords[s.id].think,
-        absent:      _gradeRecords[s.id].absent || false,
-        feedback:    _gradeRecords[s.id].feedback || '',
-        updatedAt:   serverTimestamp(),
-      }, { merge: true })
-    ));
-    alert(`${scopeLabel} ${targets.length}명 임시 저장 완료! (학생에게 미반영)`);
-  } catch(e) {
-    alert('저장 실패: ' + e.message);
-  } finally {
-    btn.disabled = false; btn.textContent = '임시 저장';
   }
 }
 

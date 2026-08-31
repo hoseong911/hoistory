@@ -182,11 +182,24 @@ LMS에서 미션 카드를 만들고 공개(잠금 해제)하면, 같은 Firesto
 - **연동된 앱**: `j_interview`(interview_joseon_answers), `j_wartimeline`(j_wartimeline_results), `j_4cut`(fourcut_submissions).
 - **`fourcut_submissions` 예외**: 네컷 작품 문서(`fourcut_works`)에는 base64 JPEG가 통째로 들어 있어 LMS가 전량 조회하면 수십 MB가 오간다. 그래서 학번당 1문서짜리 가벼운 요약 컬렉션을 따로 둔다 — 학생이 공유할 때 제출 사실·시각을 남기고(`apps/j_4cut/index.html`의 `saveSubmissionMark`), 선생님이 작품별 통과/미흡을 누를 때 합산 `status`를 써 넣는다(`apps/j_4cut/admin.html`의 `syncSubmissionSummary`). **채점 결과를 제출 문서 자신에 둔다는 표준 스키마의 유일한 예외**이며, 이유는 오직 이미지 용량이다. 작품별 `status`는 표준대로 `fourcut_works` 문서에 그대로 남는다.
 
+## 성적 체크는 저장 버튼이 없다 (2026-08-31)
+
+**체크를 누르는 순간이 곧 저장이자 반영이다.** 개별 체크박스, 열 전체 선택, 이름 앞 행 체크박스, 결석 토글 네 가지 모두 `gradeQueueSave()`로 들어가 400ms 디바운스 뒤 `writeBatch`로 `grade_records`에 `published: true`로 쓴다. 그래서 [임시 저장], [갱신], [전체 갱신] 버튼을 없앴다(`saveGradeRecords` / `refreshClassGrades` / `refreshAllPublishedClasses` 삭제). 되살리지 말 것 — 누르는 걸 잊으면 표만 맞고 성적은 옛날 값으로 남는 게 원래 문제였다.
+
+- **아직 한 번도 공개하지 않은 반**에서 첫 체크를 누르면 그 반 **전체**를 함께 쓴다. 한 명만 써 두고 반을 공개하면 나머지 학생 화면이 비기 때문이다. 이때만 토스트로 알린다.
+- 남은 버튼은 [성적 반영하기] / [반영 취소] 둘뿐이다. 자동 감지만으로 채워져 손댈 게 없는 반은 이 버튼으로 처음 공개한다(`publishClassGrades`).
+- 저장 상태는 버튼 자리의 `#gradeAutoSaveLbl`에 "저장 중… / 저장됨 HH:MM / 저장 실패"로 뜬다. 실패한 학번은 큐에 되돌려 두므로 다음 체크 때 같이 저장된다.
+- 강의를 새로 불러올 때 대기열(`_gradePendingSave`)과 타이머를 반드시 비운다 — 안 그러면 이전 강의 체크가 새 강의에 쓰인다.
+
 ## 성적 피드백 즉시 노출 (2026-08-27)
 
-성적 체크의 개념/미션/생각 체크는 메모리에만 두고 "임시 저장"/"반영하기"를 눌러야 저장되지만, **피드백만은 예외로 작성 즉시 Firestore에 저장**된다(`persistFeedbackOnly()`). 학생 `lms/index.js`도 미반영 강의의 피드백을 `feedbacks` 배열로 따로 모아 보여주므로, 성적을 반영하지 않아도 피드백은 바로 보인다. 점수와 "세부 채점 내역"은 그대로 반영된 강의만 쓴다.
+피드백도 작성 즉시 저장되지만(`persistFeedbackOnly()`), 체크 쪽과 달리 **반영 상태(`published`)를 건드리지 않고 `feedback` 필드만 병합**한다. 학생 `lms/index.js`가 미반영 강의의 피드백을 `feedbacks` 배열로 따로 모아 보여주므로, 아직 공개하지 않은 반이어도 피드백은 바로 보인다. 점수와 "세부 채점 내역"은 그대로 공개된 강의만 쓴다.
 
 피드백 템플릿(`settings/feedback_templates`)은 두 곳에서 쓴다 — 템플릿 모달의 "일괄 적용"(피드백이 비어 있는 학생에게만)과, 개별 피드백 모달의 템플릿 고르기 줄(`renderGradeFeedbackTplSelect` / `insertFeedbackTemplateIntoInput`). 개별 쪽은 덮어쓰지 않고 **커서 자리에 끼워 넣는다** — 템플릿을 뼈대로 두고 학생별 한마디를 앞뒤에 붙이는 방식이라서다.
+
+## 대시보드 공개 관리의 [수정] 버튼 (2026-08-31)
+
+미션 Check 항목의 [수정]은 카드에 `adminUrl`이 적혀 있으면 그 **웹앱 어드민을 오버레이로 연다**(`openAppAdmin`). 채점하러 들어갈 일이 카드 설정을 고칠 일보다 훨씬 많아서다. `adminUrl`이 없는 카드만 예전처럼 미션 카드 편집 탭으로 간다. 개념/생각 Check의 [수정]은 그대로 각 편집 탭으로 간다.
 
 ## 성적 체크 표 조작 (2026-08-31)
 
