@@ -4214,9 +4214,8 @@ function renderMissionLinkNote(apps, achievedCount, live) {
   const now = new Date();
   const hhmm = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
   el.style.display = '';
-  el.textContent = `${apps.join(', ')} (달성 ${achievedCount} / 미달성 ${rest})`
-    // 웹앱에서 채점을 고쳐 표가 저절로 바뀐 경우, 언제 따라왔는지 남겨 둔다.
-    + (live ? ` · 반영 ${hhmm}` : '');
+  // 웹앱에서 채점을 고쳐 표가 저절로 바뀐 경우, 언제 따라왔는지 같이 남겨 둔다.
+  el.textContent = `${apps.join(', ')} (달성 ${achievedCount} / 미달성 ${rest}${live ? `, 반영 ${hhmm}` : ''})`;
 }
 
 // 생각 체크 최종 판정: 문구(verdict)·달성(achieved)·기한(onTime) 세 가지를 한 번에 계산한다.
@@ -4592,8 +4591,36 @@ function openGradeFeedbackModal(sid, name) {
   _gradeFeedbackSid = sid;
   document.getElementById('gradeFeedbackTitle').textContent = `${name} 학생 피드백`;
   document.getElementById('gradeFeedbackInput').value = _gradeRecords[sid].feedback || '';
+  renderGradeFeedbackTplSelect();
   document.getElementById('gradeFeedbackBackdrop').classList.add('open');
 }
+
+// 개별 피드백 모달의 템플릿 고르기 줄. 저장된 템플릿이 없으면 줄 자체를 감춘다.
+function renderGradeFeedbackTplSelect() {
+  const row = document.getElementById('gradeFeedbackTplRow');
+  const sel = document.getElementById('gradeFeedbackTplSel');
+  if (!row || !sel) return;
+  if (!_feedbackTemplates.length) { row.style.display = 'none'; sel.innerHTML = ''; return; }
+  row.style.display = '';
+  sel.innerHTML = '<option value="">-- 저장한 템플릿 --</option>' +
+    _feedbackTemplates.map(t => `<option value="${esc(t.id)}">${esc(t.label)}</option>`).join('');
+}
+
+// 고른 템플릿을 지금 커서 자리에 끼워 넣는다(글자를 선택해 뒀다면 그 자리를 대신한다).
+// 덮어쓰지 않는 이유 — 템플릿은 보통 공통 문장이고, 그 앞뒤에 학생별 한마디를 붙이게 된다.
+function insertFeedbackTemplateIntoInput() {
+  const sel = document.getElementById('gradeFeedbackTplSel');
+  const tpl = _feedbackTemplates.find(t => t.id === sel.value);
+  if (!tpl) { alert('넣을 템플릿을 선택해주세요.'); return; }
+  const ta = document.getElementById('gradeFeedbackInput');
+  const start = ta.selectionStart ?? ta.value.length;
+  const end   = ta.selectionEnd   ?? ta.value.length;
+  ta.value = ta.value.slice(0, start) + tpl.text + ta.value.slice(end);
+  const caret = start + tpl.text.length;
+  ta.focus();
+  ta.setSelectionRange(caret, caret);
+}
+
 function closeGradeFeedbackModal() {
   document.getElementById('gradeFeedbackBackdrop').classList.remove('open');
   _gradeFeedbackSid = null;
@@ -4691,6 +4718,7 @@ async function deleteFeedbackTemplate(id) {
   try { await setDoc(doc(db, 'settings', 'feedback_templates'), { list: _feedbackTemplates }); } catch (e) {}
   renderFeedbackTemplateList();
   renderFeedbackTemplateApplySelect();
+  renderGradeFeedbackTplSelect();
 }
 
 function renderFeedbackTemplateApplySelect() {
@@ -4740,6 +4768,27 @@ async function applyFeedbackTemplate() {
     renderGradeTable();
     alert('피드백 저장 실패: ' + e.message);
   }
+}
+
+/* 이름 앞 체크박스(행 전체 체크) 도우미 —
+   "이 학생은 다 했다/안 했다"를 한 번에 넘기는 용도라, 실시 중인 항목의 달성·기한을
+   전부 같은 값으로 맞춘다. 미실시로 꺼 둔 항목은 표에 열 자체가 없으므로 세지 않는다. */
+function gradeRowBlocks() {
+  return ['concept', 'mission', 'think'].filter(b => _gradeEnabled[b]);
+}
+function gradeRowAllChecked(sid) {
+  const r = _gradeRecords[sid];
+  const bs = gradeRowBlocks();
+  return !!r && bs.length > 0 && bs.every(b => r[b].achieved && r[b].onTime);
+}
+function syncGradeRowCb(sid) {
+  const cb = document.querySelector(`#gradeTableWrap .grade-row-cb[data-sid="${sid}"]`);
+  if (cb) cb.checked = gradeRowAllChecked(sid);
+}
+function syncAllGradeRowCbs() {
+  document.querySelectorAll('#gradeTableWrap .grade-row-cb').forEach(cb => {
+    cb.checked = gradeRowAllChecked(cb.dataset.sid);
+  });
 }
 
 function syncGradeAllCb() {
@@ -4801,7 +4850,7 @@ function renderGradeTable() {
     `<span style="font-size:12px" class="${isLate?'grade-time-late':''}">${esc(fmtTime(d))}</span>`;
 
   // colgroup으로 열 폭을 고정한다 → 실시/미실시(열 개수)를 바꿔도 각 칸 폭이 그대로 유지된다.
-  let cols = '<col style="width:82px"><col style="width:104px">';
+  let cols = '<col style="width:82px"><col style="width:128px">'; // 이름 칸은 앞의 행 체크박스까지 담는다
   if (cE) cols += '<col style="width:80px"><col style="width:80px">';
   if (mE) cols += '<col style="width:80px"><col style="width:80px"><col style="width:112px">';
   if (tE) cols += '<col style="width:80px"><col style="width:80px"><col style="width:112px">';
@@ -4834,7 +4883,7 @@ function renderGradeTable() {
       const mD = _gradeMissionTimes[s.id] || null;
       html += `<tr data-cls="${cls}" data-sid="${esc(s.id)}" class="${r.absent ? 'absent-row' : ''}">
         <td class="tc-id">${esc(s.id)}</td>
-        <td class="tc-name" data-sid="${esc(s.id)}" title="클릭하면 결석으로 표시/해제됩니다">${esc(s.name)}</td>
+        <td class="tc-name" data-sid="${esc(s.id)}" title="이름을 누르면 결석으로 표시/해제됩니다"><input type="checkbox" class="grade-row-cb" data-sid="${esc(s.id)}" ${gradeRowAllChecked(s.id) ? 'checked' : ''} ${r.absent ? 'disabled' : ''} title="이 학생의 달성과 기한을 한 번에 켜고 끕니다"><span class="tc-name-label">${esc(s.name)}</span></td>
         ${cE ? `<td>${chk(s.id,'concept','achieved',r.concept.achieved,r.absent)}</td><td>${chk(s.id,'concept','onTime',r.concept.onTime,r.absent)}</td>` : ''}
         ${mE ? `<td>${chk(s.id,'mission','achieved',r.mission.achieved,r.absent)}</td><td>${chk(s.id,'mission','onTime',r.mission.onTime,r.absent)}</td><td>${timeSpan(mD,!!(mD&&mMaj&&dayKey(mD)!==mMaj))}</td>` : ''}
         ${tE ? `<td>${chk(s.id,'think','achieved',r.think.achieved,r.absent)}</td><td>${chk(s.id,'think','onTime',r.think.onTime,r.absent)}</td><td>${timeSpan(tD,!!(tD&&tMaj&&dayKey(tD)!==tMaj))}</td>` : ''}
@@ -4860,6 +4909,7 @@ function renderGradeTable() {
       if (_gradeRecords[sid]) _gradeRecords[sid][t][f] = e.target.checked;
       _gradeManualEdit.add(gradeEditKey(sid, t)); // 손으로 고친 칸은 자동 감지가 덮어쓰지 않는다
       syncGradeAllCb();
+      syncGradeRowCb(sid);
       if (f === 'achieved') renderGradeStats();
     });
   });
@@ -4880,7 +4930,29 @@ function renderGradeTable() {
         _gradeManualEdit.add(gradeEditKey(sid, t));
       });
       syncGradeAllCb();
+      syncAllGradeRowCbs();
       if (f === 'achieved') renderGradeStats();
+    });
+  });
+
+  // 이름 앞 체크박스 — 이 학생의 달성·기한을 한꺼번에 켜고 끈다.
+  // (이름 칸 클릭은 결석 토글이라, 체크박스를 누른 건 거기까지 올라가지 않게 막는다.)
+  wrap.querySelectorAll('.grade-row-cb').forEach(cb => {
+    cb.addEventListener('click', e => e.stopPropagation());
+    cb.addEventListener('change', e => {
+      e.stopPropagation();
+      const sid = e.target.dataset.sid;
+      const r = _gradeRecords[sid];
+      if (!r || r.absent) return; // 결석 학생은 미달성 고정
+      const checked = e.target.checked;
+      gradeRowBlocks().forEach(b => {
+        r[b].achieved = checked;
+        r[b].onTime   = checked;
+        _gradeManualEdit.add(gradeEditKey(sid, b));
+      });
+      wrap.querySelectorAll(`.grade-cb[data-sid="${sid}"]`).forEach(c => { c.checked = checked; });
+      syncGradeAllCb();
+      renderGradeStats();
     });
   });
 
@@ -4905,6 +4977,8 @@ function renderGradeTable() {
       }
       renderGradeTable();
       renderGradeStats();
+      // 이미 반영한 반이면 결석 처리도 학생 성적에 바로 반영한다(안 한 반은 표만 바뀐다).
+      gradePushLive([sid]);
     });
   });
 }
@@ -5649,7 +5723,7 @@ Object.assign(window, {
   handleContentKeydown, handleItemsKeydown,
   openFeedbackTemplateModal, closeFeedbackTemplateModal,
   editFeedbackTemplate, resetTemplateForm, saveFeedbackTemplate, deleteFeedbackTemplate,
-  applyFeedbackTemplate,
+  applyFeedbackTemplate, insertFeedbackTemplateIntoInput,
   // 아래 다섯은 인라인 핸들러에서 부르는데 노출이 빠져 있어 눌러도 아무 일도 안 났다.
   // dbLoad = 대시보드 "새로고침", autoResizeTa = 콘텐츠 편집 textarea 자동 높이,
   // render*Preview / renderArchiveCards = 카드 편집 폼의 "취소".
