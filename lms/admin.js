@@ -3955,10 +3955,17 @@ async function missionAutoDetect(lessonKey) {
       if (!docs.length) { achieved = false; onTime = false; continue; } // 미제출
 
       if (src.graded) {
-        // 아직 채점 전(pending 등)이면 미달성으로 둔다. 예전에는 "선생님 판단"으로 빈칸에
-        // 남겨 뒀는데, 그러면 채점 결과가 표에 따라오지 않아 손이 더 갔다. 지금은 웹앱
-        // 어드민에서 통과/미흡을 누르는 순간 실시간 구독이 이 값을 다시 계산한다.
-        if (!docs.every(d => d.status === 'pass')) achieved = false; // 전부 통과해야 달성
+        const statuses = docs.map(d => d.status);
+        if (statuses.some(st => st !== 'pass' && st !== 'fail')) {
+          // 아직 채점 전(pending). 판정 자체가 없는 상태라 달성·기한을 둘 다 풀어 둔다.
+          // 기한만 켜져 있으면 "제때 내긴 했다"로 읽혀서, 웹앱에서 채점을 미채점으로
+          // 되돌렸는데도 체크가 반쯤 남아 있는 것처럼 보인다.
+          achieved = false; onTime = false;
+        } else if (!statuses.every(st => st === 'pass')) {
+          // 미흡은 판정이 난 것이므로 기한 체크는 제출 시각 기준을 그대로 따른다
+          // (생각 체크의 '조금 미흡'과 같은 규칙 — 늦게 낸 게 아니라 내용이 모자란 것).
+          achieved = false;
+        }
       }
 
       // 제출 시각은 가장 이른 것을 기준으로 삼는다 — 수업 시간에 한 번 냈으면, 나중에
