@@ -752,19 +752,16 @@ function renderPreview(){
   $("#pvSubmit").onclick=doSubmit;
 }
 
-/* 작품 문서 id는 "학번_사건id"다. 사건마다 한 장씩 남으므로 다른 사건으로 만들면
-   앞서 낸 것과 나란히 쌓이고, 같은 사건을 다시 내면 그것만 덮어쓴다. */
-function workDocId(){ return `${student.studentId}_${curEvent.id}`; }
-
-/* 같은 사건으로 다시 내면 앞서 낸 그 사건 작품이 사라진다. 모르고 덮어쓰지 않게 먼저 묻는다.
-   다른 사건이면 물을 것이 없다 — 새 작품으로 그냥 쌓인다. */
+/* 작품 문서 id는 학번이다 — 1인 1장이라 다시 내면 앞서 낸 것을 덮어쓴다.
+   모르고 덮어쓰는 일이 없게 먼저 물어본다(무엇을 냈었는지도 같이 알려준다). */
 async function doSubmit(){
   const btn=$("#pvSubmit");
   if(btn){btn.disabled=true;btn.textContent='확인하는 중…';}
   try{
-    const prev=await withTimeout(getDoc(doc(db,'fourcut_works',workDocId())),SUBMIT_TIMEOUT,'네트워크가 느려요. 잠시 뒤 다시 시도해 주세요.');
+    const prev=await withTimeout(getDoc(doc(db,'fourcut_works',student.studentId)),SUBMIT_TIMEOUT,'네트워크가 느려요. 잠시 뒤 다시 시도해 주세요.');
     if(prev.exists()){
-      if(!confirm(`${curEvent.name}은 이미 제출했어요.\n지금 만든 것으로 덮어쓸까요? 앞서 낸 ${curEvent.name} 작품은 사라져요.`)){
+      const pn=prev.data().eventName||'';
+      if(!confirm(`이미 제출한 작품이 있어요${pn?` (${pn})`:''}.\n지금 만든 것으로 덮어쓸까요? 앞서 낸 작품은 사라져요.`)){
         if(btn){btn.disabled=false;btn.textContent='제출하기';}
         return;
       }
@@ -872,10 +869,11 @@ function withTimeout(pr,ms,msg){
   return Promise.race([pr,new Promise((_,rej)=>setTimeout(()=>rej(new Error(msg)),ms))]);
 }
 
-/* 같은 사건을 다시 낸 경우 받은 좋아요는 남기고 채점 결과(status)만 지운다. 통과를 받은 뒤
+/* 문서 id가 곧 학번이다 — 1인 1장이라 다시 만들어 내면 그대로 덮어쓴다.
+   다시 낸 경우 받은 좋아요는 남기고 채점 결과(status)만 지운다. 통과를 받은 뒤
    내용을 바꿔치기하지 못하게, 선생님이 새 내용을 다시 보도록 하는 장치다. */
 async function submitWork(dataUrl){
-  const wref=doc(db,'fourcut_works',workDocId());
+  const wref=doc(db,'fourcut_works',student.studentId);
   const cur=await withTimeout(getDoc(wref),SUBMIT_TIMEOUT,'네트워크가 느려 제출하지 못했어요.');
   const payload={
     studentId:student.studentId,studentName:student.studentName,
@@ -893,8 +891,7 @@ async function submitWork(dataUrl){
 }
 
 // LMS 성적 체크(미션 자동 연동)가 제출 여부만 가볍게 확인할 수 있도록 요약 문서를 남긴다.
-// 작품은 사건별로 여러 장이 될 수 있지만 요약은 학번당 1문서다 — LMS는 "이 학생이 냈는가,
-// 통과인가"만 보면 되기 때문. 채점 합산은 어드민의 syncSubmissionSummary()가 맡는다.
+// 작품 문서(fourcut_works)는 base64 이미지가 통째로 들어 있어 전량 조회가 너무 무겁다.
 // createdAt은 첫 제출 때만 쓴다 — 기한 판정은 처음 낸 시각을 기준으로 하기 때문.
 async function saveSubmissionMark(isResubmit){
   try{
@@ -923,15 +920,11 @@ function renderDone(dataUrl,err){
       <button class="btn btn-primary btn-block" id="retryBtn">다시 제출하기</button>
       <button class="btn btn-ghost btn-block" id="backEditBtn">돌아가서 고치기</button>
     </div>`:`<div class="result-actions-row">
-      <button class="btn btn-ghost" id="otherEvBtn">다른 사건으로 만들기</button>
       <button class="btn btn-ghost" id="galBtn">친구들 작품 둘러보기</button>
       <button class="btn btn-ghost" id="introBtn">인트로 화면으로 이동하기</button>
     </div>`}`;
   const gal=$("#galBtn");if(gal)gal.onclick=openArchive;
   const intro=$("#introBtn");if(intro)intro.onclick=()=>showScreen('introScreen');
-  // "다른 사건으로": 고른 사건을 풀어 두어 새로 고르는 것부터 시작하게 한다.
-  const oth=$("#otherEvBtn");
-  if(oth)oth.onclick=()=>{pickedEventId=null;work=null;renderEventPick();showScreen('introScreen');};
   const be=$("#backEditBtn");if(be)be.onclick=()=>showScreen('editScreen');
   const rb=$("#retryBtn");
   if(rb)rb.onclick=async()=>{
