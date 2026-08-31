@@ -6831,25 +6831,64 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
     Object.assign(sub, patch);
   }
 
-  // 성적 표(성적 체크)가 같은 생각 체크 강의로 로드돼 있으면, 통과/미흡 토글 즉시 해당
-  // 학생의 "달성" 체크를 다시 계산해 표와 통계를 갱신한다(불러오기 다시 안 해도 됨).
-  // 그 반이 이미 반영된 상태라면 학생 성적 문서까지 바로 덮어써, 학생 화면에도 곧 보인다.
+  // 통과/미흡 토글 즉시 그 학생의 생각 체크 "달성"을 다시 계산해 성적에 반영한다.
+  // 성적 체크 표를 열어 둔 채라면 표·통계까지 그 자리에서 고치고, 열어 두지 않았어도
+  // 학생 성적 문서에는 바로 쓴다(둘 다 "이미 반영한 반"에만 저장 — 아직 공개하지 않은
+  // 반을 토글이 대신 공개해 버리면 안 되므로).
   async function thSyncGradeAchieved(subId) {
-    if (!_gradeThinkDocId || _gradeThinkDocId !== thGradeCtx.lecId) return;
     const sub = (thSubs || []).find(s => s.subId === subId);
-    const rec = sub && _gradeRecords[sub.id];
-    if (!rec || rec.absent) return;   // 결석 학생은 미달성 고정 — 건드리지 않는다.
+    if (!sub) return;
     const lec = thLectures.find(l => l.docId === thGradeCtx.lecId);
     const { achieved, onTime } = thinkVerdict(sub, lec, thOverrides[subId]);
-    const changed = rec.think.achieved !== achieved || rec.think.onTime !== onTime;
-    rec.think.achieved = achieved;
-    rec.think.onTime = onTime;
-    // 손으로 뒤집은 생각 체크는 자동 감지가 도로 덮어쓰지 않게 표시해 둔다
-    // (미션 체크는 그대로 웹앱 채점을 따라간다).
-    _gradeManualEdit.add(gradeEditKey(sub.id, 'think'));
-    renderGradeTable();
-    renderGradeStats();
-    if (changed) await gradePushLive([sub.id]);
+
+    if (_gradeThinkDocId && _gradeThinkDocId === thGradeCtx.lecId) {
+      const rec = _gradeRecords[sub.id];
+      if (!rec || rec.absent) return;   // 결석 학생은 미달성 고정 — 건드리지 않는다.
+      const changed = rec.think.achieved !== achieved || rec.think.onTime !== onTime;
+      rec.think.achieved = achieved;
+      rec.think.onTime = onTime;
+      // 손으로 뒤집은 생각 체크는 자동 감지가 도로 덮어쓰지 않게 표시해 둔다
+      // (미션 체크는 그대로 웹앱 채점을 따라간다).
+      _gradeManualEdit.add(gradeEditKey(sub.id, 'think'));
+      renderGradeTable();
+      renderGradeStats();
+      if (changed) await gradePushLive([sub.id]);
+      return;
+    }
+
+    await thPushThinkStandalone(sub.id, achieved, onTime);
+  }
+
+  /* 성적 체크 표를 안 열어 둔 채 토글했을 때 쓰는 경로. 이 생각 체크 강의가 붙어 있는
+     강의(grade_lecture_config의 thinkLectureDocId)를 거꾸로 찾아, 그 학생의 생각 체크
+     칸만 덮어쓴다. 개념·미션은 손대지 않는다 — 여기서는 그 값을 알 수 없고, 알 필요도 없다. */
+  async function thPushThinkStandalone(sid, achieved, onTime) {
+    const lecId = thGradeCtx.lecId;
+    let lessonKey = '';
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'grade_lecture_config'),
+        where('thinkLectureDocId', '==', lecId)
+      ));
+      if (!snap.empty) lessonKey = snap.docs[0].id;
+    } catch (e) { return; }
+    if (!lessonKey) return; // 성적 체크에 연결해 둔 강의가 없으면 반영할 곳도 없다
+
+    const cls = Math.floor((parseInt(sid) - 30000) / 100);
+    try {
+      const pub = await getDoc(doc(db, 'grade_publish_status', `${lessonKey}_${cls}`));
+      if (!pub.exists() || !pub.data().published) return; // 아직 반영 안 한 반은 건드리지 않는다
+
+      const recRef = doc(db, 'grade_records', `${lessonKey}_${sid}`);
+      const cur = await getDoc(recRef);
+      // 저장된 성적이 없으면 생각 체크만 든 반쪽짜리 문서가 생겨 학생 화면이 어그러진다.
+      // 그런 경우는 성적 체크에서 불러오기로 제대로 채우는 게 맞다.
+      if (!cur.exists()) return;
+      if (cur.data().absent) return;   // 결석 학생은 미달성 고정
+
+      await setDoc(recRef, { think: { achieved, onTime }, updatedAt: serverTimestamp() }, { merge: true });
+      gradeLiveToast(`${sid} 생각 체크 반영`);
+    } catch (e) { console.warn('생각 체크 성적 반영 실패:', sid, e); }
   }
 
   // AI 채점 & 포인트 지급: 아직 채점 안 된 제출만 채점한다(채점된 학생은 고정).
