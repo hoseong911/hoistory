@@ -105,25 +105,35 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 .bubble.speech{border-radius:16px}
 .bubble.thought{border-radius:50%}
 /* ── 말풍선 꼬리 ──
-   꼬리는 기본이 왼쪽 아래고, 꼬리를 누르면 오른쪽으로 뒤집힌다(.tr).
-   풍선 전체를 transform으로 좌우 반전하면 안의 글씨까지 뒤집히므로, 꼬리 조각의
-   기준을 left에서 right로 바꾸는 방식만 쓴다. 삼각형 자체는 좌우 대칭이라
-   자리만 옮기면 된다. 어드민에서 잡아 둔 방향이 학생 화면 기본값이 된다. */
+   네 귀퉁이(좌하 tb-bl, 우하 tb-br, 우상 tb-tr, 좌상 tb-tl)로 갈 수 있고,
+   꼬리를 누를 때마다 그 순서로 돈다. 기본은 좌하.
+   풍선 전체를 transform으로 반전하면 안의 글씨까지 뒤집히므로, 꼬리 조각의 기준을
+   left/bottom에서 right/top으로 바꾸는 방식만 쓴다. 좌우는 삼각형이 대칭이라 자리만
+   옮기면 되지만, 위로 올릴 때는 삼각형이 위를 향해야 해서 border-top을 border-bottom
+   으로 바꿔 준다. 어드민에서 잡아 둔 방향이 학생 화면 기본값이 된다. */
 .bubble .tail{position:absolute;left:26%;bottom:-13px;width:0;height:0}
-.bubble.tr .tail{left:auto;right:26%}
+.bubble.tb-br .tail,.bubble.tb-tr .tail{left:auto;right:26%}
+.bubble.tb-tl .tail,.bubble.tb-tr .tail{bottom:auto;top:-13px}
 .bubble.speech .tail{border-left:10px solid transparent;border-right:10px solid transparent;border-top:16px solid var(--bubble-line)}
 .bubble.speech .tail::after{content:"";position:absolute;left:-7px;top:-16px;border-left:7px solid transparent;border-right:7px solid transparent;border-top:12px solid var(--bubble)}
+/* 위쪽 꼬리: 삼각형을 뒤집어 위를 향하게 한다(안쪽 흰 삼각형도 같이). */
+.bubble.speech.tb-tl .tail,.bubble.speech.tb-tr .tail{border-top:0;border-bottom:16px solid var(--bubble-line)}
+.bubble.speech.tb-tl .tail::after,.bubble.speech.tb-tr .tail::after{top:auto;bottom:-16px;border-top:0;border-bottom:12px solid var(--bubble)}
 .bubble.thought .tail,.bubble.thought .tail2{position:absolute;background:var(--bubble);border:2.5px solid var(--bubble-line);border-radius:50%}
 .bubble.thought .tail{width:14px;height:14px;left:22%;bottom:-16px}
 .bubble.thought .tail2{width:8px;height:8px;left:14%;bottom:-28px}
-.bubble.thought.tr .tail{left:auto;right:22%}
-.bubble.thought.tr .tail2{left:auto;right:14%}
+.bubble.thought.tb-br .tail,.bubble.thought.tb-tr .tail{left:auto;right:22%}
+.bubble.thought.tb-br .tail2,.bubble.thought.tb-tr .tail2{left:auto;right:14%}
+.bubble.thought.tb-tl .tail,.bubble.thought.tb-tr .tail{bottom:auto;top:-16px}
+.bubble.thought.tb-tl .tail2,.bubble.thought.tb-tr .tail2{bottom:auto;top:-28px}
 /* 삼각형과 작은 원은 손가락으로 누르기엔 너무 작다. 그 위에 투명한 누를 자리를 덮는다. */
 .bubble .tailhit{position:absolute;z-index:6;cursor:pointer;-webkit-tap-highlight-color:transparent;border-radius:100px}
 .bubble.speech .tailhit{left:calc(26% + 10px);transform:translateX(-50%);bottom:-16px;width:36px;height:28px}
-.bubble.speech.tr .tailhit{left:auto;right:calc(26% + 10px);transform:translateX(50%)}
+.bubble.speech.tb-br .tailhit,.bubble.speech.tb-tr .tailhit{left:auto;right:calc(26% + 10px);transform:translateX(50%)}
+.bubble.speech.tb-tl .tailhit,.bubble.speech.tb-tr .tailhit{bottom:auto;top:-16px}
 .bubble.thought .tailhit{left:calc(18% + 5px);transform:translateX(-50%);bottom:-32px;width:46px;height:40px}
-.bubble.thought.tr .tailhit{left:auto;right:calc(18% + 5px);transform:translateX(50%)}
+.bubble.thought.tb-br .tailhit,.bubble.thought.tb-tr .tailhit{left:auto;right:calc(18% + 5px);transform:translateX(50%)}
+.bubble.thought.tb-tl .tailhit,.bubble.thought.tb-tr .tailhit{bottom:auto;top:-32px}
 .bubble .tailhit:active{background:rgba(228,87,46,.18)}
 .btext{position:absolute;inset:15% 16%;overflow:hidden;text-align:center;line-height:1.25;font-family:'Gaegu',cursive;font-weight:700;color:#1c1c1c;word-break:break-word;overflow-wrap:anywhere;display:flex;align-items:center;justify-content:center;width:auto;outline:none}
 .bubble.thought .btext{inset:20% 20%}
@@ -496,12 +506,24 @@ $("#backIntroBtn").onclick=()=>{
    그림 한 장에 네 컷이 이어져 있으므로, 지금 보는 컷만큼 그림을 위로 밀어(top: -N00%)
    창에 그 컷만 남긴다. 말풍선 좌표(x/y/w/h)는 예전 컷 영역과 같은 "컷 기준 %"라 그대로 쓴다. */
 let curCut=0;
+/* 꼬리 방향. 좌하(bl)를 기본으로 우하(br), 우상(tr), 좌상(tl) 순으로 돈다.
+   좌우만 있던 시절의 값('left'/'right')도 그대로 읽어 준다. */
+const TAIL_ORDER=['bl','br','tr','tl'];
+const TAIL_TITLE='꼬리를 누르면 좌하, 우하, 우상, 좌상 순으로 자리가 바뀌어요';
+function tailOf(b){
+  const t=b&&b.tail;
+  if(t==='right')return'br';
+  if(t==='left')return'bl';
+  return TAIL_ORDER.includes(t)?t:'bl';
+}
+const nextTail=t=>TAIL_ORDER[(TAIL_ORDER.indexOf(t)+1)%TAIL_ORDER.length];
+
 function bubbleHTML(b,ci,bi){
   const st=`left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%`;
   const tail=(b.type==="thought"?`<span class="tail"></span><span class="tail2"></span>`:`<span class="tail"></span>`)
-    +`<span class="tailhit" data-act="tail" title="꼬리를 누르면 좌우가 바뀌어요"></span>`;
+    +`<span class="tailhit" data-act="tail" title="${TAIL_TITLE}"></span>`;
   const ph=b.type==="thought"?"생각을 써요":"대사를 써요";
-  return `<div class="bubble ${b.type==="thought"?"thought":"speech"}${b.tail==="right"?" tr":""}" data-ci="${ci}" data-bi="${bi}" style="${st}">
+  return `<div class="bubble ${b.type==="thought"?"thought":"speech"} tb-${tailOf(b)}" data-ci="${ci}" data-bi="${bi}" style="${st}">
       <div class="bhandle" data-act="move">${icon('move',12)}</div><div class="bdel" data-act="del">${icon('x',13)}</div>
       <div class="btext" contenteditable="true" data-ci="${ci}" data-bi="${bi}" data-ph="${ph}">${esc(b.text)}</div>${tail}</div>`;
 }
@@ -575,13 +597,13 @@ function bindCutPage(){
     const b=el.parentElement;
     work[+b.dataset.ci].bubbles.splice(+b.dataset.bi,1);renderCutPage();
   });
-  // 꼬리를 누르면 좌우가 바뀐다. 글씨는 그대로 두고 꼬리 자리만 옮기므로 대사는 안 뒤집힌다.
+  // 꼬리를 누르면 네 귀퉁이를 돈다. 글씨는 그대로 두고 꼬리 자리만 옮기므로 대사는 안 뒤집힌다.
   page.querySelectorAll('.tailhit').forEach(el=>el.onclick=ev=>{
     ev.stopPropagation();
     const wrap=el.parentElement;
     const b=work[+wrap.dataset.ci].bubbles[+wrap.dataset.bi];
-    b.tail=(b.tail==='right')?'left':'right';
-    wrap.classList.toggle('tr',b.tail==='right');
+    b.tail=nextTail(tailOf(b));
+    TAIL_ORDER.forEach(t=>wrap.classList.toggle('tb-'+t,t===b.tail));
   });
   page.querySelectorAll('.bhandle').forEach(el=>el.addEventListener('pointerdown',ev=>startDrag(ev,el.parentElement)));
   page.querySelectorAll('.btext[contenteditable]').forEach(el=>{
@@ -718,15 +740,20 @@ async function doSubmit(){
    그리므로 클래스 대신 인라인이 안전하다). 완성본은 편집 창보다 크므로 조각도 그만큼
    키운다. 꼬리 방향(b.tail)은 편집에서 정한 그대로 따른다. */
 function exportTail(b){
-  const right=b.tail==='right';
-  const side=right?'right':'left';
+  const t=tailOf(b);
+  const sx=(t==='br'||t==='tr')?'right':'left';
+  const sy=(t==='tl'||t==='tr')?'top':'bottom';
   if(b.type==='thought'){
-    const dot=(size,pos,bottom)=>`<div style="position:absolute;${side}:${pos};bottom:-${bottom}px;width:${size}px;height:${size}px;background:#fff;border:3px solid #1c1c1c;border-radius:50%"></div>`;
+    const dot=(size,pos,off)=>`<div style="position:absolute;${sx}:${pos};${sy}:-${off}px;width:${size}px;height:${size}px;background:#fff;border:3px solid #1c1c1c;border-radius:50%"></div>`;
     return dot(19,'22%',22)+dot(11,'14%',38);
   }
-  // 대사 꼬리: 아래를 향한 삼각형(테두리색) 위에 흰 삼각형을 겹쳐 테두리만 남긴다.
-  return `<div style="position:absolute;${side}:26%;bottom:-21px;width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;border-top:21px solid #1c1c1c">
-      <div style="position:absolute;left:-9px;top:-21px;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:16px solid #fff"></div>
+  // 대사 꼬리: 삼각형(테두리색) 위에 흰 삼각형을 겹쳐 테두리만 남긴다.
+  // 아래 꼬리는 아래를, 위 꼬리는 위를 향해야 하므로 border-top과 border-bottom을 맞바꾼다.
+  const up=(sy==='top');
+  const outer=up?'border-bottom:21px solid #1c1c1c':'border-top:21px solid #1c1c1c';
+  const inner=up?'bottom:-21px;border-bottom:16px solid #fff':'top:-21px;border-top:16px solid #fff';
+  return `<div style="position:absolute;${sx}:26%;${sy}:-21px;width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;${outer}">
+      <div style="position:absolute;left:-9px;${inner};width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent"></div>
     </div>`;
 }
 
@@ -798,8 +825,7 @@ async function submitWork(dataUrl){
     eventId:curEvent.id,eventName:curEvent.name,
     image:dataUrl,title:CONTENT.title,
     // 말풍선을 좌표까지 남긴다(수백 바이트). 어드민이 원본 만화 위에 그대로 재현할 수 있다.
-    cuts:work.map(c=>({bubbles:c.bubbles.map(b=>({type:b.type,x:b.x,y:b.y,w:b.w,h:b.h,text:b.text||"",
-      ...(b.tail==='right'?{tail:'right'}:{})}))})),
+    cuts:work.map(c=>({bubbles:c.bubbles.map(b=>({type:b.type,x:b.x,y:b.y,w:b.w,h:b.h,text:b.text||"",tail:tailOf(b)}))})),
     timestamp:Date.now(),updatedAt:serverTimestamp()
   };
   if(cur.exists())payload.status=deleteField();   // 규칙상 다시 낼 땐 status가 남아 있으면 안 된다
