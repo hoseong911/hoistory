@@ -269,16 +269,17 @@
           <div class="fc-editor">
             <div>
               <div class="fc-stage" id="fcStage"></div>
+              <!-- 그림은 레포 파일(apps/j_4cut/1~3)에서 끌어온다. 여기서 올리지 않는다. -->
               <div class="fc-cut-actions" style="margin-top:10px">
-                <label class="btn btn-primary btn-sm">만화 이미지 올리기 / 교체<input type="file" accept="image/*" id="fcImgInput" hidden></label>
-                <button class="btn btn-danger btn-sm" id="fcImgDel">이미지 삭제</button>
+                <button class="btn btn-ghost btn-sm" id="fcImgReload">그림 다시 불러오기</button>
               </div>
               <div class="fc-upstatus" id="fcImgStatus"></div>
             </div>
             <div class="fc-side" id="fcSide"></div>
           </div>
           <p class="fc-sub" style="margin-top:14px">
-            - 이미지는 <b>사건 1개당 1장</b>입니다. 네 컷이 <b>세로로 이어진 한 장</b>을 올리세요. 말풍선 없는 그림이어야 합니다.<br>
+            - 만화 그림은 레포의 <b>apps/j_4cut</b> 폴더에 두고 끌어옵니다. 무오사화는 <b>1</b>, 갑자사화는 <b>2</b>, 기묘사화는 <b>3</b>으로 이름을 붙여 푸시하세요.<br>
+            - 이미지는 <b>사건 1개당 1장</b>입니다. 네 컷이 <b>세로로 이어진 한 장</b>이어야 하고, 말풍선 없는 그림이어야 합니다.<br>
             - 학생 화면은 이 이미지를 높이로 4등분해 1~4컷으로 나눕니다.<br>
             - 여기서 잡은 말풍선은 <b>학생이 시작할 때의 기본 배치</b>입니다. 학생은 컷당 2개까지 스스로 추가하고 옮기고 지울 수 있습니다.<br>
             - 말풍선은 드래그로 위치를, 오른쪽 아래 점으로 크기를 조절합니다.
@@ -354,25 +355,22 @@ const auth=getAuth(app);
 const rtdb=getDatabase(app);
 const esc=s=>{const d=document.createElement('div');d.textContent=s??"";return d.innerHTML;};
 
-/* 사건 3종. id는 이미지 문서 id(settings/fourcut_img_<id>)로도 쓰인다.
-   이미지는 사건당 1장이라 본문(settings/fourcut_content)과 따로 저장한다 —
-   한 문서에 몰아넣으면 Firestore 문서 크기 상한(1MB)을 금방 넘긴다. */
+/* 사건 3종. file은 레포에 올려 둔 만화 파일 이름이다(apps/j_4cut/1.png 등).
+   id는 본문(settings/fourcut_content)에서 사건을 가리키는 이름으로만 쓴다. */
 const EVENTS=[
-  {id:"muo",  name:"무오사화"},
-  {id:"gapja",name:"갑자사화"},
-  {id:"gimyo",name:"기묘사화"},
+  {id:"muo",  name:"무오사화", file:"1"},
+  {id:"gapja",name:"갑자사화", file:"2"},
+  {id:"gimyo",name:"기묘사화", file:"3"},
 ];
 const CUTS=4;
 const MAX_BUBBLES_PER_CUT=2;
-const IMG_WARN_BYTES=900*1024;   // 문서 상한(약 1MB)에 닿기 전에 미리 막는다
 
 function emptyCuts(){return Array.from({length:CUTS},()=>({bubbles:[]}));}
 
 /* ── 상태 ── */
 let CONTENT={title:"",introTitle:"",introBody:"",introBtn:"",
              events:EVENTS.map(e=>({id:e.id,name:e.name,cuts:emptyCuts()}))};
-let images={};            // eventId -> dataURL|null (로드된 것)
-let imagesDirty={};       // eventId -> true (이번에 바뀐 것만 저장)
+let images={};            // eventId -> 레포 만화 파일 주소|null
 let activeEv=EVENTS[0].id;
 let selected=null;        // {ci,bi}
 let works=[],worksFilter='all',worksEvFilter='all',worksStFilter='all',unsubWorks=null;
@@ -438,16 +436,43 @@ async function loadContent(){
   document.getElementById('fcIntroTitle').value=CONTENT.introTitle;
   document.getElementById('fcIntroBody').value=CONTENT.introBody;
   document.getElementById('fcIntroBtn').value=CONTENT.introBtn;
-  await Promise.all(EVENTS.map(async e=>{
-    try{
-      const s=await getDoc(doc(db,'settings','fourcut_img_'+e.id));
-      images[e.id]=s.exists()?(s.data().image||null):null;
-    }catch(err){images[e.id]=null;}
-  }));
+  await loadImages();
   renderAll();
 }
 
-function renderAll(){renderEvTabs();renderStage();renderSide();}
+/* 만화 이미지는 레포에 직접 올린 파일에서 끌어온다(apps/j_4cut/1.png 등).
+   Firestore 문서에 base64로 담던 시절엔 1MB 상한 때문에 화질을 계속 깎아야 했다.
+   레포 파일은 그런 제약이 없고, 그림을 바꾸려면 파일만 다시 푸시하면 된다.
+   확장자는 미리 정하지 않는다(png로 올릴지 jpg로 올릴지는 그때그때) — 후보를 차례로
+   시도해 먼저 열리는 것을 쓰고, 한 번 찾은 결과는 캐시한다. */
+const IMG_EXTS=['png','jpg','jpeg','webp'];
+const _imgUrlCache={};
+function resolveEventImage(file,bust){
+  if(!file)return Promise.resolve(null);
+  if(!bust&&_imgUrlCache[file]!==undefined)return Promise.resolve(_imgUrlCache[file]);
+  return new Promise(res=>{
+    let i=0;
+    const tryNext=()=>{
+      if(i>=IMG_EXTS.length){_imgUrlCache[file]=null;res(null);return;}
+      const url=file+'.'+IMG_EXTS[i++]+(bust?'?t='+Date.now():'');
+      const im=new Image();
+      // im.src는 브라우저가 절대 주소로 풀어 준 값이다. 상대 주소를 그대로 들고 다니면
+      // html2canvas가 복제 문서에서 그림을 못 찾는 경우가 있어 절대 주소로 캐시한다.
+      im.onload=()=>{_imgUrlCache[file]=im.src;res(im.src);};
+      im.onerror=tryNext;
+      im.src=url;
+    };
+    tryNext();
+  });
+}
+
+async function loadImages(bust){
+  await Promise.all(EVENTS.map(async e=>{
+    images[e.id]=await resolveEventImage(e.file,bust);
+  }));
+}
+
+function renderAll(){renderEvTabs();renderStage();renderSide();renderImgStatus();}
 
 /* ── 사건 전환 탭 ── */
 function renderEvTabs(){
@@ -462,7 +487,7 @@ function renderEvTabs(){
 function renderStage(){
   const ev=curEvent(),img=images[activeEv];
   const stage=document.getElementById('fcStage');
-  const bg=img?`<img class="bg" src="${img}" alt="">`:`<div class="noimg">네 컷이 세로로 이어진<br>만화 이미지 1장을 올리세요</div>`;
+  const bg=img?`<img class="bg" src="${img}" alt="">`:`<div class="noimg">네 컷이 세로로 이어진 만화 1장을<br>apps/j_4cut 폴더에 올려 주세요</div>`;
   const zones=ev.cuts.map((c,ci)=>`
     <div class="fc-zone" data-ci="${ci}" style="top:${ci*(100/CUTS)}%;height:${100/CUTS}%">
       <span class="fc-zone-num">${ci+1}</span>
@@ -546,58 +571,28 @@ function endDrag(ev){
 }
 function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
 
-/* ── 이미지 업로드 / 삭제 ──
-   세로로 긴 그림이라 긴 변 기준으로 줄인다. 문서 상한에 걸리지 않을 때까지
-   품질을 낮춰가며 다시 굽는다.
-   첫 단이 2400인 이유 — 네 컷 세로 만화는 대개 긴 변이 2000~2200px이라 그대로 통과한다.
-   여기서 더 줄이면 완성 이미지에서 스트립을 968px 폭으로 그릴 때 확대돼 흐려진다.
-   (724x2172 q.82 = base64 452KB로 상한 900KB의 절반만 쓴다) */
-document.getElementById('fcImgInput').onchange=async e=>{
-  const file=e.target.files[0];if(!file)return;
+/* ── 그림 상태 표시 / 다시 불러오기 ──
+   그림은 어드민에서 올리지 않고 레포 파일(apps/j_4cut/1~3)에서 끌어온다. 파일을 새로
+   푸시한 뒤 이 버튼을 누르면 브라우저 캐시를 건너뛰고 다시 받아 온다. */
+function renderImgStatus(){
   const status=document.getElementById('fcImgStatus');
-  status.className='fc-upstatus';status.textContent='불러오는 중…';
-  try{
-    let url=null;
-    for(const[max,q]of[[2400,.82],[2000,.8],[1600,.78],[1400,.72],[1200,.68],[1000,.62]]){
-      url=await downscale(file,max,q);
-      if(url.length<=IMG_WARN_BYTES)break;
-    }
-    if(url.length>IMG_WARN_BYTES){
-      status.className='fc-upstatus err';
-      status.textContent=`이미지가 너무 큽니다 (${Math.round(url.length/1024)}KB). 더 작은 그림으로 올려주세요.`;
-      e.target.value='';return;
-    }
-    images[activeEv]=url;imagesDirty[activeEv]=true;
-    status.textContent=`올렸습니다 (${Math.round(url.length/1024)}KB). 저장 버튼을 눌러야 학생 화면에 반영됩니다.`;
-    renderAll();
-  }catch(err){
-    status.className='fc-upstatus err';status.textContent='실패: '+(err.message||err);
-  }finally{e.target.value='';}
-};
-document.getElementById('fcImgDel').onclick=()=>{
-  if(!images[activeEv]){return;}
-  if(!confirm(`${curEvent().name} 만화 이미지를 삭제할까요?`))return;
-  images[activeEv]=null;imagesDirty[activeEv]=true;
-  const status=document.getElementById('fcImgStatus');
-  status.className='fc-upstatus';status.textContent='삭제했습니다. 저장 버튼을 눌러야 반영됩니다.';
-  renderAll();
-};
-
-function downscale(file,maxSize,quality){
-  return new Promise((res,rej)=>{
-    const img=new Image();const url=URL.createObjectURL(file);
-    img.onload=()=>{
-      URL.revokeObjectURL(url);
-      let{width:w,height:h}=img;
-      if(w>maxSize||h>maxSize){const r=Math.min(maxSize/w,maxSize/h);w=Math.round(w*r);h=Math.round(h*r);}
-      const cv=document.createElement('canvas');cv.width=w;cv.height=h;
-      cv.getContext('2d').drawImage(img,0,0,w,h);
-      res(cv.toDataURL('image/jpeg',quality));
-    };
-    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('이미지를 읽을 수 없습니다'));};
-    img.src=url;
-  });
+  if(!status)return;
+  const ev=EVENTS.find(e=>e.id===activeEv);
+  if(images[activeEv]){
+    status.className='fc-upstatus';
+    status.textContent=`레포 파일 ${images[activeEv].split('?')[0].split('/').pop()} 을 쓰고 있습니다.`;
+  }else{
+    status.className='fc-upstatus err';
+    status.textContent=`그림이 없습니다. apps/j_4cut/${ev.file}.png(또는 .jpg)를 푸시해 주세요.`;
+  }
 }
+
+document.getElementById('fcImgReload').onclick=async e=>{
+  const btn=e.currentTarget;
+  btn.disabled=true;btn.textContent='불러오는 중…';
+  try{ await loadImages(true); renderAll(); }
+  finally{ btn.disabled=false; btn.textContent='그림 다시 불러오기'; }
+};
 
 /* ── 저장 ── */
 window.saveContent=async()=>{
@@ -609,18 +604,11 @@ window.saveContent=async()=>{
   msg.textContent='저장 중…';msg.style.color='var(--hi-text-muted)';
   try{
     await setDoc(doc(db,'settings','fourcut_content'),CONTENT);
-    // 이미지는 이번에 바뀐 사건만 각자의 문서에 쓴다
-    for(const id of Object.keys(imagesDirty)){
-      await setDoc(doc(db,'settings','fourcut_img_'+id),{image:images[id]||null,updatedAt:Date.now()});
-    }
-    imagesDirty={};
     msg.textContent='저장되었습니다.';msg.style.color='var(--hi-positive)';
     setTimeout(()=>msg.textContent='',1800);
   }catch(e){
     msg.style.color='var(--hi-negative)';
-    msg.textContent=(String(e).includes('longer than')||String(e).includes('exceeds'))
-      ?'저장 실패: 이미지 용량이 너무 큽니다. 더 작은 그림을 사용하세요.'
-      :'저장 실패: '+(e.message||e);
+    msg.textContent='저장 실패: '+(e.message||e);
   }
 };
 

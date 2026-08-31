@@ -130,6 +130,7 @@ Password is hardcoded in each admin page's JS (`sessionStorage` key `admin_auth`
 - **어드민 사이드바/탭의 메뉴 라벨은 (콘텐츠 이름·데이터 항목이 아닌 카테고리 메뉴에 한해) 항상 영문 대문자로 표기** (예: `FEED`, `ANSWER`, `QUESTION`, `SETTING`, `SYSTEM`, `STUDENT`, `CARDS`, `UPLOAD`, `STATUS`). 새 앱을 만들거나 기존 한글 탭을 발견하면 짧고 명확한 영단어로 바꾸고, 이미 쓰인 라벨과 겹치는 개념이면 그 단어를 그대로 재사용해 앱마다 통일한다.
   - 예외: 에피소드 제목·강의 회차처럼 콘텐츠 자체의 이름(고유명사·번호)인 서브탭은 번역하지 않는다(예: escape의 "프롤로그"/"엔딩", 반별 탭의 "1반"~"6반").
 - **어드민 브라우저 `<title>` 형식: `"웹앱 제목 - 관리자 모드"`**
+- **웹앱 어드민 본문 폭은 공용 `.admin-container`(`shared/admin-base.css`)의 1000px을 그대로 쓴다.** 어드민은 표·목록·반 태그처럼 가로로 늘어나는 것이 많아 넉넉해야 한다. 앱마다 `max-width`를 따로 덮어쓰지 말고, 좁아서 잘리는 곳이 생기면 공용값을 올린다(2026-08-31에 720px에서 올림).
 - **어드민 로그인 화면 구조**: login-icon 없이, login-title = 웹앱 이름(크게), login-sub = "관리자 모드"(작은 텍스트)
 - 버튼은 가급적 중앙정렬
 
@@ -181,6 +182,16 @@ LMS에서 미션 카드를 만들고 공개(잠금 해제)하면, 같은 Firesto
 - **반영 시점**: 표를 열어 둔 채 채점이 바뀌면 실시간으로 따라오고(`startMissionLive`), [불러오기] 때 저장값과 달라진 학생은 **이미 반영(공개)한 반에 한해** 학생 성적 문서까지 바로 갱신한다(`gradePushLive`). 아직 반영하지 않은 반은 표만 바뀐다 — 공개 시점은 선생님이 정하는 것이므로.
 - **연동된 앱**: `j_interview`(interview_joseon_answers), `j_wartimeline`(j_wartimeline_results), `j_4cut`(fourcut_submissions).
 - **`fourcut_submissions` 예외**: 네컷 작품 문서(`fourcut_works`)에는 base64 JPEG가 통째로 들어 있어 LMS가 전량 조회하면 수십 MB가 오간다. 그래서 학번당 1문서짜리 가벼운 요약 컬렉션을 따로 둔다 — 학생이 공유할 때 제출 사실·시각을 남기고(`apps/j_4cut/index.html`의 `saveSubmissionMark`), 선생님이 작품별 통과/미흡을 누를 때 합산 `status`를 써 넣는다(`apps/j_4cut/admin.html`의 `syncSubmissionSummary`). **채점 결과를 제출 문서 자신에 둔다는 표준 스키마의 유일한 예외**이며, 이유는 오직 이미지 용량이다. 작품별 `status`는 표준대로 `fourcut_works` 문서에 그대로 남는다.
+
+## 사화 네컷 만화 이미지는 레포 파일 (2026-08-31)
+
+`apps/j_4cut`의 만화 그림은 **레포에 직접 올린 파일**에서 끌어온다. 사건 순서대로 무오사화 `1`, 갑자사화 `2`, 기묘사화 `3`이며, 확장자는 `resolveEventImage()`가 png/jpg/jpeg/webp 순으로 찾아 먼저 열리는 것을 쓴다(어드민과 학생 화면에 같은 함수가 각각 들어 있다).
+
+- 예전에는 어드민에서 파일을 올려 `settings/fourcut_img_<id>`에 base64로 넣었다. Firestore 문서 1MB 상한 때문에 긴 변 2400px부터 품질을 낮춰가며 다시 굽는 코드가 있었고, 그만큼 화질이 깎였다. 레포 파일에는 그 제약이 없다. **업로드 UI를 되살리지 말 것.**
+- 어드민에는 [그림 다시 불러오기]만 남았다(`?t=` 캐시 무시). 그림을 바꾸려면 파일을 다시 푸시하고 이 버튼을 누른다.
+- 캐시하는 주소는 `im.src`(브라우저가 푼 절대 주소)다. 상대 주소를 그대로 쓰면 학생 화면의 완성 이미지 합성(html2canvas가 DOM을 복제해 그린다)에서 그림을 못 찾을 수 있다.
+- 그림은 같은 origin이라 canvas가 오염되지 않는다. 다른 도메인에서 끌어오면 `toDataURL`이 막히므로 외부 URL로 바꾸지 말 것.
+- 말풍선 기본 배치와 본문은 그대로 `settings/fourcut_content`에 저장된다. 저장 버튼은 이제 그것만 쓴다.
 
 ## 성적 체크는 저장 버튼이 없다 (2026-08-31)
 

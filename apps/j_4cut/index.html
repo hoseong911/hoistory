@@ -270,12 +270,12 @@ const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function filmDateStr(){const d=new Date();const p=n=>String(n).padStart(2,'0');return `'${String(d.getFullYear()).slice(2)}.${p(d.getMonth()+1)}.${p(d.getDate())}`;}
 
-/* 만화 이미지는 "사화 사건 1개당 세로로 이어진 1장". 이 상수 3개가 사건 목록이자
-   이미지 문서 id(settings/fourcut_img_<id>)이기도 하다. */
+/* 만화 이미지는 "사화 사건 1개당 세로로 이어진 1장".
+   file은 레포에 올려 둔 그림 파일 이름이다(apps/j_4cut/1.png 등). */
 const EVENTS=[
-  {id:"muo",  name:"무오사화", no:"01"},
-  {id:"gapja",name:"갑자사화", no:"02"},
-  {id:"gimyo",name:"기묘사화", no:"03"},
+  {id:"muo",  name:"무오사화", no:"01", file:"1"},
+  {id:"gapja",name:"갑자사화", no:"02", file:"2"},
+  {id:"gimyo",name:"기묘사화", no:"03", file:"3"},
 ];
 const CUTS=4;                 // 세로 이미지를 높이로 4등분
 const MAX_BUBBLES_PER_CUT=2;  // 컷당 말풍선 상한
@@ -399,13 +399,36 @@ $("#startBtn").onclick=async()=>{
   }finally{btn.disabled=false;btn.textContent=label;}
 };
 
+/* 만화 이미지는 레포에 직접 올린 파일에서 끌어온다(apps/j_4cut/1.png 등).
+   Firestore 문서에 base64로 담던 시절엔 1MB 상한 때문에 화질을 계속 깎아야 했다.
+   레포 파일은 그런 제약이 없고, 그림을 바꾸려면 파일만 다시 푸시하면 된다.
+   확장자는 미리 정하지 않는다(png로 올릴지 jpg로 올릴지는 그때그때) — 후보를 차례로
+   시도해 먼저 열리는 것을 쓰고, 한 번 찾은 결과는 캐시한다. */
+const IMG_EXTS=['png','jpg','jpeg','webp'];
+const _imgUrlCache={};
+function resolveEventImage(file,bust){
+  if(!file)return Promise.resolve(null);
+  if(!bust&&_imgUrlCache[file]!==undefined)return Promise.resolve(_imgUrlCache[file]);
+  return new Promise(res=>{
+    let i=0;
+    const tryNext=()=>{
+      if(i>=IMG_EXTS.length){_imgUrlCache[file]=null;res(null);return;}
+      const url=file+'.'+IMG_EXTS[i++]+(bust?'?t='+Date.now():'');
+      const im=new Image();
+      // im.src는 브라우저가 절대 주소로 풀어 준 값이다. 상대 주소를 그대로 들고 다니면
+      // html2canvas가 복제 문서에서 그림을 못 찾는 경우가 있어 절대 주소로 캐시한다.
+      im.onload=()=>{_imgUrlCache[file]=im.src;res(im.src);};
+      im.onerror=tryNext;
+      im.src=url;
+    };
+    tryNext();
+  });
+}
+
 async function loadEventImage(evId){
   if(imgCache[evId]!==undefined)return imgCache[evId];
-  let url=null;
-  try{
-    const snap=await getDoc(doc(db,'settings','fourcut_img_'+evId));
-    if(snap.exists())url=snap.data().image||null;
-  }catch(e){}
+  const meta=EVENTS.find(e=>e.id===evId);
+  const url=await resolveEventImage(meta&&meta.file);
   imgCache[evId]=url;
   return url;
 }
