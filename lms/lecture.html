@@ -260,6 +260,25 @@
       will-change: auto;
     }
 
+    /* ── 아이폰 강제 종료(메모리) 대책: 합성 비용이 큰 효과를 모바일에서만 끈다 ──
+       표지·초성·학습목표의 빛 쓸기(.intro-sweep)는 mix-blend-mode + 무한 애니메이션이라,
+       슬라이드 한 장을 통째로 별도 비트맵에 그려 두고 계속 다시 그린다. 이 슬라이드들이
+       덱 앞쪽에 몰려 있어 열자마자 다섯 장이 동시에 그 상태가 되고, 그 위에 큰 이미지까지
+       올라오면 사파리가 탭을 종료한다. 모바일에서는 같은 자리에 멈춘 빛만 남긴다
+       (PC 발표 화면은 그대로 — body.mobile-scroll일 때만 적용). */
+    body.mobile-scroll .intro-sweep {
+      mix-blend-mode: normal;
+      animation: none;
+      opacity: 0.3;
+    }
+    /* 프로스티드 글래스(backdrop-filter)도 뒤 배경을 원본 해상도로 한 번 더 그리게 만든다.
+       모바일에서는 반투명 흰 배경만 남겨 같은 톤을 낸다. */
+    body.mobile-scroll .think-guide {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+      background: color-mix(in srgb, #ffffff 80%, transparent);
+    }
+
     /* 모바일 스크롤: 홈·토글을 읽기 좋은 크기의 플로팅 툴바로 우측 상단 구석에 고정한다.
        position:fixed라 문서 흐름을 차지하지 않으므로 슬라이드가 아래로 밀리지 않는다.
        PC(비 mobile-scroll)는 기존 좌표·크기를 그대로 쓴다. */
@@ -271,8 +290,6 @@
       background: rgba(255,255,255,0.92);
       border-radius: 22px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.16);
-      -webkit-backdrop-filter: blur(4px);
-      backdrop-filter: blur(4px);
     }
     /* 모바일 툴바는 흰 배경 위라 반투명을 풀고 또렷하게 둔다 */
     body.mobile-scroll #back-btn { width: 32px; height: 32px; opacity: 0.85; }
@@ -352,7 +369,7 @@ import { getDatabase, ref, get, set, push, update, onValue, runTransaction } fro
 import { initXP, addTypingReviewXP } from '../shared/xp.js';
 import { icon } from '../shared/icons.js';
 import { blockPaste } from '../shared/textLimit.js';
-import { applyScreenProtection } from '../shared/protect.js?v=20260828';
+import { applyScreenProtection } from '../shared/protect.js?v=20260901';
 import { typingBlockReason } from '../shared/util.js?v=20260826';
 
 // 학생 화면 복사/붙여넣기·우클릭 차단(부정행위 방지)
@@ -812,6 +829,7 @@ async function init() {
       watchMobileSlideSize();
       setupMobileScrollTracking();
       loadAllVideos();
+      manageMobileImages();
       return;
     }
 
@@ -1064,6 +1082,51 @@ async function init() {
     document.addEventListener('visibilitychange', () => { if (!document.hidden) rescaleMobileSlides(); });
     // 웹폰트가 늦게 붙으면서 레이아웃이 한 번 더 바뀌는 경우까지 덮는다.
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => rescaleMobileSlides());
+  }
+
+  /* 모바일: 화면에서 멀어진 슬라이드의 사진은 src를 비워 디코딩된 비트맵을 돌려준다.
+     사진 파일은 몇백 KB라도 화면에 올라가는 순간 가로x세로x4바이트로 펼쳐진다
+     (2400x2400 사진 한 장 = 약 23MB). 슬라이드가 전부 DOM에 있는 모바일에서는
+     스크롤하는 동안 이게 계속 쌓이다 아이폰이 탭을 강제 종료한다.
+     영상(loadAllVideos)과 똑같이, 화면 앞뒤 1.5화면 안에 든 사진만 붙여 둔다. */
+  function manageMobileImages() {
+    const imgs = Array.from(slidesEl.querySelectorAll('.slide img'));
+    if (!imgs.length || !('IntersectionObserver' in window)) return;
+
+    // src를 떼기 전에 원본 주소와 확장자 폴백 핸들러를 보관해 둔다.
+    imgs.forEach(im => {
+      im.dataset.isrc = im.getAttribute('src') || '';
+      const oe = im.getAttribute('onerror');
+      if (oe) im.dataset.ierr = oe;
+      im.removeAttribute('onerror');
+      im.removeAttribute('src');
+    });
+
+    const load = im => {
+      if (im.getAttribute('src') || !im.dataset.isrc) return;
+      if (im.dataset.ierr) im.setAttribute('onerror', im.dataset.ierr);
+      im.setAttribute('src', im.dataset.isrc);
+    };
+    const unload = im => {
+      if (!im.getAttribute('src')) return;
+      // 빈 src로 두면 error 이벤트가 나서 폴백이 다시 돌므로 핸들러부터 뗀다.
+      im.removeAttribute('onerror');
+      im.onerror = null;
+      // 실제로 뜬 주소(png -> jpg 폴백을 거친 결과)를 기억해 다시 켤 때 404를 반복하지 않는다.
+      if (im.currentSrc) im.dataset.isrc = im.currentSrc;
+      im.removeAttribute('src');
+    };
+
+    // 관찰 대상은 이미지가 아니라 슬라이드 프레임이다. 프레임에는 content-visibility가
+    // 걸려 있어 화면 밖이면 안쪽 내용이 아예 그려지지 않고, 그러면 안쪽 이미지에는 상자가
+    // 없어 교차 판정이 영영 안 온다. 프레임 상자는 항상 살아 있으므로 여기에 건다.
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(en => {
+        const inFrame = Array.from(en.target.querySelectorAll('img'));
+        inFrame.forEach(en.isIntersecting ? load : unload);
+      });
+    }, { rootMargin: '150% 0px' });
+    slidesEl.querySelectorAll('.mobile-slide-frame').forEach(f => io.observe(f));
   }
 
   /* 모바일: 화면에 절반 이상 보이는 슬라이드를 기준으로 카운터 갱신 */

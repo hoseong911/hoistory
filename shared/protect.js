@@ -34,15 +34,15 @@ function injectStyle() {
     }
     html.hi-protected img, html.hi-protected svg { -webkit-user-drag: none; user-drag: none; }
 
-    /* 탭이 가려진 동안에는 내용을 흐리게 둔다. 돌아오면 곧바로 원래대로. */
-    html.hi-protected.hi-blurred body > *:not(.hi-protect-veil) {
-      filter: blur(18px) !important;
-      pointer-events: none !important;
-    }
+    /* 탭이 가려진 동안에는 불투명한 덮개로 가린다.
+       예전에는 덮개와 별개로 body 자식 전체에 filter: blur(18px)를 걸었는데, 그러면
+       브라우저가 흐리게 할 대상(강의 페이지의 경우 슬라이드 전체 스크롤 내용)을 한 장의
+       비트맵으로 통째로 그려야 해서 아이폰이 메모리 한계로 탭을 강제 종료했다.
+       덮개를 불투명하게 만들면 가림 효과는 같으면서 그리기 비용이 0에 가깝다. */
     .hi-protect-veil {
       position: fixed; inset: 0; z-index: 2147483647;
       display: none; align-items: center; justify-content: center;
-      background: rgba(20, 18, 14, 0.72); color: #fff;
+      background: #14120e; color: #fff;
       font-family: 'Pretendard', -apple-system, sans-serif;
       font-size: 15px; font-weight: 700; letter-spacing: .2px; text-align: center;
       padding: 24px;
