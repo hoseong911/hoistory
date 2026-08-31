@@ -104,12 +104,27 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 .bubble{position:absolute;background:var(--bubble);border:2.5px solid var(--bubble-line);display:flex;align-items:center;justify-content:center}
 .bubble.speech{border-radius:16px}
 .bubble.thought{border-radius:50%}
+/* ── 말풍선 꼬리 ──
+   꼬리는 기본이 왼쪽 아래고, 꼬리를 누르면 오른쪽으로 뒤집힌다(.tr).
+   풍선 전체를 transform으로 좌우 반전하면 안의 글씨까지 뒤집히므로, 꼬리 조각의
+   기준을 left에서 right로 바꾸는 방식만 쓴다. 삼각형 자체는 좌우 대칭이라
+   자리만 옮기면 된다. 어드민에서 잡아 둔 방향이 학생 화면 기본값이 된다. */
 .bubble .tail{position:absolute;left:26%;bottom:-13px;width:0;height:0}
+.bubble.tr .tail{left:auto;right:26%}
 .bubble.speech .tail{border-left:10px solid transparent;border-right:10px solid transparent;border-top:16px solid var(--bubble-line)}
 .bubble.speech .tail::after{content:"";position:absolute;left:-7px;top:-16px;border-left:7px solid transparent;border-right:7px solid transparent;border-top:12px solid var(--bubble)}
 .bubble.thought .tail,.bubble.thought .tail2{position:absolute;background:var(--bubble);border:2.5px solid var(--bubble-line);border-radius:50%}
 .bubble.thought .tail{width:14px;height:14px;left:22%;bottom:-16px}
 .bubble.thought .tail2{width:8px;height:8px;left:14%;bottom:-28px}
+.bubble.thought.tr .tail{left:auto;right:22%}
+.bubble.thought.tr .tail2{left:auto;right:14%}
+/* 삼각형과 작은 원은 손가락으로 누르기엔 너무 작다. 그 위에 투명한 누를 자리를 덮는다. */
+.bubble .tailhit{position:absolute;z-index:6;cursor:pointer;-webkit-tap-highlight-color:transparent;border-radius:100px}
+.bubble.speech .tailhit{left:calc(26% + 10px);transform:translateX(-50%);bottom:-16px;width:36px;height:28px}
+.bubble.speech.tr .tailhit{left:auto;right:calc(26% + 10px);transform:translateX(50%)}
+.bubble.thought .tailhit{left:calc(18% + 5px);transform:translateX(-50%);bottom:-32px;width:46px;height:40px}
+.bubble.thought.tr .tailhit{left:auto;right:calc(18% + 5px);transform:translateX(50%)}
+.bubble .tailhit:active{background:rgba(228,87,46,.18)}
 .btext{position:absolute;inset:15% 16%;overflow:hidden;text-align:center;line-height:1.25;font-family:'Gaegu',cursive;font-weight:700;color:#1c1c1c;word-break:break-word;overflow-wrap:anywhere;display:flex;align-items:center;justify-content:center;width:auto;outline:none}
 .bubble.thought .btext{inset:20% 20%}
 .btext:empty::before{content:attr(data-ph);color:#b0aca0;font-weight:400}
@@ -483,9 +498,10 @@ $("#backIntroBtn").onclick=()=>{
 let curCut=0;
 function bubbleHTML(b,ci,bi){
   const st=`left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%`;
-  const tail=b.type==="thought"?`<span class="tail"></span><span class="tail2"></span>`:`<span class="tail"></span>`;
+  const tail=(b.type==="thought"?`<span class="tail"></span><span class="tail2"></span>`:`<span class="tail"></span>`)
+    +`<span class="tailhit" data-act="tail" title="꼬리를 누르면 좌우가 바뀌어요"></span>`;
   const ph=b.type==="thought"?"생각을 써요":"대사를 써요";
-  return `<div class="bubble ${b.type==="thought"?"thought":"speech"}" data-ci="${ci}" data-bi="${bi}" style="${st}">
+  return `<div class="bubble ${b.type==="thought"?"thought":"speech"}${b.tail==="right"?" tr":""}" data-ci="${ci}" data-bi="${bi}" style="${st}">
       <div class="bhandle" data-act="move">${icon('move',12)}</div><div class="bdel" data-act="del">${icon('x',13)}</div>
       <div class="btext" contenteditable="true" data-ci="${ci}" data-bi="${bi}" data-ph="${ph}">${esc(b.text)}</div>${tail}</div>`;
 }
@@ -558,6 +574,14 @@ function bindCutPage(){
     ev.stopPropagation();
     const b=el.parentElement;
     work[+b.dataset.ci].bubbles.splice(+b.dataset.bi,1);renderCutPage();
+  });
+  // 꼬리를 누르면 좌우가 바뀐다. 글씨는 그대로 두고 꼬리 자리만 옮기므로 대사는 안 뒤집힌다.
+  page.querySelectorAll('.tailhit').forEach(el=>el.onclick=ev=>{
+    ev.stopPropagation();
+    const wrap=el.parentElement;
+    const b=work[+wrap.dataset.ci].bubbles[+wrap.dataset.bi];
+    b.tail=(b.tail==='right')?'left':'right';
+    wrap.classList.toggle('tr',b.tail==='right');
   });
   page.querySelectorAll('.bhandle').forEach(el=>el.addEventListener('pointerdown',ev=>startDrag(ev,el.parentElement)));
   page.querySelectorAll('.btext[contenteditable]').forEach(el=>{
@@ -677,6 +701,24 @@ async function doSubmit(){
   renderDone(previewUrl,err);
 }
 
+/* 완성 이미지의 말풍선 꼬리.
+   예전엔 편집 화면에만 꼬리가 있고 완성 이미지에는 없어서, 보이는 것과 나오는 것이
+   달랐다. 여기서 같은 모양을 인라인 스타일로 다시 그린다(html2canvas가 복제 문서를
+   그리므로 클래스 대신 인라인이 안전하다). 완성본은 편집 창보다 크므로 조각도 그만큼
+   키운다. 꼬리 방향(b.tail)은 편집에서 정한 그대로 따른다. */
+function exportTail(b){
+  const right=b.tail==='right';
+  const side=right?'right':'left';
+  if(b.type==='thought'){
+    const dot=(size,pos,bottom)=>`<div style="position:absolute;${side}:${pos};bottom:-${bottom}px;width:${size}px;height:${size}px;background:#fff;border:3px solid #1c1c1c;border-radius:50%"></div>`;
+    return dot(19,'22%',22)+dot(11,'14%',38);
+  }
+  // 대사 꼬리: 아래를 향한 삼각형(테두리색) 위에 흰 삼각형을 겹쳐 테두리만 남긴다.
+  return `<div style="position:absolute;${side}:26%;bottom:-21px;width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;border-top:21px solid #1c1c1c">
+      <div style="position:absolute;left:-9px;top:-21px;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-top:16px solid #fff"></div>
+    </div>`;
+}
+
 async function buildExportDOM(){
   const host=$("#exportHost");
   const inner=1080-26*2-30*2;   // 외곽 여백 + 필름 프레임 좌우 패딩
@@ -686,6 +728,7 @@ async function buildExportDOM(){
         const round=b.type==="thought"?"50%":"20px";
         const inset=b.type==="thought"?"20% 20%":"15% 16%";
         return `<div class="xb" style="position:absolute;left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%;background:#fff;border:3px solid #1c1c1c;border-radius:${round};display:flex;align-items:center;justify-content:center">
+          ${exportTail(b)}
           <div class="xt" style="position:absolute;inset:${inset};overflow:hidden;text-align:center;line-height:1.25;font-family:'Gaegu',cursive;font-weight:700;color:#1c1c1c;word-break:break-word;overflow-wrap:anywhere;display:flex;align-items:center;justify-content:center">${esc(b.text)}</div>
         </div>`;
       }).join("")}
@@ -741,7 +784,8 @@ async function submitWork(dataUrl){
     eventId:curEvent.id,eventName:curEvent.name,
     image:dataUrl,title:CONTENT.title,
     // 말풍선을 좌표까지 남긴다(수백 바이트). 어드민이 원본 만화 위에 그대로 재현할 수 있다.
-    cuts:work.map(c=>({bubbles:c.bubbles.map(b=>({type:b.type,x:b.x,y:b.y,w:b.w,h:b.h,text:b.text||""}))})),
+    cuts:work.map(c=>({bubbles:c.bubbles.map(b=>({type:b.type,x:b.x,y:b.y,w:b.w,h:b.h,text:b.text||"",
+      ...(b.tail==='right'?{tail:'right'}:{})}))})),
     timestamp:Date.now(),updatedAt:serverTimestamp()
   };
   if(cur.exists())payload.status=deleteField();   // 규칙상 다시 낼 땐 status가 남아 있으면 안 된다

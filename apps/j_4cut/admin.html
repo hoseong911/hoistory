@@ -76,6 +76,27 @@
 .eb.speech{border-radius:14px}
 .eb.thought{border-radius:50%}
 .eb.sel{box-shadow:0 0 0 3px rgba(39,56,79,.55)}
+/* ── 꼬리 ──
+   여기서 잡은 방향이 학생 화면의 기본값이 된다. 학생도 꼬리를 눌러 바꿀 수 있지만,
+   대개는 말하는 인물 쪽으로 미리 맞춰 두는 편이 낫다.
+   풍선을 통째로 좌우 반전하면 안의 글씨까지 뒤집히므로, 꼬리 조각의 기준을
+   left에서 right로 바꾸는 방식만 쓴다(삼각형 자체는 좌우 대칭이라 자리만 옮기면 된다). */
+.eb .tail{position:absolute;left:26%;bottom:-11px;width:0;height:0}
+.eb.tr .tail{left:auto;right:26%}
+.eb.speech .tail{border-left:9px solid transparent;border-right:9px solid transparent;border-top:14px solid #1c1c1c}
+.eb.speech .tail::after{content:"";position:absolute;left:-6px;top:-14px;border-left:6px solid transparent;border-right:6px solid transparent;border-top:10px solid #fff}
+.eb.thought .tail,.eb.thought .tail2{position:absolute;background:#fff;border:2.5px solid #1c1c1c;border-radius:50%}
+.eb.thought .tail{width:12px;height:12px;left:22%;bottom:-14px}
+.eb.thought .tail2{width:7px;height:7px;left:14%;bottom:-24px}
+.eb.thought.tr .tail{left:auto;right:22%}
+.eb.thought.tr .tail2{left:auto;right:14%}
+/* 조각이 작아 그대로는 누르기 어렵다. 그 위에 투명한 누를 자리를 덮는다. */
+.eb .tailhit{position:absolute;z-index:6;cursor:pointer;border-radius:100px}
+.eb.speech .tailhit{left:calc(26% + 9px);transform:translateX(-50%);bottom:-14px;width:32px;height:24px}
+.eb.speech.tr .tailhit{left:auto;right:calc(26% + 9px);transform:translateX(50%)}
+.eb.thought .tailhit{left:calc(18% + 4px);transform:translateX(-50%);bottom:-28px;width:42px;height:34px}
+.eb.thought.tr .tailhit{left:auto;right:calc(18% + 4px);transform:translateX(50%)}
+.eb .tailhit:hover{background:rgba(255,107,61,.18)}
 .eb .rh{position:absolute;right:-9px;bottom:-9px;width:18px;height:18px;background:var(--fc-primary);border:2px solid #fff;border-radius:50%;cursor:nwse-resize}
 .eb .dh{position:absolute;right:-9px;top:-9px;width:18px;height:18px;background:var(--hi-negative);border:2px solid #fff;border-radius:50%;cursor:pointer;color:#fff;font-size:12px;display:flex;align-items:center;justify-content:center}
 /* 아이콘까지 포인터를 받으면 위 closest 판정 전에 target이 svg가 된다. 눌림은 .dh가 받게 한다. */
@@ -284,7 +305,7 @@
             - 이미지는 <b>사건 1개당 1장</b>입니다. 네 컷이 <b>세로로 이어진 한 장</b>이어야 하고, 말풍선 없는 그림이어야 합니다.<br>
             - 학생 화면은 이 이미지를 높이로 4등분해 1~4컷으로 나눕니다.<br>
             - 여기서 잡은 말풍선은 <b>학생이 시작할 때의 기본 배치</b>입니다. 학생은 컷당 2개까지 스스로 추가하고 옮기고 지울 수 있습니다.<br>
-            - 말풍선은 드래그로 위치를, 오른쪽 아래 점으로 크기를 조절합니다.
+            - 말풍선은 드래그로 위치를, 오른쪽 아래 점으로 크기를 조절합니다. <b>꼬리를 누르면 좌우가 바뀝니다.</b>
           </p>
         </div>
 
@@ -430,6 +451,7 @@ async function loadContent(){
       CONTENT={
         title:d.title||"",
         introTitle:d.introTitle||"",introBody:d.introBody||"",introBtn:d.introBtn||"",
+        editHint:d.editHint||"",
         events:EVENTS.map(meta=>{
           const e=byId[meta.id];
           let cuts=e&&Array.isArray(e.cuts)?e.cuts:legacy;
@@ -505,7 +527,9 @@ function renderStage(){
       ${c.bubbles.map((b,bi)=>{
         const sel=selected&&selected.ci===ci&&selected.bi===bi?' sel':'';
         const label=b.type==="thought"?"생각":"대사";
-        return `<div class="eb ${b.type}${sel}" data-ci="${ci}" data-bi="${bi}" style="left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%">${label}<div class="dh" data-act="del">${icon('x',12)}</div><div class="rh" data-act="resize"></div></div>`;
+        const tail=(b.type==="thought"?`<span class="tail"></span><span class="tail2"></span>`:`<span class="tail"></span>`)
+          +`<span class="tailhit" data-act="tail" title="꼬리를 누르면 좌우가 바뀝니다"></span>`;
+        return `<div class="eb ${b.type}${sel}${b.tail==="right"?" tr":""}" data-ci="${ci}" data-bi="${bi}" style="left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%">${label}<div class="dh" data-act="del">${icon('x',12)}</div><div class="rh" data-act="resize"></div>${tail}</div>`;
       }).join("")}
     </div>`).join("");
   stage.className='fc-stage'+(img?'':' empty');
@@ -516,6 +540,17 @@ function renderStage(){
       const ci=+el.dataset.ci,bi=+el.dataset.bi;
       curEvent().cuts[ci].bubbles.splice(bi,1);selected=null;renderStage();renderSide();
     };
+    // 꼬리를 누르면 좌우가 바뀐다. 드래그가 먼저 잡아채지 않도록 pointerdown을 막는다.
+    const th=el.querySelector('.tailhit');
+    if(th){
+      th.addEventListener('pointerdown',e=>e.stopPropagation());
+      th.onclick=e=>{
+        e.stopPropagation();
+        const b=curEvent().cuts[+el.dataset.ci].bubbles[+el.dataset.bi];
+        b.tail=(b.tail==='right')?'left':'right';
+        el.classList.toggle('tr',b.tail==='right');
+      };
+    }
     el.addEventListener('pointerdown',e=>startDrag(e,el));
   });
 }
