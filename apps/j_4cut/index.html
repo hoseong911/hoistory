@@ -114,11 +114,21 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 .bubble .tail{position:absolute;left:26%;bottom:-13px;width:0;height:0}
 .bubble.tb-br .tail,.bubble.tb-tr .tail{left:auto;right:26%}
 .bubble.tb-tl .tail,.bubble.tb-tr .tail{bottom:auto;top:-13px}
+/* 옆 꼬리(ml/mr)는 위아래 테두리가 아니라 좌우 테두리에 붙고, 세로 가운데에 온다. */
+.bubble.tb-ml .tail{left:-13px;right:auto;bottom:auto;top:calc(50% - 10px)}
+.bubble.tb-mr .tail{left:auto;right:-13px;bottom:auto;top:calc(50% - 10px)}
 .bubble.speech .tail{border-left:10px solid transparent;border-right:10px solid transparent;border-top:16px solid var(--bubble-line)}
 .bubble.speech .tail::after{content:"";position:absolute;left:-7px;top:-16px;border-left:7px solid transparent;border-right:7px solid transparent;border-top:12px solid var(--bubble)}
 /* 위쪽 꼬리: 삼각형을 뒤집어 위를 향하게 한다(안쪽 흰 삼각형도 같이). */
 .bubble.speech.tb-tl .tail,.bubble.speech.tb-tr .tail{border-top:0;border-bottom:16px solid var(--bubble-line)}
 .bubble.speech.tb-tl .tail::after,.bubble.speech.tb-tr .tail::after{top:auto;bottom:-16px;border-top:0;border-bottom:12px solid var(--bubble)}
+/* 옆 꼬리: 삼각형이 옆을 향하도록 투명 테두리와 색 테두리의 축을 맞바꾼다. */
+.bubble.speech.tb-ml .tail,.bubble.speech.tb-mr .tail{border-left:0;border-right:0;border-top:10px solid transparent;border-bottom:10px solid transparent}
+.bubble.speech.tb-ml .tail{border-right:16px solid var(--bubble-line)}
+.bubble.speech.tb-mr .tail{border-left:16px solid var(--bubble-line)}
+.bubble.speech.tb-ml .tail::after,.bubble.speech.tb-mr .tail::after{border-left:0;border-right:0;border-top:7px solid transparent;border-bottom:7px solid transparent;top:-7px;bottom:auto}
+.bubble.speech.tb-ml .tail::after{left:4px;border-right:12px solid var(--bubble)}
+.bubble.speech.tb-mr .tail::after{left:-16px;border-left:12px solid var(--bubble)}
 .bubble.thought .tail,.bubble.thought .tail2{position:absolute;background:var(--bubble);border:2.5px solid var(--bubble-line);border-radius:50%}
 .bubble.thought .tail{width:14px;height:14px;left:22%;bottom:-16px}
 .bubble.thought .tail2{width:8px;height:8px;left:14%;bottom:-28px}
@@ -126,6 +136,11 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 .bubble.thought.tb-br .tail2,.bubble.thought.tb-tr .tail2{left:auto;right:14%}
 .bubble.thought.tb-tl .tail,.bubble.thought.tb-tr .tail{bottom:auto;top:-16px}
 .bubble.thought.tb-tl .tail2,.bubble.thought.tb-tr .tail2{bottom:auto;top:-28px}
+/* 생각 풍선의 작은 원은 방향이 없으니 옆으로 늘어놓기만 하면 된다. */
+.bubble.thought.tb-ml .tail{left:-16px;right:auto;bottom:auto;top:calc(50% - 7px)}
+.bubble.thought.tb-ml .tail2{left:-28px;right:auto;bottom:auto;top:calc(50% - 4px)}
+.bubble.thought.tb-mr .tail{left:auto;right:-16px;bottom:auto;top:calc(50% - 7px)}
+.bubble.thought.tb-mr .tail2{left:auto;right:-28px;bottom:auto;top:calc(50% - 4px)}
 /* 삼각형과 작은 원은 손가락으로 누르기엔 너무 작다. 그 위에 투명한 누를 자리를 덮는다. */
 .bubble .tailhit{position:absolute;z-index:6;cursor:pointer;-webkit-tap-highlight-color:transparent;border-radius:100px}
 .bubble.speech .tailhit{left:calc(26% + 10px);transform:translateX(-50%);bottom:-16px;width:36px;height:28px}
@@ -134,6 +149,10 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 .bubble.thought .tailhit{left:calc(18% + 5px);transform:translateX(-50%);bottom:-32px;width:46px;height:40px}
 .bubble.thought.tb-br .tailhit,.bubble.thought.tb-tr .tailhit{left:auto;right:calc(18% + 5px);transform:translateX(50%)}
 .bubble.thought.tb-tl .tailhit,.bubble.thought.tb-tr .tailhit{bottom:auto;top:-32px}
+.bubble.speech.tb-ml .tailhit{left:-18px;right:auto;transform:none;bottom:auto;top:calc(50% - 18px);width:34px;height:36px}
+.bubble.speech.tb-mr .tailhit{left:auto;right:-18px;transform:none;bottom:auto;top:calc(50% - 18px);width:34px;height:36px}
+.bubble.thought.tb-ml .tailhit{left:-36px;right:auto;transform:none;bottom:auto;top:calc(50% - 20px);width:46px;height:40px}
+.bubble.thought.tb-mr .tailhit{left:auto;right:-36px;transform:none;bottom:auto;top:calc(50% - 20px);width:46px;height:40px}
 .bubble .tailhit:active{background:rgba(228,87,46,.18)}
 .btext{position:absolute;inset:15% 16%;overflow:hidden;text-align:center;line-height:1.25;font-family:'Gaegu',cursive;font-weight:700;color:#1c1c1c;word-break:break-word;overflow-wrap:anywhere;display:flex;align-items:center;justify-content:center;width:auto;outline:none}
 .bubble.thought .btext{inset:20% 20%}
@@ -506,10 +525,12 @@ $("#backIntroBtn").onclick=()=>{
    그림 한 장에 네 컷이 이어져 있으므로, 지금 보는 컷만큼 그림을 위로 밀어(top: -N00%)
    창에 그 컷만 남긴다. 말풍선 좌표(x/y/w/h)는 예전 컷 영역과 같은 "컷 기준 %"라 그대로 쓴다. */
 let curCut=0;
-/* 꼬리 방향. 좌하(bl)를 기본으로 우하(br), 우상(tr), 좌상(tl) 순으로 돈다.
+/* 꼬리 방향 여섯 자리. 풍선 둘레를 한 바퀴 도는 순서다 —
+   왼쪽 아래에서 시작해 아래를 지나 오른쪽 변, 위쪽, 왼쪽 변으로 돌아온다.
+   ml/mr(옆 가운데)은 위아래가 아니라 좌우 테두리에 붙는다.
    좌우만 있던 시절의 값('left'/'right')도 그대로 읽어 준다. */
-const TAIL_ORDER=['bl','br','tr','tl'];
-const TAIL_TITLE='꼬리를 누르면 좌하, 우하, 우상, 좌상 순으로 자리가 바뀌어요';
+const TAIL_ORDER=['bl','br','mr','tr','tl','ml'];
+const TAIL_TITLE='누를 때마다 꼬리 자리가 바뀌어요 (왼쪽 아래, 오른쪽 아래, 오른쪽 가운데, 오른쪽 위, 왼쪽 위, 왼쪽 가운데)';
 function tailOf(b){
   const t=b&&b.tail;
   if(t==='right')return'br';
@@ -741,14 +762,27 @@ async function doSubmit(){
    키운다. 꼬리 방향(b.tail)은 편집에서 정한 그대로 따른다. */
 function exportTail(b){
   const t=tailOf(b);
-  const sx=(t==='br'||t==='tr')?'right':'left';
+  const sx=(t==='br'||t==='tr'||t==='mr')?'right':'left';
+  const side=(t==='ml'||t==='mr');   // 옆 꼬리는 좌우 테두리에 붙고 삼각형도 옆을 향한다
   const sy=(t==='tl'||t==='tr')?'top':'bottom';
+
   if(b.type==='thought'){
-    const dot=(size,pos,off)=>`<div style="position:absolute;${sx}:${pos};${sy}:-${off}px;width:${size}px;height:${size}px;background:#fff;border:3px solid #1c1c1c;border-radius:50%"></div>`;
-    return dot(19,'22%',22)+dot(11,'14%',38);
+    // 작은 원은 방향이 없으니 자리만 옮긴다.
+    const dot=side
+      ? (size,off)=>`<div style="position:absolute;${sx}:-${off}px;top:calc(50% - ${size/2}px);width:${size}px;height:${size}px;background:#fff;border:3px solid #1c1c1c;border-radius:50%"></div>`
+      : (size,off,pos)=>`<div style="position:absolute;${sx}:${pos};${sy}:-${off}px;width:${size}px;height:${size}px;background:#fff;border:3px solid #1c1c1c;border-radius:50%"></div>`;
+    return side ? dot(19,22)+dot(11,38) : dot(19,22,'22%')+dot(11,38,'14%');
   }
+
   // 대사 꼬리: 삼각형(테두리색) 위에 흰 삼각형을 겹쳐 테두리만 남긴다.
-  // 아래 꼬리는 아래를, 위 꼬리는 위를 향해야 하므로 border-top과 border-bottom을 맞바꾼다.
+  // 향하는 쪽의 반대편 테두리에 색을 주면 그쪽으로 뾰족해진다.
+  if(side){
+    const outer=(t==='ml')?'border-right:21px solid #1c1c1c':'border-left:21px solid #1c1c1c';
+    const inner=(t==='ml')?'left:5px;border-right:16px solid #fff':'left:-21px;border-left:16px solid #fff';
+    return `<div style="position:absolute;${sx}:-21px;top:calc(50% - 13px);width:0;height:0;border-top:13px solid transparent;border-bottom:13px solid transparent;${outer}">
+        <div style="position:absolute;top:-9px;${inner};width:0;height:0;border-top:9px solid transparent;border-bottom:9px solid transparent"></div>
+      </div>`;
+  }
   const up=(sy==='top');
   const outer=up?'border-bottom:21px solid #1c1c1c':'border-top:21px solid #1c1c1c';
   const inner=up?'bottom:-21px;border-bottom:16px solid #fff':'top:-21px;border-top:16px solid #fff';
