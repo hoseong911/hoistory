@@ -8,6 +8,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../../shared/theme.css">
 <link rel="stylesheet" href="../../shared/admin-base.css">
+<!-- 작품 일괄 저장용. 수십 장을 한 장씩 내려받으면 브라우저가 막으므로 zip 하나로 묶는다. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
 <style>
 /* LMS 어드민과 같은 톤(오렌지 주 + 네이비 보조)으로 맞춘다.
@@ -214,6 +216,9 @@
 .sgt:hover{filter:brightness(.96)}
 .sgt[disabled]{opacity:.55;cursor:progress}
 .no-data{text-align:center;padding:40px 20px;color:var(--hi-text-muted);font-size:var(--adm-sub)}
+/* 일괄 저장 줄 — 보기 전환 탭 바로 아래 오른쪽. */
+.ans-saverow{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin:-6px 0 12px}
+.ans-saverow .fc-upstatus{margin-top:0}
 
 /* ── 한 명씩 보기 (구글 폼 개별 응답 보듯) ──
    태그로 좁힌 목록을 한 작품씩 넘기며 본다. 기본값이 통과라, 미흡인 것만 토글하고
@@ -369,6 +374,11 @@
         <div class="ans-subtabs" id="ansViewTabs">
           <button class="ans-subtab active" onclick="setAnsView('grid',this)">목록 보기</button>
           <button class="ans-subtab" onclick="setAnsView('one',this)">한 명씩 보기</button>
+        </div>
+        <!-- 지금 태그로 걸러 놓은 작품만 zip으로 받는다. 반 태그를 골라 두면 그 반만 받는다. -->
+        <div class="ans-saverow">
+          <button class="btn btn-ghost btn-sm" id="worksZipBtn">이미지 일괄 저장</button>
+          <span class="fc-upstatus" id="worksZipStatus"></span>
         </div>
         <div id="worksList"><div class="loading-state"><div class="spinner"></div><span>불러오는 중…</span></div></div>
         <div id="worksOne" style="display:none"></div>
@@ -672,6 +682,8 @@ function renderImgStatus(){
     status.textContent=`그림이 없습니다. apps/j_4cut/${ev.file}.png(또는 .jpg)를 푸시해 주세요.`;
   }
 }
+
+document.getElementById('worksZipBtn').onclick=()=>downloadWorksZip();
 
 document.getElementById('fcImgReload').onclick=async e=>{
   const btn=e.currentTarget;
@@ -996,6 +1008,56 @@ window.delWork=async id=>{
     if(cur&&cur.studentId)await deleteDoc(doc(db,'fourcut_submissions',String(cur.studentId)));
   }catch(e){alert('삭제 실패: '+(e.message||e));}
 };
+
+/* ── 작품 이미지 일괄 저장 ──
+   지금 태그로 걸러 놓은 작품(filteredWorks)만 zip 하나로 묶어 내려받는다. 반 태그를
+   골라 두면 그 반만 받는다. 한 장씩 <a download>로 쏘면 브라우저가 "여러 파일 내려받기"를
+   막거나 수십 개 창을 띄우므로 묶는 편이 낫다.
+
+   파일 이름은 "1반_30101_홍길동_무오사화.jpg" 꼴이라 탐색기에서 반과 학번 순으로 정렬된다.
+   이미지는 이미 base64 dataURL로 들고 있으므로 앞머리(data:image/jpeg;base64,)만 떼고 넣는다. */
+window.downloadWorksZip=async()=>{
+  const btn=document.getElementById('worksZipBtn');
+  const st=document.getElementById('worksZipStatus');
+  const list=filteredWorks().filter(w=>w.image);
+  if(!list.length){st.className='fc-upstatus err';st.textContent='저장할 작품이 없습니다.';return;}
+  if(typeof JSZip==='undefined'){st.className='fc-upstatus err';st.textContent='압축 도구를 불러오지 못했습니다. 새로고침 후 다시 시도해주세요.';return;}
+
+  btn.disabled=true;
+  st.className='fc-upstatus';st.textContent=`${list.length}장 묶는 중…`;
+  try{
+    const zip=new JSZip();
+    const used={};
+    list.forEach(w=>{
+      const cls=w.classNum!=null?`${w.classNum}반`:'반없음';
+      let name=`${cls}_${w.studentId||'학번없음'}_${(w.studentName||'이름없음')}_${w.eventName||'사건없음'}`
+        .replace(/[\\/:*?"<>|]/g,'_');   // 파일 이름에 못 쓰는 글자 정리
+      // 같은 이름이 겹치면 뒤에 번호를 붙인다(같은 학생 작품이 둘 이상인 경우 대비).
+      used[name]=(used[name]||0)+1;
+      if(used[name]>1)name+=`(${used[name]})`;
+      zip.file(name+'.jpg',String(w.image).replace(/^data:image\/\w+;base64,/,''),{base64:true});
+    });
+    const blob=await zip.generateAsync({type:'blob'},meta=>{
+      st.textContent=`압축 중… ${Math.round(meta.percent)}%`;
+    });
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=`사화네컷_${zipScopeLabel()}_${new Date().toISOString().slice(0,10)}.zip`;
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),10000);
+    st.textContent=`${list.length}장 저장했습니다.`;
+  }catch(e){
+    st.className='fc-upstatus err';st.textContent='저장 실패: '+(e.message||e);
+  }finally{btn.disabled=false;}
+};
+
+// zip 파일 이름에 붙일 범위(지금 고른 반과 사건).
+function zipScopeLabel(){
+  const cls=worksFilter==='all'?'전체':`${worksFilter}반`;
+  const ev=worksEvFilter==='all'?'':'_'+(EVENTS.find(e=>e.id===worksEvFilter)||{}).name;
+  return cls+ev;
+}
 
 /* 정적 HTML에 박아둔 아이콘 자리(data-icon)를 SVG로 채운다. (shared/icons.js 공용 헬퍼) */
 document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon,el.dataset.iconSize?+el.dataset.iconSize:24));

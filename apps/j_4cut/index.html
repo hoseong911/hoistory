@@ -722,7 +722,8 @@ new ResizeObserver(()=>requestAnimationFrame(fitAll)).observe(document.getElemen
    예전엔 [완성! 제출하기] 한 번에 굽고 바로 냈다. 자기 작품을 한 번도 못 보고 제출이
    끝나 버려서, 오타를 발견해도 이미 낸 뒤였다. 지금은 완성본을 먼저 보여주고
    [수정하기] / [제출하기]를 고르게 한다. 제출된 작품은 예외 없이 갤러리에도 올라간다. */
-let previewUrl=null;
+let previewUrl=null;   // 갤러리와 어드민에 올라갈 것(줄인 것)
+let fullUrl=null;      // 학생이 내려받을 원본
 $("#doneBtn").onclick=async()=>{
   if(!curImage){warn('만화 이미지가 없어 제출할 수 없어요.');return;}
   const filled=work.some(c=>c.bubbles.some(b=>b.text&&b.text.trim()));
@@ -730,7 +731,8 @@ $("#doneBtn").onclick=async()=>{
   showScreen('previewScreen');
   $("#previewBody").innerHTML=`<div class="saving"><div class="spin"></div>완성한 네컷을 그리는 중이에요…</div>`;
   try{
-    previewUrl=await composeImage();
+    const made=await composeImage();
+    previewUrl=made.store; fullUrl=made.full;
   }catch(e){
     $("#previewBody").innerHTML=`<div class="saving">이미지 생성에 실패했어요.<br>${esc(e.message||e)}</div>
       <button class="btn btn-ghost btn-block" id="pvBack" style="margin-top:14px">돌아가서 고치기</button>`;
@@ -856,11 +858,31 @@ async function buildExportDOM(){
   return host.firstElementChild;
 }
 
+/* 완성 그림을 두 벌 만든다.
+   full  — 1080px 원본. 학생이 [네컷만화 저장하기]로 내려받는 것.
+   store — 800px로 줄이고 품질도 낮춘 것. Firestore에 넣고 갤러리와 어드민이 보는 것.
+
+   원본을 그대로 문서에 넣었더니 작품 하나가 750KB였고, 그 99.8%가 이미지였다. 갤러리나
+   어드민을 열면 문서를 통째로 받아오므로 160명이면 117MB를 내려받는 셈이라 눈에 띄게
+   느렸다. 화면에서 보는 데는 800px이면 충분하니 저장본만 줄인다(대략 4분의 1). */
 async function composeImage(){
   if(document.fonts&&document.fonts.ready){try{await document.fonts.ready;}catch(e){}}
   const node=await buildExportDOM();
   const canvas=await html2canvas(node,{backgroundColor:"#EFE7D6",scale:1,useCORS:true,logging:false});
-  return canvas.toDataURL('image/jpeg',0.85);
+  const full=canvas.toDataURL('image/jpeg',0.85);
+  return {full,store:shrinkDataUrl(canvas,800,0.72)};
+}
+
+// 캔버스를 정해진 폭으로 줄여 다시 굽는다. 이미 그보다 좁으면 그대로 쓴다.
+function shrinkDataUrl(canvas,maxW,quality){
+  if(canvas.width<=maxW)return canvas.toDataURL('image/jpeg',quality);
+  const cv=document.createElement('canvas');
+  cv.width=maxW;
+  cv.height=Math.round(canvas.height*maxW/canvas.width);
+  const g=cv.getContext('2d');
+  g.imageSmoothingEnabled=true;g.imageSmoothingQuality='high';
+  g.drawImage(canvas,0,0,cv.width,cv.height);
+  return cv.toDataURL('image/jpeg',quality);
 }
 
 /* 느린 망에서 "제출하는 중"이 영영 멈춘 것처럼 보이지 않게 끊는다. */
@@ -920,9 +942,18 @@ function renderDone(dataUrl,err){
       <button class="btn btn-primary btn-block" id="retryBtn">다시 제출하기</button>
       <button class="btn btn-ghost btn-block" id="backEditBtn">돌아가서 고치기</button>
     </div>`:`<div class="result-actions-row">
+      <button class="btn btn-primary" id="dlBtn">네컷만화 저장하기</button>
       <button class="btn btn-ghost" id="galBtn">친구들 작품 둘러보기</button>
       <button class="btn btn-ghost" id="introBtn">인트로 화면으로 이동하기</button>
     </div>`}`;
+  // 내려받는 그림은 갤러리에 올라간 것보다 큰 원본이다(fullUrl).
+  const dl=$("#dlBtn");
+  if(dl)dl.onclick=()=>{
+    const a=document.createElement('a');
+    a.href=fullUrl||dataUrl;
+    a.download='사화네컷_'+curEvent.name+'_'+student.studentName+'.jpg';
+    a.click();
+  };
   const gal=$("#galBtn");if(gal)gal.onclick=openArchive;
   const intro=$("#introBtn");if(intro)intro.onclick=()=>showScreen('introScreen');
   const be=$("#backEditBtn");if(be)be.onclick=()=>showScreen('editScreen');
