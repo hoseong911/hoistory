@@ -52,6 +52,15 @@ Object.assign(PATHS, {
   "drama": '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11h.01"/><path d="M14 6h.01"/><path d="M18 6h.01"/><path d="M6.5 13.1h.01"/><path d="M22 5c0 9-4 12-6 12s-6-3-6-12c0-2 2-3 6-3s6 1 6 3"/><path d="M17.4 9.9c-.8.8-2 .8-2.8 0"/><path d="M10.1 7.1C9 7.2 7.7 7.7 6 8.6c-3.5 2-4.7 3.9-3.7 5.6 4.5 7.8 9.5 8.4 11.2 7.4.9-.5 1.9-2.1 1.9-4.7"/><path d="M9.1 16.5c.3-1.1 1.4-1.7 2.4-1.4"/></svg>'
 });
 
+/* 위 표는 도구로 한 번에 뽑아 온 것이라 값에 <svg> 여는 태그까지 들어 있다.
+   아래는 손으로 채운 것이라 icon()이 씌우는 <svg> 안에 들어갈 <path>만 적는다.
+   heart와 move는 j_4cut이 쓰는데 표에 없어서 그동안 물음표 아이콘으로 대체되고 있었다. */
+Object.assign(PATHS, {
+  "chevron-right": '<path d="m9 18 6-6-6-6" />',
+  "heart": '<path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 0L5 15c-1.5-1.5-3-3.2-3-5.5" />',
+  "move": '<path d="M12 2v20" /><path d="m15 19-3 3-3-3" /><path d="m19 9 3 3-3 3" /><path d="M2 12h20" /><path d="m5 9-3 3 3 3" /><path d="m9 5 3-3 3 3" />',
+});
+
 export function icon(name, size = 22, cls = "") {
   const inner = PATHS[name] || PATHS["circle-help"];
   return `<svg class="hi-ic${cls?' '+cls:''}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
