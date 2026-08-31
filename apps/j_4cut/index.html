@@ -627,15 +627,26 @@ function endDrag(ev){
 }
 
 /* ── 자동 맞춤 ── */
+/* 말풍선 글자 크기 맞추기.
+   .btext는 세로 가운데 정렬(flex)이라 글이 상자보다 높아지면 위아래로 똑같이 넘치고,
+   overflow:hidden이 그 "윗줄"을 잘라 버린다. 더 나쁜 건 가운데 정렬 상태의
+   scrollHeight가 위로 넘친 만큼을 세지 않는다는 점이다 — 예전 코드는 그래서
+   "아직 안 넘쳤다"고 잘못 읽고 글자 줄이기를 일찍 멈췄다.
+   그래서 (1) 재는 동안에는 위 정렬로 바꿔 넘친 높이가 제대로 잡히게 하고,
+   (2) 기준도 부모 크기에 어림수를 곱한 값이 아니라 글자 상자 자신의 실제 크기로 잡는다
+   (여백은 이미 inset으로 들어가 있다). */
 function fitText(el){
   const parent=el.parentElement;
-  if(!parent.clientHeight)return;
-  const maxH=parent.clientHeight*(parent.classList.contains('thought')?0.7:0.72);
-  const maxW=parent.clientWidth*(parent.classList.contains('thought')?0.68:0.7);
+  if(!parent.clientHeight||!el.clientHeight)return;
+  el.style.alignItems='flex-start';        // 재는 동안만 위 정렬
   let size=Math.max(10,Math.round(parent.clientHeight*0.32));
   el.style.fontSize=size+'px';
+  const over=()=>el.scrollHeight>el.clientHeight||el.scrollWidth>el.clientWidth;
   let guard=0;
-  while(size>8&&(el.scrollHeight>maxH||el.scrollWidth>maxW)&&guard<60){size--;el.style.fontSize=size+'px';guard++;}
+  while(size>8&&over()&&guard<60){size--;el.style.fontSize=size+'px';guard++;}
+  // 8px까지 줄여도 넘칠 만큼 길게 쓰면 가운데 정렬을 포기한다.
+  // 가운데로 두면 첫 줄부터 잘려 무엇을 썼는지조차 안 보인다.
+  el.style.alignItems=over()?'flex-start':'center';
 }
 function fitAll(){document.querySelectorAll('#cutPage .btext').forEach(fitText);}
 window.addEventListener('resize',()=>requestAnimationFrame(fitAll));
@@ -749,12 +760,15 @@ async function buildExportDOM(){
   // 이미지가 실제로 그려져야 컷 영역 높이(=풍선 크기)가 확정된다
   const im=host.querySelector('img');
   if(im&&!im.complete)await new Promise(r=>{im.onload=im.onerror=r;});
-  // 폰트 맞춤
+  // 폰트 맞춤 — 편집 화면의 fitText()와 같은 규칙을 써야 보이는 대로 나온다.
   host.querySelectorAll('.xb').forEach(bb=>{
-    const el=bb.querySelector('.xt');const thought=bb.style.borderRadius==="50%";
-    const maxH=bb.clientHeight*(thought?0.7:0.72),maxW=bb.clientWidth*(thought?0.68:0.7);
-    let size=Math.max(12,Math.round(bb.clientHeight*0.32));el.style.fontSize=size+'px';let g=0;
-    while(size>10&&(el.scrollHeight>maxH||el.scrollWidth>maxW)&&g<80){size--;el.style.fontSize=size+'px';g++;}
+    const el=bb.querySelector('.xt');
+    el.style.alignItems='flex-start';
+    let size=Math.max(12,Math.round(bb.clientHeight*0.32));el.style.fontSize=size+'px';
+    const over=()=>el.scrollHeight>el.clientHeight||el.scrollWidth>el.clientWidth;
+    let g=0;
+    while(size>10&&over()&&g<80){size--;el.style.fontSize=size+'px';g++;}
+    el.style.alignItems=over()?'flex-start':'center';
   });
   return host.firstElementChild;
 }
