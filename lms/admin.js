@@ -3950,46 +3950,55 @@ async function missionAutoDetect(lessonKey) {
   Object.keys(_gradeRecords).forEach(sid => {
     if (sid === '00000') return;
     const classNum = sid.length >= 3 ? parseInt(sid.slice(1, 3), 10) : null;
-    const sched = thScheduledDate(lessonKey, classNum);
-    let achieved = true, onTime = true, at = null, blank = false;
-
-    for (const { src, byStudent, failed } of perSource) {
-      if (failed) { blank = true; break; } // 읽기 실패한 앱이 있으면 판정하지 않는다
-      const docs = byStudent[sid] || [];
-      if (!docs.length) { achieved = false; onTime = false; continue; } // 미제출
-
-      if (src.graded) {
-        const statuses = docs.map(d => d.status);
-        if (statuses.some(st => st !== 'pass' && st !== 'fail')) {
-          // 아직 채점 전(pending). 판정 자체가 없는 상태라 달성·기한을 둘 다 풀어 둔다.
-          // 기한만 켜져 있으면 "제때 내긴 했다"로 읽혀서, 웹앱에서 채점을 미채점으로
-          // 되돌렸는데도 체크가 반쯤 남아 있는 것처럼 보인다.
-          achieved = false; onTime = false;
-        } else if (!statuses.every(st => st === 'pass')) {
-          // 미흡은 판정이 난 것이므로 기한 체크는 제출 시각 기준을 그대로 따른다
-          // (생각 체크의 '조금 미흡'과 같은 규칙 — 늦게 낸 게 아니라 내용이 모자란 것).
-          achieved = false;
-        }
-      }
-
-      // 제출 시각은 가장 이른 것을 기준으로 삼는다 — 수업 시간에 한 번 냈으면, 나중에
-      // 작품을 하나 더 올렸다고 지각으로 뒤집히면 안 된다.
-      let first = null;
-      docs.forEach(d => {
-        const t = missionToDate(src.timeFields.map(f => d[f]).find(v => v != null));
-        if (t && (!first || t < first)) first = t;
-      });
-      if (first && (!at || first < at)) at = first;
-      if (first && sched) {
-        const dayOnly = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-        if (dayOnly(first) > dayOnly(sched)) onTime = false; // 수업일보다 늦게 제출
-      }
-    }
-
-    if (!blank) out[sid] = { achieved, onTime, at };
+    const v = missionVerdictFor(sid, classNum, lessonKey, perSource);
+    if (!v.blank) out[sid] = { achieved: v.achieved, onTime: v.onTime, at: v.at };
   });
 
   return { map: out, apps };
+}
+
+/* 한 학생의 미션 판정. 강의 하나를 불러올 때(missionAutoDetect)와 전체 갱신
+   (gradeRefreshAllLessons)이 반드시 같은 규칙을 써야 해서 여기 한 곳에 모아 둔다.
+   perSource = [{ src, byStudent, failed }] — 앱마다 학번별 제출 문서를 담은 것.
+   blank가 true면 판정 보류(제출 컬렉션을 읽지 못함)이므로 표를 건드리지 않는다. */
+function missionVerdictFor(sid, classNum, lessonKey, perSource) {
+  const sched = thScheduledDate(lessonKey, classNum);
+  let achieved = true, onTime = true, at = null, blank = false;
+
+  for (const { src, byStudent, failed } of perSource) {
+    if (failed) { blank = true; break; } // 읽기 실패한 앱이 있으면 판정하지 않는다
+    const docs = byStudent[sid] || [];
+    if (!docs.length) { achieved = false; onTime = false; continue; } // 미제출
+
+    if (src.graded) {
+      const statuses = docs.map(d => d.status);
+      if (statuses.some(st => st !== 'pass' && st !== 'fail')) {
+        // 아직 채점 전(pending). 판정 자체가 없는 상태라 달성·기한을 둘 다 풀어 둔다.
+        // 기한만 켜져 있으면 "제때 내긴 했다"로 읽혀서, 웹앱에서 채점을 미채점으로
+        // 되돌렸는데도 체크가 반쯤 남아 있는 것처럼 보인다.
+        achieved = false; onTime = false;
+      } else if (!statuses.every(st => st === 'pass')) {
+        // 미흡은 판정이 난 것이므로 기한 체크는 제출 시각 기준을 그대로 따른다
+        // (생각 체크의 '조금 미흡'과 같은 규칙 — 늦게 낸 게 아니라 내용이 모자란 것).
+        achieved = false;
+      }
+    }
+
+    // 제출 시각은 가장 이른 것을 기준으로 삼는다 — 수업 시간에 한 번 냈으면, 나중에
+    // 작품을 하나 더 올렸다고 지각으로 뒤집히면 안 된다.
+    let first = null;
+    docs.forEach(d => {
+      const t = missionToDate(src.timeFields.map(f => d[f]).find(v => v != null));
+      if (t && (!first || t < first)) first = t;
+    });
+    if (first && (!at || first < at)) at = first;
+    if (first && sched) {
+      const dayOnly = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+      if (dayOnly(first) > dayOnly(sched)) onTime = false; // 수업일보다 늦게 제출
+    }
+  }
+
+  return { achieved, onTime, at, blank };
 }
 
 // 생각 체크 제출물을 읽어 학생별 달성·기한을 계산한다(불러오기와 실시간 반영이 같이 쓴다).
@@ -4314,6 +4323,7 @@ async function initGradeTab() {
   renderGradeClassTags(); // 반 선택 태그는 불러오기 전에도 항상 표시한다
 
   document.getElementById('gradeLoadBtn').addEventListener('click', loadGradeData);
+  document.getElementById('gradeRefreshAllBtn')?.addEventListener('click', gradeRefreshAllLessons);
   document.getElementById('gradeScoreLoadBtn').addEventListener('click', loadScoreData);
   document.getElementById('gradeExportBtn').addEventListener('click', exportScoreCSV);
 
@@ -5507,6 +5517,195 @@ async function gradeFlushSave() {
     sids.forEach(sid => _gradePendingSave.add(sid));
     gradeAutoSaveLbl('failed', '저장 실패');
     console.warn('성적 즉시 저장 실패:', e);
+  }
+}
+
+/* ── 전체 갱신 ──────────────────────────────────────────────────────
+   만들어 둔 강의를 하나씩 불러와 확인하지 않아도 되게, 모든 강의의 성적을 지금 채점
+   결과 기준으로 한 번에 다시 계산해 저장한다. 웹앱 어드민에서 뒤늦게 채점을 고쳤거나,
+   표를 열어 두지 않은 채 학생이 늦게 제출한 경우를 한 번에 따라잡는 용도.
+
+   지키는 선:
+   - 이미 반영(공개)한 반만 갱신한다. 공개 시점은 선생님이 정하는 것이므로 이 버튼이
+     대신 공개하지 않는다.
+   - 저장된 성적이 없는 학생과 결석 학생은 건너뛴다.
+   - 개념 체크는 자동으로 가져올 소스가 없으므로 저장된 값을 그대로 둔다.
+   - 미실시로 꺼 둔 항목(grade_lecture_config)은 건드리지 않는다.
+
+   강의마다 컬렉션을 다시 읽으면 읽기 횟수가 강의 수만큼 곱해지므로, 필요한 컬렉션을
+   먼저 한 번씩만 통째로 읽어 두고 계산은 메모리에서 한다. */
+async function gradeRefreshAllLessons() {
+  if (!_gradeLessons.length || !_gradeStudents.length) {
+    alert('강의와 학생 명단을 먼저 불러온 뒤에 눌러주세요.');
+    return;
+  }
+  if (!confirm('만들어 둔 모든 강의의 성적을 지금 채점 결과 기준으로 다시 계산해 저장합니다.\n이미 반영한 반만 갱신되고, 결석 학생과 개념 체크는 그대로 둡니다. 진행할까요?')) return;
+
+  const btn = document.getElementById('gradeRefreshAllBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '갱신 중…'; }
+
+  try {
+    await plEnsureLoaded(); // 기한 판정에 필요한 수업 스케줄
+
+    // ── 1) 필요한 컬렉션을 한 번씩만 읽는다 ──
+    const missionCat = await getMissionCategoryKey();
+    const [cardSnap, cfgSnap, pubSnap, recSnap, thLecSnap, thSubSnap, ovSnap] = await Promise.all([
+      missionCat ? getDocs(query(collection(db, 'cards'), where('category', '==', missionCat))) : null,
+      getDocs(collection(db, 'grade_lecture_config')),
+      getDocs(query(collection(db, 'grade_publish_status'), where('published', '==', true))),
+      getDocs(collection(db, 'grade_records')),
+      getDocs(collection(db, 'think_lectures')),
+      getDocs(collection(db, 'think_submissions')),
+      getDocs(collection(db, 'gradeOverrides')),
+    ]);
+
+    // 강의번호 -> 연동된 미션 앱 소스 목록
+    const srcByLesson = {};
+    (cardSnap ? cardSnap.docs : []).forEach(d => {
+      const c = d.data();
+      const src = MISSION_SOURCES[missionAppKey(c.url)];
+      if (!src || !c.lessonNum) return;
+      const k = String(c.lessonNum);
+      (srcByLesson[k] || (srcByLesson[k] = [])).push(src);
+    });
+
+    // 미션 제출 컬렉션은 앱마다 한 번씩만 읽어 학번별로 묶어 둔다.
+    const colls = [...new Set(Object.values(srcByLesson).flat().map(s => s.coll))];
+    const byColl = {};
+    await Promise.all(colls.map(async coll => {
+      try {
+        const snap = await getDocs(collection(db, coll));
+        const byStudent = {};
+        snap.docs.forEach(d => {
+          const data = d.data();
+          const sid = String(data.studentId || d.id || '');
+          (byStudent[sid] || (byStudent[sid] = [])).push(data);
+        });
+        byColl[coll] = { byStudent, failed: false };
+      } catch (e) { byColl[coll] = { byStudent: {}, failed: true }; }
+    }));
+
+    const cfgByLesson = {};
+    cfgSnap.docs.forEach(d => { cfgByLesson[d.id] = d.data(); });
+
+    const pubByLesson = {};
+    pubSnap.docs.forEach(d => {
+      const p = d.data();
+      const key = String(p.lessonKey || '');
+      (pubByLesson[key] || (pubByLesson[key] = new Set())).add(p.classNum);
+    });
+
+    const recByKey = {};
+    recSnap.docs.forEach(d => { recByKey[d.id] = d.data(); });
+
+    const thLecById = {};
+    thLecSnap.docs.forEach(d => { thLecById[d.id] = d.data(); });
+
+    const subsByLecture = {};
+    thSubSnap.docs.forEach(d => {
+      const v = d.data();
+      if (!v.lectureDocId || !v.id) return;
+      const k = v.lectureDocId;
+      (subsByLecture[k] || (subsByLecture[k] = [])).push({ subId: d.id, ...v });
+    });
+
+    // gradeOverrides 문서는 "{생각강의}_{반}" 이름에 제출 docId -> 'pass'/'fail'이 들어 있다.
+    const ovByLecture = {};
+    ovSnap.docs.forEach(d => {
+      const cut = d.id.lastIndexOf('_');
+      if (cut <= 0) return;
+      const lecId = d.id.slice(0, cut);
+      Object.assign(ovByLecture[lecId] || (ovByLecture[lecId] = {}), d.data());
+    });
+
+    // ── 2) 강의마다 다시 계산해서 달라진 것만 모은다 ──
+    const writes = [];
+    let lessonCount = 0;
+
+    for (const lesson of _gradeLessons) {
+      const key = String(lesson.num);
+      const pubClasses = pubByLesson[key];
+      if (!pubClasses || !pubClasses.size) continue; // 아직 공개 안 한 강의는 건드리지 않는다
+
+      const cfg = cfgByLesson[key] || {};
+      const srcs = cfg.missionEnabled === false ? [] : (srcByLesson[key] || []);
+      const perSource = srcs.map(src => ({
+        src,
+        byStudent: (byColl[src.coll] || {}).byStudent || {},
+        failed: !!(byColl[src.coll] || {}).failed,
+      }));
+
+      const thinkDocId = cfg.thinkEnabled === false ? '' : (cfg.thinkLectureDocId || '');
+      const thinkLec = thinkDocId ? thLecById[thinkDocId] : null;
+      const overrides = thinkDocId ? (ovByLecture[thinkDocId] || {}) : {};
+      const subByStudent = {};
+      if (thinkLec) (subsByLecture[thinkDocId] || []).forEach(s => { subByStudent[s.id] = s; });
+
+      let touchedInLesson = 0;
+      for (const stu of _gradeStudents) {
+        if (stu.id === '00000') continue;
+        const cls = gradeClassOf(stu.id);
+        if (!pubClasses.has(cls)) continue;
+
+        const rec = recByKey[key + '_' + stu.id];
+        if (!rec) continue;       // 저장된 성적이 없는 학생은 표에서 불러와 채우는 게 맞다
+        if (rec.absent) continue; // 결석은 미달성 고정
+
+        const cur = {
+          mission: rec.mission || { achieved: false, onTime: false },
+          think:   rec.think   || { achieved: false, onTime: false },
+        };
+        const next = { mission: cur.mission, think: cur.think };
+
+        if (perSource.length) {
+          const v = missionVerdictFor(stu.id, cls, key, perSource);
+          if (!v.blank) next.mission = { achieved: v.achieved, onTime: v.onTime };
+        }
+        // 생각 체크는 제출한 학생만 다시 매긴다(불러오기 때와 같은 규칙 — 미제출자는
+        // 자동 감지 대상이 아니라 저장된 값을 그대로 둔다).
+        if (thinkLec && subByStudent[stu.id]) {
+          const sub = subByStudent[stu.id];
+          const v = thinkVerdict(sub, thinkLec, overrides[sub.subId]);
+          next.think = { achieved: v.achieved, onTime: v.onTime };
+        }
+
+        const same = b => cur[b].achieved === next[b].achieved && cur[b].onTime === next[b].onTime;
+        if (same('mission') && same('think')) continue;
+
+        writes.push({
+          id: key + '_' + stu.id,
+          data: {
+            lessonKey: key, lessonTitle: lesson.title || '',
+            studentId: stu.id, studentName: stu.name,
+            mission: next.mission, think: next.think,
+            published: true, updatedAt: serverTimestamp(),
+          },
+        });
+        touchedInLesson++;
+      }
+      if (touchedInLesson) lessonCount++;
+    }
+
+    if (!writes.length) {
+      alert('모든 강의가 이미 최신입니다.');
+      return;
+    }
+
+    // ── 3) 저장 (한 배치에 500개까지 들어가므로 400개씩 끊는다) ──
+    for (let i = 0; i < writes.length; i += 400) {
+      const batch = writeBatch(db);
+      writes.slice(i, i + 400).forEach(w =>
+        batch.set(doc(db, 'grade_records', w.id), w.data, { merge: true }));
+      await batch.commit();
+    }
+
+    alert(lessonCount + '개 강의 ' + writes.length + '건을 갱신했습니다.');
+    // 지금 보고 있는 강의도 방금 바뀐 값으로 맞춘다.
+    if (_gradeLessonKey) await loadGradeData();
+  } catch (e) {
+    alert('전체 갱신 실패: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '전체 갱신'; }
   }
 }
 
