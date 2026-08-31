@@ -368,7 +368,7 @@
         <!-- 목록으로 훑기 / 한 명씩 채점하기 -->
         <div class="ans-subtabs" id="ansViewTabs">
           <button class="ans-subtab active" onclick="setAnsView('grid',this)">목록 보기</button>
-          <button class="ans-subtab" onclick="setAnsView('one',this)">한 명씩 보기</button>
+          <button class="ans-subtab" onclick="setAnsView('one',this)">한 작품씩 보기</button>
         </div>
         <div id="worksList"><div class="loading-state"><div class="spinner"></div><span>불러오는 중…</span></div></div>
         <div id="worksOne" style="display:none"></div>
@@ -772,7 +772,7 @@ function renderWorksFilter(){
 function renderWorksStats(inEv){
   const set=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
   const inClass=works.filter(w=>worksFilter==='all'||w.classNum===worksFilter);
-  set('s-sub',inClass.length);
+  set('s-sub',new Set(inClass.map(w=>String(w.studentId||''))).size);
   set('s-roster',rosterInClass().length||'-');
   set('s-pass',inEv.filter(w=>w.status==='pass').length);
   set('s-fail',inEv.filter(w=>w.status==='fail').length);
@@ -954,16 +954,25 @@ window.openAbsentModal=()=>{
 window.closeFcModal=()=>document.getElementById('fcModal').classList.remove('show');
 
 /* 채점 결과를 LMS가 읽는 요약 문서(fourcut_submissions)에 반영한다.
-   작품 문서는 base64 이미지 때문에 무거워 LMS가 전량 조회를 못 하므로 학번당 1문서로 따로 남긴다.
-   1인 1장(문서 id = 학번)이라 합산할 게 없다 — 그 한 장의 채점이 곧 결과다.
-   아직 안 봤으면 status를 비워 LMS에서 빈칸(선생님 판단)으로 남게 한다. */
+   작품 문서는 base64 이미지 때문에 무거워 LMS가 전량 조회를 못 하므로 학번당 1문서로 남긴다.
+
+   한 학생이 사건별로 여러 장을 낼 수 있어서 합산이 필요하다. 규칙은 "하나라도 통과면 통과":
+   미션은 네컷 한 편을 만드는 것이고 더 만든 건 덤이다. 전부 통과해야 한다고 하면 두 번째,
+   세 번째를 시도한 학생이 오히려 불리해진다. 통과가 하나도 없고 미흡만 있으면 미흡,
+   아직 안 본 것이 남아 있으면 비워 둬 LMS에서 빈칸(선생님 판단)으로 남게 한다.
+   제출 시각은 가장 이른 것 — 기한 판정은 처음 낸 때를 기준으로 하기 때문이다. */
 async function syncSubmissionSummary(sid){
-  const w=works.find(x=>String(x.studentId||'')===String(sid));
-  if(!sid||!w)return;
+  if(!sid)return;
+  const mine=works.filter(x=>String(x.studentId||'')===String(sid));
+  if(!mine.length)return;
+  const has=st=>mine.some(w=>w.status===st);
+  const status=has('pass')?'pass':(mine.every(w=>w.status==='fail')?'fail':null);
+  const first=mine.map(w=>w.timestamp).filter(Boolean).sort((a,b)=>a-b)[0];
+  const head=mine[0];
   await setDoc(doc(db,'fourcut_submissions',String(sid)),{
-    studentId:String(sid),studentName:w.studentName||'',classNum:w.classNum??null,
-    status:(w.status==='pass'||w.status==='fail')?w.status:null,
-    ...(w.timestamp?{createdAt:new Date(w.timestamp)}:{}),
+    studentId:String(sid),studentName:head.studentName||'',classNum:head.classNum??null,
+    status,
+    ...(first?{createdAt:new Date(first)}:{}),
   },{merge:true});
 }
 
@@ -991,9 +1000,14 @@ window.delWork=async id=>{
   const cur=works.find(w=>w.id===id);
   try{
     await deleteDoc(doc(db,'fourcut_works',id));
-    // 작품을 지우면 그 학생은 미제출로 돌아간다 — 요약 문서도 같이 지운다.
     works=works.filter(w=>w.id!==id);
-    if(cur&&cur.studentId)await deleteDoc(doc(db,'fourcut_submissions',String(cur.studentId)));
+    // 그 학생에게 다른 작품이 남아 있으면 요약을 다시 합산하고, 하나도 없으면 미제출로
+    // 되돌린다(요약 문서를 지운다).
+    if(cur&&cur.studentId){
+      const left=works.some(w=>String(w.studentId||'')===String(cur.studentId));
+      if(left)await syncSubmissionSummary(cur.studentId);
+      else await deleteDoc(doc(db,'fourcut_submissions',String(cur.studentId)));
+    }
   }catch(e){alert('삭제 실패: '+(e.message||e));}
 };
 
