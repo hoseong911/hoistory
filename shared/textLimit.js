@@ -113,6 +113,37 @@ export function mountCharCounter(opts) {
   return () => input.removeEventListener('input', update);
 }
 
+/* 막았다는 것을 알리는 기본 안내 띠.
+   앱마다 토스트가 있기도 없기도 하고, 있어도 테마 토큰에 기대는 경우가 있어
+   어떤 페이지에 붙여도 똑같이 보이도록 스타일을 스스로 들고 있는다. */
+let _pasteNoticeEl = null, _pasteNoticeTimer = null;
+function pasteNotice(msg = '붙여넣기는 쓸 수 없어요. 직접 써 주세요.') {
+  if (typeof document === 'undefined' || !document.body) return;
+  if (!_pasteNoticeEl) {
+    _pasteNoticeEl = document.createElement('div');
+    _pasteNoticeEl.style.cssText = [
+      'position:fixed', 'left:50%', 'bottom:32px', 'transform:translateX(-50%) translateY(12px)',
+      'z-index:2147483647', 'max-width:min(88vw,420px)', 'box-sizing:border-box',
+      'background:#1b1b1b', 'color:#fff', 'border-radius:9999px', 'padding:12px 22px',
+      "font-family:'Pretendard',-apple-system,sans-serif", 'font-size:14px', 'font-weight:700',
+      'line-height:1.4', 'text-align:center', 'word-break:keep-all',
+      'box-shadow:0 6px 20px rgba(0,0,0,.28)', 'pointer-events:none',
+      'opacity:0', 'transition:opacity .18s, transform .18s',
+    ].join(';');
+    document.body.appendChild(_pasteNoticeEl);
+  }
+  _pasteNoticeEl.textContent = msg;
+  requestAnimationFrame(() => {
+    _pasteNoticeEl.style.opacity = '1';
+    _pasteNoticeEl.style.transform = 'translateX(-50%) translateY(0)';
+  });
+  clearTimeout(_pasteNoticeTimer);
+  _pasteNoticeTimer = setTimeout(() => {
+    _pasteNoticeEl.style.opacity = '0';
+    _pasteNoticeEl.style.transform = 'translateX(-50%) translateY(12px)';
+  }, 2400);
+}
+
 /**
  * 입력 요소에서 복사/붙여넣기를 차단합니다.
  *
@@ -126,12 +157,15 @@ export function mountCharCounter(opts) {
  * @param {Object} [opts]
  * @param {() => void} [opts.onPaste] - 붙여넣기(드롭 포함) 시도 시 콜백
  * @param {() => void} [opts.onCopy] - 복사 시도 시 콜백
+ * @param {boolean} [opts.notice] - true면 막았을 때 기본 안내 띠를 띄운다
+ *   (onPaste를 직접 주면 그쪽이 우선). 조용히 막기만 하면 학생은 앱이 고장 난 줄 안다.
  */
 export function blockPaste(el, opts = {}) {
   if (!el) return;
+  const tell = opts.onPaste || (opts.notice ? () => pasteNotice() : null);
   const onPaste = (e) => {
     e.preventDefault();
-    opts.onPaste?.();
+    tell?.();
   };
   const onCopy = (e) => {
     e.preventDefault();
@@ -139,7 +173,7 @@ export function blockPaste(el, opts = {}) {
   };
   const onDrop = (e) => {
     e.preventDefault();
-    opts.onPaste?.();
+    tell?.();
   };
   const onDragOver = (e) => {
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';

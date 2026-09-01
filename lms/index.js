@@ -1244,6 +1244,10 @@ function makeIconItem(item) {
 
 // ── 생각 체크 모달 ──
 let _thinkItem = null, _thinkStart = null, _thinkCheat = 0, _thinkMyAnswer = '';
+// 붙여넣기(드롭 포함)를 막은 횟수와, 한 번에 글자가 가장 많이 늘어난 폭.
+// 손으로 치면 한 번에 한두 글자씩 는다. 받아쓰기나 어떤 식으로든 통째로 밀어 넣으면
+// 수십 글자가 한꺼번에 늘어난다 — 붙여넣기를 막아도 남는 경로를 여기서 잡는다.
+let _thinkPasteTry = 0, _thinkMaxJump = 0, _thinkLastLen = 0;
 // 채점 전이라 고쳐 쓸 수 있는 기존 제출물. null이면 이번이 첫 제출이다.
 // cheatCount는 이어서 더한다 — 다시 쓰면서 0으로 초기화되면 이탈 벌칙을 피할 수 있다.
 let _thinkPrev = null;
@@ -1305,6 +1309,7 @@ function loadThinkDraft(lectureDocId) {
 
 async function openThinkModal(item) {
   _thinkItem  = item; _thinkStart = Date.now(); _thinkCheat = 0; _thinkPrev = null;
+  _thinkPasteTry = 0; _thinkMaxJump = 0; _thinkLastLen = 0;
   document.getElementById('thinkModalTitle').textContent    = stripEmph(item.lectureTitle);
   document.getElementById('thinkModalQuestion').textContent = stripEmph(item.question);
   const refEl = document.getElementById('thinkModalRef');
@@ -1315,6 +1320,7 @@ async function openThinkModal(item) {
   // 지난번에 쓰다 만 글이 있으면 그대로 되살린다.
   const draft = loadThinkDraft(item.lectureDocId);
   ta.value = draft;
+  _thinkLastLen = draft.length;   // 되살린 글은 방금 밀어 넣은 것이 아니다
   const draftNote = document.getElementById('thinkDraftNote');
   if (draftNote) draftNote.style.display = draft ? '' : 'none';
   const editNoteEl = document.getElementById('thinkEditNote');
@@ -1344,7 +1350,8 @@ async function openThinkModal(item) {
         .sort((a, b) => (b.data().createdAt?.seconds || 0) - (a.data().createdAt?.seconds || 0));
       const prev = docs[0].data();
       _thinkMyAnswer = prev.text || '';
-      _thinkPrev = { docId: docs[0].id, cheatCount: prev.cheatCount || 0, editCount: prev.editCount || 0 };
+      _thinkPrev = { docId: docs[0].id, cheatCount: prev.cheatCount || 0, editCount: prev.editCount || 0,
+                     pasteTry: prev.pasteTry || 0, maxJump: prev.maxJump || 0 };
 
       if (prev.thGraded === true) {
         // 채점 끝 — 읽기 전용
@@ -1378,7 +1385,14 @@ document.getElementById('thinkModal').addEventListener('click', e => { if (e.tar
 
 const thinkTextarea = document.getElementById('thinkTextarea');
 const THINK_MAX_CHARS = 1000;
-thinkTextarea.addEventListener('input', () => { updateThinkMeta(); saveThinkDraft(); });
+thinkTextarea.addEventListener('input', () => {
+  // 한 번에 얼마나 늘었는지 재 둔다. 지우는 것(음수)은 세지 않는다.
+  const len = thinkTextarea.value.length;
+  const jump = len - _thinkLastLen;
+  if (jump > _thinkMaxJump) _thinkMaxJump = jump;
+  _thinkLastLen = len;
+  updateThinkMeta(); saveThinkDraft();
+});
 // 창을 닫거나 앱이 백그라운드로 넘어가는 순간에도 한 번 더 확실히 저장한다.
 window.addEventListener('pagehide', saveThinkDraft);
 document.addEventListener('visibilitychange', () => { if (document.hidden) saveThinkDraft(); });
@@ -1386,6 +1400,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) saveT
 // 있지만, 여기서는 왜 안 되는지 그 자리에서 알려 주려고 따로 잡는다.
 function blockThinkInsert(e) {
   e.preventDefault();
+  _thinkPasteTry++;
   showToast('생각 체크는 직접 써야 해요. 붙여넣기는 쓸 수 없어요.', 3000, 'pencil');
 }
 thinkTextarea.addEventListener('paste', blockThinkInsert);
@@ -1575,18 +1590,31 @@ async function doThinkSubmit(triggerId) {
       // AI 도움 사용 기록 — 채점 참고용이며 점수에는 관여하지 않는다.
       aiHintUsed: _thinkHintUsed, spellFlagged: _thinkFlagged,
       spellFixed: _thinkFixed, hasProfanity: _thinkProfane,
+      // 붙여넣기 시도와 한 번에 밀려 들어온 최대 글자수. 채점 참고용이며 점수에는 관여하지 않는다.
+      pasteTry: _thinkPasteTry, maxJump: _thinkMaxJump,
       source: 'lms',
     };
     if (_thinkPrev) {
       // 고쳐 쓰기 — createdAt은 건드리지 않는다. 최초 제출 시각이 밀리면 수업 당일에 낸
       // 학생이 나중에 오타 하나 고쳤다는 이유로 "지연 제출"로 뒤집힌다.
       // 이탈 횟수는 이어서 더한다(다시 쓸 때마다 0으로 돌아가면 이탈 벌칙을 피할 수 있다).
-      await withTimeout(updateDoc(docRef, {
+      const editPayload = {
         ...common,
         cheatCount: (_thinkPrev.cheatCount || 0) + _thinkCheat,
+        pasteTry: (_thinkPrev.pasteTry || 0) + _thinkPasteTry,
+        maxJump: Math.max(_thinkPrev.maxJump || 0, _thinkMaxJump),
         editCount: (_thinkPrev.editCount || 0) + 1,
         editedAt: serverTimestamp(),
-      }), 20000);
+      };
+      try {
+        await withTimeout(updateDoc(docRef, editPayload), 20000);
+      } catch (e) {
+        // pasteTry/maxJump는 보안 규칙의 허용 목록에 새로 넣은 필드다. 규칙이 아직
+        // 배포되지 않았으면 이 두 개 때문에 고쳐 쓰기가 통째로 막힌다. 학생의 글을
+        // 못 내는 것보다는 참고 기록을 버리는 편이 낫다 — 빼고 한 번 더 시도한다.
+        const { pasteTry, maxJump, ...safe } = editPayload;
+        await withTimeout(updateDoc(docRef, safe), 20000);
+      }
     } else {
       await withTimeout(setDoc(docRef, {
         ...common,
