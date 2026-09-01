@@ -3,7 +3,7 @@
    똑같이 이 파일을 불러써서, 슬라이드 HTML 생성 로직이 항상 일치하도록 한다.
    ════════════════════════════════════════════════════════ */
 (function (global) {
-  console.log('[SlideRender] v20260815c loaded');
+  console.log('[SlideRender] v20260901a loaded');
 
   // 스페이스를 2칸 이상 연달아 쓰면 브라우저가 하나로 줄여버리므로, 짝수 번째
   // 스페이스를 &nbsp;로 바꿔 타이핑한 칸 수 그대로 보이게 한다(홀수 번째는 일반
@@ -63,6 +63,40 @@
     return s;
   }
 
+  /* 줄 맨 앞의 글머리 기호(가운뎃점 · ㆍ ・ • / 대시·하이픈 - – — ―)를 따로 떼어내
+     "기호 + 본문" 가로 배치로 감싼다. 본문 칸이 flex:1 박스가 되므로 줄이 넘어가도
+     둘째 줄부터 기호 뒤(본문 시작 위치)에 맞춰 내어쓰기된다.
+     가운뎃점류는 뒤 공백이 없어도(·내용) 인정하고, 하이픈/대시는 뒤에 공백이 있을 때만
+     글머리 기호로 본다("-5도"처럼 기호가 내용의 일부인 경우를 건드리지 않기 위해). */
+  const BULLET_RE = /^([·•∙‧ㆍ・]\s*|[-–—―]\s+)/;
+
+  /* 여러 줄 텍스트를 줄 단위로 렌더한다. 글머리 기호로 시작하는 줄은 내어쓰기 블록으로,
+     그 외 줄은 fmt()로 그대로 렌더하고 사이에 <br>을 넣는다. 내어쓰기 블록은 그 자체가
+     한 줄을 차지하므로(display:flex) 앞뒤에 <br>을 덧붙이지 않는다 — 넣으면 빈 줄이 하나
+     더 생긴다. fmt는 한 줄을 HTML로 바꾸는 함수(본문은 parseText, 생각 Check는 굵게만). */
+  function linesWithBullets(text, fmt) {
+    const lines = String(text == null ? '' : text)
+      .replace(new RegExp(String.fromCharCode(0x200B), 'g'), '')
+      .replace(new RegExp(String.fromCharCode(0x2028), 'g'), '\n')
+      .split('\n');
+    let html = '', lastBullet = false;
+    lines.forEach((line, i) => {
+      const m = line.match(BULLET_RE);
+      if (m) {
+        const mark = m[1].trim();
+        html += `<span class="bullet-line"><span class="bullet-mark">${mark}</span><span class="bullet-body">${fmt(line.slice(m[0].length))}</span></span>`;
+        lastBullet = true;
+      } else {
+        if (i > 0 && !lastBullet) html += '<br>';
+        html += fmt(line);
+        lastBullet = false;
+      }
+    });
+    return html;
+  }
+  // 본문(빈칸·굵게 문법 적용) 한 덩어리를 글머리 기호 내어쓰기까지 반영해 렌더.
+  function parseTextB(str) { return linesWithBullets(str, parseText); }
+
   /* \n 또는 <br>/</br> 위치에서 줄바꿈 + 내어쓰기. <br>은 어드민 편집기의 textarea가
      항목(items) 구분자로 실제 개행(\n)을 쓰기 때문에, 한 항목 "안에서" 줄을 나누고 싶을
      때(예: ①에 딸린 a./b./c. 하위 줄, 또는 그 본문 중간에 Shift+Enter로 넣는 줄바꿈) 개행
@@ -79,14 +113,18 @@
       .replace(new RegExp(String.fromCharCode(0x2028), 'g'), '\n')
       .replace(/<\/?br\s*\/?>/gi, '\n').split('\n');
     const out = [];
-    let subLead = null, subBodyLines = null;
+    let subLead = null, subBodyLines = null, subAbc = false;
+    let lastBullet = false;
 
     function flushSub() {
       if (subLead === null) return;
-      const body = subBodyLines.map(parseText).join('<br>');
-      out.push(`<span class="sub-line"><span class="item-sublead">${parseText(subLead)}</span><span class="sub-body">${body}</span></span>`);
+      const body = linesWithBullets(subBodyLines.join('\n'), parseText);
+      // a./b./c. 하위 줄은 앞에 한 칸 들여쓴다(.abc-line).
+      out.push(`<span class="sub-line${subAbc ? ' abc-line' : ''}"><span class="item-sublead">${parseText(subLead)}</span><span class="sub-body">${body}</span></span>`);
       subLead = null;
       subBodyLines = null;
+      subAbc = false;
+      lastBullet = false;
     }
 
     lines.forEach(line => {
@@ -95,6 +133,7 @@
         flushSub();
         subLead = line.slice(0, 2);
         subBodyLines = [line.slice(3)];
+        subAbc = true;
       } else {
         const colonIdx = line.indexOf(' : ');
         if (colonIdx > -1) {
@@ -104,7 +143,14 @@
         } else if (subBodyLines) {
           subBodyLines.push(line);
         } else {
-          out.push(out.length === 0 ? parseText(line) : `<br><span class="line-cont">${parseText(line)}</span>`);
+          // 글머리 기호(·, -)로 시작하면 내어쓰기 블록으로. 그 블록은 스스로 한 줄을
+          // 차지하므로 앞뒤에 <br>을 덧대지 않는다.
+          const b = linesWithBullets(line, parseText);
+          if (BULLET_RE.test(line)) { out.push(b); lastBullet = true; }
+          else {
+            out.push(out.length === 0 || lastBullet ? b : `<br><span class="line-cont">${b}</span>`);
+            lastBullet = false;
+          }
         }
       }
     });
@@ -365,8 +411,9 @@
     }
 
     // 4. 렌더링
+    // a./b./c. 하위 줄은 마커 앞을 한 칸 들여쓴다(.abc-line).
     function renderSub(sub) {
-      return `<span class="sub-line"><span class="item-sublead">${sub.marker}</span><span class="sub-body">${parseText(sub.body)}</span></span>`;
+      return `<span class="sub-line abc-line"><span class="item-sublead">${sub.marker}</span><span class="sub-body">${parseTextB(sub.body)}</span></span>`;
     }
 
     const itemsHtml = groups.map(g => {
@@ -377,12 +424,12 @@
         return `<p class="cr-block"><span class="item-text">${g.subs.map(renderSub).join('')}</span></p>`;
       }
       if (g.type === 'title-colon') {
-        return `<p class="cr-block"><span class="item-lead">${parseText(g.title)}</span><span class="item-text">${parseText(g.content)}</span></p>`;
+        return `<p class="cr-block"><span class="item-lead">${parseText(g.title)}</span><span class="item-text">${parseTextB(g.content)}</span></p>`;
       }
       if (g.type === 'title-alone') {
         return `<p class="cr-block title-alone"><span class="item-lead">${parseText(g.title)}</span></p>`;
       }
-      return `<p class="cr-block"><span class="item-text">${parseText(g.content)}</span></p>`;
+      return `<p class="cr-block"><span class="item-text">${parseTextB(g.content)}</span></p>`;
     }).join('');
 
     // 행 라벨 밑에 사료 인용을 같이 보이고 싶을 때(3번 기능): 페이지 하단에 따로 떨어뜨리지
@@ -411,13 +458,17 @@
     //  · 줄 끝의 (연도) 같은 괄호 → 아랫줄에 작게 분리
     let labelHtml = '';
     if (hasLabel) {
+      // 라벨 상단 배치는 라벨 칸이 화면 폭을 다 쓰므로 줄을 나눌 이유가 없다. 여러 줄
+      // 규칙(6자 줄바꿈·끝 괄호 분리)은 좁은 좌측 라벨을 위한 것이라 상단에서는 적용하지
+      // 않고, 엔터로 나뉜 조각들도 한 줄에 이어서 보여준다(CSS에서 가로 배치).
+      const topLabel = labelPos !== 'left';
       let lines = [];
       String(row.label).replace(/<\/?br\s*\/?>/gi, '\n').split('\n').forEach(raw => {
         let t = raw.trim();
         if (!t) return;
         let sub = false;
         if (t[0] === '>') { sub = true; t = t.slice(1).trim(); }
-        const m = t.match(/^(.*\S)\s*(\([^()]*\))$/); // 끝의 (…) 분리
+        const m = topLabel ? null : t.match(/^(.*\S)\s*(\([^()]*\))$/); // 끝의 (…) 분리
         if (m && m[1]) { lines.push({ t: m[1].trim(), sub }); lines.push({ t: m[2], sub: true }); }
         else if (t) lines.push({ t, sub });
       });
@@ -681,9 +732,9 @@
         <span class="check-badge think">생각 Check</span>
         <h2 class="slide-title">${lessonNumTag(lesson.num)}</h2>
       </div>
-      <p class="think-question">${boldOnly(preserveSpaces(slide.question)).replace(/\n/g, '<br>')}</p>
+      <p class="think-question">${linesWithBullets(slide.question, s => boldOnly(preserveSpaces(s)))}</p>
       <div class="think-body">
-        <p class="think-guide">${preserveSpaces(slide.guide).replace(/\n/g, '<br>').replace('50자', '<strong>50자</strong>')}</p>
+        <p class="think-guide">${linesWithBullets(slide.guide, preserveSpaces).replace('50자', '<strong>50자</strong>')}</p>
       </div>
     `;
   }
