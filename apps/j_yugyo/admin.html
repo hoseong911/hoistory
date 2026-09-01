@@ -329,6 +329,7 @@ else{
       document.getElementById('loginScreen').style.display='';
       document.getElementById('adminApp').classList.remove('show');
       if(sortsUnsub){sortsUnsub();sortsUnsub=null;}
+      clearTimeout(renderT);   // 로그아웃 뒤에 예약된 그리기가 남아 도는 것을 막는다
     }
   });
 }
@@ -384,10 +385,15 @@ function startListeners(){
   if(sortsUnsub)sortsUnsub();
   sortsUnsub=onSnapshot(collection(db,SORT_COL),snap=>{
     sorts=[];snap.forEach(d=>{if(classNumOf(d.id)!==0)sorts.push({id:d.id,...d.data()});});
-    renderAll();
+    queueRender();
   });
 }
-function renderAll(){renderClassFilter();renderBoard();renderParticipation();renderStudents();}
+/* 한 반이 동시에 분류를 시작하면 쓰기가 몰려 스냅샷이 초당 여러 번 들어온다. 그때마다
+   판을 통째로 다시 그리고 fitBoard가 크기를 줄여가며 재는 일까지 겹치면, 하필 수업 중
+   띄워 둔 전체화면 판이 버벅인다. 짧게 모아서 한 번만 그린다(눈에는 즉시로 보인다). */
+let renderT=null;
+function queueRender(){clearTimeout(renderT);renderT=setTimeout(renderAll,120);}
+function renderAll(){clearTimeout(renderT);renderClassFilter();renderBoard();renderParticipation();renderStudents();}
 
 function inFilter(sid){return currentFilter==='전체'||String(classNumOf(sid))===currentFilter;}
 function fSorts(){return sorts.filter(s=>inFilter(s.id));}
