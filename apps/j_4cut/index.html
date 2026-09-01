@@ -965,7 +965,13 @@ async function submitWork(dataUrl){
     cuts:work.map(c=>({bubbles:c.bubbles.map(b=>({type:b.type,x:b.x,y:b.y,w:b.w,h:b.h,text:b.text||"",tail:tailOf(b)}))})),
     timestamp:Date.now(),updatedAt:serverTimestamp()
   };
-  if(cur.exists())payload.status=deleteField();   // 규칙상 다시 낼 땐 status가 남아 있으면 안 된다
+  if(cur.exists()){
+    payload.status=deleteField();   // 규칙상 다시 낼 땐 status가 남아 있으면 안 된다
+    // 그림을 작품 문서에서 떼어 내기(2026-08-31) 전에 낸 작품에는 image 필드가 그대로
+    // 남아 있다. 갤러리와 어드민은 그 필드를 fourcut_images보다 먼저 보므로, 지우지
+    // 않으면 다시 내도 옛 그림이 계속 보인다(문서도 765KB짜리로 무거운 채 남는다).
+    if(cur.data().image!==undefined)payload.image=deleteField();
+  }
   else{payload.likes=0;payload.likedBy={};payload.createdAt=serverTimestamp();}
   await withTimeout(setDoc(wref,payload,{merge:true}),SUBMIT_TIMEOUT,'제출이 오래 걸려요. 잠시 뒤 다시 시도해 주세요.');
   clearDraft(curEvent.id);   // 냈으니 이어 쓸 것은 없다
