@@ -298,6 +298,16 @@ async function loadMine(){
     mySort=sSnap.exists()?sSnap.data():null;
     if(mySort&&mySort.placements)placements={...mySort.placements};
   }catch(e){}
+  // 이 기기에 남은 임시 저장본을 덮어씌운다. 남아 있다는 건 서버에 못 올린 선택이
+  // 있다는 뜻이라 이쪽이 최신이다. 서버가 통째로 안 읽힌 경우에도 이걸로 이어서 한다.
+  const draft=loadDraft();
+  if(draft&&Object.keys(draft).length){
+    const before=Object.keys(placements).length;
+    placements={...placements,...draft};
+    // 못 올린 게 있었으니 바로 다시 올려 본다(성공하면 임시 저장본은 지워진다).
+    if(Object.keys(placements).length!==before||!mySort)scheduleSave();
+    else clearDraft();
+  }
 }
 
 /* ── 인트로 ── */
@@ -423,17 +433,42 @@ document.getElementById('nav-next').addEventListener('click',async()=>{
 });
 document.getElementById('done-again').addEventListener('click',()=>openSort(0));
 
-function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(saveSortLive,300);}
+/* ── 임시 저장 ──
+   고른 것은 곧바로 서버에 올라가지만, 그 쓰기가 실패하면(교실 와이파이가 끊기거나
+   사파리 연결이 멈추면) 조용히 사라진다 — 학생은 골라 둔 줄 알고 새로고침했다가
+   처음부터 다시 하게 된다. 그래서 고르는 순간 이 기기에도 같이 적어 두고, 서버 저장이
+   확인되면 지운다. 이 값이 남아 있다는 건 아직 못 올린 것이 있다는 뜻이다. */
+function draftKey(){return 'j_yugyo_draft_'+(student?student.studentId:'');}
+function saveDraft(){
+  if(!student)return;
+  try{localStorage.setItem(draftKey(),JSON.stringify(placements));}catch(_){}
+}
+function clearDraft(){
+  try{localStorage.removeItem(draftKey());}catch(_){}
+}
+function loadDraft(){
+  try{const v=localStorage.getItem(draftKey());const o=v?JSON.parse(v):null;
+      return o&&typeof o==='object'?o:null;}catch(_){return null;}
+}
+
+function scheduleSave(){saveDraft();clearTimeout(saveTimer);saveTimer=setTimeout(saveSortLive,300);}
 async function saveSortLive(){
   if(!student)return;
+  const sending=Object.keys(placements).length;
   try{
     await setDoc(doc(db,SORT_COL,student.studentId),{
       studentId:student.studentId,name:student.name,classNum:student.classNum,
       placements,updatedAt:serverTimestamp()
     },{merge:true});
     mySort={...(mySort||{}),placements:{...placements}};
+    // 올리는 사이에 더 고른 게 있으면 임시 저장본을 남겨 둔다(다음 저장이 마저 올린다).
+    if(sending===Object.keys(placements).length)clearDraft();
   }catch(e){}
 }
+
+// 300ms 디바운스 안에 창을 닫아도 마지막 선택이 남게 한다(localStorage는 즉시 쓰기다).
+window.addEventListener('pagehide',saveDraft);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)saveDraft();});
 
 document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon,el.dataset.iconSize?+el.dataset.iconSize:24));
 init();

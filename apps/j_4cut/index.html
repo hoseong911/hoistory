@@ -495,8 +495,15 @@ $("#startBtn").onclick=async()=>{
   try{
     curEvent=CONTENT.events.find(e=>e.id===pickedEventId);
     curImage=await loadEventImage(pickedEventId);
-    // 어드민이 잡아둔 기본 배치를 작업본으로 복사(학생이 옮기거나 지워도 원본은 그대로)
-    work=curEvent.cuts.map(c=>({bubbles:(c.bubbles||[]).slice(0,MAX_BUBBLES_PER_CUT).map(b=>({...b,text:""}))}));
+    // 쓰다 만 게 있으면 이어서 쓸지 먼저 묻는다(아니라고 하면 그 저장본은 버린다).
+    const draft=loadDraft(pickedEventId);
+    if(draft&&confirm('저번에 쓰다 만 대사가 있어요.\n이어서 쓸까요?\n\n[취소]를 누르면 처음부터 새로 씁니다.')){
+      work=draft.work;
+    }else{
+      if(draft)clearDraft(pickedEventId);
+      // 어드민이 잡아둔 기본 배치를 작업본으로 복사(학생이 옮기거나 지워도 원본은 그대로)
+      work=curEvent.cuts.map(c=>({bubbles:(c.bubbles||[]).slice(0,MAX_BUBBLES_PER_CUT).map(b=>({...b,text:""}))}));
+    }
     enterEditor();
   }catch(e){
     warn('만화를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.');
@@ -536,6 +543,38 @@ async function loadEventImage(evId){
   imgCache[evId]=url;
   return url;
 }
+
+/* ── 임시 저장 ──
+   대사를 다 써 놓고 새로고침하거나 전화가 오면 처음부터 다시 써야 했다. 쓰는 동안
+   이 기기에 말풍선 배치와 글을 통째로 적어 두고, 다시 들어오면 이어서 쓸지 물어본다.
+   사건마다 따로 담는다 — 무오를 쓰다 갑자로 갔다가 돌아와도 각자 남아 있게. */
+function draftKey(evId){
+  return 'fourcut_draft_'+(student?student.studentId:'')+'_'+evId;
+}
+function saveDraft(){
+  if(!student||!curEvent||!work)return;
+  try{localStorage.setItem(draftKey(curEvent.id),JSON.stringify({work,at:Date.now()}));}catch(_){}
+}
+function clearDraft(evId){
+  try{localStorage.removeItem(draftKey(evId));}catch(_){}
+}
+/* 쓴 대사가 하나라도 있는 임시 저장본만 돌려준다(빈 배치만 남은 건 이어 쓸 게 없다). */
+function loadDraft(evId){
+  try{
+    const raw=localStorage.getItem(draftKey(evId));
+    if(!raw)return null;
+    const d=JSON.parse(raw);
+    if(!d||!Array.isArray(d.work)||d.work.length!==CUTS)return null;
+    const cuts=d.work.map(c=>({bubbles:(c&&Array.isArray(c.bubbles)?c.bubbles:[]).slice(0,MAX_BUBBLES_PER_CUT)}));
+    if(!cuts.some(c=>c.bubbles.some(b=>b&&b.text&&String(b.text).trim())))return null;
+    return {work:cuts,at:d.at||0};
+  }catch(_){return null;}
+}
+/* 글자를 칠 때마다 쓰지 않고 잠깐 모았다 쓴다. 창을 닫을 때는 즉시 쓴다. */
+let draftTimer=null;
+function scheduleDraft(){clearTimeout(draftTimer);draftTimer=setTimeout(saveDraft,400);}
+window.addEventListener('pagehide',saveDraft);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)saveDraft();});
 
 function enterEditor(){
   $("#barWho").textContent=`${student.studentName} (${student.studentId})`;
@@ -635,6 +674,7 @@ function addBubble(type){
   // 이미 있는 풍선과 겹치지 않게 두 번째는 아래쪽에 놓는다
   const n=c.bubbles.length;
   c.bubbles.push({type,x:n?38:8,y:n?54:10,w:50,h:34,text:""});
+  saveDraft();
   renderCutPage();
 }
 $("#addSpeechBtn").onclick=()=>addBubble('speech');
@@ -645,7 +685,7 @@ function bindCutPage(){
   page.querySelectorAll('.bdel').forEach(el=>el.onclick=ev=>{
     ev.stopPropagation();
     const b=el.parentElement;
-    work[+b.dataset.ci].bubbles.splice(+b.dataset.bi,1);renderCutPage();
+    work[+b.dataset.ci].bubbles.splice(+b.dataset.bi,1);saveDraft();renderCutPage();
   });
   // 꼬리를 누르면 네 귀퉁이를 돈다. 글씨는 그대로 두고 꼬리 자리만 옮기므로 대사는 안 뒤집힌다.
   page.querySelectorAll('.tailhit').forEach(el=>el.onclick=ev=>{
@@ -653,12 +693,14 @@ function bindCutPage(){
     const wrap=el.parentElement;
     const b=work[+wrap.dataset.ci].bubbles[+wrap.dataset.bi];
     b.tail=nextTail(tailOf(b));
+    saveDraft();
     TAIL_ORDER.forEach(t=>wrap.classList.toggle('tb-'+t,t===b.tail));
   });
   page.querySelectorAll('.bhandle').forEach(el=>el.addEventListener('pointerdown',ev=>startDrag(ev,el.parentElement)));
   page.querySelectorAll('.btext[contenteditable]').forEach(el=>{
     el.addEventListener('input',()=>{
       work[+el.dataset.ci].bubbles[+el.dataset.bi].text=el.textContent;
+      scheduleDraft();
       fitText(el);
       renderCutDots();   // 아래 번호의 "쓴 컷" 표시를 바로 갱신 (컷 창 밖이라 입력이 끊기지 않는다)
     });
@@ -696,6 +738,7 @@ function endDrag(ev){
   h.removeEventListener('pointerup',endDrag);
   h.removeEventListener('pointercancel',endDrag);
   drag=null;
+  saveDraft();      // 옮긴 자리도 이어서 쓸 때 그대로 살아나야 한다
 }
 
 /* ── 자동 맞춤 ── */
@@ -925,6 +968,7 @@ async function submitWork(dataUrl){
   if(cur.exists())payload.status=deleteField();   // 규칙상 다시 낼 땐 status가 남아 있으면 안 된다
   else{payload.likes=0;payload.likedBy={};payload.createdAt=serverTimestamp();}
   await withTimeout(setDoc(wref,payload,{merge:true}),SUBMIT_TIMEOUT,'제출이 오래 걸려요. 잠시 뒤 다시 시도해 주세요.');
+  clearDraft(curEvent.id);   // 냈으니 이어 쓸 것은 없다
   await saveSubmissionMark(cur.exists());
 }
 

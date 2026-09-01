@@ -115,9 +115,16 @@ export function mountCharCounter(opts) {
 
 /**
  * 입력 요소에서 복사/붙여넣기를 차단합니다.
- * @param {HTMLElement} el
+ *
+ * 붙여넣기(Ctrl+V, 길게 눌러 붙여넣기)만 막으면 뒷문이 하나 남는다 —
+ * 다른 탭에서 글을 드래그해 입력칸에 떨어뜨리는 길이다. 이 경로는 paste 이벤트가
+ * 아예 발생하지 않아서 여기까지 막아야 한다(AI가 쓴 글을 그대로 옮겨 오는 데
+ * 실제로 쓰이는 방법이다). drop에서 preventDefault를 하면 브라우저의 기본
+ * 삽입이 취소되고, dragover에서 dropEffect를 none으로 두면 커서도 금지 표시가 된다.
+ *
+ * @param {HTMLElement|Document} el
  * @param {Object} [opts]
- * @param {() => void} [opts.onPaste] - 페이스트 시도 시 콜백
+ * @param {() => void} [opts.onPaste] - 붙여넣기(드롭 포함) 시도 시 콜백
  * @param {() => void} [opts.onCopy] - 복사 시도 시 콜백
  */
 export function blockPaste(el, opts = {}) {
@@ -130,9 +137,18 @@ export function blockPaste(el, opts = {}) {
     e.preventDefault();
     opts.onCopy?.();
   };
+  const onDrop = (e) => {
+    e.preventDefault();
+    opts.onPaste?.();
+  };
+  const onDragOver = (e) => {
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+  };
   el.addEventListener('paste', onPaste);
   el.addEventListener('copy', onCopy);
   el.addEventListener('cut', onCopy);
+  el.addEventListener('drop', onDrop);
+  el.addEventListener('dragover', onDragOver);
   el.addEventListener('contextmenu', e => e.preventDefault());
 }
 

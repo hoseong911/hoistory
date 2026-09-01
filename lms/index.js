@@ -11,7 +11,7 @@ import { firebaseConfig } from "../shared/firebase-config.js";
 import { initXP, onXPChange, checkAndAddAttendance, calcLevel } from "../shared/xp.js";
 import { findBadWord } from "../shared/profanity.js";
 import { icon } from "../shared/icons.js";
-import { blockPaste } from "../shared/textLimit.js";
+import { blockPaste } from "../shared/textLimit.js?v=20260901";
 import { typingBlockReason, kstDate } from "../shared/util.js?v=20260828";
 
 // 학생 화면 복사/붙여넣기·우클릭 차단(부정행위 방지). 관리자(admin.html)는 대상 아님.
@@ -1382,7 +1382,14 @@ thinkTextarea.addEventListener('input', () => { updateThinkMeta(); saveThinkDraf
 // 창을 닫거나 앱이 백그라운드로 넘어가는 순간에도 한 번 더 확실히 저장한다.
 window.addEventListener('pagehide', saveThinkDraft);
 document.addEventListener('visibilitychange', () => { if (document.hidden) saveThinkDraft(); });
-thinkTextarea.addEventListener('paste', e => e.preventDefault());
+// 붙여넣기와 드래그해서 떨어뜨리기를 둘 다 막는다. 문서 전체에도 blockPaste가 걸려
+// 있지만, 여기서는 왜 안 되는지 그 자리에서 알려 주려고 따로 잡는다.
+function blockThinkInsert(e) {
+  e.preventDefault();
+  showToast('생각 체크는 직접 써야 해요. 붙여넣기는 쓸 수 없어요.', 3000, 'pencil');
+}
+thinkTextarea.addEventListener('paste', blockThinkInsert);
+thinkTextarea.addEventListener('drop', blockThinkInsert);
 
 function updateThinkMeta() {
   const len = thinkTextarea.value.replace(/\s/g, '').length;
