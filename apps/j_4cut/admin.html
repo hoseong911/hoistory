@@ -403,7 +403,7 @@
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import{getFirestore,doc,getDoc,setDoc,updateDoc,deleteDoc,collection,onSnapshot,query,orderBy}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{initializeFirestore,doc,getDoc,setDoc,updateDoc,deleteDoc,collection,onSnapshot,query,orderBy}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import{getDatabase,ref,get}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import{firebaseConfig}from"../../shared/firebase-config.js";
@@ -411,7 +411,12 @@ import{icon}from"../../shared/icons.js";
 import { loadTestIds, isTestId } from "../../shared/testIds.js";
 
 const app=initializeApp(firebaseConfig);
-const db=getFirestore(app);
+// getFirestore(app) 대신 initializeFirestore로 여는 이유 — 파이어스토어는 기본적으로
+// WebChannel(스트리밍)로 통신하는데, iOS 사파리나 학교 와이파이 프록시 조합에서 이 연결이
+// 열린 채 멈추는 일이 있다. 그러면 setDoc()이 성공도 실패도 하지 않고 영영 pending으로 남아
+// 제출이 '제출하는 중…'에서 안 넘어간다. 켜 두면 SDK가 막히는 환경을 감지해 롱폴링으로
+// 자동 전환한다(lms/index.js와 같은 처리).
+const db=initializeFirestore(app,{experimentalAutoDetectLongPolling:true});
 const auth=getAuth(app);
 const rtdb=getDatabase(app);
 const esc=s=>{const d=document.createElement('div');d.textContent=s??"";return d.innerHTML;};
@@ -490,6 +495,11 @@ window.showPanel=(name,btn)=>{
 /* ── 콘텐츠 로드 ──
    예전 형식({cuts:[{img,bubbles}]×4})도 열리게 받아준다. 그때 잡아둔 말풍선 배치는
    세 사건의 출발점으로 물려주고, 컷별로 흩어져 있던 그림은 형식이 달라 버린다. */
+/* 본문을 제대로 읽어 왔는지. 못 읽었으면 저장을 막는다 — 아래 saveContent가
+   merge 없이 통째로 덮어쓰기 때문에, 못 읽은 채로 저장하면 세 사건에 잡아 둔
+   말풍선 배치가 빈 값으로 날아간다. 문서가 아직 없는 경우(첫 사용)는 정상이라
+   읽기가 성공한 것으로 친다. */
+let contentLoaded=false;
 async function loadContent(){
   try{
     const snap=await getDoc(doc(db,'settings','fourcut_content'));
@@ -515,7 +525,8 @@ async function loadContent(){
         }),
       };
     }
-  }catch(e){}
+    contentLoaded=true;
+  }catch(e){contentLoaded=false;}
   document.getElementById('fcTitle').value=CONTENT.title;
   document.getElementById('fcIntroTitle').value=CONTENT.introTitle;
   document.getElementById('fcIntroBody').value=CONTENT.introBody;
@@ -697,6 +708,11 @@ document.getElementById('fcImgReload').onclick=async e=>{
 /* ── 저장 ── */
 window.saveContent=async()=>{
   const msg=document.getElementById('fcSaveMsg');
+  if(!contentLoaded){
+    msg.style.color='var(--hi-negative)';
+    msg.textContent='내용을 아직 못 불러왔어요. 새로고침한 뒤 저장해 주세요.';
+    return;
+  }
   CONTENT.title=document.getElementById('fcTitle').value.trim()||"사화 네컷";
   CONTENT.introTitle=document.getElementById('fcIntroTitle').value.trim();
   CONTENT.introBody=document.getElementById('fcIntroBody').value.trim();
@@ -1030,11 +1046,19 @@ window.closeFcModal=()=>document.getElementById('fcModal').classList.remove('sho
 async function syncSubmissionSummary(sid){
   const w=works.find(x=>String(x.studentId||'')===String(sid));
   if(!sid||!w)return;
-  await setDoc(doc(db,'fourcut_submissions',String(sid)),{
+  const sref=doc(db,'fourcut_submissions',String(sid));
+  let had=null;
+  try{ had=await getDoc(sref); }catch(e){}
+  const payload={
     studentId:String(sid),studentName:w.studentName||'',classNum:w.classNum??null,
     status:(w.status==='pass'||w.status==='fail')?w.status:null,
-    ...(w.timestamp?{createdAt:new Date(w.timestamp)}:{}),
-  },{merge:true});
+  };
+  // createdAt은 "처음 낸 시각"이고 LMS의 기한 판정 기준이다. w.timestamp는 다시 낼 때마다
+  // 갱신되는 최신 제출 시각이라, 채점할 때마다 덮어쓰면 제때 낸 학생이 나중에 한 번
+  // 고쳤다는 이유로 지각으로 뒤집힌다. 아직 값이 없을 때만 채워 넣는다.
+  if(w.timestamp&&(!had||!had.exists()||had.data().createdAt==null))
+    payload.createdAt=new Date(w.timestamp);
+  await setDoc(sref,payload,{merge:true});
 }
 
 /* 배지를 누르면 통과, 미흡, 미채점 순으로 돈다(인터뷰 ANSWER와 같은 규격). */

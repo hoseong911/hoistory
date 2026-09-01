@@ -338,12 +338,17 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import{getFirestore,doc,getDoc,setDoc,updateDoc,deleteField,increment,collection,getDocs,query,orderBy,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{initializeFirestore,doc,getDoc,setDoc,updateDoc,deleteField,increment,collection,getDocs,query,orderBy,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import{firebaseConfig}from"../../shared/firebase-config.js";
 import{icon}from"../../shared/icons.js";
 
 const app=initializeApp(firebaseConfig);
-const db=getFirestore(app);
+// getFirestore(app) 대신 initializeFirestore로 여는 이유 — 파이어스토어는 기본적으로
+// WebChannel(스트리밍)로 통신하는데, iOS 사파리나 학교 와이파이 프록시 조합에서 이 연결이
+// 열린 채 멈추는 일이 있다. 그러면 setDoc()이 성공도 실패도 하지 않고 영영 pending으로 남아
+// 제출이 '제출하는 중…'에서 안 넘어간다. 켜 두면 SDK가 막히는 환경을 감지해 롱폴링으로
+// 자동 전환한다(lms/index.js와 같은 처리).
+const db=initializeFirestore(app,{experimentalAutoDetectLongPolling:true});
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -936,7 +941,10 @@ async function saveSubmissionMark(isResubmit){
     };
     if(!cur.exists())payload.createdAt=serverTimestamp();
     // 작품의 채점을 지웠으면 요약도 같이 비운다 — 안 그러면 LMS에만 통과가 남는다.
-    if(isResubmit)payload.status=null;
+    // 단 요약 문서를 처음 만드는 경우엔 status를 실으면 안 된다. 보안 규칙의 create는
+    // status가 키에 있기만 해도 막는데(채점은 선생님 전용), 그러면 이 쓰기가 통째로
+    // 거부되고 catch에 먹혀 조용히 사라진다. 지울 채점이 애초에 없으니 뺀다.
+    if(isResubmit&&cur.exists())payload.status=null;
     await setDoc(sref,payload,{merge:true});
   }catch(e){}
 }
