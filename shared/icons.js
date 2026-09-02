@@ -62,7 +62,10 @@ Object.assign(PATHS, {
 });
 
 export function icon(name, size = 22, cls = "") {
-  const inner = PATHS[name] || PATHS["circle-help"];
+  let inner = PATHS[name] || PATHS["circle-help"];
+  // 처음 옮겨 온 값 42개가 </svg> 없이 끝난다. 그대로 감싸면 바깥 <svg>가 닫히지 않아
+  // 아이콘 뒤에 오는 글자가 SVG 안으로 빨려 들어가 화면에서 사라진다. 닫아 주고 쓴다.
+  if (inner.includes("<svg") && !inner.includes("</svg>")) inner += "</svg>";
   return `<svg class="hi-ic${cls?' '+cls:''}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
 }
 

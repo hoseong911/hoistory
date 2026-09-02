@@ -372,7 +372,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import{initializeFirestore,doc,getDoc,setDoc,updateDoc,deleteField,increment,collection,getDocs,query,orderBy,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{initializeFirestore,doc,getDoc,setDoc,updateDoc,deleteField,increment,collection,onSnapshot,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import{firebaseConfig}from"../../shared/firebase-config.js";
 import{icon}from"../../shared/icons.js";
 
@@ -1079,23 +1079,84 @@ function renderDone(dataUrl,err){
 let arcWorks=[],arcFilter='all',arcEvFilter='all',arcSort='sid',arcIdx=0,likeBusy={};
 let arcMode='grid';
 let arcGridScroll=0;   // 앨범에서 내려본 자리 — 한 장씩 보기에서 돌아올 때 그 자리로 되돌린다
-async function openArchive(){
+let arcUnsub=null;     // 실시간 구독 해지 함수(갤러리를 닫으면 끊는다)
+let arcLoaded=false;   // 첫 응답을 받았는지 — 받기 전 오류는 "불러오지 못했어요"로 알린다
+let arcSig=null;       // 지금 화면에 그려 둔 목록(작품 id를 이어붙인 것)
+let arcCurId=null;     // 한 장씩 보기에서 지금 보고 있는 작품
+
+function openArchive(){
   $("#archiveView").classList.add('show');
-  arcIdx=0;arcMode='grid';arcGridScroll=0;
+  arcIdx=0;arcMode='grid';arcGridScroll=0;arcLoaded=false;arcSig=null;
   $("#arcStage").innerHTML=`<div class="arc-empty">불러오는 중…</div>`;
-  try{
-    const snap=await getDocs(query(collection(db,'fourcut_works'),orderBy('timestamp','desc')));
-    arcWorks=[];snap.forEach(d=>arcWorks.push({id:d.id,...d.data()}));
-  }catch(e){
-    try{const snap=await getDocs(collection(db,'fourcut_works'));arcWorks=[];snap.forEach(d=>arcWorks.push({id:d.id,...d.data()}));arcWorks.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));}catch(e2){arcWorks=[];}
+  subscribeArc();
+}
+/* 목록을 실시간으로 구독한다. 친구가 제출하면 앨범에 바로 칸이 늘고, 좋아요 수도
+   새로고침 없이 따라 움직인다. fourcut_works에는 그림이 없고 메타데이터만 있어
+   (한 장에 1.5KB쯤) 계속 열어 둬도 가볍다 — 그림은 여전히 보이는 것만 따로 받는다.
+   정렬은 걸지 않는다. filteredWorks()가 학번순/최신순으로 어차피 다시 세우기 때문. */
+function subscribeArc(){
+  if(arcUnsub)return;
+  arcUnsub=onSnapshot(collection(db,'fourcut_works'),
+    snap=>{const next=[];snap.forEach(d=>next.push({id:d.id,...d.data()}));applyArcWorks(next);},
+    err=>{
+      // 실시간 연결이 막히면 구독은 거기서 끝난다. 이미 보고 있던 목록은 그대로 두고,
+      // 아직 아무것도 못 받았을 때만 안내한다.
+      arcUnsub=null;
+      if(!arcLoaded)$("#arcStage").innerHTML=`<div class="arc-empty">작품을 불러오지 못했어요.</div>`;
+    });
+}
+function applyArcWorks(next){
+  // 좋아요를 누른 직후에는 화면이 서버보다 앞서 있다(낙관적 갱신). 아직 쓰는 중인 작품은
+  // 서버 값으로 되돌리지 않는다 — 숫자가 눌렀다 돌아왔다 한 번 튀어 보이기 때문.
+  const prev={};arcWorks.forEach(w=>prev[w.id]=w);
+  arcWorks=next.map(w=>(likeBusy[w.id]&&prev[w.id])?prev[w.id]:w);
+  const first=!arcLoaded;
+  arcLoaded=true;
+  if(first){renderArcFilter();renderArc();return;}
+  renderArcFilter();          // 사건별 건수가 달라졌을 수 있다
+  refreshArcView();
+}
+/* 실시간으로 새 값이 올 때마다 화면을 통째로 다시 그리면 그림이 한 번씩 깜빡이고
+   앨범에서 보던 자리도 흔들린다. 목록 자체가 달라졌을 때만 다시 그리고,
+   좋아요 수만 바뀐 흔한 경우에는 숫자만 갈아 끼운다. */
+function refreshArcView(){
+  const list=filteredWorks();
+  if(sigOf(list)!==arcSig){
+    if(arcMode==='one'){
+      // 새 작품이 앞에 끼어들어 자리가 밀려도 보던 작품을 계속 본다.
+      const k=list.findIndex(x=>x.id===arcCurId);
+      if(k>=0)arcIdx=k;
+      renderArc();return;
+    }
+    const sc=$("#archiveView").scrollTop;
+    renderArc();
+    $("#archiveView").scrollTop=sc;
+    return;
   }
-  renderArcFilter();renderArc();
+  refreshArcLikes(list);
+}
+const sigOf=list=>list.map(w=>w.id).join('|');
+function refreshArcLikes(list){
+  list=list||filteredWorks();
+  if(arcMode==='one'){
+    const w=list[arcIdx],btn=$("#arcStage .like-btn");
+    if(!w||!btn)return;
+    btn.classList.toggle('liked',!!(w.likedBy&&w.likedBy[likeKey()]));
+    btn.innerHTML=`${icon('heart',14)} ${w.likes||0}`;
+    return;
+  }
+  $("#arcStage").querySelectorAll('.thumb').forEach(b=>{
+    const w=list[+b.dataset.i],lk=b.querySelector('.lk');
+    if(!w||!lk)return;
+    lk.classList.toggle('on',!!(w.likedBy&&w.likedBy[likeKey()]));
+    lk.innerHTML=`${icon('heart',12)} ${w.likes||0}`;
+  });
 }
 window.closeArchive=()=>{
   if(arcIO){arcIO.disconnect();arcIO=null;}
+  if(arcUnsub){arcUnsub();arcUnsub=null;}   // 닫으면 실시간 구독도 끊는다
   $("#archiveView").classList.remove('show');
 };
-
 function renderArcFilter(){
   // 사건 필터: 콘텐츠에 정의된 3종을 늘 보여준다(0건이어도 자리를 지킨다)
   const ef=$("#arcEvFilter");
@@ -1177,6 +1238,7 @@ function renderArcGrid(){
         </div>
       </button>`;}).join("")}</div>`;
   stage.querySelectorAll('.thumb').forEach(b=>b.onclick=()=>openWorkAt(+b.dataset.i));
+  arcSig=sigOf(list);
 
   // 아직 그림이 없는 칸은 화면 가까이 왔을 때 받아 온다.
   const boxes=[...stage.querySelectorAll('.thumb-img')].filter(el=>!el.querySelector('img'));
@@ -1219,6 +1281,7 @@ function renderArcOne(){
   if(arcIdx>=list.length)arcIdx=list.length-1;
   if(arcIdx<0)arcIdx=0;
   const w=list[arcIdx];
+  arcCurId=w.id;
   const liked=!!(w.likedBy&&w.likedBy[likeKey()]);
   const cached=w.image||workImg[w.id];
   stage.innerHTML=`
@@ -1255,6 +1318,7 @@ function renderArcOne(){
       box.outerHTML=`<img src="${url}" alt="${esc(w.studentName)}의 네컷" onclick="showLightbox('${w.id}')">`;
     });
   }
+  arcSig=sigOf(list);
   // 다음 장을 미리 받아 둔다 — 넘길 때 기다리지 않게.
   const nx=list[arcIdx+1];
   if(nx)loadWorkImage(nx);
@@ -1289,7 +1353,7 @@ async function toggleLike(id,btn){
   w.likes=Math.max(0,prevLikes+(liked?-1:1));
   w.likedBy={...prevLikedBy};
   if(liked)delete w.likedBy[me];else w.likedBy[me]=true;
-  renderArc();
+  refreshArcLikes();
   try{
     // 절대값을 쓰면 갤러리를 연 시점의 값을 덮어써서, 둘이 동시에 누를 때 하나가 사라진다.
     await updateDoc(doc(db,'fourcut_works',id),{
@@ -1297,7 +1361,7 @@ async function toggleLike(id,btn){
       [`likedBy.${me}`]:liked?deleteField():true
     });
   }catch(e){
-    w.likes=prevLikes;w.likedBy=prevLikedBy;renderArc();
+    w.likes=prevLikes;w.likedBy=prevLikedBy;refreshArcLikes();
     warn('좋아요를 반영하지 못했어요.');
   }finally{delete likeBusy[id];}
 }
