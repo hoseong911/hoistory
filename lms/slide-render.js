@@ -902,9 +902,11 @@
       extraClass = ' slide-think';
       inner = thinkHTML(slide, lesson);
     }
-    // 페이지별 본문 양쪽 정렬. 예전에는 미션 Check 전체가 CSS로 양쪽 정렬이라 끌 수 없었다.
-    // 이제 기본은 왼쪽 정렬이고, 어드민에서 켠 페이지에만 이 클래스가 붙는다.
+    // 페이지별 본문 정렬. 기본은 왼쪽이고, 어드민에서 켠 페이지에만 클래스가 붙는다.
+    // justify는 행 나열·안내문(오른쪽 끝 맞춤), center는 비교표(가운데)에 쓴다.
+    // 예전에는 미션 Check 전체가 CSS로 양쪽 정렬이라 끌 수가 없었다.
     if (slide.align === 'justify') extraClass += ' align-justify';
+    else if (slide.align === 'center') extraClass += ' align-center';
     // 페이지별 본문 글자 크기 오버라이드. 중앙 나열(cols)은 소제목/내용이 전용 변수를 쓰므로
     // --fs-body만 덮어써서는 안 먹는다 — 그 페이지에 한해 전용 변수도 같이 덮어쓴다.
     let fsStyle = '';
