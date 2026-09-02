@@ -769,6 +769,7 @@
         current = { type, title: line.title, rows: [] };
         if (line.fontSize != null) current.fontSize = line.fontSize; // 페이지별 본문 글자 크기(px) 오버라이드
         if (line.hideBadge) current.hideBadge = true;                 // 페이지별 개념/미션 배지 숨김(A 기능)
+        if (line.align) current.align = line.align;                   // 페이지별 본문 정렬(기본 왼쪽, 'justify'면 양쪽)
         const fmt = line.format;
         if (fmt && fmt !== 'rows') {
           current.format = fmt;
@@ -901,6 +902,9 @@
       extraClass = ' slide-think';
       inner = thinkHTML(slide, lesson);
     }
+    // 페이지별 본문 양쪽 정렬. 예전에는 미션 Check 전체가 CSS로 양쪽 정렬이라 끌 수 없었다.
+    // 이제 기본은 왼쪽 정렬이고, 어드민에서 켠 페이지에만 이 클래스가 붙는다.
+    if (slide.align === 'justify') extraClass += ' align-justify';
     // 페이지별 본문 글자 크기 오버라이드. 중앙 나열(cols)은 소제목/내용이 전용 변수를 쓰므로
     // --fs-body만 덮어써서는 안 먹는다 — 그 페이지에 한해 전용 변수도 같이 덮어쓴다.
     let fsStyle = '';

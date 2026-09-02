@@ -1676,6 +1676,15 @@ function toggleHideBadge(target, i, checked) {
   ceRenderPreview();
 }
 
+/* 페이지별 본문 양쪽 정렬. 기본은 왼쪽 정렬이고, 켠 페이지만 오른쪽 끝을 맞춘다.
+   예전에는 미션 Check 슬라이드 전체가 CSS로 양쪽 정렬이라 끌 방법이 없었다. */
+function toggleAlignJustify(target, i, checked) {
+  const line = ceLinesFor(target)[i];
+  if (checked) line.align = 'justify';
+  else delete line.align;
+  ceRenderPreview();
+}
+
 function setLineFontSize(target, i, v) {
   const line = ceLinesFor(target)[i];
   const n = parseInt(v, 10);
@@ -2002,6 +2011,7 @@ function ceRenderContentLines(target) {
                 <div class="cl-fmt-opts">
                   ${fmt === 'rows' ? `<label class="cl-opt"><input type="checkbox" class="cl-opt-labelpos" ${div.labelPos === 'left' ? 'checked' : ''} onclick="event.stopPropagation();toggleLabelPos('${target}',${divIdx},this.checked)"> 라벨 좌측</label>` : ''}
                   ${fmt !== 'notice' ? `<label class="cl-opt"><input type="checkbox" ${div.hideBadge ? 'checked' : ''} onclick="event.stopPropagation();toggleHideBadge('${target}',${divIdx},this.checked)"> 배지 숨김</label>` : ''}
+                  ${fmt === 'rows' || fmt === 'notice' ? `<label class="cl-opt"><input type="checkbox" ${div.align === 'justify' ? 'checked' : ''} onclick="event.stopPropagation();toggleAlignJustify('${target}',${divIdx},this.checked)"> 양쪽 정렬</label>` : ''}
                   <label class="cl-opt">${fmt === 'cols' ? '글자 크기(소제목/내용)' : '글자 크기'} <input type="number" min="10" max="140" placeholder="기본" value="${div.fontSize != null ? div.fontSize : ''}" oninput="setLineFontSize('${target}',${divIdx},this.value)"> px</label>
                   ${fmt === 'cols' ? `<label class="cl-opt">글자 크기(대제목) <input type="number" min="10" max="200" placeholder="기본" value="${div.colsTitleSize != null ? div.colsTitleSize : ''}" oninput="setColsTitleSize('${target}',${divIdx},this.value)"> px</label>` : ''}
                 </div>
@@ -6057,7 +6067,7 @@ Object.assign(window, {
   switchSubTab, addLesson, deleteLesson, onLessonChange,
   addSlide, addDivider, addContentRow, addImageSlide, toggleDividerImg, deleteLine, deletePair, moveLine,
   addRowToGroup, addPageToGroup, addTitledPageAfter, moveSlideBlock, ceShowAddMenu, deleteGroup, deleteRow, updateGroupTitle, ceToggleFmt,
-  setLineFormat, toggleLabelPos, toggleHideBadge, setLineFontSize, setColsTitleSize, updateImgLayout,
+  setLineFormat, toggleLabelPos, toggleHideBadge, toggleAlignJustify, setLineFontSize, setColsTitleSize, updateImgLayout,
   updateEventField, updateEventContent, addEvent, removeEvent,
   updateCompareField, updateCompareItems,
   updateStageField, addStage, removeStage,
