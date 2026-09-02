@@ -946,7 +946,24 @@
     const close = () => overlay.classList.remove('open');
     overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
     overlay.querySelector('.img-lightbox-close').addEventListener('click', close);
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+    /* 확대 상태에서는 아무 키나 누르면 닫는다(Escape만 받지 않는다). 발표용 리모컨의
+       버튼이 PageUp/PageDown으로 들어오는데, 그 버튼으로 사진을 닫으려는 것이다.
+
+       - capture 단계에서 잡는다. lecture.html의 슬라이드 넘김 핸들러도 document에
+         걸려 있어서, bubble로 두면 등록 순서에 따라 슬라이드가 먼저 넘어가 버린다.
+       - 사진을 닫은 키는 거기서 멈춘다(stopPropagation). 한 번 눌러 사진을 닫고 다시
+         눌러 넘어가는 것이 리모컨을 쥔 손에 자연스럽다 — 닫으면서 슬라이드까지
+         건너뛰면 어디로 갔는지 모르게 된다.
+       - 조합키(Ctrl+R 등)와 수식키 단독 누름, 빈칸 타이핑 중에는 흘려보낸다. */
+    document.addEventListener('keydown', e => {
+      if (!overlay.classList.contains('open')) return;
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+      if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta') return;
+      if (e.target && e.target.classList && e.target.classList.contains('blank-input')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+    }, true);
     lightbox = { overlay, imgEl, close };
     return lightbox;
   }
