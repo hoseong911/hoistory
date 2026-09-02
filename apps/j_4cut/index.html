@@ -221,6 +221,32 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 .arc-sort button{font-family:inherit;font-size:12px;font-weight:700;padding:6px 15px;border:0;background:none;color:var(--hi-text-muted,#6b7280);cursor:pointer;-webkit-tap-highlight-color:transparent}
 .arc-sort button.active{background:var(--ink);color:#fff}
 .arc-tip{font-size:13px;font-weight:600;color:var(--teal-deep);background:#fff;border:1.5px dashed var(--teal);border-radius:12px;padding:10px 14px;margin-bottom:14px;text-align:center;line-height:1.6}
+/* 앨범(썸네일 격자) — 갤러리를 열면 먼저 보이는 화면. 칸을 누르면 그 작품부터 한 장씩 넘긴다.
+   그림은 fourcut_images에 따로 있어 한 장이 200KB쯤 된다. 격자를 열자마자 전부 받으면
+   한 학년이면 수십 MB라, 화면에 들어온 칸만 IntersectionObserver로 받아 채운다. */
+.arc-count{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--muted);margin-bottom:10px;text-align:right}
+.arc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px}
+@media(max-width:520px){.arc-grid{grid-template-columns:repeat(2,1fr);gap:10px}}
+.thumb{display:block;width:100%;padding:0;border:1px solid var(--hi-border,#e5e4df);border-radius:12px;overflow:hidden;background:#fff;cursor:pointer;font-family:inherit;text-align:left;box-shadow:0 3px 12px rgba(0,0,0,.05);-webkit-tap-highlight-color:transparent;transition:transform .1s,box-shadow .1s}
+.thumb:active{transform:translateY(2px);box-shadow:0 1px 5px rgba(0,0,0,.05)}
+.thumb.mine{border-color:var(--accent);box-shadow:0 0 0 2px rgba(228,87,46,.22)}
+/* 네컷은 세로로 긴 그림(1:3)이라 그대로 줄이면 칸이 너무 길쭉하다. 위쪽(첫 컷)을 잘라 보여준다.
+   높이는 aspect-ratio 대신 padding으로 잡는다 — 옛 사파리에서도 칸이 무너지지 않게. */
+.thumb-img{position:relative;background:var(--hi-bg-mid,#f4f3ee);overflow:hidden}
+.thumb-img::before{content:"";display:block;padding-top:120%}
+.thumb-img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top center;display:block}
+.thumb-ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:var(--hi-text-muted,#6b7280)}
+.thumb-cap{display:flex;align-items:center;gap:6px;padding:8px 10px;min-width:0}
+.thumb-cap .nm{font-size:12.5px;font-weight:700;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.thumb-cap .lk{margin-left:auto;flex-shrink:0;display:inline-flex;align-items:center;gap:3px;font-size:11.5px;font-weight:700;color:var(--hi-text-muted,#6b7280)}
+.thumb-cap .lk.on{color:var(--accent-deep)}
+.thumb-cap .lk .hi-ic{fill:none}
+.thumb-cap .lk.on .hi-ic{fill:currentColor}
+.thumb-mine{flex-shrink:0;font-size:10px;font-weight:800;color:var(--accent-deep);background:rgba(228,87,46,.1);border-radius:100px;padding:1px 6px;white-space:nowrap}
+/* 한 장씩 보기에서 앨범으로 돌아가는 줄 */
+.arc-backrow{margin-bottom:12px}
+.arc-tolist{display:inline-flex;align-items:center;gap:4px;font-family:inherit;font-size:12.5px;font-weight:700;padding:7px 14px 7px 10px;border-radius:100px;border:1.5px solid var(--hi-border,#d8d7d0);background:#fff;color:var(--ink);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.arc-tolist:active{background:var(--hi-bg-mid,#f4f3ee)}
 
 /* 작품은 한 번에 하나씩 크게 보여주고 아래 화살표로 넘긴다. */
 .work{background:#fff;border:1px solid var(--hi-border,#e5e4df);border-radius:14px;overflow:hidden;box-shadow:0 3px 12px rgba(0,0,0,.05)}
@@ -334,7 +360,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
     <div class="arc-filter" id="arcEvFilter"></div>
     <div class="arc-filter" id="arcFilter"></div>
     <div class="arc-sortrow"><div class="arc-sort" id="arcSort"></div></div>
-    <div class="arc-tip">마음에 드는 작품에는 좋아요를 눌러 응원해 주세요.</div>
+    <div class="arc-tip">작품을 누르면 크게 볼 수 있어요. 마음에 드는 작품에는 좋아요를 눌러 응원해 주세요.</div>
     <div id="arcStage"></div>
   </div>
 </div>
@@ -1045,12 +1071,17 @@ function renderDone(dataUrl,err){
 }
 
 /* ── 친구 작품 갤러리 ── */
-/* 갤러리는 한 번에 한 작품씩 본다. arcIdx는 지금 보고 있는 작품의 자리(거른 목록 기준).
+/* 갤러리는 두 화면으로 되어 있다.
+   grid — 앨범. 거른 목록이 썸네일 격자로 한눈에 보인다(갤러리를 열면 먼저 보이는 화면).
+   one  — 한 장씩 보기. 썸네일을 누르면 그 작품부터 좌우 화살표로 넘겨 본다.
+   arcIdx는 지금 보고 있는 작품의 자리(거른 목록 기준).
    arcSort는 학번순(sid) 또는 최신순(new) — 기본은 학번순이라 반 명단 순서대로 넘어간다. */
 let arcWorks=[],arcFilter='all',arcEvFilter='all',arcSort='sid',arcIdx=0,likeBusy={};
+let arcMode='grid';
+let arcGridScroll=0;   // 앨범에서 내려본 자리 — 한 장씩 보기에서 돌아올 때 그 자리로 되돌린다
 async function openArchive(){
   $("#archiveView").classList.add('show');
-  arcIdx=0;
+  arcIdx=0;arcMode='grid';arcGridScroll=0;
   $("#arcStage").innerHTML=`<div class="arc-empty">불러오는 중…</div>`;
   try{
     const snap=await getDocs(query(collection(db,'fourcut_works'),orderBy('timestamp','desc')));
@@ -1060,7 +1091,10 @@ async function openArchive(){
   }
   renderArcFilter();renderArc();
 }
-window.closeArchive=()=>$("#archiveView").classList.remove('show');
+window.closeArchive=()=>{
+  if(arcIO){arcIO.disconnect();arcIO=null;}
+  $("#archiveView").classList.remove('show');
+};
 
 function renderArcFilter(){
   // 사건 필터: 콘텐츠에 정의된 3종을 늘 보여준다(0건이어도 자리를 지킨다)
@@ -1070,18 +1104,25 @@ function renderArcFilter(){
       const n=arcWorks.filter(w=>w.eventId===e.id).length;
       return `<button class="arc-fbtn ev ${arcEvFilter===e.id?'active':''}" data-f="${esc(e.id)}">${esc(e.name)} ${n}</button>`;
     })).join("");
-  ef.querySelectorAll('.arc-fbtn').forEach(b=>b.onclick=()=>{arcEvFilter=b.dataset.f;arcIdx=0;renderArcFilter();renderArc();});
+  ef.querySelectorAll('.arc-fbtn').forEach(b=>b.onclick=()=>{arcEvFilter=b.dataset.f;refilter();});
 
   const cls=[...new Set(arcWorks.map(w=>w.classNum).filter(n=>n!=null))].sort((a,b)=>a-b);
   const f=$("#arcFilter");
   f.innerHTML=[`<button class="arc-fbtn ${arcFilter==='all'?'active':''}" data-f="all">전체</button>`]
     .concat(cls.map(n=>`<button class="arc-fbtn ${arcFilter==n?'active':''}" data-f="${n}">${n}반</button>`)).join("");
-  f.querySelectorAll('.arc-fbtn').forEach(b=>b.onclick=()=>{arcFilter=b.dataset.f==='all'?'all':+b.dataset.f;arcIdx=0;renderArcFilter();renderArc();});
+  f.querySelectorAll('.arc-fbtn').forEach(b=>b.onclick=()=>{arcFilter=b.dataset.f==='all'?'all':+b.dataset.f;refilter();});
 
   const s=$("#arcSort");
   s.innerHTML=[['sid','학번순'],['new','최신순']]
     .map(([k,label])=>`<button class="${arcSort===k?'active':''}" data-s="${k}">${label}</button>`).join("");
-  s.querySelectorAll('button').forEach(b=>b.onclick=()=>{arcSort=b.dataset.s;arcIdx=0;renderArcFilter();renderArc();});
+  s.querySelectorAll('button').forEach(b=>b.onclick=()=>{arcSort=b.dataset.s;refilter();});
+}
+/* 태그나 정렬을 바꾸면 목록 자체가 달라진다. 한 장씩 보던 중이라도 앨범으로 돌아가는 편이
+   덜 헷갈린다 — 아니면 엉뚱한 작품이 갑자기 화면에 떠 있게 된다. */
+function refilter(){
+  arcIdx=0;arcMode='grid';arcGridScroll=0;
+  renderArcFilter();renderArc();
+  $("#archiveView").scrollTop=0;
 }
 function filteredWorks(){
   const list=arcWorks.filter(w=>
@@ -1091,8 +1132,8 @@ function filteredWorks(){
     ? list.sort((a,b)=>String(a.studentId||'').localeCompare(String(b.studentId||'')))
     : list.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
 }
-/* 그림은 목록에 없다(fourcut_images에 따로 있다). 지금 보는 한 장만 가져오고,
-   한 번 가져온 건 담아 둬 앞뒤로 넘길 때 다시 받지 않는다. */
+/* 그림은 목록에 없다(fourcut_images에 따로 있다). 보이는 것만 가져오고,
+   한 번 가져온 건 담아 둬 앞뒤로 넘기거나 앨범으로 돌아올 때 다시 받지 않는다. */
 const workImg={};
 async function loadWorkImage(w){
   if(w.image)return w.image;                    // 그림이 문서 안에 있던 시절의 작품
@@ -1105,9 +1146,75 @@ async function loadWorkImage(w){
 }
 
 function renderArc(){
+  if(arcIO){arcIO.disconnect();arcIO=null;}   // 앞 화면이 걸어 둔 관찰자는 버린다
+  if(arcMode==='one')renderArcOne();
+  else renderArcGrid();
+}
+
+/* ── 앨범(썸네일 격자) ── */
+/* 격자를 열자마자 그림을 전부 받으면(한 장이 200KB쯤) 한 학년이면 수십 MB다.
+   화면에 들어온 칸만 관찰자로 채운다. */
+let arcIO=null;
+function renderArcGrid(){
   const list=filteredWorks();
   const stage=$("#arcStage");
   if(!list.length){stage.innerHTML=`<div class="arc-empty">아직 공유된 작품이 없어요.</div>`;return;}
+  const me=student&&student.studentId;
+  stage.innerHTML=`
+    <div class="arc-count">${list.length}개</div>
+    <div class="arc-grid">${list.map((w,i)=>{
+      const url=w.image||workImg[w.id];        // 이미 받아 둔 그림은 바로 건다
+      const liked=!!(w.likedBy&&w.likedBy[likeKey()]);
+      const mine=!!me&&w.id===me;
+      return `<button class="thumb${mine?' mine':''}" data-i="${i}">
+        <div class="thumb-img" data-id="${esc(w.id)}">${url
+          ?`<img src="${url}" alt="${esc(w.studentName)}의 네컷">`
+          :`<div class="thumb-ph">불러오는 중…</div>`}</div>
+        <div class="thumb-cap">
+          <span class="nm">${esc(w.studentName||'')}</span>
+          ${mine?`<span class="thumb-mine">내 작품</span>`:''}
+          <span class="lk${liked?' on':''}">${icon('heart',12)} ${w.likes||0}</span>
+        </div>
+      </button>`;}).join("")}</div>`;
+  stage.querySelectorAll('.thumb').forEach(b=>b.onclick=()=>openWorkAt(+b.dataset.i));
+
+  // 아직 그림이 없는 칸은 화면 가까이 왔을 때 받아 온다.
+  const boxes=[...stage.querySelectorAll('.thumb-img')].filter(el=>!el.querySelector('img'));
+  if(!boxes.length)return;
+  if(!('IntersectionObserver' in window)){boxes.forEach(fillThumb);return;}
+  arcIO=new IntersectionObserver((ents,obs)=>{
+    ents.forEach(en=>{if(en.isIntersecting){obs.unobserve(en.target);fillThumb(en.target);}});
+  },{root:$("#archiveView"),rootMargin:'400px 0px'});
+  boxes.forEach(el=>arcIO.observe(el));
+}
+function fillThumb(el){
+  const w=arcWorks.find(x=>x.id===el.dataset.id);
+  if(!w)return;
+  loadWorkImage(w).then(url=>{
+    if(!el.isConnected)return;               // 받아오는 사이에 화면이 바뀌었으면 버린다
+    el.innerHTML=url
+      ?`<img src="${url}" alt="${esc(w.studentName)}의 네컷">`
+      :`<div class="thumb-ph">그림을 불러오지 못했어요</div>`;
+  });
+}
+function openWorkAt(i){
+  arcGridScroll=$("#archiveView").scrollTop;
+  arcIdx=i;arcMode='one';
+  renderArc();
+  $("#archiveView").scrollTop=0;
+}
+window.arcBackToGrid=()=>{
+  arcMode='grid';
+  renderArc();
+  // 격자를 다시 그린 뒤라야 그만큼 내려갈 수 있다.
+  requestAnimationFrame(()=>{$("#archiveView").scrollTop=arcGridScroll;});
+};
+
+/* ── 한 장씩 보기 ── */
+function renderArcOne(){
+  const list=filteredWorks();
+  const stage=$("#arcStage");
+  if(!list.length){arcMode='grid';renderArcGrid();return;}
   // 태그를 바꾸면 목록이 짧아질 수 있으니 자리를 범위 안으로 당긴다.
   if(arcIdx>=list.length)arcIdx=list.length-1;
   if(arcIdx<0)arcIdx=0;
@@ -1115,6 +1222,9 @@ function renderArc(){
   const liked=!!(w.likedBy&&w.likedBy[likeKey()]);
   const cached=w.image||workImg[w.id];
   stage.innerHTML=`
+    <div class="arc-backrow">
+      <button class="arc-tolist" onclick="arcBackToGrid()">${icon('chevron-left',16)} 앨범으로</button>
+    </div>
     <div class="work">
       ${cached
         ? `<img src="${cached}" alt="${esc(w.studentName)}의 네컷" onclick="showLightbox('${w.id}')">`
@@ -1137,8 +1247,8 @@ function renderArc(){
 
   if(!cached){
     loadWorkImage(w).then(url=>{
-      // 받아오는 사이에 다른 작품으로 넘어갔으면 버린다.
-      if(filteredWorks()[arcIdx]!==w)return;
+      // 받아오는 사이에 다른 작품으로 넘어갔거나 앨범으로 돌아갔으면 버린다.
+      if(arcMode!=='one'||filteredWorks()[arcIdx]!==w)return;
       const box=$("#arcImgLoad");
       if(!box)return;
       if(!url){box.textContent='그림을 불러오지 못했어요.';return;}
@@ -1149,6 +1259,17 @@ function renderArc(){
   const nx=list[arcIdx+1];
   if(nx)loadWorkImage(nx);
 }
+
+/* 키보드로도 넘긴다(교실 화면이나 노트북에서). 스마트폰에서는 쓰이지 않는다. */
+document.addEventListener('keydown',e=>{
+  if(!$("#archiveView").classList.contains('show'))return;
+  if($("#lightbox").classList.contains('show')){$("#lightbox").classList.remove('show');return;}
+  if(arcMode!=='one'){if(e.key==='Escape')closeArchive();return;}
+  if(e.key==='ArrowLeft'&&arcIdx>0){arcIdx--;renderArc();}
+  else if(e.key==='ArrowRight'&&arcIdx<filteredWorks().length-1){arcIdx++;renderArc();}
+  else if(e.key==='Escape')arcBackToGrid();
+});
+
 window.showLightbox=(id)=>{
   const w=arcWorks.find(x=>x.id===id);if(!w)return;
   const url=w.image||workImg[w.id];   // 보고 있는 그림이라 이미 담겨 있다
