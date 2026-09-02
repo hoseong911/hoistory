@@ -4055,6 +4055,18 @@ let _missionUnsubs   = [];
 // 인터뷰 미션 채점까지 따라오지 않으면 곤란하므로, 'sid|mission' 같은 열쇠로 따로 담는다.
 let _gradeManualEdit = new Set();
 const gradeEditKey = (sid, block) => `${sid}|${block}`;
+/* manualEdit 표시가 붙기 전에 저장된 학생. 어느 칸이 손으로 켠 것인지 알 길이 없어서
+   자동 감지가 저장된 O를 X로 되돌리지 못하게 막는다(gradeAutoValue 참고).
+   표를 [불러오기] 하는 것만으로 결석 사유로 인정해 준 기한이 지워지던 자리다. */
+let _gradeLegacy = new Set();
+
+// 자동 감지 결과를 표의 한 칸에 어떻게 적용할지. 옛 문서는 내려가는 방향만 막는다.
+function gradeAutoValue(sid, block, v) {
+  if (!_gradeLegacy.has(sid)) return { achieved: v.achieved, onTime: v.onTime };
+  const cur = _gradeRecords[sid][block];
+  return { achieved: cur.achieved || v.achieved, onTime: cur.onTime || v.onTime };
+}
+
 // grade_records에 저장할 형태 — 이 학생의 어느 블록이 손으로 정해진 값인지.
 function gradeManualEditFlags(sid) {
   return {
@@ -4062,6 +4074,16 @@ function gradeManualEditFlags(sid) {
     mission: _gradeManualEdit.has(gradeEditKey(sid, 'mission')),
     think:   _gradeManualEdit.has(gradeEditKey(sid, 'think')),
   };
+}
+
+/* 저장할 때 manualEdit을 실을지 말지. 한 번도 손대지 않은 옛 문서에 {false,false,false}를
+   찍어 버리면 아직 못 알아본 손 체크가 gradeAutoValue의 보호를 잃는다. 그래서 이 학생을
+   실제로 만진 적이 있을 때만 표시를 남긴다(만지는 순간 그 칸이 명시적으로 보호된다). */
+function gradeManualEditPatch(sid) {
+  const flags = gradeManualEditFlags(sid);
+  const touched = flags.concept || flags.mission || flags.think;
+  if (!touched && _gradeLegacy.has(sid)) return {};
+  return { manualEdit: flags };
 }
 
 function stopMissionLive() {
@@ -4100,10 +4122,11 @@ async function gradeLiveRefresh(lessonKey) {
   if (_gradeLessonKey !== lessonKey) return;
 
   const changed = new Set();
-  const mark = (sid, block, achieved, onTime) => {
+  const mark = (sid, block, v) => {
     const r = _gradeRecords[sid][block];
-    if (r.achieved !== achieved || r.onTime !== onTime) changed.add(sid);
-    r.achieved = achieved; r.onTime = onTime;
+    const next = gradeAutoValue(sid, block, v);
+    if (r.achieved !== next.achieved || r.onTime !== next.onTime) changed.add(sid);
+    r.achieved = next.achieved; r.onTime = next.onTime;
   };
 
   let apps = [], filled = 0;
@@ -4114,7 +4137,7 @@ async function gradeLiveRefresh(lessonKey) {
       apps = res.apps; filled = Object.values(res.map).filter(v => v.achieved).length;
       Object.entries(res.map).forEach(([sid, v]) => {
         if (v.at) _gradeMissionTimes[sid] = v.at;
-        if (gradeCanAutoApply(sid, 'mission')) mark(sid, 'mission', v.achieved, v.onTime);
+        if (gradeCanAutoApply(sid, 'mission')) mark(sid, 'mission', v);
       });
     } catch (_) {}
   }
@@ -4124,7 +4147,7 @@ async function gradeLiveRefresh(lessonKey) {
       if (_gradeLessonKey !== lessonKey) return;
       Object.assign(_gradeThinkTimes, res.times);
       Object.entries(res.map).forEach(([sid, v]) => {
-        if (gradeCanAutoApply(sid, 'think')) mark(sid, 'think', v.achieved, v.onTime);
+        if (gradeCanAutoApply(sid, 'think')) mark(sid, 'think', v);
       });
     } catch (_) {}
   }
@@ -4471,6 +4494,7 @@ async function loadGradeData() {
     _gradeThinkTimes   = {};
     _gradeMissionTimes = {};
     _gradeManualEdit   = new Set();
+    _gradeLegacy       = new Set();
     // 이전 강의의 저장 대기열이 남아 있으면 엉뚱한 강의에 써 버린다.
     clearTimeout(_gradeSaveTimer);
     _gradePendingSave.clear();
@@ -4506,6 +4530,8 @@ async function loadGradeData() {
           ['concept', 'mission', 'think'].forEach(b => {
             if (r.manualEdit[b]) _gradeManualEdit.add(gradeEditKey(r.studentId, b));
           });
+        } else {
+          _gradeLegacy.add(r.studentId); // 표시가 없는 옛 문서 — 아래에서 보수적으로 다룬다
         }
       }
     });
@@ -4527,8 +4553,7 @@ async function loadGradeData() {
       Object.assign(_gradeThinkTimes, times);
       Object.entries(map).forEach(([sid, v]) => {
         if (!gradeCanAutoApply(sid, 'think')) return;
-        _gradeRecords[sid].think.achieved = v.achieved;
-        _gradeRecords[sid].think.onTime   = v.onTime;
+        _gradeRecords[sid].think = gradeAutoValue(sid, 'think', v);
       });
     }
 
@@ -4541,8 +4566,7 @@ async function loadGradeData() {
         Object.entries(map).forEach(([sid, v]) => {
           if (v.at) _gradeMissionTimes[sid] = v.at;
           if (!gradeCanAutoApply(sid, 'mission')) return;
-          _gradeRecords[sid].mission.achieved = v.achieved;
-          _gradeRecords[sid].mission.onTime   = v.onTime;
+          _gradeRecords[sid].mission = gradeAutoValue(sid, 'mission', v);
         });
         renderMissionLinkNote(apps, Object.values(map).filter(v => v.achieved).length);
       } catch(e) { renderMissionLinkNote([], 0); }
@@ -5511,7 +5535,7 @@ async function gradeFlushSave() {
         feedback: r.feedback || '',
         // 어느 칸을 사람이 직접 정했는지 문서에 남긴다. [전체 재채점]과 다음 [불러오기]가
         // 이 표시를 보고 그 칸을 건너뛴다(결석 사유로 인정해 준 기한 등을 지키려는 것).
-        manualEdit: gradeManualEditFlags(sid),
+        ...gradeManualEditPatch(sid),
         published: true,
         updatedAt: serverTimestamp(),
       }, { merge: true });
@@ -5926,6 +5950,7 @@ async function publishClassGrades(classNum) {
         think:   _gradeRecords[s.id].think,
         absent:  _gradeRecords[s.id].absent || false,
         feedback: _gradeRecords[s.id].feedback || '',
+        ...gradeManualEditPatch(s.id),
         published: true,
         updatedAt: serverTimestamp(),
       }, { merge: true })
@@ -7276,9 +7301,18 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
       // 저장된 성적이 없으면 생각 체크만 든 반쪽짜리 문서가 생겨 학생 화면이 어그러진다.
       // 그런 경우는 성적 체크에서 불러오기로 제대로 채우는 게 맞다.
       if (!cur.exists()) return;
-      if (cur.data().absent) return;   // 결석 학생은 미달성 고정
+      const rec = cur.data();
+      if (rec.absent) return;            // 결석 학생은 미달성 고정
+      if (rec.manualEdit?.think) return; // 손으로 정해 둔 칸은 채점 토글이 덮지 않는다
 
-      await setDoc(recRef, { think: { achieved, onTime }, updatedAt: serverTimestamp() }, { merge: true });
+      // manualEdit 표시가 없는 옛 문서는 어느 칸이 손으로 켠 것인지 알 수 없으므로
+      // 저장된 O를 X로 되돌리지 않는다(성적 체크 표의 gradeAutoValue와 같은 규칙).
+      const prev = rec.think || { achieved: false, onTime: false };
+      const next = rec.manualEdit
+        ? { achieved, onTime }
+        : { achieved: prev.achieved || achieved, onTime: prev.onTime || onTime };
+
+      await setDoc(recRef, { think: next, updatedAt: serverTimestamp() }, { merge: true });
       gradeLiveToast(`${sid} 생각 체크 반영`);
     } catch (e) { console.warn('생각 체크 성적 반영 실패:', sid, e); }
   }
