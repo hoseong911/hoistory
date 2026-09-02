@@ -154,8 +154,10 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 .bubble.thought.tb-ml .tailhit{left:-36px;right:auto;transform:none;bottom:auto;top:calc(50% - 20px);width:46px;height:40px}
 .bubble.thought.tb-mr .tailhit{left:auto;right:-36px;transform:none;bottom:auto;top:calc(50% - 20px);width:46px;height:40px}
 .bubble .tailhit:active{background:rgba(228,87,46,.18)}
-.btext{position:absolute;inset:15% 16%;overflow:hidden;text-align:center;line-height:1.25;font-family:'Gaegu',cursive;font-weight:700;color:#1c1c1c;word-break:break-word;overflow-wrap:anywhere;display:flex;align-items:center;justify-content:center;width:auto;outline:none}
-.bubble.thought .btext{inset:20% 20%}
+.btext{position:absolute;inset:9% 10%;overflow:hidden;text-align:center;line-height:1.25;font-family:'Gaegu',cursive;font-weight:700;color:#1c1c1c;word-break:break-word;overflow-wrap:anywhere;display:flex;align-items:center;justify-content:center;width:auto;outline:none}
+/* 생각 풍선은 타원이라 글상자를 더 안쪽에 둬야 한다. 타원 안에 들어가는 가장 큰
+   직사각형이 가로세로 각각 70.7%(=1/√2)이므로, 네 귀퉁이가 딱 타원에 닿는 15%가 한계다. */
+.bubble.thought .btext{inset:15% 15%}
 .btext:empty::before{content:attr(data-ph);color:#b0aca0;font-weight:400}
 .bubble.editing{box-shadow:0 0 0 3px rgba(228,87,46,.55)}
 /* 손잡이: 글자 입력(contenteditable)과 드래그가 서로 먹히지 않게 이동은 손잡이로만 한다 */
@@ -749,17 +751,24 @@ function endDrag(ev){
    "아직 안 넘쳤다"고 잘못 읽고 글자 줄이기를 일찍 멈췄다.
    그래서 (1) 재는 동안에는 위 정렬로 바꿔 넘친 높이가 제대로 잡히게 하고,
    (2) 기준도 부모 크기에 어림수를 곱한 값이 아니라 글자 상자 자신의 실제 크기로 잡는다
-   (여백은 이미 inset으로 들어가 있다). */
+   (여백은 이미 inset으로 들어가 있다).
+
+   크기는 이분 탐색으로 찾는다. 예전처럼 1px씩 내리면 시작값을 키운 만큼 반복이 늘어나
+   중간에 멈춰 버리고(옛 guard 60), 그러면 글자가 잘린 채로 남는다. 이분 탐색은
+   시작값이 커져도 예닐곱 번이면 끝나므로 상한을 마음껏 올릴 수 있다. */
 function fitText(el){
   const parent=el.parentElement;
   if(!parent.clientHeight||!el.clientHeight)return;
   el.style.alignItems='flex-start';        // 재는 동안만 위 정렬
-  let size=Math.max(10,Math.round(parent.clientHeight*0.32));
-  el.style.fontSize=size+'px';
   const over=()=>el.scrollHeight>el.clientHeight||el.scrollWidth>el.clientWidth;
-  let guard=0;
-  while(size>8&&over()&&guard<60){size--;el.style.fontSize=size+'px';guard++;}
-  // 8px까지 줄여도 넘칠 만큼 길게 쓰면 가운데 정렬을 포기한다.
+  let lo=8,hi=Math.max(8,Math.round(parent.clientHeight*0.55)),best=lo;
+  while(lo<=hi){
+    const mid=(lo+hi)>>1;
+    el.style.fontSize=mid+'px';
+    if(over())hi=mid-1;else{best=mid;lo=mid+1;}
+  }
+  el.style.fontSize=best+'px';
+  // 가장 작은 크기로도 넘칠 만큼 길게 쓰면 가운데 정렬을 포기한다.
   // 가운데로 두면 첫 줄부터 잘려 무엇을 썼는지조차 안 보인다.
   el.style.alignItems=over()?'flex-start':'center';
 }
@@ -872,7 +881,7 @@ async function buildExportDOM(){
     <div style="position:absolute;left:0;width:100%;top:${ci*(100/CUTS)}%;height:${100/CUTS}%">
       ${c.bubbles.map(b=>{
         const round=b.type==="thought"?"50%":"20px";
-        const inset=b.type==="thought"?"20% 20%":"15% 16%";
+        const inset=b.type==="thought"?"15% 15%":"9% 10%";
         return `<div class="xb" style="position:absolute;left:${b.x}%;top:${b.y}%;width:${b.w}%;height:${b.h}%;background:#fff;border:3px solid #1c1c1c;border-radius:${round};display:flex;align-items:center;justify-content:center">
           ${exportTail(b)}
           <div class="xt" style="position:absolute;inset:${inset};overflow:hidden;text-align:center;line-height:1.25;font-family:'Gaegu',cursive;font-weight:700;color:#1c1c1c;word-break:break-word;overflow-wrap:anywhere;display:flex;align-items:center;justify-content:center">${esc(b.text)}</div>
@@ -895,16 +904,9 @@ async function buildExportDOM(){
   // 이미지가 실제로 그려져야 컷 영역 높이(=풍선 크기)가 확정된다
   const im=host.querySelector('img');
   if(im&&!im.complete)await new Promise(r=>{im.onload=im.onerror=r;});
-  // 폰트 맞춤 — 편집 화면의 fitText()와 같은 규칙을 써야 보이는 대로 나온다.
-  host.querySelectorAll('.xb').forEach(bb=>{
-    const el=bb.querySelector('.xt');
-    el.style.alignItems='flex-start';
-    let size=Math.max(12,Math.round(bb.clientHeight*0.32));el.style.fontSize=size+'px';
-    const over=()=>el.scrollHeight>el.clientHeight||el.scrollWidth>el.clientWidth;
-    let g=0;
-    while(size>10&&over()&&g<80){size--;el.style.fontSize=size+'px';g++;}
-    el.style.alignItems=over()?'flex-start':'center';
-  });
+  // 폰트 맞춤 — 편집 화면과 똑같이 보이도록 fitText()를 그대로 부른다.
+  // 규칙을 여기 다시 적어 두면 한쪽만 고쳤을 때 화면과 저장본이 어긋난다.
+  host.querySelectorAll('.xb').forEach(bb=>fitText(bb.querySelector('.xt')));
   return host.firstElementChild;
 }
 
