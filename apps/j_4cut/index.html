@@ -57,10 +57,11 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 .ev-btn.on{background:var(--accent);color:#fff;box-shadow:3px 3px 0 var(--ink);transform:translate(-1px,-1px)}
 .ev-btn.on .ev-no{color:rgba(255,255,255,.8)}
 
-/* ── 상단 바 ── */
-.topbar{position:sticky;top:0;z-index:30;background:rgba(239,231,214,.94);backdrop-filter:blur(8px);border-bottom:2px solid var(--ink);display:flex;align-items:center;gap:10px;padding:12px 16px}
-.topbar .t{font-family:'Gaegu',cursive;font-weight:700;font-size:22px;flex:1}
-.topbar .who-mini{font-family:var(--mono);font-size:12px;color:var(--muted)}
+/* ── 상단 학번·이름 ── */
+/* 상단 제목 줄은 없앴다. 어느 화면인지는 안내 문구와 그림이 이미 말해 주고, 제목 줄이
+   차지하던 자리만큼 그림이 작아졌다. 지금 접속한 학번과 이름만 오른쪽 위에 남긴다.
+   칸이나 테두리 없이 배경 위에 글자만 얹는다(띠로 구분하면 없앤 의미가 없다). */
+.whotag{max-width:760px;margin:0 auto;padding:12px 16px 0;text-align:right;font-family:var(--mono);font-size:12px;color:var(--muted)}
 /* 안내 문구는 어드민에서 고칠 수 있고, 줄바꿈한 대로 보인다(항목마다 한 줄). */
 .hint{background:#fff;border:1.5px dashed var(--teal);border-radius:12px;padding:12px 15px;font-size:13px;color:var(--teal-deep);margin:16px 0;line-height:1.75;font-weight:600;white-space:pre-line}
 .hint b{color:var(--accent-deep)}
@@ -280,10 +281,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 
 <!-- ── 편집 ── -->
 <section id="editScreen" class="screen">
-  <div class="topbar">
-    <div class="t" id="barTitle">사화 네컷</div>
-    <div class="who-mini" id="barWho"></div>
-  </div>
+  <div class="whotag" id="barWho"></div>
   <div class="wrap">
     <div class="hint" id="editHint"></div>
     <div class="cutstage"><div class="cutpage" id="cutPage"></div></div>
@@ -305,7 +303,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
 
 <!-- ── 제출 전 확인: 완성본을 먼저 보여주고 고칠지 낼지 고르게 한다 ── -->
 <section id="previewScreen" class="screen">
-  <div class="topbar"><div class="t">완성한 네컷</div></div>
+  <div class="whotag" id="previewWho"></div>
   <div class="wrap">
     <div id="previewBody"></div>
   </div>
@@ -459,7 +457,6 @@ async function init(){
   $("#introTitle").textContent=CONTENT.introTitle;
   $("#introBody").textContent=CONTENT.introBody;
   $("#startBtn").textContent=CONTENT.introBtn;
-  $("#barTitle").textContent=CONTENT.title;
   $("#arcTitle").textContent=CONTENT.title;
   $("#editHint").textContent=CONTENT.editHint;
   renderEventPick();
@@ -587,7 +584,9 @@ window.addEventListener('pagehide',saveDraft);
 document.addEventListener('visibilitychange',()=>{if(document.hidden)saveDraft();});
 
 function enterEditor(){
-  $("#barWho").textContent=`${student.studentName} (${student.studentId})`;
+  const whoTxt=`${student.studentName} (${student.studentId})`;
+  $("#barWho").textContent=whoTxt;
+  $("#previewWho").textContent=whoTxt;
   curCut=0;
   applyCutAspect();
   renderCutPage();
