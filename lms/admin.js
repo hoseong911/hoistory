@@ -1873,7 +1873,7 @@ function ceRenderContentLines(target) {
             <span class="cl-handle">⋮⋮</span>
             <span class="cl-slide-meta">${pg}페이지 <span class="cl-meta-sep">｜</span> 이미지 슬라이드</span>
             <input type="text" class="cl-divider-title" placeholder="제목 (선택)" value="${esc(line.title||'')}" oninput="updateLine('${target}',${i},'title',this.value)" style="max-width:220px">
-            <button class="cbtn-danger" onclick="deleteLine('${target}',${i})">삭제</button>
+            ${ceBlockActions(target, i, lines.length, `deleteLine('${target}',${i})`, '이 페이지 삭제')}
           </div>
           ${line.images.map((im, j) => `
             <div class="cl-img-row">
@@ -1899,7 +1899,7 @@ function ceRenderContentLines(target) {
           <div class="cl-divider-top">
             <span class="cl-handle">⋮⋮</span>
             <span class="cl-slide-meta">${pg}페이지 <span class="cl-meta-sep">｜</span> 전면 이미지</span>
-            <button class="cbtn-danger" onclick="deleteFullImage('${target}',${i})">삭제</button>
+            ${ceBlockActions(target, i, lines.length, `deleteFullImage('${target}',${i})`, '이 페이지 삭제')}
           </div>
           <div class="cl-img-row">
             <span class="cl-img-label">이미지 번호</span>
@@ -1920,7 +1920,7 @@ function ceRenderContentLines(target) {
             <span class="cl-handle">⋮⋮</span>
             <span class="cl-slide-meta">${pg}페이지 <span class="cl-meta-sep">｜</span> 영상</span>
             <input type="text" class="cl-divider-title" placeholder="유튜브 URL 붙여넣기" value="${esc(line.url||'')}" onchange="updateVideoUrl('${target}',${i},this.value)" style="flex:1;max-width:none">
-            <button class="cbtn-danger" onclick="deleteLine('${target}',${i})">삭제</button>
+            ${ceBlockActions(target, i, lines.length, `deleteLine('${target}',${i})`, '이 페이지 삭제')}
           </div>
           ${line.videoId
             ? `<div style="padding:8px 12px"><img src="https://img.youtube.com/vi/${line.videoId}/mqdefault.jpg" style="max-height:120px;border-radius:6px;border:1px solid var(--cborder)"></div>`
@@ -2037,6 +2037,18 @@ function ceRenderContentLines(target) {
   }
 }
 
+/* 이미지·전면 이미지·영상처럼 한 줄로 끝나는 슬라이드의 액션바.
+   슬라이드 그룹의 페이지 액션바(pageActions)와 같은 모양으로 오른쪽 위에 붙이되,
+   여기서 의미가 있는 것은 순서 이동과 삭제뿐이라 그 셋만 둔다. */
+function ceBlockActions(target, i, total, delCall, delTitle) {
+  return `
+            <div class="cl-row-actions">
+              <button class="cl-icon-btn" onclick="moveSlideBlock('${target}',${i},-1)" ${i > 0 ? '' : 'disabled'} title="페이지 위로 이동">${ceIconUp()}</button>
+              <button class="cl-icon-btn" onclick="moveSlideBlock('${target}',${i},1)" ${i + 1 < total ? '' : 'disabled'} title="페이지 아래로 이동">${ceIconDown()}</button>
+              <button class="cl-icon-btn danger" onclick="${delCall}" title="${delTitle}">${ceIconTrash()}</button>
+            </div>`;
+}
+
 /* ── 슬라이드 그룹 헬퍼 ── */
 function ceBuildGroups(lines) {
   const groups = [];
@@ -2080,11 +2092,18 @@ function ceIconDown()    { return _svgDown; }
 /* 페이지(=divider + 딸린 row들)를 한 덩어리로 위/아래 인접 블록과 자리 바꾼다.
    그룹(제목) 경계도 넘나들 수 있어, 원하는 순서로 페이지를 재배치할 수 있다.
    dir: -1(위) / +1(아래). 이미지·영상 등 단일 라인 블록과도 자리 바꿈이 된다. */
+/* 페이지 블록 하나를 통째로 위아래로 옮긴다.
+   블록 = 시작 줄 + (구분선일 때만) 뒤따르는 행들. 이미지·전면 이미지·영상 줄은
+   그 자체로 한 블록이라 행을 딸려 세지 않는다 — 예전에는 구분선이 아니면 아예
+   돌려보냈고, 그래서 이미지·영상 슬라이드에 위아래 버튼을 달 수가 없었다. */
 function moveSlideBlock(target, divIdx, dir) {
   const lines = ceLinesFor(target);
-  if (!lines[divIdx] || lines[divIdx].type !== 'divider') return;
+  const head = lines[divIdx];
+  if (!head) return;
   let count = 1;
-  while (divIdx + count < lines.length && lines[divIdx + count].type === 'row') count++;
+  if (head.type === 'divider') {
+    while (divIdx + count < lines.length && lines[divIdx + count].type === 'row') count++;
+  }
   if (dir < 0) {
     if (divIdx === 0) return;
     let p = divIdx - 1;                          // 앞 블록의 시작 지점을 찾는다
