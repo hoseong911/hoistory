@@ -16,6 +16,7 @@
    shared/admin-base.css가 --hi-accent를 이미 오렌지로 주므로 그건 덮어쓰지 않고,
    이 앱 전용 --fc-* 토큰만 j_interview 어드민의 --iv-* 와 같은 팔레트로 둔다. */
 :root{
+  --ans-tag-h:34px; --ans-tag-fs:14px;
   --fc-primary:#FF6B3D; --fc-primary-soft:rgba(255,107,61,.12); --fc-primary-deep:#E24E1B;
   --fc-navy:#27384F; --fc-navy-deep:#172554; --fc-navy-l:rgba(39,56,79,.12);
   --fc-pass:#22c55e; --fc-pass-l:rgba(34,197,94,.12);
@@ -36,7 +37,7 @@
 .btn-sm{padding:5px 12px;font-size:12px;border-radius:7px}
 .btn:disabled{opacity:.45;cursor:not-allowed}
 .class-filter{display:flex;gap:4px;flex-wrap:wrap;justify-content:center;margin-bottom:16px}
-.cf-btn{padding:6px 14px;border-radius:10px;border:1.5px solid var(--hi-border);background:none;font-family:inherit;font-size:14px;font-weight:700;color:var(--hi-text-muted);cursor:pointer;transition:all .15s}
+.cf-btn{height:var(--ans-tag-h);padding:0 14px;display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;border-radius:10px;border:1.5px solid var(--hi-border);background:none;font-family:inherit;font-size:var(--ans-tag-fs);font-weight:700;line-height:1;color:var(--hi-text-muted);cursor:pointer;transition:all .15s}
 .cf-btn.active,.cf-btn:hover{background:var(--fc-primary);color:#fff;border-color:var(--fc-primary)}
 /* ANSWER 서브메뉴(목록 보기 / 한 명씩 보기)는 그 아래 반 필터 칩과 똑같은 알약이면
    헷갈리므로, 인터뷰와 같이 밑줄 탭으로 구분한다. */
@@ -144,42 +145,46 @@
    j_interview 어드민 ANSWER와 같은 머리(반 태그 + 통계 칩)와 카드 상단 바를 쓴다.
    다만 네컷은 학생이 만든 그림을 봐야 채점이 되므로, 카드를 세로로 쌓는 대신
    그림이 보이는 격자를 유지한다(전면 카드 전환은 추후 논의). */
-.ans-head{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:nowrap;margin-bottom:12px}
+/* 1줄: 반 태그(왼쪽) + 통계 칩(오른쪽). 둘의 높이·글자 크기를 --ans-tag-* 로 묶어
+   똑같이 맞춘다 — 예전에는 칩 쪽 글자가 커서 한 줄이 넘쳐 잘려 보였다.
+   폭이 모자라면 잘라 내지 말고 줄만 바꾼다. */
+.ans-head{display:flex;align-items:center;justify-content:space-between;gap:10px 14px;flex-wrap:wrap;margin-bottom:10px}
 .ans-head .class-filter,.ans-head .stats-row{margin-bottom:0}
-/* 반 태그는 줄바꿈하지 않는다. 폭이 모자라면 태그 묶음 안에서만 옆으로 밀어 본다. */
-.ans-head .class-filter{flex:0 1 auto;min-width:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
-.ans-head .class-filter::-webkit-scrollbar{display:none}
-.ans-head .class-filter .cf-btn{flex:0 0 auto}
-.ans-head .stats-row{flex:0 0 auto;flex-wrap:nowrap}
-/* 사건 태그와 채점 상태 태그를 한 줄에 둔다. 폭이 모자라면 줄바꿈하지 않고
-   이 줄 안에서만 옆으로 밀어 본다(스크롤바는 숨김). */
-.ans-tagrow{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;margin-bottom:14px}
-.ans-tagrow::-webkit-scrollbar{display:none}
-.ans-tagrow .class-filter{margin-bottom:0;flex:0 0 auto;flex-wrap:nowrap}
-.ans-tagsep{flex:0 0 auto;width:1px;height:20px;background:var(--hi-border)}
-@media(max-width:640px){.ans-head{flex-wrap:wrap}}
+.ans-head .class-filter{flex:1 1 auto;min-width:0;justify-content:flex-start;flex-wrap:wrap;gap:4px}
+.ans-head .stats-row{flex:0 0 auto;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+/* 2줄: 사화(사건)별 분류 태그. 좁으면 줄바꿈해 전부 보이게 둔다. */
+.ans-tagrow{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.ans-tagrow .class-filter{margin-bottom:0;gap:4px}
+/* 3줄: 정렬 토글 — 오른쪽 끝에 붙는 알약 한 덩어리. */
+.ans-sortrow{display:flex;justify-content:flex-end;margin-bottom:10px}
+.ans-sortrow .class-filter{margin-bottom:0;gap:0;padding:3px;border:1.5px solid var(--hi-border);border-radius:100px;background:var(--hi-bg-card);flex-wrap:nowrap}
+.ans-sortrow .cf-btn{height:calc(var(--ans-tag-h) - 8px);padding:0 16px;border:none;border-radius:100px;background:none;color:var(--hi-text-muted)}
+.ans-sortrow .cf-btn:hover{background:var(--hi-bg-elevated);color:var(--hi-text)}
+.ans-sortrow .cf-btn.active,.ans-sortrow .cf-btn.active:hover{background:var(--fc-primary);color:#fff}
+@media(max-width:640px){.ans-head{justify-content:center}.ans-head .class-filter{justify-content:center}.ans-head .stats-row{justify-content:center;flex:1 1 auto}}
 /* 칩 안의 숫자는 반을 "전체"로 바꾸면 자릿수가 늘어난다. 세 자리분 폭을 미리 잡아
    값이 바뀌어도 칩 크기가 그대로 유지되게 한다(인터뷰 어드민과 같은 처리). */
-.stat-combo .thc-o,.stat-combo .thc-g,.stat-combo .thc-r,.stat-combo .thc-n,.thc-star-n{
+.stat-combo .thc-o,.stat-combo .thc-g,.stat-combo .thc-r,.stat-combo .thc-n{
   display:inline-block;min-width:2.6ch;text-align:center;
   font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1;
 }
-/* shared/admin-base.css의 .stat-chip은 세로로 긴 통계 카드용이라, 인터뷰 ANSWER처럼
-   숫자 한 줄이 들어가는 알약 형태로 눌러 쓴다. */
-.stat-chip{padding:10px 16px;font-size:var(--adm-sub);color:var(--hi-text-muted);min-width:80px;white-space:nowrap;flex-shrink:0}
+/* shared/admin-base.css의 .stat-chip은 세로로 긴 통계 카드용이라, 반 태그(.cf-btn)와
+   똑같은 높이·글자 크기의 알약으로 눌러 쓴다 — 같은 줄에 서므로 규격이 어긋나면 안 된다. */
+.stat-chip{height:var(--ans-tag-h);padding:0 12px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;border-radius:10px;font-size:var(--ans-tag-fs);line-height:1;color:var(--hi-text-muted);white-space:nowrap;flex-shrink:0}
 .stat-chip.clickable{cursor:pointer;transition:border-color .15s,box-shadow .15s}
 .stat-chip.clickable:hover{border-color:var(--fc-primary);box-shadow:var(--hi-shadow-hover)}
-.stat-combo{display:inline-flex;align-items:baseline;justify-content:center;gap:6px}
-.stat-combo .thc-o{font-size:18px;font-weight:800;color:var(--fc-primary)}
-.stat-combo .thc-g{font-size:18px;font-weight:800;color:#0E9F6E}
-.stat-combo .thc-r{font-size:18px;font-weight:800;color:#DC2626}
-.stat-combo .thc-n{font-size:18px;font-weight:800;color:var(--hi-text-muted)}
-.stat-combo .thc-sep{font-size:16px;font-weight:700;color:var(--hi-border)}
-.stat-star{display:inline-flex;align-items:center;justify-content:center;gap:6px}
-/* 공용 icons.js의 하트는 선 아이콘이라, lms 칩과 같은 꽉 찬 하트로 보이게 채워 쓴다. */
-.fc-heart-ic{display:inline-flex;width:16px;height:16px;color:var(--fc-primary)}
-.fc-heart-ic svg{width:16px;height:16px;fill:currentColor;stroke:none}
-.thc-star-n{font-size:18px;font-weight:800;color:var(--hi-text)}
+.stat-combo{display:inline-flex;align-items:center;justify-content:center;gap:2px}
+.stat-combo .thc-o,.stat-combo .thc-g,.stat-combo .thc-r,.stat-combo .thc-n{font-size:var(--ans-tag-fs);font-weight:800}
+.stat-combo .thc-o{color:var(--fc-primary)}
+.stat-combo .thc-g{color:#0E9F6E}
+.stat-combo .thc-r{color:#DC2626}
+.stat-combo .thc-n{color:var(--hi-text-muted)}
+.stat-combo .thc-sep{font-size:var(--ans-tag-fs);font-weight:700;color:var(--hi-border)}
+/* 채점 칩의 숫자 하나하나가 상태 필터 버튼이다. 고른 숫자는 제 색으로 테두리를 두른다. */
+.thc-seg{padding:3px 5px;border-radius:8px;cursor:pointer;transition:background .15s,box-shadow .15s}
+.thc-seg:hover{background:var(--hi-bg-elevated)}
+.thc-seg.on{box-shadow:inset 0 0 0 1.5px currentColor}
+.stat-grade{padding:0 6px}
 
 /* 작품 격자 — 카드 껍데기는 공용 .std-card 규격(둥근 모서리·연한 테두리·그림자)을 따른다. */
 .fc-works{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
@@ -352,29 +357,28 @@
     <!-- 제출물(ANSWER) 패널 -->
     <div id="panel-answer" class="tab-panel">
       <div class="admin-container fc-section">
-        <!-- 반 태그 + 통계 칩: j_interview 어드민 ANSWER의 .ans-head와 같은 구성 -->
+        <!-- 1줄: 반 태그(왼쪽) + 통계 칩(오른쪽). 같은 높이·글자 크기로 맞춰 둔다. -->
         <div class="ans-head">
           <div class="class-filter" id="worksFilter"></div>
           <div class="stats-row">
             <div class="stat-chip stat-combo clickable" onclick="openAbsentModal()" title="제출 / 명단 (반 필터만 반영) — 누르면 미제출자 명단">
               <span class="thc-o" id="s-sub">0</span><span class="thc-sep">/</span><span class="thc-n" id="s-roster">-</span>
             </div>
-            <div class="stat-chip stat-combo" title="통과 / 미흡 / 미채점">
-              <span class="thc-g" id="s-pass">0</span><span class="thc-sep">/</span><span class="thc-r" id="s-fail">0</span><span class="thc-sep">/</span><span class="thc-n" id="s-pending">0</span>
-            </div>
-            <div class="stat-chip stat-star" title="받은 좋아요 합계">
-              <span class="fc-heart-ic" data-icon="heart" data-icon-size="16"></span><span class="thc-star-n" id="s-likes">0</span>
+            <!-- 숫자 하나하나가 채점 상태 필터다: 통과 / 미흡 / 미채점 -->
+            <div class="stat-chip stat-combo stat-grade" id="gradeChip">
+              <span class="thc-g thc-seg" data-st="pass" id="s-pass" title="통과만 보기">0</span><span class="thc-sep">/</span><span class="thc-r thc-seg" data-st="fail" id="s-fail" title="미흡만 보기">0</span><span class="thc-sep">/</span><span class="thc-n thc-seg" data-st="pending" id="s-pending" title="미채점만 보기">0</span>
             </div>
           </div>
         </div>
+        <!-- 2줄: 사화(사건)별 분류 -->
         <div class="ans-tagrow">
           <div class="class-filter" id="worksEvFilter"></div>
-          <span class="ans-tagsep"></span>
-          <div class="class-filter" id="worksStFilter"></div>
-          <span class="ans-tagsep"></span>
+        </div>
+        <!-- 3줄: 정렬 토글 (오른쪽 정렬) -->
+        <div class="ans-sortrow">
           <div class="class-filter" id="worksSortFilter"></div>
         </div>
-        <!-- 목록으로 훑기 / 한 명씩 채점하기 -->
+        <!-- 4줄: 목록으로 훑기 / 한 명씩 채점하기 -->
         <div class="ans-subtabs" id="ansViewTabs">
           <button class="ans-subtab active" onclick="setAnsView('grid',this)">목록 보기</button>
           <button class="ans-subtab" onclick="setAnsView('one',this)">한 명씩 보기</button>
@@ -834,12 +838,6 @@ function renderWorksFilter(){
   ef.querySelectorAll('.cf-btn').forEach(b=>b.onclick=()=>{worksEvFilter=b.dataset.f;refreshAnswer();});
 
   const inEv=inClass.filter(w=>worksEvFilter==='all'||w.eventId===worksEvFilter);
-  const cnt=st=>inEv.filter(w=>stOf(w)===st).length;
-  const sf=document.getElementById('worksStFilter');
-  sf.innerHTML=[['all','전체 채점',inEv.length],['pending','미채점',cnt('pending')],['pass','통과',cnt('pass')],['fail','미흡',cnt('fail')]]
-    .map(([k,label,n])=>`<button class="cf-btn ${worksStFilter===k?'active':''}" data-f="${k}">${label} (${n})</button>`).join("");
-  sf.querySelectorAll('.cf-btn').forEach(b=>b.onclick=()=>{worksStFilter=b.dataset.f;refreshAnswer();});
-
   renderWorksStats(inEv);
 }
 
@@ -853,7 +851,13 @@ function renderWorksStats(inEv){
   set('s-pass',inEv.filter(w=>w.status==='pass').length);
   set('s-fail',inEv.filter(w=>w.status==='fail').length);
   set('s-pending',inEv.filter(w=>stOf(w)==='pending').length);
-  set('s-likes',inEv.reduce((a,w)=>a+(w.likes||0),0));
+
+  // 채점 칩의 숫자가 곧 상태 필터다. 고른 숫자를 다시 누르면 전체로 돌아온다.
+  const chip=document.getElementById('gradeChip');
+  if(chip)chip.querySelectorAll('.thc-seg').forEach(seg=>{
+    seg.classList.toggle('on',worksStFilter===seg.dataset.st);
+    seg.onclick=()=>{worksStFilter=(worksStFilter===seg.dataset.st)?'all':seg.dataset.st;refreshAnswer();};
+  });
 }
 
 function filteredWorks(){
