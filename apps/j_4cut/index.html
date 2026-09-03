@@ -350,7 +350,7 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
         <button class="arc-back" onclick="closeArchive()"><span data-icon="x" data-icon-size="22"></span></button>
         <div class="arc-titles">
           <div class="arc-title" id="arcTitle">사화 네컷</div>
-          <div class="arc-subtitle">친구들 작품 갤러리</div>
+          <div class="arc-subtitle" id="arcSubtitle">친구들 작품 갤러리</div>
         </div>
         <div style="width:34px;flex-shrink:0"></div>
       </div>
@@ -1083,10 +1083,25 @@ let arcUnsub=null;     // 실시간 구독 해지 함수(갤러리를 닫으면 
 let arcLoaded=false;   // 첫 응답을 받았는지 — 받기 전 오류는 "불러오지 못했어요"로 알린다
 let arcSig=null;       // 지금 화면에 그려 둔 목록(작품 id를 이어붙인 것)
 let arcCurId=null;     // 한 장씩 보기에서 지금 보고 있는 작품
+/* 갤러리가 어느 반까지 보여줄지.
+   학생 화면 — 자기 반 작품만 본다(반 태그를 아예 감춘다).
+   어드민 — 네컷 어드민의 [갤러리 보기]가 ?all=1로 여는 화면. 반 태그가 그대로 나와
+   모든 반을 골라 본다. 이 파라미터는 잠금장치가 아니다(작품 문서 자체는 원래 모두에게
+   열려 있다) — 어느 반을 고를 수 있게 할지만 정한다.
+   LMS 로그인 없이 [친구들 작품 보기]로 들어온 경우엔 가릴 반을 모르니 예전처럼 다 보여준다. */
+const ARC_ALL_CLASSES=new URLSearchParams(location.search).get('all')==='1';
+function arcLockedClass(){
+  if(ARC_ALL_CLASSES)return null;
+  return student?classNumOf(student.studentId):null;
+}
 
 function openArchive(){
   $("#archiveView").classList.add('show');
   arcIdx=0;arcMode='grid';arcGridScroll=0;arcLoaded=false;arcSig=null;
+  const lock=arcLockedClass();
+  arcFilter=lock==null?'all':lock;
+  $("#arcSubtitle").textContent=ARC_ALL_CLASSES?'모든 반 작품 갤러리'
+    :(lock!=null?lock+'반 작품 갤러리':'친구들 작품 갤러리');
   $("#arcStage").innerHTML=`<div class="arc-empty">불러오는 중…</div>`;
   subscribeArc();
 }
@@ -1158,20 +1173,27 @@ window.closeArchive=()=>{
   $("#archiveView").classList.remove('show');
 };
 function renderArcFilter(){
+  // 사건 건수는 지금 보고 있는 반 안에서 센다(반을 골라 두면 그 반의 건수).
+  const inClass=arcWorks.filter(w=>arcFilter==='all'||w.classNum===arcFilter);
   // 사건 필터: 콘텐츠에 정의된 3종을 늘 보여준다(0건이어도 자리를 지킨다)
   const ef=$("#arcEvFilter");
   ef.innerHTML=[`<button class="arc-fbtn ev ${arcEvFilter==='all'?'active':''}" data-f="all">전체 사건</button>`]
     .concat(CONTENT.events.map(e=>{
-      const n=arcWorks.filter(w=>w.eventId===e.id).length;
+      const n=inClass.filter(w=>w.eventId===e.id).length;
       return `<button class="arc-fbtn ev ${arcEvFilter===e.id?'active':''}" data-f="${esc(e.id)}">${esc(e.name)} ${n}</button>`;
     })).join("");
   ef.querySelectorAll('.arc-fbtn').forEach(b=>b.onclick=()=>{arcEvFilter=b.dataset.f;refilter();});
 
-  const cls=[...new Set(arcWorks.map(w=>w.classNum).filter(n=>n!=null))].sort((a,b)=>a-b);
+  // 자기 반만 보는 화면에서는 반 태그 줄을 통째로 감춘다(고를 것이 없다).
   const f=$("#arcFilter");
-  f.innerHTML=[`<button class="arc-fbtn ${arcFilter==='all'?'active':''}" data-f="all">전체</button>`]
-    .concat(cls.map(n=>`<button class="arc-fbtn ${arcFilter==n?'active':''}" data-f="${n}">${n}반</button>`)).join("");
-  f.querySelectorAll('.arc-fbtn').forEach(b=>b.onclick=()=>{arcFilter=b.dataset.f==='all'?'all':+b.dataset.f;refilter();});
+  if(arcLockedClass()!=null){f.innerHTML="";f.style.display='none';}
+  else{
+    f.style.display='';
+    const cls=[...new Set(arcWorks.map(w=>w.classNum).filter(n=>n!=null))].sort((a,b)=>a-b);
+    f.innerHTML=[`<button class="arc-fbtn ${arcFilter==='all'?'active':''}" data-f="all">전체</button>`]
+      .concat(cls.map(n=>`<button class="arc-fbtn ${arcFilter==n?'active':''}" data-f="${n}">${n}반</button>`)).join("");
+    f.querySelectorAll('.arc-fbtn').forEach(b=>b.onclick=()=>{arcFilter=b.dataset.f==='all'?'all':+b.dataset.f;refilter();});
+  }
 
   const s=$("#arcSort");
   s.innerHTML=[['sid','학번순'],['new','최신순']]

@@ -21,10 +21,38 @@ const auth = getAuth(app);
 const storage = getStorage(app);
 import { CLAUDE_PROXY_URL, kstDate } from '../shared/util.js?v=20260826';
 
+/* ── 마지막으로 보던 화면 기억하기 ──
+   새로고침하면 늘 대시보드로 돌아가 버려서, 한 화면을 고쳐가며 확인할 때 매번 다시
+   찾아 들어가야 했다. 이동할 때마다 메뉴 이름을 이 탭에 적어 두고(sessionStorage:
+   탭을 닫으면 사라진다) 다시 열릴 때 그 화면으로 바로 들어간다.
+   강력 새로고침(Ctrl/Cmd+Shift+R, Ctrl+F5)은 "처음부터 다시"라는 뜻으로 받아 지운다 —
+   페이지가 새로 뜨기 전에 그 키 입력이 먼저 들어오는 것을 이용한다(브라우저 메뉴나
+   개발자도구로 하는 강력 새로고침은 알아챌 수 없어 그때는 보던 화면으로 들어간다). */
+const NAV_KEY = 'lms_admin_last_nav';
+let _navRestored = false;
+window.addEventListener('keydown', e => {
+  const k = (e.key || '').toLowerCase();
+  const hard = (k === 'f5' && (e.ctrlKey || e.metaKey || e.shiftKey))
+            || (k === 'r'  && (e.ctrlKey || e.metaKey) && e.shiftKey);
+  if (hard) { try { sessionStorage.removeItem(NAV_KEY); } catch (err) {} }
+}, true);
+function restoreLastNav() {
+  if (_navRestored) return;
+  _navRestored = true;
+  let last = null;
+  try { last = sessionStorage.getItem(NAV_KEY); } catch (e) {}
+  if (!last || last === _currentNav) return;
+  // 메뉴에 없는 이름이면(메뉴가 바뀐 뒤 등) 무시하고 대시보드에 둔다.
+  const known = document.querySelector(`.nav-item[data-nav="${last}"]`)
+             || document.querySelector(`.nav-sub-item[data-subnav="${last}"]`);
+  if (known) switchNav(last, true);
+}
+
 // ── 관리자 로그인 (Firebase Authentication) ──
 function showAdminView() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('adminView').style.display = 'flex';
+  restoreLastNav();
   // 메뉴 전환이 URL을 안 바꿔서 브라우저 히스토리에 아무것도 안 남던 문제 보완: 최초 진입 상태를
   // 히스토리에 하나 심어둔다(switchNav가 그 위에 쌓아가고, 뒤로가기는 popstate로 되짚어간다).
   try { history.replaceState({ nav: (typeof _currentNav !== 'undefined' && _currentNav) || 'dashboard' }, '', location.href); } catch (e) {}
@@ -67,8 +95,51 @@ const SECTION_MAP = {
   grade:   { colorVar:'--c4', previewClass:'preview-grade'   },
 };
 
+/* ── 홈 화면에 추가 (설정 - SYSTEM) ──
+   admin.html <head>가 붙잡아 둔 beforeinstallprompt를 눌렀을 때 띄운다. 크롬 계열은
+   이 이벤트가 있어야만 설치창을 열 수 있고, 사파리는 아예 주지 않으므로 직접 하는
+   방법을 안내한다. 이미 앱으로 열려 있으면(standalone) 추가할 것이 없다. */
+function a2hsInstalled() {
+  return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+}
+function a2hsRender() {
+  const btn = document.getElementById('st-a2hs-btn');
+  const msg = document.getElementById('st-a2hs-msg');
+  if (!btn || !msg) return;
+  if (a2hsInstalled()) { btn.disabled = true; msg.textContent = '이미 앱으로 열려 있습니다.'; return; }
+  if (window.__a2hs)  { btn.disabled = false; msg.textContent = ''; return; }
+  btn.disabled = true;
+  msg.textContent = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    ? '사파리 공유 버튼 → [홈 화면에 추가]를 눌러 주세요.'
+    : '이 브라우저에서는 바로 추가할 수 없습니다(주소창의 설치 아이콘을 확인해 주세요).';
+}
+async function a2hsInstall() {
+  const ev = window.__a2hs;
+  if (!ev) return;
+  const btn = document.getElementById('st-a2hs-btn');
+  if (btn) btn.disabled = true;
+  try {
+    ev.prompt();
+    const res = await ev.userChoice;
+    // 한 번 쓴 이벤트는 다시 못 쓴다. 거절하면 다음 기회에 브라우저가 다시 준다.
+    window.__a2hs = null;
+    const msg = document.getElementById('st-a2hs-msg');
+    if (msg) msg.textContent = res && res.outcome === 'accepted' ? '홈 화면에 추가했습니다.' : '추가를 취소했습니다.';
+  } catch (e) {
+    window.__a2hs = null;
+  }
+  a2hsRender();
+}
+function initA2HS() {
+  const btn = document.getElementById('st-a2hs-btn');
+  if (btn) btn.addEventListener('click', a2hsInstall);
+  window.addEventListener('a2hs-change', a2hsRender);
+  a2hsRender();
+}
+
 async function initAdmin() {
   initSidebar();
+  initA2HS();
   startListening();
   await seedLectureOrderByNumberOnce(); // 기존 강의·질문의 order를 강 번호 기준으로 1회 보정
   ceInitContent();
@@ -348,6 +419,7 @@ function switchNav(nav, fromHistory) {
 
   // 모바일: 저작 패널이면 안내 카드로 대체(강제 열기 전까지), 그리고 열린 드로어를 닫는다.
   _currentNav = nav; _currentPanelId = panelId;
+  try { sessionStorage.setItem(NAV_KEY, nav); } catch (e) {}   // 새로고침하면 이 화면으로 돌아온다
   applyMobileGate(panelId, nav);
   closeAdmDrawer();
 

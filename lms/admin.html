@@ -12,6 +12,27 @@
      이 파일의 :root 변수 중 --text/--border는 아래 이 페이지 자체 :root 선언이 나중에 와서 재정의하므로 전역 충돌은 없다. -->
 <link rel="stylesheet" href="slide-style.css?v=20260902-3">
 <link rel="stylesheet" href="admin.css?v=20260828d">
+<!-- 관리자 모드는 학생 LMS와 별개의 앱으로 홈 화면에 올라간다(이름 "LMS 관리자 모드").
+     pwa.js는 "이미 있으면 건너뜀"이라, 여기 먼저 걸어 둔 것들이 루트 매니페스트·메타를 대신한다. -->
+<link rel="manifest" href="/hoistory/lms/admin.manifest.json">
+<meta name="apple-mobile-web-app-title" content="LMS 관리자 모드">
+<meta name="theme-color" content="#0F172A">
+<link rel="apple-touch-icon" href="/hoistory/main.png">
+<script>
+  /* 크롬 계열은 설치가 가능해지는 순간 beforeinstallprompt를 한 번 던지고 만다. 그때
+     붙잡아 두지 않으면 나중에 [홈 화면에 추가] 버튼을 눌러도 띄울 방법이 없다.
+     설정 - SYSTEM 화면이 이 값을 보고 버튼 상태를 정한다. */
+  window.__a2hs = null;
+  window.addEventListener('beforeinstallprompt', function (e) {
+    e.preventDefault();
+    window.__a2hs = e;
+    window.dispatchEvent(new CustomEvent('a2hs-change'));
+  });
+  window.addEventListener('appinstalled', function () {
+    window.__a2hs = null;
+    window.dispatchEvent(new CustomEvent('a2hs-change'));
+  });
+</script>
   <script src="/hoistory/pwa.js"></script>
 </head>
 <body data-mode="complete">
@@ -769,6 +790,21 @@
       </div>
     </div>
 
+
+    <!-- 관리자 모드 홈 화면 추가 -->
+    <div class="stu-card">
+      <div class="stu-card-head">관리자 모드 홈 화면에 추가</div>
+      <div class="stu-card-body">
+        <button class="add-btn p" id="st-a2hs-btn">홈 화면에 추가</button>
+        <span id="st-a2hs-msg" style="font-size:12px;color:var(--sub);margin-left:10px"></span>
+        <p style="font-size:12px;color:var(--sub);margin-top:10px;line-height:1.6">
+          지금 보고 있는 기기의 홈 화면(또는 바탕화면)에 <b>LMS 관리자 모드</b> 바로가기를 만듭니다.
+          주소창 없이 앱처럼 열리고, 학생용 LMS 앱과는 별개로 추가됩니다.
+          아이폰·아이패드 사파리에는 이 버튼을 쓰는 방법이 없어서, 공유 버튼을 눌러
+          <b>홈 화면에 추가</b>를 직접 골라야 합니다.
+        </p>
+      </div>
+    </div>
     <!-- 사이드바 노출 | 학기 초기화 (2열) -->
     <div class="stu-row-2col">
       <div class="stu-card">
