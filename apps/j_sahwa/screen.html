@@ -13,17 +13,20 @@
      교실 티비에 띄우는 발표 화면.
      학생 모바일(index.html)과 같은 방(RTDB sahwa_rooms/{반})을 보고,
      같은 사건 표(game.js의 EVENTS)로 같은 설명·선택지를 그린다.
-     조작은 하지 않는다 — 여는 것도 공개도 어드민(admin.html)이 맡는다.
+     화면 아래에 교사 조작판이 붙는다 — 사건을 열고 공개하는 일을 여기서 한다
+     (어드민 RUN에는 반과 기본 제한 시간 같은 밑준비만 남겼다).
      교실 뒤에서도 읽히도록 글자 크기를 화면 폭(vw)에 매어 둔다.
      ============================================================ */
   *::-webkit-scrollbar{width:8px;height:8px}
   *::-webkit-scrollbar-track{background:transparent}
   *::-webkit-scrollbar-button{display:none;width:0;height:0}
   *::-webkit-scrollbar-thumb{background:rgba(90,84,72,.38);border-radius:4px}
+  /* 바탕은 옛 한지. 학생 화면(index.html)과 같은 색을 쓴다 — 티비와 손안의
+     화면이 다른 종이처럼 보이면 같은 활동으로 안 읽힌다. */
   :root{
-    --paper:#DDD8C4; --paper-panel:#E8E4D4; --paper-deep:#CDC7B0;
-    --ink:#23201A; --ink-soft:#5F594B; --ink-faint:#8C8674;
-    --rule:#A8322D; --seal:#B32B21; --dong:#2E4A62; --seo:#7A5C1E;
+    --paper:#E9DEC3; --paper-panel:#F2EAD5; --paper-deep:#D8CBA8;
+    --ink:#2A2318; --ink-soft:#645941; --ink-faint:#95896B;
+    --rule:#9E362A; --seal:#AE2E20; --dong:#2E4A62; --seo:#7A5C1E;
     --live:#1F6F4A;
     --serif:'Hahmlet','Nanum Myeongjo',Batang,바탕,serif;
     --sans:'IBM Plex Sans KR','Malgun Gothic',맑은 고딕,sans-serif;
@@ -39,12 +42,16 @@
     background:var(--paper);color:var(--ink);font-family:var(--sans);font-weight:300;
     line-height:1.7;-webkit-font-smoothing:antialiased;overflow:hidden;
   }
+  /* 한지 결 — 닥섬유가 세로로 곧게, 사선으로 성기게 눕고 물 자국이 얼룩진다. */
   body::before{
     content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
     background-image:
-      repeating-linear-gradient(90deg, rgba(35,32,26,.035) 0 1px, transparent 1px 3px),
-      radial-gradient(ellipse at 20% 10%, rgba(120,105,70,.10), transparent 60%),
-      radial-gradient(ellipse at 85% 80%, rgba(90,80,55,.09), transparent 55%);
+      repeating-linear-gradient(91deg, rgba(122,98,55,.055) 0 1px, transparent 1px 4px),
+      repeating-linear-gradient(83deg, rgba(122,98,55,.038) 0 1px, transparent 1px 9px),
+      repeating-linear-gradient(0deg,  rgba(122,98,55,.028) 0 1px, transparent 1px 6px),
+      radial-gradient(ellipse at 18% 12%, rgba(163,130,72,.15), transparent 58%),
+      radial-gradient(ellipse at 84% 80%, rgba(139,111,58,.13), transparent 55%),
+      radial-gradient(ellipse at 52% 46%, rgba(198,172,112,.12), transparent 64%);
   }
   #wrap{position:relative;z-index:1;height:100%;display:flex;flex-direction:column}
 
@@ -66,6 +73,7 @@
   .top .tmr.hot{color:var(--seal)}
   .top .cnt{margin-left:auto;font-family:var(--ui);font-variant-numeric:tabular-nums;font-weight:500}
   .top .cnt b{font-size:calc(var(--fs) * 1.15);color:var(--rule)}
+  .top .cnt .sep{color:var(--ink-faint);margin:0 .55em;font-weight:400}
 
   /* ── 본문 ── */
   main{flex:1;min-height:0;overflow-y:auto;padding:1.6rem 2.4rem 2.4rem}
@@ -135,7 +143,7 @@
   .center .big{font-family:var(--serif);font-weight:800;font-size:calc(var(--fs) * 2.4)}
   .center .sub{color:var(--ink-soft);font-size:calc(var(--fs) * .95)}
   .dots::after{content:"";animation:dots 1.4s steps(4,end) infinite}
-  @keyframes dots{0%{content:""}25%{content:"·"}50%{content:"··"}75%{content:"···"}}
+  @keyframes dots{0%{content:""}25%{content:"."}50%{content:".."}75%{content:"..."}}
 
   /* ── 반 고르기 ── 주소에 ?cls= 를 붙이지 않고 열었을 때 ── */
   .pickcls{display:flex;flex-wrap:wrap;gap:.6rem;justify-content:center;margin-top:1rem}
@@ -155,12 +163,83 @@
   .party.dong .t{color:var(--dong)}
   .party.seo .t{color:var(--seo)}
   .party .w{font-size:calc(var(--fs) * .8);color:var(--ink-soft);margin-bottom:.8rem}
+
+  /* ── 교사 조작판 ──
+     예전에는 어드민(RUN)에서 사건을 열고 이 화면은 보여 주기만 했다. 두 화면을
+     오가는 것이 번거로워, 여는 단추를 화면 아래로 내렸다. 어드민 RUN에는 반과
+     기본 제한 시간 같은 밑준비만 남는다. */
+  .ctl{
+    flex:none;position:relative;z-index:2;
+    border-top:2px solid var(--ink);background:var(--paper-panel);
+    display:flex;align-items:center;gap:.5rem;padding:.5rem .9rem;
+    font-size:calc(var(--fs) * .8);
+  }
+  .ctl:empty{display:none}
+  .ctl.folded .ctl-in{display:none}
+  .ctl-fold{
+    font-family:var(--sans);font-size:calc(var(--fs) * .78);line-height:1;flex:none;
+    background:transparent;border:1.5px solid var(--ink);color:var(--ink);
+    padding:.45em .7em;cursor:pointer;border-radius:0;
+  }
+  .ctl-fold:hover{background:var(--ink);color:var(--paper)}
+  .ctl-in{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;flex:1;min-width:0}
+  .ctl-sel,.ctl-btn{
+    font-family:var(--sans);font-size:calc(var(--fs) * .8);font-weight:500;
+    background:var(--paper);border:1.5px solid var(--ink);color:var(--ink);
+    padding:.4em .9em;cursor:pointer;border-radius:0;
+  }
+  .ctl-btn:hover{background:var(--ink);color:var(--paper)}
+  .ctl-btn.go{background:var(--ink);color:var(--paper);font-weight:600}
+  .ctl-btn.go:hover{opacity:.85}
+  .ctl-btn.warn{border-color:var(--seal);color:var(--seal)}
+  .ctl-btn.warn:hover{background:var(--seal);color:var(--paper)}
+  .ctl-cnt{
+    margin-left:auto;font-family:var(--ui);font-variant-numeric:tabular-nums;
+    font-weight:500;white-space:nowrap;
+  }
+  .ctl-cnt b{font-size:calc(var(--fs) * 1.15);color:var(--rule)}
+  .ctl-cnt .sep{color:var(--ink-faint);margin:0 .55em;font-weight:400}
+  .ctl-note{color:var(--ink-soft)}
+
+  /* 방을 조작하려면 교사 계정이 필요하다(보여 주기만 하는 것은 누구나 된다). */
+  .lock{
+    position:fixed;inset:0;z-index:10;background:rgba(42,35,24,.55);
+    display:none;align-items:center;justify-content:center;
+  }
+  .lock.open{display:flex}
+  .lock-box{background:var(--paper-panel);border:2px solid var(--ink);padding:1.6rem 1.8rem;width:min(26rem,90vw)}
+  .lock-t{font-family:var(--serif);font-weight:800;font-size:calc(var(--fs) * 1.25);margin-bottom:.4rem}
+  .lock-s{color:var(--ink-soft);font-size:calc(var(--fs) * .8);line-height:1.7;margin-bottom:1rem;text-align:justify}
+  .lock input{
+    display:block;width:100%;margin-bottom:.6rem;font-family:var(--sans);
+    font-size:calc(var(--fs) * .88);padding:.5em .6em;color:var(--ink);
+    background:var(--paper);border:1.5px solid var(--ink);border-radius:0;
+  }
+  .lock input:focus{outline:none;border-color:var(--rule)}
+  .lock-e{color:var(--seal);font-size:calc(var(--fs) * .76);min-height:1.5em}
+  .lock-btns{display:flex;gap:.5rem;justify-content:flex-end}
 </style>
 </head>
 <body>
 <div id="wrap">
   <header class="top" id="top"></header>
   <main id="stage"></main>
+  <footer class="ctl" id="ctl"></footer>
+</div>
+
+<div class="lock" id="lock">
+  <div class="lock-box">
+    <div class="lock-t">교사 로그인</div>
+    <div class="lock-s">이 화면에서 사건을 열고 공개하려면 교사 계정으로 들어와야 합니다.
+      보여 주기만 할 것이라면 그냥 닫아도 진행 상황은 계속 보입니다.</div>
+    <input type="email" id="lk-email" placeholder="이메일" autocomplete="username">
+    <input type="password" id="lk-pw" placeholder="비밀번호" autocomplete="current-password">
+    <div class="lock-e" id="lk-err"></div>
+    <div class="lock-btns">
+      <button class="ctl-btn" id="lk-cancel">닫기</button>
+      <button class="ctl-btn go" id="lk-go">접속하기</button>
+    </div>
+  </div>
 </div>
 
 <!-- 사건 표와 문구를 학생 화면과 함께 쓴다. 여기서는 그리기에 필요한 것만 꺼내 쓴다. -->
@@ -169,12 +248,20 @@
 <script type="module">
 /* 방을 구독해 그리기만 한다. 쓰기는 하지 않는다 — 이 화면은 보여 주는 일만 맡는다. */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, get, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { firebaseConfig } from "../../shared/firebase-config.js";
 
 const app  = initializeApp(firebaseConfig);
 const rtdb = getDatabase(app);
+const auth = getAuth(app);
 const ROOMS = "sahwa_rooms";
+
+const PHASES = ["1498","1504","1506","1519","1545","1575"];
+const PHASE_NAME = {
+  "lobby":"대기실","1498":"제1화 무오사화","1504":"제2화 갑자사화","1506":"제3화 중종반정",
+  "1519":"제4화 기묘사화","1545":"제5화 을사사화","1575":"제6화 붕당의 형성","final":"결말"
+};
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -183,6 +270,26 @@ let CLS = new URLSearchParams(location.search).get("cls") || "";
 let ROOM = null;
 let TICK = null;
 let UNSUB = null;
+let ME = null;              // 로그인한 교사 (없으면 보여 주기 전용)
+let CLASSES = [];           // 명단에서 뽑은 실제 반 목록
+let PICK_TOUCHED = false;   // 교사가 사건 칸을 직접 건드렸는가
+let SECS_TOUCHED = false;   // 제한 시간 칸을 직접 건드렸는가
+
+/* 반 목록은 명단(RTDB students)에서 뽑는다. 1~10반을 박아 두면 없는 반이 떠서
+   실제 반 수와 어긋난다. 학번 둘째·셋째 자리가 반이다. */
+async function loadClasses(){
+  try{
+    const snap = await get(ref(rtdb, "students"));
+    const set = new Set();
+    Object.values(snap.val() || {}).forEach(s => {
+      const sid = String((s && (s.studentId || s.id)) || "").trim();
+      const c = parseInt(sid.slice(1, 3), 10);
+      if (!isNaN(c) && c > 0) set.add(c);
+    });
+    CLASSES = [...set].sort((a, b) => a - b);
+  }catch(e){ CLASSES = []; }
+  return CLASSES;
+}
 
 function fmtLeft(ms){
   const s = Math.max(0, Math.ceil(ms / 1000));
@@ -193,10 +300,12 @@ function fmtLeft(ms){
    새로고침해도 같은 반으로 돌아온다(수업 중 티비를 껐다 켜는 일이 잦다). */
 function paintPickClass(){
   $("#top").innerHTML = `<span class="ph">사화에서 살아남기 교실 화면</span>`;
+  const ready = CLASSES.length > 0;
   $("#stage").innerHTML = `<div class="center">
     <div class="big">어느 반을 띄울까요</div>
-    <div class="sub">고른 반의 진행이 이 화면에 그대로 나타납니다.</div>
-    <div class="pickcls">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-c="${n}">${n}반</button>`).join("")}</div>
+    <div class="sub">${ready ? "고른 반의 진행이 이 화면에 그대로 나타납니다."
+                             : "명단에서 반을 읽는 중입니다."}</div>
+    <div class="pickcls">${CLASSES.map(n=>`<button data-c="${n}">${n}반</button>`).join("")}</div>
   </div>`;
   $("#stage").querySelectorAll(".pickcls button").forEach(b => b.onclick = () => {
     CLS = b.dataset.c;
@@ -280,8 +389,7 @@ function render(){
     <span class="ph">${ev ? esc(ev.eyebrow) : phase === "final" ? "결말 붕당의 형성" : "사화에서 살아남기"}</span>
     <span class="st ${state}">${stName}</span>
     <span class="tmr" id="tmr"></span>
-    ${state === "open" ? `<span class="cnt">낸 사람 <b>${answered}</b> / ${expect}명</span>`
-                       : `<span class="cnt">들어온 사람 <b>${ps.length}</b>명</span>`}`;
+    <span class="cnt">들어온 사람 <b>${ps.length}</b>명<span class="sep">|</span>선택 <b>${answered}</b> / ${expect}명</span>`;
 
   if (state === "open" && room.endsAt) {
     const paint = () => {
@@ -292,6 +400,8 @@ function render(){
     };
     paint(); TICK = setInterval(paint, 250);
   }
+
+  syncCtl();
 
   /* ── 결말 ── */
   if (phase === "final") { renderFinal(ps); return; }
@@ -363,7 +473,124 @@ function renderFinal(ps){
     </div>`;
 }
 
-if (CLS) subscribe(); else paintPickClass();
+/* ══════════════════ 교사 조작판 ══════════════════ */
+function roomRef(){ return ref(rtdb, `${ROOMS}/${CLS}`); }
+function ctlSecs(){ const el = document.getElementById("c-secs"); return el ? +el.value : 0; }
+function openPhase(p){
+  const secs = ctlSecs();
+  update(roomRef(), {
+    phase: p, state: "open", round: ((ROOM && ROOM.round) || 0) + 1,
+    endsAt: secs ? Date.now() + secs * 1000 : null
+  });
+}
+
+function buildCtl(){
+  const el = $("#ctl");
+  if (!CLS) { el.innerHTML = ""; return; }
+  if (!ME) {
+    el.classList.remove("folded");
+    el.innerHTML = `<span class="ctl-note">보여 주기 전용입니다. 사건을 열려면 교사 계정으로 들어오십시오.</span>
+      <button class="ctl-btn go" id="c-login" style="margin-left:auto">교사 로그인</button>`;
+    $("#c-login").onclick = () => openLock();
+    return;
+  }
+  el.innerHTML = `
+    <button class="ctl-fold" id="c-fold" title="조작판 접기">접기</button>
+    <div class="ctl-in" id="c-in">
+      <select class="ctl-sel" id="c-phase">
+        ${PHASES.map(p => `<option value="${p}">${PHASE_NAME[p]}</option>`).join("")}
+      </select>
+      <select class="ctl-sel" id="c-secs">
+        <option value="60">60초</option>
+        <option value="90" selected>90초</option>
+        <option value="120">120초</option>
+        <option value="180">180초</option>
+        <option value="0">시간 제한 없음</option>
+      </select>
+      <button class="ctl-btn go" id="c-open">사건 시작</button>
+      <button class="ctl-btn" id="c-reveal">지금 공개</button>
+      <button class="ctl-btn" id="c-more">30초 더</button>
+      <button class="ctl-btn" id="c-next">다음 사건</button>
+      <button class="ctl-btn" id="c-final">결말로</button>
+      <button class="ctl-btn" id="c-lobby">대기실로</button>
+      <span class="ctl-cnt" id="c-cnt"></span>
+      <button class="ctl-btn warn" id="c-reset">방 초기화</button>
+    </div>`;
+
+  $("#c-fold").onclick = () => {
+    el.classList.toggle("folded");
+    $("#c-fold").textContent = el.classList.contains("folded") ? "조작판" : "접기";
+  };
+  $("#c-phase").onchange = () => { PICK_TOUCHED = true; };
+  $("#c-secs").onchange  = () => { SECS_TOUCHED = true; };
+  $("#c-open").onclick   = () => { openPhase($("#c-phase").value); PICK_TOUCHED = false; };
+  $("#c-reveal").onclick = () => update(roomRef(), { state: "revealed", endsAt: null });
+  $("#c-more").onclick   = () => update(roomRef(), {
+    endsAt: Math.max(Date.now(), (ROOM && ROOM.endsAt) || Date.now()) + 30000
+  });
+  $("#c-next").onclick = () => {
+    const i = PHASES.indexOf(String((ROOM && ROOM.phase) || ""));
+    const nx = i < 0 ? PHASES[0] : (i < PHASES.length - 1 ? PHASES[i + 1] : "final");
+    PICK_TOUCHED = false;
+    if (nx === "final") update(roomRef(), { phase: "final", state: "revealed", endsAt: null });
+    else openPhase(nx);
+  };
+  $("#c-final").onclick = () => update(roomRef(), { phase: "final", state: "revealed", endsAt: null });
+  $("#c-lobby").onclick = () => update(roomRef(), { phase: "lobby", state: "waiting", endsAt: null });
+  $("#c-reset").onclick = async () => {
+    if (!confirm(`${CLS}반 방을 초기화합니다.\n학생들의 진행 상황과 사초가 모두 지워집니다. 되돌릴 수 없습니다.`)) return;
+    await remove(roomRef());
+    // 학생 화면이 "빈 스냅샷"을 전송 실패로 오해하지 않도록 대기 상태를 다시 써 준다.
+    await update(roomRef(), { phase: "lobby", state: "waiting", round: 0, endsAt: null });
+  };
+  syncCtl();
+}
+
+/* 방이 바뀔 때마다 조작판의 숫자와 고른 값을 맞춘다. 교사가 직접 건드린 칸은
+   건드리지 않는다 — 다음 사건을 미리 골라 둔 것을 스냅샷이 되돌리면 안 된다. */
+function syncCtl(){
+  const cnt = document.getElementById("c-cnt");
+  const room = ROOM || {};
+  if (cnt) {
+    const ps = playersOf(room);
+    const answered = Object.keys(((room.answers || {})[room.phase]) || {}).length;
+    const expect = ps.filter(p => p.alive).length;
+    cnt.innerHTML = `선택 <b>${answered}</b> / ${expect}명<span class="sep">|</span>들어온 사람 ${ps.length}명`;
+  }
+  const sel = document.getElementById("c-phase");
+  if (sel && !PICK_TOUCHED) {
+    const p = String(room.phase || "");
+    if (PHASES.indexOf(p) >= 0) sel.value = p;
+  }
+  const secs = document.getElementById("c-secs");
+  if (secs && !SECS_TOUCHED && room.secs != null) {
+    const v = String(room.secs | 0);
+    if ([...secs.options].some(o => o.value === v)) secs.value = v;
+  }
+}
+
+/* ── 로그인 ── 어드민에 이미 들어와 있으면 같은 브라우저의 로그인이 그대로 잡혀
+   이 창은 뜨지 않는다. 티비를 따로 켠 경우에만 쓴다. */
+function openLock(){
+  $("#lock").classList.add("open");
+  $("#lk-err").textContent = "";
+  $("#lk-email").focus();
+}
+$("#lk-cancel").onclick = () => $("#lock").classList.remove("open");
+$("#lk-go").onclick = async () => {
+  const err = $("#lk-err");
+  err.textContent = "들어가는 중…";
+  try {
+    await signInWithEmailAndPassword(auth, $("#lk-email").value.trim(), $("#lk-pw").value);
+    $("#lock").classList.remove("open");
+  } catch (e) { err.textContent = "이메일 또는 비밀번호를 확인해 주세요."; }
+};
+$("#lk-pw").onkeydown = e => { if (e.key === "Enter") $("#lk-go").click(); };
+
+onAuthStateChanged(auth, u => { ME = u || null; buildCtl(); });
+
+loadClasses().then(() => { if (!CLS) paintPickClass(); });
+if (CLS) { subscribe(); buildCtl(); } else paintPickClass();
 </script>
 </body>
 </html>

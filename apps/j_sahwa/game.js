@@ -144,8 +144,8 @@ const EVENTS = {
     그대가 무오년에 무슨 말을 했는지, 누구의 편에 섰는지는 아무도 묻지 않는다.
     <b>이번에는 그대의 선택이 아무것도 지켜주지 못한다.</b>`,
   guide:"패를 하나 고르시오. 무엇을 고르든 결과는 그대의 뜻과 무관하다. 禍는 화를 입고, 免은 화를 면한다.",
-  /* 5개 중 3개가 禍 — 사망률 60%. */
-  n:5, bad:3,
+  /* 5장 중 2장이 禍 — 탈락 40%. 학생마다 따로 섞으므로 서로 독립 시행이다. */
+  n:5, bad:2,
   keyOf:(isBad)=> isBad ? "hwa" : "myeon",
   shortOf:{ hwa:"화를 입음", myeon:"화를 면함" },
   apply(P,isBad){
@@ -302,7 +302,7 @@ const EVENTS = {
       }},
     { key:"neutral", short:"중립",
       label:"어느 쪽에도 서지 않는다. 외척끼리의 싸움에 선비가 끼어들 일이 아니다.",
-      lot:{ n:5, bad:1, title:"중립이 지켜지는가",
+      lot:{ n:5, bad:2, title:"중립이 지켜지는가",
         situation:`그대는 양쪽의 사람을 모두 돌려보냈다. 그러나 이긴 쪽에게는 편들지 않은 것도
           반대한 것과 다르지 않다. 사림을 조정에서 몰아내려는 자들에게는 그것으로 충분한 이유가 된다.`,
         guide:"패를 하나 고르시오. 禍는 그대도 연루되었다는 뜻이다." },
@@ -395,12 +395,12 @@ function eventHTML(ev, choices){
     </div>`;
 }
 
-function lotsHTML(cfg, slips){
+function lotsHTML(cfg, slips, hold){
   return `
     <div class="eyebrow">${cfg.eyebrow||""}</div>
     <h2>${cfg.title}</h2>
     <div class="situation">${cfg.situation}</div>
-    <p class="quiet">${cfg.guide}</p>
+    <p class="quiet">${cfg.guide}${hold ? " 뽑은 패는 봉해 두었다가, 선생님이 열 때 모두 함께 본다." : ""}</p>
     <div class="lots" id="lots">
       ${slips.map((_,i)=>`<button class="lot" data-i="${i}" aria-label="패 ${i+1}">?</button>`).join("")}
     </div>`;
@@ -590,7 +590,7 @@ function applySetup(P, ho, master, base){
 /* ══════════════════ 공용 진행기 ══════════════════
    한 사건을 그리고, 학생이 고르면 결과(res)를 만들어 onResolved로 넘긴다.
    solo와 반별 진행이 이 함수를 함께 쓴다. */
-function playPhase(phase, P, onResolved){
+function playPhase(phase, P, onResolved, hold){
   const ev = EVENTS[phase];
   P.year = +phase;
 
@@ -599,8 +599,9 @@ function playPhase(phase, P, onResolved){
   if(ev.kind === "lots"){
     drawLots(ev, ev.n, ev.bad, (isBad)=>{
       const res = ev.apply(P, isBad);
-      onResolved(res, ev.keyOf(isBad));
-    });
+      // 세 번째 인자가 "봉인". 이 사건은 뽑은 패가 곧 결과라, 낸 뒤에도 알려주지 않는다.
+      onResolved(res, ev.keyOf(isBad), hold);
+    }, hold);
     return;
   }
 
@@ -612,7 +613,7 @@ function playPhase(phase, P, onResolved){
       if(c.lot){
         drawLots({ eyebrow:ev.eyebrow, ...c.lot }, c.lot.n, c.lot.bad, (isBad)=>{
           onResolved(c.apply(P, isBad), c.key);
-        });
+        }, hold);
       } else {
         onResolved(c.apply(P), c.key);
       }
@@ -620,16 +621,24 @@ function playPhase(phase, P, onResolved){
   });
 }
 
-function drawLots(cfg, n, bad, done){
+/* 패 뽑기. hold(반별 진행)면 뽑기만 하고 열지 않는다 — 교사가 공개를 눌러야
+   반 전체가 함께 결과를 본다. 혼자 하기에서는 예전처럼 그 자리에서 편다. */
+function drawLots(cfg, n, bad, done, hold){
   const slips = shuffle(Array.from({length:n},(_,i)=> i<bad ? "禍" : "免"));
-  paint(lotsHTML(cfg, slips));
+  paint(lotsHTML(cfg, slips, hold));
   const box = $("#lots");
   box.querySelectorAll(".lot").forEach(el=>{
     el.onclick = ()=>{
       const mine = slips[+el.dataset.i];
+      box.querySelectorAll(".lot").forEach(x=>{ x.classList.add("done"); x.onclick = null; });
+      if(hold){
+        el.classList.add("mine","sealed"); el.textContent = "封";
+        setTimeout(()=> done(mine==="禍"), 700);
+        return;
+      }
       box.querySelectorAll(".lot").forEach((x,i)=>{
-        x.classList.add("done"); x.textContent = slips[i];
-        x.classList.add(slips[i]==="禍" ? "hwa" : "myeon"); x.onclick = null;
+        x.textContent = slips[i];
+        x.classList.add(slips[i]==="禍" ? "hwa" : "myeon");
       });
       el.classList.add("mine");
       setTimeout(()=> done(mine==="禍"), 850);
@@ -647,7 +656,8 @@ function paint(html, barExtra){
 }
 
 /* 진행 상태 — 화면 종류와 현재 선비 */
-const MODE = { room:false, screen:"boot", P:makePlayer(), cls:null, phase:null, answered:null, lastRes:null };
+const MODE = { room:false, screen:"boot", P:makePlayer(), cls:null, phase:null,
+               answered:null, lastRes:null, sealed:false };
 
 /* ══════════════════ LMS를 거쳐 들어왔는가 ══════════════════
    이 활동은 LMS 허브에서만 연다. 학번을 직접 받지 않는 대신 LMS가 남겨 둔
@@ -851,7 +861,7 @@ function roomRender(){
   // 이미 죽은 학생 — 관전
   if(!P.alive){
     MODE.screen = "watch";
-    paint(`<div class="eyebrow">${ev.eyebrow} · 관전</div>
+    paint(`<div class="eyebrow">${ev.eyebrow} 관전</div>
       <h2>그대는 지켜본다</h2>
       <div class="situation">${esc(P.ho)}, 그대는 ${P.deathYear}년에 멈추었다. ${esc(P.causeOfDeath)}.
         조정에서 벌어지는 일은 이제 그대의 손을 떠났다.</div>
@@ -878,8 +888,9 @@ function roomRender(){
   // 사건 열림 — 아직 안 냈으면 선택, 냈으면 대기
   if(room.state === "open"){
     if(MODE.answered === phase + ":" + (room.round||0)){ paintSubmitted(ev, room); return; }
-    MODE.screen = "round"; MODE.autoPicked = false;
-    playPhase(phase, P, (res, key)=> submitChoice(phase, room, res, key));
+    MODE.screen = "round"; MODE.autoPicked = false; MODE.sealed = false;
+    // 마지막 인자 true = 뽑기는 봉인해 둔다(교사가 공개할 때 함께 연다).
+    playPhase(phase, P, (res, key, sealed)=> submitChoice(phase, room, res, key, sealed), true);
     // playPhase가 그린 뒤에 표시줄의 타이머만 덧붙인다
     $("#bar").innerHTML = barHTML(P, timerHTML(room));
     startTick(room, ()=> autoSubmit(phase, room));
@@ -890,12 +901,15 @@ function roomRender(){
 }
 
 /* 고른 것을 서버에 올리고 곧바로 대기 화면으로 (서버 응답을 기다리지 않는다) */
-function submitChoice(phase, room, res, key){
+function submitChoice(phase, room, res, key, sealed){
   const P = MODE.P, ev = EVENTS[phase];
   MODE.lastRes = res;
   MODE.answered = phase + ":" + (room.round||0);
-  MODE.answeredLabel = (ev.choices||[]).find(c=>c.key===key)?.label
-    || (ev.shortOf && ev.shortOf[key]) || key;
+  // 봉인된 뽑기는 key(hwa/myeon)가 곧 생사라, 낸 뒤 화면에도 적지 않는다.
+  MODE.sealed = !!sealed;
+  MODE.answeredLabel = sealed ? "패를 하나 뽑아 봉해 두었다."
+    : ((ev.choices||[]).find(c=>c.key===key)?.label
+       || (ev.shortOf && ev.shortOf[key]) || key);
   SahwaNet.submit(MODE.cls, phase, P.id, key, P, MODE.autoPicked);
   paintSubmitted(ev, ROOM && ROOM.phase ? ROOM : room);
 }
@@ -908,7 +922,7 @@ function autoSubmit(phase, room){
   MODE.autoPicked = true;
   if(ev.kind === "lots"){
     const isBad = Math.random() < ev.bad / ev.n;
-    submitChoice(phase, room, ev.apply(P, isBad), ev.keyOf(isBad));
+    submitChoice(phase, room, ev.apply(P, isBad), ev.keyOf(isBad), true);
     return;
   }
   const c = (ev.choices||[]).find(x=>x.key===ev.defaultKey) || (ev.choices||[])[0];
@@ -920,11 +934,14 @@ function autoSubmit(phase, room){
 /* 이미 낸 학생이 보는 화면 */
 function paintSubmitted(ev, room){
   MODE.screen = "round";
+  const auto = MODE.autoPicked, sealed = MODE.sealed;
+  const head  = auto ? "시간이 다 되었다" : sealed ? "패를 뽑았다" : "제출했다";
+  const label = auto ? "고르지 않아 이렇게 기록되었다" : sealed ? "봉해 둔 패" : "그대의 선택";
   paint(`<div class="eyebrow">${ev.eyebrow}</div>
-    <h2>${MODE.autoPicked ? "시간이 다 되었다" : "제출했다"}</h2>
-    <div class="picked"><div class="t">${MODE.autoPicked ? "고르지 않아 이렇게 기록되었다" : "그대의 선택"}</div>${esc(MODE.answeredLabel||"")}</div>
+    <h2>${head}</h2>
+    <div class="picked"><div class="t">${label}</div>${esc(MODE.answeredLabel||"")}</div>
     <div class="wait"><div class="big">다른 이들을 기다리는 중<span class="dots"></span></div>
-      <div class="sub">모두가 고르면 결과가 함께 공개된다.</div>
+      <div class="sub">${sealed ? "모두가 뽑으면 봉한 패를 함께 연다." : "모두가 고르면 결과가 함께 공개된다."}</div>
       ${roomRosterHTML(room)}</div>`, timerHTML(room));
   startTick(room);
 }
@@ -963,7 +980,7 @@ function roomRosterHTML(room, full){
     </div>`;
   if(!full) return head;
   const cards = ps.sort((a,b)=>String(a.id).localeCompare(String(b.id)))
-    .map(p=>`<div class="wp ${p.alive?"":"gone"}"><span class="h">${esc(p.ho||p.name||"")}</span><span class="s">${p.rank}·${p.fame}</span></div>`).join("");
+    .map(p=>`<div class="wp ${p.alive?"":"gone"}"><span class="h">${esc(p.ho||p.name||"")}</span><span class="s">官 ${p.rank} / 名 ${p.fame}</span></div>`).join("");
   return head + `<div class="watch-grid">${cards}</div>`;
 }
 
