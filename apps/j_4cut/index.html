@@ -378,6 +378,7 @@ import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-ap
 import{initializeFirestore,doc,getDoc,setDoc,updateDoc,deleteField,increment,collection,onSnapshot,serverTimestamp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import{firebaseConfig}from"../../shared/firebase-config.js";
 import{icon}from"../../shared/icons.js";
+import{loadTestIds,isTestId}from"../../shared/testIds.js";
 
 const app=initializeApp(firebaseConfig);
 // getFirestore(app) 대신 initializeFirestore로 여는 이유 — 파이어스토어는 기본적으로
@@ -1130,10 +1131,17 @@ function openArchive(){
    새로고침 없이 따라 움직인다. fourcut_works에는 그림이 없고 메타데이터만 있어
    (한 장에 1.5KB쯤) 계속 열어 둬도 가볍다 — 그림은 여전히 보이는 것만 따로 받는다.
    정렬은 걸지 않는다. filteredWorks()가 학번순/최신순으로 어차피 다시 세우기 때문. */
-function subscribeArc(){
-  if(arcUnsub)return;
+let arcSubscribing=false;
+async function subscribeArc(){
+  if(arcUnsub||arcSubscribing)return;
+  arcSubscribing=true;
+  // 선생님이 수업 전에 돌려 본 테스트 학번 작품은 갤러리에 나오면 안 된다.
+  // 목록을 받기 전에 먼저 읽어 둬야 잠깐 보였다 사라지는 일이 없다.
+  await loadTestIds(db);
+  arcSubscribing=false;
+  if(!$("#archiveView").classList.contains('show'))return;   // 그새 닫았으면 굳이 붙지 않는다
   arcUnsub=onSnapshot(collection(db,'fourcut_works'),
-    snap=>{const next=[];snap.forEach(d=>next.push({id:d.id,...d.data()}));applyArcWorks(next);},
+    snap=>{const next=[];snap.forEach(d=>{if(!isTestId(d.data().studentId))next.push({id:d.id,...d.data()});});applyArcWorks(next);},
     err=>{
       // 실시간 연결이 막히면 구독은 거기서 끝난다. 이미 보고 있던 목록은 그대로 두고,
       // 아직 아무것도 못 받았을 때만 안내한다.
