@@ -68,6 +68,24 @@ service cloud.firestore {
       );
     }
 
+    // ── 사화 소감(문서 id = 학번) ──
+    //    수업을 마친 학생이 남기는 글. 결석해서 게임을 못 한 학생도 남길 수 있어
+    //    선생님은 이 글로 활동 여부를 가린다. 학번당 한 장이고 다시 내면 덮어쓴다.
+    //    읽기를 열어 두는 것은 다른 컬렉션과 같은 방침이다(학생 화면은 자기 글만 불러온다).
+    match /sahwa_reflections/{sid} {
+      allow read: if true;
+      allow create, update: if isAdmin() || (
+        request.resource.data.studentId is string &&
+        request.resource.data.studentId == sid &&
+        request.resource.data.text is string &&
+        request.resource.data.text.size() > 0 &&
+        request.resource.data.text.size() <= 2000 &&
+        request.resource.data.keys().hasOnly([
+          'studentId', 'name', 'classNum', 'ho', 'text', 'updatedAt'
+        ])
+      );
+    }
+
     // ── 공지 열람 기록 + 좋아요 ──
     //    문서 ID는 "공지ID_학번". 학생은 자기 열람 기록을 만들고 좋아요만 켰다 껐다 한다.
     //    수정 시 누구의 기록인지(studentId)는 못 바꾸게 고정한다.

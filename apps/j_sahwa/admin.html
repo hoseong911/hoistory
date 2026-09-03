@@ -92,6 +92,34 @@ textarea.meta-input{resize:vertical}
 .pcell .h{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pcell .s{font-family:ui-monospace,Consolas,monospace;color:var(--hi-text-muted);flex:none}
 .sub-h{font-size:12px;font-weight:700;color:var(--hi-text-muted);letter-spacing:.08em;margin:16px 0 6px}
+  /* ── 소감 ── */
+  .memo-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+  .memo-cls{display:flex;gap:6px;flex-wrap:wrap}
+  .memo-cls button{
+    font-family:inherit;font-size:13px;font-weight:700;height:32px;padding:0 14px;
+    border:1.5px solid var(--hi-border);background:none;color:var(--hi-text-muted);
+    border-radius:100px;cursor:pointer;transition:.15s;
+  }
+  .memo-cls button.active,.memo-cls button:hover{background:var(--hi-accent,#4a6fa5);border-color:var(--hi-accent,#4a6fa5);color:#fff}
+  .memo-stat{font-family:var(--mono,monospace);font-size:14px;font-weight:800;color:var(--hi-text)}
+  .memo-stat b{color:var(--hi-accent,#4a6fa5)}
+  .memo-btns{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .memo-card{
+    border:1px solid var(--hi-border-soft,var(--hi-border));border-radius:12px;
+    background:var(--hi-bg-surface);padding:14px 16px;margin-bottom:10px;
+  }
+  .memo-card .who{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+  .memo-card .who .sid{font-family:var(--mono,monospace);font-size:13px;font-weight:800;color:var(--hi-text)}
+  .memo-card .who .nm{font-size:14px;font-weight:700;color:var(--hi-text)}
+  .memo-card .who .ho{font-size:13px;color:var(--hi-text-muted)}
+  .memo-card .who .len{margin-left:auto;font-family:var(--mono,monospace);font-size:12px;color:var(--hi-text-muted)}
+  .memo-card .tx{font-size:14px;line-height:1.85;color:var(--hi-text);white-space:pre-wrap}
+  .memo-empty{text-align:center;padding:40px 20px;color:var(--hi-text-muted);font-size:14px}
+  .memo-absent{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+  .memo-absent span{
+    font-family:var(--mono,monospace);font-size:12.5px;padding:5px 10px;border-radius:8px;
+    background:var(--hi-bg-mid);border:1px solid var(--hi-border);color:var(--hi-text-muted);
+  }
 </style>
   <script src="/hoistory/pwa.js"></script>
 </head>
@@ -122,6 +150,7 @@ textarea.meta-input{resize:vertical}
     <div class="adm-tabs">
       <button class="adm-tab active" data-tab="run">RUN</button>
       <button class="adm-tab" data-tab="intro">INTRO</button>
+      <button class="adm-tab" data-tab="memo">MEMO</button>
     </div>
     <div class="adm-right">
       <button class="adm-back" id="back-btn">목록으로</button>
@@ -158,6 +187,7 @@ textarea.meta-input{resize:vertical}
           <button class="btn btn-ghost"   id="r-more">30초 더</button>
           <button class="btn btn-ghost"   id="r-next">다음 사건</button>
           <button class="btn btn-ghost"   id="r-final">결말로</button>
+          <button class="btn btn-ghost"   id="r-tv">교실 화면 열기</button>
           <button class="btn btn-ghost"   id="r-reset" style="margin-left:auto;color:var(--hi-negative)">방 초기화</button>
         </div>
       </div>
@@ -211,6 +241,39 @@ textarea.meta-input{resize:vertical}
       </div>
 
       <div class="section-card">
+        <div class="section-title">인트로 두 갈래</div>
+        <div class="section-desc">학생이 LMS에서 들어오면 가장 먼저 고르는 두 갈래입니다. 왼쪽은 게임, 오른쪽은 소감 남기기로 갑니다.</div>
+        <div class="pair">
+          <div class="fld">
+            <div class="fld-label">왼쪽 버튼 제목</div>
+            <input class="meta-input" id="f-doorPlay">
+            <div class="fld-label" style="margin-top:10px">왼쪽 버튼 설명</div>
+            <textarea class="meta-input" id="f-doorPlayDesc" rows="3"></textarea>
+          </div>
+          <div class="fld">
+            <div class="fld-label">오른쪽 버튼 제목</div>
+            <input class="meta-input" id="f-doorMemo">
+            <div class="fld-label" style="margin-top:10px">오른쪽 버튼 설명</div>
+            <textarea class="meta-input" id="f-doorMemoDesc" rows="3"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-card">
+        <div class="section-title">소감 화면</div>
+        <div class="section-desc">결석해서 게임을 못 한 학생도 이 화면으로 들어옵니다. 무엇을 적어야 할지 안내해 주세요.</div>
+        <div class="fld">
+          <div class="fld-label">화면 제목</div>
+          <input class="meta-input" id="f-memoTitle">
+        </div>
+        <div class="fld">
+          <div class="fld-label">안내 문구</div>
+          <textarea class="meta-input" id="f-memoPrompt" rows="4"></textarea>
+          <div class="hint"><code>**글자**</code>로 감싸면 굵게 나옵니다.</div>
+        </div>
+      </div>
+
+      <div class="section-card">
         <div class="section-title">스승 선택</div>
         <div class="section-desc">여기서 고른 스승이 마지막 화면의 동인·서인을 결정합니다. 순서와 역할(dong / seo)은 바뀌지 않습니다.</div>
         <div class="fld">
@@ -237,15 +300,34 @@ textarea.meta-input{resize:vertical}
       </div>
 
     </div>
+
+    <!-- ── 소감 ── 활동 여부를 가리는 자리. 결석한 학생도 여기로 글을 남긴다. -->
+    <div class="tab-panel" id="tab-memo">
+      <div class="section-card">
+        <div class="section-title">소감</div>
+        <div class="section-desc">학생이 인트로의 [소감 남기기]나 결말 화면에서 남긴 글입니다. 학번당 한 장이고, 다시 내면 덮어쓰입니다.</div>
+        <div class="memo-head">
+          <div class="memo-cls" id="m-cls"></div>
+          <div class="memo-stat" id="m-stat"></div>
+        </div>
+        <div class="memo-btns">
+          <button class="btn btn-ghost btn-sm" id="m-absent">안 낸 사람 보기</button>
+          <button class="btn btn-ghost btn-sm" id="m-copy">이 반 소감 복사</button>
+          <span class="save-msg" id="m-msg"></span>
+        </div>
+        <div id="m-list"><div class="memo-empty">불러오는 중…</div></div>
+      </div>
+    </div>
   </div>
   </div>
 </div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getDatabase, ref, update, remove, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, get, update, remove, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { loadTestIds, isTestId } from "../../shared/testIds.js";
 import { firebaseConfig } from "../../shared/firebase-config.js";
 
 const app  = initializeApp(firebaseConfig);
@@ -264,6 +346,10 @@ const DEFAULTS = {
     "끝까지 살아남는 것이 목표는 아니다. 살아남은 자와 이름을 남긴 자가 서로 다른 사람이라는 것, 그것이 이 77년이 보여주는 바다."
   ],
   setupTitle: "인물 설정하기",
+  doorPlay: "살아남기", doorPlayDesc: "호를 짓고 스승을 골라 1498년으로 들어간다.",
+  doorMemo: "소감 남기기", doorMemoDesc: "사림에 대해 알게 된 것과 생각한 것을 글로 남긴다.",
+  memoTitle: "소감 남기기",
+  memoPrompt: "사화를 겪은 사림은 어떤 사람들이었는지, 오늘 알게 된 것과 생각한 것을 적어 보시오. 게임을 하지 못했더라도 교과서와 수업에서 배운 사림 이야기를 적으면 된다.",
   hoLabel: "그대의 호(號)",
   hoHint: "스스로 지어 붙이는 이름",
   masterLabel: "스승을 고르시오",
@@ -304,7 +390,13 @@ function renderPairs(C){
 function fill(C){
   $("#f-title").value       = C.title;
   $("#f-paras").value       = C.paragraphs.join("\n\n");
-  $("#f-setupTitle").value  = C.setupTitle || "인물 설정하기";
+  $("#f-setupTitle").value  = C.setupTitle || DEFAULTS.setupTitle;
+  $("#f-doorPlay").value     = C.doorPlay     || DEFAULTS.doorPlay;
+  $("#f-doorPlayDesc").value = C.doorPlayDesc || DEFAULTS.doorPlayDesc;
+  $("#f-doorMemo").value     = C.doorMemo     || DEFAULTS.doorMemo;
+  $("#f-doorMemoDesc").value = C.doorMemoDesc || DEFAULTS.doorMemoDesc;
+  $("#f-memoTitle").value    = C.memoTitle    || DEFAULTS.memoTitle;
+  $("#f-memoPrompt").value   = C.memoPrompt   || DEFAULTS.memoPrompt;
   $("#f-hoLabel").value     = C.hoLabel;
   $("#f-hoHint").value      = C.hoHint;
   $("#f-startBtn").value    = C.startBtn;
@@ -323,6 +415,12 @@ function collect(){
     title:       $("#f-title").value.trim(),
     paragraphs:  $("#f-paras").value.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean),
     setupTitle:  $("#f-setupTitle").value.trim(),
+    doorPlay:     $("#f-doorPlay").value.trim(),
+    doorPlayDesc: $("#f-doorPlayDesc").value.trim(),
+    doorMemo:     $("#f-doorMemo").value.trim(),
+    doorMemoDesc: $("#f-doorMemoDesc").value.trim(),
+    memoTitle:    $("#f-memoTitle").value.trim(),
+    memoPrompt:   $("#f-memoPrompt").value.trim(),
     hoLabel:     $("#f-hoLabel").value.trim(),
     hoHint:      $("#f-hoHint").value.trim(),
     masterLabel: $("#f-masterLabel").value.trim(),
@@ -485,6 +583,93 @@ function paintRun(){
         <span class="s">${p.rank}·${p.fame}</span></div>`).join("") + `</div>` : "";
 }
 
+/* ══════════ 소감 ══════════
+   활동 여부를 가리는 자리다. 낸 사람만 보면 24명 중 18명이 냈는데도 18이 전부처럼
+   보이므로, 반 명단(RTDB students)을 분모로 함께 읽어 안 낸 사람도 셀 수 있게 한다. */
+let MEMOS = [], MROSTER = [], MCLS = "all", MSHOW_ABSENT = false, MUNSUB = null;
+
+function mClassOf(sid){ const c = parseInt(String(sid||"").slice(1,3),10); return isNaN(c)?null:c; }
+
+async function loadMemoRoster(){
+  try{
+    const snap = await get(ref(rtdb,'students'));
+    const data = snap.val() || {};
+    MROSTER = Object.values(data).filter(Boolean)
+      .map(s=>({ studentId:String(s.studentId||s.id||"").trim(), name:s.name||s.studentName||"" }))
+      .filter(s=>s.studentId && !isTestId(s.studentId))
+      .map(s=>({ ...s, classNum:mClassOf(s.studentId) }))
+      .filter(s=>s.classNum!=null && s.classNum!==0);
+  }catch(e){ MROSTER = []; }
+}
+
+function initMemo(){
+  if(MUNSUB) return;
+  loadTestIds(db).then(loadMemoRoster).then(()=>{
+    MUNSUB = onSnapshot(collection(db,'sahwa_reflections'), snap=>{
+      MEMOS = [];
+      snap.forEach(d=>{ const v = d.data() || {};
+        const sid = String(v.studentId || d.id || "").trim();
+        if(!sid || isTestId(sid)) return;
+        MEMOS.push({ sid, name:v.name||"", ho:v.ho||"", text:String(v.text||""),
+                     classNum: v.classNum != null ? (v.classNum|0) : mClassOf(sid) });
+      });
+      paintMemo();
+    }, ()=>{ $("#m-list").innerHTML = '<div class="memo-empty">소감을 불러오지 못했습니다.</div>'; });
+  });
+
+  $("#m-absent").addEventListener("click", ()=>{ MSHOW_ABSENT = !MSHOW_ABSENT; paintMemo(); });
+  $("#m-copy").addEventListener("click", copyMemos);
+}
+
+function memoInClass(){ return MCLS==="all" ? MEMOS : MEMOS.filter(m=>m.classNum===MCLS); }
+function rosterInClass(){ return MCLS==="all" ? MROSTER : MROSTER.filter(s=>s.classNum===MCLS); }
+
+function paintMemo(){
+  const classes = [...new Set([...MEMOS.map(m=>m.classNum), ...MROSTER.map(s=>s.classNum)]
+    .filter(n=>n!=null))].sort((a,b)=>a-b);
+  $("#m-cls").innerHTML = [`<button data-c="all" class="${MCLS==="all"?"active":""}">전체</button>`]
+    .concat(classes.map(n=>`<button data-c="${n}" class="${MCLS===n?"active":""}">${n}반</button>`)).join("");
+  $("#m-cls").querySelectorAll("button").forEach(b=>b.onclick = ()=>{
+    MCLS = b.dataset.c==="all" ? "all" : +b.dataset.c; paintMemo();
+  });
+
+  const list = memoInClass().sort((a,b)=>a.sid.localeCompare(b.sid));
+  const total = rosterInClass().length;
+  $("#m-stat").innerHTML = `남긴 사람 <b>${list.length}</b>${total ? " / " + total + "명" : ""}`;
+
+  const done = new Set(list.map(m=>m.sid));
+  const absent = rosterInClass().filter(s=>!done.has(s.studentId))
+    .sort((a,b)=>a.studentId.localeCompare(b.studentId));
+  const absentHTML = MSHOW_ABSENT
+    ? (absent.length
+        ? `<div class="memo-absent">${absent.map(s=>`<span>${esc(s.studentId)} ${esc(s.name)}</span>`).join("")}</div>`
+        : `<div class="memo-absent"><span>모두 남겼습니다.</span></div>`)
+    : "";
+  $("#m-absent").textContent = MSHOW_ABSENT ? "안 낸 사람 숨기기" : `안 낸 사람 보기 (${absent.length})`;
+
+  $("#m-list").innerHTML = absentHTML + (list.length
+    ? list.map(m=>`<div class="memo-card">
+        <div class="who">
+          <span class="sid">${esc(m.sid)}</span>
+          <span class="nm">${esc(m.name)}</span>
+          ${m.ho ? `<span class="ho">호 ${esc(m.ho)}</span>` : ""}
+          <span class="len">${m.text.length}자</span>
+        </div>
+        <div class="tx">${esc(m.text)}</div>
+      </div>`).join("")
+    : `<div class="memo-empty">아직 남긴 소감이 없습니다.</div>`);
+}
+
+/* 반 소감을 한 덩어리 글로 옮긴다 — 기록으로 남기거나 한글 문서에 붙이기 위한 것. */
+async function copyMemos(){
+  const list = memoInClass().sort((a,b)=>a.sid.localeCompare(b.sid));
+  if(!list.length){ mMsg("옮길 소감이 없습니다."); return; }
+  const txt = list.map(m=>`[${m.sid} ${m.name}${m.ho?" "+m.ho:""}]\n${m.text}`).join("\n\n");
+  try{ await navigator.clipboard.writeText(txt); mMsg(`${list.length}장 복사했습니다.`); }
+  catch(e){ mMsg("복사하지 못했습니다."); }
+}
+function mMsg(t){ const el = $("#m-msg"); el.textContent = t; setTimeout(()=>{ if(el.textContent===t) el.textContent=""; }, 2500); }
+
 /* 탭 전환 */
 document.querySelectorAll(".adm-tab").forEach(btn=>{
   btn.addEventListener("click", ()=>{
@@ -493,6 +678,10 @@ document.querySelectorAll(".adm-tab").forEach(btn=>{
     btn.classList.add("active");
     document.getElementById("tab-"+btn.dataset.tab).classList.add("active");
   });
+});
+
+$("#r-tv").addEventListener("click", ()=>{
+  window.open("screen.html?cls=" + encodeURIComponent(RCLS || ""), "_blank", "noopener");
 });
 
 $("#back-btn").addEventListener("click", ()=>{
@@ -506,6 +695,7 @@ function start(){
   $("#adminApp").classList.add("show");
   load();
   initRun();
+  initMemo();
 }
 
 if(isEmbedded){

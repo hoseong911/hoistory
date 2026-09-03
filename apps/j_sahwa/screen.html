@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사화에서 살아남기 교실 화면</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@400;600;800&family=IBM+Plex+Sans+KR:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     교실 티비에 띄우는 발표 화면.
+     학생 모바일(index.html)과 같은 방(RTDB sahwa_rooms/{반})을 보고,
+     같은 사건 표(game.js의 EVENTS)로 같은 설명·선택지를 그린다.
+     조작은 하지 않는다 — 여는 것도 공개도 어드민(admin.html)이 맡는다.
+     교실 뒤에서도 읽히도록 글자 크기를 화면 폭(vw)에 매어 둔다.
+     ============================================================ */
+  *::-webkit-scrollbar{width:8px;height:8px}
+  *::-webkit-scrollbar-track{background:transparent}
+  *::-webkit-scrollbar-button{display:none;width:0;height:0}
+  *::-webkit-scrollbar-thumb{background:rgba(90,84,72,.38);border-radius:4px}
+  :root{
+    --paper:#DDD8C4; --paper-panel:#E8E4D4; --paper-deep:#CDC7B0;
+    --ink:#23201A; --ink-soft:#5F594B; --ink-faint:#8C8674;
+    --rule:#A8322D; --seal:#B32B21; --dong:#2E4A62; --seo:#7A5C1E;
+    --live:#1F6F4A;
+    --serif:'Hahmlet','Nanum Myeongjo',Batang,바탕,serif;
+    --sans:'IBM Plex Sans KR','Malgun Gothic',맑은 고딕,sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,monospace;
+    /* 본문 기준 크기. 티비 크기가 제각각이라 폭에 비례시키되 위아래를 잠가 둔다. */
+    --fs: clamp(17px, 1.35vw, 30px);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--paper);color:var(--ink);font-family:var(--sans);font-weight:300;
+    line-height:1.7;-webkit-font-smoothing:antialiased;overflow:hidden;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:
+      repeating-linear-gradient(90deg, rgba(35,32,26,.035) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at 20% 10%, rgba(120,105,70,.10), transparent 60%),
+      radial-gradient(ellipse at 85% 80%, rgba(90,80,55,.09), transparent 55%);
+  }
+  #wrap{position:relative;z-index:1;height:100%;display:flex;flex-direction:column}
+
+  /* ── 머리띠 ── 지금 어느 사건의 어느 단계인지, 몇 명이 냈는지 ── */
+  .top{
+    display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap;flex:none;
+    padding:.7rem 1.6rem;border-bottom:2px solid var(--ink);background:var(--paper-panel);
+    font-size:calc(var(--fs) * .82);
+  }
+  .top .cls{font-family:var(--mono);font-weight:500;letter-spacing:.06em}
+  .top .ph{font-family:var(--serif);font-weight:600;letter-spacing:.03em}
+  .top .st{
+    font-family:var(--sans);font-weight:600;font-size:calc(var(--fs) * .7);
+    padding:.15em .8em;border:1.5px solid var(--ink);letter-spacing:.04em;
+  }
+  .top .st.open{background:var(--live);border-color:var(--live);color:var(--paper)}
+  .top .st.revealed{background:var(--rule);border-color:var(--rule);color:var(--paper)}
+  .top .tmr{font-family:var(--mono);font-weight:500;font-size:calc(var(--fs) * 1.15);letter-spacing:.04em}
+  .top .tmr.hot{color:var(--seal)}
+  .top .cnt{margin-left:auto;font-family:var(--mono);font-weight:500}
+  .top .cnt b{font-size:calc(var(--fs) * 1.15);color:var(--rule)}
+
+  /* ── 본문 ── */
+  main{flex:1;min-height:0;overflow-y:auto;padding:1.6rem 2.4rem 2.4rem}
+  .eyebrow{
+    font-family:var(--mono);font-size:calc(var(--fs) * .72);letter-spacing:.22em;
+    color:var(--ink-faint);text-transform:uppercase;margin-bottom:.5rem;
+  }
+  h1{
+    font-family:var(--serif);font-weight:800;line-height:1.25;letter-spacing:-.01em;
+    font-size:calc(var(--fs) * 2.1);margin-bottom:1rem;
+  }
+  h2{font-family:var(--serif);font-weight:600;font-size:calc(var(--fs) * 1.3);margin-bottom:.7rem}
+  .situation{
+    font-family:var(--serif);font-size:calc(var(--fs) * 1.06);line-height:1.95;
+    text-align:justify;max-width:none;
+  }
+  .situation b{font-weight:800;color:var(--rule)}
+
+  /* 사건 화면은 설명(왼쪽)과 선택지(오른쪽)를 나란히 둔다 — 티비는 가로가 길다. */
+  .split{display:grid;grid-template-columns:1.15fr 1fr;gap:2.2rem;align-items:start}
+  @media (max-aspect-ratio: 1/1){ .split{grid-template-columns:1fr} }
+
+  .choices{display:flex;flex-direction:column;gap:.7rem}
+  .ch{
+    display:flex;gap:.9rem;background:var(--paper-panel);border:1.5px solid var(--ink);
+    padding:.85rem 1rem;font-size:calc(var(--fs) * .95);line-height:1.7;
+  }
+  .ch .n{
+    flex:none;font-family:var(--mono);font-weight:500;font-size:calc(var(--fs) * .95);
+    color:var(--paper);background:var(--ink);width:1.9em;height:1.9em;
+    display:flex;align-items:center;justify-content:center;
+  }
+  /* 공개 뒤에는 몇 명이 골랐는지 막대로 겹쳐 보인다. */
+  .ch.res{position:relative;overflow:hidden}
+  .ch.res .fill{position:absolute;inset:0 auto 0 0;background:var(--paper-deep);z-index:0;transition:width .5s}
+  .ch.res .n,.ch.res .lb,.ch.res .cn{position:relative;z-index:1}
+  .ch .lb{flex:1}
+  .ch .cn{flex:none;font-family:var(--mono);font-weight:500;align-self:center}
+
+  /* ── 명단 ── 공개 화면의 주인공. 호만 크게 보인다. */
+  .lists{display:grid;grid-template-columns:1fr 1fr;gap:1.6rem;margin-top:1.4rem}
+  @media (max-aspect-ratio: 1/1){ .lists{grid-template-columns:1fr} }
+  .lcol{border:2px solid var(--ink);background:var(--paper-panel);padding:1rem 1.1rem;min-height:0}
+  .lcol.dead{border-color:var(--seal)}
+  .lhead{
+    display:flex;align-items:baseline;gap:.7rem;
+    border-bottom:1.5px solid var(--ink);padding-bottom:.5rem;margin-bottom:.8rem;
+  }
+  .lcol.dead .lhead{border-bottom-color:var(--seal)}
+  .lhead .t{font-family:var(--serif);font-weight:800;font-size:calc(var(--fs) * 1.25)}
+  .lcol.dead .lhead .t{color:var(--seal)}
+  .lhead .n{margin-left:auto;font-family:var(--mono);font-weight:500;font-size:calc(var(--fs) * 1.3)}
+  .hos{display:flex;flex-wrap:wrap;gap:.4rem .5rem}
+  .ho{
+    font-family:var(--serif);font-weight:600;font-size:calc(var(--fs) * 1.02);
+    padding:.2em .6em;background:var(--paper);border:1px solid var(--ink-faint);
+  }
+  .ho.fresh{background:var(--seal);border-color:var(--seal);color:var(--paper)}
+  .ho.enshrined{border-color:var(--rule);border-width:2px;color:var(--rule)}
+  .lnote{margin-top:.8rem;font-size:calc(var(--fs) * .78);color:var(--ink-soft)}
+
+  /* ── 대기실 ── */
+  .center{
+    height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;gap:1rem;
+  }
+  .center .big{font-family:var(--serif);font-weight:800;font-size:calc(var(--fs) * 2.4)}
+  .center .sub{color:var(--ink-soft);font-size:calc(var(--fs) * .95)}
+  .dots::after{content:"";animation:dots 1.4s steps(4,end) infinite}
+  @keyframes dots{0%{content:""}25%{content:"·"}50%{content:"··"}75%{content:"···"}}
+
+  /* ── 반 고르기 ── 주소에 ?cls= 를 붙이지 않고 열었을 때 ── */
+  .pickcls{display:flex;flex-wrap:wrap;gap:.6rem;justify-content:center;margin-top:1rem}
+  .pickcls button{
+    font-family:var(--serif);font-weight:600;font-size:calc(var(--fs) * 1.1);
+    background:var(--paper-panel);border:1.5px solid var(--ink);color:var(--ink);
+    padding:.5em 1.2em;cursor:pointer;
+  }
+  .pickcls button:hover{background:var(--ink);color:var(--paper)}
+
+  /* ── 결말 ── */
+  .parties{display:grid;grid-template-columns:1fr 1fr;gap:1.6rem;margin-top:1.2rem}
+  .party{border:2px solid var(--ink);padding:1rem 1.1rem;background:var(--paper-panel)}
+  .party.dong{border-color:var(--dong)}
+  .party.seo{border-color:var(--seo)}
+  .party .t{font-family:var(--serif);font-weight:800;font-size:calc(var(--fs) * 1.3);margin-bottom:.2rem}
+  .party.dong .t{color:var(--dong)}
+  .party.seo .t{color:var(--seo)}
+  .party .w{font-size:calc(var(--fs) * .8);color:var(--ink-soft);margin-bottom:.8rem}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header class="top" id="top"></header>
+  <main id="stage"></main>
+</div>
+
+<!-- 사건 표와 문구를 학생 화면과 함께 쓴다. 여기서는 그리기에 필요한 것만 꺼내 쓴다. -->
+<script src="game.js"></script>
+
+<script type="module">
+/* 방을 구독해 그리기만 한다. 쓰기는 하지 않는다 — 이 화면은 보여 주는 일만 맡는다. */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { firebaseConfig } from "../../shared/firebase-config.js";
+
+const app  = initializeApp(firebaseConfig);
+const rtdb = getDatabase(app);
+const ROOMS = "sahwa_rooms";
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+let CLS = new URLSearchParams(location.search).get("cls") || "";
+let ROOM = null;
+let TICK = null;
+let UNSUB = null;
+
+function fmtLeft(ms){
+  const s = Math.max(0, Math.ceil(ms / 1000));
+  return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+}
+
+/* ── 반 고르기 ── 주소에 반을 안 적고 열면 여기서 고른다. 고르면 주소에 남겨
+   새로고침해도 같은 반으로 돌아온다(수업 중 티비를 껐다 켜는 일이 잦다). */
+function paintPickClass(){
+  $("#top").innerHTML = `<span class="ph">사화에서 살아남기 교실 화면</span>`;
+  $("#stage").innerHTML = `<div class="center">
+    <div class="big">어느 반을 띄울까요</div>
+    <div class="sub">고른 반의 진행이 이 화면에 그대로 나타납니다.</div>
+    <div class="pickcls">${[1,2,3,4,5,6,7,8,9,10].map(n=>`<button data-c="${n}">${n}반</button>`).join("")}</div>
+  </div>`;
+  $("#stage").querySelectorAll(".pickcls button").forEach(b => b.onclick = () => {
+    CLS = b.dataset.c;
+    const u = new URL(location.href); u.searchParams.set("cls", CLS);
+    history.replaceState(null, "", u);
+    subscribe();
+  });
+}
+
+function subscribe(){
+  if (UNSUB) UNSUB();
+  $("#stage").innerHTML = `<div class="center"><div class="big">방을 여는 중<span class="dots"></span></div></div>`;
+  UNSUB = onValue(ref(rtdb, `${ROOMS}/${CLS}`), snap => { ROOM = snap.exists() ? snap.val() : {}; render(); });
+}
+
+/* 선비 목록 — RTDB에 담긴 그대로. 학번순으로 세워야 교사가 눈으로 짚기 좋다. */
+function playersOf(room){
+  return Object.values(room.players || {}).filter(Boolean)
+    .sort((a, b) => String(a.id || "").localeCompare(String(b.id || "")));
+}
+
+function hoChip(p, year, showEnshrined){
+  // 이번 사건에서 막 죽은 사람은 붉게 세워 눈에 띄게 한다.
+  const fresh = !p.alive && year && p.deathYear === year;
+  const enshrined = showEnshrined && (p.fame | 0) >= ENSHRINE;
+  const cls = "ho" + (fresh ? " fresh" : "") + (enshrined ? " enshrined" : "");
+  return `<span class="${cls}">${esc(p.ho || p.name || p.id || "")}</span>`;
+}
+
+function listsHTML(room, year){
+  const ps = playersOf(room);
+  const alive = ps.filter(p => p.alive), dead = ps.filter(p => !p.alive);
+  const justDied = year ? dead.filter(p => p.deathYear === year).length : 0;
+  return `<div class="lists">
+    <div class="lcol">
+      <div class="lhead"><span class="t">살아남은 자</span><span class="n">${alive.length}</span></div>
+      <div class="hos">${alive.map(p => hoChip(p, year)).join("") || `<span class="ho">—</span>`}</div>
+    </div>
+    <div class="lcol dead">
+      <div class="lhead"><span class="t">졸(卒)한 자</span><span class="n">${dead.length}</span></div>
+      <div class="hos">${dead.map(p => hoChip(p, year)).join("") || `<span class="ho">—</span>`}</div>
+      ${justDied ? `<div class="lnote">이번 사건에서 ${justDied}명이 붉게 새로 올랐습니다.</div>` : ""}
+    </div>
+  </div>`;
+}
+
+/* 선택지 — 열려 있을 때는 글만, 공개된 뒤에는 몇 명이 골랐는지 막대로 함께 보인다. */
+function choicesHTML(ev, room, phase, revealed){
+  const list = ev.choices || [];
+  if (!list.length) return "";
+  const answers = ((room.answers || {})[phase]) || {};
+  const tally = {};
+  Object.values(answers).forEach(a => { const k = a && a.choice; if (k) tally[k] = (tally[k] || 0) + 1; });
+  const total = Object.values(tally).reduce((a, b) => a + b, 0) || 1;
+  return `<div class="choices">${list.map((c, i) => {
+    const n = tally[c.key] || 0;
+    const pct = revealed ? Math.round(n / total * 100) : 0;
+    return `<div class="ch${revealed ? " res" : ""}">
+      ${revealed ? `<span class="fill" style="width:${pct}%"></span>` : ""}
+      <span class="n">${i + 1}</span>
+      <span class="lb">${revealed ? esc(c.short || c.label) : esc(c.label)}</span>
+      ${revealed ? `<span class="cn">${n}명</span>` : ""}
+    </div>`;
+  }).join("")}</div>`;
+}
+
+function render(){
+  if (TICK) { clearInterval(TICK); TICK = null; }
+  const room = ROOM || {};
+  const phase = room.phase ? String(room.phase) : null;
+  const state = room.state || "waiting";
+  const ps = playersOf(room);
+  const ev = phase && EVENTS[phase];
+
+  /* ── 머리띠 ── */
+  const answered = Object.keys(((room.answers || {})[phase]) || {}).length;
+  const expect = ps.filter(p => p.alive).length;
+  const stName = state === "open" ? "선택 중" : state === "revealed" ? "결과 공개" : "대기";
+  $("#top").innerHTML = `
+    <span class="cls">${esc(CLS)}반</span>
+    <span class="ph">${ev ? esc(ev.eyebrow) : phase === "final" ? "결말 붕당의 형성" : "사화에서 살아남기"}</span>
+    <span class="st ${state}">${stName}</span>
+    <span class="tmr" id="tmr"></span>
+    ${state === "open" ? `<span class="cnt">낸 사람 <b>${answered}</b> / ${expect}명</span>`
+                       : `<span class="cnt">들어온 사람 <b>${ps.length}</b>명</span>`}`;
+
+  if (state === "open" && room.endsAt) {
+    const paint = () => {
+      const el = document.getElementById("tmr"); if (!el) return;
+      const left = room.endsAt - Date.now();
+      el.textContent = fmtLeft(left);
+      el.classList.toggle("hot", left <= 10000);
+    };
+    paint(); TICK = setInterval(paint, 250);
+  }
+
+  /* ── 결말 ── */
+  if (phase === "final") { renderFinal(ps); return; }
+
+  /* ── 대기실 ── 아직 사건을 안 열었다 ── */
+  if (!phase || phase === "lobby" || state === "waiting" || !ev) {
+    $("#stage").innerHTML = `<div class="center">
+      <div class="big">선비들이 모이는 중<span class="dots"></span></div>
+      <div class="sub">${ps.length}명이 붓을 들었습니다. 선생님이 사건을 열면 이 화면이 바뀝니다.</div>
+      ${ps.length ? `<div class="hos" style="justify-content:center;max-width:70vw">${ps.map(p => hoChip(p)).join("")}</div>` : ""}
+    </div>`;
+    return;
+  }
+
+  const year = +phase;
+
+  /* ── 결과 공개 ── 명단이 주인공이다 ── */
+  if (state === "revealed") {
+    $("#stage").innerHTML = `
+      <div class="eyebrow">${esc(ev.eyebrow)}</div>
+      <h1>${esc(ev.title || "")}</h1>
+      ${choicesHTML(ev, room, phase, true)}
+      ${listsHTML(room, year)}`;
+    return;
+  }
+
+  /* ── 사건 진행 중 ── 설명과 선택지를 나란히 ── */
+  $("#stage").innerHTML = `
+    <div class="eyebrow">${esc(ev.eyebrow)}</div>
+    <h1>${esc(ev.title || "")}</h1>
+    <div class="split">
+      <div class="situation">${ev.situation || ""}</div>
+      <div>
+        <h2>그대는 어찌하겠는가</h2>
+        ${choicesHTML(ev, room, phase, false)}
+      </div>
+    </div>`;
+}
+
+function renderFinal(ps){
+  const dong = ps.filter(p => p.master === "dong");
+  const seo  = ps.filter(p => p.master !== "dong");
+  const alive = ps.filter(p => p.alive);
+  const dead  = ps.filter(p => !p.alive);
+  const enshrined = ps.filter(p => (p.fame | 0) >= ENSHRINE);
+  const chip = p => hoChip(p, null, true);
+  const col = (t, w, list, cls) => `<div class="party ${cls}">
+      <div class="t">${t} ${list.length}명</div>
+      <div class="w">${w}</div>
+      <div class="hos">${list.map(p => chip(p)).join("") || `<span class="ho">—</span>`}</div>
+    </div>`;
+  $("#stage").innerHTML = `
+    <div class="eyebrow">1575 붕당의 형성</div>
+    <h1>77년이 지났다</h1>
+    <div class="lists">
+      <div class="lcol">
+        <div class="lhead"><span class="t">살아남은 자</span><span class="n">${alive.length}</span></div>
+        <div class="hos">${alive.map(p => chip(p)).join("") || `<span class="ho">—</span>`}</div>
+        ${enshrined.length ? `<div class="lnote">붉은 테두리 ${enshrined.length}명은 서원에 배향되었습니다 — 살아남은 것과 이름을 남긴 것은 다릅니다.</div>` : ""}
+      </div>
+      <div class="lcol dead">
+        <div class="lhead"><span class="t">졸(卒)한 자</span><span class="n">${dead.length}</span></div>
+        <div class="hos">${dead.map(p => chip(p)).join("") || `<span class="ho">—</span>`}</div>
+      </div>
+    </div>
+    <div class="parties">
+      ${col("동인(東人)", "이황·조식의 학문을 이은 이들. 김효원의 집이 한양 동쪽에 있었다.", dong, "dong")}
+      ${col("서인(西人)", "이이·성혼의 학문을 이은 이들. 심의겸의 집이 한양 서쪽에 있었다.", seo, "seo")}
+    </div>`;
+}
+
+if (CLS) subscribe(); else paintPickClass();
+</script>
+</body>
+</html>
