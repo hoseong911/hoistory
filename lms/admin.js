@@ -7923,9 +7923,11 @@ const XP_HIST_LABELS = { attendance:'출석 체크', mileage:'히스토리 마�
    구분이 안 됐다. src(=thinkCheck)를 먼저 보고 이름을 붙인다(2026-09-03). */
 function xpHistLabel(h) {
   if (h.src === 'thinkCheck') return '생각 체크 답변 작성';
-  if (XP_HIST_LABELS[h.type]) return XP_HIST_LABELS[h.type];
-  if (h.type === 'manual') return '수동 조정';
-  return h.type || '-';
+  const base = XP_HIST_LABELS[h.type] || (h.type === 'manual' ? '수동 조정' : (h.type || '-'));
+  //  강의가 딸린 기록(타이핑 복습 등)은 "타이핑 복습(28강)"처럼 뒤에 붙여 준다.
+  const lec = h.lec != null ? String(h.lec).trim() : '';
+  if (!lec) return base;
+  return `${base}(${/^\d+$/.test(lec) ? lec + '강' : lec})`;
 }
 const fbFns = { ref, get, set, push, update, onValue };
 

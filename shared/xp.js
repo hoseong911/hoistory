@@ -102,7 +102,9 @@ export function calcNextThreshold(total, levels, formula) {
 //   - 문자열: 날짜 게이트. cur[gate]가 오늘이면 중단(하루 1회)
 //   - { day, map, key, max }: 날짜 게이트(day, 선택) + 횟수 게이트를 함께 건다.
 //     cur[map][key]가 max 이상이면 중단, 통과하면 1 증가. 날짜 게이트에 막히면 횟수는 안 는다.
-export async function addXP(type, pt, note, gate) {
+// extra: 기록 한 줄에 함께 남길 부가 정보({ lec: '28' } 등). 어드민 기록 표가 이걸 보고
+//        활동 이름을 더 자세히 적는다(adminAddXP의 extra와 같은 자리).
+export async function addXP(type, pt, note, gate, extra) {
   if (!_rtdb || !_sid) return null;
   const base = `${XP_ROOT}/students/${_sid}`;
   const today   = _today();
@@ -125,7 +127,7 @@ export async function addXP(type, pt, note, gate) {
     const next = { ...cur, total: newTotal, level: newLevel, name: _sname };
     if (dayGate) next[dayGate] = today;
     if (cap) next[cap.map] = { ...(cur[cap.map] || {}), [cap.key]: used + 1 };
-    next.history = { ...(cur.history || {}), [histKey]: { type, pt, note: note || '', ts: Date.now() } };
+    next.history = { ...(cur.history || {}), [histKey]: { type, pt, note: note || '', ts: Date.now(), ...(extra || {}) } };
     return next;
   });
   if (!txRes.committed || !result) return null; // 중단됐으면(이미 지급했거나 상한 도달) null 반환
@@ -163,11 +165,10 @@ export async function addTypingReviewXP(lectureNum) {
   const max = Number(act.perLectureMax ?? DEFAULT_ACTIVITIES.typingReview.perLectureMax) || 0;
   if (max <= 0) return null;
 
-  //  기록에 몇 강을 복습했는지 남긴다. 예전엔 그냥 '타이핑 복습'이라 어드민 기록에서
-  //  어느 강의였는지 알 수 없었다(2026-09-03).
-  const lecLabel = /^\d+$/.test(key) ? `${key}강` : key;
-  const res = await addXP('typingReview', act.pt ?? 20, `타이핑 복습 · ${lecLabel}`,
-    { day: 'lastTypingReview', map: 'typingReviewCounts', key, max });
+  //  몇 강을 복습했는지 기록에 남긴다. 예전엔 그냥 '타이핑 복습'이라 어드민 기록에서
+  //  어느 강의였는지 알 수 없었다(2026-09-03). 어드민은 이 lec을 보고 "타이핑 복습(28강)"으로 적는다.
+  const res = await addXP('typingReview', act.pt ?? 20, '타이핑 복습',
+    { day: 'lastTypingReview', map: 'typingReviewCounts', key, max }, { lec: key });
   if (res) return res;
 
   // 못 받았을 때 "오늘 이미 받음"인지 "이 강의 상한 소진"인지 구분해서 알려준다
