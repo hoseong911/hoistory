@@ -266,7 +266,11 @@ const PHASE_NAME = {
 const $ = s => document.querySelector(s);
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
-let CLS = new URLSearchParams(location.search).get("cls") || "";
+const QS = new URLSearchParams(location.search);
+let CLS = QS.get("cls") || "";
+/* 어드민 RUN에서 넘겨준 기본 제한 시간. 방에 적힌 값보다 이쪽이 우선이다 —
+   방금 어드민에서 고르고 넘어온 값이 교사의 최신 뜻이기 때문이다. */
+const SECS0 = QS.get("secs");
 let ROOM = null;
 let TICK = null;
 let UNSUB = null;
@@ -521,8 +525,16 @@ function buildCtl(){
     el.classList.toggle("folded");
     $("#c-fold").textContent = el.classList.contains("folded") ? "조작판" : "접기";
   };
+  // 어드민에서 들고 온 제한 시간이 있으면 그것으로 시작한다.
+  if (SECS0 != null && [...$("#c-secs").options].some(o => o.value === String(SECS0))) {
+    $("#c-secs").value = String(SECS0);
+    SECS_TOUCHED = true;
+  }
   $("#c-phase").onchange = () => { PICK_TOUCHED = true; };
-  $("#c-secs").onchange  = () => { SECS_TOUCHED = true; };
+  $("#c-secs").onchange  = () => {
+    SECS_TOUCHED = true;
+    update(roomRef(), { secs: +$("#c-secs").value });   // 어드민 RUN에도 그대로 보인다
+  };
   $("#c-open").onclick   = () => { openPhase($("#c-phase").value); PICK_TOUCHED = false; };
   $("#c-reveal").onclick = () => update(roomRef(), { state: "revealed", endsAt: null });
   $("#c-more").onclick   = () => update(roomRef(), {

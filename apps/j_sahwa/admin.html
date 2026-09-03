@@ -227,7 +227,7 @@ textarea.meta-input{resize:vertical}
             <option value="180">180초</option>
             <option value="0">시간 제한 없음</option>
           </select>
-          <button class="btn btn-primary" id="r-tv">교실 화면 열기</button>
+          <button class="btn btn-primary" id="r-tv">이 설정으로 교실 화면 열기</button>
           <button class="btn btn-ghost"   id="r-reset" style="margin-left:auto;color:var(--hi-negative)">방 초기화</button>
         </div>
 
@@ -786,10 +786,17 @@ document.querySelectorAll(".adm-tab").forEach(btn=>{
   });
 });
 
+/* 여기서 고른 반과 제한 시간을 그대로 들고 교실 화면으로 넘어간다. 방에도 함께
+   써 두어(secs), 티비를 껐다 켜거나 주소로 바로 들어와도 같은 값이 잡힌다.
+   noopener를 걸면 창끼리 연결은 끊기지만 Firebase 로그인은 같은 origin이라
+   그대로 이어지므로, 조작판은 새 창에서도 바로 열린다. */
 $("#r-tv").addEventListener("click", ()=>{
-  // noopener를 걸면 새 창에서 Firebase 로그인 세션은 그대로여도(같은 origin) 창끼리
-  // 연결이 끊긴다. 조작판이 자기 로그인 상태를 스스로 읽으므로 그대로 두어도 된다.
-  window.open("screen.html?cls=" + encodeURIComponent(RCLS || ""), "_blank", "noopener");
+  const secs = +$("#r-secs").value;
+  if(RCLS) update(roomRef(), { secs });
+  window.open(
+    "screen.html?cls=" + encodeURIComponent(RCLS || "") + "&secs=" + encodeURIComponent(secs),
+    "_blank", "noopener"
+  );
 });
 
 $("#back-btn").addEventListener("click", ()=>{
