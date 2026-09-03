@@ -163,7 +163,10 @@ export async function addTypingReviewXP(lectureNum) {
   const max = Number(act.perLectureMax ?? DEFAULT_ACTIVITIES.typingReview.perLectureMax) || 0;
   if (max <= 0) return null;
 
-  const res = await addXP('typingReview', act.pt ?? 20, '타이핑 복습',
+  //  기록에 몇 강을 복습했는지 남긴다. 예전엔 그냥 '타이핑 복습'이라 어드민 기록에서
+  //  어느 강의였는지 알 수 없었다(2026-09-03).
+  const lecLabel = /^\d+$/.test(key) ? `${key}강` : key;
+  const res = await addXP('typingReview', act.pt ?? 20, `타이핑 복습 · ${lecLabel}`,
     { day: 'lastTypingReview', map: 'typingReviewCounts', key, max });
   if (res) return res;
 

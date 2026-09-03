@@ -132,6 +132,14 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 /* 검색·필터·정렬·액션을 하나의 옅은 배경 박스로 묶어 표와 시각적으로 분리한다 */
 .xp-rank-toolbar{background:var(--surface);border:1px solid var(--hairline-soft);border-radius:14px;padding:16px;margin-bottom:16px}
 .xp-rank-toolbar .stu-search-row{margin-bottom:12px}
+/* 한 줄짜리 랭킹 툴바 — 검색칸만 남는 폭을 먹고 나머지는 제 크기대로 붙는다.
+   좁은 화면에서는 어쩔 수 없이 접히되, 넓은 화면에서는 항상 한 줄이다. */
+.xp-rank-oneline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.xp-rank-oneline .stu-search{flex:1 1 180px;min-width:150px}
+.xp-rank-oneline .stu-cls-tags{flex:0 0 auto}
+.xp-rank-oneline .xp-sort-group{flex:0 0 auto}
+.xp-rank-oneline .xp-ghost-btn{flex:0 0 auto;margin-left:auto}
+.xp-rank-danger-row{display:flex;justify-content:flex-end;margin-top:14px;padding-top:14px;border-top:1px solid var(--hairline-soft)}
 .xp-rank-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .xp-sort-group{display:inline-flex;gap:6px}
 .xp-rank-divider{width:1px;align-self:stretch;min-height:22px;background:var(--hairline);margin:0 2px}
@@ -167,9 +175,26 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .dbs-score .v{font-size:18px;font-weight:800;color:var(--text);margin-top:3px}
 .dbs-score.total{background:var(--amber-l);border-color:var(--amber-m)}
 .dbs-score.total .v{color:var(--amber-d)}
-.dbs-xp{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.dbs-xp-info{font-size:14px;color:var(--text);font-weight:600}
-.dbs-xp-info b{color:var(--amber-d);font-weight:800}
+.dbs-score .s{font-size:11px;color:var(--sub);font-weight:600;margin-top:2px;white-space:nowrap}
+.dbs-score .v .den{font-size:12px;color:var(--sub);font-weight:600}
+.dbs-score.xp{background:var(--amber-l);border-color:var(--amber-m)}
+.dbs-score.xp .v{color:var(--amber-d)}
+.dbs-xp-act{display:flex;justify-content:flex-end;margin-top:10px}
+/* 강의별 O/X 세부 — 기본은 접혀 있고 [강의별 세부 보기]로 편다. */
+.dbs-detail-btn{margin-top:10px}
+.dbs-detail{display:none;margin-top:8px;max-height:320px;overflow:auto;border:1px solid var(--hairline-soft);border-radius:10px}
+.dbs-detail.open{display:block}
+.dbs-oxtable{width:100%;border-collapse:collapse;font-size:13px}
+.dbs-oxtable thead th{position:sticky;top:0;background:var(--surface);z-index:1;font-size:12px;font-weight:800;color:var(--sub);padding:7px 8px;text-align:center;border-bottom:1px solid var(--hairline-soft)}
+.dbs-oxtable thead tr.sub th{top:29px;font-size:10.5px;font-weight:600;letter-spacing:.02em;padding:3px 8px}
+.dbs-oxtable tbody th{font-size:12.5px;font-weight:700;color:var(--text);padding:6px 8px;text-align:left;white-space:nowrap}
+.dbs-oxtable tbody th .wt{font-size:10.5px;color:var(--sub);font-weight:600;margin-left:4px}
+.dbs-oxtable tbody td{padding:5px 8px;text-align:center;white-space:nowrap}
+.dbs-oxtable tbody tr+tr th,.dbs-oxtable tbody tr+tr td{border-top:1px solid var(--hairline-soft)}
+.dbs-ox{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:6px;font-size:11.5px;font-weight:800;margin:0 2px}
+.dbs-ox.o{background:var(--amber-l);color:var(--amber-d)}
+.dbs-ox.x{background:var(--surface);color:var(--critical);border:1px solid var(--hairline-soft)}
+.dbs-ox.off{background:transparent;color:var(--sub);opacity:.5}
 .dbs-fb-list{margin-top:10px;display:none;flex-direction:column;gap:6px}
 .dbs-fb-list.open{display:flex}
 .dbs-fb-item{font-size:14px;line-height:1.6;padding:8px 10px;background:var(--surface);border-radius:8px;word-break:keep-all}
@@ -347,11 +372,17 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .stu-table-roster thead th,.stu-table-roster tbody td{text-align:center}
 /* 경험치 기록 표(모달): .stu-table 기본 min-width(520px)가 모달 안쪽 폭보다 넓어 내용이 짧아도
    가로 스크롤이 생겼다. 최소폭을 풀고 열 너비를 고정한 뒤 메모만 줄바꿈시켜 한눈에 들어오게 한다. */
-.xp-hist-table{min-width:0}
-.xp-hist-table thead th:nth-child(1),.xp-hist-table tbody td:nth-child(1){width:88px}
-.xp-hist-table thead th:nth-child(2),.xp-hist-table tbody td:nth-child(2){width:150px}
-.xp-hist-table thead th:nth-child(3),.xp-hist-table tbody td:nth-child(3){width:76px}
-.xp-hist-table tbody td:nth-child(4){white-space:normal;word-break:break-word;text-align:left}
+/* 경험치 기록 표 — 활동 이름이 잘리지 않을 만큼 칸을 주고, 메모는 작은 글씨 두 줄로
+   묶어 둔다. 줄 수와 상관없이 모든 행 높이를 같게 고정해야 표가 들쭉날쭉하지 않다. */
+.xp-hist-table{min-width:0;width:100%;table-layout:fixed}
+.xp-hist-table thead th:nth-child(1),.xp-hist-table tbody td:nth-child(1){width:84px}
+.xp-hist-table thead th:nth-child(2),.xp-hist-table tbody td:nth-child(2){width:190px}
+.xp-hist-table thead th:nth-child(3),.xp-hist-table tbody td:nth-child(3){width:72px}
+.xp-hist-table tbody td{height:52px;vertical-align:middle}
+.xp-hist-table .xh-dt{font-size:12px;color:var(--slate);white-space:nowrap}
+.xp-hist-table .xh-act{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.xp-hist-table .xh-note{text-align:left;white-space:normal;padding-top:6px;padding-bottom:6px}
+.xp-hist-table .xh-note span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:12px;line-height:1.45;word-break:break-word}
 .stu-btn{display:inline-flex;align-items:center;justify-content:center;padding:7px 9px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;border:none;transition:.15s;white-space:nowrap}
 .stu-btn-edit{background:var(--surface);color:var(--text);border:1px solid var(--hairline)}
 .stu-btn-edit:hover{background:var(--hairline)}
@@ -369,6 +400,22 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 
 /* ── 수동 경험치: 여러 명 지급 명단 ── */
 .xp-pick-box{background:var(--amber-l);border:1.5px solid var(--amber-m);border-radius:12px;padding:10px 14px}
+/* ── 경험치 지급: 지급 폼 + 템플릿을 나란히 ── */
+.xp-award-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:1100px){.xp-award-grid{grid-template-columns:1fr}}
+.xp-tpl-save{display:flex;gap:8px;align-items:center}
+.xp-tpl-save .form-input{flex:1;min-width:0}
+.xp-tpl-save .add-btn{flex:0 0 auto;white-space:nowrap}
+.xp-tpl-list{display:flex;flex-direction:column;gap:6px;max-height:300px;overflow-y:auto}
+.xp-tpl-empty{font-size:13px;color:var(--sub);line-height:1.7;word-break:keep-all}
+.xp-tpl-item{display:flex;align-items:stretch;gap:6px}
+.xp-tpl-apply{flex:1;min-width:0;text-align:left;appearance:none;cursor:pointer;font-family:inherit;background:var(--surface);border:1px solid var(--hairline-soft);border-radius:10px;padding:8px 12px}
+.xp-tpl-apply:hover{border-color:var(--amber-m);background:var(--amber-l)}
+.xp-tpl-name{display:block;font-size:14px;font-weight:700;color:var(--text)}
+.xp-tpl-meta{display:block;font-size:12px;color:var(--sub);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xp-tpl-meta b{color:var(--amber-d);font-weight:800}
+.xp-tpl-del{flex:0 0 auto;appearance:none;cursor:pointer;font-family:inherit;font-size:12px;color:var(--sub);background:transparent;border:1px solid var(--hairline-soft);border-radius:10px;padding:0 10px}
+.xp-tpl-del:hover{color:var(--critical);border-color:var(--critical)}
 .xp-pick-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;font-size:13px;font-weight:800;color:var(--amber-d)}
 .xp-pick-clear{background:none;border:none;font-family:inherit;font-size:12px;font-weight:700;color:var(--amber-d);opacity:.75;cursor:pointer;text-decoration:underline}
 .xp-pick-clear:hover{opacity:1}
@@ -686,6 +733,36 @@ html,body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--sur
 .grade-score-table th.sh-tot{background:var(--c4-l);color:var(--c4)}
 .grade-score-table tbody tr:hover{background:var(--surface)}
 .grade-score-table .sc-cls-row td{background:var(--cream-dark,#E8E8E8);font-weight:700;font-size:14px;padding:6px 12px;text-align:center;color:var(--sub)}
+
+/* ── 성적 GRADE 모드 탭 (포트폴리오 / 논술형) ── */
+.grade-mode-bar{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--hairline-soft);padding-bottom:0}
+.grade-mode-tab{appearance:none;border:none;background:transparent;cursor:pointer;font-family:inherit;font-size:15px;font-weight:700;color:var(--sub);padding:9px 16px;border-radius:10px 10px 0 0;border-bottom:2px solid transparent;margin-bottom:-1px}
+.grade-mode-tab:hover{color:var(--text);background:var(--surface)}
+.grade-mode-tab.active{color:var(--c4);border-bottom-color:var(--c4)}
+
+/* ── 논술형 수행평가 표 ── 논술형마다 항목 3칸 + 총점 1칸, 묶음끼리 옅은 색으로 갈라 둔다 ── */
+.es-table th,.es-table td{padding:5px 7px}
+.es-table th .es-max{display:block;font-size:10px;font-weight:400;color:var(--sub);opacity:.75;margin-top:1px}
+.es-table th.es-grp{font-size:14px;color:var(--c4);background:var(--c4-l)}
+.es-table th.es-grp-1,.es-table th.es-grp-3{background:var(--c1-l);color:var(--c1)}
+.es-table th.es-grp-2,.es-table th.es-grp-4{background:var(--c2-l);color:var(--c2)}
+.es-table th.es-grp{border-bottom-width:0}
+/* 논술형 묶음의 왼쪽 경계를 진하게 — 어디까지가 한 논술형인지 눈으로 끊어 준다 */
+.es-table th.es-grp,
+.es-table tbody td:nth-child(4n+3){border-left:2px solid var(--border,#CFCFCF)}
+.es-in{width:46px;padding:4px 2px;text-align:center;font-family:inherit;font-size:14px;font-weight:600;color:var(--text);background:var(--canvas);border:1px solid var(--hairline-soft);border-radius:6px}
+.es-in:focus{outline:none;border-color:var(--c4);background:#fff}
+/* 숫자 스피너는 칸을 좁게 만들고 잘못 눌리기 쉬워 감춘다 */
+.es-in::-webkit-outer-spin-button,.es-in::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.es-in[type=number]{-moz-appearance:textfield}
+.es-tot{background:var(--surface)}
+.es-tot .es-tot-v{font-weight:800;color:var(--c4);margin-right:4px}
+.es-fb-btn{appearance:none;border:1px solid var(--hairline-soft);background:var(--canvas);color:var(--sub);cursor:pointer;font-size:11px;line-height:1;padding:3px 5px;border-radius:5px;vertical-align:middle}
+.es-fb-btn:hover{color:var(--c4);border-color:var(--c4)}
+.es-fb-btn.has{background:var(--c4-l);border-color:var(--c4);color:var(--c4)}
+.es-savestate{font-size:12px;font-weight:700;color:var(--sub);min-width:64px}
+.es-savestate.ok{color:var(--c2)}
+.es-savestate.err{color:var(--critical)}
 
 /* ── 성적 설정 섹션 ── */
 .grade-settings-section{margin-top:32px;border-top:1px solid var(--hairline-soft);padding-top:24px}

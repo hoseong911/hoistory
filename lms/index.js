@@ -630,6 +630,11 @@ let _thinkRaw       = [];    // think_lectures에서 온 원본 목록(숨김 �
 let _thinkRawReady  = false; // 강의 목록이 한 번이라도 도착했는가(도착 전엔 '불러오는 중'을 유지)
 let _thinkMineSet   = new Set(); // 내가 제출한 lectureDocId
 let _plRows         = null;  // class_progress/plan의 rows (없으면 null = 스케줄 모름)
+let _plReady        = false; // 스케줄을 한 번이라도 읽어 봤는가(실패해도 true — 그땐 안 가린다)
+let _conceptRaw     = [];    // class_lessons 원본(진도 필터 적용 전)
+let _conceptRawReady= false;
+let _missionRaw     = [];    // 미션 카드 원본(진도 필터 적용 전)
+let _missionRawReady= false;
 
 // "8/27" 같은 칸 값을 올해 기준 날짜로 푼다(연말/연초에 해가 넘어가도 가장 가까운 해로).
 // 어드민(admin.js plResolveDate)과 같은 규칙.
@@ -661,6 +666,17 @@ function _myLessonDate(icon) {
   const cls = Math.floor((parseInt(currentStudentId) - 30000) / 100);
   return _resolveMMDD(row.cells['c' + cls], _todayKST());
 }
+/* ══════ 아직 안 배운 강의 숨김 ══════
+   반마다 진도가 달라, 다른 반 때문에 먼저 공개된 강의가 우리 반 허브에도 그대로 떠서
+   아이들이 헷갈려 했다(2026-09-03). 진도표에 적힌 "우리 반 수업일"이 아직 오지 않은
+   강의는 개념·미션·생각 체크 모두에서 감춘다.
+   날짜를 모를 때는(스케줄에 행이 없거나 우리 반 칸이 비었을 때) 감추지 않는다 —
+   판단할 근거가 없는데 가리면 멀쩡한 과제가 사라져 버린다. */
+function _isAheadOfMyClass(numLike) {
+  const d = _myLessonDate(numLike);
+  if (!d) return false;
+  return d > _todayKST();
+}
 function _thinkIsExpired(item) {
   if (!_thinkMineSet.has(item.lectureDocId)) return false; // 아직 안 냈으면 계속 보여준다
   const d = _myLessonDate(item.icon);
@@ -668,15 +684,23 @@ function _thinkIsExpired(item) {
   const days = Math.floor((_todayKST() - d) / 86400000);
   return days >= THINK_HIDE_DAYS;
 }
-function applyThinkVisibility() {
-  if (!_thinkRawReady) return; // 아직 강의 목록 전 — sectionData.think는 null(불러오는 중)로 둔다
-  sectionData.think = _thinkRaw.filter(it => !_thinkIsExpired(it));
+/* 세 목록(개념·미션·생각)을 원본에서 다시 걸러 낸다. 원본이 도착할 때도, 진도표가
+   나중에 도착할 때도 같은 함수를 부르므로 순서를 신경 쓰지 않아도 된다.
+   진도표를 아직 못 읽었으면 아무것도 확정하지 않는다 — 먼저 다 보여 줬다가 곧바로
+   지우면 화면이 한 번 깜빡이고, 그 사이 누른 학생은 아직 안 배운 강의로 들어간다. */
+function applyVisibility() {
+  if (!_plReady) return;
+  if (_conceptRawReady) sectionData.concept = _conceptRaw.filter(it => !_isAheadOfMyClass(it.num));
+  if (_missionRawReady) sectionData.mission = _missionRaw.filter(it => !_isAheadOfMyClass(it.lessonNum));
+  if (_thinkRawReady)   sectionData.think   = _thinkRaw.filter(it => !_thinkIsExpired(it) && !_isAheadOfMyClass(it.icon));
   renderAll();
 }
 
 function startListening() {
   ['concept','mission','think','grade','contents'].forEach(k => sectionData[k] = null);
-  _thinkRaw = []; _thinkRawReady = false; _thinkMineSet = new Set(); _plRows = null;
+  _thinkRaw = []; _thinkRawReady = false; _thinkMineSet = new Set(); _plRows = null; _plReady = false;
+  _essayRec = null;
+  _conceptRaw = []; _conceptRawReady = false; _missionRaw = []; _missionRawReady = false;
   renderAll();
 
   // 0. 공지사항(패치노트 리스트, 최신 30건) — 미확인 글은 뱃지 표시 + 입장 시 1회 토스트
@@ -692,27 +716,29 @@ function startListening() {
   onSnapshot(query(collection(db, 'class_lessons'), orderBy('order','desc')), snap => {
     // 비공개(isOpen===false)는 생각 체크처럼 허브에서 아예 숨긴다(흐린 잠금 표시 안 함).
     // OT를 포함해 공개된 강의는 모두 개념 Check 허브에 노출한다(어드민에서 공개 토글로 제어).
-    sectionData.concept = snap.docs
+    _conceptRaw = snap.docs
       .filter(d => d.data().isOpen !== false)
       .map(d => {
         const l = d.data();
         return { icon: l.num, label: stripLecNum(l.title), sublabel: l.unit, num: l.num, isConcept: true, locked: false };
       });
-    renderAll();
+    _conceptRawReady = true;
+    applyVisibility();
   });
 
   // 2. 미션 체크 — cards filtered by settings/lms_config.mission_category
   getDoc(doc(db, 'settings', 'lms_config')).then(cfg => {
     const cat = cfg.exists() ? (cfg.data().mission_category || '') : '';
-    if (!cat) { sectionData.mission = []; renderAll(); return; }
+    if (!cat) { _missionRaw = []; _missionRawReady = true; applyVisibility(); return; }
     onSnapshot(query(collection(db, 'cards'), where('category','==', cat)), snap => {
-      sectionData.mission = snap.docs
+      _missionRaw = snap.docs
         .map(d => { const data = d.data(); return { docId: d.id, ...data, label: data.title || data.label, url: resolveAppUrl(data.url) }; })
         .filter(x => notHismile(x) && x.locked !== true) // 비공개(locked)는 생각 체크처럼 허브에서 숨긴다
         .sort((a, b) => (a.order ?? 999) - (b.order ?? 999)); // 어드민과 동일한 오름차순(order 작은 게 위)
-      renderAll();
+      _missionRawReady = true;
+      applyVisibility();
     });
-  }).catch(() => { sectionData.mission = []; renderAll(); });
+  }).catch(() => { _missionRaw = []; _missionRawReady = true; applyVisibility(); });
 
   // 0-1. 내 공지 열람·좋아요 기록 (좋아요 버튼 상태 표시용)
   onSnapshot(query(collection(db, 'announcement_reads'), where('studentId', '==', currentStudentId)), snap => {
@@ -723,14 +749,16 @@ function startListening() {
   }, () => {});
 
   // 3-0. 생각 체크 자동 숨김에 필요한 두 가지를 먼저 받아 둔다.
-  //      (수업 스케줄 / 내가 이미 낸 제출물) — 나중에 도착해도 applyThinkVisibility()가
+  //      (수업 스케줄 / 내가 이미 낸 제출물) — 나중에 도착해도 applyVisibility()가
   //      다시 걸러 주므로 순서를 신경 쓰지 않아도 된다.
+  //      진도표를 못 읽어도 _plReady는 켠다 — 아니면 세 목록이 영영 '불러오는 중'에 멈춘다.
   getDoc(doc(db, 'class_progress', 'plan'))
-    .then(s => { _plRows = s.exists() ? (s.data().rows || []) : []; applyThinkVisibility(); })
-    .catch(() => {});
+    .then(s => { _plRows = s.exists() ? (s.data().rows || []) : []; })
+    .catch(() => { _plRows = []; })
+    .finally(() => { _plReady = true; applyVisibility(); });
   onSnapshot(query(collection(db, 'think_submissions'), where('id', '==', currentStudentId)), snap => {
     _thinkMineSet = new Set(snap.docs.map(d => d.data().lectureDocId).filter(Boolean));
-    applyThinkVisibility();
+    applyVisibility();
   }, () => {});
 
   // 3. 생각 체크 — open lectures
@@ -751,11 +779,18 @@ function startListening() {
       })
       .sort((a, b) => b._order - a._order); // 어드민(생각 체크)과 동일한 order 내림차순(수동 이동이 최우선)
     _thinkRawReady = true;
-    applyThinkVisibility();
+    applyVisibility();
   });
 
   // 4. 성적 확인 — grade_records 기반 계산
   loadStudentGrade();
+
+  // 4-1. 논술형 수행평가 — 문서 하나(essay_records/{학번})가 곧 내 점수다.
+  //      포트폴리오와 반영 시점이 달라 따로 읽고, 채점된 게 하나도 없으면 아예 안 보여 준다.
+  getDoc(doc(db, 'essay_records', currentStudentId))
+    .then(s => { _essayRec = s.exists() ? (s.data() || {}) : {}; })
+    .catch(() => { _essayRec = {}; })
+    .finally(() => renderAll());
 
   // 5. 각종 콘텐츠 — cards filtered by settings/lms_config.contents_category (미션 체크와 동일한 구조)
   getDoc(doc(db, 'settings', 'lms_config')).then(cfg => {
@@ -936,6 +971,52 @@ function _maybeNotifyFeedback() {
     _fbToastShown = true;
     _queueEntryNotice({ fb: true });
   }
+}
+
+/* ── 논술형 수행평가 (essay_records) ──
+   논술형 4개를 각각 내용(4)·자료(3)·형식(3)으로 채점한다. 4개를 합친 총점은 없다.
+   아직 하나도 채점되지 않았으면 블록 자체를 내보내지 않는다 — 빈 표는 "안 본 건가?"
+   하는 오해만 만든다. */
+const ESSAY_N = 4;
+const ESSAY_PARTS = [
+  { key: 'content',  label: '내용', max: 4 },
+  { key: 'material', label: '자료', max: 3 },
+  { key: 'format',   label: '형식', max: 3 },
+];
+const ESSAY_MAX = ESSAY_PARTS.reduce((n, p) => n + p.max, 0);
+let _essayRec = null;   // null = 아직 안 읽음
+
+function _essayScored(c) { return ESSAY_PARTS.some(p => typeof c[p.key] === 'number'); }
+function _essayTotal(c)  { return ESSAY_PARTS.reduce((n, p) => n + (typeof c[p.key] === 'number' ? c[p.key] : 0), 0); }
+
+function renderEssayHTML() {
+  if (!_essayRec) return '';
+  const items = [];
+  for (let i = 1; i <= ESSAY_N; i++) {
+    const c = _essayRec['e' + i] || {};
+    const fb = (c.feedback || '').trim();
+    if (!_essayScored(c) && !fb) continue;   // 점수도 피드백도 없으면 건너뛴다
+    items.push({ i, c, fb });
+  }
+  if (!items.length) return '';
+  const body = items.map(({ i, c, fb }) => `
+    <div class="essay-item">
+      <div class="essay-head">
+        <span class="essay-name">논술형 ${i}</span>
+        <span class="essay-total">${_essayScored(c) ? `${_essayTotal(c)} <span class="essay-den">/ ${ESSAY_MAX}</span>` : '채점 전'}</span>
+      </div>
+      <div class="essay-parts">
+        ${ESSAY_PARTS.map(p => `<span class="essay-part">
+            <span class="essay-part-k">${p.label}</span>
+            <span class="essay-part-v">${typeof c[p.key] === 'number' ? c[p.key] : '—'}<span class="essay-den">/${p.max}</span></span>
+          </span>`).join('')}
+      </div>
+      ${fb ? `<div class="essay-fb">${esc(fb)}</div>` : ''}
+    </div>`).join('');
+  return `<div class="essay-wrap">
+    <div class="essay-title">논술형 수행평가</div>
+    ${body}
+  </div>`;
 }
 
 function renderGradeSummaryHTML(g) {
@@ -1163,7 +1244,8 @@ function openMileageModal() {
 function renderGradeSummaryModalContent() {
   const g = sectionData.grade;
   const summary = g === null ? LOADING_HTML : renderGradeSummaryHTML(g);
-  document.getElementById('gradeSummaryContent').innerHTML = `${summary}<div class="grade-caption">${GRADE_CAPTION}</div>`;
+  document.getElementById('gradeSummaryContent').innerHTML =
+    `${summary}${renderEssayHTML()}<div class="grade-caption">${GRADE_CAPTION}</div>`;
 }
 function openGradeSummaryModal() {
   _gradeModalOpen = true;

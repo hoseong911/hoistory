@@ -880,9 +880,12 @@ window.dbStudentSearch = async function() {
     const ranked  = xpBuildRanking(xpAll);
     const mine    = ranked.find(e => e.sid === sid);
     const isShared = mine && ranked.filter(e => e.rank === mine.rank).length > 1;
-    const rankTxt = isTestId(sid)
-      ? '테스트 계정 (순위 제외)'
-      : (mine ? `${isShared ? '공동 ' : ''}${mine.rank}위 / ${ranked.length}명` : '기록 없음');
+    //  칩 두 줄(큰 값 + 작은 설명)에 맞춰 순위와 모수를 따로 쥔다.
+    const rankMain = isTestId(sid) ? '제외' : (mine ? `${isShared ? '공동 ' : ''}${mine.rank}위` : '—');
+    const rankSub  = isTestId(sid) ? '테스트 계정' : (mine ? `${ranked.length}명 중` : '기록 없음');
+    //  다음 레벨까지 얼마나 남았는지. 칩 아래 작은 줄에 넣는다.
+    const nextXp  = calcNextThreshold(myTotal, _xpCfg?.levels, _xpCfg?.levelFormula);
+    const nextTxt = nextXp > myTotal ? `다음 Lv까지 ${(nextXp - myTotal).toLocaleString()}` : '최고 레벨';
 
     box.innerHTML = `
       <div class="dbs-head">
@@ -897,9 +900,13 @@ window.dbStudentSearch = async function() {
 
       <div class="dbs-sec">
         <div class="dbs-sec-label">경험치</div>
-        <div class="dbs-xp">
-          <div class="dbs-xp-info">누적 <b>${myTotal.toLocaleString()} 경험치</b> / Lv.${lv} / 랭킹 ${rankTxt}</div>
-          <button class="chip-btn danger" style="margin-left:auto" onclick="dbResetXp('${esc(sid)}','${esc(name)}')">경험치 초기화</button>
+        <div class="dbs-scorerow">
+          <div class="dbs-score xp"><div class="k">누적 경험치</div><div class="v">${myTotal.toLocaleString()}</div><div class="s">XP</div></div>
+          <div class="dbs-score"><div class="k">레벨</div><div class="v">Lv.${lv}</div><div class="s">${esc(nextTxt)}</div></div>
+          <div class="dbs-score"><div class="k">랭킹</div><div class="v">${esc(rankMain)}</div><div class="s">${esc(rankSub)}</div></div>
+        </div>
+        <div class="dbs-xp-act">
+          <button class="chip-btn danger" onclick="dbResetXp('${esc(sid)}','${esc(name)}')">경험치 초기화</button>
         </div>
       </div>
 
@@ -965,32 +972,86 @@ async function dbComputeStudentScore(recByKey, sid) {
   };
 
   let cA=0, cN=0, mA=0, mN=0, tA=0, tN=0;
+  //  강의별 O/X를 그대로 남긴다 — 합계만 보면 어느 강의에서 깎였는지 알 수 없어서,
+  //  학생 검색에서 바로 펼쳐 볼 수 있게 한 줄씩 들고 나간다(2026-09-03).
+  const rows = [];
   publishedLectures.forEach(key => {
     const en = enabledMap[key];
     const rec = recByKey[key];
     if (en.concept) { cN += 2*en.conceptWeight; if (rec?.concept?.achieved) cA += en.conceptWeight; if (rec?.concept?.onTime) cA += en.conceptWeight; }
     if (en.mission) { mN += 2*en.missionWeight; if (rec?.mission?.achieved) mA += en.missionWeight; if (rec?.mission?.onTime) mA += en.missionWeight; }
     if (en.think)   { tN += 2*en.thinkWeight;   if (rec?.think?.achieved)   tA += en.thinkWeight;   if (rec?.think?.onTime)   tA += en.thinkWeight; }
+    const cell = (kind, w) => en[kind]
+      ? { on:true, weight:w, achieved: rec?.[kind]?.achieved === true, onTime: rec?.[kind]?.onTime === true }
+      : { on:false, weight:w, achieved:false, onTime:false };
+    rows.push({
+      key,
+      concept: cell('concept', en.conceptWeight),
+      mission: cell('mission', en.missionWeight),
+      think:   cell('think',   en.thinkWeight),
+    });
   });
+  //  진도 순으로 세운다. 숫자가 아닌 키(특강 등)는 뒤로 밀어 둔다.
+  const lecNo = k => { const m = String(k).match(/[0-9]+/); return m ? parseInt(m[0], 10) : 1e9; };
+  rows.sort((a, b) => lecNo(a.key) - lecNo(b.key) || String(a.key).localeCompare(String(b.key)));
   const concept = calcScore(cA, cN, 'concept');
   const mission = calcScore(mA, mN, 'mission');
   const think   = calcScore(tA, tN, 'think');
   const maxScore = (bands[0]?.concept||0) + (bands[0]?.mission||0) + (bands[0]?.think||0);
-  return { concept, mission, think, total: concept.score + mission.score + think.score, maxScore, lectureCount: publishedLectures.length };
+  return { concept, mission, think, total: concept.score + mission.score + think.score, maxScore, lectureCount: publishedLectures.length, rows };
 }
 
-// 포트폴리오 점수 요약 — 세부(달성·%)는 성적 Check에서 확인하고, 여기선 체크 3개 점수 + 총점만.
+// 포트폴리오 점수 — 위는 체크 3개 점수 + 총점, 아래 [강의별 세부]를 펼치면 강의마다
+// 달성/기한 O·X를 그대로 본다. 예전엔 합계만 보여 어디서 깎였는지 성적 Check까지
+// 들어가야 알 수 있었다(2026-09-03).
 function dbRenderScoreChips(s, recCount) {
   if (!s) {
     return `<div style="font-size:13px;color:var(--sub)">성적 설정(반영 강의와 급간)이 없어 점수를 계산할 수 없어요. <span>(성적 기록 ${recCount}건)</span></div>`;
   }
-  const chip = (k, v, cls = '') => `<div class="dbs-score ${cls}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+  const chip = (k, v, sub, cls = '') =>
+    `<div class="dbs-score ${cls}"><div class="k">${k}</div><div class="v">${v}</div>${sub ? `<div class="s">${sub}</div>` : ''}</div>`;
+  const pct = c => c.total ? `${c.achieved}/${c.total} · ${c.pct}%` : '미실시';
   return `<div class="dbs-scorerow">
-    ${chip('개념체크', s.concept.score)}
-    ${chip('미션체크', s.mission.score)}
-    ${chip('생각체크', s.think.score)}
-    ${chip('총점', `${s.total}<span style="font-size:12px;color:var(--sub);font-weight:600"> / ${s.maxScore}</span>`, 'total')}
-  </div>`;
+    ${chip('개념체크', s.concept.score, pct(s.concept))}
+    ${chip('미션체크', s.mission.score, pct(s.mission))}
+    ${chip('생각체크', s.think.score, pct(s.think))}
+    ${chip('총점', `${s.total}<span class="den"> / ${s.maxScore}</span>`, `반영 ${s.lectureCount}강`, 'total')}
+  </div>
+  ${dbRenderScoreDetail(s)}`;
+}
+
+// 강의별 O/X 표. 기본은 접어 두고 버튼으로 펼친다(강의가 늘면 꽤 길어진다).
+function dbRenderScoreDetail(s) {
+  const rows = s.rows || [];
+  if (!rows.length) return '';
+  const mark = c => {
+    if (!c.on) return `<span class="dbs-ox off" title="미실시">–</span><span class="dbs-ox off">–</span>`;
+    const one = (ok, label) => `<span class="dbs-ox ${ok ? 'o' : 'x'}" title="${label}">${ok ? 'O' : 'X'}</span>`;
+    return one(c.achieved, '달성') + one(c.onTime, '기한');
+  };
+  //  가중치가 1이 아니면 강의 이름 옆에 조용히 붙여 준다(합계가 안 맞아 보이는 걸 막는다).
+  const w = r => {
+    const ws = [r.concept, r.mission, r.think].filter(c => c.on).map(c => c.weight);
+    return ws.length && ws.some(x => x !== 1) ? `<span class="wt">×${ws.join('/')}</span>` : '';
+  };
+  const body = rows.map(r => `
+    <tr>
+      <th>${esc(lecTag(r.key))}${w(r)}</th>
+      <td>${mark(r.concept)}</td>
+      <td>${mark(r.mission)}</td>
+      <td>${mark(r.think)}</td>
+    </tr>`).join('');
+  return `
+    <button class="chip-btn dbs-detail-btn" onclick="this.nextElementSibling.classList.toggle('open');this.textContent=this.nextElementSibling.classList.contains('open')?'세부 접기':'강의별 세부 보기'">강의별 세부 보기</button>
+    <div class="dbs-detail">
+      <table class="dbs-oxtable">
+        <thead>
+          <tr><th>강의</th><th>개념체크</th><th>미션체크</th><th>생각체크</th></tr>
+          <tr class="sub"><th></th><th>달성 · 기한</th><th>달성 · 기한</th><th>달성 · 기한</th></tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>`;
 }
 
 // 학생이 LMS 로그인 때 설정한 비밀번호(lms_auth/{학번})를 지워 초기화한다(다음 로그인 때 재설정).
@@ -1492,6 +1553,7 @@ async function addLesson() {
     num, title, unit, year, order, isOpen: false,
     content: ceBlankLessonData(num)
   });
+  await plSyncLectureRow(num, title);   // 진도표(수업 스케줄)에도 이 강의 행을 만들어 둔다
   await ceGetLessonsFromFirestore();
   ceCurrentLessonNum = num;
   cePopulateLessonSelect();
@@ -2608,6 +2670,7 @@ async function saveContent() {
   if (!lesson) return;
   await ceSaveContentToFirestore(lesson.docId, ceCd);
   await ceSyncThinkLecture(ceCd);   // 생각 체크 질문이 있으면 생각 체크 강의를 자동 생성/동기화
+  await plSyncLectureRow(ceCd.lesson.num, ceCd.lesson.title); // 진도표에 행이 없으면 여기서도 만든다
   await ceGetLessonsFromFirestore();
   ceCurrentLessonNum = ceCd.lesson.num;
   cePopulateLessonSelect();
@@ -2927,6 +2990,7 @@ async function ceHandleFileUpload(file) {
     // 업로드로 "생성"만 하고 저장을 안 거치면 생각 체크 활동(think_lectures)·성적 연결이
     // 안 만들어져 학생 화면에 생각 체크가 안 뜬다. 생성 시점에도 함께 동기화해 둔다.
     await ceSyncThinkLecture(content);
+    await plSyncLectureRow(num, content.lesson.title);   // 진도표(수업 스케줄)에도 행을 만들어 둔다
     await ceGetLessonsFromFirestore();
     ceCurrentLessonNum = num;
     cePopulateLessonSelect();
@@ -5449,6 +5513,250 @@ function closeScoreDetail() {
   document.getElementById('scoreDetailBackdrop').classList.remove('open');
 }
 
+/* ══════════════════════════════════════════════════════════════
+   논술형 수행평가 (essay_records/{학번})
+   ──────────────────────────────────────────────────────────────
+   포트폴리오와 달리 자동 집계가 없다 — 선생님이 직접 점수를 적는 표다.
+   논술형 4개, 각각 내용(4)·자료(3)·형식(3) = 10점. 4개를 합친 총점은 쓰지 않는다
+   (평가는 논술형 단위로 하고, 학기말 환산은 따로 한다).
+   문서 하나가 학생 한 명이라 학생 화면에서도 자기 문서 한 건만 읽으면 된다.
+   ══════════════════════════════════════════════════════════════ */
+const ESSAY_N     = 4;
+const ESSAY_PARTS = [
+  { key: 'content',  label: '내용', max: 4 },
+  { key: 'material', label: '자료', max: 3 },
+  { key: 'format',   label: '형식', max: 3 },
+];
+const ESSAY_MAX = ESSAY_PARTS.reduce((n, p) => n + p.max, 0); // 10
+
+let _esData    = {};   // { sid: { e1:{content,material,format,feedback}, ... } }
+let _esLoaded  = false;
+let _esFbCtx   = null; // 피드백 모달이 열고 있는 { sid, idx }
+const _esDirty = new Set();  // 아직 서버에 못 쓴 학번
+let _esSaveTimer = null;
+
+function esKey(i) { return 'e' + i; }
+function esCellOf(sid, i) {
+  const d = _esData[sid] || {};
+  return d[esKey(i)] || {};
+}
+// 셋 중 하나라도 적혀 있으면 채점한 것으로 본다 — 아예 안 준 논술은 총점을 '—'로 둔다.
+function esScored(c) { return ESSAY_PARTS.some(p => typeof c[p.key] === 'number'); }
+function esTotal(c)  { return ESSAY_PARTS.reduce((n, p) => n + (typeof c[p.key] === 'number' ? c[p.key] : 0), 0); }
+
+function esSetState(msg, kind) {
+  const el = document.getElementById('esSaveState');
+  if (!el) return;
+  el.textContent = msg || '';
+  el.className = 'es-savestate' + (kind ? ' ' + kind : '');
+}
+
+async function esLoad() {
+  const btn  = document.getElementById('gradeEssayLoadBtn');
+  const wrap = document.getElementById('gradeEssayWrap');
+  btn.disabled = true; btn.textContent = '불러오는 중…';
+  wrap.innerHTML = '<div class="empty-panel">불러오는 중...</div>';
+  try {
+    if (!_gradeStudents.length) throw new Error('학생 명단을 불러오지 못했습니다.');
+    const snap = await getDocs(collection(db, 'essay_records'));
+    _esData = {};
+    snap.docs.forEach(d => { _esData[d.id] = d.data() || {}; });
+    _esLoaded = true;
+    esRenderTable();
+    setupSubtabs('gradeEssayWrap', 'gradeSubtabEssay');
+    document.getElementById('gradeEssayExportBtn').style.display = '';
+    esSetState('');
+  } catch (e) {
+    wrap.innerHTML = `<div class="empty-panel">${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = '불러오기';
+  }
+}
+
+function esRenderTable() {
+  const wrap = document.getElementById('gradeEssayWrap');
+  const studs = _gradeStudents.filter(s => s.id !== '00000');
+  if (!studs.length) { wrap.innerHTML = '<div class="empty-panel">학생 명단이 없습니다.</div>'; return; }
+
+  const idxs = Array.from({ length: ESSAY_N }, (_, k) => k + 1);
+  //  1행은 논술형 묶음, 2행은 그 안의 배점 항목. 각 논술형은 항목 3개 + 총점 1개.
+  let html = `<div class="grade-score-table-wrap"><table class="grade-score-table es-table">
+    <thead>
+      <tr>
+        <th rowspan="2">학번</th><th rowspan="2">이름</th>
+        ${idxs.map(i => `<th colspan="${ESSAY_PARTS.length + 1}" class="es-grp es-grp-${i}">논술형 ${i}</th>`).join('')}
+      </tr>
+      <tr>
+        ${idxs.map(i => ESSAY_PARTS.map(p =>
+            `<th class="es-grp-${i}">${p.label}<span class="es-max">${p.max}</span></th>`
+          ).join('') + `<th class="es-grp-${i} es-tot-h">총점<span class="es-max">${ESSAY_MAX}</span></th>`).join('')}
+      </tr>
+    </thead><tbody>`;
+
+  const byCls = {};
+  studs.forEach(s => {
+    const cls = Math.floor((parseInt(s.id) - 30000) / 100);
+    (byCls[cls] || (byCls[cls] = [])).push(s);
+  });
+  const colspan = 2 + ESSAY_N * (ESSAY_PARTS.length + 1);
+
+  Object.keys(byCls).sort((a, b) => a - b).forEach(cls => {
+    const list = byCls[cls];
+    html += `<tr class="sc-cls-row" data-cls="${cls}"><td colspan="${colspan}">${cls}반 (${list.length}명)</td></tr>`;
+    list.forEach(s => {
+      html += `<tr data-cls="${cls}" data-sid="${esc(s.id)}">
+        <td style="font-size:12px;color:var(--sub)">${esc(s.id)}</td>
+        <td>${esc(s.name)}</td>
+        ${idxs.map(i => esRowCells(s.id, i)).join('')}
+      </tr>`;
+    });
+  });
+  html += '</tbody></table></div>';
+  wrap.innerHTML = html;
+}
+
+function esRowCells(sid, i) {
+  const c = esCellOf(sid, i);
+  const inputs = ESSAY_PARTS.map(p => {
+    const v = typeof c[p.key] === 'number' ? c[p.key] : '';
+    return `<td class="es-grp-${i}"><input class="es-in" type="number" min="0" max="${p.max}" step="1"
+      value="${v}" data-sid="${esc(sid)}" data-idx="${i}" data-part="${p.key}"
+      onchange="esCellChange(this)" onkeydown="esCellKey(event,this)"></td>`;
+  }).join('');
+  const has = c.feedback && String(c.feedback).trim();
+  return inputs + `<td class="es-grp-${i} es-tot" id="es-tot-${esc(sid)}-${i}">
+      <span class="es-tot-v">${esScored(c) ? esTotal(c) : '—'}</span>
+      <button class="es-fb-btn${has ? ' has' : ''}" title="선생님 피드백" onclick="esOpenFeedback('${esc(sid)}',${i})">✎</button>
+    </td>`;
+}
+
+// 점수 칸 편집. 배점을 넘겨 적으면 조용히 상한으로 깎는다(경고창 없이 값만 바로잡는다).
+window.esCellChange = function(el) {
+  const sid = el.dataset.sid, i = +el.dataset.idx, part = el.dataset.part;
+  const p   = ESSAY_PARTS.find(x => x.key === part);
+  const raw = el.value.trim();
+  let v = null;
+  if (raw !== '') {
+    v = Math.round(Number(raw));
+    if (!isFinite(v)) v = null;
+    else v = Math.max(0, Math.min(p.max, v));
+  }
+  el.value = v == null ? '' : v;
+  const d = _esData[sid] || (_esData[sid] = {});
+  const c = d[esKey(i)] || (d[esKey(i)] = {});
+  if (v == null) delete c[part]; else c[part] = v;
+  const totEl = document.querySelector(`#es-tot-${CSS.escape(sid)}-${i} .es-tot-v`);
+  if (totEl) totEl.textContent = esScored(c) ? esTotal(c) : '—';
+  esQueueSave(sid);
+};
+
+// Enter는 같은 칸의 아래 학생으로 내려간다 — 한 항목을 반 전체에 쭉 찍어 넣기 편하게.
+window.esCellKey = function(ev, el) {
+  if (ev.key !== 'Enter') return;
+  ev.preventDefault();
+  el.blur();
+  const all = [...document.querySelectorAll(
+    `#gradeEssayWrap .es-in[data-idx="${el.dataset.idx}"][data-part="${el.dataset.part}"]`)]
+    .filter(x => x.closest('tr').style.display !== 'none');
+  const at = all.indexOf(el);
+  const next = all[at + 1];
+  if (next) { next.focus(); next.select(); }
+};
+
+/* 쓰기를 모아서 한 번에 보낸다. 한 칸 칠 때마다 곧장 쓰면 반 전체를 입력하는 동안
+   수백 번을 쓰게 되고, 중간에 하나 실패해도 알아채기 어렵다. */
+function esQueueSave(sid) {
+  _esDirty.add(sid);
+  esSetState('저장 대기…', 'wait');
+  clearTimeout(_esSaveTimer);
+  _esSaveTimer = setTimeout(esFlushSave, 800);
+}
+
+async function esFlushSave() {
+  if (!_esDirty.size) return;
+  const ids = [..._esDirty];
+  _esDirty.clear();
+  esSetState('저장 중…', 'wait');
+  try {
+    await Promise.all(ids.map(sid => {
+      const stu = _gradeStudents.find(s => s.id === sid);
+      const payload = {
+        studentId: sid,
+        studentName: stu ? stu.name : '',
+        classNum: Math.floor((parseInt(sid) - 30000) / 100),
+        updatedAt: serverTimestamp(),
+      };
+      for (let i = 1; i <= ESSAY_N; i++) payload[esKey(i)] = _esData[sid]?.[esKey(i)] || {};
+      return setDoc(doc(db, 'essay_records', sid), payload, { merge: true });
+    }));
+    esSetState('저장됨', 'ok');
+    setTimeout(() => { const el = document.getElementById('esSaveState'); if (el && el.textContent === '저장됨') esSetState(''); }, 2000);
+  } catch (e) {
+    ids.forEach(id => _esDirty.add(id));   // 못 쓴 건 다시 대기줄에 넣는다
+    esSetState('저장 실패: ' + e.message, 'err');
+  }
+}
+
+window.esOpenFeedback = function(sid, i) {
+  const stu = _gradeStudents.find(s => s.id === sid);
+  _esFbCtx = { sid, idx: i };
+  document.getElementById('esFbTitle').textContent = `${stu ? stu.name : sid} · 논술형 ${i} 피드백`;
+  document.getElementById('esFbText').value = esCellOf(sid, i).feedback || '';
+  document.getElementById('esFbBackdrop').classList.add('open');
+  setTimeout(() => document.getElementById('esFbText').focus(), 30);
+};
+window.esCloseFeedback = function() {
+  _esFbCtx = null;
+  document.getElementById('esFbBackdrop').classList.remove('open');
+};
+window.esSaveFeedback = function() {
+  if (!_esFbCtx) return;
+  const { sid, idx } = _esFbCtx;
+  const text = document.getElementById('esFbText').value.trim();
+  const d = _esData[sid] || (_esData[sid] = {});
+  const c = d[esKey(idx)] || (d[esKey(idx)] = {});
+  if (text) c.feedback = text; else delete c.feedback;
+  const btn = document.querySelector(`#es-tot-${CSS.escape(sid)}-${idx} .es-fb-btn`);
+  if (btn) btn.classList.toggle('has', !!text);
+  esQueueSave(sid);
+  esCloseFeedback();
+};
+
+function esExportCSV() {
+  if (!_esLoaded) return;
+  const head = ['학번', '이름', '반'];
+  for (let i = 1; i <= ESSAY_N; i++) {
+    ESSAY_PARTS.forEach(p => head.push(`논술${i}_${p.label}`));
+    head.push(`논술${i}_총점`, `논술${i}_피드백`);
+  }
+  const q = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+  const rows = _gradeStudents.filter(s => s.id !== '00000').map(s => {
+    const cls = Math.floor((parseInt(s.id) - 30000) / 100);
+    const r = [s.id, s.name, `${cls}반`];
+    for (let i = 1; i <= ESSAY_N; i++) {
+      const c = esCellOf(s.id, i);
+      ESSAY_PARTS.forEach(p => r.push(typeof c[p.key] === 'number' ? c[p.key] : ''));
+      r.push(esScored(c) ? esTotal(c) : '', c.feedback || '');
+    }
+    return r;
+  });
+  const csv  = '\uFEFF' + [head, ...rows].map(r => r.map(q).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a'); a.href = url; a.download = '논술형_수행평가.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// GRADE 안의 두 모드(포트폴리오 / 논술형) 전환. 각자 불러오기를 따로 누르게 두고,
+// 논술형은 처음 열 때 한 번만 자동으로 읽어 온다.
+window.gradeSwitchMode = function(mode) {
+  document.querySelectorAll('.grade-mode-tab').forEach(b =>
+    b.classList.toggle('active', b.dataset.gmode === mode));
+  document.getElementById('gradeScoreSection').style.display = mode === 'score' ? '' : 'none';
+  document.getElementById('gradeEssaySection').style.display = mode === 'essay' ? '' : 'none';
+  if (mode === 'essay' && !_esLoaded) esLoad();
+};
+
 function exportScoreCSV() {
   if (!_scoreData.length) return;
   const BOM = '﻿';
@@ -6165,6 +6473,8 @@ Object.assign(window, {
   dbLoad, autoResizeTa, renderMissionPreview, renderContentsPreview, renderArchiveCards,
   // 성적 GRADE에서 학생 이름을 눌렀을 때 열리는 강의별 상세
   openScoreDetail, closeScoreDetail,
+  // 논술형 수행평가 — 인라인 onclick에서 부른다
+  esLoad, esExportCSV,
 });
 
 // 정적 HTML에 박아둔 아이콘 자리(data-icon)를 SVG로 채운다. (shared/icons.js 공용 헬퍼)
@@ -7599,10 +7909,24 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
 // ══════════════════════════════════════════════════════════════
 // 경험치 관리
 // ══════════════════════════════════════════════════════════════
-import { loadXPConfig, saveXPConfig, adminAddXP, adminRemoveXPEntries, DEFAULT_LEVELS, DEFAULT_FORMULA, DEFAULT_ACTIVITIES, calcLevel } from '../shared/xp.js';
+import { loadXPConfig, saveXPConfig, adminAddXP, adminRemoveXPEntries, DEFAULT_LEVELS, DEFAULT_FORMULA, DEFAULT_ACTIVITIES, calcLevel, calcNextThreshold } from '../shared/xp.js';
 
 const XP_ROOT = 'xp';
 const ACT_LABELS = { attendance:'출석 체크', mileage:'히스토리 마일리지', thinkCheck:'생각 체크', typingReview:'타이핑 복습 (일일 1회, 강의당 10회까지)', oxQuiz:'OX 퀴즈 (일일 최대)' };
+/* 설정 표의 이름은 상한까지 적어 둬야 뜻이 통하지만, 기록 표에서는 그 괄호가 활동 칸을
+   통째로 잡아먹는다. 기록에는 짧은 이름만 쓴다. */
+const XP_HIST_LABELS = { attendance:'출석 체크', mileage:'히스토리 마일리지', thinkCheck:'생각 체크', typingReview:'타이핑 복습', oxQuiz:'OX 퀴즈' };
+
+/* 기록 한 줄의 "활동" 이름.
+   생각 체크로 준 경험치는 adminAddXP를 거쳐 type이 'manual'로 남는다. 그래서 예전에는
+   기록에 "수동 조정"이라고만 떠서, 선생님이 임의로 준 것인지 답변을 써서 받은 것인지
+   구분이 안 됐다. src(=thinkCheck)를 먼저 보고 이름을 붙인다(2026-09-03). */
+function xpHistLabel(h) {
+  if (h.src === 'thinkCheck') return '생각 체크 답변 작성';
+  if (XP_HIST_LABELS[h.type]) return XP_HIST_LABELS[h.type];
+  if (h.type === 'manual') return '수동 조정';
+  return h.type || '-';
+}
 const fbFns = { ref, get, set, push, update, onValue };
 
 let _xpCfg    = null;
@@ -7733,9 +8057,9 @@ window.xpOpenHistory = function(sid, name) {
     tbody.innerHTML = hist.length ? hist.map(h => {
       const d = new Date(h.ts || 0);
       const dt = `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-      const label = ACT_LABELS[h.type] || (h.type === 'manual' ? '수동 조정' : (h.type || '-'));
+      const label = xpHistLabel(h);
       const sign  = h.pt > 0 ? '+' : '';
-      return `<tr><td style="font-size:12px;color:var(--slate)">${dt}</td><td>${label}</td><td>${sign}${h.pt||0}</td><td style="font-size:12px">${cleanTitle(h.note||'')}</td></tr>`;
+      return `<tr><td class="xh-dt">${dt}</td><td class="xh-act">${esc(label)}</td><td>${sign}${h.pt||0}</td><td class="xh-note"><span>${esc(cleanTitle(h.note||''))}</span></td></tr>`;
     }).join('') : '<tr><td colspan="4" style="color:var(--slate);padding:20px;font-size:13px">기록이 없습니다.</td></tr>';
   }
   document.getElementById('xpHistoryBackdrop')?.classList.add('open');
@@ -7907,6 +8231,7 @@ async function xpManualLoadStudents() {
     .map(s => ({ sid: String(s.studentId || s.id), name: s.name || '' }))
     .sort((a, b) => a.sid.localeCompare(b.sid, undefined, { numeric: true }));
   xpManualLogLoad();
+  xpTplLoad();
 }
 
 window.xpManualSearch = function(q) {
@@ -7980,6 +8305,79 @@ window.xpManualAward = async function() {
   res.style.color = fail.length ? 'var(--critical)' : 'var(--success)';
   if (!fail.length) xpManualClear();
   xpManualLogLoad();
+};
+
+/* ── 지급 템플릿 (RTDB xp/awardTemplates) ──
+   자주 주는 경험치는 매번 숫자와 사유를 다시 적게 된다. 이름 붙여 저장해 두고
+   누르면 옆 지급 폼의 경험치·사유 칸이 그대로 채워진다(대상 학생은 건드리지 않는다 —
+   누구에게 줄지는 매번 다르기 때문). */
+let _xpTpls = [];   // [{ id, name, pt, note }]
+
+async function xpTplLoad() {
+  const box = document.getElementById('xp-tpl-list');
+  if (!box) return;
+  try {
+    const snap = await get(ref(rtdb, `${XP_ROOT}/awardTemplates`));
+    const val = snap.exists() ? (snap.val() || {}) : {};
+    _xpTpls = Object.entries(val)
+      .map(([id, v]) => ({ id, name: v?.name || '', pt: Number(v?.pt) || 0, note: v?.note || '' }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (e) { _xpTpls = []; }
+  xpTplRender();
+}
+
+function xpTplRender() {
+  const box = document.getElementById('xp-tpl-list');
+  if (!box) return;
+  if (!_xpTpls.length) {
+    box.innerHTML = '<div class="xp-tpl-empty">저장된 템플릿이 없습니다. 왼쪽에서 경험치와 사유를 정한 뒤 이름을 붙여 저장하세요.</div>';
+    return;
+  }
+  box.innerHTML = _xpTpls.map(t => `
+    <div class="xp-tpl-item">
+      <button class="xp-tpl-apply" onclick="xpTplApply('${esc(t.id)}')" title="지급 폼에 채워 넣기">
+        <span class="xp-tpl-name">${esc(t.name)}</span>
+        <span class="xp-tpl-meta"><b>${t.pt > 0 ? '+' : ''}${t.pt}</b>${t.note ? ' · ' + esc(t.note) : ''}</span>
+      </button>
+      <button class="xp-tpl-del" onclick="xpTplDelete('${esc(t.id)}')" title="템플릿 삭제">✕</button>
+    </div>`).join('');
+}
+
+window.xpTplSave = async function() {
+  const nameEl = document.getElementById('xp-tpl-name');
+  const name = (nameEl?.value || '').trim();
+  const pt   = Number(document.getElementById('xp-manual-pt')?.value) || 0;
+  const note = document.getElementById('xp-manual-note')?.value.trim() || '';
+  if (!name) { alert('템플릿 이름을 입력하세요.'); return; }
+  if (!pt)   { alert('왼쪽에서 경험치 양을 먼저 입력하세요.'); return; }
+  //  같은 이름이 이미 있으면 새로 만들지 않고 덮어쓴다 — 값만 고치고 싶을 때가 많다.
+  const exist = _xpTpls.find(t => t.name === name);
+  const id = exist ? exist.id : 'tpl_' + Date.now().toString(36);
+  try {
+    await set(ref(rtdb, `${XP_ROOT}/awardTemplates/${id}`), { name, pt, note });
+    if (nameEl) nameEl.value = '';
+    await xpTplLoad();
+  } catch (e) { alert('템플릿 저장 실패: ' + e.message); }
+};
+
+window.xpTplApply = function(id) {
+  const t = _xpTpls.find(x => x.id === id);
+  if (!t) return;
+  const ptEl = document.getElementById('xp-manual-pt');
+  const nEl  = document.getElementById('xp-manual-note');
+  if (ptEl) ptEl.value = t.pt;
+  if (nEl)  nEl.value  = t.note;
+  const res = document.getElementById('xp-manual-result');
+  if (res) { res.textContent = `"${t.name}" 템플릿을 채웠습니다. 학생을 고르고 [지급]을 누르세요.`; res.style.color = 'var(--sub)'; }
+};
+
+window.xpTplDelete = async function(id) {
+  const t = _xpTpls.find(x => x.id === id);
+  if (!t || !confirm(`"${t.name}" 템플릿을 삭제할까요?`)) return;
+  try {
+    await set(ref(rtdb, `${XP_ROOT}/awardTemplates/${id}`), null);
+    await xpTplLoad();
+  } catch (e) { alert('삭제 실패: ' + e.message); }
 };
 
 async function xpManualLogLoad() {
@@ -8250,6 +8648,42 @@ function plLectureNumKey(label) {
   const m = /^(\d+)\s*강$/.exec(s);
   return m ? m[1] : s;
 }
+/* 개념 Check 강의를 새로 만들면(직접 추가·HWP 업로드) 진도표에 그 강의 행을 만들어 둔다.
+   예전엔 진도표가 이 흐름을 전혀 몰라서, 강의를 올려도 "수업 스케줄" 표에는 아무것도
+   안 생겼다 — 선생님이 매번 손으로 행을 추가해야 했다(2026-09-03).
+   이미 같은 강의수의 행이 있으면 새로 만들지 않고 비어 있는 주제만 채운다.
+   수업 날짜(반별 셀)는 비워 둔다 — 언제 나갈지는 사람이 정할 일이다. */
+async function plSyncLectureRow(num, title) {
+  const numKey = plLectureNumKey(String(num == null ? '' : num));
+  if (!numKey) return;
+  const label = /^\d+$/.test(numKey) ? `${numKey}강` : numKey;
+  const topic = cleanTitle(title || '');
+  try {
+    await plEnsureLoaded();
+    if (!_plLoaded) return;   // 진도표를 못 읽었으면 조용히 넘어간다(강의 생성 자체는 이미 끝났다)
+    const hit = _plData.rows.find(r => plLectureNumKey(r.label) === numKey);
+    if (hit) {
+      if (hit.topic || !topic) return;   // 손으로 적어 둔 주제는 덮지 않는다
+      hit.topic = topic;
+    } else {
+      const cells = {};
+      _plData.classes.forEach(c => { cells[c.id] = ''; });
+      const row = { id: plGenId(), label, topic, cells };
+      //  진도 순서에 맞는 자리에 끼운다. 번호가 아닌 라벨(OT 등)은 맨 뒤로.
+      const no = s => { const m = /^(\d+)\s*강$/.exec(String(s || '').trim()); return m ? +m[1] : NaN; };
+      const mine = no(label);
+      let at = _plData.rows.length;
+      if (!isNaN(mine)) {
+        const idx = _plData.rows.findIndex(r => { const n = no(r.label); return !isNaN(n) && n > mine; });
+        if (idx !== -1) at = idx;
+      }
+      _plData.rows.splice(at, 0, row);
+    }
+    plRender();   // 지금 진도표 화면을 보고 있으면 바로 반영, 아니면 아무 일도 하지 않는다
+    await setDoc(doc(db, 'class_progress', 'plan'), _plData);
+  } catch (e) { console.warn('진도표 자동 기재 실패:', e); }
+}
+
 // 강의수에 매칭되는 개념 Check 강의 제목을, 주제가 비어있을 때만 자동으로 채운다(기존 입력은 덮어쓰지 않음).
 async function plAutoFillTopic(rowId, label) {
   const numKey = plLectureNumKey(label);

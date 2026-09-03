@@ -11,7 +11,7 @@
 <!-- 개념 체크 미리보기가 학생 화면(class/lesson.html)과 100% 동일하게 렌더링되도록 공용 슬라이드 스타일을 그대로 불러온다.
      이 파일의 :root 변수 중 --text/--border는 아래 이 페이지 자체 :root 선언이 나중에 와서 재정의하므로 전역 충돌은 없다. -->
 <link rel="stylesheet" href="slide-style.css?v=20260902-3">
-<link rel="stylesheet" href="admin.css?v=20260828d">
+<link rel="stylesheet" href="admin.css?v=20260903a">
 <!-- 관리자 모드는 학생 LMS와 별개의 앱으로 홈 화면에 올라간다(이름 "LMS 관리자 모드").
      pwa.js는 "이미 있으면 건너뜀"이라, 여기 먼저 걸어 둔 것들이 루트 매니페스트·메타를 대신한다. -->
 <link rel="manifest" href="/hoistory/lms/admin.manifest.json">
@@ -555,6 +555,13 @@
       <div class="panel-title">성적 Check</div>
     </div>
 
+    <!-- 포트폴리오(개념·미션·생각 합산)와 논술형 수행평가는 성격이 아주 달라 한 표에 못 섞는다.
+         위 탭으로 갈라 두고, 아래는 각자의 반 태그·표를 따로 쓴다(2026-09-03). -->
+    <div class="grade-mode-bar">
+      <button class="grade-mode-tab active" data-gmode="score" onclick="gradeSwitchMode('score')">포트폴리오</button>
+      <button class="grade-mode-tab" data-gmode="essay" onclick="gradeSwitchMode('essay')">논술형</button>
+    </div>
+
     <div id="gradeScoreSection">
       <!-- 반 태그 위 전체 요약(반별 평균 점수) -->
       <div id="gradeScoreSummary" class="grade-summary-wrap" style="display:none"></div>
@@ -566,6 +573,18 @@
         <button class="add-btn" style="background:var(--surface);color:var(--text)" onclick="stSettingsExportGradesCsv()" title="전체 강의의 성적 기록(grade_records)을 CSV로 저장">전체 성적 CSV</button>
       </div>
       <div id="gradeScoreWrap"><div class="empty-panel">불러오기를 눌러주세요.</div></div>
+    </div>
+
+    <!-- ── 논술형 수행평가 ── 논술형 1~4, 각 내용(4)·자료(3)·형식(3) = 10점 ── -->
+    <div id="gradeEssaySection" style="display:none">
+      <div class="grade-score-top">
+        <div class="grade-subtab-bar" id="gradeSubtabEssay" style="margin-bottom:0"></div>
+        <div class="grade-score-info" id="gradeEssayInfo">논술형 1~4 · 각 10점(내용 4 · 자료 3 · 형식 3)</div>
+        <button class="add-btn p" id="gradeEssayLoadBtn" onclick="esLoad()">불러오기</button>
+        <button class="add-btn g" id="gradeEssayExportBtn" style="display:none" onclick="esExportCSV()">엑셀 내보내기</button>
+        <span class="es-savestate" id="esSaveState"></span>
+      </div>
+      <div id="gradeEssayWrap"><div class="empty-panel">불러오기를 눌러주세요.</div></div>
     </div>
   </div>
 
@@ -851,34 +870,42 @@
     <div class="panel-top">
       <div class="panel-title">경험치 지급</div>
     </div>
-    <div class="stu-card">
-      <div class="stu-card-body" style="font-size:13px;color:var(--sub);line-height:1.7">
-        생각 체크 포인트는 <b>생각 체크 &gt; ANSWER &gt; 반별</b>에서 "AI 채점"으로 채점할 때 함께 지급됩니다. 아래는 임의 가감용 수동 지급입니다.
+    <!-- 수동 지급 + 지급 템플릿. 자주 주는 경험치는 매번 숫자와 사유를 다시 치게 되는데,
+         옆에 저장해 두면 두 번 누르는 것으로 끝난다(2026-09-03). -->
+    <div class="xp-award-grid">
+      <div class="stu-card">
+        <div class="stu-card-head">수동 경험치 지급</div>
+        <div class="stu-card-body" style="display:flex;flex-direction:column;gap:14px">
+          <div class="form-group">
+            <label class="form-label">학생 검색 (학번 또는 이름)</label>
+            <input type="text" class="stu-search" style="width:100%;flex:none" id="xp-manual-search" placeholder="학번 또는 이름" oninput="xpManualSearch(this.value)">
+            <div id="xp-manual-dropdown" style="display:none;border:1px solid var(--hairline);border-radius:8px;margin-top:4px;overflow:hidden;background:var(--canvas);max-height:160px;overflow-y:auto"></div>
+          </div>
+          <div id="xp-manual-target" class="xp-pick-box" style="display:none"></div>
+          <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+            <div class="form-group" style="margin:0">
+              <label class="form-label">경험치 (음수 = 차감)</label>
+              <input type="number" class="form-input" id="xp-manual-pt" value="10" style="width:110px">
+            </div>
+            <div class="form-group" style="margin:0;flex:1;min-width:160px">
+              <label class="form-label">사유</label>
+              <input type="text" class="form-input" id="xp-manual-note" placeholder="예) 수업 참여 우수">
+            </div>
+            <button class="add-btn" onclick="xpManualAward()">지급</button>
+          </div>
+          <div id="xp-manual-result" style="font-size:13px;min-height:20px"></div>
+        </div>
       </div>
-    </div>
 
-    <!-- 수동 지급 -->
-    <div class="stu-card">
-      <div class="stu-card-head">수동 경험치 지급</div>
-      <div class="stu-card-body" style="display:flex;flex-direction:column;gap:14px;max-width:560px">
-        <div class="form-group">
-          <label class="form-label">학생 검색 (학번 또는 이름)</label>
-          <input type="text" class="stu-search" style="width:100%;flex:none" id="xp-manual-search" placeholder="학번 또는 이름" oninput="xpManualSearch(this.value)">
-          <div id="xp-manual-dropdown" style="display:none;border:1px solid var(--hairline);border-radius:8px;margin-top:4px;overflow:hidden;background:var(--canvas);max-height:160px;overflow-y:auto"></div>
-        </div>
-        <div id="xp-manual-target" class="xp-pick-box" style="display:none"></div>
-        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
-          <div class="form-group" style="margin:0">
-            <label class="form-label">경험치 (음수 = 차감)</label>
-            <input type="number" class="form-input" id="xp-manual-pt" value="10" style="width:110px">
+      <div class="stu-card">
+        <div class="stu-card-head">지급 템플릿</div>
+        <div class="stu-card-body" style="display:flex;flex-direction:column;gap:12px">
+          <div class="xp-tpl-save">
+            <input type="text" class="form-input" id="xp-tpl-name" maxlength="24" placeholder="템플릿 이름 (예: 발표 우수)">
+            <button class="add-btn" onclick="xpTplSave()">현재 값으로 저장</button>
           </div>
-          <div class="form-group" style="margin:0;flex:1;min-width:160px">
-            <label class="form-label">사유</label>
-            <input type="text" class="form-input" id="xp-manual-note" placeholder="예) 수업 참여 우수">
-          </div>
-          <button class="add-btn" onclick="xpManualAward()">지급</button>
+          <div id="xp-tpl-list" class="xp-tpl-list"></div>
         </div>
-        <div id="xp-manual-result" style="font-size:13px;min-height:20px"></div>
       </div>
     </div>
 
@@ -903,28 +930,25 @@
     <div class="stu-card">
       <div class="stu-card-head">학생 경험치 랭킹</div>
       <div class="stu-card-body" style="padding-bottom:0">
-        <div class="xp-rank-toolbar">
-          <div class="stu-search-row">
-            <input type="text" class="stu-search" id="xp-rank-search" placeholder="학번 또는 이름 검색" oninput="xpRenderStatus()">
-            <div class="stu-cls-tags" id="xp-rank-cls-tags">
-              <button class="stu-cls-tag active" data-cls="" onclick="xpSetClsFilter('')">전체</button>
-              <button class="stu-cls-tag" data-cls="1" onclick="xpSetClsFilter('1')">1반</button>
-              <button class="stu-cls-tag" data-cls="2" onclick="xpSetClsFilter('2')">2반</button>
-              <button class="stu-cls-tag" data-cls="3" onclick="xpSetClsFilter('3')">3반</button>
-              <button class="stu-cls-tag" data-cls="4" onclick="xpSetClsFilter('4')">4반</button>
-              <button class="stu-cls-tag" data-cls="5" onclick="xpSetClsFilter('5')">5반</button>
-              <button class="stu-cls-tag" data-cls="6" onclick="xpSetClsFilter('6')">6반</button>
-            </div>
+        <!-- 검색·반 태그·정렬·새로고침을 한 줄에 모은다. 전체 초기화는 되돌릴 수 없는
+             작업이라 표 아래로 내려 두었다 — 정렬 버튼 옆에 있으면 오조작이 쉽다. -->
+        <div class="xp-rank-toolbar xp-rank-oneline">
+          <input type="text" class="stu-search" id="xp-rank-search" placeholder="학번 또는 이름 검색" oninput="xpRenderStatus()">
+          <div class="stu-cls-tags" id="xp-rank-cls-tags">
+            <button class="stu-cls-tag active" data-cls="" onclick="xpSetClsFilter('')">전체</button>
+            <button class="stu-cls-tag" data-cls="1" onclick="xpSetClsFilter('1')">1반</button>
+            <button class="stu-cls-tag" data-cls="2" onclick="xpSetClsFilter('2')">2반</button>
+            <button class="stu-cls-tag" data-cls="3" onclick="xpSetClsFilter('3')">3반</button>
+            <button class="stu-cls-tag" data-cls="4" onclick="xpSetClsFilter('4')">4반</button>
+            <button class="stu-cls-tag" data-cls="5" onclick="xpSetClsFilter('5')">5반</button>
+            <button class="stu-cls-tag" data-cls="6" onclick="xpSetClsFilter('6')">6반</button>
           </div>
-          <div class="xp-rank-tools">
-            <div class="xp-sort-group">
-              <button class="xp-sort-btn active" id="xpSortRank" onclick="xpSetSort('rank')">경험치순</button>
-              <button class="xp-sort-btn" id="xpSortId" onclick="xpSetSort('id')">학번순</button>
-            </div>
-            <span class="xp-rank-divider"></span>
-            <button class="xp-ghost-btn" onclick="xpRefreshStatus()"><span data-icon="rotate-ccw" data-icon-size="14"></span>새로고침</button>
-            <button class="xp-danger-btn" style="margin-left:auto" onclick="xpResetAll()">전체 초기화</button>
+          <span class="xp-rank-divider"></span>
+          <div class="xp-sort-group">
+            <button class="xp-sort-btn active" id="xpSortRank" onclick="xpSetSort('rank')">경험치순</button>
+            <button class="xp-sort-btn" id="xpSortId" onclick="xpSetSort('id')">학번순</button>
           </div>
+          <button class="xp-ghost-btn" onclick="xpRefreshStatus()"><span data-icon="rotate-ccw" data-icon-size="14"></span>새로고침</button>
         </div>
       </div>
       <div style="padding:0 20px 20px">
@@ -933,6 +957,9 @@
             <thead><tr><th>순위</th><th>학번</th><th>이름</th><th>레벨</th><th>누적 경험치</th><th>최근 활동</th><th>관리</th></tr></thead>
             <tbody id="xp-status-body"></tbody>
           </table>
+        </div>
+        <div class="xp-rank-danger-row">
+          <button class="xp-danger-btn" onclick="xpResetAll()">전체 초기화</button>
         </div>
       </div>
     </div>
@@ -1084,6 +1111,19 @@
   </div>
 </div>
 
+<!-- 논술형: 학생 한 명의 논술형 하나에 대한 선생님 피드백 -->
+<div class="modal-backdrop" id="esFbBackdrop" onclick="if(event.target===this)esCloseFeedback()">
+  <div class="modal" style="max-width:520px;width:94vw">
+    <div class="modal-title" id="esFbTitle">논술형 피드백</div>
+    <p class="field-hint" style="margin:-14px 0 14px">저장하면 학생의 성적 확인 화면에 바로 보입니다.</p>
+    <textarea class="form-input" id="esFbText" rows="6" style="width:100%;resize:vertical" placeholder="예) 사료를 근거로 주장을 세운 점이 좋습니다. 마무리 문단이 조금 짧습니다."></textarea>
+    <div class="modal-actions">
+      <button class="add-btn" style="background:var(--surface);color:var(--text)" onclick="esCloseFeedback()">취소</button>
+      <button class="add-btn p" onclick="esSaveFeedback()">저장</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="gradeFeedbackBackdrop" onclick="if(event.target===this)closeGradeFeedbackModal()">
   <div class="modal" style="max-width:480px">
     <div class="modal-title" id="gradeFeedbackTitle">피드백 작성</div>
@@ -1227,6 +1267,6 @@
 <!-- hwpx 파일(zip+xml) 압축 해제용: 활동지 업로드로 새 강의 자동 생성 기능에 사용 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="slide-render.js?v=20260902-3"></script>
-<script type="module" src="admin.js?v=20260828d"></script>
+<script type="module" src="admin.js?v=20260903a"></script>
 </body>
 </html>

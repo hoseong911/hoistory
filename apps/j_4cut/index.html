@@ -301,6 +301,9 @@ body{font-family:'Pretendard',-apple-system,sans-serif;background:var(--cream);c
       <div class="ev-label">사건 고르기</div>
       <div class="ev-pick" id="evPick"></div>
       <button class="btn btn-primary btn-block btn-lg" id="startBtn" disabled></button>
+      <!-- 이미 낸 학생에게만 열린다. 다 하고 나면 친구 작품을 볼 길이 인트로에 없어서,
+           제출한 뒤 돌아온 학생이 갈 곳을 잃었다(2026-09-03). -->
+      <button class="btn btn-ghost btn-block" id="introArcBtn" style="margin-top:12px;display:none">친구들 작품 둘러보기</button>
     </div>
   </div>
 </section>
@@ -412,6 +415,7 @@ function emptyCuts(){return Array.from({length:CUTS},()=>({bubbles:[]}));}
 
 let CONTENT=DEFAULT_CONTENT;
 let student=null;         // {studentId, studentName}
+let mySubmitted=false;    // 이미 낸 학생인가 — 인트로의 [친구들 작품 둘러보기]를 여는 조건
 let pickedEventId=null;   // 인트로에서 고른 사건
 let curEvent=null;        // {id,name,cuts}
 let curImage=null;        // 사건 만화 이미지 dataURL
@@ -491,6 +495,22 @@ async function init(){
 
   student=getStudentFromLMS();
   showScreen(student?'introScreen':'loginGate');
+  if(student)checkMySubmission();
+}
+
+/* 낸 적이 있으면 인트로에서도 갤러리로 갈 수 있게 한다. fourcut_works가 아니라
+   요약 문서(fourcut_submissions)를 본다 — 1문서 1KB 미만이라 인트로를 붙잡지 않는다.
+   실패하면 조용히 넘어간다(버튼이 안 보일 뿐, 완료 화면에는 여전히 있다). */
+async function checkMySubmission(){
+  try{
+    const s=await getDoc(doc(db,'fourcut_submissions',student.studentId));
+    if(s.exists())markSubmitted();
+  }catch(e){}
+}
+function markSubmitted(){
+  mySubmitted=true;
+  const b=$("#introArcBtn");
+  if(b)b.style.display='';
 }
 
 /* 인트로 제목은 한 줄로 앉힌다. 제목을 길게 바꿔도 줄이 안 넘어가도록,
@@ -1010,6 +1030,7 @@ async function submitWork(dataUrl){
   else{payload.likes=0;payload.likedBy={};payload.createdAt=serverTimestamp();}
   await withTimeout(setDoc(wref,payload,{merge:true}),SUBMIT_TIMEOUT,'제출이 오래 걸려요. 잠시 뒤 다시 시도해 주세요.');
   clearDraft(curEvent.id);   // 냈으니 이어 쓸 것은 없다
+  markSubmitted();          // 인트로로 돌아가도 갤러리 버튼이 열려 있게
   await saveSubmissionMark(cur.exists());
 }
 
@@ -1390,6 +1411,7 @@ async function toggleLike(id,btn){
 
 
 $("#gateArcBtn").onclick=openArchive;
+$("#introArcBtn").onclick=openArchive;
 
 /* 정적 HTML에 박힌 아이콘 주입 */
 document.querySelectorAll('[data-icon]').forEach(el=>el.innerHTML=icon(el.dataset.icon,el.dataset.iconSize?+el.dataset.iconSize:24));
