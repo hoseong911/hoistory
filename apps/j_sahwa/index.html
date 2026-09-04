@@ -348,6 +348,9 @@
   .memo:focus{outline:none;border-color:var(--rule)}
   .memo-foot{display:flex;align-items:center;gap:.8rem;max-width:36rem;margin-top:.6rem}
   .memo-count{font-family:var(--ui);font-variant-numeric:tabular-nums;font-size:.76rem;color:var(--ink-faint);margin-left:auto}
+  /* 공용 mountCharCounter가 붙여 주는 상태 표시 */
+  .memo-count.hi-count-ok{color:var(--ink-soft)}
+  .memo-count.hi-count-warn{color:var(--seal);font-weight:600}
   .memo-msg{font-size:.86rem;color:var(--ink-soft);min-height:1.2rem;margin-top:.6rem}
   .memo-msg.bad{color:var(--seal)}
 
@@ -376,6 +379,10 @@ import { getFirestore, doc, getDoc, setDoc, serverTimestamp as fsNow } from "htt
 import { getDatabase, ref, get, set, update, onValue, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { firebaseConfig } from "../../shared/firebase-config.js";
 import { initAuth, loadStudents, verifyStudentId } from "../../shared/auth.js";
+import { mountCharCounter, blockPaste, countCharsNoSpace } from "../../shared/textLimit.js";
+
+/* 소감 칸에서 쓸 공용 도구. game.js는 일반 스크립트라 import를 못 하므로 여기서 열어 준다. */
+window.SahwaText = { mountCharCounter, blockPaste, countCharsNoSpace };
 
 const app  = initializeApp(firebaseConfig);
 const db   = getFirestore(app);
@@ -413,7 +420,7 @@ window.SahwaNet = {
         name: String(m.name || ""),
         classNum: m.classNum == null ? null : (m.classNum|0),
         ho: String(m.ho || ""),
-        text: String(m.text || "").slice(0, 2000),
+        text: String(m.text || "").slice(0, 1200),
         updatedAt: fsNow()
       }, { merge: true });
       return true;

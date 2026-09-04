@@ -715,13 +715,19 @@ function paintBlocked(why){
 /* ══════════════════ 소감 ══════════════════
    활동을 마친 학생이 남기는 글. 결석해서 게임을 못 한 학생도 여기로 들어와
    사림 이야기를 적을 수 있다 — 활동 여부는 이 글로 가린다. */
-const MEMO_MAX = 2000;
+/* 글자 수는 공백을 빼고 센다. 띄어쓰기로 칸을 채워 분량을 맞추는 것을 막기 위해서다.
+   textarea의 maxlength는 공백까지 합한 안전선일 뿐, 실제 상한은 MEMO_MAX가 잡는다. */
+const MEMO_MIN = 30;
+const MEMO_MAX = 500;
+const MEMO_RAW_MAX = 1200;
+function memoBare(s){ return String(s == null ? "" : s).replace(/\s/g, "").length; }
+
 function memoStart(){
   MODE.screen = "memo"; MODE.viewKey = null;
   paint(`<div class="eyebrow">${esc(MODE.cls)}반 ${esc(MODE.P.id)}${MODE.P.name ? " " + esc(MODE.P.name) : ""}</div>
     <h2>${esc(CONTENT.memoTitle)}</h2>
     <p class="lede">${fmt(CONTENT.memoPrompt)}</p>
-    <textarea class="memo" id="memoText" maxlength="${MEMO_MAX}" placeholder="여기에 적으시오."></textarea>
+    <textarea class="memo" id="memoText" maxlength="${MEMO_RAW_MAX}" placeholder="여기에 적으시오."></textarea>
     <div class="memo-foot">
       <button class="go" id="memoSave" style="margin-top:0">남기기</button>
       <button class="ghost" id="memoBack" style="margin-top:0">돌아가기</button>
@@ -730,22 +736,43 @@ function memoStart(){
     <div class="memo-msg" id="memoMsg">불러오는 중…</div>`);
 
   const ta = $("#memoText"), msg = $("#memoMsg"), cnt = $("#memoCount");
-  const count = ()=>{ cnt.textContent = ta.value.length + " / " + MEMO_MAX; };
-  ta.oninput = count;
+  const T = window.SahwaText;   // index.html이 shared/textLimit.js를 열어 준다
+  const count = ()=>{ cnt.textContent = memoBare(ta.value) + " / " + MEMO_MAX; };
+  if(T && T.mountCharCounter){
+    // 공백을 뺀 글자 수를 세고, 넘치면 그 자리에서 자른다.
+    T.mountCharCounter({ input:ta, counter:cnt, max:MEMO_MAX, excludeSpaces:true, truncate:true });
+  } else {
+    ta.oninput = count;   // 공용 모듈을 못 불러왔을 때의 대비
+  }
+  // 남의 글을 옮겨 오지 못하게 붙여넣기와 끌어놓기, 오른쪽 단추를 막는다.
+  if(T && T.blockPaste) T.blockPaste(ta, { notice:true });
   $("#memoBack").onclick = ()=> paintIntro();
 
   // 전에 남긴 글이 있으면 그대로 불러와 고쳐 쓰게 한다 — 두 번 내면 덮어쓴다.
   SahwaNet.loadMemo(MODE.P.id).then(prev=>{
     if(MODE.screen !== "memo") return;
-    if(prev && prev.text){ ta.value = prev.text; msg.textContent = "전에 남긴 글을 불러왔습니다. 고쳐 쓰고 다시 남길 수 있습니다."; }
+    if(prev && prev.text){
+      // 상한을 줄이기 전에 남긴 글은 여기서 잘린다. 조용히 자르면 사라진 줄 모르므로 알린다.
+      const wasOver = memoBare(prev.text) > MEMO_MAX;
+      ta.value = prev.text;
+      msg.textContent = wasOver
+        ? `전에 남긴 글을 불러왔습니다. 이제 ${MEMO_MAX}자까지만 남길 수 있어 뒷부분이 잘렸습니다.`
+        : "전에 남긴 글을 불러왔습니다. 고쳐 쓰고 다시 남길 수 있습니다.";
+    }
     else msg.textContent = "";
-    count();
+    // 카운터는 input을 듣고 있으므로, 값을 넣어 준 뒤에는 한 번 알려 줘야 한다.
+    ta.dispatchEvent(new Event("input"));
+    if(!(T && T.mountCharCounter)) count();
   });
 
   $("#memoSave").onclick = async ()=>{
     const text = ta.value.trim();
     msg.classList.remove("bad");
-    if(text.length < 20){ msg.textContent = "스무 자 이상 적어 주시오."; msg.classList.add("bad"); return; }
+    const n = memoBare(text);
+    if(n < MEMO_MIN){
+      msg.textContent = `공백을 빼고 ${MEMO_MIN}자 이상 적어야 남길 수 있소. 지금은 ${n}자요.`;
+      msg.classList.add("bad"); return;
+    }
     $("#memoSave").disabled = true; msg.textContent = "남기는 중…";
     const ok = await SahwaNet.saveMemo({
       studentId: MODE.P.id, name: MODE.P.name, classNum: MODE.cls,
