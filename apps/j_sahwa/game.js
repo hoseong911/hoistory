@@ -906,19 +906,30 @@ function fmtLeft(ms){
 }
 
 function roomRender(){
-  const P = MODE.P, room = ROOM || {};
+  const room = ROOM || {};
   const phase = room.phase ? String(room.phase) : null;
 
   // 소감을 쓰는 중에는 화면을 건드리지 않는다. 방이 바뀔 때마다 다시 그리면
   // 학생이 적던 글이 통째로 날아간다.
   if(MODE.screen === "memo") return;
 
+  const roundKey = phase + ":" + (room.round || 0);
+
+  /* 서버가 이 학생의 최신 상태를 쥐고 있는 경우가 있다 — 튕겼다 새로고침해 로컬
+     기억이 비었거나, 교사가 미제출을 대신 처리했거나, 죽었다가 서원으로 되살아난
+     때다. 이번 판을 아직 로컬에서 내지 않았다면 서버 쪽을 정본으로 받아들인다.
+     이미 냈다면 방금 화면에 반영한 것을 서버 메아리가 되돌리면 안 되므로 두지 않는다.
+     자리(참조)는 그대로 두고 값만 덮는다 — playPhase가 이 객체를 쥔 채 결과를 쓴다. */
+  const mySaved = (room.players || {})[MODE.P.id];
+  if(mySaved && MODE.answered !== roundKey) Object.assign(MODE.P, mySaved);
+  const P = MODE.P;
+
   /* 방 노드 하나를 통째로 구독하고 있어서, 같은 반 친구가 하나 낼 때마다 스냅샷이
      새로 온다. 그때마다 화면을 다시 그리면 타이머가 깜빡이고, 더 나쁘게는 선택지
      순서가 새로 섞여 누르려던 자리가 바뀐다. 화면의 뼈대가 달라질 때만 다시 그리고,
      그렇지 않으면 사람 수만 갈아 끼운다. */
   const viewKey = [phase, room.state || "", room.round || 0,
-                   MODE.answered === phase + ":" + (room.round || 0) ? 1 : 0,
+                   MODE.answered === roundKey ? 1 : 0,
                    P.alive ? 1 : 0].join("|");
   if(viewKey === MODE.viewKey){ refreshRoster(room); return; }
   MODE.viewKey = viewKey;
@@ -983,7 +994,21 @@ function roomRender(){
 
   // 사건 열림 — 아직 안 냈으면 선택, 냈으면 대기
   if(room.state === "open"){
-    if(MODE.answered === phase + ":" + (room.round||0)){ paintSubmitted(ev, room); return; }
+    // 서버에 이미 이 학생의 답이 있으면(튕겼다 돌아온 때) 다시 고르게 하지 않는다.
+    // 로컬 기억만 비어 있을 뿐이므로 서버 기록으로 "이미 냈음"을 되살린다.
+    const mine = ((room.answers || {})[phase] || {})[P.id];
+    if(mine && MODE.answered !== roundKey){
+      MODE.answered = roundKey;
+      MODE.autoPicked = !!mine.auto;
+      MODE.sealed = ev.kind === "lots";
+      MODE.answeredLabel = MODE.autoPicked
+        ? (MODE.sealed ? "끝내 패를 뽑지 않았다." : "고르지 않아 이렇게 기록되었다")
+        : (MODE.sealed ? "패를 하나 뽑아 봉해 두었다."
+           : ((ev.choices||[]).find(c=>c.key===mine.choice)?.label
+              || (ev.shortOf && ev.shortOf[mine.choice]) || mine.choice));
+      MODE.lastRes = null;   // 결과 본문은 서버에 없다 — 공개 때는 대기 화면만 보인다
+    }
+    if(MODE.answered === roundKey){ paintSubmitted(ev, room); return; }
     MODE.screen = "round"; MODE.autoPicked = false; MODE.sealed = false;
     // 마지막 인자 true = 뽑기는 봉인해 둔다(교사가 공개할 때 함께 연다).
     playPhase(phase, P, (res, key, sealed)=> submitChoice(phase, room, res, key, sealed), true);
@@ -1036,6 +1061,50 @@ function autoSubmit(phase, room){
   const res = c.lot ? c.apply(P, Math.random() < c.lot.bad / c.lot.n) : c.apply(P);
   submitChoice(phase, room, res, c.key);
 }
+
+/* 서버(RTDB)에 넣기 좋은 평평한 모양. index.html의 slim과 같은 결과를 낸다 —
+   교사 화면이 미제출 학생을 대신 써 넣을 때도 같은 모양이라야 한다. */
+function slimPlayer(P){
+  return {
+    id:P.id||"", name:P.name||"", ho:P.ho||"", master:P.master||"", base:P.base||"",
+    rank:P.rank|0, fame:P.fame|0, alive:!!P.alive, seowon:!!P.seowon, noRevive:!!P.noRevive,
+    deathYear:P.deathYear||null, causeOfDeath:P.causeOfDeath||null,
+    log:(P.log||[]).map(e=>({year:e.year|0, text:String(e.text||"")}))
+  };
+}
+
+/* 교사 화면(screen.html)이 공개/다음을 누를 때 부른다. 시간이 다 되도록, 또는
+   접속이 끊겨 끝내 답을 내지 않은 학생을 autoSubmit과 똑같은 규칙으로 대신
+   처리한다. 접속이 나빠 한 사건을 통째로 건너뛰는 일을 막기 위해서다.
+   반환 { key, player } — player는 서버에 그대로 써도 되는 평평한 모양.
+   대신 낼 것이 없으면(죽어 관전인 선택 사건 등) null. */
+window.resolveDefaultFor = function(phase, praw){
+  const ev = EVENTS[phase];
+  if(!ev) return null;
+  const P = Object.assign(makePlayer(), praw || {});
+  P.log = Array.isArray(P.log) ? P.log.map(e=>({year:e.year|0, text:String(e.text||"")})) : [];
+
+  // 중종반정(1506)은 고를 것이 없는 판가름이다. 죽은 학생도 반드시 통과해야
+  // 서원을 둔 이가 되살아난다 — 관전만 하다 이 판정을 건너뛰면 안 된다.
+  if(ev.kind === "auto"){
+    const r = ev.apply(P);
+    return { key:String(r.key||""), player:slimPlayer(P) };
+  }
+  // 그 밖의 사건은 산 사람만 낸다. 죽은 학생은 관전이라 대신 낼 것이 없다.
+  if(!P.alive) return null;
+  if(ev.kind === "lots"){
+    // 패를 뽑지 않은 것은 운에 맡긴 것이 아니라 아무것도 하지 않은 것이다(autoSubmit과 같다).
+    ev.apply(P, true);
+    adj(P,"fame",-1); P.noRevive = true;
+    if(P.log.length) P.log[P.log.length-1].text = "갑자년의 옥사에 휩쓸리다. 끝내 패를 잡지 않았다.";
+    return { key:ev.keyOf(true), player:slimPlayer(P) };
+  }
+  const c = (ev.choices||[]).find(x=>x.key===ev.defaultKey) || (ev.choices||[])[0];
+  if(!c) return null;
+  if(c.lot) c.apply(P, Math.random() < c.lot.bad / c.lot.n);
+  else c.apply(P);
+  return { key:c.key, player:slimPlayer(P) };
+};
 
 /* 이미 낸 학생이 보는 화면 */
 function paintSubmitted(ev, room){

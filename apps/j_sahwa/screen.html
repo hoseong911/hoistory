@@ -262,7 +262,7 @@
 <script type="module">
 /* 방을 구독해 그리기만 한다. 쓰기는 하지 않는다 — 이 화면은 보여 주는 일만 맡는다. */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, get, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, get, onValue, update, remove, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { firebaseConfig } from "../../shared/firebase-config.js";
 
@@ -528,6 +528,27 @@ function openPhase(p){
   });
 }
 
+/* 끝내 답을 내지 않은 학생을 대신 처리한다. 자리에 있으나 안 누른 학생과 접속이
+   끊긴 학생을 똑같이 다뤄, 접속이 나빠 한 사건을 통째로 건너뛰는 일을 막는다.
+   규칙은 game.js의 resolveDefaultFor가 쥐고 있다(학생 화면 autoSubmit과 같다).
+   방을 새로 읽어 판단하므로 공개·다음을 잇달아 눌러도 두 번 적용되지 않는다. */
+async function sweepMissing(phase){
+  if(!phase || !EVENTS[phase] || typeof window.resolveDefaultFor !== "function") return;
+  let room = {};
+  try{ const s = await get(roomRef()); room = s.exists() ? s.val() : {}; }catch(e){ return; }
+  const players = room.players || {};
+  const answers = (room.answers && room.answers[phase]) || {};
+  const u = {};
+  Object.keys(players).forEach(sid => {
+    if(answers[sid]) return;                              // 이미 낸 학생은 그대로 둔다
+    const out = window.resolveDefaultFor(phase, players[sid]);
+    if(!out) return;                                      // 죽어 관전인 학생 등 — 대신 낼 것 없음
+    u[`players/${sid}`] = out.player;
+    u[`answers/${phase}/${sid}`] = { choice: out.key, at: serverTimestamp(), auto: true };
+  });
+  if(Object.keys(u).length) await update(roomRef(), u);
+}
+
 function buildCtl(){
   const el = $("#ctl");
   if (!CLS) { el.innerHTML = ""; return; }
@@ -576,18 +597,26 @@ function buildCtl(){
     update(roomRef(), { secs: +$("#c-secs").value });   // 어드민 RUN에도 그대로 보인다
   };
   $("#c-open").onclick   = () => { openPhase($("#c-phase").value); PICK_TOUCHED = false; };
-  $("#c-reveal").onclick = () => update(roomRef(), { state: "revealed", endsAt: null });
+  $("#c-reveal").onclick = async () => {
+    await sweepMissing(String((ROOM && ROOM.phase) || ""));   // 안 낸 학생을 먼저 대신 처리
+    update(roomRef(), { state: "revealed", endsAt: null });
+  };
   $("#c-more").onclick   = () => update(roomRef(), {
     endsAt: Math.max(Date.now(), (ROOM && ROOM.endsAt) || Date.now()) + 30000
   });
-  $("#c-next").onclick = () => {
-    const i = PHASES.indexOf(String((ROOM && ROOM.phase) || ""));
+  $("#c-next").onclick = async () => {
+    const cur = String((ROOM && ROOM.phase) || "");
+    await sweepMissing(cur);                                  // 공개 없이 바로 넘어가도 아무도 빠지지 않게
+    const i = PHASES.indexOf(cur);
     const nx = i < 0 ? PHASES[0] : (i < PHASES.length - 1 ? PHASES[i + 1] : "final");
     PICK_TOUCHED = false;
     if (nx === "final") update(roomRef(), { phase: "final", state: "revealed", endsAt: null });
     else openPhase(nx);
   };
-  $("#c-final").onclick = () => update(roomRef(), { phase: "final", state: "revealed", endsAt: null });
+  $("#c-final").onclick = async () => {
+    await sweepMissing(String((ROOM && ROOM.phase) || ""));
+    update(roomRef(), { phase: "final", state: "revealed", endsAt: null });
+  };
   $("#c-lobby").onclick = () => update(roomRef(), { phase: "lobby", state: "waiting", endsAt: null });
   $("#c-reset").onclick = async () => {
     if (!confirm(`${CLS}반 방을 초기화합니다.\n학생들의 진행 상황과 사초가 모두 지워집니다. 되돌릴 수 없습니다.`)) return;
