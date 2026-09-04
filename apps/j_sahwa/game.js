@@ -916,8 +916,8 @@ function roomRender(){
   // 대기실
   if(!phase || phase === "lobby" || room.state === "waiting"){
     MODE.screen = "lobby"; MODE.rosterFull = false;
-    paint(`<div class="eyebrow">${esc(MODE.cls)}반</div>
-      <h2>${esc(P.ho)}</h2>
+    // 반 번호는 걷었다. 상태 표시줄에 이미 호가 있고, 자기 반은 학생이 안다.
+    paint(`<h2>${esc(P.ho)}</h2>
       <div class="wait">
         <div class="big">선생님을 기다리는 중<span class="dots"></span></div>
         <div class="sub">${P.alive
