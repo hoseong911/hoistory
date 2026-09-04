@@ -656,7 +656,21 @@ async function init() {
   });
 
   // ── 타이핑 모드: 빈칸을 입력칸으로 바꿔 학생이 정답을 직접 쳐보고 즉시 채점 ──
-  function normAns(s) { return String(s == null ? '' : s).trim().replace(/\s+/g, ' ').toLowerCase(); }
+  /* 채점용 정규화. 학생이 손으로 치는 답이므로 띄어쓰기와 부호는 따지지 않는다 —
+     「조의제문」은 "조의제문"으로, "위화도 회군"은 "위화도회군"으로 쳐도 맞다.
+     글자(한글·한자·영문)와 숫자만 남기고 전부 털어 낸다. NFC로 모으는 것은 IME에
+     따라 한글이 자모로 쪼개져 들어오는 일이 있어서다.
+     정답이 부호로만 이루어져 털면 빈 문자열이 되는 경우에만 예전 방식으로 돌아간다. */
+  function normAns(s) {
+    const raw = String(s == null ? '' : s)
+      // 정답에 공백이 두 칸 이상 붙어 있으면 slide-render의 preserveSpaces가 &nbsp;로
+      // 바꿔 두는데, data-answer에는 그 글자가 그대로 실려 온다. 부호를 털기 전에
+      // 되돌리지 않으면 "nbsp"라는 글자가 정답에 남아 무엇을 쳐도 틀린다.
+      .replace(/&nbsp;|&#160;/gi, ' ')
+      .normalize('NFC').trim().toLowerCase();
+    const bare = raw.replace(/[^\p{L}\p{N}]/gu, '');
+    return bare || raw.replace(/\s+/g, ' ');
+  }
 
   // 글자 수 기반(1자=1em 가정) 폭 계산은 한글은 맞지만 영문·숫자 답에서는 실제 글자보다
   // 훨씬 넓게 잡혀 좌우에 빈 여백이 남는다. 실제 폰트로 캔버스에 그려 픽셀 폭을 재서 딱 맞춘다.
