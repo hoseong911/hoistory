@@ -610,7 +610,9 @@ function bindSetup(onDone){
 function applySetup(P, ho, master, base){
   P.ho = ho; P.master = master; P.base = base;
   if(base==="local"){ adj(P,"fame",2); P.seowon = true; } else adj(P,"rank",2);
-  note(P, 0, `${ho}, 사림의 길에 들다. ${base==="local"
+  // 사초의 첫 줄. 연도를 0으로 두면 결말의 사초에 연도 칸이 비어 어색했다.
+  // 도입 문단이 "그대는 1498년 조선의 선비다"로 시작하므로 그 해에 맞춘다.
+  note(P, 1498, `${ho}, 사림의 길에 들다. ${base==="local"
     ? "고향에 서원의 터를 보아 두었다." : "한양에 자리를 얻어 3사의 말석에 섰다."}`);
 }
 
