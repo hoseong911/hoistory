@@ -529,6 +529,7 @@ const HO_POOL = [
   ["청강","淸江","맑은 강"],            ["우졸","愚拙","어리석고 서툰 대로"],
   ["만송","晩松","늦게까지 푸른 소나무"]
 ];
+/* AI 추천을 걸러 내는 데만 쓴다. 학생이 직접 지은 호는 이 자로 재지 않는다. */
 const HANJA_RE = /^[一-鿿]{2}$/;
 const HO_RE = /^[가-힣]{2}$/;
 async function askClaude(prompt, maxTokens){
@@ -566,19 +567,7 @@ JSON 배열만 출력하세요.
   return ok.slice(0,3);
 }
 
-/* 학생이 직접 지은 호가 한자어인지 물어본다.
-   한자어면 그 한자를, 순우리말이면 false를, 못 물어봤으면 null을 돌려준다.
-   null일 때는 막지 않는다 — 통신이 안 된다고 수업이 멈춰서는 안 된다. */
-async function hanjaOf(ho){
-  try{
-    const raw = await askClaude(`"${ho}"는 조선 시대 선비의 호(號)로 쓸 수 있는 한자어입니까?
-한자어이면 그에 맞는 한자 두 자를 넣고, 순우리말이거나 한자로 옮길 수 없으면 null을 넣으세요.
-JSON만 출력하세요. 예) {"hanja":"退軒"} 또는 {"hanja":null}`, 40);
-    const j = JSON.parse(cutJson(raw, "{", "}"));
-    const h = j && j.hanja ? String(j.hanja).trim() : "";
-    return HANJA_RE.test(h) ? h : false;
-  }catch(e){ return null; }
-}
+
 async function loadHoSuggestions(){
   const box = $("#hoSug"), btn = $("#hoAgain"), hint = $("#hoHint"), mean = $("#hoMean");
   if(!box) return;
@@ -629,31 +618,14 @@ function bindSetup(onDone){
   };
   loadHoSuggestions();
   const go = $("#start"); if(!go) return;
-  go.onclick = async ()=>{
-    const hoEl = $("#ho"), hint = $("#hoHint");
-    const ho = hoEl.value.trim();
+  /* 학생이 직접 지은 호는 그대로 받는다. 추천은 한자어로만 내놓되, 스스로 지은
+     이름까지 형식으로 되돌리지는 않는다 — 지어 보는 것 자체가 이 화면의 몫이다. */
+  go.onclick = ()=>{
+    const ho = $("#ho").value.trim();
     const master = $("#pickMaster [aria-pressed=true]")?.dataset.v;
     const base   = $("#pickBase [aria-pressed=true]")?.dataset.v;
-    if(!ho){ hoEl.focus(); hoEl.placeholder="호를 지어야 시작한다"; return; }
+    if(!ho){ $("#ho").focus(); $("#ho").placeholder="호를 지어야 시작한다"; return; }
     if(!master || !base){ alert("스승과 기반을 모두 고르시오."); return; }
-    // 호는 한자어 두 글자다. "맑은숲" 같은 순우리말은 호로 쓰지 않는다.
-    if(!HO_RE.test(ho)){
-      hint.textContent = "호는 한자어 두 글자로 짓는 이름이다. 다시 지어 보시오.";
-      hoEl.focus(); hoEl.select(); return;
-    }
-    // 추천에서 고른 것은 이미 한자어다. 직접 지은 것만 물어본다.
-    const picked = $("#hoSug .ho-chip[aria-pressed=true]");
-    if(!picked || picked.dataset.ho !== ho){
-      const label = go.textContent;
-      go.disabled = true; go.textContent = "호를 살펴보는 중…";
-      const hanja = await hanjaOf(ho);
-      go.disabled = false; go.textContent = label;
-      if(hanja === false){
-        hint.textContent = "한자어로 지어야 호가 된다. 순우리말은 호로 쓰지 않는다.";
-        hoEl.focus(); hoEl.select(); return;
-      }
-      if(hanja) showHoMean(ho, hanja, "");
-    }
     onDone(ho, master, base);
   };
 }
