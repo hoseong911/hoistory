@@ -724,8 +724,9 @@ function memoBare(s){ return String(s == null ? "" : s).replace(/\s/g, "").lengt
 
 function memoStart(){
   MODE.screen = "memo"; MODE.viewKey = null;
-  paint(`<div class="eyebrow">${esc(MODE.cls)}반 ${esc(MODE.P.id)}${MODE.P.name ? " " + esc(MODE.P.name) : ""}</div>
-    <h2>${esc(CONTENT.memoTitle)}</h2>
+  // 학번과 이름은 화면에 적지 않는다. 누가 쓰는 글인지는 저장할 때 딸려 가면 되고,
+  // 그것 하나 보여 주자고 머리줄을 따로 세울 이유가 없다.
+  paint(`<h2>${esc(CONTENT.memoTitle)}</h2>
     <p class="lede">${fmt(CONTENT.memoPrompt)}</p>
     <textarea class="memo" id="memoText" maxlength="${MEMO_RAW_MAX}" placeholder="여기에 적으시오."></textarea>
     <div class="memo-foot">
