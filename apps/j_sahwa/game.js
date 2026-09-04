@@ -488,7 +488,7 @@ function setupHTML(showIntro){
   <h2 class="setup-h">${esc(C.setupTitle || "인물 설정하기")}</h2>
   <div class="field">
     <label class="label" for="ho">${esc(C.hoLabel)} <span>— ${esc(C.hoHint)}</span></label>
-    <input type="text" id="ho" maxlength="6" placeholder="예) 퇴헌" autocomplete="off">
+    <input type="text" id="ho" maxlength="4" placeholder="예) 퇴헌" autocomplete="off">
     <div class="ho-row">
       <div class="ho-sug" id="hoSug"></div>
       <button type="button" class="ho-again" id="hoAgain">다시 추천받기</button>
@@ -515,38 +515,69 @@ function setupHTML(showIntro){
 const CLAUDE_PROXY_URL = "https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy";
 /* 호는 뜻을 알고 골라야 제 이름이 된다. 짝지어 둔 풀이는 AI 추천이 실패했을 때도 쓴다. */
 const HO_POOL = [
-  ["퇴헌","물러나 사는 집"],   ["남계","남쪽으로 흐르는 시내"], ["청재","맑게 지내는 서재"],
-  ["소암","꾸밈없는 바위"],     ["죽계","대나무 우거진 시내"],   ["우헌","어리석음을 지키는 집"],
-  ["매창","매화가 보이는 창"],  ["송재","소나무 곁의 서재"],     ["눌재","말수가 적은 서재"],
-  ["백운","흰 구름"],           ["한재","차고 검소한 서재"],     ["서산","해 지는 서쪽 산"],
-  ["동리","국화를 심은 동쪽 울타리"], ["만취","늦도록 푸르름"],   ["지산","영지가 자라는 산"],
-  ["석천","바위 사이에서 솟는 샘"],   ["운곡","구름이 머무는 골짜기"], ["묵재","말없이 지내는 서재"],
-  ["월담","달이 비치는 못"],    ["춘포","봄날의 물가"],          ["지헌","멈출 줄 아는 집"],
-  ["소계","작은 시내"],         ["청강","맑은 강"],              ["우졸","어리석고 서툰 대로"],
-  ["만송","늦게까지 푸른 소나무"]
+  ["퇴헌","退軒","물러나 사는 집"],     ["남계","南溪","남쪽으로 흐르는 시내"],
+  ["청재","淸齋","맑게 지내는 서재"],   ["소암","素巖","꾸밈없는 바위"],
+  ["죽계","竹溪","대나무 우거진 시내"], ["우헌","愚軒","어리석음을 지키는 집"],
+  ["매창","梅窓","매화가 보이는 창"],   ["송재","松齋","소나무 곁의 서재"],
+  ["눌재","訥齋","말수가 적은 서재"],   ["백운","白雲","흰 구름"],
+  ["한재","寒齋","차고 검소한 서재"],   ["서산","西山","해 지는 서쪽 산"],
+  ["동리","東籬","국화를 심은 동쪽 울타리"], ["만취","晩翠","늦도록 푸르름"],
+  ["지산","芝山","영지가 자라는 산"],   ["석천","石泉","바위 사이에서 솟는 샘"],
+  ["운곡","雲谷","구름이 머무는 골짜기"], ["묵재","默齋","말없이 지내는 서재"],
+  ["월담","月潭","달이 비치는 못"],     ["춘포","春浦","봄날의 물가"],
+  ["지헌","止軒","멈출 줄 아는 집"],    ["소계","小溪","작은 시내"],
+  ["청강","淸江","맑은 강"],            ["우졸","愚拙","어리석고 서툰 대로"],
+  ["만송","晩松","늦게까지 푸른 소나무"]
 ];
-async function fetchHoSuggestions(){
-  const prompt = `조선 시대 선비가 스스로 지어 쓰던 호(號)를 3개 지어 주세요.
-조건: 한글 두 글자, 실존 인물의 유명한 호는 피할 것, 자연이나 마음가짐을 담을 것.
-호마다 그 뜻을 중학생이 알아들을 한 줄(20자 이내)로 붙이세요.
-JSON 배열만 출력하세요. 예) [["퇴헌","물러나 사는 집"],["남계","남쪽으로 흐르는 시내"],["청재","맑게 지내는 서재"]]`;
+const HANJA_RE = /^[一-鿿]{2}$/;
+const HO_RE = /^[가-힣]{2}$/;
+async function askClaude(prompt, maxTokens){
   const res = await fetch(CLAUDE_PROXY_URL, {
     method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ model:"claude-haiku-4-5-20251001", max_tokens:100,
+    body: JSON.stringify({ model:"claude-haiku-4-5-20251001", max_tokens:maxTokens,
       messages:[{role:"user",content:prompt}] })
   });
   if(!res.ok) throw new Error("API "+res.status);
   const data = await res.json();
-  let raw = (data.content?.[0]?.text || "[]").replace(/```json|```/g,"").trim();
-  const s = raw.indexOf("["), e = raw.indexOf("]", s);
-  if(s!==-1 && e!==-1) raw = raw.slice(s, e+1);
-  const arr = JSON.parse(raw);
-  // [호, 뜻] 짝으로 받되, 예전처럼 문자열만 오면 뜻은 비워 둔다.
-  const ok = arr.map(x=>Array.isArray(x) ? [String(x[0]||"").trim(), String(x[1]||"").trim()]
-                                         : [String(x||"").trim(), ""])
-                .filter(([h])=>/^[가-힣]{2,3}$/.test(h));
+  return (data.content?.[0]?.text || "").replace(/```json|```/g,"").trim();
+}
+/* 모델이 설명을 앞뒤에 붙여 오는 일이 있어 괄호 사이만 오려 낸다.
+   닫는 괄호는 반드시 마지막 것을 써야 한다 — 첫 것을 쓰면 [["퇴헌","退軒","..."]에서
+   끊겨 파싱이 늘 실패하고, 추천이 조용히 내장 목록으로만 돌아간다. */
+function cutJson(raw, open, close){
+  const s = raw.indexOf(open), e = raw.lastIndexOf(close);
+  return (s !== -1 && e > s) ? raw.slice(s, e+1) : raw;
+}
+
+async function fetchHoSuggestions(){
+  const prompt = `조선 시대 선비가 스스로 지어 쓰던 호(號)를 3개 지어 주세요.
+조건
+- 반드시 한자어로 지을 것. 순우리말은 호가 아닙니다(맑은숲, 돌샘 같은 것은 안 됩니다).
+- 한글 두 글자와, 그에 맞는 한자 두 자를 함께 적을 것.
+- 실존 인물의 유명한 호는 피할 것. 자연이나 마음가짐을 담을 것.
+- 뜻은 중학생이 알아들을 한 줄(20자 이내)로 붙일 것.
+JSON 배열만 출력하세요.
+예) [["퇴헌","退軒","물러나 사는 집"],["남계","南溪","남쪽으로 흐르는 시내"],["청재","淸齋","맑게 지내는 서재"]]`;
+  const arr = JSON.parse(cutJson(await askClaude(prompt, 300) || "[]", "[", "]"));
+  const ok = arr.filter(Array.isArray)
+    .map(x=>[String(x[0]||"").trim(), String(x[1]||"").trim(), String(x[2]||"").trim()])
+    .filter(([h,j])=>HO_RE.test(h) && HANJA_RE.test(j));
   if(!ok.length) throw new Error("빈 응답");
   return ok.slice(0,3);
+}
+
+/* 학생이 직접 지은 호가 한자어인지 물어본다.
+   한자어면 그 한자를, 순우리말이면 false를, 못 물어봤으면 null을 돌려준다.
+   null일 때는 막지 않는다 — 통신이 안 된다고 수업이 멈춰서는 안 된다. */
+async function hanjaOf(ho){
+  try{
+    const raw = await askClaude(`"${ho}"는 조선 시대 선비의 호(號)로 쓸 수 있는 한자어입니까?
+한자어이면 그에 맞는 한자 두 자를 넣고, 순우리말이거나 한자로 옮길 수 없으면 null을 넣으세요.
+JSON만 출력하세요. 예) {"hanja":"退軒"} 또는 {"hanja":null}`, 40);
+    const j = JSON.parse(cutJson(raw, "{", "}"));
+    const h = j && j.hanja ? String(j.hanja).trim() : "";
+    return HANJA_RE.test(h) ? h : false;
+  }catch(e){ return null; }
 }
 async function loadHoSuggestions(){
   const box = $("#hoSug"), btn = $("#hoAgain"), hint = $("#hoHint"), mean = $("#hoMean");
@@ -558,22 +589,23 @@ async function loadHoSuggestions(){
   try { list = await fetchHoSuggestions(); }
   catch(e){ list = shuffle(HO_POOL).slice(0,3); }
   if(!$("#hoSug")) return;
-  box.innerHTML = list.map(([h,m])=>`<button type="button" class="ho-chip" data-ho="${esc(h)}" data-mean="${esc(m||"")}" aria-pressed="false">${esc(h)}</button>`).join("");
+  box.innerHTML = list.map(([h,j,m])=>`<button type="button" class="ho-chip" data-ho="${esc(h)}" data-hanja="${esc(j||"")}" data-mean="${esc(m||"")}" aria-pressed="false">${esc(h)}</button>`).join("");
   box.querySelectorAll(".ho-chip").forEach(chip=>{
     chip.onclick = ()=>{
       box.querySelectorAll(".ho-chip").forEach(c=>c.setAttribute("aria-pressed","false"));
       chip.setAttribute("aria-pressed","true");
       $("#ho").value = chip.dataset.ho;
       hint.textContent = "마음에 들지 않으면 직접 고쳐 적어도 된다.";
-      showHoMean(chip.dataset.ho, chip.dataset.mean);
+      showHoMean(chip.dataset.ho, chip.dataset.hanja, chip.dataset.mean);
     };
   });
   btn.disabled = false;
 }
 
-function showHoMean(ho, m){
+function showHoMean(ho, hanja, m){
   const el = $("#hoMean"); if(!el) return;
-  el.textContent = (ho && m) ? `${ho} — ${m}` : "";
+  if(!ho){ el.textContent = ""; return; }
+  el.textContent = ho + (hanja ? `(${hanja})` : "") + (m ? ` — ${m}` : "");
 }
 
 function bindSetup(onDone){
@@ -593,16 +625,35 @@ function bindSetup(onDone){
     const chip = $("#hoSug .ho-chip[aria-pressed=true]");
     if(chip && chip.dataset.ho === hoInput.value.trim()) return;   // 추천 그대로면 그대로 둔다
     if(chip) chip.setAttribute("aria-pressed","false");
-    showHoMean("", "");
+    showHoMean("", "", "");
   };
   loadHoSuggestions();
   const go = $("#start"); if(!go) return;
-  go.onclick = ()=>{
-    const ho = $("#ho").value.trim();
+  go.onclick = async ()=>{
+    const hoEl = $("#ho"), hint = $("#hoHint");
+    const ho = hoEl.value.trim();
     const master = $("#pickMaster [aria-pressed=true]")?.dataset.v;
     const base   = $("#pickBase [aria-pressed=true]")?.dataset.v;
-    if(!ho){ $("#ho").focus(); $("#ho").placeholder="호를 지어야 시작한다"; return; }
+    if(!ho){ hoEl.focus(); hoEl.placeholder="호를 지어야 시작한다"; return; }
     if(!master || !base){ alert("스승과 기반을 모두 고르시오."); return; }
+    // 호는 한자어 두 글자다. "맑은숲" 같은 순우리말은 호로 쓰지 않는다.
+    if(!HO_RE.test(ho)){
+      hint.textContent = "호는 한자어 두 글자로 짓는 이름이다. 다시 지어 보시오.";
+      hoEl.focus(); hoEl.select(); return;
+    }
+    // 추천에서 고른 것은 이미 한자어다. 직접 지은 것만 물어본다.
+    const picked = $("#hoSug .ho-chip[aria-pressed=true]");
+    if(!picked || picked.dataset.ho !== ho){
+      const label = go.textContent;
+      go.disabled = true; go.textContent = "호를 살펴보는 중…";
+      const hanja = await hanjaOf(ho);
+      go.disabled = false; go.textContent = label;
+      if(hanja === false){
+        hint.textContent = "한자어로 지어야 호가 된다. 순우리말은 호로 쓰지 않는다.";
+        hoEl.focus(); hoEl.select(); return;
+      }
+      if(hanja) showHoMean(ho, hanja, "");
+    }
     onDone(ho, master, base);
   };
 }
