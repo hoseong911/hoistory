@@ -111,6 +111,11 @@
   .ch.res .fill{position:absolute;inset:0 auto 0 0;background:var(--paper-deep);z-index:0;transition:width .5s}
   .ch.res .n,.ch.res .lb,.ch.res .cn{position:relative;z-index:1}
   .ch .lb{flex:1}
+  /* 고를 것이 없는 장면(중종반정)과 제비뽑기 장면의 안내 한 줄 */
+  .guide{
+    margin-top:1rem;font-family:var(--serif);font-size:calc(var(--fs) * .95);
+    color:var(--ink-soft);border-left:3px solid var(--rule);padding-left:1rem;
+  }
   .ch .cn{flex:none;font-family:var(--ui);font-variant-numeric:tabular-nums;font-weight:500;align-self:center}
 
   /* ── 명단 ── 공개 화면의 주인공. 호만 크게 보인다. */
@@ -356,6 +361,23 @@ function listsHTML(room, year){
   </div>`;
 }
 
+/* 선택지가 없는 장면(중종반정, 갑자사화 제비뽑기)의 공개 화면.
+   무엇을 골랐는지가 아니라 어떻게 갈렸는지를 세어 보여 준다. */
+function tallyHTML(ev, room, phase){
+  const answers = ((room.answers || {})[phase]) || {};
+  const tally = {};
+  Object.values(answers).forEach(a => { const k = a && a.choice; if (k) tally[k] = (tally[k] || 0) + 1; });
+  const keys = Object.keys(tally);
+  if (!keys.length) return "";
+  const total = keys.reduce((s, k) => s + tally[k], 0) || 1;
+  return `<div class="choices">${keys.sort((a, b) => tally[b] - tally[a]).map((k, i) => {
+    const n = tally[k], pct = Math.round(n / total * 100);
+    const lb = (ev.shortOf && ev.shortOf[k]) || k;
+    return `<div class="ch res"><span class="fill" style="width:${pct}%"></span>
+      <span class="n">${i + 1}</span><span class="lb">${esc(lb)}</span><span class="cn">${n}명</span></div>`;
+  }).join("")}</div>`;
+}
+
 /* 선택지 — 열려 있을 때는 글만, 공개된 뒤에는 몇 명이 골랐는지 막대로 함께 보인다. */
 function choicesHTML(ev, room, phase, revealed){
   const list = ev.choices || [];
@@ -427,22 +449,29 @@ function render(){
     $("#stage").innerHTML = `
       <div class="eyebrow">${esc(ev.eyebrow)}</div>
       <h1>${esc(ev.title || "")}</h1>
-      ${choicesHTML(ev, room, phase, true)}
+      ${ev.choices ? choicesHTML(ev, room, phase, true) : tallyHTML(ev, room, phase)}
       ${listsHTML(room, year)}`;
     return;
   }
 
-  /* ── 사건 진행 중 ── 설명과 선택지를 나란히 ── */
+  /* ── 사건 진행 중 ──
+     선택지가 있는 장면은 설명과 선택지를 나란히 둔다(티비는 가로가 길다).
+     중종반정처럼 고를 것이 없거나 갑자사화처럼 패를 뽑는 장면은 오른쪽에 채울 것이
+     없으므로, 빈 칸에 "그대는 어찌하겠는가"만 남기지 말고 설명을 폭 전체로 편다. */
+  const hasChoices = !!(ev.choices && ev.choices.length);
   $("#stage").innerHTML = `
     <div class="eyebrow">${esc(ev.eyebrow)}</div>
     <h1>${esc(ev.title || "")}</h1>
-    <div class="split">
-      <div class="situation">${ev.situation || ""}</div>
-      <div>
-        <h2>그대는 어찌하겠는가</h2>
-        ${choicesHTML(ev, room, phase, false)}
-      </div>
-    </div>`;
+    ${hasChoices
+      ? `<div class="split">
+          <div class="situation">${ev.situation || ""}</div>
+          <div>
+            <h2>그대는 어찌하겠는가</h2>
+            ${choicesHTML(ev, room, phase, false)}
+          </div>
+        </div>`
+      : `<div class="situation">${ev.situation || ""}</div>
+         ${ev.guide ? `<p class="guide">${esc(ev.guide)}</p>` : ""}`}`;
 }
 
 function renderFinal(ps){

@@ -172,6 +172,16 @@ const EVENTS = {
 
 "1506": {
   kind:"auto", eyebrow:"제3화 중종반정", title:"반정이 일어났다",
+  /* 고를 것이 없는 장면. 그래도 교실 화면과 학생 화면에 걸 설명은 있어야 한다 —
+     없으면 티비에 제목만 덩그러니 뜬다. */
+  situation:`연산군의 폭정이 도를 넘자, 갑자년에 자기들도 피를 본 훈구 세력이 끝내 등을 돌렸다.
+    박원종과 성희안 등이 군사를 일으켜 임금을 쫓아내고 진성대군을 새 임금으로 세웠다.
+    <br><br>
+    새 조정은 그동안 화를 입은 사림을 다시 불러들인다. 그러나 반정을 이끈 것은 훈구였으므로
+    공신의 자리는 이미 그들의 것이었고, 왕위를 그들의 손에 빚진 중종은 그들을 견제할 다른 사람이 필요했다.
+    <br><br>
+    <b>이 장면에는 고를 것이 없다.</b> 지난 8년 동안 그대가 무엇을 해 두었는지가 그대로 판가름한다.
+    갑자년에 화를 입은 이들 가운데, 고향에 서원을 두어 이름을 불러 줄 제자가 있는 사람만 조정으로 돌아온다.`,
   shortOf:{ revive:"부활", lost:"돌아오지 못함", stay:"조정에 서다" },
   apply(P){
     if(!P.alive){
@@ -292,10 +302,12 @@ const EVENTS = {
     명종의 외삼촌 윤원형을 중심으로 한 <b>소윤</b>이 왕실의 외척끼리 권력을 놓고 맞선다.
     성이 같은 두 집안의 싸움에 사림이 어느 한쪽으로 끌려 들어간다.
     <br><br>
-    양쪽 모두 그대에게 사람을 보냈다. 그대는 어디에 서겠는가?`,
+    양쪽 모두 그대에게 사람을 보냈다. 조정에 있든 벼슬을 놓고 고향에 물러나 있든,
+    어느 편인지는 반드시 물어 온다. 답하지 않는 것 또한 하나의 답으로 헤아려진다.
+    <b>그대는 어디에 서겠는가?</b>`,
   choices:[
     { key:"daeyun", short:"대윤",
-      label:"대윤에 선다. 인종께서 세우려 하시던 뜻을 이어받는 것이 옳다.",
+      label:"대윤 편에 선다. 인종께서 세우려 하시던 뜻을 이어받는 것이 옳다.",
       apply(P){
         adj(P,"fame",2);
         note(P,1545,"대윤에 서다. 이긴 쪽은 소윤이었다.");
@@ -306,12 +318,12 @@ const EVENTS = {
           note:"을사사화는 본래 왕실 외척 간의 권력 다툼이었으나, 그 과정에서 대윤 편에 섰던 많은 사림이 함께 피해를 입었습니다." };
       }},
     { key:"soyun", short:"소윤",
-      label:"소윤에 선다. 지금 권력을 쥔 쪽에 서야 살아남고, 살아남아야 뜻도 펼 수 있다.",
+      label:"소윤 편에 선다. 지금 권력을 쥔 쪽에 서야 살아남고, 살아남아야 뜻도 펼 수 있다.",
       apply(P){
         adj(P,"rank",4); adj(P,"fame",-4);
         note(P,1545,"소윤에 붙어 벼슬이 크게 오르다.");
         return { verdict:"그대는 권력을 얻었다.",
-          body:"소윤이 이겼다. 벼슬이 크게 올랐고 녹봉도 늘었다. 그러나 사림은 이제 그대를 사림이라 부르지 않는다.",
+          body:"소윤이 이겼다. 인사 명부의 윗자리에 그대의 이름이 올랐다. 물러나 있던 이도 이때 다시 불려 올라갔다. 그러나 사림은 이제 그대를 사림이라 부르지 않는다.",
           delta:"官 <b>+4</b> / 名 <b>-4</b>",
           note:"이긴 쪽에 서면 관직은 얻습니다. 다만 훗날 사림이 다시 조정을 장악할 때, 그 명단에 이름을 올리는 것은 다른 사람들이었습니다." };
       }},
@@ -672,7 +684,8 @@ function paint(html, barExtra){
 
 /* 진행 상태 — 화면 종류와 현재 선비 */
 const MODE = { room:false, screen:"boot", P:makePlayer(), cls:null, phase:null,
-               answered:null, lastRes:null, sealed:false };
+               answered:null, lastRes:null, sealed:false,
+               viewKey:null, rosterFull:false };
 
 /* ══════════════════ LMS를 거쳐 들어왔는가 ══════════════════
    이 활동은 LMS 허브에서만 연다. 학번을 직접 받지 않는 대신 LMS가 남겨 둔
@@ -702,7 +715,7 @@ function paintBlocked(why){
    사림 이야기를 적을 수 있다 — 활동 여부는 이 글로 가린다. */
 const MEMO_MAX = 2000;
 function memoStart(){
-  MODE.screen = "memo";
+  MODE.screen = "memo"; MODE.viewKey = null;
   paint(`<div class="eyebrow">${esc(MODE.cls)}반 ${esc(MODE.P.id)}${MODE.P.name ? " " + esc(MODE.P.name) : ""}</div>
     <h2>${esc(CONTENT.memoTitle)}</h2>
     <p class="lede">${fmt(CONTENT.memoPrompt)}</p>
@@ -799,7 +812,7 @@ function roomStart(){
 }
 
 function paintIntro(){
-  MODE.screen = "intro";
+  MODE.screen = "intro"; MODE.viewKey = null;
   paint(introHTML());
   $("#doorPlay").onclick = ()=>{
     // 이미 인물을 만들어 둔 학생은 곧바로 하던 자리로 돌아간다.
@@ -811,7 +824,7 @@ function paintIntro(){
   $("#doorMemo").onclick = ()=> memoStart();
 }
 function roomSetup(){
-  MODE.screen = "setup";
+  MODE.screen = "setup"; MODE.viewKey = null;
   paint(setupHTML(false));
   bindSetup((ho,master,base)=>{
     applySetup(MODE.P, ho, master, base);
@@ -840,9 +853,24 @@ function fmtLeft(ms){
 }
 
 function roomRender(){
-  if(TICK){ clearInterval(TICK); TICK = null; }
   const P = MODE.P, room = ROOM || {};
   const phase = room.phase ? String(room.phase) : null;
+
+  // 소감을 쓰는 중에는 화면을 건드리지 않는다. 방이 바뀔 때마다 다시 그리면
+  // 학생이 적던 글이 통째로 날아간다.
+  if(MODE.screen === "memo") return;
+
+  /* 방 노드 하나를 통째로 구독하고 있어서, 같은 반 친구가 하나 낼 때마다 스냅샷이
+     새로 온다. 그때마다 화면을 다시 그리면 타이머가 깜빡이고, 더 나쁘게는 선택지
+     순서가 새로 섞여 누르려던 자리가 바뀐다. 화면의 뼈대가 달라질 때만 다시 그리고,
+     그렇지 않으면 사람 수만 갈아 끼운다. */
+  const viewKey = [phase, room.state || "", room.round || 0,
+                   MODE.answered === phase + ":" + (room.round || 0) ? 1 : 0,
+                   P.alive ? 1 : 0].join("|");
+  if(viewKey === MODE.viewKey){ refreshRoster(room); return; }
+  MODE.viewKey = viewKey;
+
+  if(TICK){ clearInterval(TICK); TICK = null; }
 
   // 결말
   if(phase === "final"){
@@ -857,7 +885,7 @@ function roomRender(){
 
   // 대기실
   if(!phase || phase === "lobby" || room.state === "waiting"){
-    MODE.screen = "lobby";
+    MODE.screen = "lobby"; MODE.rosterFull = false;
     paint(`<div class="eyebrow">${esc(MODE.cls)}반</div>
       <h2>${esc(P.ho)}</h2>
       <div class="wait">
@@ -875,7 +903,7 @@ function roomRender(){
 
   // 이미 죽은 학생 — 관전
   if(!P.alive){
-    MODE.screen = "watch";
+    MODE.screen = "watch"; MODE.rosterFull = true;
     paint(`<div class="eyebrow">${ev.eyebrow} 관전</div>
       <h2>그대는 지켜본다</h2>
       <div class="situation">${esc(P.ho)}, 그대는 ${P.deathYear}년에 멈추었다. ${esc(P.causeOfDeath)}.
@@ -958,15 +986,19 @@ function autoSubmit(phase, room){
 
 /* 이미 낸 학생이 보는 화면 */
 function paintSubmitted(ev, room){
-  MODE.screen = "round";
+  MODE.screen = "round"; MODE.rosterFull = false;
   const auto = MODE.autoPicked, sealed = MODE.sealed;
-  const head  = auto ? "시간이 다 되었다" : sealed ? "패를 뽑았다" : "제출했다";
+  const noPick = ev.kind === "auto";   // 중종반정처럼 고를 것이 없는 장면
+  const head  = noPick ? "판가름을 기다린다" : auto ? "시간이 다 되었다" : sealed ? "패를 뽑았다" : "제출했다";
   const label = auto ? "고르지 않아 이렇게 기록되었다" : sealed ? "봉해 둔 패" : "그대의 선택";
+  const sub   = noPick ? "이 장면에는 고를 것이 없다. 그동안 그대가 해 둔 것이 판가름한다."
+              : sealed ? "모두가 뽑으면 봉한 패를 함께 연다."
+              : "모두가 고르면 결과가 함께 공개된다.";
   paint(`<div class="eyebrow">${ev.eyebrow}</div>
     <h2>${head}</h2>
-    <div class="picked"><div class="t">${label}</div>${esc(MODE.answeredLabel||"")}</div>
+    ${noPick ? "" : `<div class="picked"><div class="t">${label}</div>${esc(MODE.answeredLabel||"")}</div>`}
     <div class="wait"><div class="big">다른 이들을 기다리는 중<span class="dots"></span></div>
-      <div class="sub">${sealed ? "모두가 뽑으면 봉한 패를 함께 연다." : "모두가 고르면 결과가 함께 공개된다."}</div>
+      <div class="sub">${sub}</div>
       ${roomRosterHTML(room)}</div>`, timerHTML(room));
   startTick(room);
 }
@@ -983,7 +1015,12 @@ function startTick(room, onExpire){
   TICK = setInterval(()=>{
     const el = $("#tmr");
     const left = room.endsAt - Date.now();
-    if(el){ el.textContent = fmtLeft(left); el.classList.toggle("low", left < 15000); }
+    // 같은 값을 다시 써 넣지 않는다. 1초에 두 번 도는 시계라 그대로 쓰면 깜빡인다.
+    if(el){
+      const t = fmtLeft(left);
+      if(el.textContent !== t) el.textContent = t;
+      el.classList.toggle("low", left < 15000);
+    }
     if(left <= 0){
       clearInterval(TICK); TICK = null;
       if(onExpire) onExpire();
@@ -991,10 +1028,16 @@ function startTick(room, onExpire){
   }, 500);
 }
 
-/* 반 현황 — 대기·관전 화면에서 함께 보여 준다 */
+/* 방이 바뀔 때마다 화면을 통째로 다시 그리지 않고, 사람 수 칸만 갈아 끼운다. */
+function refreshRoster(room){
+  const box = document.getElementById("rosterBox");
+  if(box) box.outerHTML = roomRosterHTML(room, MODE.rosterFull);
+}
+
+/* 반 현황 — 대기 화면과 관전 화면에서 함께 보여 준다 */
 function roomRosterHTML(room, full){
   const ps = Object.values(room.players || {});
-  if(!ps.length) return "";
+  if(!ps.length) return `<div id="rosterBox"></div>`;
   const alive = ps.filter(p=>p.alive).length;
   const dong = ps.filter(p=>p.master==="dong").length;
   const head = `<div class="roster">
@@ -1003,10 +1046,10 @@ function roomRosterHTML(room, full){
       <span>졸(卒) <b>${ps.length-alive}</b></span>
       <span>동인 <b>${dong}</b> / 서인 <b>${ps.length-dong}</b></span>
     </div>`;
-  if(!full) return head;
+  if(!full) return `<div id="rosterBox">${head}</div>`;
   const cards = ps.sort((a,b)=>String(a.id).localeCompare(String(b.id)))
     .map(p=>`<div class="wp ${p.alive?"":"gone"}"><span class="h">${esc(p.ho||p.name||"")}</span><span class="s">官 ${p.rank} / 名 ${p.fame}</span></div>`).join("");
-  return head + `<div class="watch-grid">${cards}</div>`;
+  return `<div id="rosterBox">${head}<div class="watch-grid">${cards}</div></div>`;
 }
 
 /* 관리자 화면에서 저장한 인트로 문구를 덮어쓴다(모듈 스크립트가 호출). */

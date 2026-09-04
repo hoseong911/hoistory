@@ -82,15 +82,20 @@ textarea.meta-input{resize:vertical}
 .bar-row .fl{height:100%;background:var(--sh-primary)}
 .bar-row .n{width:3rem;text-align:right;font-family:ui-monospace,Consolas,monospace;flex:none}
 
-.plist{display:grid;grid-template-columns:repeat(auto-fill,minmax(9rem,1fr));gap:6px;margin-top:14px}
+/* 호만 보여서는 누구인지 알 수 없다. 학번, 이름, 호, 관직과 명예 순으로 편다. */
+.plist{display:grid;grid-template-columns:repeat(auto-fill,minmax(17rem,1fr));gap:6px;margin-top:14px}
 .pcell{
-  border:1px solid var(--hi-border);border-radius:8px;padding:6px 9px;font-size:12px;
-  display:flex;justify-content:space-between;gap:6px;background:var(--hi-bg-mid);
+  border:1px solid var(--hi-border);border-radius:8px;padding:7px 10px;font-size:12.5px;
+  display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:center;gap:9px;
+  background:var(--hi-bg-mid);
 }
 .pcell.gone{opacity:.5}
 .pcell.done{border-color:var(--sh-primary)}
-.pcell .h{font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.pcell .s{font-family:ui-monospace,Consolas,monospace;color:var(--hi-text-muted);flex:none}
+.pcell .sid{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--hi-text-muted)}
+.pcell .nm{font-weight:700;white-space:nowrap}
+.pcell .h{color:var(--hi-text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pcell .s{font-family:ui-monospace,Consolas,monospace;color:var(--hi-text-muted);white-space:nowrap}
+.pcell .s b{color:var(--hi-text);font-weight:800}
 .sub-h{font-size:12px;font-weight:700;color:var(--hi-text-muted);letter-spacing:.08em;margin:16px 0 6px}
 .run-hint{font-size:13px;color:var(--hi-text-muted);line-height:1.7;margin-top:12px}
 .run-hint b{color:var(--hi-text)}
@@ -638,12 +643,14 @@ function paintRun(){
         <span class="n">${n}명</span></div>`;
     }).join("") : `<div class="sub-h">이번 사건의 선택</div><div style="font-size:13px;color:var(--hi-text-muted)">아직 제출이 없습니다.</div>`;
 
-  $("#r-players").innerHTML = players.length ? `<div class="sub-h">학생</div>` +
+  $("#r-players").innerHTML = players.length ? `<div class="sub-h">학생 (테두리가 진한 사람이 이번 사건을 낸 사람)</div>` +
     `<div class="plist">` + players
       .sort((a,b)=>String(a.id).localeCompare(String(b.id)))
       .map(p=>`<div class="pcell ${p.alive?"":"gone"} ${answers[p.id]?"done":""}">
-        <span class="h">${p.ho || p.name || p.id}</span>
-        <span class="s">官 ${p.rank} / 名 ${p.fame}</span></div>`).join("") + `</div>` : "";
+        <span class="sid">${esc(p.id||"")}</span>
+        <span class="nm">${esc(p.name||"")}</span>
+        <span class="h">${esc(p.ho||"")}</span>
+        <span class="s">官 <b>${p.rank|0}</b> 名 <b>${p.fame|0}</b></span></div>`).join("") + `</div>` : "";
 }
 
 /* ══════════ ANSWER ══════════
