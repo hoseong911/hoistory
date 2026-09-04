@@ -82,7 +82,7 @@ function classOf(sid){ const c=parseInt(String(sid||"").slice(1,3),10); return i
 
 function makePlayer(){
   return { id:"", name:"", ho:"", master:null, base:null,
-           rank:BASE, fame:BASE, alive:true, seowon:false,
+           rank:BASE, fame:BASE, alive:true, seowon:false, noRevive:false,
            deathYear:null, causeOfDeath:null, log:[] };
 }
 
@@ -175,6 +175,16 @@ const EVENTS = {
   shortOf:{ revive:"부활", lost:"돌아오지 못함", stay:"조정에 서다" },
   apply(P){
     if(!P.alive){
+      /* 갑자년에 시간이 다 되도록 패를 잡지 않은 학생. 스스로 고르지 않았으므로
+         서원이 있어도 되살아나지 않는다(autoSubmit이 noRevive를 세워 둔다). */
+      if(P.noRevive){
+        return { key:"lost", verdict:"그대는 돌아오지 못했다.", bad:true,
+          body:`반정이 일어나 연산군이 쫓겨나고 중종이 왕이 되었다. 새 조정은 그동안 화를 입은 사림을 다시 불러들인다.
+            <br><br>
+            그러나 갑자년의 그대는 끝내 아무 패도 잡지 않았다. 스스로 고르지 않은 자리에서 끌려간 이름은
+            아무도 대신 불러 주지 않는다. 천거의 글에 그대의 이름은 없었다.`,
+          note:"사화의 한복판에서 아무것도 하지 않는 것은 선택하지 않는 것이 아니라, 남이 대신 정하게 두는 것입니다." };
+      }
       if(P.seowon){
         P.alive=true; P.deathYear=null; P.causeOfDeath=null; adj(P,"fame",1);
         note(P,1506,"서원의 제자들이 이름을 지켜 조정의 부름을 다시 받다.");
@@ -912,7 +922,8 @@ function submitChoice(phase, room, res, key, sealed){
   MODE.answered = phase + ":" + (room.round||0);
   // 봉인된 뽑기는 key(hwa/myeon)가 곧 생사라, 낸 뒤 화면에도 적지 않는다.
   MODE.sealed = !!sealed;
-  MODE.answeredLabel = sealed ? "패를 하나 뽑아 봉해 두었다."
+  MODE.answeredLabel = sealed
+    ? (MODE.autoPicked ? "끝내 패를 뽑지 않았다." : "패를 하나 뽑아 봉해 두었다.")
     : ((ev.choices||[]).find(c=>c.key===key)?.label
        || (ev.shortOf && ev.shortOf[key]) || key);
   SahwaNet.submit(MODE.cls, phase, P.id, key, P, MODE.autoPicked);
@@ -926,8 +937,17 @@ function autoSubmit(phase, room){
   if(!P.alive || MODE.answered === phase + ":" + (room.round||0)) return;
   MODE.autoPicked = true;
   if(ev.kind === "lots"){
-    const isBad = Math.random() < ev.bad / ev.n;
-    submitChoice(phase, room, ev.apply(P, isBad), ev.keyOf(isBad), true);
+    /* 패를 뽑지 않은 것은 운에 맡긴 것이 아니라 아무것도 하지 않은 것이다.
+       그대로 화를 입고, 서원이 있어도 1506년에 되살아나지 않는다.
+       휩쓸린 사람에게 붙던 名 +1도 주지 않는다 — 한 일이 없기 때문이다. */
+    const res = ev.apply(P, true);
+    adj(P, "fame", -1);
+    P.noRevive = true;
+    if(P.log.length) P.log[P.log.length-1].text = "갑자년의 옥사에 휩쓸리다. 끝내 패를 잡지 않았다.";
+    res.verdict = "그대는 패를 뽑지 않았다.";
+    res.body = "시간이 다 되도록 아무 패도 잡지 않았다. 고르지 않은 자에게 남는 것은 화(禍)뿐이다.";
+    res.delta = "사망 1504";
+    submitChoice(phase, room, res, ev.keyOf(true), true);
     return;
   }
   const c = (ev.choices||[]).find(x=>x.key===ev.defaultKey) || (ev.choices||[])[0];

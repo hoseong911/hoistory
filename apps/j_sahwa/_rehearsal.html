@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사화에서 살아남기 리허설</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+<style>
+  /* ============================================================
+     수업 전 리허설용 화면. 어드민 · 교실 화면 · 학생 화면 셋을 한 탭에 띄워
+     혼자서 전체 흐름을 돌려 볼 수 있게 한다.
+
+     핵심은 학생 신원이다. 학생 화면(index.html)은 LMS가 남긴
+     sessionStorage.lms_sid를 읽어 자기가 누구인지 안다. sessionStorage는
+     탭 단위라, 이 페이지가 값을 써 준 뒤 iframe을 띄우면 그 학생이 된다.
+     학생을 한 명 더 넣고 싶으면 [학생 화면 하나 더]로 새 탭을 연다 —
+     새 탭은 sessionStorage를 복사해 가지만 그 뒤로는 서로 독립이라
+     탭마다 다른 학번으로 앉을 수 있다.
+     ============================================================ */
+  :root{
+    --bg:#1C1A17; --bg2:#25221E; --line:#453F38; --line2:#5A544C;
+    --fg:#E8E4D4; --fg2:#A8A08C; --fg3:#6F6A5E;
+    --hot:#A8322D; --ok:#3E8E63; --warn:#C08A2E;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg);color:var(--fg);
+    font-family:'Pretendard','IBM Plex Sans KR','Malgun Gothic',sans-serif;
+    font-size:14px;line-height:1.6;display:flex;flex-direction:column;
+  }
+  a{color:inherit}
+  button,input,select{font-family:inherit;font-size:13px}
+  .btn{
+    background:var(--bg2);border:1px solid var(--line2);color:var(--fg);
+    padding:.4rem .85rem;border-radius:5px;cursor:pointer;white-space:nowrap;
+  }
+  .btn:hover{background:#332F29;border-color:#7A7267}
+  .btn.pri{background:var(--hot);border-color:var(--hot);color:#fff;font-weight:600}
+  .btn.pri:hover{background:#C03A34}
+  .btn.danger{border-color:var(--hot);color:#E08B85}
+  .btn.danger:hover{background:var(--hot);color:#fff}
+  .btn[disabled]{opacity:.45;cursor:default}
+  .inp{
+    background:#141210;border:1px solid var(--line2);color:var(--fg);
+    padding:.4rem .6rem;border-radius:5px;outline:none;
+  }
+  .inp:focus{border-color:var(--fg2)}
+
+  /* ── 머리줄 ── */
+  header{
+    flex:none;border-bottom:1px solid var(--line);background:var(--bg2);
+    padding:.6rem .9rem;display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;
+  }
+  header .ttl{font-weight:700;letter-spacing:.01em;margin-right:.3rem}
+  header .ttl small{font-weight:400;color:var(--fg3);margin-left:.4rem;letter-spacing:.1em;font-size:11px}
+  .grp{display:flex;align-items:center;gap:.4rem}
+  .grp .lb{color:var(--fg2);font-size:12px;font-weight:600}
+  .spacer{flex:1}
+  .who{font-size:12px;color:var(--fg2)}
+  .who b{color:var(--fg)}
+  .clsbadge{
+    background:var(--hot);color:#fff;font-weight:700;font-size:12px;
+    padding:.18rem .55rem;border-radius:4px;
+  }
+
+  /* ── 알림줄 ── */
+  .bar{
+    flex:none;padding:.5rem .9rem;font-size:12.5px;line-height:1.65;
+    border-bottom:1px solid var(--line);
+  }
+  .bar.warn{background:rgba(192,138,46,.14);color:#E8CB92}
+  .bar.warn b{color:#F0DDB0}
+  .bar.live{
+    background:#141210;display:flex;gap:1.1rem;flex-wrap:wrap;align-items:center;
+    font-variant-numeric:tabular-nums;
+  }
+  .bar.live .k{color:var(--fg3);font-size:11px;letter-spacing:.08em;font-weight:700;margin-right:.35rem}
+  .bar.live .v{color:var(--fg);font-weight:600}
+  .bar.live .v.on{color:var(--ok)}
+  .bar.live .v.rev{color:var(--hot)}
+
+  /* ── 세 창 ── */
+  main{flex:1;min-height:0;overflow:auto;padding:.9rem;display:grid;gap:.9rem;
+       grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);
+       grid-template-rows:auto auto;align-content:start}
+  @media (max-width:1180px){ main{grid-template-columns:minmax(0,1fr)} }
+  .pane{border:1px solid var(--line);border-radius:8px;background:var(--bg2);overflow:hidden;min-width:0}
+  .pane.admin{grid-row:span 2}
+  .pane h2{
+    font-size:11.5px;letter-spacing:.14em;font-weight:700;color:var(--fg2);
+    padding:.5rem .7rem;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:.5rem;
+  }
+  .pane h2 .step{
+    background:var(--fg3);color:var(--bg);width:1.35rem;height:1.35rem;border-radius:50%;
+    display:inline-flex;align-items:center;justify-content:center;font-size:11px;letter-spacing:0;
+  }
+  .pane h2 .hint{color:var(--fg3);font-weight:500;letter-spacing:0;font-size:11.5px}
+  .pane h2 .rt{margin-left:auto;display:flex;gap:.35rem}
+  .pane h2 .mini{
+    background:none;border:1px solid var(--line2);color:var(--fg2);
+    font-size:11px;padding:.15rem .5rem;border-radius:4px;cursor:pointer;letter-spacing:0;
+  }
+  .pane h2 .mini:hover{color:var(--fg);border-color:var(--fg2)}
+  .fit{position:relative;overflow:hidden;background:#0F0E0C}
+  .fit iframe{border:0;display:block;transform-origin:top left;background:#E9DEC3}
+
+  /* ── 순서 안내 ── */
+  .steps{
+    grid-column:1 / -1;border:1px solid var(--line);border-radius:8px;background:var(--bg2);
+    padding:.8rem .95rem;font-size:12.5px;line-height:1.85;color:var(--fg2);
+  }
+  .steps h3{font-size:11.5px;letter-spacing:.14em;color:var(--fg2);margin-bottom:.5rem}
+  .steps ol{margin:0;padding-left:1.15rem}
+  .steps li{margin-bottom:.15rem}
+  .steps b{color:var(--fg)}
+  .steps .cav{margin-top:.6rem;padding-top:.55rem;border-top:1px solid var(--line);color:var(--fg3)}
+
+  /* ── 로그인 ── */
+  .lock{position:fixed;inset:0;background:rgba(10,9,8,.78);display:none;align-items:center;justify-content:center;z-index:50}
+  .lock.open{display:flex}
+  .lock-box{background:var(--bg2);border:1px solid var(--line2);border-radius:10px;padding:1.4rem 1.5rem;width:min(24rem,92vw)}
+  .lock-box h3{font-size:15px;margin-bottom:.3rem}
+  .lock-box p{font-size:12.5px;color:var(--fg2);line-height:1.7;margin-bottom:.9rem}
+  .lock-box .inp{display:block;width:100%;margin-bottom:.5rem}
+  .lock-e{color:#E08B85;font-size:12px;min-height:1.3rem}
+  .lock-btns{display:flex;gap:.45rem;justify-content:flex-end}
+
+  /* ── 학생 단독 모드 ── */
+  body.solo main{display:block;padding:0}
+  body.solo .fit{height:calc(100vh - 3.1rem)}
+  body.solo .pane{border:0;border-radius:0;height:100%}
+  body.solo .pane h2{display:none}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="ttl">사화에서 살아남기<small>리허설</small></span>
+
+  <div class="grp">
+    <span class="lb">학생 학번</span>
+    <input class="inp" id="sid" list="sidList" size="8" placeholder="10101" autocomplete="off">
+    <datalist id="sidList"></datalist>
+    <button class="btn pri" id="apply">이 학생으로 열기</button>
+    <span class="clsbadge" id="clsTag" style="display:none"></span>
+  </div>
+
+  <div class="grp">
+    <input class="inp" id="sid2" size="8" placeholder="다른 학번" autocomplete="off">
+    <button class="btn" id="more">학생 화면 하나 더</button>
+  </div>
+
+  <span class="spacer"></span>
+
+  <span class="who" id="who">로그인 확인 중</span>
+  <button class="btn" id="auth">교사 로그인</button>
+  <button class="btn" id="reload">세 창 새로고침</button>
+  <button class="btn danger" id="wipe">이 반 방 초기화</button>
+</header>
+
+<div class="bar warn">
+  리허설도 <b>실제 방</b>에 씁니다. 학번이 정하는 반(위 배지)의 방을 그대로 쓰므로,
+  수업 전에 <b>[이 반 방 초기화]</b>를 눌러 리허설 흔적을 지우고 들어가십시오.
+  소감(ANSWER)은 방과 별개라 남습니다.
+</div>
+
+<div class="bar live" id="live"></div>
+
+<main id="main">
+  <section class="pane admin">
+    <h2><span class="step">1</span>어드민 RUN<span class="hint">반과 기본 제한 시간만 정합니다</span>
+      <span class="rt"><button class="mini" data-rl="admin">새로고침</button>
+        <button class="mini" data-open="admin">새 탭</button></span></h2>
+    <div class="fit" data-w="1120" data-h="900"><iframe id="fAdmin" title="어드민"></iframe></div>
+  </section>
+
+  <section class="pane">
+    <h2><span class="step">2</span>교실 화면<span class="hint">아래 조작판에서 사건을 엽니다</span>
+      <span class="rt"><button class="mini" data-rl="screen">새로고침</button>
+        <button class="mini" data-open="screen">새 탭</button></span></h2>
+    <div class="fit" data-w="1280" data-h="760"><iframe id="fScreen" title="교실 화면"></iframe></div>
+  </section>
+
+  <section class="pane">
+    <h2><span class="step">3</span>학생 화면<span class="hint" id="stuHint">학번을 고르고 [이 학생으로 열기]</span>
+      <span class="rt"><button class="mini" data-rl="student">새로고침</button>
+        <button class="mini" data-open="student">새 탭</button></span></h2>
+    <div class="fit" data-w="420" data-h="880"><iframe id="fStudent" title="학생 화면"></iframe></div>
+  </section>
+
+  <section class="steps">
+    <h3>돌려 볼 순서</h3>
+    <ol>
+      <li>위에서 <b>교사 로그인</b>을 하고, 테스트 학번을 골라 <b>[이 학생으로 열기]</b>를 누른다.</li>
+      <li><b>어드민 RUN</b>에서 반이 학번의 반과 같은지 보고, 기본 제한 시간을 고른다.</li>
+      <li><b>학생 화면</b>에서 [살아남기]로 들어가 호를 짓고 스승과 기반을 골라 시작한다. 대기실에 들어가면 준비 완료.</li>
+      <li><b>교실 화면</b> 조작판에서 [사건 시작]을 누른다. 학생 화면이 바로 사건으로 바뀌는지 본다.</li>
+      <li>학생 화면에서 선택하고, 조작판의 <b>선택 N / M명</b>이 오르는지 본다.</li>
+      <li>[지금 공개]를 누른다. 학생 화면에 결과가 뜨고 교실 화면에 분포와 명단이 나오는지 본다.</li>
+      <li>[다음 사건]으로 갑자사화까지 가서 <b>제비뽑기가 봉인되는지</b>(뽑아도 안 열림) 확인하고, 공개할 때 함께 열리는지 본다.</li>
+      <li>[결말로]를 눌러 최종 명단과 붕당이 나오는지 본다. 학생 화면에서는 소감까지 남겨 본다.</li>
+      <li>어드민 <b>ANSWER</b> 탭에서 그 소감이 바로 올라오는지 확인한다.</li>
+    </ol>
+      <div class="cav">시간 초과를 보려면 제한 시간을 60초로 두고 학생 화면을 그대로 둡니다.
+        갑자사화에서 시간이 다 되면 패를 뽑지 않은 것으로 처리되어 화를 입고, 서원이 있어도 되살아나지 않습니다.
+        여러 명이 낸 상황을 보려면 [학생 화면 하나 더]로 다른 학번을 새 탭에 띄웁니다.</div>
+  </section>
+</main>
+
+<div class="lock" id="lock">
+  <div class="lock-box">
+    <h3>교사 로그인</h3>
+    <p>어드민과 교실 화면 조작판이 방에 쓰려면 교사 계정이 필요합니다.
+      학생 화면은 로그인 없이도 됩니다.</p>
+    <input class="inp" type="email" id="lkEmail" placeholder="이메일" autocomplete="username">
+    <input class="inp" type="password" id="lkPw" placeholder="비밀번호" autocomplete="current-password">
+    <div class="lock-e" id="lkErr"></div>
+    <div class="lock-btns">
+      <button class="btn" id="lkCancel">닫기</button>
+      <button class="btn pri" id="lkGo">접속하기</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getDatabase, ref, get, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { firebaseConfig } from "../../shared/firebase-config.js";
+
+const app  = initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const rtdb = getDatabase(app);
+const auth = getAuth(app);
+const ROOMS = "sahwa_rooms";
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const classOf = sid => { const c = parseInt(String(sid||"").slice(1,3),10); return isNaN(c)||c<=0 ? null : c; };
+
+/* 어드민이 iframe 안에서 [목록으로]를 누르면 부모의 이 함수를 부른다. LMS가 아니라
+   여기서 열렸으므로 할 일이 없지만, 없으면 그 자리에서 오류가 난다. */
+window.closeAppAdmin = function(){};
+
+const QS = new URLSearchParams(location.search);
+const SOLO = QS.get("mode") === "student";
+let SID = "", CLS = null, ROSTER = {};
+
+/* ── 학생 신원 심기 ──
+   index.html은 LMS가 남긴 sessionStorage를 읽어 자기가 누구인지 안다.
+   iframe은 이 탭의 sessionStorage를 그대로 보므로, 띄우기 전에 써 두면 된다. */
+function seat(sid){
+  SID = String(sid||"").trim();
+  CLS = classOf(SID);
+  try{
+    sessionStorage.setItem("lms_sid", SID);
+    sessionStorage.setItem("lms_sname", ROSTER[SID] || "");
+  }catch(e){}
+  const tag = $("#clsTag");
+  if(tag){
+    tag.style.display = CLS ? "" : "none";
+    tag.textContent = CLS ? CLS + "반" : "";
+  }
+  const hint = $("#stuHint");
+  if(hint) hint.textContent = SID ? `${SID} ${ROSTER[SID] || ""}`.trim() : "학번을 고르고 [이 학생으로 열기]";
+}
+
+function load(which){
+  if(which === "student"){ $("#fStudent").src = "index.html?t=" + Date.now(); return; }
+  if(which === "admin"){ $("#fAdmin").src = "admin.html?t=" + Date.now(); return; }
+  if(which === "screen"){
+    const secs = roomSecs();
+    $("#fScreen").src = "screen.html?cls=" + encodeURIComponent(CLS || "")
+      + (secs != null ? "&secs=" + secs : "") + "&t=" + Date.now();
+  }
+}
+function loadAll(){ load("admin"); load("screen"); load("student"); }
+function urlOf(which){
+  if(which === "student") return "index.html";
+  if(which === "admin")   return "admin.html";
+  const secs = roomSecs();
+  return "screen.html?cls=" + encodeURIComponent(CLS || "") + (secs != null ? "&secs=" + secs : "");
+}
+
+/* ── 방 상태 ── 세 화면이 같은 것을 보고 있는지 데이터로 직접 확인한다 ── */
+const PHASE_NAME = {
+  "lobby":"대기실","1498":"제1화 무오사화","1504":"제2화 갑자사화","1506":"제3화 중종반정",
+  "1519":"제4화 기묘사화","1545":"제5화 을사사화","1575":"제6화 붕당의 형성","final":"결말"
+};
+let ROOM = {}, UNSUB = null;
+function roomSecs(){ return ROOM && ROOM.secs != null ? (ROOM.secs|0) : null; }
+
+function watchRoom(){
+  if(UNSUB){ UNSUB(); UNSUB = null; }
+  if(!CLS){ paintLive(); return; }
+  UNSUB = onValue(ref(rtdb, `${ROOMS}/${CLS}`), s => { ROOM = s.exists() ? s.val() : {}; paintLive(); });
+}
+
+function paintLive(){
+  const el = $("#live"); if(!el) return;
+  if(!CLS){ el.innerHTML = `<span class="k">방</span><span class="v">학번을 정하면 그 학번의 반 방을 봅니다</span>`; return; }
+  const phase = ROOM.phase ? String(ROOM.phase) : "lobby";
+  const state = ROOM.state || "waiting";
+  const players = Object.values(ROOM.players || {});
+  const answers = (ROOM.answers && ROOM.answers[phase]) || {};
+  const alive = players.filter(p => p && p.alive).length;
+  const stName = state === "open" ? "선택 중" : state === "revealed" ? "결과 공개" : "대기";
+  const stCls  = state === "open" ? "on" : state === "revealed" ? "rev" : "";
+  const left = ROOM.endsAt ? Math.max(0, Math.ceil((ROOM.endsAt - Date.now())/1000)) : null;
+  el.innerHTML = `
+    <span><span class="k">방</span><span class="v">${CLS}반</span></span>
+    <span><span class="k">단계</span><span class="v">${esc(PHASE_NAME[phase] || phase)}</span></span>
+    <span><span class="k">상태</span><span class="v ${stCls}">${stName}</span></span>
+    ${left != null ? `<span><span class="k">남은 시간</span><span class="v">${left}초</span></span>` : ""}
+    <span><span class="k">들어온 사람</span><span class="v">${players.length}명</span></span>
+    <span><span class="k">생존</span><span class="v">${alive}명</span></span>
+    <span><span class="k">이번 사건 제출</span><span class="v">${Object.keys(answers).length}명</span></span>
+    <span><span class="k">기본 제한 시간</span><span class="v">${ROOM.secs != null ? (ROOM.secs ? ROOM.secs + "초" : "없음") : "미설정"}</span></span>`;
+}
+setInterval(() => { if(ROOM && ROOM.endsAt) paintLive(); }, 1000);
+
+/* ── 명단과 테스트 학번 ── */
+async function loadRoster(){
+  try{
+    const snap = await get(ref(rtdb, "students"));
+    Object.values(snap.val() || {}).forEach(s => {
+      const id = String((s && (s.studentId || s.id)) || "").trim();
+      if(id) ROSTER[id] = s.name || s.studentName || "";
+    });
+  }catch(e){}
+  let testIds = [];
+  try{
+    const d = await getDoc(doc(db, "settings", "lms_config"));
+    testIds = d.exists() ? (d.data().testStudentIds || []) : [];
+  }catch(e){}
+  const list = $("#sidList");
+  if(list){
+    const ids = testIds.map(x => String(x).trim()).filter(Boolean);
+    list.innerHTML = ids.map(id => {
+      const c = classOf(id);
+      return `<option value="${esc(id)}">${esc(ROSTER[id] || "")}${c ? " (" + c + "반)" : ""}</option>`;
+    }).join("");
+    if(!SID && ids.length) $("#sid").value = ids[0];
+  }
+  return testIds;
+}
+
+/* ── 로그인 ── */
+onAuthStateChanged(auth, u => {
+  const who = $("#who"), btn = $("#auth");
+  if(u){
+    who.innerHTML = `로그인됨 <b>${esc(u.email || "")}</b>`;
+    btn.textContent = "로그아웃";
+    btn.onclick = () => signOut(auth);
+  } else {
+    who.textContent = "로그인 안 됨 (조작판과 어드민 쓰기가 막힙니다)";
+    btn.textContent = "교사 로그인";
+    btn.onclick = () => { $("#lock").classList.add("open"); $("#lkErr").textContent = ""; $("#lkEmail").focus(); };
+  }
+});
+if(!SOLO){
+  $("#lkCancel").onclick = () => $("#lock").classList.remove("open");
+  $("#lkGo").onclick = async () => {
+    $("#lkErr").textContent = "들어가는 중…";
+    try{
+      await signInWithEmailAndPassword(auth, $("#lkEmail").value.trim(), $("#lkPw").value);
+      $("#lock").classList.remove("open");
+    }catch(e){ $("#lkErr").textContent = "이메일 또는 비밀번호를 확인해 주세요."; }
+  };
+  $("#lkPw").onkeydown = e => { if(e.key === "Enter") $("#lkGo").click(); };
+}
+
+/* ── 창 크기 맞추기 ── 각 칸의 폭에 맞춰 통째로 줄인다 ── */
+function fitAll(){
+  document.querySelectorAll(".fit").forEach(box => {
+    const w = +box.dataset.w, h = +box.dataset.h;
+    const frame = box.querySelector("iframe");
+    if(!w || !h || !frame) return;
+    if(document.body.classList.contains("solo")){
+      frame.style.transform = ""; frame.style.width = "100%"; frame.style.height = "100%";
+      return;
+    }
+    const s = Math.min(1, box.clientWidth / w);
+    frame.style.width = w + "px";
+    frame.style.height = h + "px";
+    frame.style.transform = `scale(${s})`;
+    box.style.height = Math.round(h * s) + "px";
+  });
+}
+window.addEventListener("resize", fitAll);
+if(window.ResizeObserver) new ResizeObserver(fitAll).observe(document.getElementById("main"));
+
+/* ── 단추 ── */
+if(!SOLO){
+  $("#apply").onclick = () => {
+    const v = $("#sid").value.trim();
+    if(!/^\d{5}$/.test(v)){ alert("학번은 숫자 5자리입니다."); return; }
+    // 명단에 없는 학번이면 학생 화면이 스스로 막는다. 미리 알려 주고 물어본다.
+    if(Object.keys(ROSTER).length && !ROSTER[v] &&
+       !confirm(`${v}은 명단에 없는 학번입니다.\n학생 화면이 "명단에 없는 학번"이라며 막힐 수 있습니다. 그래도 열까요?`)) return;
+    seat(v); watchRoom(); loadAll(); fitAll();
+  };
+  $("#sid").onkeydown = e => { if(e.key === "Enter") $("#apply").click(); };
+  $("#more").onclick = () => {
+    const v = ($("#sid2").value || "").trim();
+    if(!/^\d{5}$/.test(v)){ alert("새 탭에 앉힐 학번을 숫자 5자리로 적어 주십시오."); return; }
+    // 새 탭은 이 탭의 sessionStorage를 복사해 가지만 그 뒤로는 서로 독립이다.
+    // 그래서 탭마다 다른 학번으로 앉을 수 있다.
+    window.open("_rehearsal.html?mode=student&sid=" + encodeURIComponent(v), "_blank");
+  };
+  $("#reload").onclick = () => { loadAll(); fitAll(); };
+  $("#wipe").onclick = async () => {
+    if(!CLS){ alert("먼저 학번을 정해 주십시오."); return; }
+    if(!confirm(`${CLS}반 방을 초기화합니다.\n리허설로 만들어진 선비와 사초가 모두 지워집니다. 되돌릴 수 없습니다.`)) return;
+    try{
+      await remove(ref(rtdb, `${ROOMS}/${CLS}`));
+      await update(ref(rtdb, `${ROOMS}/${CLS}`), { phase:"lobby", state:"waiting", round:0, endsAt:null });
+      loadAll();
+    }catch(e){ alert("지우지 못했습니다. 교사 로그인을 확인해 주십시오."); }
+  };
+  document.querySelectorAll("[data-rl]").forEach(b => b.onclick = () => { load(b.dataset.rl); fitAll(); });
+  document.querySelectorAll("[data-open]").forEach(b => b.onclick = () => window.open(urlOf(b.dataset.open), "_blank"));
+}
+
+/* ── 시작 ── */
+(async function boot(){
+  if(SOLO){
+    document.body.classList.add("solo");
+    document.querySelectorAll(".pane:not(:nth-of-type(3)), .steps, .bar.warn").forEach(el => el.remove());
+    await loadRoster();
+    seat(QS.get("sid") || "");
+    $("#sid").value = SID;
+    $("#sid").disabled = true; $("#apply").disabled = true;
+    $("#more").disabled = true; $("#sid2").disabled = true; $("#wipe").disabled = true;
+    $("#reload").onclick = () => load("student");
+    watchRoom();
+    load("student");
+    fitAll();
+    return;
+  }
+  await loadRoster();
+  const first = $("#sid").value.trim();
+  if(/^\d{5}$/.test(first)){ seat(first); watchRoom(); loadAll(); }
+  else { paintLive(); load("admin"); }
+  fitAll();
+})();
+</script>
+</body>
+</html>
