@@ -4831,10 +4831,13 @@ function renderGradeFeedbackTplSelect() {
 
 // 고른 템플릿을 지금 커서 자리에 끼워 넣는다(글자를 선택해 뒀다면 그 자리를 대신한다).
 // 덮어쓰지 않는 이유 — 템플릿은 보통 공통 문장이고, 그 앞뒤에 학생별 한마디를 붙이게 된다.
+// select의 onchange에서 부르므로 따로 누를 버튼이 없다. 넣고 나면 고른 값을 도로 비워서
+// 같은 템플릿을 연달아 두 번 넣을 수 있게 한다(안 비우면 change가 안 일어난다).
 function insertFeedbackTemplateIntoInput() {
   const sel = document.getElementById('gradeFeedbackTplSel');
   const tpl = _feedbackTemplates.find(t => t.id === sel.value);
-  if (!tpl) { alert('넣을 템플릿을 선택해주세요.'); return; }
+  sel.value = '';
+  if (!tpl) return;
   const ta = document.getElementById('gradeFeedbackInput');
   const start = ta.selectionStart ?? ta.value.length;
   const end   = ta.selectionEnd   ?? ta.value.length;
@@ -4880,6 +4883,8 @@ function openFeedbackTemplateModal() {
   resetTemplateForm();
   renderFeedbackTemplateList();
   renderFeedbackTemplateApplySelect();
+  document.getElementById('templateDirectIds').value = '';
+  renderTemplateDirectPreview();
   document.getElementById('feedbackTemplateBackdrop').classList.add('open');
 }
 function closeFeedbackTemplateModal() {
@@ -4945,9 +4950,81 @@ async function deleteFeedbackTemplate(id) {
 }
 
 function renderFeedbackTemplateApplySelect() {
-  const sel = document.getElementById('templateApplySel');
-  sel.innerHTML = '<option value="">-- 템플릿 선택 --</option>' +
+  const opts = '<option value="">-- 템플릿 선택 --</option>' +
     _feedbackTemplates.map(t => `<option value="${esc(t.id)}">${esc(t.label)}</option>`).join('');
+  ['templateApplySel', 'templateDirectSel'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel) sel.innerHTML = opts;
+  });
+}
+
+/* ── 학번 지정 적용 ──
+   일괄 적용은 "지금 보고 있는 반, 아직 피드백이 없는 학생"만 건드리는데, 특정 학생 한둘에게
+   템플릿을 넣고 싶을 때가 있다. 여기서는 반 탭도 피드백 유무도 따지지 않고 학번으로 바로 찾는다.
+   학번은 쉼표·띄어쓰기 아무거나로 여러 개 적을 수 있다. */
+function parseTemplateDirectIds() {
+  const raw = document.getElementById('templateDirectIds')?.value || '';
+  const ids = raw.split(/[^0-9]+/).filter(Boolean);
+  return [...new Set(ids)];
+}
+
+// 입력하는 대로 "이 학번이 누구인지"를 보여 준다. 잘못 찍은 학번을 적용 전에 알아채라고.
+function renderTemplateDirectPreview() {
+  const el = document.getElementById('templateDirectPreview');
+  if (!el) return;
+  const ids = parseTemplateDirectIds();
+  if (!ids.length) { el.textContent = ''; return; }
+  const found = [], missing = [];
+  ids.forEach(id => {
+    const stu = _gradeStudents.find(s => s.id === id);
+    if (stu && _gradeRecords[id]) found.push(`${stu.id} ${stu.name}`);
+    else missing.push(id);
+  });
+  const parts = [];
+  if (found.length)   parts.push(found.join(', '));
+  if (missing.length) parts.push(`찾을 수 없음: ${missing.join(', ')}`);
+  el.textContent = parts.join(' / ');
+}
+
+async function applyFeedbackTemplateToIds() {
+  const tpl = _feedbackTemplates.find(t => t.id === document.getElementById('templateDirectSel').value);
+  if (!tpl) { alert('적용할 템플릿을 선택해주세요.'); return; }
+  if (!_gradeLessonKey || !Object.keys(_gradeRecords).length) {
+    alert('먼저 강의를 골라 성적표를 불러와주세요.'); return;
+  }
+  const ids = parseTemplateDirectIds();
+  if (!ids.length) { alert('적용할 학번을 입력해주세요.'); return; }
+
+  const targets = [], missing = [];
+  ids.forEach(id => {
+    if (_gradeRecords[id]) targets.push(id); else missing.push(id);
+  });
+  if (missing.length) { alert(`명단에 없는 학번입니다: ${missing.join(', ')}`); return; }
+
+  // 이미 써 둔 피드백을 말없이 날리지 않는다.
+  const overwrite = targets.filter(id => (_gradeRecords[id].feedback || '').trim());
+  if (overwrite.length) {
+    const names = overwrite.map(id => `${id} ${_gradeStudents.find(s => s.id === id)?.name || ''}`.trim());
+    if (!confirm(`이미 피드백이 있는 학생이 있습니다.\n${names.join(', ')}\n\n덮어쓸까요?`)) return;
+  }
+
+  const prev = {};
+  const applied = targets.map(id => {
+    prev[id] = _gradeRecords[id].feedback || '';
+    _gradeRecords[id].feedback = tpl.text;
+    return { sid: id, feedback: tpl.text };
+  });
+
+  closeFeedbackTemplateModal();
+  renderGradeTable();
+  try {
+    await persistFeedbackOnly(applied);
+    alert(`${applied.length}명에게 적용했습니다. 학생 화면에 바로 보입니다.`);
+  } catch (e) {
+    applied.forEach(({ sid }) => { if (_gradeRecords[sid]) _gradeRecords[sid].feedback = prev[sid]; });
+    renderGradeTable();
+    alert('피드백 저장 실패: ' + e.message);
+  }
 }
 
 async function applyFeedbackTemplate() {
@@ -6467,6 +6544,7 @@ Object.assign(window, {
   openFeedbackTemplateModal, closeFeedbackTemplateModal,
   editFeedbackTemplate, resetTemplateForm, saveFeedbackTemplate, deleteFeedbackTemplate,
   applyFeedbackTemplate, insertFeedbackTemplateIntoInput,
+  renderTemplateDirectPreview, applyFeedbackTemplateToIds,
   // 아래 다섯은 인라인 핸들러에서 부르는데 노출이 빠져 있어 눌러도 아무 일도 안 났다.
   // dbLoad = 대시보드 "새로고침", autoResizeTa = 콘텐츠 편집 textarea 자동 높이,
   // render*Preview / renderArchiveCards = 카드 편집 폼의 "취소".
