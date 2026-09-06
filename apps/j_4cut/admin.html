@@ -20,6 +20,7 @@
   --fc-primary:#FF6B3D; --fc-primary-soft:rgba(255,107,61,.12); --fc-primary-deep:#E24E1B;
   --fc-navy:#27384F; --fc-navy-deep:#172554; --fc-navy-l:rgba(39,56,79,.12);
   --fc-pass:#22c55e; --fc-pass-l:rgba(34,197,94,.12);
+  --fc-pick:#F0A500; --fc-pick-l:rgba(240,165,0,.12);   /* 픽(수업에서 보여 줄 작품) 전용 */
   --fc-fail:var(--hi-negative); --fc-fail-l:rgba(243,114,127,.1);
 }
 .fc-section{max-width:900px;margin:0 auto}
@@ -185,12 +186,21 @@
 .thc-seg:hover{background:var(--hi-bg-elevated)}
 .thc-seg.on{box-shadow:inset 0 0 0 1.5px currentColor}
 .stat-grade{padding:0 6px}
+/* 픽 칩 — 수업에서 보여 줄 작품 수. 누르면 픽한 것만 걸러 본다(채점 칩과 같은 규격). */
+.stat-pick{gap:5px;cursor:pointer;transition:background .15s,box-shadow .15s}
+.stat-pick:hover{background:var(--hi-bg-elevated)}
+.stat-pick.on{box-shadow:inset 0 0 0 1.5px var(--fc-pick)}
+.stat-pick .hi-ic{display:block;color:var(--fc-pick)}
+.stat-pick.on .hi-ic path{fill:var(--fc-pick)}
+.stat-pick .thc-p{font-size:var(--ans-tag-fs);font-weight:800;color:var(--fc-pick);min-width:2.6ch;text-align:center;font-variant-numeric:tabular-nums}
 
 /* 작품 격자 — 카드 껍데기는 공용 .std-card 규격(둥근 모서리·연한 테두리·그림자)을 따른다. */
 .fc-works{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
 .fc-work{background:var(--hi-bg-card);border:1px solid var(--hi-border-soft);border-radius:14px;overflow:hidden;box-shadow:var(--hi-shadow-card);display:flex;flex-direction:column}
 .fc-work.graded-pass{border-color:rgba(34,197,94,.45)}
 .fc-work.graded-fail{border-color:rgba(243,114,127,.45)}
+/* 픽한 작품은 채점 색보다 앞세워 표시한다 — 골라 둔 게 격자에서 바로 눈에 띄어야 한다. */
+.fc-work.picked{border-color:var(--fc-pick);box-shadow:0 0 0 1px var(--fc-pick),var(--hi-shadow-card)}
 /* 카드 상단 바: [학번·이름] [액션] — 좁은 격자라 배지 줄은 아래로 내린다. */
 .fc-work-head{display:flex;align-items:center;gap:8px;padding:10px 12px 8px}
 .fc-work-head .std-who{flex:1;min-width:0;display:flex;align-items:baseline;gap:6px}
@@ -200,6 +210,12 @@
 .fc-work-head .std-del{background:none;border:none;color:var(--hi-negative);cursor:pointer;padding:4px;border-radius:6px;display:flex}
 .fc-work-head .std-del:hover{background:var(--hi-bg-elevated)}
 .fc-work-head .std-del .hi-ic{display:block}
+/* 픽 버튼 — 빈 별이 안 고른 상태, 채운 별이 고른 상태. */
+.fc-work-head .fc-pick{background:none;border:none;color:var(--hi-text-muted);cursor:pointer;padding:4px;border-radius:6px;display:flex;transition:color .15s}
+.fc-work-head .fc-pick:hover{background:var(--hi-bg-elevated);color:var(--fc-pick)}
+.fc-work-head .fc-pick.on{color:var(--fc-pick)}
+.fc-work-head .fc-pick.on .hi-ic path{fill:currentColor}
+.fc-work-head .fc-pick .hi-ic{display:block}
 /* 상태 줄: 제출 시각 → 사건 배지 → 좋아요. 인터뷰의 .std-status와 같은 배지 규격. */
 .fc-work-status{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:0 12px 9px}
 .fc-work-status .std-meta-time{font-size:var(--adm-label);color:var(--hi-text-muted)}
@@ -244,6 +260,11 @@
 .one-who .like-badge .hi-ic{fill:currentColor}
 .one-who .std-meta-time{font-size:var(--adm-label);color:var(--hi-text-muted)}
 .one-who .std-meta-note{font-size:var(--adm-label);font-weight:700;color:var(--fc-primary-deep);margin-left:auto}
+/* 개별 보기의 픽 버튼 — 배지 줄에 같은 알약 규격으로 선다. */
+.one-who .one-pick{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;padding:3px 10px;border-radius:100px;cursor:pointer;font-family:inherit;font-size:var(--adm-label);font-weight:700;line-height:1.5;border:1.5px solid var(--hi-border);background:var(--hi-bg-mid);color:var(--hi-text-muted);transition:.15s}
+.one-who .one-pick:hover{border-color:var(--fc-pick);color:var(--fc-pick)}
+.one-who .one-pick.on{background:var(--fc-pick);border-color:var(--fc-pick);color:#fff}
+.one-who .one-pick.on .hi-ic path{fill:currentColor}
 /* 개별 보기에서는 폭 제한을 풀어 그림을 최대한 크게 — 1:3 세로라 좁으면 대사가 안 읽힌다. */
 .one-img{display:block;width:100%;background:var(--hi-bg-elevated);border:1px solid var(--hi-border-soft);border-top:none;cursor:zoom-in}
 .one-grade{border:1px solid var(--hi-border-soft);border-top:none;border-radius:0 0 12px 12px;background:var(--hi-bg-card);padding:12px 14px}
@@ -368,6 +389,10 @@
             <div class="stat-chip stat-combo stat-grade" id="gradeChip">
               <span class="thc-g thc-seg" data-st="pass" id="s-pass" title="통과만 보기">0</span><span class="thc-sep">/</span><span class="thc-r thc-seg" data-st="fail" id="s-fail" title="미흡만 보기">0</span><span class="thc-sep">/</span><span class="thc-n thc-seg" data-st="pending" id="s-pending" title="미채점만 보기">0</span>
             </div>
+            <!-- 픽한 작품(수업에서 보여 줄 것) 수. 누르면 픽한 것만 걸러 본다. -->
+            <div class="stat-chip stat-combo stat-pick" id="pickChip" title="픽한 작품만 보기">
+              <span id="pickChipIc"></span><span class="thc-p" id="s-pick">0</span>
+            </div>
           </div>
         </div>
         <!-- 2줄: 사화(사건)별 분류 -->
@@ -386,6 +411,7 @@
         <!-- 지금 태그로 걸러 놓은 작품만 zip으로 받는다. 반 태그를 골라 두면 그 반만 받는다. -->
         <div class="ans-saverow">
           <button class="btn btn-ghost btn-sm" id="worksGalleryBtn">갤러리 보기</button>
+          <button class="btn btn-ghost btn-sm" id="worksPickGalleryBtn">픽 갤러리</button>
           <button class="btn btn-ghost btn-sm" id="worksZipBtn">이미지 일괄 저장</button>
           <span class="fc-upstatus" id="worksZipStatus"></span>
         </div>
@@ -461,6 +487,8 @@ const sgtClass=st=>st==='pass'?'sgt-pass':st==='fail'?'sgt-insuf':'sgt-none';
 const sgtLabel=st=>st==='pass'?'통과':st==='fail'?'미흡':'미채점';
 const sgtNext =st=>{const n=GRADE_CYCLE[st||'']||'pass';return n==='pending'?null:n;};
 const SGT_TITLE='누를 때마다 통과, 미흡, 미채점 순으로 바뀝니다';
+// 픽 = 채점과 별개로, 수업에서 보여 줄 작품을 골라 두는 표시(별).
+const PICK_TITLE='수업에서 보여 줄 작품으로 고르기';
 
 /* ── 상태 ── */
 let CONTENT={title:"",introTitle:"",introBody:"",introBtn:"",editHint:"",
@@ -708,6 +736,7 @@ function renderImgStatus(){
 
 document.getElementById('worksZipBtn').onclick=()=>downloadWorksZip();
 document.getElementById('worksGalleryBtn').onclick=()=>openWorksGallery();
+document.getElementById('worksPickGalleryBtn').onclick=()=>openPickGallery();
 
 document.getElementById('fcImgReload').onclick=async e=>{
   const btn=e.currentTarget;
@@ -798,6 +827,8 @@ function fmtSubmitTime(w){
 }
 /* 아직 안 본 작품은 status가 없다. 세 갈래로 좁혀 두면 필터도 통계도 같은 기준을 쓴다. */
 const stOf=w=>(w.status==='pass'||w.status==='fail')?w.status:'pending';
+// 픽 = 수업에서 보여 줄 작품. 켜면 픽한 것만 남는다(반·사건·채점 태그와 함께 걸린다).
+let worksPickOnly=false;
 
 /* 반별 명단 (RTDB students). 미제출자를 세려면 분모가 필요하다 — 제출된 것만 보면
    24명 중 18명이 냈는데도 18이 전부인 것처럼 보인다. */
@@ -851,6 +882,16 @@ function renderWorksStats(inEv){
   set('s-pass',inEv.filter(w=>w.status==='pass').length);
   set('s-fail',inEv.filter(w=>w.status==='fail').length);
   set('s-pending',inEv.filter(w=>stOf(w)==='pending').length);
+  set('s-pick',inEv.filter(w=>w.picked).length);
+
+  // 픽 칩도 채점 칩처럼 그 자체가 필터다 — 다시 누르면 전체로 돌아온다.
+  const pchip=document.getElementById('pickChip');
+  if(pchip){
+    const ic=document.getElementById('pickChipIc');
+    if(ic&&!ic.innerHTML)ic.innerHTML=icon('star',14);
+    pchip.classList.toggle('on',worksPickOnly);
+    pchip.onclick=()=>{worksPickOnly=!worksPickOnly;refreshAnswer();};
+  }
 
   // 채점 칩의 숫자가 곧 상태 필터다. 고른 숫자를 다시 누르면 전체로 돌아온다.
   const chip=document.getElementById('gradeChip');
@@ -864,7 +905,8 @@ function filteredWorks(){
   const list=works.filter(w=>
     (worksFilter==='all'||w.classNum===worksFilter)&&
     (worksEvFilter==='all'||w.eventId===worksEvFilter)&&
-    (worksStFilter==='all'||stOf(w)===worksStFilter));
+    (worksStFilter==='all'||stOf(w)===worksStFilter)&&
+    (!worksPickOnly||!!w.picked));
   return worksSort==='sid'
     ? list.sort((a,b)=>String(a.studentId||'').localeCompare(String(b.studentId||'')))
     : list.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
@@ -882,6 +924,8 @@ function renderWorksSort(){
 /* 갤러리는 학생 화면과 같은 것을 새 탭으로 연다. ?all=1이면 반 태그가 그대로 나와
    모든 반을 골라 볼 수 있다(학생 화면에서 열면 자기 반만 보인다). */
 window.openWorksGallery=()=>window.open('index.html?archive=1&all=1','_blank','noopener');
+// 픽한 작품만 띄우는 갤러리 — 수업에서 잘한 작품을 보여 줄 때 쓴다.
+window.openPickGallery=()=>window.open('index.html?archive=1&all=1&picked=1','_blank','noopener');
 
 /* 태그를 바꾸면 목록과 개별 보기를 함께 다시 그린다. 개별 보기는 대상이 달라졌으므로
    처음부터 다시 시작한다. */
@@ -905,13 +949,14 @@ function renderWorks(){
   if(!list.length){el.innerHTML=`<div class="no-data">조건에 맞는 작품이 없습니다.</div>`;return;}
   el.innerHTML=`<div class="fc-works">${list.map(w=>{
     const t=fmtSubmitTime(w);
-    return `<div class="fc-work${w.status==='pass'?' graded-pass':w.status==='fail'?' graded-fail':''}">
+    return `<div class="fc-work${w.status==='pass'?' graded-pass':w.status==='fail'?' graded-fail':''}${w.picked?' picked':''}">
       <div class="fc-work-head">
         <div class="std-who">
           <span class="std-sid">${esc(w.studentId||'')}</span>
           <span class="std-name">${esc(w.studentName||'')}</span>
         </div>
         <div class="std-actions">
+          <button class="fc-pick${w.picked?' on':''}" title="${PICK_TITLE}" onclick="togglePick('${w.id}')">${icon('star',16)}</button>
           <button class="std-del" title="삭제" onclick="delWork('${w.id}')">${icon('x',16)}</button>
         </div>
       </div>
@@ -984,6 +1029,7 @@ function renderOne(){
       <span class="std-badge ev-badge">${esc(w.eventName||'사건 미기록')}</span>
       ${t?`<span class="std-meta-time">${t}</span>`:''}
       <span class="std-badge like-badge">${icon('heart',12)} ${w.likes||0}</span>
+      <button type="button" class="one-pick${w.picked?' on':''}" title="${PICK_TITLE}" onclick="togglePick('${w.id}')">${icon('star',13)} 픽</button>
       ${(w.status==='pass'||w.status==='fail')?`<span class="std-meta-note">이미 채점됨</span>`:''}
     </div>
     ${cachedImg(w)
@@ -1088,6 +1134,21 @@ async function syncSubmissionSummary(sid){
     payload.createdAt=new Date(w.timestamp);
   await setDoc(sref,payload,{merge:true});
 }
+
+/* ── 픽 ──
+   채점(통과/미흡)과는 다른 축이다. 잘한 작품을 골라 두었다가 수업에서 [픽 갤러리]로
+   그것만 띄워 보여 준다. 채점 결과와 무관하게 아무 작품이나 고를 수 있다. */
+window.togglePick=async id=>{
+  const cur=works.find(w=>w.id===id);
+  if(!cur)return;
+  const next=!cur.picked;
+  try{
+    await updateDoc(doc(db,'fourcut_works',id),{picked:next});
+    cur.picked=next;   // 스냅샷이 오기 전에도 칩 숫자와 별이 맞도록 먼저 반영
+    renderWorksFilter();
+    if(ansView==='one')renderOne(); else renderWorks();
+  }catch(e){alert('픽 저장 실패: '+(e.message||e));}
+};
 
 /* 배지를 누르면 통과, 미흡, 미채점 순으로 돈다(인터뷰 ANSWER와 같은 규격). */
 window.cycleWorkStatus=async id=>{

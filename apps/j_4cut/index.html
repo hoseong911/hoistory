@@ -1023,6 +1023,7 @@ async function submitWork(dataUrl){
   };
   if(cur.exists()){
     payload.status=deleteField();   // 규칙상 다시 낼 땐 status가 남아 있으면 안 된다
+    payload.picked=deleteField();   // 픽도 같이 푼다 — 골라 둔 뒤 내용을 바꿔치기하지 못하게
     // 그림을 작품 문서에서 떼어 내기(2026-08-31) 전에 낸 작품에는 image 필드가 그대로
     // 남아 있다. 갤러리와 어드민은 그 필드를 fourcut_images보다 먼저 보므로, 지우지
     // 않으면 다시 내도 옛 그림이 계속 보인다(문서도 765KB짜리로 무거운 채 남는다).
@@ -1112,6 +1113,9 @@ let arcCurId=null;     // 한 장씩 보기에서 지금 보고 있는 작품
    열려 있다) — 어느 반을 고를 수 있게 할지만 정한다.
    LMS 로그인 없이 [친구들 작품 보기]로 들어온 경우엔 가릴 반을 모르니 예전처럼 다 보여준다. */
 const ARC_ALL_CLASSES=new URLSearchParams(location.search).get('all')==='1';
+/* 픽 갤러리 — 어드민에서 별을 눌러 골라 둔 작품만 보여 준다. 수업 시간에 잘한 작품을
+   띄워 놓는 용도라 반 태그와 무관하게(?all=1과 함께) 열린다. */
+const ARC_PICKED_ONLY=new URLSearchParams(location.search).get('picked')==='1';
 function arcLockedClass(){
   if(ARC_ALL_CLASSES)return null;
   return student?classNumOf(student.studentId):null;
@@ -1122,7 +1126,8 @@ function openArchive(){
   arcIdx=0;arcMode='grid';arcGridScroll=0;arcLoaded=false;arcSig=null;
   const lock=arcLockedClass();
   arcFilter=lock==null?'all':lock;
-  $("#arcSubtitle").textContent=ARC_ALL_CLASSES?'모든 반 작품 갤러리'
+  $("#arcSubtitle").textContent=ARC_PICKED_ONLY?'픽한 작품 갤러리'
+    :ARC_ALL_CLASSES?'모든 반 작품 갤러리'
     :(lock!=null?lock+'반 작품 갤러리':'친구들 작품 갤러리');
   $("#arcStage").innerHTML=`<div class="arc-empty">불러오는 중…</div>`;
   subscribeArc();
@@ -1239,7 +1244,8 @@ function refilter(){
 function filteredWorks(){
   const list=arcWorks.filter(w=>
     (arcEvFilter==='all'||w.eventId===arcEvFilter)&&
-    (arcFilter==='all'||w.classNum===arcFilter));
+    (arcFilter==='all'||w.classNum===arcFilter)&&
+    (!ARC_PICKED_ONLY||!!w.picked));
   return arcSort==='sid'
     ? list.sort((a,b)=>String(a.studentId||'').localeCompare(String(b.studentId||'')))
     : list.sort((a,b)=>(b.timestamp||0)-(a.timestamp||0));
