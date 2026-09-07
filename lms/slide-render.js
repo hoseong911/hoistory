@@ -360,14 +360,30 @@
       let sub = false;
       if (t[0] === '>') { sub = true; t = t.slice(1).trim(); }
       const m = narrow ? t.match(/^(.*\S)\s*(\([^()]*\))$/) : null;
-      if (m && m[1]) { lines.push({ t: m[1].trim(), sub }); lines.push({ t: m[2], sub: true }); }
+      if (m && m[1]) { lines.push({ t: m[1].trim(), sub }); lines.push({ t: m[2], sub: true, paren: true }); }
       else if (t) lines.push({ t, sub });
     });
     if (!narrow) return lines;
     const out = [];
-    lines.forEach(o => wrapLabelLine(o.t).forEach(t => out.push({ t, sub: o.sub })));
+    lines.forEach(o => {
+      // 괄호는 쪼개지 않는다. (1592. 4.)가 6자에서 끊겨 "(1592." / "4.)"로 갈라지면
+      // 연도로 읽히지 않는다. 대신 길면 글자를 더 줄여 한 줄에 앉힌다.
+      if (o.paren) { out.push({ t: o.t, sub: true, scale: parenScale(o.t) }); return; }
+      wrapLabelLine(o.t).forEach(t => out.push({ t, sub: o.sub }));
+    });
     return out;
   }
+
+  /* 괄호 줄의 글자 크기. 기본은 CSS의 0.68em이고, 그 크기로 라벨 칸에 들어가는 길이를
+     14자쯤으로 보아 그보다 길면 길이에 반비례해 더 줄인다(0.42em이 바닥).
+     돌려주는 값이 null이면 CSS 기본값(0.68em)을 그대로 쓴다. */
+  const PAREN_FIT = 14;
+  function parenScale(t) {
+    const n = [...String(t)].length;
+    return n <= PAREN_FIT ? null : Math.max(0.42, +(0.68 * PAREN_FIT / n).toFixed(3));
+  }
+  const labelLineHTML = (o, cls) =>
+    `<span class="${cls}${o.sub ? ' sub' : ''}"${o.scale ? ` style="font-size:${o.scale}em"` : ''}>${preserveSpaces(o.t)}</span>`;
 
   function rowHTML(row, labelPos, bottomQuote) {
     const rawItems = row.items || [];
@@ -490,8 +506,7 @@
       // 줄바꿈되면 라벨을 우측정렬(.multi).
       const lines = labelLines(row.label, labelPos === 'left');
       const multiCls = (labelPos === 'left' && lines.length > 1) ? ' multi' : '';
-      const inner = lines.map(o =>
-        `<span class="row-label-line${o.sub ? ' sub' : ''}">${preserveSpaces(o.t)}</span>`).join('');
+      const inner = lines.map(o => labelLineHTML(o, 'row-label-line')).join('');
       // 좌측 라벨 배치는 라벨과 '첫 소제목'만 세로 가운데로 맞춘다는 원래 정한 규칙 그대로
       // 유지한다(전체 내용/그룹 개수와 무관) — 라벨·오렌지 세로선은 항상 첫 항목 높이만큼만.
       // CSS grid(display:contents 트릭)로 라벨은 1행에, 항목(<p>)들은 각자 행에 자동 배치되고,
@@ -535,19 +550,33 @@
      규칙으로 줄을 나눈다(6자 줄바꿈, 끝 괄호는 아랫줄에 작게).
      점은 라벨 칸 안에 넣는다 — 그래야 라벨이 두 줄이 되어도 점이 그 세로 가운데를
      따라간다(칸 밖에 두면 줄 전체 높이를 기준으로 잡혀 내용 쪽에 끌려간다). */
+  /* 라벨이 몇 em쯤 되는지 어림한다. 한글과 한자는 한 글자가 대략 한 em, 숫자와
+     괄호·마침표는 그 절반쯤이다. 칸 폭을 재는 데만 쓰므로 이 정도면 충분하다. */
+  const CJK_RE = /[가-힣ㄱ-ㅎㅏ-ㅣ　-〿㐀-鿿豈-﫿]/;
+  const emWidth = (s) => [...String(s)].reduce((n, c) => n + (CJK_RE.test(c) ? 1 : 0.56), 0);
+
   function timelineVBodyHTML(slide) {
+    /* 라벨 칸의 폭은 가장 긴 라벨에 맞춘다. %로 못 박아 두면 짧은 라벨만 있는
+       슬라이드에서 왼쪽이 휑하게 빈다 — 라벨은 선에 붙어 오른쪽에 서므로 남는 자리가
+       전부 왼쪽 여백이 된다. 여기서 잰 값을 --tlv-chars로 넘기면 CSS가 라벨 글자
+       크기를 곱해 칸 폭을 정한다(글자 크기를 줄이면 칸도 같이 좁아진다). */
+    let widest = 0;
     const events = (slide.events || []).map(ev => {
       const lines = labelLines(ev.memo || '', true);
-      const memo = lines.map(o =>
-        `<span class="tlv-memo-line${o.sub ? ' sub' : ''}">${preserveSpaces(o.t)}</span>`).join('');
+      lines.forEach(o => {
+        const scale = o.sub ? (o.scale || 0.68) : 1;
+        widest = Math.max(widest, emWidth(o.t) * scale);
+      });
+      const memo = lines.map(o => labelLineHTML(o, 'tlv-memo-line')).join('');
       return `
       <div class="tlv-ev">
         <div class="tlv-memo">${memo}<span class="tlv-dot"></span></div>
         <div class="tlv-content">${(ev.content || []).map(t => `<p>${parseItemText(t)}</p>`).join('')}</div>
       </div>`;
     }).join('');
+    const chars = Math.min(7, Math.max(1.6, widest + 0.2));   // 여유 0.2em, 위아래로 한계
     return `
-      <div class="fmt-timeline-v">
+      <div class="fmt-timeline-v" style="--tlv-chars:${chars.toFixed(2)}">
         <div class="tlv-line"></div>
         <div class="tlv-events">${events}</div>
       </div>`;
