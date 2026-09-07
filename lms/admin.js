@@ -1928,7 +1928,7 @@ function ceTimelineEditor(target, i, line) {
   const rows = line.events.map((ev, j) => isV ? `
     <div class="cl-fmt-row">
       <input type="text" class="cl-fmt-sm" placeholder="메모(연도 등)" value="${esc(ev.memo||'')}" oninput="updateEventField('${target}',${i},${j},'memo',this.value)">
-      <textarea class="cl-fmt-grow" placeholder="내용, 한 줄 = 한 항목, {단어}는 빈칸, ' : '로 소제목 구분" oninput="updateEventContent('${target}',${i},${j},this.value);autoResizeTa(this)" onkeydown="handleContentKeydown(event)">${esc((ev.content||[]).join('\n'))}</textarea>
+      <textarea class="cl-fmt-grow" placeholder="내용, 한 줄 = 한 항목, {단어}는 빈칸, ' : '로 소제목 구분, Shift+Enter로 같은 항목 안 줄바꿈" oninput="updateEventContent('${target}',${i},${j},this.value);autoResizeTa(this)" onkeydown="handleItemsKeydown(event)">${esc(itemsToText(ev.content))}</textarea>
       <button class="cl-fmt-del" onclick="removeEvent('${target}',${i},${j})">삭제</button>
     </div>` : `
     <div class="cl-fmt-row">
@@ -1939,7 +1939,7 @@ function ceTimelineEditor(target, i, line) {
   return `<div class="cl-fmt-fields">${rows}<button type="button" class="cbtn-sm" onclick="addEvent('${target}',${i})">+ 사건 추가</button></div>`;
 }
 function updateEventField(target,i,j,f,v) { ceLinesFor(target)[i].events[j][f] = v; ceRenderPreview(); }
-function updateEventContent(target,i,j,v) { ceLinesFor(target)[i].events[j].content = v.split('\n').filter(s=>s.trim()!==''); ceRenderPreview(); }
+function updateEventContent(target,i,j,v) { ceLinesFor(target)[i].events[j].content = itemsFromText(v); ceRenderPreview(); }
 function addEvent(target,i) {
   const line = ceLinesFor(target)[i];
   line.events.push(line.format === 'timeline-v' ? { memo:'', content:[''] } : { year:'', label:'' });
@@ -1951,12 +1951,12 @@ function ceCompareEditor(target, i, line) {
   const side = (key, label) => `
     <div class="cl-fmt-col">
       <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="${label} 라벨" value="${esc(line[key].label||'')}" oninput="updateCompareField('${target}',${i},'${key}','label',this.value)">
-      <textarea class="cl-fmt-grow" placeholder="한 줄 = 한 항목, {단어}는 빈칸, ' : '로 소제목 구분" oninput="updateCompareItems('${target}',${i},'${key}',this.value);autoResizeTa(this)" onkeydown="handleContentKeydown(event)">${esc((line[key].items||[]).join('\n'))}</textarea>
+      <textarea class="cl-fmt-grow" placeholder="한 줄 = 한 항목, {단어}는 빈칸, ' : '로 소제목 구분, Shift+Enter로 같은 항목 안 줄바꿈" oninput="updateCompareItems('${target}',${i},'${key}',this.value);autoResizeTa(this)" onkeydown="handleItemsKeydown(event)">${esc(itemsToText(line[key].items))}</textarea>
     </div>`;
   return `<div class="cl-fmt-fields cl-fmt-fields-2col">${side('left','왼쪽(네이비)')}${side('right','오른쪽(레드)')}</div>`;
 }
 function updateCompareField(target,i,side,f,v) { ceLinesFor(target)[i][side][f] = v; ceRenderPreview(); }
-function updateCompareItems(target,i,side,v)  { ceLinesFor(target)[i][side].items = v.split('\n').filter(s=>s.trim()!==''); ceRenderPreview(); }
+function updateCompareItems(target,i,side,v)  { ceLinesFor(target)[i][side].items = itemsFromText(v); ceRenderPreview(); }
 
 function ceQuoteEditor(target, i, line) {
   return `
@@ -2104,7 +2104,7 @@ function ceRenderContentLines(target) {
           return `
               <div class="cl-row-inner" data-row-idx="${rowIdx}">
                 <textarea class="cl-label" placeholder="라벨" oninput="updateLine('${target}',${rowIdx},'label',this.value);autoResizeTa(this)">${esc(row.label)}</textarea>
-                <textarea class="cl-items" placeholder="{단어}는 빈칸, **굵게**, 엔터로 항목 구분, Shift+Enter로 같은 항목 안 줄바꿈 (a./b./c. 줄은 하위 항목)" oninput="updateLineItems('${target}',${rowIdx},this.value);autoResizeTa(this)" onkeydown="handleItemsKeydown(event)">${esc(row.items.map(it => it.replace(new RegExp(String.fromCharCode(0x2028), 'g'), '\n' + String.fromCharCode(0x200B)).replace(/<\/?br\s*\/?>/gi, '\n')).join('\n'))}</textarea>
+                <textarea class="cl-items" placeholder="{단어}는 빈칸, **굵게**, 엔터로 항목 구분, Shift+Enter로 같은 항목 안 줄바꿈 (a./b./c. 줄은 하위 항목)" oninput="updateLineItems('${target}',${rowIdx},this.value);autoResizeTa(this)" onkeydown="handleItemsKeydown(event)">${esc(itemsToText(row.items))}</textarea>
                 ${rowDelete}
               </div>`;
         };
@@ -2394,7 +2394,11 @@ function deleteGroup(target, firstDivIdx) {
 function updateLine(target,i,f,v)    { ceLinesFor(target)[i][f]=v; ceRenderPreview(); }
 // 배치 변경 시 '텍스트 폭' 입력 노출 여부가 바뀌므로 편집기까지 다시 그린다.
 function updateImgLayout(target,i,v) { const l=ceLinesFor(target)[i]; l.imgLayout=v; ceRenderContentLines(target); ceRenderPreview(); }
-function updateLineItems(target,i,v) {
+/* "한 줄 = 한 항목" 편집칸의 글을 항목 배열로 나눈다.
+   행 나열 항목, 연표 사건 내용, 비교표 항목이 같은 규칙을 함께 쓴다 — 예전에는 행 나열만
+   이 규칙을 갖고 있어서, 연표와 비교표에서 Shift+Enter를 치면 그 줄이 별개 항목이 되어
+   내어쓰기(a. 뒤에 맞춰 들여쓰는 것)가 풀렸다. */
+function itemsFromText(v) {
   // 규칙: 일반 엔터(\n) = 새 항목. ZWSP(U+200B)로 시작하는 줄 = 같은 항목 안 줄바꿈(Shift+Enter,
   //   → U+2028로 이어 붙임). a./b./c. 로 시작하는 줄 = 하위 항목(<br>로 이어 붙임).
   const LS = String.fromCharCode(0x2028);
@@ -2419,12 +2423,23 @@ function updateLineItems(target,i,v) {
       cur = (cur === null) ? ln : cur + LS + ln;
       continue;
     }
-    if (ln === '') continue;                           // 일반 빈 줄은 버림
+    if (ln.trim() === '') continue;                     // 일반 빈 줄은 버림
     if (cur !== null) items.push(cur);
     cur = ln;
   }
   if (cur !== null) items.push(cur);
-  ceLinesFor(target)[i].items = items;
+  return items;
+}
+/* 항목 배열을 편집칸 글로 되돌린다. 같은 항목 안 줄바꿈(U+2028)은 줄바꿈 + ZWSP로,
+   하위 항목(<br>)은 그냥 줄바꿈으로 편다 — a./b. 마커가 남아 있으므로 저장할 때
+   itemsFromText가 도로 하위 항목으로 합친다. */
+function itemsToText(items) {
+  const LS = new RegExp(String.fromCharCode(0x2028), 'g');
+  const ZWSP = String.fromCharCode(0x200B);
+  return (items || []).map(it => String(it).replace(LS, '\n' + ZWSP).replace(/<\/?br\s*\/?>/gi, '\n')).join('\n');
+}
+function updateLineItems(target,i,v) {
+  ceLinesFor(target)[i].items = itemsFromText(v);
   ceRenderPreview();
 }
 function deleteLine(target,i)        { ceLinesFor(target).splice(i,1); ceRenderContentLines(target); ceRenderPreview(); }
