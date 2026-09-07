@@ -5656,8 +5656,15 @@ function esRenderTable() {
   if (!studs.length) { wrap.innerHTML = '<div class="empty-panel">학생 명단이 없습니다.</div>'; return; }
 
   const idxs = Array.from({ length: ESSAY_N }, (_, k) => k + 1);
+  //  칸 너비를 colgroup으로 못 박는다(표는 table-layout:fixed). 점수를 적어 넣을 때마다
+  //  글자 수에 따라 칸이 늘었다 줄었다 하면 옆 학생 줄까지 밀려 찍기가 어렵다.
+  const cols = `<colgroup>
+      <col class="es-col-sid"><col class="es-col-name">
+      ${idxs.map(() => ESSAY_PARTS.map(() => '<col class="es-col-part">').join('') + '<col class="es-col-tot">').join('')}
+    </colgroup>`;
   //  1행은 논술형 묶음, 2행은 그 안의 배점 항목. 각 논술형은 항목 3개 + 총점 1개.
   let html = `<div class="grade-score-table-wrap"><table class="grade-score-table es-table">
+    ${cols}
     <thead>
       <tr>
         <th rowspan="2">학번</th><th rowspan="2">이름</th>
