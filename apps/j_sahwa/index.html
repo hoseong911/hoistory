@@ -42,7 +42,12 @@
   /* 손안의 화면으로 읽는 글이라 기본 16px은 작다. 뿌리 글자를 2px 올리면
      rem으로 짜 둔 본문과 제목, 선택지가 한꺼번에 그만큼 커진다. */
   html{font-size:18px}
-  html,body{height:100%}
+  /* html과 body의 높이는 못 박지 않는다.
+     예전에는 둘 다 height:100%였다. 그러면 문서 상자가 화면 한 장에서 끝나고,
+     그보다 긴 인트로는 상자 밖으로 넘쳐 흐른다. 브라우저는 넘친 것을 알아서
+     스크롤시켜 주므로 손으로 넘기는 데는 문제가 없지만, 문서가 얼마나 긴지를
+     상자 크기로 재는 쪽(갤럭시의 스크롤 캡처 같은 것)에서는 한 장짜리로 보인다.
+     내용만큼 늘어나게 두고, 화면을 채우는 일은 아래 #app이 맡는다. */
   body{
     background:var(--paper);
     color:var(--ink);
@@ -51,10 +56,16 @@
     line-height:1.7;
     -webkit-font-smoothing:antialiased;
   }
+  #app{position:relative;z-index:1;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
   /* 한지 결 — 발에 떠 놓은 닥섬유가 세로로 곧게, 사선으로 성기게 눕는다.
-     그 위에 물이 고였다 마른 자리를 얼룩으로 얹어 종이 티를 낸다. */
-  body::before{
-    content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+     그 위에 물이 고였다 마른 자리를 얼룩으로 얹어 종이 티를 낸다.
+     예전에는 화면에 고정(position:fixed)이었다. 화면 전체를 덮은 채 움직이지 않는
+     층이 있으면 스크롤 캡처가 앞뒤 장면을 견주다 "더 내려갈 것이 없다"고 일찍
+     멈추는 일이 있어, 종이가 글과 함께 흐르도록 #app 안으로 들여놨다.
+     z-index는 -1이라야 글자 뒤로 깔린다 — 자리를 잡은 요소는 그냥 두면 제자리에
+     흐르는 글자보다 위에 그려진다. */
+  #app::before{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;
     background-image:
       repeating-linear-gradient(91deg, rgba(122,98,55,.055) 0 1px, transparent 1px 4px),
       repeating-linear-gradient(83deg, rgba(122,98,55,.038) 0 1px, transparent 1px 9px),
@@ -62,8 +73,10 @@
       radial-gradient(ellipse at 18% 12%, rgba(163,130,72,.15), transparent 58%),
       radial-gradient(ellipse at 84% 80%, rgba(139,111,58,.13), transparent 55%),
       radial-gradient(ellipse at 52% 46%, rgba(198,172,112,.12), transparent 64%);
+    /* 글이 길어지면 상자도 그만큼 길어진다. 물 자국이 세로로 늘어져 흐릿해지지
+       않게, 얼룩은 화면 한 장 크기로 끊어 되풀이한다. */
+    background-size:auto,auto,auto,100% 100vh,100% 100vh,100% 100vh;
   }
-  #app{position:relative;z-index:1;min-height:100%;display:flex;flex-direction:column}
 
   /* ── 상태 표시줄 ── */
   .bar{
