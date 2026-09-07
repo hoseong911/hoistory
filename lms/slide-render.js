@@ -343,6 +343,32 @@
     return out;
   }
 
+  /* 좁은 좌측 라벨을 여러 줄로 세우는 규칙. 행 나열의 좌측 라벨과 연표(세로)의 라벨이
+     화면에서 같은 자리(선 왼쪽의 좁은 칸)를 맡으므로 규칙도 함께 쓴다.
+       · 엔터(또는 <br>)로 나뉜 줄은 그대로 각 줄
+       · 줄 맨 앞의 '>' → 그 줄만 한 수준 작게
+       · 줄 끝의 (연도) 같은 괄호 → 아랫줄에 작게 분리
+       · 공백 포함 6자를 넘으면 6자 안쪽 마지막 빈칸에서 끊는다(빈칸이 없으면 6자에서)
+     narrow가 거짓이면(라벨 상단 배치) 괄호 분리와 줄바꿈은 하지 않는다 — 칸이 화면
+     폭을 다 쓰므로 줄을 나눌 이유가 없다.
+     돌려주는 것은 [{ t, sub }] 목록이다. */
+  function labelLines(raw, narrow) {
+    const lines = [];
+    String(raw).replace(/<\/?br\s*\/?>/gi, '\n').split('\n').forEach(rawLine => {
+      let t = rawLine.trim();
+      if (!t) return;
+      let sub = false;
+      if (t[0] === '>') { sub = true; t = t.slice(1).trim(); }
+      const m = narrow ? t.match(/^(.*\S)\s*(\([^()]*\))$/) : null;
+      if (m && m[1]) { lines.push({ t: m[1].trim(), sub }); lines.push({ t: m[2], sub: true }); }
+      else if (t) lines.push({ t, sub });
+    });
+    if (!narrow) return lines;
+    const out = [];
+    lines.forEach(o => wrapLabelLine(o.t).forEach(t => out.push({ t, sub: o.sub })));
+    return out;
+  }
+
   function rowHTML(row, labelPos, bottomQuote) {
     const rawItems = row.items || [];
     const CIRCLE_RE = /^[①-⑳㉑-㊿]\s*/;
@@ -458,27 +484,11 @@
     //  · 줄 끝의 (연도) 같은 괄호 → 아랫줄에 작게 분리
     let labelHtml = '';
     if (hasLabel) {
-      // 라벨 상단 배치는 라벨 칸이 화면 폭을 다 쓰므로 줄을 나눌 이유가 없다. 여러 줄
-      // 규칙(6자 줄바꿈·끝 괄호 분리)은 좁은 좌측 라벨을 위한 것이라 상단에서는 적용하지
-      // 않고, 엔터로 나뉜 조각들도 한 줄에 이어서 보여준다(CSS에서 가로 배치).
-      const topLabel = labelPos !== 'left';
-      let lines = [];
-      String(row.label).replace(/<\/?br\s*\/?>/gi, '\n').split('\n').forEach(raw => {
-        let t = raw.trim();
-        if (!t) return;
-        let sub = false;
-        if (t[0] === '>') { sub = true; t = t.slice(1).trim(); }
-        const m = topLabel ? null : t.match(/^(.*\S)\s*(\([^()]*\))$/); // 끝의 (…) 분리
-        if (m && m[1]) { lines.push({ t: m[1].trim(), sub }); lines.push({ t: m[2], sub: true }); }
-        else if (t) lines.push({ t, sub });
-      });
-      // 좌측 라벨은 6자(공백 포함)까지 한 줄, 넘으면 줄바꿈(6자 이내 마지막 공백에서 끊고,
-      // 공백이 없으면 6자에서 강제 줄바꿈). 줄바꿈되면 라벨을 우측정렬(.multi).
-      if (labelPos === 'left') {
-        const wrapped = [];
-        lines.forEach(o => wrapLabelLine(o.t).forEach(t => wrapped.push({ t, sub: o.sub })));
-        lines = wrapped;
-      }
+      // 규칙은 labelLines가 쥐고 있다 — 연표(세로)의 라벨도 같은 것을 쓴다.
+      // 좁은 좌측 라벨일 때만 괄호 분리와 6자 줄바꿈이 걸리고, 상단 배치는 칸이 화면
+      // 폭을 다 쓰므로 줄을 나누지 않는다(엔터로 나뉜 조각도 한 줄에 이어서 보인다).
+      // 줄바꿈되면 라벨을 우측정렬(.multi).
+      const lines = labelLines(row.label, labelPos === 'left');
       const multiCls = (labelPos === 'left' && lines.length > 1) ? ' multi' : '';
       const inner = lines.map(o =>
         `<span class="row-label-line${o.sub ? ' sub' : ''}">${preserveSpaces(o.t)}</span>`).join('');
@@ -521,13 +531,21 @@
       </div>`;
   }
 
+  /* 연표(세로)의 라벨은 선 왼쪽의 좁은 칸에 선다. 그래서 행 나열의 좌측 라벨과 같은
+     규칙으로 줄을 나눈다(6자 줄바꿈, 끝 괄호는 아랫줄에 작게).
+     점은 라벨 칸 안에 넣는다 — 그래야 라벨이 두 줄이 되어도 점이 그 세로 가운데를
+     따라간다(칸 밖에 두면 줄 전체 높이를 기준으로 잡혀 내용 쪽에 끌려간다). */
   function timelineVBodyHTML(slide) {
-    const events = (slide.events || []).map(ev => `
+    const events = (slide.events || []).map(ev => {
+      const lines = labelLines(ev.memo || '', true);
+      const memo = lines.map(o =>
+        `<span class="tlv-memo-line${o.sub ? ' sub' : ''}">${preserveSpaces(o.t)}</span>`).join('');
+      return `
       <div class="tlv-ev">
-        <div class="tlv-dot"></div>
-        <span class="tlv-memo">${preserveSpaces(ev.memo || '')}</span>
+        <div class="tlv-memo">${memo}<span class="tlv-dot"></span></div>
         <div class="tlv-content">${(ev.content || []).map(t => `<p>${parseItemText(t)}</p>`).join('')}</div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
     return `
       <div class="fmt-timeline-v">
         <div class="tlv-line"></div>
@@ -1056,8 +1074,9 @@
         { key: 'rowsBody',  label: '본문',    v: '--fs-rows-body' },
       ]},
       { name: '연표 (가로/세로)', rows: [
-        { key: 'tlYear', label: '연도', v: '--fs-tl-year' },
-        { key: 'tlText', label: '내용', v: '--fs-tl-text' },
+        { key: 'tlYear',  label: '연도',      v: '--fs-tl-year' },
+        { key: 'tlvMemo', label: '세로 라벨', v: '--fs-tlv-memo' },
+        { key: 'tlText',  label: '내용',      v: '--fs-tl-text' },
       ]},
       { name: '비교표', rows: [
         { key: 'cmpHead', label: '머리', v: '--fs-cmp-head' },
@@ -1090,8 +1109,9 @@
         { key: 'mRowsBody',  label: '본문',    v: '--fs-rows-body-m' },
       ]},
       { name: '연표 (가로/세로)', rows: [
-        { key: 'mTlYear', label: '연도', v: '--fs-tl-year-m' },
-        { key: 'mTlText', label: '내용', v: '--fs-tl-text-m' },
+        { key: 'mTlYear',  label: '연도',      v: '--fs-tl-year-m' },
+        { key: 'mTlvMemo', label: '세로 라벨', v: '--fs-tlv-memo-m' },
+        { key: 'mTlText',  label: '내용',      v: '--fs-tl-text-m' },
       ]},
       { name: '비교표', rows: [
         { key: 'mCmpHead', label: '머리', v: '--fs-cmp-head-m' },
@@ -1151,6 +1171,7 @@
     // 개념 — 예전엔 라벨 계열은 전부 --fs-label, 본문 계열은 전부 --fs-body를 썼다.
     put('rowsLabel', label);        put('rowsBody', body);
     put('tlYear', Math.round(label * 1.1)); put('tlText', body);   // 연표 연도는 라벨의 1.1배였다
+    put('tlvMemo', f.tlYear);   // 세로 연표 라벨은 연도 크기를 함께 쓰다가 따로 뗐다
     put('cmpHead', label);          put('cmpBody', body);
     put('flLabel', label);          put('flText', body);
     put('notice', body);
@@ -1160,6 +1181,7 @@
     put('mTitle', f.title != null ? f.title : 40);
     put('mRowsLabel', label);       put('mRowsBody', mBody);
     put('mTlYear', Math.round(label * 1.1)); put('mTlText', mBody);
+    put('mTlvMemo', f.mTlYear);
     put('mCmpHead', label);         put('mCmpBody', mBody);
     put('mFlLabel', label);         put('mFlText', mBody);
     put('mNotice', mBody);

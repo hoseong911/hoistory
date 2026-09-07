@@ -383,14 +383,29 @@
 .fmt-timeline-h .tl-year { font-family: 'Paperlogy', var(--font); font-weight: 800; font-size: var(--fs-tl-year, calc(var(--fs-label) * 1.1)); color: var(--ink); font-variant-numeric: tabular-nums; }
 .fmt-timeline-h .tl-text { font-size: var(--fs-tl-text, var(--fs-body)); line-height: var(--lh-body); text-align: center; color: var(--text); word-break: keep-all; transform: scaleX(var(--tw-global)); transform-origin: center; }
 
-/* ════ 연표 (세로) ════ */
-.fmt-timeline-v { flex: 1; position: relative; padding-left: 34px; overflow: hidden; }
-.fmt-timeline-v .tlv-line { position: absolute; top: 4px; bottom: 4px; left: 10px; width: 2px; background: var(--label); opacity: .45; }
+/* ════ 연표 (세로) ════
+   라벨 | 선 | 내용 세 칸이다. 라벨은 선 왼쪽 칸에 우측정렬로 서고, 점은 그 라벨의
+   세로 가운데에 맞춰 선 위에 앉는다(라벨이 두 줄이 되면 점도 따라 내려간다).
+   선이 곧게 서려면 라벨 칸의 폭이 사건마다 같아야 하므로 폭을 %로 못 박는다. */
+.fmt-timeline-v { flex: 1; position: relative; overflow: hidden; --tlv-label-w: 30%; --tlv-gap: 26px; }
+.fmt-timeline-v .tlv-line { position: absolute; top: 4px; bottom: 4px; left: var(--tlv-label-w); width: 2px; background: var(--label); opacity: .45; }
 .fmt-timeline-v .tlv-events { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
-.fmt-timeline-v .tlv-ev { position: relative; display: flex; align-items: flex-start; gap: 20px; }
-.fmt-timeline-v .tlv-dot { position: absolute; left: -28px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: var(--label); z-index: 1; }
-.fmt-timeline-v .tlv-memo { flex: 0 0 auto; min-width: 56px; font-family: 'Paperlogy', var(--font); font-weight: 800; font-size: var(--fs-tl-year, calc(var(--fs-label) * 1.1)); color: var(--ink); font-variant-numeric: tabular-nums; }
-.fmt-timeline-v .tlv-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.fmt-timeline-v .tlv-ev { position: relative; display: grid; grid-template-columns: var(--tlv-label-w) 1fr; align-items: start; }
+/* 라벨 칸. align-items:start 덕에 이 칸의 높이는 라벨 자신의 높이다 — 점을 여기에
+   담아 두면 top:50%가 곧 라벨의 가운데가 된다. */
+.fmt-timeline-v .tlv-memo {
+  position: relative; padding-right: var(--tlv-gap);
+  display: flex; flex-direction: column; align-items: flex-end; text-align: right;
+  font-family: 'Paperlogy', var(--font); font-weight: 800;
+  font-size: var(--fs-tlv-memo, var(--fs-tl-year, calc(var(--fs-label) * 1.1)));
+  line-height: var(--lh-label); color: var(--ink);
+  font-variant-numeric: tabular-nums; word-break: keep-all;
+}
+/* 낮춘 줄(끝 괄호의 연도 등)은 크기만 작게 — 행 나열 라벨(.row-label-line.sub)과 같은 비율 */
+.fmt-timeline-v .tlv-memo-line.sub { font-size: 0.68em; margin-top: 3px; }
+/* 점 12px의 한가운데(right:-7px → 오른쪽 끝이 선 오른쪽 7px)가 선 2px의 한가운데에 온다 */
+.fmt-timeline-v .tlv-dot { position: absolute; right: -7px; top: 50%; transform: translateY(-50%); width: 12px; height: 12px; border-radius: 50%; background: var(--label); z-index: 1; }
+.fmt-timeline-v .tlv-content { padding-left: var(--tlv-gap); min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .fmt-timeline-v .tlv-content p { font-size: var(--fs-tl-text, var(--fs-body)); line-height: var(--lh-body); color: var(--text); word-break: keep-all; transform: scaleX(var(--tw-global)); transform-origin: left; }
 
 /* ════ 비교표 — 좌우 대비 없이 둘 다 라벨색 ════ */
@@ -425,6 +440,7 @@
   --fs-rows-label:  var(--fs-rows-label-m,  var(--fs-rows-label));
   --fs-rows-body:   var(--fs-rows-body-m,   var(--fs-rows-body));
   --fs-tl-year:     var(--fs-tl-year-m,     var(--fs-tl-year));
+  --fs-tlv-memo:    var(--fs-tlv-memo-m,    var(--fs-tlv-memo));
   --fs-tl-text:     var(--fs-tl-text-m,     var(--fs-tl-text));
   --fs-cmp-head:    var(--fs-cmp-head-m,    var(--fs-cmp-head));
   --fs-cmp-body:    var(--fs-cmp-body-m,    var(--fs-cmp-body));
