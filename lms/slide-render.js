@@ -550,35 +550,26 @@
      규칙으로 줄을 나눈다(6자 줄바꿈, 끝 괄호는 아랫줄에 작게).
      점은 라벨 칸 안에 넣는다 — 그래야 라벨이 두 줄이 되어도 점이 그 세로 가운데를
      따라간다(칸 밖에 두면 줄 전체 높이를 기준으로 잡혀 내용 쪽에 끌려간다). */
-  /* 라벨이 몇 em쯤 되는지 어림한다. 한글과 한자는 한 글자가 대략 한 em, 숫자와
-     괄호·마침표는 그 절반쯤이다. 칸 폭을 재는 데만 쓰므로 이 정도면 충분하다. */
-  const CJK_RE = /[가-힣ㄱ-ㅎㅏ-ㅣ　-〿㐀-鿿豈-﫿]/;
-  const emWidth = (s) => [...String(s)].reduce((n, c) => n + (CJK_RE.test(c) ? 1 : 0.56), 0);
-
+  /* 사건 전체를 격자 하나에 담는다. 사건마다 따로 격자를 만들면 라벨 칸 폭이 제각각이
+     되어 선이 곧게 서지 않으므로, 한 격자 안에서 라벨은 1열, 선은 2열, 내용은 3열에
+     두고 사건마다 행 번호를 지정한다. 라벨 칸을 max-content로 두면 그 화면에서 가장
+     긴 라벨에 딱 맞는 폭이 되어(글자 수로 어림하지 않는다) 라벨 덩이의 왼쪽 끝이
+     화면 왼쪽에 붙고, 오른쪽 끝은 선에 붙는다. */
   function timelineVBodyHTML(slide) {
-    /* 라벨 칸의 폭은 가장 긴 라벨에 맞춘다. %로 못 박아 두면 짧은 라벨만 있는
-       슬라이드에서 왼쪽이 휑하게 빈다 — 라벨은 선에 붙어 오른쪽에 서므로 남는 자리가
-       전부 왼쪽 여백이 된다. 여기서 잰 값을 --tlv-chars로 넘기면 CSS가 라벨 글자
-       크기를 곱해 칸 폭을 정한다(글자 크기를 줄이면 칸도 같이 좁아진다). */
-    let widest = 0;
-    const events = (slide.events || []).map(ev => {
-      const lines = labelLines(ev.memo || '', true);
-      lines.forEach(o => {
-        const scale = o.sub ? (o.scale || 0.68) : 1;
-        widest = Math.max(widest, emWidth(o.t) * scale);
-      });
-      const memo = lines.map(o => labelLineHTML(o, 'tlv-memo-line')).join('');
+    const list = slide.events || [];
+    const cells = list.map((ev, i) => {
+      const memo = labelLines(ev.memo || '', true).map(o => labelLineHTML(o, 'tlv-memo-line')).join('');
       return `
-      <div class="tlv-ev">
-        <div class="tlv-memo">${memo}<span class="tlv-dot"></span></div>
-        <div class="tlv-content">${(ev.content || []).map(t => `<p>${parseItemText(t)}</p>`).join('')}</div>
-      </div>`;
+      <div class="tlv-memo" style="grid-row:${i + 1}">${memo}<span class="tlv-dot"></span></div>
+      <div class="tlv-content" style="grid-row:${i + 1}">${(ev.content || []).map(t => `<p>${parseItemText(t)}</p>`).join('')}</div>`;
     }).join('');
-    const chars = Math.min(7, Math.max(1.6, widest + 0.2));   // 여유 0.2em, 위아래로 한계
+    // 행을 명시해 두어야 선의 grid-row:1/-1이 사건 전체를 가로지른다(암시적 행이면 1행에서 끝난다).
+    const rows = `grid-template-rows:repeat(${Math.max(1, list.length)},max-content)`;
     return `
-      <div class="fmt-timeline-v" style="--tlv-chars:${chars.toFixed(2)}">
-        <div class="tlv-line"></div>
-        <div class="tlv-events">${events}</div>
+      <div class="fmt-timeline-v">
+        <div class="tlv-events" style="${rows}">
+          <div class="tlv-line"></div>${cells}
+        </div>
       </div>`;
   }
 

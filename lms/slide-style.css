@@ -386,26 +386,30 @@
 /* ════ 연표 (세로) ════
    라벨 | 선 | 내용 세 칸이다. 라벨은 선 왼쪽 칸에 우측정렬로 서고, 점은 그 라벨의
    세로 가운데에 맞춰 선 위에 앉는다(라벨이 두 줄이 되면 점도 따라 내려간다).
-   선이 곧게 서려면 라벨 칸의 폭이 사건마다 같아야 하므로 폭을 %로 못 박는다. */
+   사건마다 격자를 따로 만들면 라벨 칸 폭이 제각각이 되어 선이 곧게 서지 않는다.
+   사건 전체를 격자 하나에 담고 사건마다 행을 지정한다(렌더러가 grid-row를 적는다). */
 .fmt-timeline-v {
   flex: 1; position: relative; overflow: hidden;
   --tlv-fs: var(--fs-tlv-memo, var(--fs-tl-year, calc(var(--fs-label) * 1.1)));
   --tlv-gap: 26px;
-  /* --tlv-chars는 렌더러가 가장 긴 라벨을 재어 넘긴다(없으면 6자로 본다).
-     칸이 딱 그만큼만 넓으므로 라벨 덩이가 화면 왼쪽에 붙는다. 글자 크기를 줄이면
-     칸도 함께 좁아진다. 아무리 길어도 화면의 40%는 넘기지 않는다. */
-  --tlv-label-w: min(calc(var(--tlv-fs) * var(--tlv-chars, 6) + var(--tlv-gap)), 40%);
 }
-.fmt-timeline-v .tlv-line { position: absolute; top: 4px; bottom: 4px; left: var(--tlv-label-w); width: 2px; background: var(--label); opacity: .45; }
-.fmt-timeline-v .tlv-events { position: relative; height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
-.fmt-timeline-v .tlv-ev { position: relative; display: grid; grid-template-columns: var(--tlv-label-w) 1fr; align-items: start; }
+/* 라벨 칸은 max-content — 그 화면에서 가장 긴 라벨에 딱 맞는 폭이 된다. 글자 수로
+   어림하지 않으므로 라벨 덩이의 왼쪽 끝이 화면 왼쪽에 정확히 붙는다.
+   align-items:start라야 각 칸의 높이가 제 내용만큼이 되고(점을 라벨 가운데에 두는
+   근거), 선만 stretch로 늘려 사건 전체를 가로지른다. */
+.fmt-timeline-v .tlv-events {
+  height: 100%; display: grid;
+  grid-template-columns: max-content 2px 1fr;
+  align-content: space-between; align-items: start;
+}
+.fmt-timeline-v .tlv-line { grid-column: 2; grid-row: 1 / -1; align-self: stretch; margin: 4px 0; background: var(--label); opacity: .45; }
 /* 라벨 칸. align-items:start 덕에 이 칸의 높이는 라벨 자신의 높이다 — 점을 여기에
    담아 두면 top:50%가 곧 라벨의 가운데가 된다. */
 .fmt-timeline-v .tlv-memo {
   position: relative; padding-right: var(--tlv-gap);
-  /* 왼쪽 끝에 붙인다. 선 쪽으로 붙여(우측정렬) 두면 짧은 줄마다 왼쪽이 들쭉날쭉
-     비어, 본문 왼쪽 끝이 제목 줄보다 안쪽으로 밀려 보인다. */
-  display: flex; flex-direction: column; align-items: flex-start; text-align: left;
+  /* 줄은 선 쪽(오른쪽)으로 맞춘다. 칸 자체가 가장 긴 라벨 폭이라, 그 라벨이 왼쪽 끝을
+     잡아 주고 짧은 줄만 안쪽으로 들어온다. */
+  display: flex; flex-direction: column; align-items: flex-end; text-align: right;
   font-family: 'Paperlogy', var(--font); font-weight: 800;
   font-size: var(--tlv-fs);
   line-height: var(--lh-label); color: var(--ink);
