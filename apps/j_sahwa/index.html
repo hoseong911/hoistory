@@ -79,20 +79,26 @@
   }
 
   /* ── 상태 표시줄 ── */
+  /* 이 줄은 어떤 화면에서도 한 줄 안에 다 들어간다. 줄바꿈도, 말줄임도 없다.
+     좁은 화면에서 줄을 늘리는 대신 줄 전체의 글자를 함께 줄인다 — 안쪽 크기와
+     사이 여백을 모두 이 font-size에 매인 em으로 두었기 때문에, 여기 한 값만
+     작아지면 여섯 조각(연도·간지·호·생사·官·名)이 같은 비율로 함께 줄어든다. */
   .bar{
-    display:flex;align-items:center;gap:1rem;flex-wrap:wrap;
-    padding:.6rem 1.2rem;border-bottom:1.5px solid var(--ink);
+    display:flex;align-items:center;gap:.5em;flex-wrap:nowrap;white-space:nowrap;
+    font-size:clamp(11px,2.9vw,17px);
+    padding:.55rem .8em;border-bottom:1.5px solid var(--ink);
     background:var(--paper-panel);
   }
-  .bar .yr{font-family:var(--ui);font-variant-numeric:tabular-nums;font-size:1.05rem;font-weight:500;letter-spacing:.04em}
-  .bar .gan{font-family:var(--serif);font-size:.95rem;color:var(--ink-soft)}
-  .bar .ho{font-family:var(--serif);font-weight:600;font-size:1rem}
-  .bar .spacer{flex:1}
-  .stat{font-family:var(--ui);font-variant-numeric:tabular-nums;font-size:.8rem;letter-spacing:.02em;color:var(--ink-soft)}
-  .stat b{font-family:var(--sans);font-weight:600;color:var(--ink);font-size:.9rem}
+  .bar .yr{font-family:var(--ui);font-variant-numeric:tabular-nums;font-size:1.05em;font-weight:500;letter-spacing:.04em}
+  .bar .gan{font-family:var(--serif);font-size:.95em;color:var(--ink-soft)}
+  .bar .ho{font-family:var(--serif);font-weight:600;font-size:1em}
+  /* 남는 자리를 다 먹었다가, 좁아지면 가장 먼저 0으로 줄어드는 칸이다. */
+  .bar .spacer{flex:1 1 0;min-width:0}
+  .stat{font-family:var(--ui);font-variant-numeric:tabular-nums;font-size:.8em;letter-spacing:.02em;color:var(--ink-soft)}
+  .stat b{font-family:var(--sans);font-weight:600;color:var(--ink);font-size:1.12em}
   .tag{
-    font-size:.72rem;font-weight:500;letter-spacing:.08em;
-    border:1px solid var(--ink);padding:.1rem .45rem;
+    font-size:.72em;font-weight:500;letter-spacing:.08em;
+    border:1px solid var(--ink);padding:.1em .45em;
   }
   .tag.dead{background:var(--seal);border-color:var(--seal);color:var(--paper-panel)}
 
@@ -196,6 +202,8 @@
   .ho-again:hover{border-color:var(--ink);color:var(--ink)}
   .ho-again[disabled]{opacity:.5;cursor:default}
   .ho-hint{font-size:.8rem;color:var(--ink-faint)}
+  /* 호가 겹쳐 되돌려보낼 때만 붉게 — 규칙을 미리 늘어놓지 않고, 걸렸을 때만 알린다. */
+  .ho-hint.bad{color:var(--seal);font-weight:600}
   /* 고른 호가 무슨 뜻인지 한 줄로 일러 준다 — 뜻을 알고 골라야 제 이름이 된다. */
   .ho-mean{
     font-family:var(--serif);font-size:.92rem;color:var(--ink-soft);line-height:1.7;
@@ -315,9 +323,10 @@
     font-size:.8rem;color:var(--ink-soft);
   }
   .roster b{color:var(--ink);font-family:var(--sans)}
+  /* 표시줄 안에 서므로 크기도 표시줄에 매인다(위 .bar 설명 참고) */
   .timer{
-    font-family:var(--ui);font-variant-numeric:tabular-nums;font-size:.85rem;letter-spacing:.06em;
-    border:1px solid var(--ink);padding:.1rem .5rem;
+    font-family:var(--ui);font-variant-numeric:tabular-nums;font-size:.85em;letter-spacing:.06em;
+    border:1px solid var(--ink);padding:.1em .5em;
   }
   .timer.low{background:var(--seal);border-color:var(--seal);color:var(--paper-panel)}
   .picked{
@@ -389,7 +398,7 @@
 
 <!-- 학생 화면과 교실 화면이 같은 game.js를 읽어야 사건 설명과 선지가 어긋나지 않는다.
      한쪽만 옛 파일을 캐시에서 꺼내 쓰는 일이 없도록 판 번호를 붙인다. -->
-<script src="game.js?v=20260907c"></script>
+<script src="game.js?v=20260907d"></script>
 
 <script type="module">
 /* 네트워크 계층 — 명단 조회, 방 구독, 제출.
@@ -452,6 +461,14 @@ window.SahwaNet = {
       const s = await get(ref(rtdb, `${ROOMS}/${cls}/players/${sid}`));
       return s.exists() ? s.val() : null;
     }catch(e){ return null; }
+  },
+
+  /* 반 전체의 선비. 이미 쓰이고 있는 호를 가려내는 데 쓴다(방 노드는 읽기가 열려 있다). */
+  async loadPlayers(cls){
+    try{
+      const s = await get(ref(rtdb, `${ROOMS}/${cls}/players`));
+      return s.exists() ? s.val() : {};
+    }catch(e){ return {}; }
   },
 
   savePlayer(cls, P){

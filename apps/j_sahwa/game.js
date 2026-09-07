@@ -604,6 +604,27 @@ JSON 배열만 출력하세요.
 }
 
 
+/* ── 호가 겹치지 않게 ──
+   교실 화면도, 명단도, 결말의 동인·서인 칸도 호만 보여 준다. 같은 반에 같은 호가
+   둘이면 선생님도 아이들도 누가 누구인지 가릴 수 없다. 그래서 반별 진행에서는
+   이미 쓰이고 있는 호를 추천에서 빼고, 그래도 겹쳐 적으면 시작을 막는다.
+   띄어쓰기와 대소문자만 다른 것은 같은 호로 본다. */
+const hoKey = (s)=> String(s||"").replace(/\s+/g,"").toLowerCase();
+function refreshTakenHos(){
+  if(!MODE.room || !MODE.cls){ MODE.takenHos = null; MODE.takenLoad = null; return Promise.resolve(null); }
+  MODE.takenLoad = SahwaNet.loadPlayers(MODE.cls).then(ps=>{
+    const s = new Set();
+    Object.keys(ps || {}).forEach(sid=>{
+      if(sid === MODE.P.id) return;          // 내가 전에 쓰던 호는 걸림돌이 아니다
+      const k = hoKey((ps[sid] || {}).ho);
+      if(k) s.add(k);
+    });
+    MODE.takenHos = s;
+    return s;
+  }).catch(()=>{ MODE.takenHos = null; return null; });
+  return MODE.takenLoad;
+}
+
 async function loadHoSuggestions(){
   const box = $("#hoSug"), btn = $("#hoAgain"), hint = $("#hoHint"), mean = $("#hoMean");
   if(!box) return;
@@ -613,6 +634,17 @@ async function loadHoSuggestions(){
   let list;
   try { list = await fetchHoSuggestions(); }
   catch(e){ list = shuffle(HO_POOL).slice(0,3); }
+  // 이미 쓰이고 있는 호는 내놓지 않는다 — 골라 놓고 무르게 하면 번거롭다.
+  if(MODE.takenLoad){ try{ await MODE.takenLoad; }catch(e){} }
+  const taken = MODE.takenHos;
+  if(taken && taken.size){
+    list = list.filter(([h])=> !taken.has(hoKey(h)));
+    if(list.length < 3){
+      const spare = shuffle(HO_POOL).filter(([h])=>
+        !taken.has(hoKey(h)) && !list.some(([x])=> hoKey(x) === hoKey(h)));
+      list = list.concat(spare.slice(0, 3 - list.length));
+    }
+  }
   if(!$("#hoSug")) return;
   box.innerHTML = list.map(([h,j,m])=>`<button type="button" class="ho-chip" data-ho="${esc(h)}" data-hanja="${esc(j||"")}" data-mean="${esc(m||"")}" aria-pressed="false">${esc(h)}</button>`).join("");
   box.querySelectorAll(".ho-chip").forEach(chip=>{
@@ -620,6 +652,7 @@ async function loadHoSuggestions(){
       box.querySelectorAll(".ho-chip").forEach(c=>c.setAttribute("aria-pressed","false"));
       chip.setAttribute("aria-pressed","true");
       $("#ho").value = chip.dataset.ho;
+      hint.classList.remove("bad");
       hint.textContent = "마음에 들지 않으면 직접 고쳐 적어도 된다.";
       showHoMean(chip.dataset.ho, chip.dataset.hanja, chip.dataset.mean);
     };
@@ -633,7 +666,10 @@ function showHoMean(ho, hanja, m){
   el.textContent = ho + (hanja ? `(${hanja})` : "") + (m ? ` — ${m}` : "");
 }
 
-function bindSetup(onDone){
+/* checkTaken이 주어지면(반별 진행) 시작을 누를 때 호가 겹치는지 한 번 더 본다.
+   추천에서 미리 걸러 두어도 직접 적을 수 있고, 그 사이에 다른 학생이 같은 호로
+   들어와 있을 수도 있어서다. 혼자 체험하기는 반 방에 붙지 않으므로 검사하지 않는다. */
+function bindSetup(onDone, checkTaken){
   const wire = (sel)=>{
     const box = $(sel); if(!box) return;
     box.querySelectorAll("button").forEach(b=>{
@@ -647,6 +683,7 @@ function bindSetup(onDone){
   const again = $("#hoAgain"); if(again) again.onclick = loadHoSuggestions;
   const hoInput = $("#ho");
   if(hoInput) hoInput.oninput = ()=>{
+    const h = $("#hoHint"); if(h) h.classList.remove("bad");   // 고쳐 적기 시작하면 되돌린다
     const chip = $("#hoSug .ho-chip[aria-pressed=true]");
     if(chip && chip.dataset.ho === hoInput.value.trim()) return;   // 추천 그대로면 그대로 둔다
     if(chip) chip.setAttribute("aria-pressed","false");
@@ -656,12 +693,25 @@ function bindSetup(onDone){
   const go = $("#start"); if(!go) return;
   /* 학생이 직접 지은 호는 그대로 받는다. 추천은 한자어로만 내놓되, 스스로 지은
      이름까지 형식으로 되돌리지는 않는다 — 지어 보는 것 자체가 이 화면의 몫이다. */
-  go.onclick = ()=>{
+  go.onclick = async ()=>{
     const ho = $("#ho").value.trim();
     const master = $("#pickMaster [aria-pressed=true]")?.dataset.v;
     const base   = $("#pickBase [aria-pressed=true]")?.dataset.v;
+    const hint = $("#hoHint");
+    if(hint) hint.classList.remove("bad");
     if(!ho){ $("#ho").focus(); $("#ho").placeholder="호를 지어야 시작한다"; return; }
     if(!master || !base){ alert("스승과 기반을 모두 고르시오."); return; }
+    if(checkTaken){
+      go.disabled = true;
+      let dup = false;
+      try{ dup = await checkTaken(ho); }catch(e){ dup = false; }   // 못 읽었으면 막지 않는다
+      go.disabled = false;
+      if(dup){
+        if(hint){ hint.textContent = "같은 반의 다른 이가 이미 쓰고 있는 호요. 다른 호로 지으시오."; hint.classList.add("bad"); }
+        const el = $("#ho"); el.focus(); el.select();
+        return;
+      }
+    }
     onDone(ho, master, base);
   };
 }
@@ -746,7 +796,9 @@ function paint(html, barExtra){
 /* 진행 상태 — 화면 종류와 현재 선비 */
 const MODE = { room:false, screen:"boot", P:makePlayer(), cls:null, phase:null,
                answered:null, lastRes:null, sealed:false,
-               viewKey:null, rosterFull:false };
+               viewKey:null, rosterFull:false,
+               // 같은 반에서 이미 쓰이고 있는 호(정규화한 것). null이면 아직 모르거나 혼자 하기.
+               takenHos:null, takenLoad:null };
 
 /* ══════════════════ LMS를 거쳐 들어왔는가 ══════════════════
    이 활동은 LMS 허브에서만 연다. 학번을 직접 받지 않는 대신 LMS가 남겨 둔
@@ -847,6 +899,8 @@ function memoStart(){
 /* ══════════════════ 혼자 하기 ══════════════════ */
 function soloStart(){
   MODE.screen = "setup";
+  // 혼자 체험하기는 반 방에 붙지 않는다. 반의 호 목록에 매일 이유가 없다.
+  MODE.takenHos = null; MODE.takenLoad = null;
   paint(setupHTML(true));
   bindSetup((ho,master,base)=>{
     applySetup(MODE.P, ho, master, base);
@@ -933,12 +987,19 @@ function paintIntro(){
 }
 function roomSetup(){
   MODE.screen = "setup"; MODE.viewKey = null;
+  refreshTakenHos();          // 추천이 그려지기 전에 걸러 낼 목록을 받아 둔다
   paint(setupHTML(false));
   bindSetup((ho,master,base)=>{
     applySetup(MODE.P, ho, master, base);
     SahwaNet.savePlayer(MODE.cls, MODE.P);
     roomJoin();
-  });
+  }, hoTakenCheck);
+}
+
+/* 누르는 그 순간의 명단으로 다시 본다 — 화면을 열어 둔 사이에 들어온 학생이 있다. */
+async function hoTakenCheck(ho){
+  const taken = await refreshTakenHos();
+  return !!(taken && taken.has(hoKey(ho)));
 }
 
 function roomJoin(){
@@ -1255,7 +1316,10 @@ function roomRosterHTML(room, full){
 window.applyIntroContent = function(c){
   if(!c || typeof c !== "object") return;
   CONTENT = Object.assign(JSON.parse(JSON.stringify(DEFAULT_CONTENT)), c);
-  if(MODE.screen === "setup"){ paint(setupHTML(!MODE.room)); bindSetup(MODE.room ? onRoomSetupDone : onSoloSetupDone); }
+  if(MODE.screen === "setup"){
+    paint(setupHTML(!MODE.room));
+    bindSetup(MODE.room ? onRoomSetupDone : onSoloSetupDone, MODE.room ? hoTakenCheck : null);
+  }
 };
 function onSoloSetupDone(ho,m,b){ applySetup(MODE.P,ho,m,b); MODE.screen="round"; soloPhase("1498"); }
 function onRoomSetupDone(ho,m,b){ applySetup(MODE.P,ho,m,b); SahwaNet.savePlayer(MODE.cls,MODE.P); roomJoin(); }
