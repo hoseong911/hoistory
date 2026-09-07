@@ -238,8 +238,8 @@ textarea.meta-input{resize:vertical}
 
         <div class="run-state" id="r-state">방을 불러오는 중…</div>
 
-        <div class="run-hint">교실 화면을 열면 아래쪽에 <b>조작판</b>이 붙습니다. 사건 시작, 지금 공개,
-          30초 더, 다음 사건, 결말로를 모두 그 자리에서 누르면 되고, 몇 명이 선택했는지도 함께 보입니다.
+        <div class="run-hint">교실 화면을 열면 아래쪽에 <b>조작판</b>이 붙습니다. 30초 더, 사건 시작,
+          지금 공개, 다음 사건, 결말로를 모두 그 자리에서 누르면 되고, 몇 명이 선택했는지도 함께 보입니다.
           여기 고른 제한 시간이 조작판의 기본값이 됩니다.</div>
       </div>
 
@@ -293,19 +293,19 @@ textarea.meta-input{resize:vertical}
 
       <div class="section-card">
         <div class="section-title">인트로 두 갈래</div>
-        <div class="section-desc">학생이 LMS에서 들어오면 가장 먼저 고르는 두 갈래입니다. 왼쪽은 게임, 오른쪽은 소감 남기기로 갑니다.</div>
+        <div class="section-desc">학생이 LMS에서 들어오면 가장 먼저 고르는 두 갈래입니다. 왼쪽은 수업 시간에 반이 함께 하는 길(기본), 오른쪽은 결석한 학생이 혼자 복습하고 소감까지 남기는 길입니다.</div>
         <div class="pair">
           <div class="fld">
             <div class="fld-label">왼쪽 버튼 제목</div>
-            <input class="meta-input" id="f-doorPlay">
+            <input class="meta-input" id="f-doorTogether">
             <div class="fld-label" style="margin-top:10px">왼쪽 버튼 설명</div>
-            <textarea class="meta-input" id="f-doorPlayDesc" rows="3"></textarea>
+            <textarea class="meta-input" id="f-doorTogetherDesc" rows="3"></textarea>
           </div>
           <div class="fld">
             <div class="fld-label">오른쪽 버튼 제목</div>
-            <input class="meta-input" id="f-doorMemo">
+            <input class="meta-input" id="f-doorSolo">
             <div class="fld-label" style="margin-top:10px">오른쪽 버튼 설명</div>
-            <textarea class="meta-input" id="f-doorMemoDesc" rows="3"></textarea>
+            <textarea class="meta-input" id="f-doorSoloDesc" rows="3"></textarea>
           </div>
         </div>
       </div>
@@ -403,8 +403,11 @@ const DEFAULTS = {
     "끝까지 살아남는 것이 목표는 아니다. 살아남은 자와 이름을 남긴 자가 서로 다른 사람이라는 것, 그것이 이 77년이 보여주는 바다."
   ],
   setupTitle: "인물 설정하기",
-  doorPlay: "살아남기", doorPlayDesc: "호를 짓고 스승을 골라 1498년으로 들어간다.",
-  doorMemo: "소감 남기기", doorMemoDesc: "사림에 대해 알게 된 것과 생각한 것을 글로 남긴다.",
+  /* game.js의 DEFAULT_CONTENT와 같은 값을 지녀야 한다(양쪽이 각자 기본값을 들고 있다). */
+  doorTogether: "함께 살아남기",
+  doorTogetherDesc: "수업 시간에 반 전체가 함께 하는 길이다. 선생님이 사건을 열면 화면이 바뀌고, 모두가 같은 사건 앞에서 저마다 선택한다.",
+  doorSolo: "혼자 체험하기",
+  doorSoloDesc: "수업에 빠진 사람이 혼자 복습하는 길이다. 반 진행과 상관없이 처음부터 끝까지 혼자 겪고 소감까지 남긴다. 수업에 참여했다면 이쪽으로 들어오지 않는다.",
   memoTitle: "소감 남기기",
   memoPrompt: "사화를 겪은 사림은 어떤 사람들이었는지, 오늘 알게 된 것과 생각한 것을 적어 보시오. 게임을 하지 못했더라도 교과서와 수업에서 배운 사림 이야기를 적으면 된다.",
   hoLabel: "그대의 호(號)",
@@ -448,10 +451,10 @@ function fill(C){
   $("#f-title").value       = C.title;
   $("#f-paras").value       = C.paragraphs.join("\n\n");
   $("#f-setupTitle").value  = C.setupTitle || DEFAULTS.setupTitle;
-  $("#f-doorPlay").value     = C.doorPlay     || DEFAULTS.doorPlay;
-  $("#f-doorPlayDesc").value = C.doorPlayDesc || DEFAULTS.doorPlayDesc;
-  $("#f-doorMemo").value     = C.doorMemo     || DEFAULTS.doorMemo;
-  $("#f-doorMemoDesc").value = C.doorMemoDesc || DEFAULTS.doorMemoDesc;
+  $("#f-doorTogether").value     = C.doorTogether     || DEFAULTS.doorTogether;
+  $("#f-doorTogetherDesc").value = C.doorTogetherDesc || DEFAULTS.doorTogetherDesc;
+  $("#f-doorSolo").value         = C.doorSolo         || DEFAULTS.doorSolo;
+  $("#f-doorSoloDesc").value     = C.doorSoloDesc     || DEFAULTS.doorSoloDesc;
   $("#f-memoTitle").value    = C.memoTitle    || DEFAULTS.memoTitle;
   $("#f-memoPrompt").value   = C.memoPrompt   || DEFAULTS.memoPrompt;
   $("#f-hoLabel").value     = C.hoLabel;
@@ -472,10 +475,10 @@ function collect(){
     title:       $("#f-title").value.trim(),
     paragraphs:  $("#f-paras").value.split(/\n\s*\n/).map(s=>s.trim()).filter(Boolean),
     setupTitle:  $("#f-setupTitle").value.trim(),
-    doorPlay:     $("#f-doorPlay").value.trim(),
-    doorPlayDesc: $("#f-doorPlayDesc").value.trim(),
-    doorMemo:     $("#f-doorMemo").value.trim(),
-    doorMemoDesc: $("#f-doorMemoDesc").value.trim(),
+    doorTogether:     $("#f-doorTogether").value.trim(),
+    doorTogetherDesc: $("#f-doorTogetherDesc").value.trim(),
+    doorSolo:         $("#f-doorSolo").value.trim(),
+    doorSoloDesc:     $("#f-doorSoloDesc").value.trim(),
     memoTitle:    $("#f-memoTitle").value.trim(),
     memoPrompt:   $("#f-memoPrompt").value.trim(),
     hoLabel:     $("#f-hoLabel").value.trim(),

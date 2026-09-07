@@ -24,9 +24,18 @@
 
 const GAN = {1498:"무오",1504:"갑자",1506:"병인",1519:"기묘",1545:"을사",1575:"을해"};
 const PHASE_ORDER = ["1498","1504","1506","1519","1545","1575"];
+/* 학생에게 보이는 사건 이름. 사건 이름을 먼저 알려 주면 무슨 일이 벌어질지 알고
+   고르게 되므로, 겪는 동안에는 그 사건을 가리키는 은유만 건다. 진짜 이름은
+   결과가 공개될 때 EVENT_NAME으로 크게 드러난다. */
 const PHASE_LABEL = {
-  "1498":"제1화 무오사화","1504":"제2화 갑자사화","1506":"제3화 중종반정",
-  "1519":"제4화 기묘사화","1545":"제5화 을사사화","1575":"제6화 붕당의 형성"
+  "1498":"첫 번째 사건 무덤을 파헤친 붓","1504":"두 번째 사건 어머니의 원한",
+  "1506":"세 번째 사건 임금이 바뀌던 밤","1519":"네 번째 사건 나뭇잎에 새겨진 글자",
+  "1545":"다섯 번째 사건 큰 윤씨와 작은 윤씨","1575":"여섯 번째 사건 동쪽 집과 서쪽 집"
+};
+/* 결과 공개 때 밝히는 진짜 이름(교실 화면에서 크게 뜬다). */
+const EVENT_NAME = {
+  "1498":"무오사화","1504":"갑자사화","1506":"중종반정",
+  "1519":"기묘사화","1545":"을사사화","1575":"붕당의 형성"
 };
 
 /* 관직(官)·명예(名)의 출발값. 여기서 오르내리며 0 아래로는 내려가지 않는다. */
@@ -47,8 +56,13 @@ const DEFAULT_CONTENT = {
     "끝까지 살아남는 것이 목표는 아니다. 살아남은 자와 이름을 남긴 자가 서로 다른 사람이라는 것, 그것이 이 77년이 보여주는 바다."
   ],
   setupTitle: "인물 설정하기",
-  doorPlay: "살아남기", doorPlayDesc: "호를 짓고 스승을 골라 1498년으로 들어간다.",
-  doorMemo: "소감 남기기", doorMemoDesc: "사림에 대해 알게 된 것과 생각한 것을 글로 남긴다.",
+  /* 인트로의 두 갈래. 키 이름을 doorPlay/doorMemo에서 바꾼 것은, 이미 저장해 둔
+     옛 문구가 새 문구를 덮어써서 [살아남기]라는 옛 이름이 그대로 뜨는 것을 막기
+     위해서다(관리자 화면에서 저장하면 새 키로 다시 쌓인다). */
+  doorTogether: "함께 살아남기",
+  doorTogetherDesc: "수업 시간에 반 전체가 함께 하는 길이다. 선생님이 사건을 열면 화면이 바뀌고, 모두가 같은 사건 앞에서 저마다 선택한다.",
+  doorSolo: "혼자 체험하기",
+  doorSoloDesc: "수업에 빠진 사람이 혼자 복습하는 길이다. 반 진행과 상관없이 처음부터 끝까지 혼자 겪고 소감까지 남긴다. 수업에 참여했다면 이쪽으로 들어오지 않는다.",
   memoTitle: "소감 남기기",
   memoPrompt: "사화를 겪은 사림은 어떤 사람들이었는지, 오늘 알게 된 것과 생각한 것을 적어 보시오. 게임을 하지 못했더라도 교과서와 수업에서 배운 사림 이야기를 적으면 된다.",
   hoLabel: "그대의 호(號)", hoHint: "스스로 지어 붙이는 이름",
@@ -91,7 +105,7 @@ function makePlayer(){
 const EVENTS = {
 
 "1498": {
-  eyebrow:"제1화 무오사화", title:"스승의 글이 사초에 올랐다",
+  eyebrow:PHASE_LABEL["1498"], name:EVENT_NAME["1498"], title:"스승의 글이 사초에 올랐다",
   defaultKey:"silence",   /* 시간이 다 되도록 안 고르면 = 아무 말도 하지 않은 것 */
   situation:`사관 김일손이 스승 김종직의 「조의제문」을 사초에 실었다.
     항우에게 죽임을 당한 초나라 의제를 조문하는 글이라 하나, 조정은 이것을 달리 읽는다.
@@ -138,7 +152,7 @@ const EVENTS = {
 },
 
 "1504": {
-  kind:"lots", eyebrow:"제2화 갑자사화", title:"선택을 하시오",
+  kind:"lots", eyebrow:PHASE_LABEL["1504"], name:EVENT_NAME["1504"], title:"선택을 하시오",
   situation:`연산군이 마침내 생모의 일을 알아냈다. 폐비 윤씨가 왕비 자리에서 쫓겨나 사약을 받고 죽었다는 것,
     그리고 그 일에 조정의 신하들이 관계했다는 것이다.
     <br><br>
@@ -171,7 +185,7 @@ const EVENTS = {
 },
 
 "1506": {
-  kind:"auto", eyebrow:"제3화 중종반정", title:"반정이 일어났다",
+  kind:"auto", eyebrow:PHASE_LABEL["1506"], name:EVENT_NAME["1506"], title:"반정이 일어났다",
   /* 고를 것이 없는 장면. 그래도 교실 화면과 학생 화면에 걸 설명은 있어야 한다 —
      없으면 티비에 제목만 덩그러니 뜬다. */
   situation:`연산군의 폭정이 도를 넘자, 갑자년에 자기들도 피를 본 훈구 세력이 끝내 등을 돌렸다.
@@ -183,6 +197,21 @@ const EVENTS = {
     <b>이 장면에는 고를 것이 없다.</b> 지난 8년 동안 그대가 무엇을 해 두었는지가 그대로 판가름한다.
     갑자년에 화를 입은 이들 가운데, 고향에 서원을 두어 이름을 불러 줄 제자가 있는 사람만 조정으로 돌아온다.`,
   shortOf:{ revive:"부활", lost:"돌아오지 못함", stay:"조정에 서다" },
+  /* 새로고침 등으로 결과 본문을 잃은 학생에게 다시 들려줄 짧은 판정. 서버에 남은
+     선택 key만 있으면 되살릴 수 있어야 한다 — 아무것도 누르지 않은 장면이라
+     "건너뛰었다"는 화면으로 끝나면 자기가 살아 돌아왔는지조차 모른 채 지나간다. */
+  recap:{
+    revive:{ verdict:"그대의 학맥이 그대를 살렸다.",
+      body:`고향의 서원에는 그대에게 글을 배운 제자들이 남아 스승의 이름을 계속 불렀다.
+        훈구를 견제할 사람을 찾던 새 조정에 올라간 천거의 글에 그대의 이름이 있었다.
+        <b>그대는 다시 살아 조정으로 돌아왔다.</b>` },
+    lost:{ verdict:"그대는 돌아오지 못했다.", bad:true,
+      body:`반정으로 조정이 새로 서고 화를 입은 사림이 다시 불려 들어갔다.
+        그러나 명부에서 지워진 그대의 이름을 대신 말해 줄 사람이 없었다.` },
+    stay:{ verdict:"중종이 왕이 되었다.",
+      body:`새 조정이 그대를 부른다. 그러나 반정을 이끈 것은 훈구였으므로,
+        공신의 자리는 이미 그들의 것이었다.` }
+  },
   apply(P){
     if(!P.alive){
       /* 갑자년에 시간이 다 되도록 패를 잡지 않은 학생. 스스로 고르지 않았으므로
@@ -230,7 +259,7 @@ const EVENTS = {
 },
 
 "1519": {
-  eyebrow:"제4화 기묘사화", title:"조광조가 그대를 부른다",
+  eyebrow:PHASE_LABEL["1519"], name:EVENT_NAME["1519"], title:"조광조가 그대를 부른다",
   defaultKey:"quiet",     /* 안 고르면 = 이름을 올리지 않은 것 */
   situation:`훈구에게 눌려 지내던 중종이 마침내 젊은 사림 조광조를 불러들였다. 조광조는 거침이 없다.
     <br><br>
@@ -293,7 +322,7 @@ const EVENTS = {
 },
 
 "1545": {
-  eyebrow:"제5화 을사사화", title:"외척과 외척이 맞붙었다",
+  eyebrow:PHASE_LABEL["1545"], name:EVENT_NAME["1545"], title:"외척과 외척이 맞붙었다",
   defaultKey:"neutral",   /* 안 고르면 = 어느 편에도 서지 않은 것 */
   situation:`중종이 죽고 인종이 즉위했으나 여덟 달 만에 세상을 떠났다. 뒤를 이은 명종은 아직 열두 살,
     어머니 문정왕후가 대신 정사를 본다.
@@ -354,7 +383,7 @@ const EVENTS = {
 },
 
 "1575": {
-  eyebrow:"제6화 붕당의 형성", title:"자리는 하나뿐이다",
+  eyebrow:PHASE_LABEL["1575"], name:EVENT_NAME["1575"], title:"자리는 하나뿐이다",
   defaultKey:"watch",     /* 안 고르면 = 다투지 않고 지켜본 것 */
   situation:`77년이 지났다. 훈구는 사라졌고 조정은 마침내 사림의 것이 되었다.
     그러나 이긴 자들에게는 이제 함께 싸울 상대가 없다.
@@ -433,13 +462,16 @@ function lotsHTML(cfg, slips, hold){
     </div>`;
 }
 
-function outcomeHTML(res, btn){
+/* 결과 화면. 겪는 동안에는 은유로만 걸어 두었던 사건의 진짜 이름을 여기서 밝힌다
+   — 무슨 일이었는지 다 겪은 뒤에 이름을 받아야 이름이 기억에 붙는다. */
+function outcomeHTML(res, btn, ev){
   return `
+    ${ev && ev.name ? `<div class="eyebrow">${esc(ev.name)}</div>` : ""}
     ${res.seal?`<div class="seal">${res.seal}</div>`:""}
     <div class="verdict ${res.bad?"bad":""}">${res.verdict}</div>
     <p class="lede">${res.body}</p>
     ${res.delta?`<div class="delta">${res.delta}</div>`:""}
-    <div class="note"><div class="t">사관의 주(註)</div><p>${res.note}</p></div>
+    ${res.note?`<div class="note"><div class="t">사관의 주(註)</div><p>${res.note}</p></div>`:""}
     ${btn||""}`;
 }
 
@@ -822,13 +854,23 @@ function soloPhase(phase){
   MODE.screen = "round";
   playPhase(phase, MODE.P, (res)=>{
     const nxt = nextPhase(phase, MODE.P);
-    paint(outcomeHTML(res, `<button class="go" id="next">${nxt?"다음":"사초를 덮는다"}</button>`));
+    paint(outcomeHTML(res, `<button class="go" id="next">${nxt?"다음":"사초를 덮는다"}</button>`, EVENTS[phase]));
     $("#next").onclick = ()=>{
       if(nxt) soloPhase(nxt);
       else { MODE.screen="final"; MODE.P.year=1575;
         if(MODE.P.alive) note(MODE.P,1575,"사림이 두 갈래로 갈라서다. 그대가 배운 학문이 그대의 편을 정했다.");
-        paint(finalHTML(MODE.P) + `<button class="go" id="again">처음으로 돌아가기</button>`);
-        $("#again").onclick = ()=>{ MODE.P = makePlayer(); soloStart(); };
+        /* 혼자 체험하기는 결석생이 복습으로 하는 길이라 소감까지가 한 묶음이다.
+           끝났다고 처음으로만 돌려보내면 소감을 남길 자리가 없다. */
+        paint(finalHTML(MODE.P) + `<div class="go-row">
+          <button class="go" id="toMemo">소감 남기기</button>
+          <button class="ghost" id="again" style="margin-top:0;margin-left:.7rem">다시 하기</button>
+        </div>`);
+        $("#toMemo").onclick = ()=> memoStart();
+        $("#again").onclick = ()=>{
+          const { id, name } = MODE.P;
+          MODE.P = Object.assign(makePlayer(), { id, name });
+          soloStart();
+        };
       }
     };
   });
@@ -839,18 +881,19 @@ let ROOM = null;      // 교사가 쓰는 방 상태
 let TICK = null;      // 남은 시간 타이머
 
 /* 인트로 — 학번은 LMS에서 받아 오므로 따로 묻지 않는다. 여기서 두 갈래로 나뉜다.
-   [살아남기]   수업에 참여한 학생이 게임을 시작한다(이미 시작했으면 이어서).
-   [소감 남기기] 활동을 마쳤거나 결석해서 게임을 못 한 학생이 사림 이야기를 남긴다. */
+   [함께 살아남기] 기본. 자기 반 방에 붙어 선생님이 여는 사건을 함께 겪는다.
+   [혼자 체험하기] 결석한 학생이 복습으로 혼자 달리고 소감까지 남긴다. 반 방에는
+                   붙지 않으므로 이 학생의 호는 교실 화면 명단에 뜨지 않는다. */
 function introHTML(){
   const C = CONTENT;
   return `
   <h1>${esc(C.title).split("\n").join("<br>")}</h1>
   ${C.paragraphs.map(p=>`<p class="lede">${fmt(p)}</p>`).join("")}
   <div class="doors">
-    <button class="door main" id="doorPlay"><strong>${esc(C.doorPlay)}</strong>
-      <small>${esc(C.doorPlayDesc)}</small></button>
-    <button class="door" id="doorMemo"><strong>${esc(C.doorMemo)}</strong>
-      <small>${esc(C.doorMemoDesc)}</small></button>
+    <button class="door main" id="doorTogether"><strong>${esc(C.doorTogether)}</strong>
+      <small>${esc(C.doorTogetherDesc)}</small></button>
+    <button class="door" id="doorSolo"><strong>${esc(C.doorSolo)}</strong>
+      <small>${esc(C.doorSoloDesc)}</small></button>
   </div>`;
 }
 
@@ -867,14 +910,22 @@ function roomStart(){
 function paintIntro(){
   MODE.screen = "intro"; MODE.viewKey = null;
   paint(introHTML());
-  $("#doorPlay").onclick = ()=>{
+  $("#doorTogether").onclick = ()=>{
     // 이미 인물을 만들어 둔 학생은 곧바로 하던 자리로 돌아간다.
     SahwaNet.loadPlayer(MODE.cls, MODE.P.id).then(saved=>{
       if(saved && saved.ho){ MODE.P = Object.assign(makePlayer(), saved); roomJoin(); }
       else roomSetup();
     });
   };
-  $("#doorMemo").onclick = ()=> memoStart();
+  /* 혼자 체험하기 — 반 방에 붙지 않는다. 인물도 새로 만든다(반 진행에서 죽어 있던
+     상태를 그대로 들고 들어가면 복습이 첫 사건부터 시작되지 않는다). 학번과 이름은
+     소감을 학생 것으로 남기기 위해 그대로 지닌다. */
+  $("#doorSolo").onclick = ()=>{
+    const { id, name } = MODE.P;
+    MODE.P = Object.assign(makePlayer(), { id, name });
+    MODE.room = false;
+    soloStart();
+  };
 }
 function roomSetup(){
   MODE.screen = "setup"; MODE.viewKey = null;
@@ -965,8 +1016,13 @@ function roomRender(){
   const ev = EVENTS[phase];
   if(!ev){ paint(`<div class="wait"><div class="big">알 수 없는 사건</div></div>`); return; }
 
+  /* 고를 것이 없는 장면(중종반정)은 죽은 학생도 함께 통과시킨다. 서원을 둔 이가
+     되살아나는 판가름이라, 여기서 관전으로 빠지면 자기가 살아 돌아왔는지 아닌지를
+     끝내 못 본다. 누를 것이 없어도 결과는 모두가 받아야 한다. */
+  const autoScene = ev.kind === "auto";
+
   // 이미 죽은 학생 — 관전
-  if(!P.alive){
+  if(!P.alive && !autoScene){
     MODE.screen = "watch"; MODE.rosterFull = true;
     paint(`<div class="eyebrow">${ev.eyebrow} 관전</div>
       <h2>그대는 지켜본다</h2>
@@ -983,10 +1039,17 @@ function roomRender(){
   // 결과 공개
   if(room.state === "revealed"){
     MODE.screen = "round";
-    const res = MODE.lastRes;
-    if(res){ paint(outcomeHTML(res, `<div class="wait" style="margin-top:1.4rem">
+    const wait = `<div class="wait" style="margin-top:1.4rem">
         <div class="big">다음 사건을 기다리는 중<span class="dots"></span></div>
-      </div>`)); }
+      </div>`;
+    let res = MODE.lastRes;
+    // 본문을 잃었어도 서버에 남은 판정으로 되살린다(새로고침, 늦게 들어온 학생).
+    if(!res && ev.recap){
+      const mine = ((room.answers || {})[phase] || {})[P.id];
+      const r = mine && ev.recap[mine.choice];
+      if(r) res = Object.assign({}, r);
+    }
+    if(res){ paint(outcomeHTML(res, wait, ev)); }
     else paint(`<div class="wait"><div class="big">이번 사건은 건너뛰었다</div>
       <div class="sub">선생님이 다음 사건을 열 때까지 기다리시오.</div></div>`);
     return;
@@ -1132,9 +1195,17 @@ function timerHTML(room){
 }
 window.goMemo = ()=> memoStart();
 
+/* 남은 시간 시계.
+   반드시 앞서 돌던 시계를 먼저 끈다. 안 그러면 지난 판의 시계가 그대로 살아
+   남아, 이미 지난 endsAt으로 계산한 "00:00"과 이번 판의 진짜 남은 시간을
+   0.5초마다 번갈아 써 넣는다 — 화면에서는 시간이 붉게 깜빡이는 것으로 보인다.
+   더 나쁘게는, 지난 시계가 만료되면서 공용 TICK에 담긴 "이번 판" 시계를 대신
+   꺼 버려 카운트다운이 00:00에 붉게 멈춘 채로 남았다.
+   시계 번호를 지역 변수로 쥐고 자기 자신만 끄게 해 두 경우를 함께 막는다. */
 function startTick(room, onExpire){
+  if(TICK){ clearInterval(TICK); TICK = null; }
   if(!room.endsAt) return;
-  TICK = setInterval(()=>{
+  const id = setInterval(()=>{
     const el = $("#tmr");
     const left = room.endsAt - Date.now();
     // 같은 값을 다시 써 넣지 않는다. 1초에 두 번 도는 시계라 그대로 쓰면 깜빡인다.
@@ -1144,10 +1215,12 @@ function startTick(room, onExpire){
       el.classList.toggle("low", left < 15000);
     }
     if(left <= 0){
-      clearInterval(TICK); TICK = null;
+      clearInterval(id);
+      if(TICK === id) TICK = null;
       if(onExpire) onExpire();
     }
   }, 500);
+  TICK = id;
 }
 
 /* 방이 바뀔 때마다 화면을 통째로 다시 그리지 않고, 사람 수 칸만 갈아 끼운다. */
@@ -1187,6 +1260,12 @@ function onRoomSetupDone(ho,m,b){ applySetup(MODE.P,ho,m,b); SahwaNet.savePlayer
 window.startSahwa = function(){
   // 학번을 못 얻었으면 어느 문도 열지 않는다. solo=1(교사 시연)도 예외가 아니다.
   if(!LMS.sid){ paintBlocked(""); return; }
-  if(new URLSearchParams(location.search).get("solo") === "1") soloStart();
+  if(new URLSearchParams(location.search).get("solo") === "1"){
+    // 주소로 바로 들어온 혼자 하기(교사 시연). 소감을 학생 것으로 남기려면
+    // 여기서도 학번과 이름을 지녀야 한다 — 인트로를 거치지 않기 때문이다.
+    MODE.P.id = LMS.sid; MODE.P.name = LMS.name || "";
+    MODE.cls = classOf(LMS.sid);
+    soloStart();
+  }
   else roomStart();
 };
