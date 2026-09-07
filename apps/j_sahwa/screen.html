@@ -154,9 +154,10 @@
   .reveal-name{
     font-family:var(--serif);font-weight:800;letter-spacing:.06em;line-height:1.15;
     font-size:calc(var(--fs) * 3);color:var(--seal);margin-bottom:.2rem;
-    animation:nameIn .5s cubic-bezier(.2,1.5,.4,1) both;
+    /* 등장 효과는 걸지 않는다. 이 화면은 학생이 하나 낼 때마다 다시 그려지므로
+       애니메이션을 걸면 이름이 그때마다 다시 튀어 오른다. 중종반정의 극적인
+       등장은 화면을 덮는 .name-blast가 따로 맡는다. */
   }
-  @keyframes nameIn{ from{opacity:0;transform:scale(.86)} to{opacity:1;transform:scale(1)} }
   .reveal-sub{
     font-family:var(--serif);font-size:calc(var(--fs) * 1.15);color:var(--ink-soft);
     margin-bottom:1rem;
@@ -179,7 +180,8 @@
   .name-blast{
     position:fixed;inset:0;z-index:60;background:var(--paper);
     display:flex;align-items:center;justify-content:center;gap:min(2vw,2rem);
-    transition:opacity .65s ease;
+    /* 걷힐 때는 짧게 — 되살아난 자 명단이 "확" 드러나야 한다. */
+    transition:opacity .3s ease;
     /* 조작판을 덮고 있는 동안에도 선생님이 단추를 누를 수 있어야 한다. */
     pointer-events:none;
   }
@@ -189,16 +191,23 @@
     /* 글자 수에 맞춰 폭을 나눠 갖는다 — 네 글자든 여섯 글자든 화면을 꽉 채우되
        옆으로 넘치지 않게(--bfs는 nameBlast가 새겨 넣는다). */
     font-size:var(--bfs, min(20vw, 46vh));letter-spacing:0;
-    animation:blastIn .55s cubic-bezier(.2,1.5,.35,1) both;
+    /* 떨어지는 차례(--d)는 nameBlast가 글자마다 새겨 넣는다. 인라인 style로 직접
+       animation-delay를 걸면 깜빡임에도 그 차례가 따라붙어 제각각 깜빡인다. */
+    animation:blastIn .55s cubic-bezier(.2,1.5,.35,1) var(--d,0s) both;
   }
   @keyframes blastIn{
     0%{opacity:0;transform:scale(2.6)}
     62%{opacity:1;transform:scale(.94)}
     100%{opacity:1;transform:scale(1)}
   }
+  /* 다 떨어진 뒤 몇 번 깜빡인다. 떨어지는 애니메이션은 이미 끝나 있으므로
+     여기서 animation을 갈아 끼워도 글자가 제자리에서 튀지 않는다. */
+  .name-blast.blink span{animation:blastBlink .34s steps(1,end) 0s 4}
+  @keyframes blastBlink{ 0%,49%{opacity:1} 50%,100%{opacity:.12} }
   /* 화면 효과를 줄여 달라고 해 둔 기기에서는 글자를 한꺼번에 세운다. */
   @media (prefers-reduced-motion:reduce){
     .name-blast span{animation:none;opacity:1}
+    .name-blast.blink span{animation:none}
   }
 
   /* ── 대기실 ── */
@@ -314,7 +323,7 @@
 <!-- 사건 표와 문구를 학생 화면과 함께 쓴다. 여기서는 그리기에 필요한 것만 꺼내 쓴다. -->
 <!-- 학생 화면과 교실 화면이 같은 game.js를 읽어야 사건 설명과 선지가 어긋나지 않는다.
      한쪽만 옛 파일을 캐시에서 꺼내 쓰는 일이 없도록 판 번호를 붙인다. -->
-<script src="game.js?v=20260907b"></script>
+<script src="game.js?v=20260907c"></script>
 
 <script type="module">
 /* 방을 구독해 그리기만 한다. 쓰기는 하지 않는다 — 이 화면은 보여 주는 일만 맡는다. */
@@ -427,12 +436,15 @@ function listsHTML(room, year){
   </div>`;
 }
 
-/* ── 이름 밝히기 ──
-   결과를 여는 순간, 그동안 은유로만 걸어 두었던 사건의 진짜 이름을 화면 가득
-   한 글자씩 새긴다. 다 새기고 나면 걷히고, 그 아래 준비해 둔 결과 화면이 드러난다.
+/* ── 이름 새기기 ── 중종반정 전용.
+   갑자사화 결과를 보고 [다음 사건]을 누르는 순간, 화면 가득 "중 종 반 정"이
+   한 글자씩 두둥 떨어진다. 다 떨어지면 몇 번 깜빡이고, 걷히면서 그 아래
+   준비해 둔 되살아난 자 명단이 한꺼번에 드러난다.
+   다른 사화에는 걸지 않는다 — 매번 터지면 이 장면의 무게가 사라진다.
    방 스냅샷은 학생이 하나 낼 때마다 오므로 판(phase+round)마다 한 번만 터뜨린다. */
 let BLAST_KEY = "";
 function nameBlast(ev, room, phase){
+  if (ev.kind !== "auto") return;
   const key = phase + ":" + (room.round || 0);
   if (BLAST_KEY === key) return;
   BLAST_KEY = key;
@@ -446,13 +458,15 @@ function nameBlast(ev, room, phase){
   // 글자가 많을수록 한 글자에 돌아가는 폭이 좁아진다. 88vw를 나눠 갖는다.
   el.style.setProperty("--bfs", `min(${(88 / chars.length).toFixed(1)}vw, 46vh)`);
   el.innerHTML = chars.map((c, i) =>
-    `<span style="animation-delay:${(i * 0.36).toFixed(2)}s">${esc(c)}</span>`).join("");
+    `<span style="--d:${(i * 0.42).toFixed(2)}s">${esc(c)}</span>`).join("");
   document.body.appendChild(el);
-  // 마지막 글자가 앉은 뒤 잠시 두었다가 걷는다.
+
+  const landed = chars.length * 420 + 550;   // 마지막 글자가 앉는 때
+  setTimeout(() => el.classList.add("blink"), landed + 250);
   setTimeout(() => {
     el.classList.add("out");
-    setTimeout(() => el.remove(), 700);
-  }, chars.length * 360 + 1500);
+    setTimeout(() => el.remove(), 320);
+  }, landed + 1850);
 }
 
 /* 중종반정에서 조정으로 돌아온 이들. 이 장면의 알맹이가 "누가 되살아났는가"라서
@@ -559,19 +573,28 @@ function render(){
 
   const year = +phase;
 
+  /* ── 중종반정 ── 고를 것이 없는 장면이라 열리는 순간이 곧 판가름이다.
+     선택 분포도, 생존과 졸의 명단도 여기서는 곁가지다. 화면 가득 이름을 새기고
+     이야기 아래에 되살아난 이들만 세운다. 사건이 열려 있든 공개했든 같은 화면. */
+  if (ev.kind === "auto") {
+    $("#stage").innerHTML = `
+      <div class="eyebrow">${esc(ev.eyebrow)}</div>
+      <div class="reveal-name">${esc(ev.name || "")}</div>
+      <div class="reveal-sub">${esc(ev.title || "")}</div>
+      <div class="situation">${ev.situation || ""}</div>
+      ${revivedHTML(room, phase)}`;
+    nameBlast(ev, room, phase);
+    return;
+  }
+
   /* ── 결과 공개 ── 명단이 주인공이다 ── */
   if (state === "revealed") {
-    /* 고를 것이 없던 장면(중종반정)은 무엇을 골랐는지 셀 것이 없다. 대신 그동안
-       화면에 걸려 있던 이야기를 그대로 두고, 그 아래에 되살아난 이들을 세운다. */
-    const auto = ev.kind === "auto";
     $("#stage").innerHTML = `
       <div class="eyebrow">${esc(ev.eyebrow)}</div>
       <div class="reveal-name">${esc(ev.name || ev.title || "")}</div>
       <div class="reveal-sub">${esc(ev.title || "")}</div>
-      ${auto ? `<div class="situation">${ev.situation || ""}</div>${revivedHTML(room, phase)}`
-             : (ev.choices ? choicesHTML(ev, room, phase, true) : tallyHTML(ev, room, phase))}
+      ${ev.choices ? choicesHTML(ev, room, phase, true) : tallyHTML(ev, room, phase)}
       ${listsHTML(room, year)}`;
-    nameBlast(ev, room, phase);
     return;
   }
 
