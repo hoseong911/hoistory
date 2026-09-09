@@ -5658,6 +5658,7 @@ async function esLoad() {
     setupSubtabs('gradeEssayWrap', 'gradeSubtabEssay');
     document.getElementById('gradeEssayExportBtn').style.display = '';
     document.getElementById('gradeEssayImportBtn').style.display = '';
+    document.getElementById('esImportTarget').style.display = '';
     esSetState('');
   } catch (e) {
     wrap.innerHTML = `<div class="empty-panel">${esc(e.message)}</div>`;
@@ -5698,11 +5699,9 @@ function esRenderTable() {
     const cls = Math.floor((parseInt(s.id) - 30000) / 100);
     (byCls[cls] || (byCls[cls] = [])).push(s);
   });
-  const colspan = 2 + ESSAY_N * (ESSAY_PARTS.length + 1);
-
+  // 반 구분 띠는 두지 않는다 — 위 반 태그로 한 반씩만 보이므로 같은 말을 두 번 하는 셈이다.
   Object.keys(byCls).sort((a, b) => a - b).forEach(cls => {
     const list = byCls[cls];
-    html += `<tr class="sc-cls-row" data-cls="${cls}"><td colspan="${colspan}">${cls}반 (${list.length}명)</td></tr>`;
     list.forEach(s => {
       html += `<tr data-cls="${cls}" data-sid="${esc(s.id)}">
         <td style="font-size:12px;color:var(--sub)">${esc(s.id)}</td>
@@ -5855,20 +5854,25 @@ function esExportCSV() {
 /* ── 엑셀 올리기 ──────────────────────────────────────────────
    '엑셀 내보내기'가 만든 것과 같은 양식을 그대로 되받는다.
      학번 · 이름 · 반 · (논술1_내용 · 논술1_자료 · 논술1_형식 · 논술1_총점 · 논술1_피드백) × 4
+
+   **어느 논술형인지는 머리글 이름으로 안다** — '논술2_자료'의 2가 곧 논술형 번호다.
+   그래서 열 순서가 바뀌어도 따라가고, 논술형 한 개짜리 표를 올리면 그 논술형만 바뀐다
+   (파일에 없는 논술형의 열은 손대지 않는다).
+   머리글에 번호가 없는 표('내용·자료·형식'만 있는 표)는 단추 옆 select에서 고른
+   논술형으로 들어간다. 한글이 깨진 CSV처럼 머리글을 아예 못 읽는 파일은 마지막
+   수단으로 내보내기 양식의 고정된 자리로 넘어간다.
    총점 칸은 읽지 않는다 — 항목 셋을 더해 다시 계산한다.
-   머리글을 이름으로 찾되(열 순서가 바뀌어도 따라간다), 한글이 깨진 CSV처럼 이름을
-   못 읽는 파일은 내보내기 양식의 고정된 자리로 넘어간다.
    ───────────────────────────────────────────────────────────── */
 const ES_PART_BY_LABEL = { 내용: 'content', 자료: 'material', 형식: 'format' };
 
 function esNormHead(v) { return String(v == null ? '' : v).replace(/\s/g, ''); }
 
-// 머리글 한 칸을 { idx, key }로 푼다. '논술2_자료', '논술형2 자료' 모두 받는다.
+// 머리글 한 칸을 { idx, key }로 푼다. idx가 null이면 번호 없는 머리글('내용').
 function esParseHead(cell) {
-  const m = esNormHead(cell).match(/^논술형?(\d+)[_·-]?(내용|자료|형식|피드백)$/);
+  const m = esNormHead(cell).match(/^(?:논술형?(\d+)[_·-]?)?(내용|자료|형식|피드백)$/);
   if (!m) return null;
-  const i = +m[1];
-  if (!(i >= 1 && i <= ESSAY_N)) return null;
+  const i = m[1] == null ? null : +m[1];
+  if (i != null && !(i >= 1 && i <= ESSAY_N)) return null;
   return { idx: i, key: m[2] === '피드백' ? 'feedback' : ES_PART_BY_LABEL[m[2]] };
 }
 
@@ -5914,12 +5918,29 @@ function esApplyRows(rows) {
   const head = rows[hi] || [];
 
   let sidCol = head.findIndex(c => esNormHead(c) === '학번');
+  //  단추 옆에서 고른 논술형. 비어 있으면 머리글이 시키는 대로 간다.
+  const pick = +((document.getElementById('esImportTarget') || {}).value || 0) || null;
+
   const colOf = {};                            // 'e1:content' → 열 번호
+  let bare = 0;                                // 번호 없는 머리글이 몇 개나 있었는지
   head.forEach((c, ci) => {
     const p = esParseHead(c);
-    if (p) colOf[esKey(p.idx) + ':' + p.key] = ci;
+    if (!p) return;
+    if (p.idx != null) { colOf[esKey(p.idx) + ':' + p.key] = ci; return; }
+    bare++;
+    // 번호 없는 머리글은 고른 논술형이 있을 때만 쓴다(어디에 넣을지 알 길이 없다).
+    if (pick) colOf[esKey(pick) + ':' + p.key] = ci;
   });
-  // 이름으로 하나도 못 찾았으면 내보내기 양식의 자리를 그대로 쓴다
+
+  //  논술형을 골라 두었으면 그 논술형만 건드린다 — 내보내기 파일을 통째로 올려도
+  //  나머지 논술형은 그대로 둔다.
+  if (pick) Object.keys(colOf).forEach(k => { if (!k.startsWith(esKey(pick) + ':')) delete colOf[k]; });
+
+  if (bare && !pick && !Object.keys(colOf).length) {
+    alert('머리글에 논술형 번호가 없습니다.\n[엑셀 올리기] 옆에서 어느 논술형에 넣을지 고른 뒤 다시 올려 주십시오.');
+    return;
+  }
+  // 머리글을 하나도 못 읽었으면 마지막 수단으로 내보내기 양식의 자리를 그대로 쓴다
   // (학번·이름·반 다음, 논술형마다 내용·자료·형식·총점·피드백 다섯 칸).
   if (!Object.keys(colOf).length) {
     if (sidCol < 0) sidCol = 0;
@@ -5930,6 +5951,13 @@ function esApplyRows(rows) {
     }
   }
   if (sidCol < 0) sidCol = 0;
+
+  //  실제로 읽어 들일 논술형 번호 — 확인창에 그대로 적어, 엉뚱한 곳에 들어가는 것을 막는다.
+  const readIdx = [];
+  for (let i = 1; i <= ESSAY_N; i++) {
+    if (ESSAY_PARTS.some(p => colOf[esKey(i) + ':' + p.key] != null)) readIdx.push(i);
+  }
+  if (!readIdx.length) { alert('점수 열(내용 / 자료 / 형식)을 찾지 못했습니다.'); return; }
 
   const known = new Set(_gradeStudents.filter(s => s.id !== '00000').map(s => s.id));
   const staged = {};                           // sid → { e1:{…}, … } (바꿀 학생만)
@@ -5975,9 +6003,8 @@ function esApplyRows(rows) {
 
   const sids = Object.keys(staged);
   if (!sids.length) {
-    alert(unknown.length
-      ? `반영할 내용이 없습니다.\n명단에 없는 학번 ${unknown.length}건은 건너뛰었습니다.`
-      : '표와 다른 내용이 없어 그대로 두었습니다.');
+    alert(`논술형 ${readIdx.join(', ')}번을 읽었지만 표와 다른 내용이 없어 그대로 두었습니다.`
+      + (unknown.length ? `\n명단에 없는 학번 ${unknown.length}건은 건너뛰었습니다.` : ''));
     return;
   }
 
@@ -5985,7 +6012,8 @@ function esApplyRows(rows) {
   if (nClear)         warn.push(`빈 칸으로 지워지는 점수 ${nClear}칸`);
   if (nBad)           warn.push(`숫자가 아니라 건너뛴 칸 ${nBad}칸`);
   if (unknown.length) warn.push(`명단에 없어 건너뛴 학번 ${unknown.length}건 (${[...new Set(unknown)].slice(0, 5).join(', ')}${unknown.length > 5 ? ' 외' : ''})`);
-  const msg = `학생 ${sids.length}명, 점수 ${nCell}칸${nFb ? `, 피드백 ${nFb}칸` : ''}을 파일 내용으로 바꿉니다.`
+  const msg = `논술형 ${readIdx.join(', ')}번을 읽었습니다.\n`
+    + `학생 ${sids.length}명, 점수 ${nCell}칸${nFb ? `, 피드백 ${nFb}칸` : ''}을 파일 내용으로 바꿉니다.`
     + (warn.length ? '\n\n- ' + warn.join('\n- ') : '')
     + '\n\n반영하시겠습니까?';
   if (!confirm(msg)) return;

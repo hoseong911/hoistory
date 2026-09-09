@@ -537,7 +537,7 @@ function render(){
 
   /* ── 머리띠 ── */
   const answered = Object.keys(((room.answers || {})[phase]) || {}).length;
-  const expect = ps.filter(p => p.alive).length;
+  const expect = expectOf(room, ps, String(phase || ""));
   const stName = state === "open" ? "선택 중" : state === "revealed" ? "결과 공개" : "대기";
   $("#top").innerHTML = `
     <span class="cls">${esc(CLS)}반</span>
@@ -654,13 +654,38 @@ function renderFinal(ps){
 
 /* ══════════════════ 교사 조작판 ══════════════════ */
 function roomRef(){ return ref(rtdb, `${ROOMS}/${CLS}`); }
+
+/* 이 사건에서 세어야 할 생존자 수.
+   학생이 고르는 순간 그 자리에서 생사가 갈려 서버에 올라온다. 그래서 "지금 살아 있는
+   사람"을 그대로 세면, 결과를 열기도 전에 교실 화면의 숫자가 줄어들며 누가 죽는
+   선택을 했는지가 새어 나간다(중종반정에서는 거꾸로 늘어나며 부활이 새어 나갔다).
+   그래서 사건을 열 때 이미 졸했던 사람을 openPhase가 적어 두고, 한 사건 동안은
+   그 명단만 빼고 센다 — 사건 안에서는 숫자가 움직이지 않는다.
+   적어 둔 것이 없는 옛 방에서는 이번 사건에서 죽은 사람을 도로 더해 되살린다. */
+function expectOf(room, ps, phase){
+  const raw = (room.deadAt || {})[phase];
+  if (typeof raw === "string") {
+    const dead = new Set(raw ? raw.split(",") : []);
+    return ps.filter(p => !dead.has(String(p.id))).length;
+  }
+  const y = parseInt(phase, 10);
+  return ps.filter(p => p.alive || p.deathYear === y).length;
+}
 function ctlSecs(){ const el = document.getElementById("c-secs"); return el ? +el.value : 0; }
 function openPhase(p){
   const secs = ctlSecs();
-  update(roomRef(), {
+  const u = {
     phase: p, state: "open", round: ((ROOM && ROOM.round) || 0) + 1,
     endsAt: secs ? Date.now() + secs * 1000 : null
-  });
+  };
+  /* 사건을 여는 순간 이미 졸(卒)했던 사람의 학번을 적어 둔다. 이것이 이 사건 동안
+     생존자 수의 기준이 된다 — 자세한 까닭은 expectOf 참고. 같은 사건을 다시 열어도
+     처음 적은 것을 그대로 둔다(그 사이에 죽은 사람이 기준에 섞이면 안 된다). */
+  const had = (ROOM && ROOM.deadAt) ? ROOM.deadAt[p] : undefined;
+  if (typeof had !== "string") {
+    u[`deadAt/${p}`] = playersOf(ROOM || {}).filter(x => !x.alive).map(x => String(x.id)).join(",");
+  }
+  update(roomRef(), u);
 }
 
 /* 끝내 답을 내지 않은 학생을 대신 처리한다. 자리에 있으나 안 누른 학생과 접속이
@@ -778,7 +803,7 @@ function syncCtl(){
   if (cnt) {
     const ps = playersOf(room);
     const answered = Object.keys(((room.answers || {})[room.phase]) || {}).length;
-    const expect = ps.filter(p => p.alive).length;
+    const expect = expectOf(room, ps, String(room.phase || ""));
     cnt.innerHTML = `선택 <b>${answered}</b>명 / 생존 <b>${expect}</b>명<span class="sep">|</span>들어온 사람 ${ps.length}명`;
   }
   /* 합친 단추의 얼굴. 사건이 열려 있으면 [결과 공개], 이미 공개했으면 [다음 사건],
