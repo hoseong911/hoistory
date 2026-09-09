@@ -5657,6 +5657,7 @@ async function esLoad() {
     esRenderTable();
     setupSubtabs('gradeEssayWrap', 'gradeSubtabEssay');
     document.getElementById('gradeEssayExportBtn').style.display = '';
+    document.getElementById('gradeEssayImportBtn').style.display = '';
     esSetState('');
   } catch (e) {
     wrap.innerHTML = `<div class="empty-panel">${esc(e.message)}</div>`;
@@ -5771,23 +5772,28 @@ function esQueueSave(sid) {
   _esSaveTimer = setTimeout(esFlushSave, 800);
 }
 
+/* 문서 한 건의 전체 모습. 논술형 네 칸을 모두 싣는 완결된 문서라 merge 없이 통째로
+   쓴다 — merge:true는 e1 같은 하위 맵까지 서버 값과 합쳐 버려서, 지운 점수가 서버에
+   그대로 남아 있었다(엑셀로 빈 칸을 올려도 지워지지 않는다). */
+function esPayload(sid) {
+  const stu = _gradeStudents.find(s => s.id === sid);
+  const payload = {
+    studentId: sid,
+    studentName: stu ? stu.name : '',
+    classNum: Math.floor((parseInt(sid) - 30000) / 100),
+    updatedAt: serverTimestamp(),
+  };
+  for (let i = 1; i <= ESSAY_N; i++) payload[esKey(i)] = _esData[sid]?.[esKey(i)] || {};
+  return payload;
+}
+
 async function esFlushSave() {
   if (!_esDirty.size) return;
   const ids = [..._esDirty];
   _esDirty.clear();
   esSetState('저장 중…', 'wait');
   try {
-    await Promise.all(ids.map(sid => {
-      const stu = _gradeStudents.find(s => s.id === sid);
-      const payload = {
-        studentId: sid,
-        studentName: stu ? stu.name : '',
-        classNum: Math.floor((parseInt(sid) - 30000) / 100),
-        updatedAt: serverTimestamp(),
-      };
-      for (let i = 1; i <= ESSAY_N; i++) payload[esKey(i)] = _esData[sid]?.[esKey(i)] || {};
-      return setDoc(doc(db, 'essay_records', sid), payload, { merge: true });
-    }));
+    await Promise.all(ids.map(sid => setDoc(doc(db, 'essay_records', sid), esPayload(sid))));
     esSetState('저장됨', 'ok');
     setTimeout(() => { const el = document.getElementById('esSaveState'); if (el && el.textContent === '저장됨') esSetState(''); }, 2000);
   } catch (e) {
@@ -5844,6 +5850,174 @@ function esExportCSV() {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a'); a.href = url; a.download = '논술형_수행평가.csv'; a.click();
   URL.revokeObjectURL(url);
+}
+
+/* ── 엑셀 올리기 ──────────────────────────────────────────────
+   '엑셀 내보내기'가 만든 것과 같은 양식을 그대로 되받는다.
+     학번 · 이름 · 반 · (논술1_내용 · 논술1_자료 · 논술1_형식 · 논술1_총점 · 논술1_피드백) × 4
+   총점 칸은 읽지 않는다 — 항목 셋을 더해 다시 계산한다.
+   머리글을 이름으로 찾되(열 순서가 바뀌어도 따라간다), 한글이 깨진 CSV처럼 이름을
+   못 읽는 파일은 내보내기 양식의 고정된 자리로 넘어간다.
+   ───────────────────────────────────────────────────────────── */
+const ES_PART_BY_LABEL = { 내용: 'content', 자료: 'material', 형식: 'format' };
+
+function esNormHead(v) { return String(v == null ? '' : v).replace(/\s/g, ''); }
+
+// 머리글 한 칸을 { idx, key }로 푼다. '논술2_자료', '논술형2 자료' 모두 받는다.
+function esParseHead(cell) {
+  const m = esNormHead(cell).match(/^논술형?(\d+)[_·-]?(내용|자료|형식|피드백)$/);
+  if (!m) return null;
+  const i = +m[1];
+  if (!(i >= 1 && i <= ESSAY_N)) return null;
+  return { idx: i, key: m[2] === '피드백' ? 'feedback' : ES_PART_BY_LABEL[m[2]] };
+}
+
+// 파일의 값 한 칸 → 점수. 빈 칸과 '—'는 '점수 없음'(null), 숫자가 아니면 undefined(오류).
+function esParseScore(raw, max) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (s === '' || s === '—' || s === '-') return null;
+  const cleaned = s.replace(/[^\d.]/g, '');    // '3점', '3 ' 같은 꼬리표는 떼어 낸다
+  if (!/^\d+(\.\d+)?$/.test(cleaned)) return undefined;
+  return Math.max(0, Math.min(max, Math.round(Number(cleaned))));
+}
+
+window.esHandleFile = function(ev) {
+  const file = ev.target.files && ev.target.files[0];
+  ev.target.value = '';                       // 같은 파일을 고쳐서 다시 올릴 수 있게 비운다
+  if (!file) return;
+  if (!_esLoaded) { alert('먼저 [불러오기]를 눌러 표를 띄운 뒤에 올려 주십시오.'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    let rows;
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      if (!ws) throw new Error('시트를 찾지 못했습니다.');
+      // raw:false — 숫자든 글자든 문자열로 통일해서 받는다(칸마다 서식이 달라도 같게 읽힌다).
+      rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+    } catch (err) {
+      alert('파일을 읽지 못했습니다.\n' + err.message);
+      return;
+    }
+    esApplyRows(rows);
+  };
+  reader.onerror = () => alert('파일을 읽지 못했습니다.');
+  reader.readAsArrayBuffer(file);
+};
+
+function esApplyRows(rows) {
+  if (!rows || !rows.length) { alert('빈 파일입니다.'); return; }
+
+  // 머리글 줄 — '학번'이 있는 첫 줄. 못 찾으면 첫 줄로 본다.
+  let hi = rows.findIndex(r => Array.isArray(r) && r.some(c => esNormHead(c) === '학번'));
+  if (hi < 0) hi = 0;
+  const head = rows[hi] || [];
+
+  let sidCol = head.findIndex(c => esNormHead(c) === '학번');
+  const colOf = {};                            // 'e1:content' → 열 번호
+  head.forEach((c, ci) => {
+    const p = esParseHead(c);
+    if (p) colOf[esKey(p.idx) + ':' + p.key] = ci;
+  });
+  // 이름으로 하나도 못 찾았으면 내보내기 양식의 자리를 그대로 쓴다
+  // (학번·이름·반 다음, 논술형마다 내용·자료·형식·총점·피드백 다섯 칸).
+  if (!Object.keys(colOf).length) {
+    if (sidCol < 0) sidCol = 0;
+    for (let i = 1; i <= ESSAY_N; i++) {
+      const base = 3 + (i - 1) * (ESSAY_PARTS.length + 2);
+      ESSAY_PARTS.forEach((p, k) => { colOf[esKey(i) + ':' + p.key] = base + k; });
+      colOf[esKey(i) + ':feedback'] = base + ESSAY_PARTS.length + 1;
+    }
+  }
+  if (sidCol < 0) sidCol = 0;
+
+  const known = new Set(_gradeStudents.filter(s => s.id !== '00000').map(s => s.id));
+  const staged = {};                           // sid → { e1:{…}, … } (바꿀 학생만)
+  let nCell = 0, nClear = 0, nFb = 0, nBad = 0;
+  const unknown = [];
+
+  for (let r = hi + 1; r < rows.length; r++) {
+    const row = rows[r];
+    if (!Array.isArray(row)) continue;
+    const sid = String(row[sidCol] == null ? '' : row[sidCol]).trim();
+    if (!/^\d{5}$/.test(sid)) continue;        // 빈 줄·합계 줄 등은 조용히 지나간다
+    if (!known.has(sid)) { unknown.push(sid); continue; }
+
+    const before = _esData[sid] || {};
+    const next   = {};
+    let changed  = false;
+    for (let i = 1; i <= ESSAY_N; i++) {
+      const oldC = before[esKey(i)] || {};
+      const newC = {};
+      ESSAY_PARTS.forEach(p => {
+        const ci = colOf[esKey(i) + ':' + p.key];
+        const had = typeof oldC[p.key] === 'number';
+        if (ci == null) { if (had) newC[p.key] = oldC[p.key]; return; }   // 파일에 없는 열은 손대지 않는다
+        const v = esParseScore(row[ci], p.max);
+        if (v === undefined) {                  // 숫자가 아닌 값 — 원래 값을 지키고 세어만 둔다
+          nBad++;
+          if (had) newC[p.key] = oldC[p.key];
+          return;
+        }
+        if (v != null) newC[p.key] = v;
+        if (had ? oldC[p.key] !== v : v != null) { changed = true; nCell++; if (v == null) nClear++; }
+      });
+      const fbCol = colOf[esKey(i) + ':feedback'];
+      const oldFb = oldC.feedback ? String(oldC.feedback) : '';
+      let newFb = oldFb;
+      if (fbCol != null) newFb = String(row[fbCol] == null ? '' : row[fbCol]).trim();
+      if (newFb) newC.feedback = newFb;
+      if (newFb !== oldFb) { changed = true; nFb++; }
+      next[esKey(i)] = newC;
+    }
+    if (changed) staged[sid] = next;
+  }
+
+  const sids = Object.keys(staged);
+  if (!sids.length) {
+    alert(unknown.length
+      ? `반영할 내용이 없습니다.\n명단에 없는 학번 ${unknown.length}건은 건너뛰었습니다.`
+      : '표와 다른 내용이 없어 그대로 두었습니다.');
+    return;
+  }
+
+  const warn = [];
+  if (nClear)         warn.push(`빈 칸으로 지워지는 점수 ${nClear}칸`);
+  if (nBad)           warn.push(`숫자가 아니라 건너뛴 칸 ${nBad}칸`);
+  if (unknown.length) warn.push(`명단에 없어 건너뛴 학번 ${unknown.length}건 (${[...new Set(unknown)].slice(0, 5).join(', ')}${unknown.length > 5 ? ' 외' : ''})`);
+  const msg = `학생 ${sids.length}명, 점수 ${nCell}칸${nFb ? `, 피드백 ${nFb}칸` : ''}을 파일 내용으로 바꿉니다.`
+    + (warn.length ? '\n\n- ' + warn.join('\n- ') : '')
+    + '\n\n반영하시겠습니까?';
+  if (!confirm(msg)) return;
+
+  sids.forEach(sid => { _esData[sid] = Object.assign(_esData[sid] || {}, staged[sid]); });
+  esRenderTable();
+  setupSubtabs('gradeEssayWrap', 'gradeSubtabEssay');
+  esSaveMany(sids);
+}
+
+/* 올린 파일은 한 번에 수백 명이 바뀔 수 있어, 한 건씩 쓰지 않고 배치로 묶어 보낸다
+   (Firestore 배치 한 묶음은 500건까지). */
+async function esSaveMany(sids) {
+  esSetState('저장 중…', 'wait');
+  const CHUNK = 400;
+  try {
+    for (let at = 0; at < sids.length; at += CHUNK) {
+      const batch = writeBatch(db);
+      sids.slice(at, at + CHUNK).forEach(sid => batch.set(doc(db, 'essay_records', sid), esPayload(sid)));
+      await batch.commit();
+    }
+    esSetState(`${sids.length}명 반영 완료`, 'ok');
+    setTimeout(() => {
+      const el = document.getElementById('esSaveState');
+      if (el && el.textContent.endsWith('반영 완료')) esSetState('');
+    }, 3000);
+  } catch (e) {
+    // 못 쓴 학생은 대기줄에 넣어 둔다 — 점수 칸을 하나만 더 건드려도 다시 저장을 시도한다.
+    sids.forEach(sid => _esDirty.add(sid));
+    esSetState('저장 실패: ' + e.message, 'err');
+    alert('반영한 내용을 저장하지 못했습니다.\n' + e.message);
+  }
 }
 
 // GRADE 안의 두 모드(포트폴리오 / 논술형) 전환. 각자 불러오기를 따로 누르게 두고,
