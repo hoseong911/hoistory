@@ -767,8 +767,9 @@ function playPhase(phase, P, onResolved, hold){
     b.onclick = ()=>{
       const c = order[+b.dataset.i];
       if(c.lot){
+        // 세 번째 인자가 "봉인". 뽑은 패가 곧 결과라 갑자사화와 똑같이 봉해 둔다.
         drawLots({ eyebrow:ev.eyebrow, ...c.lot }, c.lot.n, c.lot.bad, (isBad)=>{
-          onResolved(c.apply(P, isBad), c.key);
+          onResolved(c.apply(P, isBad), c.key, hold);
         }, hold);
       } else {
         onResolved(c.apply(P), c.key);
@@ -1153,9 +1154,12 @@ function roomRender(){
       // 서버에만 답이 있는 학생(튕겼다 돌아온 때) — 다시 고르게 하지 않는다.
       MODE.answered = roundKey;
       MODE.autoPicked = !!mine.auto;
-      MODE.sealed = ev.kind === "lots";
+      /* 뽑기가 걸린 선택지(기묘사화의 "이름은 올리지 않음", 을사사화의 "중립")도
+         갑자사화와 똑같이 봉인으로 본다 — 튕겼다 돌아와도 무르기가 되살아나면 안 된다. */
+      const chosen0 = (ev.choices||[]).find(c=>c.key===mine.choice);
+      MODE.sealed = ev.kind === "lots" || !!(chosen0 && chosen0.lot);
       MODE.answeredLabel = MODE.autoPicked
-        ? (MODE.sealed ? "끝내 패를 뽑지 않았다." : "고르지 않아 이렇게 기록되었다")
+        ? (ev.kind === "lots" ? "끝내 패를 뽑지 않았다." : "고르지 않아 이렇게 기록되었다")
         : (MODE.sealed ? "패를 하나 뽑아 봉해 두었다."
            : ((ev.choices||[]).find(c=>c.key===mine.choice)?.label
               || (ev.shortOf && ev.shortOf[mine.choice]) || mine.choice));
@@ -1239,9 +1243,13 @@ function takeBefore(phase, room){
 
 /* 무를 수 있는가. 공개 전이고, 시간이 남아 있고, 고를 것이 있는 사건이라야 한다.
    패 뽑기(갑자사화)와 판가름(중종반정)에는 무를 선택이 없고, 시간이 다 되어
-   대신 기록된 것은 이미 "아무것도 하지 않았다"는 판정이라 손대지 않는다. */
+   대신 기록된 것은 이미 "아무것도 하지 않았다"는 판정이라 손대지 않는다.
+   봉해 둔 패도 무르지 못한다 — 기묘사화의 "이름은 올리지 않음"과 을사사화의
+   "중립"은 고르는 순간 패를 뽑는데, 무를 수 있게 두면 결과를 모르는 채로
+   몇 번이고 다시 뽑을 수 있다. 뽑기는 한 번이라야 한다. */
 function canRedo(ev, room, phase){
   if(!ev || !ev.choices || !ev.choices.length) return false;
+  if(MODE.sealed) return false;
   if((room.state || "") !== "open") return false;
   if(MODE.autoPicked) return false;
   if(room.endsAt && Date.now() >= room.endsAt) return false;
