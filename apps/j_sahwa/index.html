@@ -404,7 +404,7 @@
 
 <!-- 학생 화면과 교실 화면이 같은 game.js를 읽어야 사건 설명과 선지가 어긋나지 않는다.
      한쪽만 옛 파일을 캐시에서 꺼내 쓰는 일이 없도록 판 번호를 붙인다. -->
-<script src="game.js?v=20260909a"></script>
+<script src="game.js?v=20260909b"></script>
 
 <script type="module">
 /* 네트워크 계층 — 명단 조회, 방 구독, 제출.
@@ -485,6 +485,15 @@ window.SahwaNet = {
   submit(cls, phase, sid, key, P, auto){
     const u = {};
     u[`${ROOMS}/${cls}/answers/${phase}/${sid}`] = { choice:String(key||""), at:serverTimestamp(), auto:!!auto };
+    u[`${ROOMS}/${cls}/players/${sid}`] = slim(P);
+    return update(ref(rtdb), u).catch(()=>{});
+  },
+
+  /* 낸 것을 무른다. 이번 판의 답을 지우고, 고르기 전으로 되돌린 선비를 다시 쓴다.
+     둘을 한 번에 보내야 답만 지워지고 상태는 바뀐 채로 남는 어긋남이 생기지 않는다. */
+  unsubmit(cls, phase, sid, P){
+    const u = {};
+    u[`${ROOMS}/${cls}/answers/${phase}/${sid}`] = null;
     u[`${ROOMS}/${cls}/players/${sid}`] = slim(P);
     return update(ref(rtdb), u).catch(()=>{});
   },

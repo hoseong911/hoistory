@@ -808,6 +808,8 @@ function paint(html, barExtra, hold){
 /* 진행 상태 — 화면 종류와 현재 선비 */
 const MODE = { room:false, screen:"boot", P:makePlayer(), cls:null, phase:null,
                answered:null, lastRes:null, lastResKey:null, sealed:false,
+               // 고르기 전의 모습과 그것이 어느 판의 것인지([다시 선택하기]가 쓴다)
+               before:null, beforeKey:null,
                viewKey:null, rosterFull:false,
                // 같은 반에서 이미 쓰이고 있는 호(정규화한 것). null이면 아직 모르거나 혼자 하기.
                takenHos:null, takenLoad:null };
@@ -1154,7 +1156,7 @@ function roomRender(){
       // 결과 본문은 서버에 없다 — 공개 때는 대기 화면만 보인다
       MODE.lastRes = null; MODE.lastResKey = null;
     }
-    paintSubmitted(ev, room);
+    paintSubmitted(ev, room, phase);
     return;
   }
 
@@ -1199,17 +1201,76 @@ function roomRender(){
   }
 
   // 사건 열림 — 여기까지 온 학생은 아직 내지 않았다(낸 학생은 위에서 갈라져 나갔다)
-  if(room.state === "open"){
-    MODE.screen = "round"; MODE.autoPicked = false; MODE.sealed = false;
-    // 마지막 인자 true = 뽑기는 봉인해 둔다(교사가 공개할 때 함께 연다).
-    playPhase(phase, P, (res, key, sealed)=> submitChoice(phase, room, res, key, sealed), true);
-    // playPhase가 그린 뒤에 표시줄의 타이머만 덧붙인다
-    $("#bar").innerHTML = barHTML(P, timerHTML(room));
-    startTick(room, ()=> autoSubmit(phase, room));
-    return;
-  }
+  if(room.state === "open"){ paintChoice(phase, room); return; }
 
   paint(`<div class="wait"><div class="big">잠시 기다리시오<span class="dots"></span></div></div>`);
+}
+
+/* ══════════════════ 다시 선택하기 ══════════════════
+   고르는 순간 선비의 상태가 이미 바뀌므로(관작·명성·생사·사초), 무르려면 고르기
+   전의 모습을 어딘가에 적어 두어야 한다. 그 자리가 여기다. 새로고침하고 돌아와도
+   무를 수 있게 sessionStorage에 둔다(탭 하나 안에서만 사는 기억이라 다음 수업에
+   남지 않는다). */
+function beforeKey(phase, room){
+  return "sahwa_before_" + MODE.cls + "_" + MODE.P.id + "_" + phase + ":" + (room.round||0);
+}
+function keepBefore(phase, room, P){
+  const key = beforeKey(phase, room);
+  const raw = JSON.stringify(slimPlayer(P));
+  MODE.before = raw; MODE.beforeKey = key;
+  try{ sessionStorage.setItem(key, raw); }catch(e){}
+}
+/* 반드시 이번 판의 것이라야 한다. 열쇠를 함께 보지 않고 기억에 남은 것을 그냥
+   꺼내 쓰면, 이 판에 고른 적이 없는 학생을 지난 판의 모습으로 되돌려 버린다. */
+function takeBefore(phase, room){
+  const key = beforeKey(phase, room);
+  try{
+    const v = sessionStorage.getItem(key);
+    if(v) return v;
+  }catch(e){}
+  return MODE.beforeKey === key ? MODE.before : null;
+}
+
+/* 무를 수 있는가. 공개 전이고, 시간이 남아 있고, 고를 것이 있는 사건이라야 한다.
+   패 뽑기(갑자사화)와 판가름(중종반정)에는 무를 선택이 없고, 시간이 다 되어
+   대신 기록된 것은 이미 "아무것도 하지 않았다"는 판정이라 손대지 않는다. */
+function canRedo(ev, room, phase){
+  if(!ev || !ev.choices || !ev.choices.length) return false;
+  if((room.state || "") !== "open") return false;
+  if(MODE.autoPicked) return false;
+  if(room.endsAt && Date.now() >= room.endsAt) return false;
+  return !!takeBefore(phase, room);
+}
+
+function redoChoice(phase, room){
+  const raw = takeBefore(phase, room);
+  if(!raw) return;
+  let before;
+  try{ before = JSON.parse(raw); }catch(e){ return; }
+  Object.assign(MODE.P, before);
+  MODE.P.year = +phase;
+  MODE.answered = null; MODE.answeredLabel = null;
+  MODE.lastRes = null; MODE.lastResKey = null;
+  MODE.sealed = false; MODE.autoPicked = false;
+  /* 서버에서도 이번 판의 답을 지운다 — 그대로 두면 교사 화면의 낸 사람 수가
+     맞지 않고, 새로고침했을 때 다시 "이미 냈음"으로 되살아난다. */
+  SahwaNet.unsubmit(MODE.cls, phase, MODE.P.id, MODE.P);
+  // 되돌린 지금의 모습으로 열쇠를 맞춰 둔다. 다음 스냅샷이 화면을 새로 그리면
+  // 선택지 순서가 다시 섞여 누르려던 자리가 바뀐다.
+  MODE.viewKey = [phase, room.state || "", room.round || 0, 0, MODE.P.alive ? 1 : 0].join("|");
+  paintChoice(phase, room);
+}
+
+/* 선택 화면. 처음 열릴 때와 무르고 다시 고를 때가 같은 자리라야 한다. */
+function paintChoice(phase, room){
+  const P = MODE.P;
+  MODE.screen = "round"; MODE.autoPicked = false; MODE.sealed = false;
+  keepBefore(phase, room, P);
+  // 마지막 인자 true = 뽑기는 봉인해 둔다(교사가 공개할 때 함께 연다).
+  playPhase(phase, P, (res, key, sealed)=> submitChoice(phase, room, res, key, sealed), true);
+  // playPhase가 그린 뒤에 표시줄의 타이머만 덧붙인다
+  $("#bar").innerHTML = barHTML(P, timerHTML(room));
+  startTick(room, ()=> autoSubmit(phase, room));
 }
 
 /* 고른 것을 서버에 올리고 곧바로 대기 화면으로 (서버 응답을 기다리지 않는다) */
@@ -1226,7 +1287,7 @@ function submitChoice(phase, room, res, key, sealed){
     : ((ev.choices||[]).find(c=>c.key===key)?.label
        || (ev.shortOf && ev.shortOf[key]) || key);
   SahwaNet.submit(MODE.cls, phase, P.id, key, P, MODE.autoPicked);
-  paintSubmitted(ev, ROOM && ROOM.phase ? ROOM : room);
+  paintSubmitted(ev, ROOM && ROOM.phase ? ROOM : room, phase);
 }
 
 /* 시간이 다 되도록 안 골랐으면 "아무것도 하지 않은 것"에 해당하는 선지로 대신 낸다.
@@ -1300,22 +1361,28 @@ window.resolveDefaultFor = function(phase, praw){
 };
 
 /* 이미 낸 학생이 보는 화면 */
-function paintSubmitted(ev, room){
+function paintSubmitted(ev, room, phase){
   MODE.screen = "round"; MODE.rosterFull = false;
   const auto = MODE.autoPicked, sealed = MODE.sealed;
   const noPick = ev.kind === "auto";   // 중종반정처럼 고를 것이 없는 장면
+  const redo  = canRedo(ev, room, phase);
   const head  = noPick ? "판가름을 기다린다" : auto ? "시간이 다 되었다" : sealed ? "패를 뽑았다" : "제출했다";
   const label = auto ? "고르지 않아 이렇게 기록되었다" : sealed ? "봉해 둔 패" : "그대의 선택";
   const sub   = noPick ? "이 장면에는 고를 것이 없다. 그동안 그대가 해 둔 것이 판가름한다."
               : sealed ? "모두가 뽑으면 봉한 패를 함께 연다."
+              : redo ? "모두가 고르면 결과가 함께 공개된다. 그전까지는 고쳐 낼 수 있다."
               : "모두가 고르면 결과가 함께 공개된다.";
   paint(`<div class="eyebrow">${ev.eyebrow}</div>
     <h2>${head}</h2>
     ${noPick ? "" : `<div class="picked"><div class="t">${label}</div>${esc(MODE.answeredLabel||"")}</div>`}
+    ${redo ? `<div class="go-row" id="redoBox"><button class="ghost" id="redo">다시 선택하기</button></div>` : ""}
     <div class="wait"><div class="big">다른 이들을 기다리는 중<span class="dots"></span></div>
       <div class="sub">${sub}</div>
       ${roomRosterHTML(room)}</div>`, timerHTML(room), true);
-  startTick(room);
+  const rb = $("#redo");
+  if(rb) rb.onclick = ()=> redoChoice(phase, ROOM && ROOM.phase === phase ? ROOM : room);
+  // 시간이 다 되면 무를 수 있는 자리도 함께 닫는다.
+  startTick(room, ()=>{ const box = $("#redoBox"); if(box) box.innerHTML = ""; });
 }
 
 function timerHTML(room){
@@ -1362,18 +1429,19 @@ function refreshRoster(room){
 /* 반 현황 — 대기 화면과 관전 화면에서 함께 보여 준다.
    사건이 열려 있는 동안에는 생사와 관작을 적지 않는다. 친구들이 하나씩 낼 때마다
    생존 숫자가 줄고 이름에 줄이 그어지는 것만 봐도 이번 판의 결과를 짐작하게 되고,
-   자기 것이 아직 안 열렸는데 남의 것부터 알게 된다. 공개가 끝나면 다시 적는다. */
+   자기 것이 아직 안 열렸는데 남의 것부터 알게 된다. 공개가 끝나면 다시 적는다.
+   동인·서인 숫자는 아예 걷었다. 스승을 고르는 자리에서는 그것이 무엇으로 갈리는지
+   일러 주지 않는데, 대기 화면에 두 편의 머릿수가 떠 있으면 결말에서 처음 밝혀야 할
+   붕당의 갈림을 시작하자마자 알려 주는 셈이었다. */
 function roomRosterHTML(room, full){
   const ps = Object.values(room.players || {});
   if(!ps.length) return `<div id="rosterBox"></div>`;
   const hold = (room.state || "") === "open";
   const alive = ps.filter(p=>p.alive).length;
-  const dong = ps.filter(p=>p.master==="dong").length;
   const head = `<div class="roster">
       <span>들어온 사람 <b>${ps.length}</b></span>
       ${hold ? "" : `<span>생존 <b>${alive}</b></span>
       <span>졸(卒) <b>${ps.length-alive}</b></span>`}
-      <span>동인 <b>${dong}</b> / 서인 <b>${ps.length-dong}</b></span>
     </div>`;
   if(!full) return `<div id="rosterBox">${head}</div>`;
   const cards = ps.sort((a,b)=>String(a.id).localeCompare(String(b.id)))
