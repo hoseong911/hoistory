@@ -65,6 +65,8 @@ const DEFAULT_CONTENT = {
   doorSoloDesc: "수업에 빠진 사람이 혼자 복습하는 길이다. 반 진행과 상관없이 처음부터 끝까지 혼자 겪고 소감까지 남긴다. 수업에 참여했다면 이쪽으로 들어오지 않는다.",
   memoTitle: "소감 남기기",
   memoPrompt: "사화를 겪은 사림은 어떤 사람들이었는지, 오늘 알게 된 것과 생각한 것을 적어 보시오. 게임을 하지 못했더라도 교과서와 수업에서 배운 사림 이야기를 적으면 된다.",
+  /* 인트로 맨 아래에 한 줄로 붙는 문. 참여한 기록이 있는 학생에게만 보인다. */
+  memoDoorDesc: "활동을 마쳤는데 소감을 아직 남기지 않았다면 여기로 들어온다. 전에 남긴 글이 있으면 불러와 고쳐 쓸 수 있다.",
   hoLabel: "그대의 호(號)", hoHint: "스스로 지어 붙이는 이름",
   masterLabel: "스승을 고르시오",
   masters: [
@@ -432,17 +434,22 @@ function nextPhase(phase, P){
 }
 
 /* ══════════════════ 화면 조각 ══════════════════ */
-function barHTML(P, extra){
+/* hold = 냈지만 아직 공개되지 않은 사이. 이때는 생사도 관작도 적지 않는다 —
+   고른 순간 표시줄이 졸(卒)로 바뀌거나 名이 뛰면 선생님이 열기도 전에 학생이
+   자기 결과를 알아 버린다. 결과는 반이 함께 받는 것이라야 한다. */
+function barHTML(P, extra, hold){
   const g = GAN[P.year] ? GAN[P.year]+"년" : "";
   return `
     <span class="yr">${P.year||""}</span>
     <span class="gan">${g}</span>
     <span class="ho">${esc(P.ho)}</span>
-    <span class="tag ${P.alive?"":"dead"}">${P.alive?"생존":"졸(卒)"}</span>
+    ${hold
+      ? `<span class="tag hold">봉(封)</span>`
+      : `<span class="tag ${P.alive?"":"dead"}">${P.alive?"생존":"졸(卒)"}</span>`}
     <span class="spacer"></span>
     ${extra||""}
-    <span class="stat">官 <b>${P.rank}</b></span>
-    <span class="stat">名 <b>${P.fame}</b></span>`;
+    <span class="stat">官 <b>${hold?"?":P.rank}</b></span>
+    <span class="stat">名 <b>${hold?"?":P.fame}</b></span>`;
 }
 
 function eventHTML(ev, choices){
@@ -716,8 +723,13 @@ function bindSetup(onDone, checkTaken){
   };
 }
 
+/* 참여 표시를 남기는 자리. 혼자 하기는 서버에 아무것도 남기지 않으므로, 이 표시가
+   있어야 나중에 인트로에서 소감 문을 열어 줄 수 있다. */
+const PLAY_MARK = "sahwa_played_";
+
 function applySetup(P, ho, master, base){
   P.ho = ho; P.master = master; P.base = base;
+  try{ localStorage.setItem(PLAY_MARK + (P.id||""), "1"); }catch(e){}
   if(base==="local"){ adj(P,"fame",2); P.seowon = true; } else adj(P,"rank",2);
   // 사초의 첫 줄. 연도를 0으로 두면 결말의 사초에 연도 칸이 비어 어색했다.
   // 도입 문단이 "그대는 1498년 조선의 선비다"로 시작하므로 그 해에 맞춘다.
@@ -785,17 +797,17 @@ function drawLots(cfg, n, bad, done, hold){
 }
 
 /* 화면에 그리는 단 하나의 출구 */
-function paint(html, barExtra){
+function paint(html, barExtra, hold){
   const bar = $("#bar");
   if(["boot","setup","intro","memo","blocked"].indexOf(MODE.screen) >= 0){ bar.innerHTML=""; bar.style.display="none"; }
-  else { bar.style.display=""; bar.innerHTML = barHTML(MODE.P, barExtra); }
+  else { bar.style.display=""; bar.innerHTML = barHTML(MODE.P, barExtra, hold); }
   $("#stage").innerHTML = html;
   window.scrollTo(0,0);
 }
 
 /* 진행 상태 — 화면 종류와 현재 선비 */
 const MODE = { room:false, screen:"boot", P:makePlayer(), cls:null, phase:null,
-               answered:null, lastRes:null, sealed:false,
+               answered:null, lastRes:null, lastResKey:null, sealed:false,
                viewKey:null, rosterFull:false,
                // 같은 반에서 이미 쓰이고 있는 호(정규화한 것). null이면 아직 모르거나 혼자 하기.
                takenHos:null, takenLoad:null };
@@ -952,7 +964,38 @@ function introHTML(){
       <small>${esc(C.doorTogetherDesc)}</small></button>
     <button class="door" id="doorSolo"><strong>${esc(C.doorSolo)}</strong>
       <small>${esc(C.doorSoloDesc)}</small></button>
-  </div>`;
+  </div>
+  <div id="doorMemoSlot"></div>`;
+}
+
+/* 참여한 기록이 있는가. 방에 만들어 둔 인물이 먼저고(반 활동), 없으면 혼자 하기
+   표시와 이미 남긴 글을 차례로 본다. 어느 하나라도 있으면 소감 문을 열어 준다.
+   기록이 있으면 그 인물을 돌려주므로, 소감에 호까지 함께 남길 수 있다. */
+async function playRecord(){
+  try{
+    const saved = await SahwaNet.loadPlayer(MODE.cls, MODE.P.id);
+    if(saved && saved.ho) return saved;
+  }catch(e){}
+  try{ if(localStorage.getItem(PLAY_MARK + MODE.P.id) === "1") return {}; }catch(e){}
+  try{
+    const prev = await SahwaNet.loadMemo(MODE.P.id);
+    if(prev && prev.text) return {};
+  }catch(e){}
+  return null;
+}
+
+/* 소감 문은 확인이 끝난 뒤에 붙는다. 참여하지 않은 학생에게는 아예 보이지 않으므로
+   눌렀다 막히는 일이 없고, 활동을 하지 않은 채 글만 남기고 가는 것도 막는다. */
+function mountMemoDoor(){
+  playRecord().then(rec=>{
+    if(!rec || MODE.screen !== "intro") return;
+    if(rec.ho && !MODE.P.ho) MODE.P.ho = rec.ho;
+    const slot = $("#doorMemoSlot");
+    if(!slot) return;
+    slot.innerHTML = `<button class="door" id="doorMemo"><strong>${esc(CONTENT.memoTitle)}</strong>
+      <small>${esc(CONTENT.memoDoorDesc || "")}</small></button>`;
+    $("#doorMemo").onclick = ()=> memoStart();
+  });
 }
 
 function roomStart(){
@@ -968,6 +1011,7 @@ function roomStart(){
 function paintIntro(){
   MODE.screen = "intro"; MODE.viewKey = null;
   paint(introHTML());
+  mountMemoDoor();
   $("#doorTogether").onclick = ()=>{
     // 이미 인물을 만들어 둔 학생은 곧바로 하던 자리로 돌아간다.
     SahwaNet.loadPlayer(MODE.cls, MODE.P.id).then(saved=>{
@@ -1086,6 +1130,59 @@ function roomRender(){
      끝내 못 본다. 누를 것이 없어도 결과는 모두가 받아야 한다. */
   const autoScene = ev.kind === "auto";
 
+  /* 이번 판에 이 학생이 낸 것. 서버 기록이 정본이라, 튕겼다 돌아와 로컬 기억이
+     비었어도 여기서 "이미 냈다"를 되살린다. */
+  const mine = ((room.answers || {})[phase] || {})[P.id];
+  const played = !!mine || MODE.answered === roundKey;
+
+  /* ── 냈고, 아직 공개 전 ──
+     이 갈래가 아래 관전보다 먼저 와야 한다. 방금 고른 것이 죽는 선택이었으면
+     P.alive가 그 자리에서 꺼지는데, 그대로 흘러가면 "그대는 지켜본다"가 떠서
+     선생님이 열기도 전에 생사가 새어 나간다. 낸 뒤에는 공개 전까지 아무것도
+     알려주지 않는다 — 표시줄의 생사와 관작도 봉해 둔다. */
+  if(room.state === "open" && played){
+    if(MODE.answered !== roundKey){
+      // 서버에만 답이 있는 학생(튕겼다 돌아온 때) — 다시 고르게 하지 않는다.
+      MODE.answered = roundKey;
+      MODE.autoPicked = !!mine.auto;
+      MODE.sealed = ev.kind === "lots";
+      MODE.answeredLabel = MODE.autoPicked
+        ? (MODE.sealed ? "끝내 패를 뽑지 않았다." : "고르지 않아 이렇게 기록되었다")
+        : (MODE.sealed ? "패를 하나 뽑아 봉해 두었다."
+           : ((ev.choices||[]).find(c=>c.key===mine.choice)?.label
+              || (ev.shortOf && ev.shortOf[mine.choice]) || mine.choice));
+      // 결과 본문은 서버에 없다 — 공개 때는 대기 화면만 보인다
+      MODE.lastRes = null; MODE.lastResKey = null;
+    }
+    paintSubmitted(ev, room);
+    return;
+  }
+
+  /* ── 결과 공개 ──
+     이 갈래도 관전보다 먼저다. 이번 판에 죽은 학생은 관전으로 새기 전에 자기가
+     어쩌다 그렇게 되었는지를 먼저 읽어야 한다(예전에는 죽는 선택을 한 학생이
+     자기 결과 화면을 끝내 못 보고 곧장 관전으로 넘어갔다). */
+  if(room.state === "revealed"){
+    const wait = `<div class="wait" style="margin-top:1.4rem">
+        <div class="big">다음 사건을 기다리는 중<span class="dots"></span></div>
+      </div>`;
+    // 지난 판의 결과가 남아 있을 수 있으므로 이번 판의 것인지 확인하고 쓴다.
+    let res = MODE.lastResKey === roundKey ? MODE.lastRes : null;
+    // 본문을 잃었어도 서버에 남은 판정으로 되살린다(새로고침, 늦게 들어온 학생).
+    if(!res && ev.recap && mine){
+      const r = ev.recap[mine.choice];
+      if(r) res = Object.assign({}, r);
+    }
+    if(res){ MODE.screen = "round"; paint(outcomeHTML(res, wait, ev)); return; }
+    // 보여 줄 본문이 없다. 산 학생은 다음 사건을 기다리고, 죽은 학생은 아래 관전으로 간다.
+    if(P.alive || autoScene){
+      MODE.screen = "round";
+      paint(`<div class="wait"><div class="big">이번 사건은 건너뛰었다</div>
+        <div class="sub">선생님이 다음 사건을 열 때까지 기다리시오.</div></div>`);
+      return;
+    }
+  }
+
   // 이미 죽은 학생 — 관전
   if(!P.alive && !autoScene){
     MODE.screen = "watch"; MODE.rosterFull = true;
@@ -1101,42 +1198,8 @@ function roomRender(){
     return;
   }
 
-  // 결과 공개
-  if(room.state === "revealed"){
-    MODE.screen = "round";
-    const wait = `<div class="wait" style="margin-top:1.4rem">
-        <div class="big">다음 사건을 기다리는 중<span class="dots"></span></div>
-      </div>`;
-    let res = MODE.lastRes;
-    // 본문을 잃었어도 서버에 남은 판정으로 되살린다(새로고침, 늦게 들어온 학생).
-    if(!res && ev.recap){
-      const mine = ((room.answers || {})[phase] || {})[P.id];
-      const r = mine && ev.recap[mine.choice];
-      if(r) res = Object.assign({}, r);
-    }
-    if(res){ paint(outcomeHTML(res, wait, ev)); }
-    else paint(`<div class="wait"><div class="big">이번 사건은 건너뛰었다</div>
-      <div class="sub">선생님이 다음 사건을 열 때까지 기다리시오.</div></div>`);
-    return;
-  }
-
-  // 사건 열림 — 아직 안 냈으면 선택, 냈으면 대기
+  // 사건 열림 — 여기까지 온 학생은 아직 내지 않았다(낸 학생은 위에서 갈라져 나갔다)
   if(room.state === "open"){
-    // 서버에 이미 이 학생의 답이 있으면(튕겼다 돌아온 때) 다시 고르게 하지 않는다.
-    // 로컬 기억만 비어 있을 뿐이므로 서버 기록으로 "이미 냈음"을 되살린다.
-    const mine = ((room.answers || {})[phase] || {})[P.id];
-    if(mine && MODE.answered !== roundKey){
-      MODE.answered = roundKey;
-      MODE.autoPicked = !!mine.auto;
-      MODE.sealed = ev.kind === "lots";
-      MODE.answeredLabel = MODE.autoPicked
-        ? (MODE.sealed ? "끝내 패를 뽑지 않았다." : "고르지 않아 이렇게 기록되었다")
-        : (MODE.sealed ? "패를 하나 뽑아 봉해 두었다."
-           : ((ev.choices||[]).find(c=>c.key===mine.choice)?.label
-              || (ev.shortOf && ev.shortOf[mine.choice]) || mine.choice));
-      MODE.lastRes = null;   // 결과 본문은 서버에 없다 — 공개 때는 대기 화면만 보인다
-    }
-    if(MODE.answered === roundKey){ paintSubmitted(ev, room); return; }
     MODE.screen = "round"; MODE.autoPicked = false; MODE.sealed = false;
     // 마지막 인자 true = 뽑기는 봉인해 둔다(교사가 공개할 때 함께 연다).
     playPhase(phase, P, (res, key, sealed)=> submitChoice(phase, room, res, key, sealed), true);
@@ -1152,8 +1215,10 @@ function roomRender(){
 /* 고른 것을 서버에 올리고 곧바로 대기 화면으로 (서버 응답을 기다리지 않는다) */
 function submitChoice(phase, room, res, key, sealed){
   const P = MODE.P, ev = EVENTS[phase];
-  MODE.lastRes = res;
   MODE.answered = phase + ":" + (room.round||0);
+  // 어느 판의 결과인지 함께 적어 둔다. 공개 화면이 지난 판의 본문을 다시 꺼내
+  // 보여 주는 일을 막는다(죽은 뒤 관전만 하는 학생에게 특히 그랬다).
+  MODE.lastRes = res; MODE.lastResKey = MODE.answered;
   // 봉인된 뽑기는 key(hwa/myeon)가 곧 생사라, 낸 뒤 화면에도 적지 않는다.
   MODE.sealed = !!sealed;
   MODE.answeredLabel = sealed
@@ -1249,7 +1314,7 @@ function paintSubmitted(ev, room){
     ${noPick ? "" : `<div class="picked"><div class="t">${label}</div>${esc(MODE.answeredLabel||"")}</div>`}
     <div class="wait"><div class="big">다른 이들을 기다리는 중<span class="dots"></span></div>
       <div class="sub">${sub}</div>
-      ${roomRosterHTML(room)}</div>`, timerHTML(room));
+      ${roomRosterHTML(room)}</div>`, timerHTML(room), true);
   startTick(room);
 }
 
@@ -1294,21 +1359,26 @@ function refreshRoster(room){
   if(box) box.outerHTML = roomRosterHTML(room, MODE.rosterFull);
 }
 
-/* 반 현황 — 대기 화면과 관전 화면에서 함께 보여 준다 */
+/* 반 현황 — 대기 화면과 관전 화면에서 함께 보여 준다.
+   사건이 열려 있는 동안에는 생사와 관작을 적지 않는다. 친구들이 하나씩 낼 때마다
+   생존 숫자가 줄고 이름에 줄이 그어지는 것만 봐도 이번 판의 결과를 짐작하게 되고,
+   자기 것이 아직 안 열렸는데 남의 것부터 알게 된다. 공개가 끝나면 다시 적는다. */
 function roomRosterHTML(room, full){
   const ps = Object.values(room.players || {});
   if(!ps.length) return `<div id="rosterBox"></div>`;
+  const hold = (room.state || "") === "open";
   const alive = ps.filter(p=>p.alive).length;
   const dong = ps.filter(p=>p.master==="dong").length;
   const head = `<div class="roster">
       <span>들어온 사람 <b>${ps.length}</b></span>
-      <span>생존 <b>${alive}</b></span>
-      <span>졸(卒) <b>${ps.length-alive}</b></span>
+      ${hold ? "" : `<span>생존 <b>${alive}</b></span>
+      <span>졸(卒) <b>${ps.length-alive}</b></span>`}
       <span>동인 <b>${dong}</b> / 서인 <b>${ps.length-dong}</b></span>
     </div>`;
   if(!full) return `<div id="rosterBox">${head}</div>`;
   const cards = ps.sort((a,b)=>String(a.id).localeCompare(String(b.id)))
-    .map(p=>`<div class="wp ${p.alive?"":"gone"}"><span class="h">${esc(p.ho||p.name||"")}</span><span class="s">官 ${p.rank} / 名 ${p.fame}</span></div>`).join("");
+    .map(p=>`<div class="wp ${(hold||p.alive)?"":"gone"}"><span class="h">${esc(p.ho||p.name||"")}</span>${
+      hold ? "" : `<span class="s">官 ${p.rank} / 名 ${p.fame}</span>`}</div>`).join("");
   return `<div id="rosterBox">${head}<div class="watch-grid">${cards}</div></div>`;
 }
 
