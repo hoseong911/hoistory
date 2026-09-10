@@ -7613,7 +7613,8 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
     if (data.cheatCount) metaParts.push(`이탈 ${data.cheatCount}회`);
     // 아래 둘은 참고용 표시일 뿐 통과/미흡 판정에는 넣지 않는다. 빠르게 치거나 자판
     // 자동완성을 쓰는 학생도 있어서, 기계가 단정할 일이 아니라 선생님이 보고 판단할 일이다.
-    if (data.pasteTry) metaParts.push(`붙여넣기 시도 ${data.pasteTry}회`);
+    // 0회도 보여 준다 — "0회"와 "표시 없음"(기록을 넣기 전의 옛 제출물)은 뜻이 다르다.
+    if (data.pasteTry != null) metaParts.push(`붙여넣기 시도 ${data.pasteTry}회`);
     if ((data.maxJump || 0) >= 30) metaParts.push(`한 번에 ${data.maxJump}자 입력`);
     const meta = metaParts.filter(Boolean).join(' ｜ ');
     return `
