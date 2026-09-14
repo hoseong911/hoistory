@@ -52,9 +52,45 @@
 .save-msg{text-align:center;font-size:12px;color:var(--hi-text-muted);min-height:16px;margin-top:10px}
 .save-msg.ok{color:var(--jw-pass);font-weight:700}
 
-/* 통계 칩과 액션 줄은 shared/admin-base.css의 것을 그대로 쓴다 — 여기 사본을 두면
-   앱마다 칩 크기와 그림자가 조금씩 달라져 어드민끼리 어긋난다(j_interview도 공용을 쓴다).
-   이 앱에만 있는 채점 기준 입력칸만 아래에 남긴다. */
+/* ── ANSWER 머리줄 (j_interview와 같은 구성) ──
+   반 태그와 통계 칩을 한 줄에 둔다. 폭이 모자라면 반 태그 묶음 안에서만 옆으로 밀어
+   보게 하고(스크롤바는 숨김) 통계 칩은 같은 줄에 남긴다. */
+.ans-head{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:nowrap;margin-bottom:16px}
+.ans-head .class-filter,.ans-head .stats-row{margin-bottom:0}
+.ans-head .class-filter{flex:0 1 auto;min-width:0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.ans-head .class-filter::-webkit-scrollbar{display:none}
+.ans-head .class-filter .cf-btn{flex:0 0 auto}
+.ans-head .stats-row{flex:0 0 auto;flex-wrap:nowrap}
+@media(max-width:640px){.ans-head{flex-wrap:wrap}}
+.stats-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center;margin-bottom:16px}
+/* 반을 '전체'로 바꾸면 숫자가 한 자리에서 세 자리까지 늘어난다. 그때마다 칩 폭이 달라지면
+   줄이 밀려 두 줄이 되므로, 숫자마다 세 자리분 폭을 미리 잡아 둔다. */
+.stat-chip{background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:12px;padding:10px 16px;font-size:14px;color:var(--hi-text-muted);min-width:80px;text-align:center;white-space:nowrap;flex-shrink:0}
+.stat-combo .thc-o,.stat-combo .thc-g,.stat-combo .thc-r,.thc-avg{display:inline-block;min-width:2.6ch;text-align:center;font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
+.stat-combo{display:inline-flex;align-items:baseline;justify-content:center;gap:6px}
+.stat-combo .thc-o{font-size:18px;font-weight:800;color:var(--jw-primary)}
+.stat-combo .thc-g{font-size:18px;font-weight:800;color:#0E9F6E}
+.stat-combo .thc-r{font-size:18px;font-weight:800;color:#DC2626}
+.stat-combo .thc-sep{font-size:16px;font-weight:700;color:var(--hi-border)}
+.stat-avg{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.stat-avg .thc-avg{font-size:18px;font-weight:800;color:var(--hi-text);min-width:4ch}
+
+/* 버튼 줄도 한 줄로. 문구가 길어져도 아래로 접히지 않게 하고, 정말 좁으면 옆으로 민다. */
+.adm-action-row{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none}
+.adm-action-row::-webkit-scrollbar{display:none}
+.adm-action-row>*,.ans-right-group>*{flex-shrink:0}
+.adm-action-row .btn,.adm-action-row .sort-btn{white-space:nowrap}
+.ans-right-group{display:flex;align-items:center;gap:8px;margin-left:auto}
+.adm-action-row .ans-right-group .sort-box{margin-left:0}
+
+/* ── 카드 상단 바 ── [학번·이름] [제출 시각 · 점수 · 상태] 를 한 줄에 */
+.std-card-head{display:flex;align-items:center;gap:10px;padding:11px 14px 9px;cursor:pointer}
+.std-who{flex-shrink:0;display:flex;align-items:baseline;gap:6px}
+.std-who .std-sid{font-size:11px;font-weight:700;color:var(--hi-text-muted);letter-spacing:.3px}
+.std-who .std-name{font-size:14px;font-weight:700;color:var(--hi-text);white-space:nowrap}
+.std-status{flex:1;min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.std-meta-time{font-size:11px;color:var(--hi-text-muted)}
+.std-status .status-badge,.std-status .score-pill{display:inline-block;flex-shrink:0;white-space:nowrap;padding:3px 10px;border-radius:100px;font-size:11px;font-weight:700;line-height:1.5}
 .thr-box{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--hi-text-muted);font-weight:700}
 .thr-in{width:56px;padding:6px 8px;border:1px solid var(--hi-border);border-radius:7px;font-family:inherit;font-size:14px;background:var(--hi-bg-mid);color:var(--hi-text);text-align:center}
 
@@ -162,16 +198,24 @@
 
     <!-- RESULT -->
     <div class="tab-panel" id="tab-answer">
-      <div class="class-filter" id="class-filter"></div>
-      <div class="stats-row">
-        <div class="stat-chip"><div class="stat-chip-label">전체 인원</div><div class="stat-chip-val" id="s-total">0</div></div>
-        <div class="stat-chip"><div class="stat-chip-label">참여 / 미참여</div><div class="stat-dual"><div class="stat-dual-val" id="s-sub" style="color:var(--jw-accent-deep)">0</div><div class="stat-dual-val" id="s-unsub" style="color:var(--hi-text-muted)">0</div></div></div>
-        <div class="stat-chip"><div class="stat-chip-label">순서 평균</div><div class="stat-chip-val" id="s-avg" style="color:var(--jw-primary)">0%</div></div>
-        <div class="stat-chip"><div class="stat-chip-label">통과 / 미흡</div><div class="stat-dual"><div class="stat-dual-val" id="s-pass" style="color:var(--jw-pass)">0</div><div class="stat-dual-val" id="s-fail" style="color:var(--jw-fail)">0</div></div></div>
+      <div class="ans-head">
+        <div class="class-filter" id="class-filter"></div>
+        <div class="stats-row">
+          <div class="stat-chip stat-combo" title="전체 / 참여 / 통과 / 미흡">
+            <span class="thc-o" id="s-total">0</span><span class="thc-sep">/</span><span class="thc-o" id="s-sub">0</span><span class="thc-sep">/</span><span class="thc-g" id="s-pass">0</span><span class="thc-sep">/</span><span class="thc-r" id="s-fail">0</span>
+          </div>
+          <div class="stat-chip stat-avg" title="순서 맞추기 평균"><span class="thc-avg" id="s-avg">0%</span></div>
+        </div>
       </div>
       <div class="adm-action-row">
+        <button class="btn btn-primary btn-sm" id="autoscore-btn">자동 채점</button>
         <div class="thr-box">순서 <input type="number" class="thr-in" id="thr-tl" value="70" min="0" max="100">% 이상 &amp; 인과 이유 모두 작성 시 통과</div>
-        <button class="btn btn-accent btn-sm" id="autoscore-btn">자동 채점</button>
+        <div class="ans-right-group">
+          <div class="sort-box">
+            <button class="sort-btn active" id="sort-newest">최신순</button>
+            <button class="sort-btn" id="sort-sid">학번순</button>
+          </div>
+        </div>
       </div>
       <div id="result-list"></div>
     </div>
@@ -228,6 +272,8 @@ const PHASES=[
 let EVENTS=[], CAUSAL=[];
 let roster=[], results=[];
 let currentFilter='전체';
+/* 목록 차례. 기본은 최신순 — 방금 낸 학생을 먼저 보는 일이 가장 잦다. */
+let answerSort='newest';
 let resultsUnsub=null;
 const isEmbedded=window.self!==window.top;
 
@@ -433,7 +479,19 @@ function renderClassFilter(){
   }));
 }
 function inFilter(sid){return currentFilter==='전체'||String(classNumOf(sid))===currentFilter;}
-function filtered(){return results.filter(r=>inFilter(r.id));}
+function submittedMs(r){const t=r.submittedAt;return t&&t.seconds?t.seconds*1000:0;}
+function filtered(){
+  const list=results.filter(r=>inFilter(r.id));
+  return answerSort==='newest'
+    ? list.slice().sort((a,b)=>submittedMs(b)-submittedMs(a))
+    : list.slice().sort((a,b)=>(classNumOf(a.id)||0)-(classNumOf(b.id)||0)||String(a.id).localeCompare(String(b.id)));
+}
+function setAnswerSort(kind){
+  answerSort=kind;
+  document.getElementById('sort-newest').classList.toggle('active',kind==='newest');
+  document.getElementById('sort-sid').classList.toggle('active',kind==='sid');
+  renderResultList();
+}
 
 function updateStats(){
   const fr=filtered();
@@ -444,7 +502,6 @@ function updateStats(){
   const fail=fr.filter(r=>r.status==='fail').length;
   document.getElementById('s-total').textContent=expected||fr.length;
   document.getElementById('s-sub').textContent=fr.length;
-  document.getElementById('s-unsub').textContent=Math.max(0,expected-fr.length);
   document.getElementById('s-avg').textContent=avg+'%';
   document.getElementById('s-pass').textContent=pass;
   document.getElementById('s-fail').textContent=fail;
@@ -459,18 +516,22 @@ function renderResultList(){
   const el=document.getElementById('result-list');
   const list=filtered();
   if(!list.length){el.innerHTML='<div class="no-data">아직 참여한 학생이 없습니다.</div>';return;}
+  el.className='std-list';
   el.innerHTML=list.map(r=>{
     const st=r.status||'pending';
     const tl=r.timelineTotal?`${r.timelinePct}%`:'—';
     const ca=r.causalTotal?`${r.causalCorrect}/${r.causalTotal}`:'—';
     return`<div class="std-card">
-      <div class="std-card-row" style="cursor:pointer" onclick="this.closest('.std-card').classList.toggle('open')">
-        <div><div class="std-sid">${esc(String(r.studentId||r.id))}</div><div class="std-name">${esc(r.name||'')}</div></div>
-        <div class="std-content">
-          <div class="std-badge-row"><span class="score-pill">순서 ${tl}</span><span class="score-pill">인과 ${ca}</span></div>
-          <div class="std-content-sub">${statusLabelText(st)}</div>
+      <div class="std-card-head" onclick="this.closest('.std-card').classList.toggle('open')">
+        <div class="std-who">
+          <span class="std-sid">${esc(String(r.studentId||r.id))}</span>
+          <span class="std-name">${esc(r.name||'')}</span>
         </div>
-        ${statusBadge(st)}
+        <div class="std-status">
+          <span class="std-meta-time">${esc(timeLabel(r))}</span>
+          <span class="score-pill">순서 ${tl}</span><span class="score-pill">인과 ${ca}</span>
+          ${statusBadge(st)}
+        </div>
       </div>
       <div class="card-body-open">
         <div class="score-btns">
@@ -482,6 +543,14 @@ function renderResultList(){
       </div>
     </div>`;
   }).join('');
+}
+/* 제출 시각은 '9.2. 11:20'처럼 짧게. 학생 카드가 한 줄이라 연도까지 넣을 자리가 없고,
+   선생님이 보는 것은 언제나 이번 학기 안의 날짜다. */
+function timeLabel(r){
+  const ms=submittedMs(r);
+  if(!ms)return'';
+  const d=new Date(ms);
+  return `${d.getMonth()+1}.${d.getDate()}. ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 function statusLabelText(st){return st==='pass'?'통과':st==='fail'?'미흡':'미채점';}
 
@@ -525,6 +594,9 @@ window.setStatus=async(id,st)=>{
 };
 
 /* 자동 채점: 순서 임계값 이상이고 인과 이유를 전부 작성하면 통과 */
+document.getElementById('sort-newest').addEventListener('click',()=>setAnswerSort('newest'));
+document.getElementById('sort-sid').addEventListener('click',()=>setAnswerSort('sid'));
+
 document.getElementById('autoscore-btn').addEventListener('click',async()=>{
   const thr=parseInt(document.getElementById('thr-tl').value,10)||0;
   const list=filtered().filter(r=>r.timelineTotal);
