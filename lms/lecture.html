@@ -925,6 +925,33 @@ async function init() {
     frames.forEach(el => io.observe(el));
   }
 
+  /* ── 세로 연표 제자리 전환("모핑") ──
+     같은 연표를 강조 사건만 바꿔 가며 여러 장으로 넘길 때, 슬라이드를 위아래로 밀면
+     선까지 통째로 움직여서 연표를 다시 읽게 된다. 두 장이 같은 연표의 다른 장이면
+     밀지 않고 제자리에서 겹쳐 바꾼다 — 선과 사건은 그대로 있고 회색 강조만 옮겨 가는
+     것처럼 보인다(배지와 제목도 따라 움직이지 않는다).
+
+     "같은 연표"의 기준은 짧은 쪽 사건 목록이 긴 쪽의 앞부분과 똑같은 것이다. 강조만
+     바꿔 복제한 장(사건이 완전히 같음)과 뒤에 사건을 더 붙인 장이 여기 해당하는데,
+     둘 다 겹치는 사건들의 화면 위치가 픽셀 단위로 같아서(위쪽 정렬 + 고정 여백)
+     제자리에서 겹쳐도 글자가 어긋나 보이지 않는다. */
+  function timelineSig(slide) {
+    const tl = slide.querySelector('.fmt-timeline-v');
+    if (!tl) return null;
+    const memos = tl.querySelectorAll('.tlv-memo');
+    const bodies = tl.querySelectorAll('.tlv-content');
+    return Array.from(memos).map((m, i) =>
+      (m.textContent || '').trim() + ' ' + ((bodies[i] && bodies[i].textContent) || '').trim());
+  }
+  function canMorphSlides(fromSlide, toSlide) {
+    const a = timelineSig(fromSlide), b = timelineSig(toSlide);
+    if (!a || !b) return false;
+    const n = Math.min(a.length, b.length);
+    if (!n) return false;
+    for (let i = 0; i < n; i++) if (a[i] !== b[i]) return false;
+    return true;
+  }
+
   // 실제로 전환했으면 true, 이미 그 슬라이드거나 전환 중이라 건너뛰었으면 false.
   function scrollToSlide(targetIdx) {
     const slides = Array.from(slidesEl.querySelectorAll('.slide'));
@@ -937,20 +964,37 @@ async function init() {
     const fromSlide = slides[currentSlideIdx];
     const toSlide   = slides[targetIdx];
 
-    /* 진입 슬라이드를 진입 방향 바깥에 즉시 배치.
+    // 같은 연표의 다른 장이면 밀지 않고 제자리에서 겹쳐 바꾼다.
+    const morph = canMorphSlides(fromSlide, toSlide);
+
+    /* 진입 슬라이드를 진입 방향 바깥에 즉시 배치(모핑이면 제자리에 투명하게).
        전환하는 두 장만 is-anim으로 그려지고 will-change도 이때만 붙는다. */
     fromSlide.classList.add('is-anim');
     toSlide.classList.add('is-anim');
     toSlide.style.transition = 'none';
-    toSlide.style.transform  = `translateY(${dir * 100}%)`;
+    toSlide.style.transform  = morph ? 'translateY(0)' : `translateY(${dir * 100}%)`;
+    if (morph) {
+      toSlide.style.opacity = '0';
+      // 뒤로 넘길 때는 들어오는 장이 DOM에서 앞이라 그냥 두면 나가는 장에 가린다.
+      toSlide.style.zIndex = '2';
+    }
     toSlide.getBoundingClientRect(); /* reflow 강제 */
 
-    /* 두 슬라이드 동시 애니메이션 */
     transitioning = true;
-    fromSlide.style.transition = 'transform 0.55s cubic-bezier(0.4,0,0.2,1)';
-    toSlide.style.transition   = 'transform 0.55s cubic-bezier(0.4,0,0.2,1)';
-    fromSlide.style.transform  = `translateY(${-dir * 100}%)`;
-    toSlide.style.transform    = 'translateY(0)';
+    const dur = morph ? 340 : 550;
+    if (morph) {
+      /* 나가는 장은 건드리지 않는다. 들어오는 장이 불투명해서 다 덮으므로 그 장만
+         서서히 올리면 된다. 양쪽을 같이 페이드하면 중간에 둘 다 반투명해져 뒤 배경이
+         비친다. 겹치는 동안 두 장의 글자 위치가 같아 회색만 옮겨 가는 것처럼 보인다. */
+      toSlide.style.transition = `opacity ${dur}ms ease`;
+      toSlide.style.opacity    = '1';
+    } else {
+      /* 두 슬라이드 동시 애니메이션 */
+      fromSlide.style.transition = 'transform 0.55s cubic-bezier(0.4,0,0.2,1)';
+      toSlide.style.transition   = 'transform 0.55s cubic-bezier(0.4,0,0.2,1)';
+      fromSlide.style.transform  = `translateY(${-dir * 100}%)`;
+      toSlide.style.transform    = 'translateY(0)';
+    }
 
     currentSlideIdx = targetIdx;
     if (currentSlideIdx === 0) coverArmed = true; // 표지로 돌아오면 진입 연출 다시 대기
@@ -962,7 +1006,11 @@ async function init() {
       fromSlide.classList.remove('is-anim', 'is-active');
       toSlide.classList.remove('is-anim');
       toSlide.classList.add('is-active');
-    }, 580);
+      // 모핑으로 들어온 장은 임시로 얹은 투명도·쌓임 순서를 원래대로 돌려놓는다.
+      // (나가는 장은 translateY(0)에 그대로 남지만 is-active가 아니라 visibility로 가려진다.)
+      toSlide.style.opacity = '';
+      toSlide.style.zIndex  = '';
+    }, dur + 30);
     return true;
   }
 
