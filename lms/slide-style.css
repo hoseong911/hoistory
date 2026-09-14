@@ -398,10 +398,13 @@
   --tlv-rowgap: calc(var(--fs-tl-text, var(--fs-body)) * 1.2);
   /* 강조하지 않은 사건의 글자색. 읽히되 눈에 덜 띄는 중간 회색. */
   --tlv-dim-color: #9AA0A6;
+  /* 라벨 칸(선 왼쪽) 폭 = 선의 가로 위치. 예전엔 max-content 하나만 써서 그 화면에서
+     가장 긴 라벨에 맞춰 정해졌고, 그래서 슬라이드마다 선이 좌우로 옮겨 다녔다.
+     이 값을 최솟값으로 깔아 두면 웬만한 라벨(연도 등)에서는 어느 장이든 선이 같은
+     자리에 선다. 선 위치를 옮기려면 이 한 줄만 고친다. */
+  --tlv-labelw: calc(var(--tlv-fs) * 3.2 + var(--tlv-gap));
 }
-/* 라벨 칸은 max-content — 그 화면에서 가장 긴 라벨에 딱 맞는 폭이 된다. 글자 수로
-   어림하지 않으므로 라벨 덩이의 왼쪽 끝이 화면 왼쪽에 정확히 붙는다.
-   align-items:start라야 각 칸의 높이가 제 내용만큼이 되고(점을 라벨 가운데에 두는
+/* align-items:start라야 각 칸의 높이가 제 내용만큼이 되고(점을 라벨 가운데에 두는
    근거), 선만 stretch로 늘려 사건 전체를 가로지른다. */
 /* 사건 사이는 고정 여백이고, 연표는 페이지 위쪽에 붙인다.
    예전엔 align-content:space-between으로 남는 높이를 사건 사이에 전부 나눠 넣었는데,
@@ -412,7 +415,10 @@
    그 인라인 스타일이 없을 때를 위한 안전판이다. */
 .fmt-timeline-v .tlv-events {
   height: 100%; display: grid;
-  grid-template-columns: max-content 2px 1fr;
+  /* minmax의 위쪽을 max-content로 열어 두는 것은 6자짜리 한글 라벨처럼 고정 폭을 넘는
+     경우를 위해서다 — 딱 고정으로 박으면 그런 라벨이 왼쪽으로 삐져나가 잘린다.
+     그 장에서만 선이 밀리는데, 그 이동은 전환 애니메이션이 부드럽게 이어 준다. */
+  grid-template-columns: minmax(var(--tlv-labelw), max-content) 2px 1fr;
   row-gap: var(--tlv-rowgap);
   align-content: start;
   align-items: start;

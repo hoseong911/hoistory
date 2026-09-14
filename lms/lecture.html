@@ -954,8 +954,12 @@ async function init() {
   }
 
   function isTimelineV(slide) { return !!slide.querySelector('.fmt-timeline-v'); }
+  /* 밀지 않고 제자리에서 바꿀 수 있는 짝인가.
+     세로 연표끼리면 사건을 짝지어 옮기고(morphTimeline), 그 밖의 머리줄 있는 슬라이드끼리면
+     배지·제목을 두고 본문만 올린다(morphBody). 둘 다 아니면 예전처럼 밀어 넘긴다. */
   function canMorphSlides(fromSlide, toSlide) {
-    return isTimelineV(fromSlide) && isTimelineV(toSlide);
+    if (isTimelineV(fromSlide) && isTimelineV(toSlide)) return true;
+    return hasPlainHeader(fromSlide) && hasPlainHeader(toSlide);
   }
 
   /* 두 연표를 겹쳐 놓고 같은 사건을 예전 자리에서 새 자리로 옮긴다.
@@ -1051,6 +1055,88 @@ async function init() {
   }
 
 
+  /* ── 머리줄 고정 전환 ──
+     연표가 아닌 보통 슬라이드(개념·미션·생각·자료)끼리 넘어갈 때 쓴다. 배지와 제목은
+     제자리에 두고 본문만 살짝 올라가며 바뀐다. 슬라이드를 통째로 미는 예전 방식은
+     "개념 Check" 배지까지 매번 화면 밖으로 나갔다 들어와서 눈이 따라가기 번거로웠다.
+
+     표지·Opening Question·초성·학습목표(다크 인트로)와 전면 이미지·영상은 제외한다 —
+     자체 연출이 있거나 머리줄이 없어서 이 전환이 어울리지 않는다. */
+  const NO_MORPH = '.slide-cover,.slide-objectives,.slide-dive,.slide-chosung,.slide-full,.slide-video';
+  function hasPlainHeader(slide) {
+    return !!slide.querySelector('.slide-header') && !slide.matches(NO_MORPH);
+  }
+
+  /* 머리줄을 뺀 나머지(본문) 요소들. 본문을 감싸는 상자가 따로 없어서 형제들을 모아 쓴다.
+     이미지를 우측/하단에 붙인 슬라이드는 머리줄과 본문이 .clayout-main 안에 같이 들어가
+     있어서, 슬라이드의 자식만 훑으면 머리줄까지 본문으로 잡힌다(그러면 배지가 같이
+     움직여 이 전환의 취지가 사라진다). 그때는 한 겹 들어가서 고르고, 옆의 그림 칸은
+     본문과 함께 움직이도록 목록에 더한다. */
+  function bodyParts(slide) {
+    const wrap = slide.querySelector(':scope > .clayout-right, :scope > .clayout-bottom');
+    if (!wrap) return Array.from(slide.children).filter(el => !el.classList.contains('slide-header'));
+    const main = wrap.querySelector(':scope > .clayout-main');
+    const parts = main ? Array.from(main.children).filter(el => !el.classList.contains('slide-header')) : [];
+    Array.from(wrap.children).forEach(el => { if (el !== main) parts.push(el); });
+    return parts;
+  }
+
+  /* 본문이 올라가는 거리(px, 1920x1080 기준). 크게 잡으면 글자가 배지 위로 올라타 보인다. */
+  const BODY_RISE = 56;
+
+  function morphBody(fromSlide, toSlide, dur, dir) {
+    const fromBody = bodyParts(fromSlide), toBody = bodyParts(toSlide);
+    if (!fromBody.length || !toBody.length) return null;
+
+    const touched = [];
+    const tweak = (el, css) => { touched.push(el); Object.assign(el.style, css); };
+    const rise = BODY_RISE * (dir >= 0 ? 1 : -1);
+
+    /* 머리줄은 글자가 같으면 나가는 쪽만 감춘다 — 들어오는 쪽이 같은 자리에 같은 글자로
+       서 있으므로 화면에서는 미동도 없다(배지가 고정돼 보이는 핵심). 글자가 다를 때만
+       들어오는 쪽을 제자리에서 서서히 띄운다. 배지와 제목을 따로 보는 것은, 제목만
+       바뀌었는데 머리줄을 통째로 페이드하면 같은 배지까지 깜빡이기 때문이다. */
+    ['.check-badge', '.slide-title'].forEach(sel => {
+      const a = fromSlide.querySelector(sel), b = toSlide.querySelector(sel);
+      if (a) tweak(a, { transition: 'none', opacity: '0' });
+      if (b && (!a || (a.textContent || '').trim() !== (b.textContent || '').trim())) {
+        tweak(b, { transition: 'none', opacity: '0' });
+      }
+    });
+
+    // 본문: 나가는 쪽은 올라가며 사라지고, 들어오는 쪽은 그만큼 아래에서 올라온다.
+    toBody.forEach(el => tweak(el, { transition: 'none', transform: `translateY(${rise}px)`, opacity: '0' }));
+    fromBody.forEach(el => tweak(el, { transition: 'none' }));
+
+    /* 들어오는 장의 배경을 비워 나가는 장이 비쳐 보이게 한다(연표 전환과 같은 이유).
+       배경은 나가는 장이 그리고, 그 위에서 두 본문이 엇갈린다. */
+    toSlide.style.background = 'transparent';
+    toSlide.getBoundingClientRect(); /* 위 상태를 확정 */
+
+    /* 사라지는 쪽은 움직임보다 빨리 지운다. 끝까지 진하게 남으면 올라가다 배지 자리를
+       덮고 지나가는 것이 보인다. */
+    const move = `${dur}ms cubic-bezier(0.4,0,0.2,1)`;
+    fromBody.forEach(el => {
+      el.style.transition = `transform ${move}, opacity ${Math.round(dur * 0.5)}ms ease-out`;
+      el.style.transform  = `translateY(${-rise}px)`;
+      el.style.opacity    = '0';
+    });
+    toBody.forEach(el => {
+      el.style.transition = `transform ${move}, opacity ${move}`;
+      el.style.transform  = 'translateY(0)';
+      el.style.opacity    = '1';
+    });
+    ['.check-badge', '.slide-title'].forEach(sel => {
+      const b = toSlide.querySelector(sel);
+      if (b && b.style.opacity === '0') { b.style.transition = `opacity ${move}`; b.style.opacity = '1'; }
+    });
+
+    return () => {
+      touched.forEach(el => { el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; });
+      toSlide.style.background = '';
+    };
+  }
+
   // 실제로 전환했으면 true, 이미 그 슬라이드거나 전환 중이라 건너뛰었으면 false.
   function scrollToSlide(targetIdx) {
     const slides = Array.from(slidesEl.querySelectorAll('.slide'));
@@ -1080,7 +1166,9 @@ async function init() {
     const dur = morph ? 420 : 550;
     let morphCleanup = null;
     if (morph) {
-      morphCleanup = morphTimeline(fromSlide, toSlide, dur);
+      morphCleanup = (isTimelineV(fromSlide) && isTimelineV(toSlide))
+        ? morphTimeline(fromSlide, toSlide, dur)
+        : morphBody(fromSlide, toSlide, dur, dir);
       if (!morphCleanup) {
         /* 짝지을 사건이 하나도 없는 연표끼리 — 미끄러뜨릴 것이 없으니 제자리 교차 페이드.
            나가는 장은 건드리지 않는다. 들어오는 장이 불투명해서 다 덮으므로 그 장만
