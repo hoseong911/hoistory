@@ -926,19 +926,130 @@ async function init() {
   }
 
   /* ── 세로 연표 제자리 전환("모핑") ──
-     같은 연표를 강조 사건만 바꿔 가며 여러 장으로 넘길 때, 슬라이드를 위아래로 밀면
-     선까지 통째로 움직여서 연표를 다시 읽게 된다. 두 장이 같은 연표의 다른 장이면
-     밀지 않고 제자리에서 겹쳐 바꾼다 — 선과 사건은 그대로 있고 회색 강조만 옮겨 가는
-     것처럼 보인다(배지와 제목도 따라 움직이지 않는다).
+     같은 연표를 여러 장으로 나눠 넘길 때, 슬라이드를 통째로 밀면 선까지 움직여서 연표를
+     매번 다시 읽게 된다. 세로 연표끼리 넘어갈 때는 밀지 않고, 같은 사건을 찾아 예전 자리에서
+     새 자리로 미끄러뜨린다 — 2번 사건이 다음 장의 1번이면 그 자리까지 스르륵 올라간다.
+     선과 배지, 제목은 제자리에 그대로 있다.
 
-     조건은 "양쪽 다 세로 연표"뿐이다. 처음에는 사건 목록까지 같은지 따졌는데(강조만 바꿔
-     복제한 장인지 확인하려고), 글자 하나만 달라도 조건이 깨져 밀기로 되돌아가는 바람에 정작
-     원하던 장면에서 안 걸렸다. 세로 연표끼리는 화면 구성이 같아 제자리에서 겹쳐도 어색하지
-     않으니 내용 비교는 하지 않는다. */
-  function isTimelineV(slide) { return !!slide.querySelector(".fmt-timeline-v"); }
+     자리를 잴 때 getBoundingClientRect를 쓰지 않는 것은 #slides가 화면 크기에 맞춰
+     통째로 scale되기 때문이다(잰 값이 화면 픽셀이라 그대로 translate에 넣으면 배율만큼
+     어긋난다). offsetTop/offsetLeft는 배율 이전의 좌표라 두 장을 그대로 견줄 수 있다. */
+  function offsetIn(el, root) {
+    let x = 0, y = 0, n = el;
+    while (n && n !== root) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
+    return { x, y };
+  }
+
+  /* 사건 목록 — 짝짓기 열쇠(글자)와 움직일 요소(라벨칸, 내용칸)를 함께 담는다.
+     라벨칸 안의 점은 absolute라 라벨칸을 옮기면 같이 따라온다. */
+  function tlEvents(slide) {
+    const tl = slide.querySelector('.fmt-timeline-v');
+    if (!tl) return [];
+    const memos  = Array.from(tl.querySelectorAll('.tlv-memo'));
+    const bodies = Array.from(tl.querySelectorAll('.tlv-content'));
+    return memos.map((m, i) => ({
+      key: (m.textContent || '').trim() + '\u0001' + ((bodies[i] && bodies[i].textContent) || '').trim(),
+      nodes: bodies[i] ? [m, bodies[i]] : [m],
+    }));
+  }
+
+  function isTimelineV(slide) { return !!slide.querySelector('.fmt-timeline-v'); }
   function canMorphSlides(fromSlide, toSlide) {
     return isTimelineV(fromSlide) && isTimelineV(toSlide);
   }
+
+  /* 두 연표를 겹쳐 놓고 같은 사건을 예전 자리에서 새 자리로 옮긴다.
+     짝지을 사건이 하나도 없으면(아예 다른 연표) null을 돌려주고, 부르는 쪽이 단순 교차
+     페이드로 처리한다. 성공하면 인라인 스타일을 되돌리는 정리 함수를 돌려준다. */
+  function morphTimeline(fromSlide, toSlide, dur) {
+    const from = tlEvents(fromSlide), to = tlEvents(toSlide);
+    const fromMap = new Map();
+    from.forEach(e => { if (!fromMap.has(e.key)) fromMap.set(e.key, e); });
+    const matched = to.filter(e => fromMap.has(e.key));
+    if (!matched.length) return null;
+
+    const touched = [];
+    const tweak = (el, css) => { touched.push(el); Object.assign(el.style, css); };
+
+    /* 목록이 통째로 몇 px 움직였는지. 새로 들어오는 사건과 빠지는 사건을 같은 결로
+       움직이게 하는 기준이라, 짝지어진 사건 하나에서 뽑아 쓴다. */
+    const anchor = matched[0];
+    const shift = offsetIn(fromMap.get(anchor.key).nodes[0], fromSlide).y
+                - offsetIn(anchor.nodes[0], toSlide).y;
+
+    /* 1) 들어오는 장 — 짝이 있는 사건은 예전 자리에 갖다 두고(여기서 출발한다),
+          새 사건은 들어올 방향에 투명하게 세워 둔다. */
+    to.forEach(e => {
+      const src = fromMap.get(e.key);
+      e.nodes.forEach((node, i) => {
+        if (src && src.nodes[i]) {
+          const p = offsetIn(src.nodes[i], fromSlide), q = offsetIn(node, toSlide);
+          tweak(node, { transition: 'none', transform: `translate(${p.x - q.x}px, ${p.y - q.y}px)` });
+        } else {
+          tweak(node, { transition: 'none', transform: `translateY(${shift}px)`, opacity: '0' });
+        }
+      });
+    });
+
+    /* 2) 나가는 장 — 짝이 있는 사건은 즉시 감춘다(들어오는 장의 같은 사건이 대신 움직인다).
+          짝이 없는 사건(위에서 빠지는 것)만 남겨 같은 결로 내보낸다.
+          머리줄과 연표 선도 감춘다 — 들어오는 장의 것과 겹쳐 두 겹으로 보이기 때문. */
+    const leaving = [];
+    from.forEach(e => {
+      const stays = to.some(x => x.key === e.key);
+      e.nodes.forEach(node => {
+        if (stays) tweak(node, { transition: 'none', opacity: '0' });
+        else { tweak(node, { transition: 'none' }); leaving.push(node); }
+      });
+    });
+    [fromSlide.querySelector('.slide-header'), fromSlide.querySelector('.tlv-line')]
+      .forEach(el => { if (el) tweak(el, { transition: 'none', opacity: '0' }); });
+
+    /* 연표 선 — 라벨 칸이 max-content라 가장 긴 라벨이 바뀌면 선도 좌우로 옮겨 간다.
+       나가는 장의 선은 위에서 감췄으므로, 들어오는 장의 선을 예전 자리에서 새 자리로
+       사건과 같은 방식으로 옮긴다. 안 그러면 선만 툭 끊겨 보인다. */
+    const lineFrom = fromSlide.querySelector('.tlv-line');
+    const lineTo   = toSlide.querySelector('.tlv-line');
+    let lineMoved  = false;
+    if (lineFrom && lineTo) {
+      const p = offsetIn(lineFrom, fromSlide), q = offsetIn(lineTo, toSlide);
+      if (p.x !== q.x || p.y !== q.y) {
+        tweak(lineTo, { transition: 'none', transform: `translate(${p.x - q.x}px, ${p.y - q.y}px)` });
+        lineMoved = true;
+      }
+    }
+
+    /* 들어오는 장의 배경을 비워 나가는 장이 비쳐 보이게 한다 — 빠지는 사건이 올라가며
+       사라지는 모습을 보여 주려면 아래 장이 살아 있어야 한다. 배경은 나가는 장이 그린다. */
+    toSlide.style.background = 'transparent';
+
+    toSlide.getBoundingClientRect(); /* 위 상태를 확정 */
+
+    /* 3) 목표 자리로 한 번에 푼다. */
+    const ease = `${dur}ms cubic-bezier(0.4,0,0.2,1)`;
+    to.forEach(e => e.nodes.forEach(node => {
+      node.style.transition = `transform ${ease}, opacity ${ease}`;
+      node.style.transform  = 'translate(0, 0)';
+      node.style.opacity    = '1';
+    }));
+    leaving.forEach(node => {
+      node.style.transition = `transform ${ease}, opacity ${ease}`;
+      node.style.transform  = `translateY(${-shift}px)`;
+      node.style.opacity    = '0';
+    });
+    if (lineMoved) {
+      lineTo.style.transition = `transform ${ease}`;
+      lineTo.style.transform  = 'translate(0, 0)';
+    }
+
+    /* 정리 — 슬라이드 자체의 transform은 건드리지 않는다(지우면 CSS 기본값인
+       translateY(100%)로 돌아가 화면 밖으로 내려간다). 배경만 되돌린다. */
+    return () => {
+      touched.forEach(el => { el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; });
+      toSlide.style.background = '';
+    };
+  }
+
 
   // 실제로 전환했으면 true, 이미 그 슬라이드거나 전환 중이라 건너뛰었으면 false.
   function scrollToSlide(targetIdx) {
@@ -961,21 +1072,24 @@ async function init() {
     toSlide.classList.add('is-anim');
     toSlide.style.transition = 'none';
     toSlide.style.transform  = morph ? 'translateY(0)' : `translateY(${dir * 100}%)`;
-    if (morph) {
-      toSlide.style.opacity = '0';
-      // 뒤로 넘길 때는 들어오는 장이 DOM에서 앞이라 그냥 두면 나가는 장에 가린다.
-      toSlide.style.zIndex = '2';
-    }
+    // 뒤로 넘길 때는 들어오는 장이 DOM에서 앞이라 그냥 두면 나가는 장에 가린다.
+    if (morph) toSlide.style.zIndex = '2';
     toSlide.getBoundingClientRect(); /* reflow 강제 */
 
     transitioning = true;
-    const dur = morph ? 340 : 550;
+    const dur = morph ? 420 : 550;
+    let morphCleanup = null;
     if (morph) {
-      /* 나가는 장은 건드리지 않는다. 들어오는 장이 불투명해서 다 덮으므로 그 장만
-         서서히 올리면 된다. 양쪽을 같이 페이드하면 중간에 둘 다 반투명해져 뒤 배경이
-         비친다. 겹치는 동안 두 장의 글자 위치가 같아 회색만 옮겨 가는 것처럼 보인다. */
-      toSlide.style.transition = `opacity ${dur}ms ease`;
-      toSlide.style.opacity    = '1';
+      morphCleanup = morphTimeline(fromSlide, toSlide, dur);
+      if (!morphCleanup) {
+        /* 짝지을 사건이 하나도 없는 연표끼리 — 미끄러뜨릴 것이 없으니 제자리 교차 페이드.
+           나가는 장은 건드리지 않는다. 들어오는 장이 불투명해서 다 덮으므로 그 장만
+           서서히 올리면 된다. 양쪽을 같이 페이드하면 둘 다 반투명해져 배경이 비친다. */
+        toSlide.style.opacity = '0';
+        toSlide.getBoundingClientRect();
+        toSlide.style.transition = `opacity ${dur}ms ease`;
+        toSlide.style.opacity    = '1';
+      }
     } else {
       /* 두 슬라이드 동시 애니메이션 */
       fromSlide.style.transition = 'transform 0.55s cubic-bezier(0.4,0,0.2,1)';
@@ -994,8 +1108,10 @@ async function init() {
       fromSlide.classList.remove('is-anim', 'is-active');
       toSlide.classList.remove('is-anim');
       toSlide.classList.add('is-active');
-      // 모핑으로 들어온 장은 임시로 얹은 투명도·쌓임 순서를 원래대로 돌려놓는다.
+      // 모핑으로 얹은 인라인 스타일을 전부 되돌린다. 슬라이드 자체의 transform은 어느 쪽도
+      // 건드리지 않는다 — 지우면 CSS 기본값(translateY(100%))으로 내려가 화면 밖이 된다.
       // (나가는 장은 translateY(0)에 그대로 남지만 is-active가 아니라 visibility로 가려진다.)
+      if (morphCleanup) morphCleanup();
       toSlide.style.opacity = '';
       toSlide.style.zIndex  = '';
     }, dur + 30);
