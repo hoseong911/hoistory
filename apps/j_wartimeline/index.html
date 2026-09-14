@@ -167,7 +167,9 @@ body.one-screen #order-main{flex:1 1 auto;min-height:0;gap:10px}
 .result-detail{font-size:var(--fs-md);color:var(--ink);margin-top:12px;font-weight:700}
 
 /* 인과 사슬 */
-.causal-q{background:var(--canvas);border:1px solid var(--hairline);border-radius:18px;padding:16px;box-shadow:var(--shadow)}
+/* 사건 카드 네 장이 서로 붙어 있으면 어디까지가 한 문제인지 안 보인다. */
+#causal-list{display:flex;flex-direction:column;gap:14px}
+.causal-q{background:var(--canvas);border:1px solid var(--hairline);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
 .causal-chain{display:flex;align-items:stretch;gap:8px;margin-bottom:12px}
 .chain-cause,.chain-effect{flex:1;border-radius:12px;padding:11px;min-width:0}
 .chain-cause{background:var(--surface);border:1.5px dashed var(--hairline)}
@@ -251,10 +253,10 @@ body.one-screen #order-main{flex:1 1 auto;min-height:0;gap:10px}
     </header>
     <div class="play-head">
       <button class="btn-back" id="causal-back">1단계로</button>
-      <div class="play-title">인과 잇기</div>
+      <div class="play-title">원인 찾기</div>
       <span style="width:44px"></span>
     </div>
-    <div class="play-hint">각 사건(결과)이 일어난 <b>원인</b>을 골라 잇고, <b>왜 그렇게 이어지는지</b> 한 줄로 써 보세요. 앞 도미노가 뒤 도미노를 넘어뜨리는 것처럼요.</div>
+    <div class="play-hint">각 사건이 <b>왜 일어났는지</b> 앞선 사건에서 찾아 고르고, <b>어떻게 이어지는지</b> 한 줄로 써 보세요. 앞 도미노가 쓰러지면 뒤 도미노도 쓰러지듯이요.</div>
     <div id="causal-list"></div>
     <button class="btn btn-accent btn-full" id="causal-submit">제출하기</button>
     <div class="save-hint" id="causal-save"></div>
@@ -599,26 +601,28 @@ function openCausal(){
 function renderCausal(){
   const list=document.getElementById('causal-list');
   if(!CAUSAL.length){list.innerHTML='<div class="no-data">인과 문제가 아직 없어요.</div>';return;}
-  const opts=EVENTS.map(e=>`<option value="${esc(e.id)}">${esc((e.year?e.year+' ':'')+e.title)}</option>`).join('');
+  /* 1단계와 같은 이유로 연도를 적지 않는다. 연도가 보이면 앞뒤를 따져 보지 않고 숫자만
+     견주어 고르게 된다. 연도 자료(e.year)는 그대로 두므로 되살리기는 쉽다. */
+  const opts=EVENTS.map(e=>`<option value="${esc(e.id)}">${esc(e.title)}</option>`).join('');
   list.innerHTML=CAUSAL.map((c,i)=>{
     const eff=evById(c.effectId);if(!eff)return'';
     const saved=causalAnswers[c.effectId]||{};
     return`<div class="causal-q" data-eff="${esc(c.effectId)}">
       <div class="causal-chain">
         <div class="chain-cause">
-          <div class="chain-role">원인 (앞 도미노)</div>
+          <div class="chain-role">앞 도미노 (원인)</div>
           <select class="cause-select">
             <option value="">원인을 골라주세요</option>${opts}
           </select>
         </div>
-        <div class="chain-topple">넘어뜨림</div>
+        <div class="chain-topple">그래서</div>
         <div class="chain-effect">
-          <div class="chain-role">결과</div>
-          <div class="chain-effect-title">${esc((eff.year?eff.year+' ':'')+eff.title)}</div>
+          <div class="chain-role">뒤 도미노 (결과)</div>
+          <div class="chain-effect-title">${esc(eff.title)}</div>
         </div>
       </div>
       <div class="reason-label">왜 이 원인이 이 결과로 이어질까요?</div>
-      <textarea class="reason-in" maxlength="200" placeholder="예) 명이 왜란에 참전하느라 국력을 소모했기 때문이다.">${esc(saved.reason||'')}</textarea>
+      <textarea class="reason-in" maxlength="200">${esc(saved.reason||'')}</textarea>
     </div>`;
   }).join('');
   list.querySelectorAll('.causal-q').forEach(q=>{
