@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>일일 뽑기 미리보기</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="index.css">
+<style>
+/* ══════════════════════════════════════════════════════════════
+   일일 뽑기 미리보기 (_lottery_preview.html)
+   실제로 붙기 전에 학생 화면에서 어떻게 보이는지만 확인하는 파일이다.
+   Firebase에 붙지 않고, 뽑기 결과도 이 페이지 안에서만 계산한다.
+   아래쪽 검은 띠는 미리보기용 조작판이며 실제 화면에는 없다.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── 홈 화면 흉내 ── 실제 index.html의 hub-body 격자를 그대로 쓰되,
+   뽑기 배너가 들어갈 줄(grid-row 3)만 새로 잡았다. ── */
+body{background:linear-gradient(160deg,#FBEFE9 0%,#F4F3EE 42%,#EFF1F4 100%);min-height:100vh}
+#hub{display:flex;flex-direction:column;min-height:100vh;padding-bottom:96px}
+.mock-card{background:linear-gradient(135deg,rgba(255,255,255,.68),rgba(255,255,255,.30));
+  backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);
+  border:1px solid rgba(255,255,255,.85);border-radius:14px;
+  box-shadow:0 8px 26px rgba(20,22,26,.08),inset 0 1px 0 rgba(255,255,255,.9);
+  padding:16px 18px;display:flex;flex-direction:column;gap:6px;min-height:120px}
+.mock-card .t{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:18px;color:var(--m-ink)}
+.mock-card .d{font-size:13px;color:var(--m-ink-soft);line-height:1.6}
+
+/* ── 홈의 뽑기 배너 ──
+   칩 네 개(경험치·성적·마일리지·콘텐츠)는 이미 4단을 꽉 채우고 있어 다섯 번째를
+   끼워 넣으면 격자가 깨진다. 하루 한 번뿐인 동작이라 눈에 걸려야 하므로 한 줄을
+   통째로 쓰는 배너로 둔다. 오늘 뽑았는지가 배너 오른쪽에 바로 보인다. */
+#lotteryBanner{grid-column:1/-1;grid-row:3;flex-direction:row;align-items:center;gap:14px;
+  min-height:0;padding:14px 18px;text-align:left;position:relative;overflow:hidden}
+#lotteryBanner .lb-ic{width:42px;height:42px;border-radius:12px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;background:var(--rose);color:#fff}
+#lotteryBanner .lb-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+#lotteryBanner .lb-t{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:17px;color:var(--m-ink)}
+#lotteryBanner .lb-s{font-size:13px;font-weight:600;color:var(--m-ink-soft)}
+#lotteryBanner .lb-badge{flex-shrink:0;font-size:13px;font-weight:800;padding:7px 14px;border-radius:100px;
+  background:var(--rose);color:#fff;letter-spacing:.2px}
+#lotteryBanner.done .lb-ic{background:var(--m-line-strong);color:#fff}
+#lotteryBanner.done .lb-badge{background:rgba(0,0,0,.05);color:var(--m-ink-faint)}
+/* 아직 안 뽑은 날에는 배너가 아주 천천히 숨 쉰다. 매일 들어오게 만드는 장치라
+   눈에는 걸리되 시끄럽지 않아야 한다. */
+@keyframes lbBreath{0%,100%{box-shadow:0 8px 26px rgba(20,22,26,.08),inset 0 1px 0 rgba(255,255,255,.9)}
+  50%{box-shadow:0 8px 30px rgba(255,107,61,.30),inset 0 1px 0 rgba(255,255,255,.9)}}
+#lotteryBanner:not(.done){animation:lbBreath 2.6s ease-in-out infinite}
+
+/* ══ 뽑기 모달 ══ XP 내역 모달(.xp-hist-box)과 같은 골격을 쓴다 ══ */
+#lotteryModal{display:none;position:fixed;inset:0;z-index:9000;align-items:center;justify-content:center;
+  background:rgba(10,19,23,.55);backdrop-filter:blur(6px);padding:24px 16px}
+#lotteryModal.open{display:flex}
+.lt-box{background:#fff;border-radius:20px;width:100%;max-width:400px;max-height:calc(100vh - 48px);
+  display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.25);overflow:hidden}
+.lt-head{padding:18px 20px;background:var(--navy);flex-shrink:0;display:flex;align-items:center;gap:10px}
+.lt-head .lt-h-ic{color:var(--primary);flex-shrink:0;display:flex}
+.lt-title{font-family:'Gowun Batang',serif;font-weight:700;font-size:18px;color:#fff}
+.lt-sub{font-size:12px;color:rgba(255,255,255,.72);margin-top:2px}
+.lt-body{padding:22px 20px;overflow-y:auto;flex:1;display:flex;flex-direction:column;align-items:center;gap:16px}
+
+/* ── 뽑기 판 ── 결과가 나오기 전에는 물음표 한 장, 나온 뒤에는 등수 카드 ── */
+.lt-stage{width:186px;height:186px;border-radius:24px;flex-shrink:0;position:relative;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  background:var(--surface);border:2px solid var(--hairline);transition:background .3s,border-color .3s}
+.lt-stage .lt-q{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:76px;color:var(--stone);line-height:1}
+.lt-stage .lt-rank{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:60px;line-height:1}
+.lt-stage .lt-rank-unit{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:22px;margin-left:2px}
+.lt-stage .lt-prize{font-size:14px;font-weight:700;margin-top:2px}
+.lt-stage .lt-medal{position:absolute;top:12px;right:12px;opacity:.9}
+/* 돌아가는 동안에는 숫자가 빠르게 바뀌며 살짝 흔들린다 */
+@keyframes ltShake{0%,100%{transform:translateX(0) rotate(0)}
+  25%{transform:translateX(-3px) rotate(-1.2deg)}75%{transform:translateX(3px) rotate(1.2deg)}}
+.lt-stage.rolling{animation:ltShake .18s linear infinite;border-color:var(--primary)}
+@keyframes ltPop{0%{transform:scale(.72);opacity:0}60%{transform:scale(1.06)}100%{transform:scale(1);opacity:1}}
+.lt-stage.done{animation:ltPop .42s cubic-bezier(.34,1.56,.64,1)}
+
+/* 등수별 색 — 1등 금, 2등 은, 3등 동, 4·5등 기본 오렌지, 6등 경고 */
+.lt-stage.r1{background:#FEF6DF;border-color:#E3B341;color:#A9761B}
+.lt-stage.r2{background:#F2F4F7;border-color:#98A2B3;color:#5B6B80}
+.lt-stage.r3{background:#FBEFE4;border-color:#C08552;color:#8A5A2B}
+.lt-stage.r4,.lt-stage.r5{background:var(--primary-soft);border-color:var(--primary);color:var(--primary-deep)}
+.lt-stage.r6{background:#FDECEC;border-color:#E88A8A;color:var(--critical-strong)}
+.lt-stage.done .lt-rank,.lt-stage.done .lt-prize,.lt-stage.done .lt-medal{color:inherit}
+
+.lt-msg{font-size:15px;font-weight:700;color:var(--navy);text-align:center;line-height:1.6;word-break:keep-all;min-height:24px}
+.lt-msg.warn{color:var(--critical-strong)}
+
+/* 뽑은 뒤 포인트 변화 — 화살표 없이 앞뒤를 나란히 적는다 */
+.lt-delta{width:100%;display:flex;align-items:stretch;gap:8px}
+.lt-delta .d-cell{flex:1;background:var(--surface);border-radius:12px;padding:10px 8px;text-align:center}
+.lt-delta .d-lb{font-size:11px;color:var(--slate);font-weight:600}
+.lt-delta .d-v{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:19px;color:var(--navy);margin-top:2px}
+.lt-delta .d-cell.now{background:var(--primary-soft)}
+.lt-delta .d-cell.now .d-v{color:var(--primary-deep)}
+
+.lt-note{font-size:12px;color:var(--slate);text-align:center;line-height:1.6;word-break:keep-all}
+
+/* ── 확률표 ── 접어 두고, 눌러야 펼쳐진다 ── */
+.lt-odds{width:100%;border:1px solid var(--hairline);border-radius:12px;overflow:hidden}
+.lt-odds summary{list-style:none;cursor:pointer;padding:10px 14px;font-size:13px;font-weight:700;
+  color:var(--navy);background:var(--surface);display:flex;align-items:center;justify-content:space-between}
+.lt-odds summary::-webkit-details-marker{display:none}
+.lt-odds summary .oc{font-size:12px;font-weight:600;color:var(--slate)}
+.lt-odds table{width:100%;border-collapse:collapse;font-size:13px}
+.lt-odds th,.lt-odds td{padding:7px 10px;text-align:center;border-bottom:1px solid var(--hairline-soft)}
+.lt-odds th{font-size:11px;font-weight:700;color:var(--slate);background:#fff}
+.lt-odds tbody tr:last-child td{border-bottom:none}
+.lt-odds td.rk{font-weight:800;color:var(--navy)}
+.lt-odds tr.hit td{background:var(--primary-soft)}
+.lt-odds td.minus{color:var(--critical-strong);font-weight:700}
+
+.lt-foot{flex-shrink:0;display:flex;border-top:1px solid var(--surface)}
+.lt-btn{flex:1;padding:15px;border:none;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;transition:opacity .15s}
+.lt-btn.go{background:var(--primary);color:#fff}
+.lt-btn.go:hover:not(:disabled){background:var(--primary-deep)}
+.lt-btn.go:disabled{opacity:.45;cursor:not-allowed}
+.lt-btn.close{background:var(--navy);color:#fff}
+.lt-btn.close:hover{opacity:.88}
+
+/* ── 1등 종이꽃 ── 1등일 때만 잠깐 흩날린다 ── */
+.lt-confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none;border-radius:20px}
+.lt-confetti i{position:absolute;top:-12px;width:8px;height:14px;border-radius:2px;opacity:.95;
+  animation:ltFall linear forwards}
+@keyframes ltFall{to{transform:translateY(560px) rotate(720deg);opacity:0}}
+
+/* ══ 미리보기 조작판 (실제 화면에는 없음) ══ */
+#pv{position:fixed;left:0;right:0;bottom:0;z-index:9500;background:#12181D;color:#fff;
+  padding:10px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13px;
+  box-shadow:0 -6px 24px rgba(0,0,0,.3)}
+#pv b{font-weight:800;color:#FF8B62;margin-right:4px}
+#pv button{background:#243039;color:#fff;border:1px solid #35434E;border-radius:7px;
+  padding:6px 11px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer}
+#pv button:hover{background:#2F3D48}
+#pv button.on{background:#FF6B3D;border-color:#FF6B3D}
+#pv .sp{width:1px;height:20px;background:#35434E;margin:0 4px}
+#pv .out{color:#9FB0BE;font-size:12px;font-family:ui-monospace,Menlo,monospace}
+</style>
+</head>
+<body>
+
+<div id="hub">
+  <header class="hub-header">
+    <span class="hub-logo-sub">HOISTORY LMS</span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="student-chip">3학년 1반 김호성</span>
+      <button class="logout-btn">나가기</button>
+    </div>
+  </header>
+
+  <div class="hub-body">
+    <div class="hub-welcome">오늘도 반갑습니다</div>
+
+    <button class="hub-chip" id="xpWidget" type="button">
+      <span class="hub-chip-title">내 경험치</span>
+      <span class="hub-chip-value">1,240 P (Lv.9)</span>
+    </button>
+    <button class="hub-chip" id="gradeBlock" type="button">
+      <span class="hub-chip-title">내 성적</span>
+      <span class="hub-chip-value">28강까지 반영</span>
+    </button>
+    <button class="hub-chip" id="mileageBlock" type="button">
+      <span class="hub-chip-title">마일리지</span>
+      <span class="hub-chip-value">3장 모음</span>
+    </button>
+    <button class="hub-chip" id="contentsBlock" type="button">
+      <span class="hub-chip-title">각종 콘텐츠</span>
+      <span class="hub-chip-value">7개</span>
+    </button>
+
+    <!-- ★ 새로 들어가는 자리 ★ -->
+    <button class="hub-chip" id="lotteryBanner" type="button" onclick="ltOpen()">
+      <span class="lb-ic" id="lbIcon"></span>
+      <span class="lb-txt">
+        <span class="lb-t">오늘의 뽑기</span>
+        <span class="lb-s" id="lbSub">하루에 한 번, 경험치를 걸고 뽑습니다</span>
+      </span>
+      <span class="lb-badge" id="lbBadge">뽑으러 가기</span>
+    </button>
+
+    <div class="mock-card" style="grid-column:1;grid-row:4"><div class="t">공지사항</div><div class="d">수행평가 안내가 올라왔습니다.</div></div>
+    <div class="mock-card" style="grid-column:2;grid-row:4"><div class="t">개념 Check</div><div class="d">28강 조선의 사화</div></div>
+    <div class="mock-card" style="grid-column:3;grid-row:4"><div class="t">미션 Check</div><div class="d">사화 네컷 만들기</div></div>
+    <div class="mock-card" style="grid-column:4;grid-row:4"><div class="t">생각 Check</div><div class="d">사림은 왜 다시 일어섰을까</div></div>
+  </div>
+</div>
+
+<!-- ══ 뽑기 모달 ══ -->
+<div id="lotteryModal" onclick="if(event.target===this)ltClose()">
+  <div class="lt-box">
+    <div class="lt-head">
+      <span class="lt-h-ic" id="ltHeadIcon"></span>
+      <div>
+        <div class="lt-title">오늘의 뽑기</div>
+        <div class="lt-sub" id="ltHeadSub">하루에 한 번 뽑을 수 있습니다</div>
+      </div>
+    </div>
+
+    <div class="lt-body">
+      <div class="lt-stage" id="ltStage">
+        <span class="lt-q" id="ltQ">?</span>
+      </div>
+
+      <div class="lt-msg" id="ltMsg">뽑기를 누르면 오늘의 등수가 정해집니다.</div>
+
+      <div class="lt-delta" id="ltDelta" style="display:none">
+        <div class="d-cell"><div class="d-lb">뽑기 전</div><div class="d-v" id="ltBefore">1,240</div></div>
+        <div class="d-cell now"><div class="d-lb">뽑은 뒤</div><div class="d-v" id="ltAfter">1,240</div></div>
+      </div>
+
+      <div class="lt-note" id="ltNote">하루가 지나면 다시 뽑을 수 있습니다. 뽑은 결과는 경험치 내역에 남습니다.</div>
+
+      <details class="lt-odds" id="ltOdds">
+        <summary>어떤 등수가 얼마나 나오나요<span class="oc">100장 중</span></summary>
+        <table>
+          <thead><tr><th>등수</th><th>장수</th><th>확률</th><th>경험치</th></tr></thead>
+          <tbody id="ltOddsBody"></tbody>
+        </table>
+      </details>
+    </div>
+
+    <div class="lt-foot">
+      <button class="lt-btn go" id="ltGo" onclick="ltDraw()">뽑기</button>
+      <button class="lt-btn close" onclick="ltClose()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 미리보기 조작판 (실제 화면에는 없습니다) ══ -->
+<div id="pv">
+  <b>미리보기</b>
+  <button onclick="pvState('ready')">뽑기 전</button>
+  <button onclick="pvState('done')">오늘 이미 뽑음</button>
+  <span class="sp"></span>
+  <button onclick="pvShow(1)">1등</button>
+  <button onclick="pvShow(2)">2등</button>
+  <button onclick="pvShow(3)">3등</button>
+  <button onclick="pvShow(4)">4등</button>
+  <button onclick="pvShow(5)">5등</button>
+  <button onclick="pvShow(6)">6등</button>
+  <span class="sp"></span>
+  <button onclick="pvLowPoint()">보유 30P로 (6등 바닥 확인)</button>
+  <button onclick="pvSim()">1만 번 시뮬</button>
+  <span class="out" id="pvOut"></span>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   뽑기 규칙 — 실제 구현에서도 이 표 하나만 보면 되도록 한곳에 모아 둔다.
+   100장 중 몇 장인지가 곧 확률이다(개인별 독립 시행, 상자를 비우는 방식이 아님).
+   합이 100인지는 아래 ODDS_SUM 검사로 지킨다.
+   ══════════════════════════════════════════════════════════════ */
+const LOTTERY = [
+  { rank:1, tickets:1,  pt:200, label:'대박',       msg:'1등입니다. 오늘 최고의 운이었습니다.' },
+  { rank:2, tickets:9,  pt:20,  label:'좋음',       msg:'2등입니다. 꽤 잘 뽑았습니다.' },
+  { rank:3, tickets:15, pt:10,  label:'괜찮음',     msg:'3등입니다.' },
+  { rank:4, tickets:20, pt:5,   label:'무난',       msg:'4등입니다.' },
+  { rank:5, tickets:54, pt:1,   label:'참가',       msg:'5등입니다. 내일 다시 도전해 보십시오.' },
+  { rank:6, tickets:1,  pt:-50, label:'꽝',         msg:'6등입니다. 오늘은 운이 없었습니다.' },
+];
+const ODDS_SUM = LOTTERY.reduce((n,o)=>n+o.tickets,0);   // 100이라야 한다
+
+/* 한 번 뽑는다. 1~100 중 하나를 뽑아 누적 장수로 등수를 정한다. */
+function drawOnce(){
+  const t = Math.floor(Math.random()*ODDS_SUM);          // 0 ~ 99
+  let acc = 0;
+  for(const o of LOTTERY){ acc += o.tickets; if(t < acc) return o; }
+  return LOTTERY[LOTTERY.length-1];
+}
+
+/* 포인트는 0 아래로 내려가지 않는다. 가진 만큼만 깎인다.
+   (RTDB 규칙이 total >= 0을 검사하므로, 안 막으면 쓰기 자체가 거부된다) */
+function applyPoint(total, pt){
+  const next = Math.max(0, total + pt);
+  return { next, real: next - total };                    // real = 실제로 오르내린 양
+}
+
+// ── 미리보기용 가짜 상태 ──
+let PV = { total:1240, drawnToday:null };
+
+const ICON = {
+  gift:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13"/><path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7"/><path d="M7.5 8a2.5 2.5 0 0 1 0-5A4.8 8 0 0 1 12 8a4.8 8 0 0 1 4.5-5 2.5 2.5 0 0 1 0 5"/></svg>',
+  clock:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6h4"/></svg>',
+  trophy:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/><path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/><path d="M18 9h1.5a1 1 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6 9H4.5a1 1 0 0 1 0-5H6"/></svg>',
+  medal:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.21 15 2.66 7.14a2 2 0 0 1 .13-2.2L4.4 2.8A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.14a2 2 0 0 1 .14 2.2L16.5 15"/><path d="M11 12 5.12 2.2"/><path d="m13 12 5.88-9.8"/><path d="M8 7h8"/><circle cx="12" cy="17" r="5"/><path d="M12 18v-2h-.5"/></svg>',
+  star:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/></svg>',
+  alert:'<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
+};
+const RANK_ICON = { 1:ICON.trophy, 2:ICON.medal, 3:ICON.medal, 4:ICON.star, 5:ICON.star, 6:ICON.alert };
+
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString('ko-KR');
+
+// ── 확률표 그리기 ──
+function ltRenderOdds(hitRank){
+  $('ltOddsBody').innerHTML = LOTTERY.map(o => `
+    <tr class="${o.rank === hitRank ? 'hit' : ''}">
+      <td class="rk">${o.rank}등</td>
+      <td>${o.tickets}장</td>
+      <td>${(o.tickets / ODDS_SUM * 100).toFixed(0)}%</td>
+      <td class="${o.pt < 0 ? 'minus' : ''}">${o.pt > 0 ? '+' : ''}${o.pt}</td>
+    </tr>`).join('');
+}
+
+// ── 홈 배너 상태 ──
+function ltSyncBanner(){
+  const done = !!PV.drawnToday;
+  $('lotteryBanner').classList.toggle('done', done);
+  $('lbIcon').innerHTML = done ? ICON.clock : ICON.gift;
+  $('lbSub').textContent = done
+    ? `오늘은 ${PV.drawnToday.rank}등을 뽑았습니다`
+    : '하루에 한 번, 경험치를 걸고 뽑습니다';
+  $('lbBadge').textContent = done ? '내일 다시' : '뽑으러 가기';
+}
+
+// ── 모달 열고 닫기 ──
+function ltOpen(){
+  $('lotteryModal').classList.add('open');
+  if (PV.drawnToday) ltPaintResult(PV.drawnToday, true);
+  else ltPaintReady();
+}
+function ltClose(){ $('lotteryModal').classList.remove('open'); }
+
+function ltPaintReady(){
+  const st = $('ltStage');
+  st.className = 'lt-stage';
+  st.innerHTML = '<span class="lt-q" id="ltQ">?</span>';
+  $('ltMsg').className = 'lt-msg';
+  $('ltMsg').textContent = '뽑기를 누르면 오늘의 등수가 정해집니다.';
+  $('ltDelta').style.display = 'none';
+  $('ltNote').textContent = '하루가 지나면 다시 뽑을 수 있습니다. 뽑은 결과는 경험치 내역에 남습니다.';
+  $('ltHeadSub').textContent = '하루에 한 번 뽑을 수 있습니다';
+  $('ltHeadIcon').innerHTML = ICON.gift;
+  const go = $('ltGo');
+  go.disabled = false; go.textContent = '뽑기';
+  ltRenderOdds(null);
+}
+
+/* 결과 그리기. again=true면 오늘 이미 뽑은 결과를 다시 보여 주는 것이라
+   포인트를 또 더하지 않고 그때의 기록만 보여 준다. */
+function ltPaintResult(res, again){
+  const st = $('ltStage');
+  st.className = 'lt-stage done r' + res.rank;
+  st.innerHTML = `
+    <span class="lt-medal" style="color:currentColor">${RANK_ICON[res.rank]}</span>
+    <span class="lt-rank">${res.rank}<span class="lt-rank-unit">등</span></span>
+    <span class="lt-prize">${res.label} / 경험치 ${res.pt > 0 ? '+' : ''}${res.pt}</span>`;
+
+  $('ltMsg').className = 'lt-msg' + (res.rank === 6 ? ' warn' : '');
+  $('ltMsg').textContent = again ? `오늘은 ${res.rank}등을 뽑았습니다.` : res.msg;
+
+  $('ltDelta').style.display = '';
+  $('ltBefore').textContent = fmt(res.before);
+  $('ltAfter').textContent  = fmt(res.after);
+
+  // 실제로 깎인 양이 배점과 다르면(0에서 멈춘 것) 그 사실을 적어 준다.
+  const asked = res.pt, real = res.after - res.before;
+  $('ltNote').textContent = (asked < 0 && real > asked)
+    ? `경험치는 0 아래로 내려가지 않습니다. ${-asked}점 가운데 ${-real}점만 빠졌습니다.`
+    : '내일 다시 뽑을 수 있습니다. 이 결과는 경험치 내역에 남습니다.';
+
+  $('ltHeadSub').textContent = '오늘 뽑기를 마쳤습니다';
+  $('ltHeadIcon').innerHTML = ICON.clock;
+  const go = $('ltGo');
+  go.disabled = true; go.textContent = '내일 다시';
+  ltRenderOdds(res.rank);
+  if (res.rank === 1 && !again) ltConfetti();
+  ltSyncBanner();
+}
+
+/* 뽑기 — 숫자가 돌아가다 멈춘다. 실제 결과는 누르는 순간 이미 정해져 있고,
+   돌아가는 것은 보여 주기다(서버 트랜잭션이 결과를 확정한 뒤 애니메이션을 태운다). */
+let ROLLING = false;
+function ltDraw(){
+  if (ROLLING || PV.drawnToday) return;
+  ROLLING = true;
+  const go = $('ltGo');
+  go.disabled = true; go.textContent = '뽑는 중';
+  $('ltMsg').textContent = '뽑는 중입니다';
+  $('ltDelta').style.display = 'none';
+
+  const hit = drawOnce();
+  const st = $('ltStage');
+  st.className = 'lt-stage rolling';
+
+  let t = 0, delay = 55;
+  const tick = () => {
+    const face = 1 + Math.floor(Math.random() * 6);
+    st.innerHTML = `<span class="lt-rank" style="color:var(--stone)">${face}<span class="lt-rank-unit">등</span></span>`;
+    t += delay;
+    delay = t > 900 ? delay * 1.28 : delay;      // 끝으로 갈수록 느려진다
+    if (t < 1700) setTimeout(tick, delay);
+    else ltFinish(hit);
+  };
+  tick();
+}
+
+function ltFinish(hit){
+  ROLLING = false;
+  const before = PV.total;
+  const { next } = applyPoint(before, hit.pt);
+  PV.total = next;
+  PV.drawnToday = { ...hit, before, after: next };
+  $('xpWidget').querySelector('.hub-chip-value').textContent = `${fmt(next)} P (Lv.9)`;
+  ltPaintResult(PV.drawnToday, false);
+}
+
+// 1등 종이꽃
+function ltConfetti(){
+  const box = document.querySelector('.lt-box');
+  const wrap = document.createElement('div');
+  wrap.className = 'lt-confetti';
+  const cols = ['#E3B341','#FF6B3D','#27384F','#F6D67A','#FFA477'];
+  for (let i = 0; i < 34; i++){
+    const s = document.createElement('i');
+    s.style.left = Math.random() * 100 + '%';
+    s.style.background = cols[i % cols.length];
+    s.style.animationDuration = (1.5 + Math.random() * 1.1) + 's';
+    s.style.animationDelay = (Math.random() * .5) + 's';
+    wrap.appendChild(s);
+  }
+  box.appendChild(wrap);
+  setTimeout(() => wrap.remove(), 3200);
+}
+
+/* ══ 미리보기 조작판 ══ */
+function pvState(kind){
+  if (kind === 'ready'){ PV.drawnToday = null; ltSyncBanner(); ltPaintReady(); $('lotteryModal').classList.add('open'); }
+  else { pvShow(3); }
+  $('pvOut').textContent = '';
+}
+function pvShow(rank){
+  const o = LOTTERY.find(x => x.rank === rank);
+  const before = PV.total;
+  const { next } = applyPoint(before, o.pt);
+  PV.drawnToday = { ...o, before, after: next };
+  $('lotteryModal').classList.add('open');
+  ltPaintResult(PV.drawnToday, false);
+  $('pvOut').textContent = `${rank}등 / 보유 ${before} 에서 ${next}`;
+}
+function pvLowPoint(){
+  PV.total = 30; PV.drawnToday = null;
+  $('xpWidget').querySelector('.hub-chip-value').textContent = '30 P (Lv.1)';
+  pvShow(6);
+}
+function pvSim(){
+  const N = 10000, cnt = {}; let sum = 0;
+  for (let i = 0; i < N; i++){ const o = drawOnce(); cnt[o.rank] = (cnt[o.rank] || 0) + 1; sum += o.pt; }
+  $('pvOut').textContent = LOTTERY.map(o => `${o.rank}등 ${((cnt[o.rank]||0)/N*100).toFixed(2)}%`).join('  ')
+    + `   평균 ${(sum / N).toFixed(2)}P`;
+}
+
+// 첫 화면
+ltRenderOdds(null);
+ltSyncBanner();
+$('ltHeadIcon').innerHTML = ICON.gift;
+ltOpen();
+</script>
+</body>
+</html>

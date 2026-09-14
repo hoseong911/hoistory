@@ -21,7 +21,7 @@ Each lives in its own folder with a consistent pattern:
 - `<folder>/admin.html` — Teacher view (password-gated)
 
 Current sub-apps (LMS 미션 체크 연결, `apps/` 하위): `blind_ryeo/`, `escape/`, `goryeo_choice/`, `j_yugyo/`, `j_interview/`, `j_science/`, `j_wartimeline/`, `oxquiz/`, `s_threads/`, `sillaver/`, `samguk_goods/`
-루트 앱 (LMS 연동이지만 미션 체크 앱 아님): `hismile/`, `survey/`
+루트 앱 (LMS 연동이지만 미션 체크 앱 아님): `hismile/`, `survey/`, `ox/`
 
 The `mission/` folder contains standalone single-file HTML pages (no sub-folder structure).
 
@@ -254,3 +254,43 @@ LMS에서 미션 카드를 만들고 공개(잠금 해제)하면, 같은 Firesto
 - `SlideRender.normalizeFonts(fonts)`가 예전 설정(개념/미션이 `label`·`body`·`bodyMission` 3개만 갖고 있던 시절)을 형식별 값으로 펴 준다. 이미 있는 값은 건드리지 않으므로 **저장을 다시 안 해도 화면이 이전과 똑같이 나온다.** 연표 연도는 예전에 `calc(--fs-label * 1.1)`이었으므로 그 비율로 환산한다.
 - `label`/`body`/`bodyMission`은 슬라이더에서 빠졌지만 데이터에는 그대로 남긴다 — 스펙에 아직 안 올라온 CSS 규칙이 있어도 예전처럼 동작하게 하는 안전판이다.
 - 페이지(슬라이드) 단위 예외는 콘텐츠 편집의 "형식 변경 / 페이지 설정"에 있는 글자 크기 입력칸이며, `renderSlideHTML`이 그 슬라이드에만 인라인 스타일로 변수를 덮어쓴다.
+
+## OX 퀴즈 (`ox/`, 2026-09-14)
+
+LMS 허브의 **각종 콘텐츠**에서 들어가는 복습용 OX 퀴즈. `apps/` 밑이 아니라 루트에 두는 것은 미션 체크 앱이 아니기 때문이다(`hismile/`, `survey/`와 같은 자리).
+
+- **예전 `apps/oxquiz/`와는 다른 앱이다.** 그쪽은 compat SDK에 `ox2606_*` 컬렉션(이름 규칙이 금지한 형태)을 쓰는 옛 버전이라 건드리지 않고 그대로 뒀다. 새로 만드는 문제는 전부 `ox_questions`로 들어간다.
+- **모달이 아니라 화면 이동이다.** LMS 각종 콘텐츠 카드를 등록할 때 "팝업으로 열기"를 **체크하지 않으면** `lms/index.js`의 `makeIconItem()`이 `<a href>`로 만들어 같은 창에서 이동한다. LMS 쪽 코드는 손댈 게 없다.
+- **로그인 화면이 없다.** 학생이 누구인지는 LMS가 남긴 `sessionStorage.lms_sid` / `lms_sname`(없으면 `localStorage.lms_autosave_*`)에서 읽는다(`apps/j_sahwa`와 같은 방식). 둘 다 없으면 "수업 홈에서 열어 주세요" 화면만 띄운다.
+- **강의 = `class_lessons.num`.** 문제의 `lessonNum`이 곧 그 번호다. 제목은 `class_lessons`에서 끌어오되 강의가 없어도 번호만으로 목록에 남는다(문제가 사라지지 않게).
+- **출제 방식**: 고른 강의에 등록된 문제를 **전부** 풀고 순서만 섞는다. 출제 수를 따로 설정하지 않으므로, 문항 수 조절은 어드민에서 문제를 더 넣거나 빼는 것으로 한다.
+- **중간에 그만두면 아무것도 남지 않는다.** 끝까지 푼 것만 기록·포인트 대상이다.
+
+### 포인트 규칙 (`shared/xp.js`의 `addOxQuizXP`)
+
+정답 1개 = 1pt(`xp/config/activities/oxQuiz.ptPer`), 하루 최대 30pt(`.dailyMax`). 두 상한이 함께 걸린다.
+
+1. **하루 총량** — 강의를 가리지 않고 그날 받은 것을 모두 합쳐 `dailyMax`까지.
+2. **같은 강의는 하루 한 번만** — 쉬운 강의 하나를 반복해 풀어 상한을 채우는 걸 막는다. 여러 강의를 돌수록 이득이 되도록 한 설계라, 이 규칙을 빼면 1번만 남아 반복 풀이가 그대로 통한다.
+
+- 판정은 전부 RTDB 트랜잭션 하나 안에서 한다(다중 탭·연타로도 상한을 못 넘는다). 저장 위치는 `xp/students/{sid}/dailyOX/{날짜}`(오늘 받은 pt)와 `xp/students/{sid}/oxLessonDay/{강의키}`(그 강의로 마지막에 받은 날짜)이며, 두 맵 모두 **오늘 것만 남기고** 지난 날짜는 트랜잭션에서 걷어낸다.
+- 한 문제도 못 맞히면 아무것도 쓰지 않는다 — 강의를 소모하지 않으므로 다시 풀어 볼 수 있다.
+- 지급 수치(ptPer / dailyMax / 켜고 끄기)는 **LMS 어드민의 경험치 설정**에서 그대로 조절된다. 이 활동 항목은 예전부터 표에 있었고(`ACT_LABELS.oxQuiz`), 기록 라벨도 `lec`을 읽어 "OX 퀴즈(12강)"로 뜬다 — 새로 붙일 코드가 없었다.
+
+### 데이터
+
+| 컬렉션 | 내용 |
+|--------|------|
+| `ox_questions` | 문제은행. `{ lessonNum, text, answer:'O'\|'X', explain, order }` |
+| `ox_records/{학번}` | 학생별 **누적 요약**. `{ sessions, correct, total, points, lessons:{ 강의번호: {attempts, correct, total, bestRate, lastRate, lastAt} } }` |
+| `ox_sessions` | 풀이 한 건씩. 어드민이 학생을 펼칠 때만 읽는다 |
+
+요약과 세션을 나눈 이유는 어드민 목록 때문이다. 세션을 전량 조회하면 학기가 갈수록 읽기가 눈덩이처럼 불어나므로, 목록은 학번당 1장인 요약만 읽고 상세를 열 때만 그 학생 세션을 가져온다. `ox_records.points`는 화면용 사본일 뿐이고 실제 경험치는 언제나 RTDB 트랜잭션이 정한다.
+
+### 어드민 (`ox/admin.html`)
+
+`CONTENTS` / `ANSWER` 두 탭(`apps/j_interview/admin.html`과 같은 구조).
+
+- **CONTENTS**: 강의를 고르고 문제 추가·수정·삭제·순서 이동. 엑셀 업로드는 `A:강의 / B:문제 / C:정답 / D:해설` 네 칸이고 첫 줄은 제목 줄로 건너뛴다. 강의 칸이 비면 지금 고른 강의로 들어간다. 빈 양식 내려받기와 전체 내보내기도 같은 자리에 있다.
+- **ANSWER**: 반 필터 + 학생별 누적 표(푼 횟수, 푼 강의 수, 정답/문항, 정답률, 포인트). 행을 누르면 강의별 누적과 참여 기록이 뜬다. 탭으로 들어올 때마다 `ox_records`를 다시 읽는다.
+- 명단은 RTDB `/students`에서 읽는데 **키가 학번이 아니다** — 학번은 값 안의 `studentId`(또는 `id`)다. `shared/auth.js`와 같은 방식으로 읽어야 한다.

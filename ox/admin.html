@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>역사 OX 퀴즈 - 관리자 모드</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/admin-base.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
+<style>
+/* admin-base.css 기본값이 오렌지+네이비라 --hi-accent*는 그대로 쓴다.
+   여기서는 이 어드민에만 필요한 것(문제 표, 업로드 칸, 학생 표)만 얹는다. */
+
+/* ── 섹션 카드 (j_interview/admin.html과 같은 모양) ── */
+.section-card { background: var(--hi-bg-surface); border-radius: 14px; padding: 22px; margin-bottom: 16px; border: 1px solid var(--hi-border); }
+.section-title { font-weight: 700; font-size: var(--adm-title); color: var(--hi-text); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.section-desc { font-size: 13px; color: var(--hi-text-muted); line-height: 1.65; margin: -8px 0 16px; word-break: keep-all; }
+
+/* ── 버튼 ── */
+.btn { padding: 9px 18px; border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 700; border: none; cursor: pointer; transition: .15s; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.btn-primary { background: var(--hi-accent); color: #fff; } .btn-primary:hover { background: var(--hi-accent-strong); }
+.btn-ghost { background: none; border: 1.5px solid var(--hi-border); color: var(--hi-text-muted); } .btn-ghost:hover { border-color: var(--hi-border-light); color: var(--hi-text); }
+.btn-danger { background: rgba(220,38,38,.08); color: var(--hi-negative); border: 1.5px solid rgba(220,38,38,.2); } .btn-danger:hover { background: rgba(220,38,38,.16); }
+.btn-sm { padding: 5px 12px; font-size: 12px; border-radius: 7px; }
+.btn-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+/* 액션 줄에서는 공용 .hi-btn-sm과 높이를 맞춘다(admin-base.css가 36px로 잡아 둔 줄). */
+.adm-action-row .btn-sm { height: 36px; box-sizing: border-box; }
+
+/* ── 강의 선택 줄 ── */
+.lec-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 16px; }
+.lec-bar select { min-width: 260px; height: 40px; }
+.lec-bar .count { font-size: 13px; font-weight: 700; color: var(--hi-text-muted); font-feature-settings: 'tnum'; }
+
+/* ── 문제 입력 ── */
+.q-form { display: flex; flex-direction: column; gap: 10px; }
+.q-form textarea { min-height: 66px; resize: vertical; }
+.q-answer { display: flex; align-items: center; gap: 8px; }
+.q-answer-btn {
+  width: 54px; height: 40px; border-radius: 8px; cursor: pointer;
+  border: 1.5px solid var(--hi-border); background: var(--hi-bg-surface);
+  font-family: inherit; font-size: 19px; font-weight: 900; color: var(--hi-text-muted);
+  transition: .12s;
+}
+.q-answer-btn:hover { border-color: var(--hi-accent); }
+.q-answer-btn.on { border-color: var(--hi-accent); background: var(--hi-accent-soft); color: var(--hi-accent); }
+.q-answer-lbl { font-size: 13px; font-weight: 700; color: var(--hi-text-muted); margin-right: 4px; }
+
+/* ── 문제 목록 ── */
+.q-list { display: flex; flex-direction: column; gap: 8px; }
+.q-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  background: var(--hi-bg-surface); border: 1px solid var(--hi-border);
+  border-radius: 10px; padding: 13px 15px;
+}
+.q-item-no { flex: 0 0 auto; min-width: 26px; font-size: 13px; font-weight: 800; color: var(--hi-text-muted); font-feature-settings: 'tnum'; padding-top: 2px; }
+.q-item-a {
+  flex: 0 0 auto; width: 28px; height: 28px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 900;
+  background: var(--hi-accent-soft); color: var(--hi-accent);
+}
+.q-item-body { flex: 1 1 auto; min-width: 0; }
+.q-item-text { font-size: 14px; font-weight: 700; color: var(--hi-text); line-height: 1.55; word-break: keep-all; white-space: pre-wrap; }
+.q-item-exp { font-size: 13px; color: var(--hi-text-muted); line-height: 1.6; margin-top: 5px; word-break: keep-all; white-space: pre-wrap; }
+.q-item-act { flex: 0 0 auto; display: flex; gap: 4px; align-items: center; }
+.q-move { background: none; border: none; cursor: pointer; color: var(--hi-text-muted); font-family: inherit; font-size: 13px; font-weight: 800; padding: 3px 5px; border-radius: 5px; }
+.q-move:hover { background: var(--hi-bg-mid); color: var(--hi-text); }
+.q-move:disabled { opacity: .25; cursor: default; }
+
+/* ── 엑셀 업로드 칸 ── */
+.uz {
+  border: 1.5px dashed var(--hi-border-light); border-radius: 12px;
+  padding: 26px 20px; text-align: center; cursor: pointer; transition: .15s;
+  background: var(--hi-bg-mid);
+}
+.uz:hover, .uz.drag { border-color: var(--hi-accent); background: var(--hi-accent-soft); }
+.uz-t { font-size: 14px; font-weight: 700; color: var(--hi-text); margin-bottom: 5px; }
+.uz-d { font-size: 12px; color: var(--hi-text-muted); line-height: 1.6; }
+.uz input[type=file] { display: none; }
+.xl-guide { margin-top: 14px; font-size: 12px; color: var(--hi-text-muted); line-height: 1.8; }
+.xl-guide table { border-collapse: collapse; margin: 8px auto 0; font-size: 12px; }
+.xl-guide th, .xl-guide td { border: 1px solid var(--hi-border); padding: 5px 12px; text-align: center; }
+.xl-guide th { background: var(--hi-bg-mid); font-weight: 700; color: var(--hi-text); }
+
+/* ── ANSWER 표 ── */
+.ans-table-wrap { overflow-x: auto; }
+table.ans-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.ans-table th, table.ans-table td { padding: 9px 10px; border-bottom: 1px solid var(--hi-border); text-align: center; white-space: nowrap; }
+table.ans-table th { font-size: 12px; font-weight: 800; color: var(--hi-text-muted); background: var(--hi-bg-mid); position: sticky; top: 0; }
+table.ans-table td { font-feature-settings: 'tnum'; color: var(--hi-text); }
+table.ans-table tbody tr { cursor: pointer; }
+table.ans-table tbody tr:hover { background: var(--hi-bg-mid); }
+table.ans-table td.nm { text-align: left; font-weight: 700; }
+table.ans-table td.rate b { font-weight: 800; }
+table.ans-table tr.none td { color: var(--hi-text-muted); }
+.rate-bar { display: inline-block; width: 54px; height: 4px; background: var(--hi-bg-mid); border-radius: 2px; overflow: hidden; vertical-align: middle; margin-left: 7px; }
+.rate-bar i { display: block; height: 100%; background: var(--hi-accent); }
+
+/* ── 학생 상세 모달 ── */
+.dt-back { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 600; padding: 20px; }
+.dt-back.show { display: flex; }
+.dt-box { background: var(--hi-bg-surface); border-radius: 14px; width: 100%; max-width: 560px; max-height: 82vh; overflow-y: auto; padding: 24px; }
+.dt-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.dt-name { font-size: 18px; font-weight: 800; color: var(--hi-text); }
+.dt-sid { font-size: 13px; font-weight: 700; color: var(--hi-text-muted); font-feature-settings: 'tnum'; }
+.dt-sum { font-size: 13px; color: var(--hi-text-muted); font-weight: 600; margin-bottom: 18px; }
+.dt-sec { font-size: 11px; font-weight: 800; letter-spacing: 1.2px; color: var(--hi-text-muted); margin: 18px 0 8px; }
+.dt-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--hi-border); font-size: 13px; }
+.dt-row:last-child { border-bottom: none; }
+.dt-row .l { font-weight: 700; color: var(--hi-text); }
+.dt-row .r { color: var(--hi-text-muted); font-weight: 600; font-feature-settings: 'tnum'; }
+
+.empty-msg { text-align: center; padding: 40px 20px; color: var(--hi-text-muted); font-size: 14px; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- ── 로그인 ── -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">역사 OX 퀴즈</div>
+    <div class="login-sub">관리자 모드</div>
+    <div class="field-group" style="text-align:left;margin-bottom:14px">
+      <label class="form-label">이메일</label>
+      <input type="email" class="hi-input" id="gate-email" placeholder="이메일">
+    </div>
+    <div class="field-group" style="text-align:left;margin-bottom:14px">
+      <label class="form-label">비밀번호</label>
+      <input type="password" class="hi-input" id="gate-pw" placeholder="비밀번호">
+    </div>
+    <div class="login-err" id="gate-err"></div>
+    <button class="login-btn" id="gate-login-btn">접속하기</button>
+  </div>
+</div>
+
+<!-- ── 어드민 ── -->
+<div id="adminApp">
+  <header class="adm-header">
+    <div class="adm-logo">역사 OX 퀴즈<span class="adm-badge">관리자 모드</span></div>
+    <div class="adm-tabs">
+      <button class="adm-tab active" data-tab="contents">CONTENTS</button>
+      <button class="adm-tab" data-tab="answer">ANSWER</button>
+    </div>
+    <button class="adm-logout" id="logout-btn">로그아웃</button>
+    <button class="adm-back" onclick="window.parent.closeAppAdmin&&window.parent.closeAppAdmin()">목록으로</button>
+  </header>
+
+  <div class="adm-body">
+
+  <!-- ══════════ CONTENTS ══════════ -->
+  <div class="tab-panel active" id="tab-contents">
+    <div class="admin-container">
+
+      <div class="lec-bar">
+        <select class="hi-select" id="lec-sel"></select>
+        <span class="count" id="lec-count"></span>
+      </div>
+
+      <!-- 문제 추가 -->
+      <div class="section-card">
+        <div class="section-title" id="q-form-title">새 문제 추가</div>
+        <div class="q-form">
+          <div>
+            <label class="form-label">문제</label>
+            <textarea class="hi-textarea" id="q-text" placeholder="예) 세종은 훈민정음을 창제하였다."></textarea>
+          </div>
+          <div class="q-answer">
+            <span class="q-answer-lbl">정답</span>
+            <button type="button" class="q-answer-btn" data-a="O">O</button>
+            <button type="button" class="q-answer-btn" data-a="X">X</button>
+          </div>
+          <div>
+            <label class="form-label">해설 (선택)</label>
+            <textarea class="hi-textarea" id="q-exp" placeholder="학생이 답을 고른 직후에 보여 줄 설명"></textarea>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="q-save">문제 추가</button>
+            <button class="btn btn-ghost" id="q-cancel" style="display:none">수정 취소</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 엑셀 -->
+      <div class="section-card">
+        <div class="section-title">엑셀로 한꺼번에 올리기</div>
+        <p class="section-desc">첫 줄은 제목 줄로 보고 건너뜁니다. 강의 칸을 비우면 위에서 고른 강의로 들어갑니다.</p>
+        <div class="uz" id="uz">
+          <div class="uz-t">엑셀 파일을 여기에 끌어 놓거나 눌러서 고르세요</div>
+          <div class="uz-d">.xlsx / .xls / .csv 지원. 기존 문제는 지워지지 않고 뒤에 이어 붙습니다.</div>
+          <input type="file" id="xl-input" accept=".xlsx,.xls,.csv">
+        </div>
+        <div class="xl-guide">
+          <table>
+            <tr><th>A: 강의</th><th>B: 문제</th><th>C: 정답</th><th>D: 해설</th></tr>
+            <tr><td>12</td><td>세종은 훈민정음을 창제하였다.</td><td>O</td><td>1443년에 창제했다.</td></tr>
+          </table>
+        </div>
+        <div class="btn-row" style="margin-top:16px">
+          <button class="btn btn-ghost btn-sm" id="xl-sample">빈 양식 내려받기</button>
+          <button class="btn btn-ghost btn-sm" id="xl-export">전체 문제 내보내기</button>
+        </div>
+      </div>
+
+      <!-- 문제 목록 -->
+      <div class="section-card">
+        <div class="section-title" id="q-list-title">등록된 문제</div>
+        <div class="q-list" id="q-list"></div>
+        <div class="btn-row" style="margin-top:18px">
+          <button class="btn btn-danger btn-sm" id="q-clear">이 강의 문제 전체 삭제</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════ ANSWER ══════════ -->
+  <div class="tab-panel" id="tab-answer">
+    <div class="class-filter" id="ans-classes">
+      <button class="cf-btn active" data-c="all">전체</button>
+      <button class="cf-btn" data-c="1">1반</button>
+      <button class="cf-btn" data-c="2">2반</button>
+      <button class="cf-btn" data-c="3">3반</button>
+      <button class="cf-btn" data-c="4">4반</button>
+      <button class="cf-btn" data-c="5">5반</button>
+      <button class="cf-btn" data-c="6">6반</button>
+    </div>
+
+    <div class="admin-container">
+      <div class="stats-row">
+        <div class="stat-chip">
+          <div class="stat-chip-label">참여 / 전체</div>
+          <div class="stat-dual">
+            <div class="stat-dual-val" id="st-join" style="color:var(--hi-accent)">-</div>
+            <div class="stat-dual-val" id="st-all" style="color:var(--hi-text-muted)">-</div>
+          </div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">누적 풀이</div>
+          <div class="stat-chip-val" id="st-sessions">-</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">평균 정답률</div>
+          <div class="stat-chip-val" id="st-rate">-</div>
+        </div>
+        <div class="stat-chip">
+          <div class="stat-chip-label">지급 포인트</div>
+          <div class="stat-chip-val" id="st-pt">-</div>
+        </div>
+      </div>
+
+      <div class="adm-action-row">
+        <button class="btn btn-ghost btn-sm" id="ans-export">엑셀 내보내기</button>
+        <div class="sort-box">
+          <button class="sort-btn active" data-s="id">학번순</button>
+          <button class="sort-btn" data-s="rate">정답률순</button>
+          <button class="sort-btn" data-s="sessions">참여순</button>
+        </div>
+      </div>
+
+      <div class="section-card" style="padding:8px 8px 4px">
+        <div class="ans-table-wrap">
+          <table class="ans-table">
+            <thead>
+              <tr>
+                <th style="text-align:left">학번</th><th style="text-align:left">이름</th>
+                <th>푼 횟수</th><th>푼 강의</th><th>정답 / 문항</th><th>정답률</th><th>포인트</th>
+              </tr>
+            </thead>
+            <tbody id="ans-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div><!-- /.adm-body -->
+</div>
+
+<!-- ── 학생 상세 ── -->
+<div class="dt-back" id="dt-back">
+  <div class="dt-box">
+    <div class="dt-head">
+      <span class="dt-name" id="dt-name"></span>
+      <span class="dt-sid" id="dt-sid"></span>
+    </div>
+    <div class="dt-sum" id="dt-sum"></div>
+    <div class="dt-sec">강의별 누적</div>
+    <div id="dt-lessons"></div>
+    <div class="dt-sec">참여 기록</div>
+    <div id="dt-sessions"></div>
+    <div class="btn-row" style="margin-top:22px">
+      <button class="btn btn-ghost btn-sm" id="dt-close">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, getDocs, addDoc, updateDoc, deleteDoc, doc,
+         query, where, writeBatch, serverTimestamp }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { firebaseConfig } from "../shared/firebase-config.js";
+import { showToast } from "../shared/toast.js";
+
+const app  = initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const auth = getAuth(app);
+const rtdb = getDatabase(app);
+const isEmbedded = window.self !== window.top;
+
+/* ══════════ 상태 ══════════ */
+const S = {
+  lessons:   [],    // class_lessons: [{ num, title, order }]
+  questions: [],    // 전체 문제 [{ id, lessonNum, text, answer, explain, order }]
+  lecNum:    '',    // CONTENTS에서 고른 강의 번호
+  editId:    null,  // 수정 중인 문제 id
+  answer:    '',    // 입력 폼에서 고른 정답
+  roster:    [],    // [{ sid, name, classNum }]
+  records:   {},    // { sid: ox_records 문서 }
+  ansClass:  'all',
+  ansSort:   'id',
+};
+
+/* ══════════ 로그인 ══════════ */
+async function initAdmin() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('adminApp').classList.add('show');
+  await Promise.all([loadLessons(), loadQuestions(), loadRoster(), loadRecords()]);
+  populateLecSelect();
+  renderQuestions();
+  renderAnswer();
+}
+
+if (isEmbedded) {
+  document.documentElement.classList.add('has-own-back');
+  initAdmin();
+} else {
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      initAdmin();
+    } else {
+      document.getElementById('loginScreen').style.display = '';
+      document.getElementById('adminApp').classList.remove('show');
+    }
+  });
+}
+
+document.getElementById('gate-login-btn').addEventListener('click', async () => {
+  const email = document.getElementById('gate-email').value.trim();
+  const pw    = document.getElementById('gate-pw').value;
+  const err   = document.getElementById('gate-err');
+  err.classList.remove('show');
+  try {
+    await signInWithEmailAndPassword(auth, email, pw);
+  } catch (e) {
+    err.textContent = '이메일 또는 비밀번호를 확인해 주세요.';
+    err.classList.add('show');
+  }
+});
+document.getElementById('gate-pw').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('gate-login-btn').click();
+});
+document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
+
+/* ══════════ 탭 ══════════ */
+document.querySelectorAll('.adm-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.adm-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    // ANSWER로 넘어올 때마다 기록을 다시 읽는다 — 학생이 방금 푼 것이 바로 보이도록.
+    // (구독을 걸지 않는 것은 표를 열어 둘 일이 길지 않고, 문서가 학생 수만큼 있어서다.)
+    if (btn.dataset.tab === 'answer') loadRecords().then(renderAnswer);
+  });
+});
+
+/* ══════════ 공통 ══════════ */
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function lecLabel(num) { return /^\d+$/.test(String(num)) ? num + '강' : String(num); }
+function classNumOf(sid) {
+  const n = parseInt(String(sid).slice(1, 3), 10);
+  return Number.isFinite(n) ? n : null;
+}
+function lecTitleOf(num) {
+  const L = S.lessons.find(x => x.num === String(num));
+  return L ? L.title : '';
+}
+function pct(correct, total) { return total ? Math.round(correct / total * 100) : 0; }
+
+/* ══════════ 데이터 로드 ══════════ */
+async function loadLessons() {
+  try {
+    const snap = await getDocs(collection(db, 'class_lessons'));
+    S.lessons = snap.docs.map(d => {
+      const v = d.data() || {};
+      return { num: String(v.num == null ? '' : v.num).trim(), title: v.title || '', order: Number(v.order || 0) };
+    }).filter(x => x.num)
+      .sort((a, b) => b.order - a.order); // LMS 강의 목록과 같은 기준(최신이 위)
+  } catch (e) { S.lessons = []; }
+}
+
+async function loadQuestions() {
+  const snap = await getDocs(collection(db, 'ox_questions'));
+  S.questions = snap.docs.map(d => {
+    const v = d.data() || {};
+    return {
+      id: d.id,
+      lessonNum: String(v.lessonNum == null ? '' : v.lessonNum).trim(),
+      text: v.text || '', answer: String(v.answer || '').toUpperCase(),
+      explain: v.explain || '', order: Number(v.order || 0),
+    };
+  });
+}
+
+/* RTDB /students의 키는 학번이 아니다 — 학번은 값 안의 studentId(또는 id)에 들어 있다.
+   shared/auth.js의 _fetchWithRetry와 같은 방식으로 읽는다. */
+async function loadRoster() {
+  try {
+    const snap = await get(ref(rtdb, 'students'));
+    const raw  = snap.exists() ? (snap.val() || {}) : {};
+    S.roster = Object.values(raw).map(v => {
+      if (!v) return null;
+      const sid  = String(v.studentId || v.id || '').trim();
+      const name = String(v.name || v.studentName || v.realName || '').trim();
+      return sid ? { sid, name, classNum: classNumOf(sid) } : null;
+    }).filter(Boolean).sort((a, b) => a.sid.localeCompare(b.sid));
+  } catch (e) { S.roster = []; }
+}
+
+async function loadRecords() {
+  const snap = await getDocs(collection(db, 'ox_records'));
+  S.records = {};
+  snap.docs.forEach(d => { S.records[d.id] = { sid: d.id, ...(d.data() || {}) }; });
+}
+
+/* ══════════════════════════════════════════════════════════
+   CONTENTS
+   ══════════════════════════════════════════════════════════ */
+
+/* 강의 선택 목록 — LMS에 있는 강의 + 문제만 남아 있는 강의(강의가 지워진 경우)를 함께 보여 준다. */
+function populateLecSelect() {
+  const sel = document.getElementById('lec-sel');
+  const nums = new Set(S.lessons.map(l => l.num));
+  S.questions.forEach(q => { if (q.lessonNum) nums.add(q.lessonNum); });
+
+  const rows = [...nums].map(num => {
+    const L = S.lessons.find(x => x.num === num);
+    return {
+      num,
+      title: L ? L.title : '',
+      order: L ? L.order : (/^\d+$/.test(num) ? parseInt(num, 10) : -1),
+      count: S.questions.filter(q => q.lessonNum === num).length,
+    };
+  }).sort((a, b) => b.order - a.order);
+
+  if (!rows.length) {
+    sel.innerHTML = '<option value="">등록된 강의가 없습니다</option>';
+    S.lecNum = '';
+  } else {
+    sel.innerHTML = rows.map(r =>
+      '<option value="' + esc(r.num) + '">' + esc(lecLabel(r.num)) +
+      (r.title ? ' ' + esc(r.title) : '') + ' (' + r.count + '문제)</option>').join('');
+    if (!rows.some(r => r.num === S.lecNum)) S.lecNum = rows[0].num;
+    sel.value = S.lecNum;
+  }
+}
+
+document.getElementById('lec-sel').addEventListener('change', e => {
+  S.lecNum = e.target.value;
+  cancelEdit();
+  renderQuestions();
+});
+
+function lecQuestions() {
+  return S.questions.filter(q => q.lessonNum === S.lecNum)
+                    .sort((a, b) => a.order - b.order);
+}
+
+function renderQuestions() {
+  const list = lecQuestions();
+  document.getElementById('lec-count').textContent = list.length + '문제';
+  document.getElementById('q-list-title').textContent =
+    S.lecNum ? lecLabel(S.lecNum) + ' 문제 ' + list.length + '개' : '등록된 문제';
+
+  const wrap = document.getElementById('q-list');
+  if (!list.length) {
+    wrap.innerHTML = '<div class="empty-msg">아직 이 강의에 등록된 문제가 없습니다</div>';
+    return;
+  }
+  wrap.innerHTML = list.map((q, i) =>
+    '<div class="q-item">' +
+      '<div class="q-item-no">' + (i + 1) + '</div>' +
+      '<div class="q-item-a">' + esc(q.answer) + '</div>' +
+      '<div class="q-item-body">' +
+        '<div class="q-item-text">' + esc(q.text) + '</div>' +
+        (q.explain ? '<div class="q-item-exp">' + esc(q.explain) + '</div>' : '') +
+      '</div>' +
+      '<div class="q-item-act">' +
+        '<button class="q-move" data-act="up"   data-id="' + q.id + '"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
+        '<button class="q-move" data-act="down" data-id="' + q.id + '"' + (i === list.length - 1 ? ' disabled' : '') + '>↓</button>' +
+        '<button class="btn btn-ghost btn-sm" data-act="edit" data-id="' + q.id + '">수정</button>' +
+        '<button class="btn btn-danger btn-sm" data-act="del" data-id="' + q.id + '">삭제</button>' +
+      '</div>' +
+    '</div>').join('');
+}
+
+document.getElementById('q-list').addEventListener('click', async e => {
+  const btn = e.target.closest('[data-act]');
+  if (!btn) return;
+  const id = btn.dataset.id;
+  if (btn.dataset.act === 'edit') startEdit(id);
+  else if (btn.dataset.act === 'del') removeQuestion(id);
+  else moveQuestion(id, btn.dataset.act === 'up' ? -1 : 1);
+});
+
+/* 정답 고르기 */
+document.querySelectorAll('.q-answer-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    S.answer = b.dataset.a;
+    document.querySelectorAll('.q-answer-btn').forEach(x => x.classList.toggle('on', x.dataset.a === S.answer));
+  });
+});
+
+function startEdit(id) {
+  const q = S.questions.find(x => x.id === id);
+  if (!q) return;
+  S.editId = id;
+  S.answer = q.answer;
+  document.getElementById('q-text').value = q.text;
+  document.getElementById('q-exp').value  = q.explain;
+  document.querySelectorAll('.q-answer-btn').forEach(x => x.classList.toggle('on', x.dataset.a === S.answer));
+  document.getElementById('q-form-title').textContent = '문제 수정';
+  document.getElementById('q-save').textContent = '수정 저장';
+  document.getElementById('q-cancel').style.display = '';
+  document.getElementById('q-text').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function cancelEdit() {
+  S.editId = null;
+  S.answer = '';
+  document.getElementById('q-text').value = '';
+  document.getElementById('q-exp').value  = '';
+  document.querySelectorAll('.q-answer-btn').forEach(x => x.classList.remove('on'));
+  document.getElementById('q-form-title').textContent = '새 문제 추가';
+  document.getElementById('q-save').textContent = '문제 추가';
+  document.getElementById('q-cancel').style.display = 'none';
+}
+document.getElementById('q-cancel').addEventListener('click', cancelEdit);
+
+document.getElementById('q-save').addEventListener('click', async () => {
+  const text = document.getElementById('q-text').value.trim();
+  const exp  = document.getElementById('q-exp').value.trim();
+  if (!S.lecNum)  { showToast('먼저 강의를 고르세요', 'error'); return; }
+  if (!text)      { showToast('문제를 입력하세요', 'error'); return; }
+  if (!S.answer)  { showToast('정답을 고르세요', 'error'); return; }
+
+  try {
+    if (S.editId) {
+      await updateDoc(doc(db, 'ox_questions', S.editId), { text, answer: S.answer, explain: exp });
+      const q = S.questions.find(x => x.id === S.editId);
+      Object.assign(q, { text, answer: S.answer, explain: exp });
+      showToast('수정했습니다');
+    } else {
+      const order = lecQuestions().length ? Math.max(...lecQuestions().map(q => q.order)) + 1 : 0;
+      const r = await addDoc(collection(db, 'ox_questions'), {
+        lessonNum: S.lecNum, text, answer: S.answer, explain: exp, order, createdAt: serverTimestamp(),
+      });
+      S.questions.push({ id: r.id, lessonNum: S.lecNum, text, answer: S.answer, explain: exp, order });
+      showToast('추가했습니다');
+    }
+    cancelEdit();
+    populateLecSelect();
+    renderQuestions();
+  } catch (e) {
+    console.error(e);
+    showToast('저장하지 못했습니다', 'error');
+  }
+});
+
+async function removeQuestion(id) {
+  if (!confirm('이 문제를 삭제할까요?')) return;
+  try {
+    await deleteDoc(doc(db, 'ox_questions', id));
+    S.questions = S.questions.filter(q => q.id !== id);
+    if (S.editId === id) cancelEdit();
+    populateLecSelect();
+    renderQuestions();
+    showToast('삭제했습니다');
+  } catch (e) { console.error(e); showToast('삭제하지 못했습니다', 'error'); }
+}
+
+/* 순서 이동 — 두 문제의 order를 맞바꾼다. */
+async function moveQuestion(id, dir) {
+  const list = lecQuestions();
+  const i = list.findIndex(q => q.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  const a = list[i], b = list[j];
+  const ao = a.order, bo = b.order;
+  try {
+    const batch = writeBatch(db);
+    batch.update(doc(db, 'ox_questions', a.id), { order: bo });
+    batch.update(doc(db, 'ox_questions', b.id), { order: ao });
+    await batch.commit();
+    a.order = bo; b.order = ao;
+    renderQuestions();
+  } catch (e) { console.error(e); showToast('순서를 바꾸지 못했습니다', 'error'); }
+}
+
+document.getElementById('q-clear').addEventListener('click', async () => {
+  const list = lecQuestions();
+  if (!list.length) { showToast('삭제할 문제가 없습니다', 'error'); return; }
+  if (!confirm(lecLabel(S.lecNum) + ' 문제 ' + list.length + '개를 모두 삭제할까요? 되돌릴 수 없습니다.')) return;
+  try {
+    await batchedDelete(list.map(q => q.id));
+    S.questions = S.questions.filter(q => q.lessonNum !== S.lecNum);
+    cancelEdit();
+    populateLecSelect();
+    renderQuestions();
+    showToast('삭제했습니다');
+  } catch (e) { console.error(e); showToast('삭제하지 못했습니다', 'error'); }
+});
+
+// Firestore 배치는 한 번에 500건까지라 400건씩 끊어 보낸다.
+async function batchedDelete(ids) {
+  for (let i = 0; i < ids.length; i += 400) {
+    const batch = writeBatch(db);
+    ids.slice(i, i + 400).forEach(id => batch.delete(doc(db, 'ox_questions', id)));
+    await batch.commit();
+  }
+}
+
+/* ══════════ 엑셀 ══════════ */
+const uz = document.getElementById('uz');
+const xlInput = document.getElementById('xl-input');
+uz.addEventListener('click', () => xlInput.click());
+uz.addEventListener('dragover', e => { e.preventDefault(); uz.classList.add('drag'); });
+uz.addEventListener('dragleave', () => uz.classList.remove('drag'));
+uz.addEventListener('drop', e => {
+  e.preventDefault(); uz.classList.remove('drag');
+  if (e.dataTransfer.files && e.dataTransfer.files[0]) readExcel(e.dataTransfer.files[0]);
+});
+xlInput.addEventListener('change', e => {
+  if (e.target.files && e.target.files[0]) readExcel(e.target.files[0]);
+  e.target.value = '';
+});
+
+function readExcel(file) {
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    try {
+      const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      await importRows(rows);
+    } catch (e) {
+      console.error(e);
+      showToast('엑셀을 읽지 못했습니다', 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+/* 첫 줄은 제목 줄로 보고 건너뛴다. 강의 칸이 비어 있으면 지금 고른 강의로 넣는다. */
+async function importRows(rows) {
+  const parsed = [];
+  let skipped = 0;
+  rows.slice(1).forEach(r => {
+    const lec  = String(r[0] == null ? '' : r[0]).trim() || S.lecNum;
+    const text = String(r[1] == null ? '' : r[1]).trim();
+    const ans  = String(r[2] == null ? '' : r[2]).trim().toUpperCase();
+    const exp  = String(r[3] == null ? '' : r[3]).trim();
+    if (!lec || !text || (ans !== 'O' && ans !== 'X')) { if (text || ans) skipped++; return; }
+    parsed.push({ lessonNum: lec, text, answer: ans, explain: exp });
+  });
+
+  if (!parsed.length) {
+    showToast('올릴 수 있는 줄이 없습니다', 'error');
+    return;
+  }
+  const lecs = [...new Set(parsed.map(p => p.lessonNum))].sort();
+  const msg = '문제 ' + parsed.length + '개를 추가합니다.\n대상 강의: ' + lecs.map(lecLabel).join(', ') +
+              (skipped ? '\n형식이 맞지 않는 ' + skipped + '줄은 건너뜁니다.' : '');
+  if (!confirm(msg)) return;
+
+  // 강의별로 기존 문제 뒤에 이어 붙도록 order를 이어 준다.
+  const nextOrder = {};
+  lecs.forEach(l => {
+    const cur = S.questions.filter(q => q.lessonNum === l);
+    nextOrder[l] = cur.length ? Math.max(...cur.map(q => q.order)) + 1 : 0;
+  });
+
+  try {
+    for (let i = 0; i < parsed.length; i += 400) {
+      const chunk = parsed.slice(i, i + 400);
+      const batch = writeBatch(db);
+      chunk.forEach(p => {
+        const r = doc(collection(db, 'ox_questions'));
+        const order = nextOrder[p.lessonNum]++;
+        batch.set(r, { ...p, order, createdAt: serverTimestamp() });
+        S.questions.push({ id: r.id, ...p, order });
+      });
+      await batch.commit();
+    }
+    populateLecSelect();
+    document.getElementById('lec-sel').value = S.lecNum;
+    renderQuestions();
+    showToast(parsed.length + '개를 올렸습니다');
+  } catch (e) {
+    console.error(e);
+    showToast('업로드하지 못했습니다', 'error');
+  }
+}
+
+document.getElementById('xl-sample').addEventListener('click', () => {
+  const ws = XLSX.utils.aoa_to_sheet([
+    ['강의', '문제', '정답', '해설'],
+    [S.lecNum || 12, '세종은 훈민정음을 창제하였다.', 'O', '1443년에 창제하고 1446년에 반포했다.'],
+    [S.lecNum || 12, '조선은 고려의 수도인 개경을 그대로 썼다.', 'X', '한양으로 옮겼다.'],
+  ]);
+  ws['!cols'] = [{ wch: 8 }, { wch: 56 }, { wch: 8 }, { wch: 46 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '문제');
+  XLSX.writeFile(wb, 'OX퀴즈_양식.xlsx');
+});
+
+document.getElementById('xl-export').addEventListener('click', () => {
+  if (!S.questions.length) { showToast('내보낼 문제가 없습니다', 'error'); return; }
+  const sorted = S.questions.slice().sort((a, b) =>
+    a.lessonNum.localeCompare(b.lessonNum, 'ko', { numeric: true }) || a.order - b.order);
+  const ws = XLSX.utils.json_to_sheet(sorted.map(q => ({
+    강의: q.lessonNum, 문제: q.text, 정답: q.answer, 해설: q.explain,
+  })));
+  ws['!cols'] = [{ wch: 8 }, { wch: 56 }, { wch: 8 }, { wch: 46 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '문제');
+  XLSX.writeFile(wb, 'OX퀴즈_문제_' + today() + '.xlsx');
+});
+
+function today() {
+  const d = new Date(), p = n => String(n).padStart(2, '0');
+  return '' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate());
+}
+
+/* ══════════════════════════════════════════════════════════
+   ANSWER — 학생별 누적 참여 기록
+   ══════════════════════════════════════════════════════════ */
+document.querySelectorAll('#ans-classes .cf-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#ans-classes .cf-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    S.ansClass = b.dataset.c;
+    renderAnswer();
+  });
+});
+document.querySelectorAll('.sort-box .sort-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('.sort-box .sort-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    S.ansSort = b.dataset.s;
+    renderAnswer();
+  });
+});
+
+/* 명단이 비어 있으면(로스터를 못 읽었을 때) 기록이 있는 학생만이라도 보여 준다. */
+function answerRows() {
+  const base = S.roster.length
+    ? S.roster
+    : Object.values(S.records).map(r => ({ sid: r.sid, name: r.name || '', classNum: classNumOf(r.sid) }));
+
+  return base
+    .filter(s => S.ansClass === 'all' || String(s.classNum) === S.ansClass)
+    .map(s => {
+      const r = S.records[s.sid] || {};
+      const correct = r.correct || 0, total = r.total || 0;
+      return {
+        sid: s.sid, name: r.name || s.name || '',
+        sessions: r.sessions || 0,
+        lessons:  Object.keys(r.lessons || {}).length,
+        correct, total, rate: pct(correct, total),
+        points: r.points || 0,
+        joined: (r.sessions || 0) > 0,
+      };
+    });
+}
+
+function renderAnswer() {
+  const rows = answerRows();
+  const joined = rows.filter(r => r.joined);
+  const sumCorrect = joined.reduce((a, r) => a + r.correct, 0);
+  const sumTotal   = joined.reduce((a, r) => a + r.total, 0);
+
+  document.getElementById('st-join').textContent     = joined.length;
+  document.getElementById('st-all').textContent      = rows.length;
+  document.getElementById('st-sessions').textContent = joined.reduce((a, r) => a + r.sessions, 0);
+  document.getElementById('st-rate').textContent     = sumTotal ? pct(sumCorrect, sumTotal) + '%' : '-';
+  document.getElementById('st-pt').textContent       = joined.reduce((a, r) => a + r.points, 0) + 'pt';
+
+  const sorted = rows.slice().sort((a, b) => {
+    if (S.ansSort === 'rate')     return b.rate - a.rate || a.sid.localeCompare(b.sid);
+    if (S.ansSort === 'sessions') return b.sessions - a.sessions || a.sid.localeCompare(b.sid);
+    return a.sid.localeCompare(b.sid);
+  });
+
+  const body = document.getElementById('ans-body');
+  if (!sorted.length) {
+    body.innerHTML = '<tr><td colspan="7" class="empty-msg">표시할 학생이 없습니다</td></tr>';
+    return;
+  }
+  body.innerHTML = sorted.map(r =>
+    '<tr data-sid="' + esc(r.sid) + '"' + (r.joined ? '' : ' class="none"') + '>' +
+      '<td style="text-align:left">' + esc(r.sid) + '</td>' +
+      '<td class="nm">' + esc(r.name) + '</td>' +
+      '<td>' + (r.joined ? r.sessions : '-') + '</td>' +
+      '<td>' + (r.joined ? r.lessons : '-') + '</td>' +
+      '<td>' + (r.joined ? r.correct + ' / ' + r.total : '-') + '</td>' +
+      '<td class="rate">' + (r.joined
+          ? '<b>' + r.rate + '%</b><span class="rate-bar"><i style="width:' + r.rate + '%"></i></span>'
+          : '-') + '</td>' +
+      '<td>' + (r.joined ? r.points + 'pt' : '-') + '</td>' +
+    '</tr>').join('');
+}
+
+document.getElementById('ans-body').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-sid]');
+  if (tr) openDetail(tr.dataset.sid);
+});
+
+document.getElementById('ans-export').addEventListener('click', () => {
+  const rows = answerRows();
+  if (!rows.length) { showToast('내보낼 기록이 없습니다', 'error'); return; }
+  const ws = XLSX.utils.json_to_sheet(rows.map(r => ({
+    학번: r.sid, 이름: r.name, 푼횟수: r.sessions, 푼강의수: r.lessons,
+    정답: r.correct, 문항: r.total, 정답률: r.rate, 포인트: r.points,
+  })));
+  ws['!cols'] = [{ wch: 9 }, { wch: 11 }, { wch: 9 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 9 }, { wch: 9 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'OX퀴즈');
+  XLSX.writeFile(wb, 'OX퀴즈_참여기록_' + today() + '.xlsx');
+});
+
+/* ── 학생 상세: 세션은 여기서만 읽는다(전량 조회하면 학기가 갈수록 읽기가 불어난다) ── */
+async function openDetail(sid) {
+  const r = S.records[sid] || {};
+  const s = S.roster.find(x => x.sid === sid) || {};
+  document.getElementById('dt-name').textContent = r.name || s.name || '이름 없음';
+  document.getElementById('dt-sid').textContent  = sid;
+  document.getElementById('dt-sum').textContent  = (r.sessions || 0) + '회 참여 / 정답 ' +
+    (r.correct || 0) + ' / ' + (r.total || 0) + ' (' + pct(r.correct || 0, r.total || 0) + '%) / ' +
+    (r.points || 0) + 'pt';
+
+  const lessons = r.lessons || {};
+  const lkeys = Object.keys(lessons).sort((a, b) => a.localeCompare(b, 'ko', { numeric: true }));
+  document.getElementById('dt-lessons').innerHTML = lkeys.length
+    ? lkeys.map(k => {
+        const L = lessons[k];
+        return '<div class="dt-row">' +
+          '<span class="l">' + esc(lecLabel(k)) + (lecTitleOf(k) ? ' ' + esc(lecTitleOf(k)) : '') + '</span>' +
+          '<span class="r">' + (L.attempts || 0) + '회 / 정답 ' + (L.correct || 0) + ' / ' + (L.total || 0) +
+          ' (' + pct(L.correct || 0, L.total || 0) + '%) / 최고 ' + (L.bestRate || 0) + '%</span>' +
+        '</div>';
+      }).join('')
+    : '<div class="empty-msg" style="padding:20px">아직 푼 강의가 없습니다</div>';
+
+  const sessWrap = document.getElementById('dt-sessions');
+  sessWrap.innerHTML = '<div class="empty-msg" style="padding:20px">불러오는 중입니다</div>';
+  document.getElementById('dt-back').classList.add('show');
+
+  try {
+    // 정렬은 클라이언트에서 한다 — where + orderBy를 같이 쓰면 복합 색인을 따로 만들어야 한다.
+    const snap = await getDocs(query(collection(db, 'ox_sessions'), where('sid', '==', sid)));
+    const list = snap.docs.map(d => d.data() || {})
+      .sort((a, b) => (b.at && b.at.seconds || 0) - (a.at && a.at.seconds || 0));
+    sessWrap.innerHTML = list.length
+      ? list.map(x => {
+          const d = x.at && x.at.seconds ? new Date(x.at.seconds * 1000) : null;
+          const when = d ? (d.getMonth() + 1) + '/' + d.getDate() + ' ' +
+                           String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') : '';
+          return '<div class="dt-row">' +
+            '<span class="l">' + esc(lecLabel(x.lessonNum)) + '</span>' +
+            '<span class="r">' + (x.correct || 0) + ' / ' + (x.total || 0) + ' (' + (x.rate || 0) + '%) / ' +
+            (x.pt || 0) + 'pt <span style="opacity:.7">' + esc(when) + '</span></span>' +
+          '</div>';
+        }).join('')
+      : '<div class="empty-msg" style="padding:20px">참여 기록이 없습니다</div>';
+  } catch (e) {
+    console.error(e);
+    sessWrap.innerHTML = '<div class="empty-msg" style="padding:20px">기록을 불러오지 못했습니다</div>';
+  }
+}
+
+document.getElementById('dt-close').addEventListener('click', () => {
+  document.getElementById('dt-back').classList.remove('show');
+});
+document.getElementById('dt-back').addEventListener('click', e => {
+  if (e.target.id === 'dt-back') document.getElementById('dt-back').classList.remove('show');
+});
+</script>
+</body>
+</html>

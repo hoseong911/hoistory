@@ -25,6 +25,8 @@ service cloud.firestore {
     match /survey_config/{id}                  { allow read: if true; allow write: if isAdmin(); }
     match /samguk_goods/{id}                   { allow read: if true; allow write: if isAdmin(); }
     match /ox2606_questions/{id}               { allow read: if true; allow write: if isAdmin(); }
+    // OX 퀴즈 문제은행(ox/admin.html에서 등록·엑셀 업로드). 학생은 읽기만 한다.
+    match /ox_questions/{id}                   { allow read: if true; allow write: if isAdmin(); }
 
     // ── 학생 자가제출: 생성(및 명시된 항목만 수정)은 공개 허용하되 필드를 검증한다.
     //    수정/삭제는 이 블록에서 허용하지 않는 한 맨 아래 catch-all(관리자 전용)로 넘어간다.
@@ -295,6 +297,35 @@ service cloud.firestore {
         request.resource.data.studentId is string &&
         request.resource.data.score is number && request.resource.data.score <= 1000000
       );
+    }
+
+    // ── OX 퀴즈 (ox/): 학생별 누적 요약 + 풀이 한 건씩 ──
+    //    요약은 문서 id가 곧 학번이라 1인 1장이 구조로 강제된다. 어드민 목록은 이 요약만
+    //    읽고, 세션은 학생을 펼칠 때만 읽는다(학기가 갈수록 세션이 쌓이므로).
+    //    포인트 지급은 여기가 아니라 RTDB의 xp 트랜잭션이 하므로, points 필드는 화면에
+    //    보여 주는 사본일 뿐이다 — 이 값을 부풀려도 실제 경험치는 늘지 않는다.
+    match /ox_records/{studentId} {
+      allow read: if true;
+      allow create, update: if isAdmin() || (
+        request.resource.data.sid == studentId &&
+        request.resource.data.name is string && request.resource.data.name.size() <= 50 &&
+        request.resource.data.sessions is number && request.resource.data.sessions <= 100000 &&
+        request.resource.data.correct is number && request.resource.data.correct <= 1000000 &&
+        request.resource.data.total is number && request.resource.data.total <= 1000000 &&
+        request.resource.data.lessons is map && request.resource.data.lessons.size() <= 100
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /ox_sessions/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.sid is string &&
+        request.resource.data.lessonNum is string &&
+        request.resource.data.correct is number && request.resource.data.correct <= 1000 &&
+        request.resource.data.total is number && request.resource.data.total <= 1000
+      );
+      allow delete: if isAdmin();
     }
 
     match /ox2606_corrections/{id} {
