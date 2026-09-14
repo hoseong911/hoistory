@@ -392,15 +392,28 @@
   flex: 1; position: relative; overflow: hidden;
   --tlv-fs: var(--fs-tlv-memo, var(--fs-tl-year, calc(var(--fs-label) * 1.1)));
   --tlv-gap: 26px;
+  /* 사건과 사건 사이 세로 여백. 글자 크기를 키우면 같이 벌어지도록 본문 크기에 매어
+     둔다(고정 px로 두면 큰 글씨에서 사건들이 서로 달라붙는다). 이 한 줄만 고치면
+     연표 전체의 간격이 바뀐다. */
+  --tlv-rowgap: calc(var(--fs-tl-text, var(--fs-body)) * 1.2);
 }
 /* 라벨 칸은 max-content — 그 화면에서 가장 긴 라벨에 딱 맞는 폭이 된다. 글자 수로
    어림하지 않으므로 라벨 덩이의 왼쪽 끝이 화면 왼쪽에 정확히 붙는다.
    align-items:start라야 각 칸의 높이가 제 내용만큼이 되고(점을 라벨 가운데에 두는
    근거), 선만 stretch로 늘려 사건 전체를 가로지른다. */
+/* 사건 사이는 고정 여백이고, 연표 덩이째 세로 가운데에 놓는다.
+   예전엔 align-content:space-between으로 남는 높이를 사건 사이에 전부 나눠 넣었는데,
+   사건이 서넛뿐인 슬라이드에서 간격이 화면 높이만큼 벌어져 연표로 안 보였다.
+   safe를 붙인 것은 사건이 많아 넘칠 때를 위한 것이다 — 그냥 center면 위쪽이 잘려
+   첫 사건을 볼 방법이 없어진다. safe면 넘치는 순간 위로 붙어(start) 아래만 잘린다.
+   (safe를 모르는 브라우저는 앞줄의 start를 그대로 쓴다.) */
 .fmt-timeline-v .tlv-events {
   height: 100%; display: grid;
   grid-template-columns: max-content 2px 1fr;
-  align-content: space-between; align-items: start;
+  row-gap: var(--tlv-rowgap);
+  align-content: start;
+  align-content: safe center;
+  align-items: start;
 }
 .fmt-timeline-v .tlv-line { grid-column: 2; grid-row: 1 / -1; align-self: stretch; margin: 4px 0; background: var(--label); opacity: .45; }
 /* 라벨 칸. align-items:start 덕에 이 칸의 높이는 라벨 자신의 높이다 — 점을 여기에
