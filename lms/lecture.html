@@ -931,25 +931,13 @@ async function init() {
      밀지 않고 제자리에서 겹쳐 바꾼다 — 선과 사건은 그대로 있고 회색 강조만 옮겨 가는
      것처럼 보인다(배지와 제목도 따라 움직이지 않는다).
 
-     "같은 연표"의 기준은 짧은 쪽 사건 목록이 긴 쪽의 앞부분과 똑같은 것이다. 강조만
-     바꿔 복제한 장(사건이 완전히 같음)과 뒤에 사건을 더 붙인 장이 여기 해당하는데,
-     둘 다 겹치는 사건들의 화면 위치가 픽셀 단위로 같아서(위쪽 정렬 + 고정 여백)
-     제자리에서 겹쳐도 글자가 어긋나 보이지 않는다. */
-  function timelineSig(slide) {
-    const tl = slide.querySelector('.fmt-timeline-v');
-    if (!tl) return null;
-    const memos = tl.querySelectorAll('.tlv-memo');
-    const bodies = tl.querySelectorAll('.tlv-content');
-    return Array.from(memos).map((m, i) =>
-      (m.textContent || '').trim() + ' ' + ((bodies[i] && bodies[i].textContent) || '').trim());
-  }
+     조건은 "양쪽 다 세로 연표"뿐이다. 처음에는 사건 목록까지 같은지 따졌는데(강조만 바꿔
+     복제한 장인지 확인하려고), 글자 하나만 달라도 조건이 깨져 밀기로 되돌아가는 바람에 정작
+     원하던 장면에서 안 걸렸다. 세로 연표끼리는 화면 구성이 같아 제자리에서 겹쳐도 어색하지
+     않으니 내용 비교는 하지 않는다. */
+  function isTimelineV(slide) { return !!slide.querySelector(".fmt-timeline-v"); }
   function canMorphSlides(fromSlide, toSlide) {
-    const a = timelineSig(fromSlide), b = timelineSig(toSlide);
-    if (!a || !b) return false;
-    const n = Math.min(a.length, b.length);
-    if (!n) return false;
-    for (let i = 0; i < n; i++) if (a[i] !== b[i]) return false;
-    return true;
+    return isTimelineV(fromSlide) && isTimelineV(toSlide);
   }
 
   // 실제로 전환했으면 true, 이미 그 슬라이드거나 전환 중이라 건너뛰었으면 false.
