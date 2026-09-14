@@ -564,7 +564,11 @@
       <div class="tlv-content" style="grid-row:${i + 1}">${(ev.content || []).map(t => `<p>${parseItemText(t)}</p>`).join('')}</div>`;
     }).join('');
     // 행을 명시해 두어야 선의 grid-row:1/-1이 사건 전체를 가로지른다(암시적 행이면 1행에서 끝난다).
-    const rows = `grid-template-rows:repeat(${Math.max(1, list.length)},max-content)`;
+    // 사건 행 뒤에 빈 1fr 행을 하나 더 둔다. 이 행이 남는 높이를 전부 먹으므로 (a) 사건들은
+    // 저절로 위쪽에 붙고 (b) 1/-1로 잡힌 선이 그 행 끝, 곧 페이지 아래까지 내려간다.
+    // 선만 늘리려고 따로 절대배치하면 라벨 칸 폭(max-content)을 알 수 없어 가로 위치가
+    // 어긋난다 — 선을 격자 안에 둔 채 행을 늘리는 쪽이 맞다.
+    const rows = `grid-template-rows:repeat(${Math.max(1, list.length)},max-content) 1fr`;
     return `
       <div class="fmt-timeline-v">
         <div class="tlv-events" style="${rows}">
