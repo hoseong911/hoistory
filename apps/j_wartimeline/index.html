@@ -169,6 +169,13 @@ body.one-screen #order-main{flex:1 1 auto;min-height:0;gap:10px}
 /* 인과 사슬 */
 /* 사건 카드 네 장이 서로 붙어 있으면 어디까지가 한 문제인지 안 보인다. */
 #causal-list{display:flex;flex-direction:column;gap:14px}
+/* 채점한 뒤 카드 테두리로 맞았는지 알린다. 정답이 무엇인지는 알려 주지 않는다 —
+   틀린 카드만 다시 골라 보게 하는 것이 이 단계의 목적이다. */
+.causal-q.ok{border-color:var(--pass)}
+.causal-q.no{border-color:var(--fail)}
+.causal-mark{display:inline-block;font-size:var(--fs-sm);font-weight:800;padding:2px 10px;border-radius:100px;margin-bottom:10px}
+.causal-q.ok .causal-mark{background:var(--pass-l);color:var(--pass)}
+.causal-q.no .causal-mark{background:var(--fail-l);color:var(--fail)}
 .causal-q{background:var(--canvas);border:1px solid var(--hairline);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
 .causal-chain{display:flex;align-items:stretch;gap:8px;margin-bottom:12px}
 .chain-cause,.chain-effect{flex:1;border-radius:12px;padding:11px;min-width:0}
@@ -258,7 +265,10 @@ body.one-screen #order-main{flex:1 1 auto;min-height:0;gap:10px}
     </div>
     <div class="play-hint">각 사건이 <b>왜 일어났는지</b> 앞선 사건에서 찾아 고르고, <b>어떻게 이어지는지</b> 한 줄로 써 보세요. 앞 도미노가 쓰러지면 뒤 도미노도 쓰러지듯이요.</div>
     <div id="causal-list"></div>
-    <button class="btn btn-accent btn-full" id="causal-submit">제출하기</button>
+    <div class="play-actions">
+      <button class="btn btn-ghost" id="causal-reset">다시하기</button>
+      <button class="btn btn-accent" id="causal-submit">채점하기</button>
+    </div>
     <div class="save-hint" id="causal-save"></div>
   </div>
 
@@ -270,6 +280,7 @@ body.one-screen #order-main{flex:1 1 auto;min-height:0;gap:10px}
       <div class="result-detail" id="done-detail"></div>
       <div class="result-sub" style="margin-top:8px">선생님이 확인 후 채점할 거예요.</div>
     </div>
+    <button class="btn btn-accent btn-full" id="done-again">2단계 다시 하기</button>
     <button class="btn btn-ghost btn-full" id="done-menu">처음으로</button>
   </div>
 
@@ -322,7 +333,12 @@ let student=null;
 let placed={};          // slotKey('phase:order') -> eventId
 let reviewMode=false;    // 채점 후 정오 표시
 let selectedId=null;     // 탭 선택된 카드
+/* 세울 도미노를 늘어놓는 차례. EVENTS는 정답 순서 그대로라 그냥 그리면 답이 보인다.
+   한 번 섞어 두고 계속 그 차례를 쓴다 — 다시 그릴 때마다 섞으면 카드를 하나 놓을 때마다
+   나머지가 자리를 바꿔 눈이 따라가지 못한다. */
+let poolOrder=[];
 let causalAnswers={};    // effectId -> {causeId, reason}
+let causalReview=false;  // 채점한 뒤 정오 표시를 켠다
 let myResult=null;
 
 const PHASES=[
@@ -391,16 +407,23 @@ document.getElementById('done-menu').addEventListener('click',openOrder);
 /* ─────────── 순서 맞추기 (1/2) ─────────── */
 function openOrder(){
   reviewMode=false;selectedId=null;
+  shufflePool();
   renderPool();renderBoard();
   showScreen('screen-order');
 }
 document.getElementById('order-reset').addEventListener('click',()=>{
-  placed={};reviewMode=false;selectedId=null;renderPool();renderBoard();
+  placed={};reviewMode=false;selectedId=null;shufflePool();renderPool();renderBoard();
 });
 
+function shufflePool(){
+  poolOrder=EVENTS.map(e=>e.id);
+  for(let i=poolOrder.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=poolOrder[i];poolOrder[i]=poolOrder[j];poolOrder[j]=t;}
+}
 function pooledIds(){
   const used=new Set(Object.values(placed));
-  return EVENTS.filter(e=>!used.has(e.id)).map(e=>e.id);
+  // 설정이 바뀌어 새 사건이 생겼는데 아직 안 섞였으면 그때 섞는다.
+  if(poolOrder.length!==EVENTS.length)shufflePool();
+  return poolOrder.filter(id=>!used.has(id));
 }
 /* 도미노에 연도를 적지 않는다. 연도가 보이면 순서 맞추기가 숫자 정렬이 되어 버려,
    사건의 앞뒤를 따져 보는 공부가 되지 않는다. 연도 자료(e.year)는 그대로 두므로
@@ -463,6 +486,7 @@ function slotHtml(phase,order){
 
 /* ── 드래그 & 탭 ── */
 let drag=null; // {id, source, ghost, startX, startY, moved}
+let suppressSlotClick=false; // 카드 탭 직후 빈칸 click이 겹쳐 들어오는 것을 막는 한 박자 빗장
 function bindTiles(container){
   container.querySelectorAll('.tile').forEach(tile=>{
     tile.addEventListener('pointerdown',onTilePointerDown);
@@ -470,8 +494,10 @@ function bindTiles(container){
 }
 function bindSlots(container){
   container.querySelectorAll('.slot').forEach(slot=>{
-    slot.addEventListener('click',()=>{
+    slot.addEventListener('click',(ev)=>{
       if(drag&&drag.moved)return;
+      if(suppressSlotClick)return;
+      if(ev.target.closest('.tile'))return; // 카드를 누른 것은 카드 쪽에서 처리한다
       if(selectedId){placeInto(slot.dataset.slot,selectedId);selectedId=null;renderPool();renderBoard();}
     });
   });
@@ -532,9 +558,22 @@ function onTilePointerUp(e){
     const d=drag;drag=null;
     renderPool();renderBoard();
   }else{
-    // 탭: 선택 토글
-    selectedId=(selectedId===drag.id)?null:drag.id;
+    /* 탭 — 고른 카드가 이미 있으면 두 카드를 맞바꾼다.
+       placeInto가 원래 자리를 되돌려 주므로(빈칸에 있던 카드는 고른 카드가 있던 자리로,
+       고른 카드가 풀에 있었으면 빈칸에 있던 카드는 풀로) 여기서 따로 계산하지 않는다. */
+    const tapped=drag.id;
     drag=null;
+    if(selectedId&&selectedId!==tapped){
+      const tappedAt=sourceOf(tapped), selectedAt=sourceOf(selectedId);
+      if(tappedAt!=='pool')       placeInto(tappedAt,selectedId);   // 누른 카드가 빈칸에 있다
+      else if(selectedAt!=='pool')placeInto(selectedAt,tapped);     // 누른 카드는 풀, 고른 카드가 빈칸에
+      selectedId=null;
+    }else{
+      selectedId=(selectedId===tapped)?null:tapped;
+    }
+    /* 카드를 다시 그리면 방금 누른 빈칸이 사라지므로, 이어서 올라오는 click이 어디로 갈지
+       장담할 수 없다. 한 박자만 빈칸 쪽 처리를 막아 같은 탭이 두 번 먹는 것을 피한다. */
+    suppressSlotClick=true;setTimeout(()=>{suppressSlotClick=false;},0);
     renderPool();renderBoard();
   }
 }
@@ -598,6 +637,8 @@ document.getElementById('res-next').addEventListener('click',openCausal);
 function openCausal(){
   renderCausal();showScreen('screen-causal');
 }
+/* 1단계로 넘어갈 때도 쓰던 글을 거둬 둔다(돌아오면 그대로 있어야 한다). */
+document.getElementById('causal-back').addEventListener('click',collectCausal);
 function renderCausal(){
   const list=document.getElementById('causal-list');
   if(!CAUSAL.length){list.innerHTML='<div class="no-data">인과 문제가 아직 없어요.</div>';return;}
@@ -607,7 +648,10 @@ function renderCausal(){
   list.innerHTML=CAUSAL.map((c,i)=>{
     const eff=evById(c.effectId);if(!eff)return'';
     const saved=causalAnswers[c.effectId]||{};
-    return`<div class="causal-q" data-eff="${esc(c.effectId)}">
+    const ok=causalReview&&saved.causeId===c.causeId;
+    const no=causalReview&&saved.causeId&&saved.causeId!==c.causeId;
+    return`<div class="causal-q${ok?' ok':no?' no':''}" data-eff="${esc(c.effectId)}">
+      ${causalReview&&saved.causeId?`<span class="causal-mark">${ok?'맞음':'다시'}</span>`:''}
       <div class="causal-chain">
         <div class="chain-cause">
           <div class="chain-role">앞 도미노 (원인)</div>
@@ -631,6 +675,23 @@ function renderCausal(){
     if(causalAnswers[eff]?.causeId)sel.value=causalAnswers[eff].causeId;
   });
 }
+/* 입력칸에 적힌 것을 causalAnswers로 옮긴다. 화면을 다시 그리면 입력칸이 새로 만들어지므로,
+   그리기 전에 반드시 한 번 거둬야 쓴 글이 날아가지 않는다. */
+function collectCausal(){
+  document.querySelectorAll('.causal-q').forEach(q=>{
+    causalAnswers[q.dataset.eff]={
+      causeId:q.querySelector('.cause-select').value,
+      reason:q.querySelector('.reason-in').value.trim(),
+    };
+  });
+}
+document.getElementById('causal-reset').addEventListener('click',()=>{
+  if(!confirm('고른 원인과 쓴 이유를 모두 지우고 다시 할까요?'))return;
+  causalAnswers={};causalReview=false;
+  document.getElementById('causal-save').textContent='';
+  renderCausal();
+});
+document.getElementById('done-again').addEventListener('click',openCausal);
 document.getElementById('causal-submit').addEventListener('click',async()=>{
   const arr=[];let filled=0;
   document.querySelectorAll('.causal-q').forEach(q=>{
@@ -642,10 +703,10 @@ document.getElementById('causal-submit').addEventListener('click',async()=>{
     arr.push({effectId:eff,chosenCauseId:causeId,reason,correct:!!(conf&&causeId===conf.causeId)});
   });
   if(filled<CAUSAL.length){
-    if(!confirm('원인 선택 또는 이유가 비어 있는 문제가 있어요. 그래도 제출할까요?'))return;
+    if(!confirm('원인 선택 또는 이유가 비어 있는 문제가 있어요. 그래도 채점할까요?'))return;
   }
   const causalCorrect=arr.filter(a=>a.correct).length;
-  const btn=document.getElementById('causal-submit');btn.disabled=true;btn.textContent='제출 중…';
+  const btn=document.getElementById('causal-submit');btn.disabled=true;btn.textContent='채점 중…';
   try{
     await setDoc(doc(db,'j_wartimeline_results',student.studentId),{
       studentId:student.studentId,name:student.name,classNum:student.classNum,
@@ -653,12 +714,13 @@ document.getElementById('causal-submit').addEventListener('click',async()=>{
       submittedAt:serverTimestamp()
     },{merge:true});
     arr.forEach(a=>causalAnswers[a.effectId]={causeId:a.chosenCauseId,reason:a.reason});
+    causalReview=true;renderCausal();   // 2단계로 돌아오면 어디가 틀렸는지 보이게
     myResult={...(myResult||{}),causal:arr,causalCorrect,causalTotal:CAUSAL.length};
     document.getElementById('done-detail').textContent=
       `도미노 세우기 ${myResult.timelinePct!=null?myResult.timelinePct+'%':'미완료'} / 인과 원인 ${causalCorrect}/${CAUSAL.length} 정답`;
     showScreen('screen-done');
   }catch(e){alert('제출 오류: '+e.message);}
-  finally{btn.disabled=false;btn.textContent='제출하기';}
+  finally{btn.disabled=false;btn.textContent='채점하기';}
 });
 
 // data-icon 속성이 붙은 정적 요소에 SVG 아이콘 주입
