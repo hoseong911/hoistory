@@ -140,11 +140,7 @@ input,textarea,select{font-size:var(--fs-md);font-family:inherit}
 .slot.filled{border-style:solid}
 .slot-num{font-size:var(--fs-sm);font-weight:800;color:var(--stone)}
 .slot .tile{width:100%;max-width:none;min-width:0;cursor:grab}
-.slot.correct{border-color:var(--pass);background:var(--pass-l)}
-.slot.wrong{border-color:var(--fail);background:var(--fail-l)}
-.slot .mark{position:absolute;top:-9px;right:-6px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:var(--fs-sm);font-weight:900;color:#0B1020}
-.slot.correct .mark{background:var(--pass)}
-.slot.wrong .mark{background:var(--fail)}
+/* 어느 칸이 맞고 틀렸는지는 표시하지 않는다 — 점수만 보고 스스로 다시 짚어 보게 한다. */
 
 .play-actions{flex:none;background:var(--surface);padding:10px 0 8px;display:flex;gap:8px}
 
@@ -178,7 +174,9 @@ body.one-screen #order-main{flex:1 1 auto;min-height:0;gap:10px}
 .causal-q.no .causal-mark{background:var(--fail-l);color:var(--fail)}
 .causal-q{background:var(--canvas);border:1px solid var(--hairline);border-radius:18px;padding:18px;box-shadow:var(--shadow)}
 .causal-chain{display:flex;align-items:stretch;gap:8px;margin-bottom:12px}
-.chain-cause,.chain-effect{flex:1;border-radius:12px;padding:11px;min-width:0}
+.chain-cause,.chain-effect{flex:1;border-radius:12px;padding:11px;min-width:0;text-align:center}
+/* 드롭다운은 고를 목록이라 글자가 가운데로 떠다니면 읽기 불편하다. 여기만 왼쪽에 붙인다. */
+.cause-select{text-align:left}
 .chain-cause{background:var(--surface);border:1.5px dashed var(--hairline)}
 .chain-effect{background:var(--hor-l);border:1.5px solid rgba(248,113,113,.3)}
 .chain-role{font-size:var(--fs-sm);font-weight:800;margin-bottom:5px;letter-spacing:.03em}
@@ -248,9 +246,8 @@ body.one-screen #order-main{flex:1 1 auto;min-height:0;gap:10px}
       <div class="result-detail" id="res-detail"></div>
       <div class="result-sub" id="res-msg" style="margin-top:8px"></div>
     </div>
-    <button class="btn btn-ghost btn-full" id="res-review">틀린 곳 확인 / 다시 맞추기</button>
+    <button class="btn btn-ghost btn-full" id="res-review">다시 맞추기</button>
     <button class="btn btn-accent btn-full" id="res-next">2단계 도미노 넘기기</button>
-    <button class="btn-back" id="res-menu" style="align-self:center">1단계 다시 하기</button>
   </div>
 
   <!-- 인과 사슬 (2단계) -->
@@ -331,7 +328,6 @@ const DEFAULT_CAUSAL=[
 let EVENTS=DEFAULT_EVENTS, CAUSAL=DEFAULT_CAUSAL;
 let student=null;
 let placed={};          // slotKey('phase:order') -> eventId
-let reviewMode=false;    // 채점 후 정오 표시
 let selectedId=null;     // 탭 선택된 카드
 /* 세울 도미노를 늘어놓는 차례. EVENTS는 정답 순서 그대로라 그냥 그리면 답이 보인다.
    한 번 섞어 두고 계속 그 차례를 쓴다 — 다시 그릴 때마다 섞으면 카드를 하나 놓을 때마다
@@ -400,19 +396,18 @@ async function loadMine(){
   }
 }
 
-document.getElementById('res-menu').addEventListener('click',openOrder);
 document.getElementById('causal-back').addEventListener('click',openOrder);
 document.getElementById('done-menu').addEventListener('click',openOrder);
 
 /* ─────────── 순서 맞추기 (1/2) ─────────── */
 function openOrder(){
-  reviewMode=false;selectedId=null;
+  selectedId=null;
   shufflePool();
   renderPool();renderBoard();
   showScreen('screen-order');
 }
 document.getElementById('order-reset').addEventListener('click',()=>{
-  placed={};reviewMode=false;selectedId=null;shufflePool();renderPool();renderBoard();
+  placed={};selectedId=null;shufflePool();renderPool();renderBoard();
 });
 
 function shufflePool(){
@@ -463,10 +458,11 @@ function renderBoard(){
   html+=`<div class="connector"></div>`;
   html+=regionHtml('horan');
   html+=`<div class="connector"></div>`;
-  html+=`<div class="split">
-    <div class="branch"><div class="region-label rl-aft">${esc(PHASES[4].label)}</div><div class="slots">${slotHtml('after',0)}</div></div>
-    <div class="branch"><div class="region-label rl-aft">${esc(PHASES[4].label)}</div><div class="slots">${slotHtml('after',1)}</div></div>
-  </div>`;
+  /* 호란 이후는 한 줄로 내려 세운다. 예전에는 갈래로 좌우에 나란히 놓고 이름표도 둘 다
+     '호란 이후'였는데, 그 모양은 '둘이 동시에 일어났다'는 뜻이라 어느 쪽이 왼쪽인지가
+     아무 의미가 없어 보였다. 실제로는 북벌이 막히고 나서 북학이 나온 차례가 있으므로,
+     한 줄로 세워 그 차례를 묻는 것이 맞다. */
+  html+=regionHtml('after');
   board.innerHTML=html;
   bindTiles(board);
   bindSlots(board);
@@ -474,14 +470,8 @@ function renderBoard(){
 function slotHtml(phase,order){
   const key=phase+':'+order;
   const id=placed[key];
-  let cls='slot';let mark='';
-  if(id)cls+=' filled';
-  if(reviewMode&&id){
-    const correct=allSlots().find(s=>s.phase===phase&&s.order===order)?.correctId===id;
-    cls+=correct?' correct':' wrong';
-    mark=`<span class="mark">${correct?icon('check',16):icon('x',16)}</span>`;
-  }
-  return`<div class="${cls}" data-slot="${esc(key)}">${id?tileHtml(id,true):`<span class="slot-num">${order+1}</span>`}${mark}</div>`;
+  const cls='slot'+(id?' filled':'');
+  return`<div class="${cls}" data-slot="${esc(key)}">${id?tileHtml(id,true):`<span class="slot-num">${order+1}</span>`}</div>`;
 }
 
 /* ── 드래그 & 탭 ── */
@@ -592,12 +582,10 @@ function placeInto(slotKey,id){
     // from이 pool이면 occupant는 풀로 (자동)
   }
   placed[slotKey]=id;
-  reviewMode=false;
 }
 function removeFromBoard(id){
   const from=sourceOf(id);
   if(from!=='pool')delete placed[from];
-  reviewMode=false;
 }
 
 document.getElementById('order-submit').addEventListener('click',async()=>{
@@ -609,13 +597,12 @@ document.getElementById('order-submit').addEventListener('click',async()=>{
   slots.forEach(s=>{if(placed[s.phase+':'+s.order]===s.correctId)correct++;});
   const total=slots.length;
   const pct=Math.round(correct/total*100);
-  reviewMode=true;renderBoard();
   // 결과 화면
   const scoreEl=document.getElementById('res-score');
   scoreEl.textContent=pct+'%';
   scoreEl.className='result-score '+(pct>=80?'hi':pct>=50?'mid':'lo');
   document.getElementById('res-detail').textContent=`${total}칸 중 ${correct}칸 정답`;
-  document.getElementById('res-msg').textContent=pct>=80?'훌륭해요! 흐름을 거의 완벽하게 세웠어요.':pct>=50?'좋아요! 틀린 곳을 확인하고 다시 도전해 보세요.':'다시 한번 흐름을 살펴볼까요? 틀린 곳을 확인해 보세요.';
+  document.getElementById('res-msg').textContent=pct>=80?'훌륭해요! 흐름을 거의 완벽하게 세웠어요.':pct>=50?'좋아요! 어디가 어긋났을지 다시 짚어 볼까요?':'아직이에요. 사건의 앞뒤를 다시 따져 볼까요?';
   // 저장
   await saveTimeline(correct,total,pct);
   showScreen('screen-order-result');
@@ -630,7 +617,10 @@ async function saveTimeline(correct,total,pct){
     myResult={...(myResult||{}),timelinePlaced:placed,timelineCorrect:correct,timelineTotal:total,timelinePct:pct};
   }catch(e){alert('저장 오류: '+e.message);}
 }
-document.getElementById('res-review').addEventListener('click',()=>{reviewMode=true;renderPool();renderBoard();showScreen('screen-order');});
+/* 결과에서 1단계로 돌아가는 길은 하나뿐이다. 예전에는 [틀린 곳 확인 / 다시 맞추기]와
+   [1단계 다시 하기] 두 개가 있었는데, 정오 표시를 없앤 지금은 둘이 똑같은 동작이다.
+   판을 아예 비우고 다시 시작하는 것은 1단계 안의 [다시 섞기]가 맡는다. */
+document.getElementById('res-review').addEventListener('click',()=>{renderPool();renderBoard();showScreen('screen-order');});
 document.getElementById('res-next').addEventListener('click',openCausal);
 
 /* ─────────── 인과 사슬 (2/2) ─────────── */
