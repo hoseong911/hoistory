@@ -974,11 +974,13 @@
     return `<div class="slide${extraClass}"${fsStyle}>${inner}</div>`;
   }
 
-  /* img 번호로 만든 경로는 확장자를 png로 가정하는데, 실제 저장 파일이 jpg인 경우가
-     섞여 있어서 로드 실패 시 jpg -> jpeg 순으로 다시 시도한다. onerror 인라인 속성에서
-     호출해야 하므로 전역(window)에 노출한다. */
+  /* img 번호로 만든 경로는 확장자를 png로 가정하는데, 실제 저장 파일이 jpg·webp인
+     경우가 섞여 있어서 로드 실패 시 jpg -> jpeg -> webp -> gif 순으로 다시 시도한다.
+     선생님이 파일을 올릴 때 확장자를 신경 쓰지 않아도 되게 하는 것이 목적이므로,
+     새 확장자를 쓰게 되면 여기 한 줄에 더한다.
+     onerror 인라인 속성에서 호출해야 하므로 전역(window)에 노출한다. */
   function SlideRenderImgFallback(imgEl, basePath, idx) {
-    const exts = ['jpg', 'jpeg'];
+    const exts = ['jpg', 'jpeg', 'webp', 'gif'];
     if (idx >= exts.length) { imgEl.onerror = null; return; }
     imgEl.onerror = () => SlideRenderImgFallback(imgEl, basePath, idx + 1);
     imgEl.src = `${basePath}.${exts[idx]}`;
