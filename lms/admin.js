@@ -1820,6 +1820,30 @@ function toggleAlign(target, i, mode, checked) {
   ceRenderPreview();
 }
 
+/* 세로 연표 "강조 사건" 선택칸 (페이지 설정 줄).
+   고른 사건 하나만 제 색으로 두고 나머지는 연해진다. 사건마다 슬라이드를 따로 만들어
+   번호만 바꿔 가며 넘기는 쓰임새라, 켜고 끄는 체크박스가 아니라 번호를 고르는 선택칸이다.
+   사건을 지워 저장된 번호가 범위를 넘으면 마지막 사건으로 당겨서 보여 준다 — 렌더러도
+   같은 규칙으로 당기므로(timelineVBodyHTML), 이렇게 해야 선택칸과 화면이 어긋나지 않는다. */
+function ceFocusEventSelect(target, divIdx, div) {
+  const events = div.events || [];
+  const cur = div.focusEvent ? Math.min(div.focusEvent, events.length) : 0;
+  const opts = ['<option value="0"' + (cur ? '' : ' selected') + '>없음</option>']
+    .concat(events.map((_, k) => `<option value="${k + 1}"${cur === k + 1 ? ' selected' : ''}>${k + 1}번째</option>`))
+    .join('');
+  return `<label class="cl-opt">강조 사건
+    <select class="cl-img-select" onclick="event.stopPropagation()"
+            onchange="setFocusEvent('${target}',${divIdx},this.value)">${opts}</select></label>`;
+}
+
+function setFocusEvent(target, i, v) {
+  const line = ceLinesFor(target)[i];
+  const n = parseInt(v, 10);
+  if (!n) delete line.focusEvent;   // 0/빈값 = 강조 없음 → 필드 자체를 지워 예전 연표와 같게 둔다
+  else line.focusEvent = n;
+  ceRenderPreview();
+}
+
 function setLineFontSize(target, i, v) {
   const line = ceLinesFor(target)[i];
   const n = parseInt(v, 10);
@@ -2148,6 +2172,7 @@ function ceRenderContentLines(target) {
                   ${fmt !== 'notice' ? `<label class="cl-opt"><input type="checkbox" ${div.hideBadge ? 'checked' : ''} onclick="event.stopPropagation();toggleHideBadge('${target}',${divIdx},this.checked)"> 배지 숨김</label>` : ''}
                   ${fmt === 'rows' || fmt === 'notice' ? `<label class="cl-opt"><input type="checkbox" ${div.align === 'justify' ? 'checked' : ''} onclick="event.stopPropagation();toggleAlign('${target}',${divIdx},'justify',this.checked)"> 양쪽 정렬</label>` : ''}
                   ${fmt === 'compare' ? `<label class="cl-opt"><input type="checkbox" ${div.align === 'center' ? 'checked' : ''} onclick="event.stopPropagation();toggleAlign('${target}',${divIdx},'center',this.checked)"> 가운데 정렬</label>` : ''}
+                  ${fmt === 'timeline-v' ? ceFocusEventSelect(target, divIdx, div) : ''}
                   <label class="cl-opt">${fmt === 'cols' ? '글자 크기(소제목/내용)' : '글자 크기'} <input type="number" min="10" max="140" placeholder="기본" value="${div.fontSize != null ? div.fontSize : ''}" oninput="setLineFontSize('${target}',${divIdx},this.value)"> px</label>
                   ${fmt === 'cols' ? `<label class="cl-opt">글자 크기(대제목) <input type="number" min="10" max="200" placeholder="기본" value="${div.colsTitleSize != null ? div.colsTitleSize : ''}" oninput="setColsTitleSize('${target}',${divIdx},this.value)"> px</label>` : ''}
                 </div>
@@ -6751,6 +6776,7 @@ Object.assign(window, {
   addSlide, addDivider, addContentRow, addImageSlide, toggleDividerImg, deleteLine, deletePair, moveLine,
   addRowToGroup, addPageToGroup, addTitledPageAfter, moveSlideBlock, ceShowAddMenu, deleteGroup, deleteRow, updateGroupTitle, ceToggleFmt,
   setLineFormat, toggleLabelPos, toggleHideBadge, toggleAlign, setLineFontSize, setColsTitleSize, updateImgLayout,
+  setFocusEvent,
   updateEventField, updateEventContent, addEvent, removeEvent,
   updateCompareField, updateCompareItems,
   updateStageField, addStage, removeStage,

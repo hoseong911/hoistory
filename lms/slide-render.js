@@ -557,11 +557,16 @@
      화면 왼쪽에 붙고, 오른쪽 끝은 선에 붙는다. */
   function timelineVBodyHTML(slide) {
     const list = slide.events || [];
+    /* 강조할 사건(focusEvent, 1부터). 지정하면 그 사건만 제 색으로 두고 나머지는 연하게
+       깐다. 사건을 지운 뒤 번호가 범위를 벗어나면 마지막 사건으로 당긴다 — 그냥 두면
+       어느 사건도 안 맞아 전부 연해지고 강조가 사라진다. 0이나 없음이면 모두 제 색. */
+    const focus = slide.focusEvent ? Math.min(slide.focusEvent, list.length) : 0;
     const cells = list.map((ev, i) => {
       const memo = labelLines(ev.memo || '', true).map(o => labelLineHTML(o, 'tlv-memo-line')).join('');
+      const dim = focus && (i + 1) !== focus ? ' tlv-dim' : '';
       return `
-      <div class="tlv-memo" style="grid-row:${i + 1}">${memo}<span class="tlv-dot"></span></div>
-      <div class="tlv-content" style="grid-row:${i + 1}">${(ev.content || []).map(t => `<p>${parseItemText(t)}</p>`).join('')}</div>`;
+      <div class="tlv-memo${dim}" style="grid-row:${i + 1}">${memo}<span class="tlv-dot"></span></div>
+      <div class="tlv-content${dim}" style="grid-row:${i + 1}">${(ev.content || []).map(t => `<p>${parseItemText(t)}</p>`).join('')}</div>`;
     }).join('');
     // 행을 명시해 두어야 선의 grid-row:1/-1이 사건 전체를 가로지른다(암시적 행이면 1행에서 끝난다).
     // 사건 행 뒤에 빈 1fr 행을 하나 더 둔다. 이 행이 남는 높이를 전부 먹으므로 (a) 사건들은
@@ -815,7 +820,11 @@
         const fmt = line.format;
         if (fmt && fmt !== 'rows') {
           current.format = fmt;
-          if (fmt === 'timeline-h' || fmt === 'timeline-v') current.events = line.events || [];
+          if (fmt === 'timeline-h' || fmt === 'timeline-v') {
+            current.events = line.events || [];
+            // 강조할 사건 번호(1부터). 없으면 필드를 아예 안 넘겨 예전 연표가 그대로 보이게 한다.
+            if (fmt === 'timeline-v' && line.focusEvent) current.focusEvent = line.focusEvent;
+          }
           else if (fmt === 'compare') { current.left = line.left || { label: '', items: [] }; current.right = line.right || { label: '', items: [] }; }
           else if (fmt === 'quote') { current.text = line.quoteText || ''; current.source = line.quoteSource || ''; current.quoteLabel = line.quoteLabel || ''; }
           else if (fmt === 'flow-h' || fmt === 'flow-v') current.stages = line.stages || [];
