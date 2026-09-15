@@ -1531,6 +1531,10 @@ window.ceLessonPreview = function() {
 function onLessonChange(num) {
   const area = document.getElementById('ce-editor-area');
   const prevBtn = document.getElementById('ce-preview-btn');
+  // 업로드 상태 줄은 방금 만든 그 강의에 대한 말이다. 다른 강의로 옮기면 지운다
+  // (줄 바깥에 선 뒤로는 자리를 차지하는 띠라, 남아 있으면 계속 눈에 밟힌다).
+  const statusEl = document.getElementById('ce-file-status');
+  if (statusEl) statusEl.textContent = '';
   if (!num) {
     if (area) area.style.display = 'none';
     return; // 미리보기 버튼은 항시 표시(강의 미선택 시 클릭해도 무시됨)
