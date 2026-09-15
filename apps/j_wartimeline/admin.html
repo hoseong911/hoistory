@@ -37,7 +37,6 @@
 .ev-ord{flex-shrink:0;width:24px;height:24px;border-radius:6px;background:var(--jw-primary-soft);color:var(--jw-primary);font-weight:800;font-size:12px;display:flex;align-items:center;justify-content:center}
 .meta-input{padding:7px 9px;border:1px solid var(--hi-border);border-radius:7px;font-family:inherit;font-size:14px;color:var(--hi-text);background:var(--hi-bg-mid);outline:none}
 .meta-input:focus{border-color:var(--hi-border-light)}
-.ev-year{width:72px;flex-shrink:0}
 .ev-title{flex:1;min-width:0}
 .ev-phase{flex-shrink:0}
 .ev-ctrl{display:flex;gap:3px;flex-shrink:0}
@@ -239,21 +238,21 @@ const auth=getAuth(app);
 const rtdb=getDatabase(app);
 
 const DEFAULT_EVENTS=[
-  {id:'w1',phase:'war',order:0,year:'1592',title:'임진왜란 발발'},
-  {id:'w2',phase:'war',order:1,year:'1592',title:'한산도 대첩'},
-  {id:'w3',phase:'war',order:2,year:'1593',title:'명 참전과 평양성 탈환'},
-  {id:'w4',phase:'war',order:3,year:'1593',title:'행주 대첩'},
-  {id:'w5',phase:'war',order:4,year:'1597',title:'정유재란'},
-  {id:'w6',phase:'war',order:5,year:'1598',title:'노량 해전과 왜란 종결'},
-  {id:'d1',phase:'domestic',order:0,year:'1608',title:'광해군의 중립 외교'},
-  {id:'d2',phase:'domestic',order:1,year:'1623',title:'인조반정과 친명배금'},
-  {id:'f1',phase:'foreign',order:0,year:'',title:'명의 쇠퇴'},
-  {id:'f2',phase:'foreign',order:1,year:'1616',title:'여진 성장과 후금 건국'},
-  {id:'h1',phase:'horan',order:0,year:'1627',title:'정묘호란'},
-  {id:'h2',phase:'horan',order:1,year:'1636',title:'병자호란'},
-  {id:'h3',phase:'horan',order:2,year:'1637',title:'삼전도의 항복'},
-  {id:'a1',phase:'after',order:0,year:'효종',title:'북벌 운동'},
-  {id:'a2',phase:'after',order:1,year:'18세기',title:'북학론'}
+  {id:'w1',phase:'war',order:0,title:'임진왜란 발발'},
+  {id:'w2',phase:'war',order:1,title:'한산도 대첩'},
+  {id:'w3',phase:'war',order:2,title:'명 참전과 평양성 탈환'},
+  {id:'w4',phase:'war',order:3,title:'행주 대첩'},
+  {id:'w5',phase:'war',order:4,title:'정유재란'},
+  {id:'w6',phase:'war',order:5,title:'노량 해전과 왜란 종결'},
+  {id:'d1',phase:'domestic',order:0,title:'광해군의 중립 외교'},
+  {id:'d2',phase:'domestic',order:1,title:'인조반정과 친명배금'},
+  {id:'f1',phase:'foreign',order:0,title:'명의 쇠퇴'},
+  {id:'f2',phase:'foreign',order:1,title:'여진 성장과 후금 건국'},
+  {id:'h1',phase:'horan',order:0,title:'정묘호란'},
+  {id:'h2',phase:'horan',order:1,title:'병자호란'},
+  {id:'h3',phase:'horan',order:2,title:'삼전도의 항복'},
+  {id:'a1',phase:'after',order:0,title:'북벌 운동'},
+  {id:'a2',phase:'after',order:1,title:'북학론'}
 ];
 const DEFAULT_CAUSAL=[
   {id:'c1',effectId:'f1',causeId:'w3'},
@@ -280,7 +279,9 @@ const isEmbedded=window.self!==window.top;
 function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function classNumOf(sid){sid=String(sid||'');if(sid.length<3)return null;const c=parseInt(sid.slice(1,3),10);return isNaN(c)?null:c;}
 function evById(id){return EVENTS.find(e=>e.id===id);}
-function evLabel(id){const e=evById(id);return e?((e.year?e.year+' ':'')+e.title):'(삭제됨)';}
+/* 사건은 이름만 쓴다. 연도를 붙이면 학생이 앞뒤를 따져 보지 않고 숫자만 견주어 고르게 되어
+   1단계와 2단계가 둘 다 숫자 정렬 문제로 바뀐다. 그래서 연도 칸 자체를 없앴다. */
+function evLabel(id){const e=evById(id);return e?e.title:'(삭제됨)';}
 function phaseEvents(p){return EVENTS.filter(e=>e.phase===p).sort((a,b)=>a.order-b.order);}
 
 /* 진입 */
@@ -331,7 +332,8 @@ async function loadConfig(){
     const snap=await getDoc(doc(db,'settings','j_wartimeline_config'));
     if(snap.exists()){
       const d=snap.data();
-      EVENTS=Array.isArray(d.events)&&d.events.length?d.events.map(e=>({...e})):DEFAULT_EVENTS.map(e=>({...e}));
+      /* 예전에 저장해 둔 연도(year)는 불러오면서 버린다 — 한 번 저장하면 데이터에서도 없어진다. */
+      EVENTS=Array.isArray(d.events)&&d.events.length?d.events.map(({year,...e})=>e):DEFAULT_EVENTS.map(e=>({...e}));
       CAUSAL=Array.isArray(d.causal)&&d.causal.length?d.causal.map(c=>({...c})):DEFAULT_CAUSAL.map(c=>({...c}));
     }else{EVENTS=DEFAULT_EVENTS.map(e=>({...e}));CAUSAL=DEFAULT_CAUSAL.map(c=>({...c}));}
   }catch(e){EVENTS=DEFAULT_EVENTS.map(e=>({...e}));CAUSAL=DEFAULT_CAUSAL.map(c=>({...c}));}
@@ -350,7 +352,6 @@ function renderEventsEditor(){
       const gi=EVENTS.indexOf(e);
       html+=`<div class="ev-row" data-i="${gi}">
         <span class="ev-ord">${e.order+1}</span>
-        <input class="meta-input ev-year" value="${esc(e.year||'')}" placeholder="연도">
         <input class="meta-input ev-title" value="${esc(e.title||'')}" placeholder="사건 이름">
         <select class="meta-input ev-phase">${phaseOpts}</select>
         <div class="ev-ctrl">
@@ -365,7 +366,6 @@ function renderEventsEditor(){
   wrap.innerHTML=html;
   wrap.querySelectorAll('.ev-row').forEach(row=>{
     const i=+row.dataset.i;
-    row.querySelector('.ev-year').addEventListener('input',e=>EVENTS[i].year=e.target.value);
     row.querySelector('.ev-title').addEventListener('input',e=>EVENTS[i].title=e.target.value);
     const sel=row.querySelector('.ev-phase');sel.value=EVENTS[i].phase;
     sel.addEventListener('change',e=>{
@@ -394,7 +394,7 @@ function normalizeOrders(){
   PHASES.forEach(p=>phaseEvents(p.key).forEach((e,i)=>e.order=i));
 }
 document.getElementById('add-event-btn').addEventListener('click',()=>{
-  EVENTS.push({id:'e_'+Date.now().toString(36),phase:'war',order:phaseEvents('war').length,year:'',title:''});
+  EVENTS.push({id:'e_'+Date.now().toString(36),phase:'war',order:phaseEvents('war').length,title:''});
   renderEventsEditor();
 });
 document.getElementById('reset-events-btn').addEventListener('click',()=>{
