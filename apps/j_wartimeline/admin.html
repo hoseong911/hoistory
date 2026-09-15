@@ -43,7 +43,7 @@
 .icon-btn{width:28px;height:28px;border-radius:7px;border:1px solid var(--hi-border);background:var(--hi-bg-mid);cursor:pointer;font-size:14px;color:var(--hi-text-muted);display:flex;align-items:center;justify-content:center}
 .icon-btn:hover{color:var(--hi-text);border-color:var(--hi-border-light)}
 
-/* 인과 편집 */
+/* 도미노 넘기기 문제 편집 */
 .causal-row{display:flex;gap:8px;align-items:center;background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:10px;padding:8px 10px;margin-bottom:6px;flex-wrap:wrap}
 .causal-lbl{font-size:12px;font-weight:800;color:var(--hi-text-muted)}
 .causal-sel{flex:1;min-width:130px;padding:7px 9px;border:1px solid var(--hi-border);border-radius:7px;font-family:inherit;font-size:14px;color:var(--hi-text);background:var(--hi-bg-mid);outline:none}
@@ -166,10 +166,10 @@
       <!-- EVENT -->
       <div class="panel-section active" id="sub-events">
         <div class="section-card">
-          <div class="section-title">사건 목록 (순서 맞추기)
+          <div class="section-title">사건 목록 (도미노 세우기)
             <button class="btn btn-primary btn-sm" id="save-events-btn" style="margin-left:auto">저장</button>
           </div>
-          <div class="section-desc">각 사건의 <b>구간</b>과 <b>순서</b>가 곧 정답입니다. 구간 흐름은 왜란(일직선), 대내와 대외(분기), 호란(합류), 호란 이후(분기)입니다. 순서 번호는 구간 안에서의 정답 순서예요.</div>
+          <div class="section-desc">각 사건의 <b>구간</b>과 <b>순서</b>가 곧 정답입니다. 구간 흐름은 왜란(일직선), 대내와 대외(분기), 호란(합류), 호란 이후(일직선)입니다. 순서 번호는 구간 안에서의 정답 순서예요.</div>
           <div id="events-editor"></div>
           <div style="display:flex;justify-content:center;gap:8px;margin-top:12px;flex-wrap:wrap">
             <button class="btn btn-ghost" id="add-event-btn">사건 추가</button>
@@ -181,13 +181,13 @@
       <!-- CAUSE -->
       <div class="panel-section" id="sub-causal">
         <div class="section-card">
-          <div class="section-title">인과 문제 (도미노 넘기기)
+          <div class="section-title">문제 목록 (도미노 넘기기)
             <button class="btn btn-primary btn-sm" id="save-causal-btn" style="margin-left:auto">저장</button>
           </div>
-          <div class="section-desc">"결과" 사건마다 정답이 되는 "원인" 사건을 지정합니다. 학생은 원인을 고르고 이유를 서술해요. (원인 선택은 자동 채점, 이유는 아래 RESULT에서 검토)</div>
+          <div class="section-desc">"결과" 사건마다 정답이 되는 "원인" 사건을 지정합니다. 학생은 원인을 고르고 이유를 서술해요. (원인 선택은 자동 채점, 이유는 ANSWER 탭에서 검토)</div>
           <div id="causal-editor"></div>
           <div style="display:flex;justify-content:center;gap:8px;margin-top:12px;flex-wrap:wrap">
-            <button class="btn btn-ghost" id="add-causal-btn">인과 문제 추가</button>
+            <button class="btn btn-ghost" id="add-causal-btn">문제 추가</button>
             <button class="btn btn-ghost" id="reset-causal-btn">기본값으로 되돌리기</button>
           </div>
           <div class="save-msg" id="causal-msg"></div>
@@ -203,12 +203,12 @@
           <div class="stat-chip stat-combo" title="전체 / 참여 / 통과 / 미흡">
             <span class="thc-o" id="s-total">0</span><span class="thc-sep">/</span><span class="thc-o" id="s-sub">0</span><span class="thc-sep">/</span><span class="thc-g" id="s-pass">0</span><span class="thc-sep">/</span><span class="thc-r" id="s-fail">0</span>
           </div>
-          <div class="stat-chip stat-avg" title="순서 맞추기 평균"><span class="thc-avg" id="s-avg">0%</span></div>
+          <div class="stat-chip stat-avg" title="도미노 세우기 평균"><span class="thc-avg" id="s-avg">0%</span></div>
         </div>
       </div>
       <div class="adm-action-row">
         <button class="btn btn-primary btn-sm" id="autoscore-btn">자동 채점</button>
-        <div class="thr-box">순서 <input type="number" class="thr-in" id="thr-tl" value="70" min="0" max="100">% 이상 &amp; 인과 이유 모두 작성 시 통과</div>
+        <div class="thr-box">도미노 세우기 <input type="number" class="thr-in" id="thr-tl" value="70" min="0" max="100">% 이상 &amp; 넘기기 이유 모두 작성 시 통과</div>
         <div class="ans-right-group">
           <div class="sort-box">
             <button class="sort-btn active" id="sort-newest">최신순</button>
@@ -410,7 +410,7 @@ document.getElementById('save-events-btn').addEventListener('click',async()=>{
   catch(e){msg.textContent='저장 실패: '+e.message;msg.className='save-msg';}
 });
 
-/* ── 인과 편집 ── */
+/* ── 도미노 넘기기 문제 편집 ── */
 function renderCausalEditor(){
   const wrap=document.getElementById('causal-editor');
   const opts=EVENTS.map(e=>`<option value="${esc(e.id)}">${esc(evLabel(e.id))}</option>`).join('');
@@ -421,7 +421,7 @@ function renderCausalEditor(){
       <span class="causal-lbl" style="color:var(--jw-accent-deep)">결과</span>
       <select class="causal-sel c-effect">${opts}</select>
       <button class="icon-btn c-del" title="삭제">${icon('x',16)}</button>
-    </div>`).join('')||'<div class="no-data">인과 문제가 없습니다.</div>';
+    </div>`).join('')||'<div class="no-data">문제가 없습니다.</div>';
   wrap.querySelectorAll('.causal-row').forEach(row=>{
     const i=+row.dataset.i;
     const cs=row.querySelector('.c-cause');cs.value=CAUSAL[i].causeId||'';
@@ -436,7 +436,7 @@ document.getElementById('add-causal-btn').addEventListener('click',()=>{
   renderCausalEditor();
 });
 document.getElementById('reset-causal-btn').addEventListener('click',()=>{
-  if(!confirm('인과 문제를 기본값으로 되돌릴까요?'))return;
+  if(!confirm('도미노 넘기기 문제를 기본값으로 되돌릴까요?'))return;
   CAUSAL=DEFAULT_CAUSAL.map(c=>({...c}));renderCausalEditor();
 });
 document.getElementById('save-causal-btn').addEventListener('click',async()=>{
@@ -529,7 +529,7 @@ function renderResultList(){
         </div>
         <div class="std-status">
           <span class="std-meta-time">${esc(timeLabel(r))}</span>
-          <span class="score-pill">순서 ${tl}</span><span class="score-pill">인과 ${ca}</span>
+          <span class="score-pill">세우기 ${tl}</span><span class="score-pill">넘기기 ${ca}</span>
           ${statusBadge(st)}
         </div>
       </div>
@@ -555,7 +555,7 @@ function timeLabel(r){
 function statusLabelText(st){return st==='pass'?'통과':st==='fail'?'미흡':'미채점';}
 
 function timelineDetail(r){
-  if(!r.timelinePlaced)return'<div class="cb-block"><div class="cb-h">순서 맞추기</div><div class="cb-mini">아직 안 함</div></div>';
+  if(!r.timelinePlaced)return'<div class="cb-block"><div class="cb-h">도미노 세우기</div><div class="cb-mini">아직 안 함</div></div>';
   const placed=r.timelinePlaced;
   let lines='';
   PHASES.forEach(p=>{
@@ -566,10 +566,10 @@ function timelineDetail(r){
       lines+=`<div>${esc(p.label.split(' ')[0])} ${i+1}. 정답 <b>${esc(e.title)}</b>, 학생 <span class="${ok?'ok':'no'}">${ok?icon('check',14)+' '+esc(evById(got)?.title||''):(got?icon('x',14)+' '+esc(evById(got)?.title||''):icon('x',14)+' 빈칸')}</span></div>`;
     });
   });
-  return`<div class="cb-block"><div class="cb-h">순서 맞추기 ${r.timelineCorrect}/${r.timelineTotal} (${r.timelinePct}%)</div><div class="tl-mini">${lines}</div></div>`;
+  return`<div class="cb-block"><div class="cb-h">도미노 세우기 ${r.timelineCorrect}/${r.timelineTotal} (${r.timelinePct}%)</div><div class="tl-mini">${lines}</div></div>`;
 }
 function causalDetail(r){
-  if(!Array.isArray(r.causal)||!r.causal.length)return'<div class="cb-block"><div class="cb-h">인과 잇기</div><div class="cb-mini">아직 안 함</div></div>';
+  if(!Array.isArray(r.causal)||!r.causal.length)return'<div class="cb-block"><div class="cb-h">도미노 넘기기</div><div class="cb-mini">아직 안 함</div></div>';
   const rows=r.causal.map(a=>{
     const conf=CAUSAL.find(c=>c.effectId===a.effectId);
     const correctCause=conf?evLabel(conf.causeId):'?';
@@ -583,7 +583,7 @@ function causalDetail(r){
       </div>
     </div>`;
   }).join('');
-  return`<div class="cb-block"><div class="cb-h">인과 잇기 (원인 ${r.causalCorrect}/${r.causalTotal} 정답)</div>${rows}</div>`;
+  return`<div class="cb-block"><div class="cb-h">도미노 넘기기 (원인 ${r.causalCorrect}/${r.causalTotal} 정답)</div>${rows}</div>`;
 }
 
 window.setStatus=async(id,st)=>{
@@ -593,7 +593,7 @@ window.setStatus=async(id,st)=>{
   catch(e){alert('오류: '+e.message);}
 };
 
-/* 자동 채점: 순서 임계값 이상이고 인과 이유를 전부 작성하면 통과 */
+/* 자동 채점: 도미노 세우기 정답률이 임계값 이상이고 넘기기 이유를 전부 작성하면 통과 */
 document.getElementById('sort-newest').addEventListener('click',()=>setAnswerSort('newest'));
 document.getElementById('sort-sid').addEventListener('click',()=>setAnswerSort('sid'));
 
@@ -607,7 +607,7 @@ document.getElementById('autoscore-btn').addEventListener('click',async()=>{
     const reasonsOk=Array.isArray(r.causal)&&r.causal.length>0&&r.causal.every(a=>(a.reason||'').trim().length>0);
     batch.update(doc(db,'j_wartimeline_results',r.id),{status:(tlOk&&reasonsOk)?'pass':'fail'});
   });
-  try{await batch.commit();alert(`${list.length}명 자동 채점 완료 (순서 ${thr}% 이상 & 인과 이유 모두 작성 시 통과)`);}
+  try{await batch.commit();alert(`${list.length}명 자동 채점 완료 (도미노 세우기 ${thr}% 이상 & 넘기기 이유 모두 작성 시 통과)`);}
   catch(e){alert('오류: '+e.message);}
 });
 </script>
