@@ -497,9 +497,9 @@ async function dbLoad() {
       dbLoadAnnReads(),
     ]);
 
-    // 개념 체크 강의 (상위 10)
+    // 개념 체크 강의 — 카드가 최근 5개만 펴고 나머지는 [+ 더보기]로 접어 두므로 여기서 자르지 않는다
     if (clSnap) {
-      _dbConcept = clSnap.docs.map(d => { const v = d.data(); return { docId: d.id, num: v.num, title: v.title || '', isOpen: v.isOpen !== false, autoOpenedAt: v.autoOpenedAt || null }; }).slice(0, 10);
+      _dbConcept = clSnap.docs.map(d => { const v = d.data(); return { docId: d.id, num: v.num, title: v.title || '', isOpen: v.isOpen !== false, autoOpenedAt: v.autoOpenedAt || null }; });
     } else late.push('개념 체크');
 
     // 미션 체크 카드 (mission_category)
@@ -515,11 +515,11 @@ async function dbLoad() {
       } else late.push('미션 체크');
     } else _dbMission = [];
 
-    // 생각 체크 강의 (상위 10)
+    // 생각 체크 강의 — 개념 체크와 같이 카드 쪽에서 접으므로 여기서 자르지 않는다
     // order는 강 번호 기준 → 내림차순으로 강 번호 큰(최신) 강의가 맨 위. 개념 Check 카드와 방향 일치.
     // icon에 강의수("24"·"OT" 등)가 들어 있어 수업 스케줄 매칭에 쓴다(thScheduledDate와 같은 기준).
     if (tlSnap) {
-      _dbThink = tlSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', isOpen: v.isOpen === true, order: v.order ?? -1, ungraded: 0, icon: v.icon || '', autoOpenedAt: v.autoOpenedAt || null }; }).sort((a, b) => b.order - a.order).slice(0, 10);
+      _dbThink = tlSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', isOpen: v.isOpen === true, order: v.order ?? -1, ungraded: 0, icon: v.icon || '', autoOpenedAt: v.autoOpenedAt || null }; }).sort((a, b) => b.order - a.order);
     } else late.push('생각 체크');
 
     // 수업일이 지난 강의와 미션을 자동 공개(설정이 켜져 있을 때만, 항목당 한 번만).
@@ -618,6 +618,8 @@ function dbEarliestLessonDate(num) {
   return best;
 }
 
+const DB_AUTOOPEN_SCAN = 10;   // 자동 공개가 살펴보는 최근 강의 수
+
 async function dbAutoOpenBySchedule() {
   _dbAutoOpened = [];
   if (!_dbAutoOpen) return;
@@ -625,8 +627,10 @@ async function dbAutoOpenBySchedule() {
   if (!(_plData.rows || []).length) return;
   const today = plToday();
 
-  // 개념 체크 — _dbConcept는 강 번호 내림차순 상위 10개라 최근 강의만 대상이 된다(그걸로 충분).
-  for (const t of _dbConcept) {
+  /* 개념 체크 — 최근 10강만 대상으로 삼는다. 목록 자체는 공개 관리 카드의 [+ 더보기]
+     때문에 전체를 들고 있지만, 자동 공개까지 전 학기를 훑으면 일부러 닫아 둔 옛 강의가
+     수업일이 지났다는 이유로 도로 열린다. 여기서 자르는 이유가 그것이니 빼지 말 것. */
+  for (const t of _dbConcept.slice(0, DB_AUTOOPEN_SCAN)) {
     if (t.isOpen || t.autoOpenedAt) continue;
     const d = dbEarliestLessonDate(t.num);
     if (!d || d > today) continue;
@@ -650,7 +654,8 @@ async function dbAutoOpenBySchedule() {
   }
 
   // 생각 체크 — 강의수가 icon에 들어 있다(지연 제출 판정의 thScheduledDate와 같은 기준).
-  for (const t of _dbThink) {
+  // 개념 체크와 같은 이유로 최근 것만 본다.
+  for (const t of _dbThink.slice(0, DB_AUTOOPEN_SCAN)) {
     if (t.isOpen || t.autoOpenedAt || !t.icon) continue;
     const d = dbEarliestLessonDate(t.icon);
     if (!d || d > today) continue;
@@ -1065,36 +1070,57 @@ window.dbResetPw = async function(sid, name) {
   }
 };
 
+/* 공개 관리 카드. 강의가 쌓이면 세 카드가 나란히 길어져 대시보드 아래쪽(학생 검색·공지)이
+   한참 밀리므로, 최근 DB_TOGGLE_HEAD개만 펴 두고 나머지는 [+ 더보기]로 펼친다. */
+const DB_TOGGLE_HEAD = 5;
+
 function dbToggleCard(title, list, kind) {
-  const rows = !list.length
-    ? '<div class="empty-panel" style="padding:14px;font-size:13px">항목 없음</div>'
-    : list.map(item => {
-        const open = kind === 'mission' ? !item.locked : item.isOpen;
-        const clean = String(item.title || '').replace(/\*\*/g, '').replace(/[{}]/g, ''); // 편집기호 제거
-        const label = kind === 'concept' ? lecLabel(item.num, esc(clean)) : esc(clean);
-        // 채점 버튼: 미채점이 남아 있으면 그중 가장 최근 제출이 있는 반으로 바로 열어 준다.
-        const gradeBtn = kind === 'think'
-          ? `<button class="add-btn" style="font-size:11px;padding:3px 9px"${item.ungradedCls ? ` title="미채점이 남은 ${item.ungradedCls}반으로 이동"` : ''} onclick="dbGoGrade('${item.docId}',${item.ungradedCls || 0})">채점${item.ungraded ? ` <b>${item.ungraded}</b>${item.ungradedCls ? ` (${item.ungradedCls}반)` : ''}` : ''}</button>`
-          : '';
-        const editBtn =
-            kind === 'concept' ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbEditLesson('${esc(String(item.num))}')">수정</button>`
-          // 미션은 카드 설정보다 웹앱 어드민(채점·답변 관리)을 열 일이 훨씬 많다.
-          // 어드민 URL을 적어 둔 카드는 [수정]이 곧바로 그 웹앱 어드민을 연다.
-          : kind === 'mission' ? (item.adminUrl
-              ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" title="웹앱 어드민 열기" onclick="openAppAdmin('${esc(item.adminUrl)}')">수정</button>`
-              : `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbEditMission()">수정</button>`)
-          : kind === 'think'   ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbEditThink()">수정</button>`
-          : '';
-        return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--hairline-soft)">
-            <span style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
-            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-              ${gradeBtn}${editBtn}
-              <div class="th-toggle ${open ? 'on' : ''}" onclick="dbToggle('${kind}','${item.docId}',this)"></div>
-            </div>
-          </div>`;
-      }).join('');
+  const rowHTML = item => {
+    const open = kind === 'mission' ? !item.locked : item.isOpen;
+    const clean = String(item.title || '').replace(/\*\*/g, '').replace(/[{}]/g, ''); // 편집기호 제거
+    const label = kind === 'concept' ? lecLabel(item.num, esc(clean)) : esc(clean);
+    // 채점 버튼: 미채점이 남아 있으면 그중 가장 최근 제출이 있는 반으로 바로 열어 준다.
+    const gradeBtn = kind === 'think'
+      ? `<button class="add-btn" style="font-size:11px;padding:3px 9px"${item.ungradedCls ? ` title="미채점이 남은 ${item.ungradedCls}반으로 이동"` : ''} onclick="dbGoGrade('${item.docId}',${item.ungradedCls || 0})">채점${item.ungraded ? ` <b>${item.ungraded}</b>${item.ungradedCls ? ` (${item.ungradedCls}반)` : ''}` : ''}</button>`
+      : '';
+    const editBtn =
+        kind === 'concept' ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbEditLesson('${esc(String(item.num))}')">수정</button>`
+      // 미션은 카드 설정보다 웹앱 어드민(채점·답변 관리)을 열 일이 훨씬 많다.
+      // 어드민 URL을 적어 둔 카드는 [수정]이 곧바로 그 웹앱 어드민을 연다.
+      : kind === 'mission' ? (item.adminUrl
+          ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" title="웹앱 어드민 열기" onclick="openAppAdmin('${esc(item.adminUrl)}')">수정</button>`
+          : `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbEditMission()">수정</button>`)
+      : kind === 'think'   ? `<button class="add-btn" style="font-size:11px;padding:3px 9px" onclick="dbEditThink()">수정</button>`
+      : '';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--hairline-soft)">
+        <span style="font-size:13px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+          ${gradeBtn}${editBtn}
+          <div class="th-toggle ${open ? 'on' : ''}" onclick="dbToggle('${kind}','${item.docId}',this)"></div>
+        </div>
+      </div>`;
+  };
+
+  let rows;
+  if (!list.length) {
+    rows = '<div class="empty-panel" style="padding:14px;font-size:13px">항목 없음</div>';
+  } else {
+    const rest = list.slice(DB_TOGGLE_HEAD);
+    rows = list.slice(0, DB_TOGGLE_HEAD).map(rowHTML).join('');
+    // 접힌 부분은 높이를 못 박지 않고 grid-template-rows 0fr↔1fr로 여닫는다
+    // (강의 수에 따라 높이가 달라져서 max-height를 숫자로 정해 둘 수가 없다).
+    if (rest.length) rows += `
+      <div class="db-more"><div class="db-more-inner">${rest.map(rowHTML).join('')}</div></div>
+      <button type="button" class="db-more-btn" onclick="dbToggleMore(this)">+ 더보기</button>`;
+  }
   return `<div class="stu-card"><div class="stu-card-head">${title} 공개 관리</div><div style="padding:6px 18px 14px">${rows}</div></div>`;
 }
+
+window.dbToggleMore = function(btn) {
+  const box = btn.previousElementSibling;
+  if (!box) return;
+  btn.textContent = box.classList.toggle('open') ? '− 접기' : '+ 더보기';
+};
 
 window.dbToggle = async function(kind, docId, el) {
   const on = !el.classList.contains('on');
