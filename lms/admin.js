@@ -8569,15 +8569,79 @@ async function xpManualLoadStudents() {
   xpTplLoad();
 }
 
+/* 검색 결과 드롭다운. 마우스로 집기도 하지만 학번을 치고 그대로 손을 안 떼고 넘어가는
+   쪽이 훨씬 빠르므로, ↑↓로 줄을 고르고 Enter로 명단에 넣는 길을 같이 둔다. */
+let _xpManResults = [];   // 지금 드롭다운에 떠 있는 검색 결과
+let _xpManActive  = -1;   // ↑↓로 고른 줄(-1 = 아직 아무 줄도 안 고름)
+
 window.xpManualSearch = function(q) {
   const dd = document.getElementById('xp-manual-dropdown');
-  if (!q.trim()) { dd.style.display = 'none'; return; }
-  const results = _xpAllStudents.filter(s => s.sid.includes(q) || s.name.includes(q)).slice(0, 8);
-  if (!results.length) { dd.style.display = 'none'; return; }
+  _xpManActive = -1;                // 검색어가 바뀌면 고르던 줄은 무효
+  if (!q.trim()) { _xpManResults = []; dd.style.display = 'none'; return; }
+  _xpManResults = _xpAllStudents.filter(s => s.sid.includes(q) || s.name.includes(q)).slice(0, 8);
+  if (!_xpManResults.length) { dd.style.display = 'none'; return; }
   dd.style.display = '';
-  dd.innerHTML = results.map(s =>
-    `<div style="padding:10px 14px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--hairline-soft)" onmousedown="xpManualSelect('${s.sid}','${s.name}')">${s.sid} ${s.name}</div>`
-  ).join('');
+  xpManualRenderDD();
+};
+
+function xpManualRenderDD() {
+  const dd = document.getElementById('xp-manual-dropdown');
+  if (!dd) return;
+  dd.innerHTML = _xpManResults.map((s, i) =>
+    `<div class="xp-dd-item" onmousedown="xpManualPick(${i})" onmouseenter="xpManualHover(${i})">
+       <b>${esc(s.sid)}</b>${esc(s.name)}</div>`).join('');
+  xpManualHighlight(false);
+}
+
+/* 고른 줄 표시만 갈아끼운다(목록을 다시 그리지 않는다 — 마우스를 옮길 때마다 DOM을
+   통째로 새로 만들면 그 아래에서 mouseenter가 다시 터진다). */
+function xpManualHighlight(scroll) {
+  const dd = document.getElementById('xp-manual-dropdown');
+  if (!dd) return;
+  dd.querySelectorAll('.xp-dd-item').forEach((el, i) => el.classList.toggle('on', i === _xpManActive));
+  // 목록이 길어 화살표로 내려가다 보이는 범위를 벗어나면 그 줄까지 따라 스크롤한다.
+  if (scroll) dd.querySelector('.xp-dd-item.on')?.scrollIntoView({ block: 'nearest' });
+}
+
+window.xpManualHover = function(i) {
+  if (i === _xpManActive) { return; }
+  _xpManActive = i;
+  xpManualHighlight(false);
+};
+
+window.xpManualPick = function(i) {
+  const s = _xpManResults[i];
+  if (s) xpManualSelect(s.sid, s.name);
+};
+
+window.xpManualCloseDD = function(defer) {
+  // 칸에서 포커스가 빠질 때도 닫는데, 드롭다운을 누른 것이면 mousedown이 먼저
+  // 처리되도록 한 박자 늦춘다.
+  const close = () => {
+    const dd = document.getElementById('xp-manual-dropdown');
+    if (dd) dd.style.display = 'none';
+    _xpManActive = -1;
+  };
+  if (defer) setTimeout(close, 120); else close();
+};
+
+window.xpManualKey = function(e) {
+  const dd = document.getElementById('xp-manual-dropdown');
+  const open = dd && dd.style.display !== 'none' && _xpManResults.length > 0;
+  if (!open) return;
+  const n = _xpManResults.length;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();                                   // 커서가 칸 안에서 튀지 않게
+    const down = e.key === 'ArrowDown';
+    _xpManActive = _xpManActive < 0 ? (down ? 0 : n - 1)
+                                    : (_xpManActive + (down ? 1 : -1) + n) % n;
+    xpManualHighlight(true);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    xpManualPick(_xpManActive < 0 ? 0 : _xpManActive);     // 안 골랐으면 맨 위를 넣는다
+  } else if (e.key === 'Escape') {
+    xpManualCloseDD();
+  }
 };
 
 /* 검색해서 고른 학생을 명단에 쌓아 두고 한 번에 지급한다.
@@ -8587,6 +8651,8 @@ window.xpManualSelect = function(sid, name) {
   if (!_xpManPicked.some(s => s.sid === sid)) _xpManPicked.push({ sid, name });
   const input = document.getElementById('xp-manual-search');
   input.value = '';                 // 다음 학생을 바로 이어서 검색할 수 있게 비운다
+  _xpManResults = [];
+  _xpManActive = -1;
   document.getElementById('xp-manual-dropdown').style.display = 'none';
   xpRenderPicked();
   input.focus();
@@ -8636,7 +8702,7 @@ window.xpManualAward = async function() {
       ok.push(s.name);
     } catch (e) { fail.push(s.name); }
   }
-  res.textContent = `완료: ${ok.length}명 지급` + (fail.length ? ` · 실패 ${fail.length}명(${fail.join(', ')})` : '');
+  res.textContent = `완료: ${ok.length}명 지급` + (fail.length ? `, 실패 ${fail.length}명(${fail.join(', ')})` : '');
   res.style.color = fail.length ? 'var(--critical)' : 'var(--success)';
   if (!fail.length) xpManualClear();
   xpManualLogLoad();
@@ -8663,19 +8729,50 @@ async function xpTplLoad() {
 
 function xpTplRender() {
   const box = document.getElementById('xp-tpl-list');
+  const cnt = document.getElementById('xp-tpl-count');
+  if (cnt) cnt.textContent = _xpTpls.length ? `${_xpTpls.length}개` : '';
   if (!box) return;
   if (!_xpTpls.length) {
     box.innerHTML = '<div class="xp-tpl-empty">저장된 템플릿이 없습니다. 왼쪽에서 경험치와 사유를 정한 뒤 이름을 붙여 저장하세요.</div>';
     return;
   }
+  // 한 줄에 이름 / 경험치 / 사유. 사유가 길면 그 칸에서만 말줄임 처리된다.
   box.innerHTML = _xpTpls.map(t => `
     <div class="xp-tpl-item">
       <button class="xp-tpl-apply" onclick="xpTplApply('${esc(t.id)}')" title="지급 폼에 채워 넣기">
         <span class="xp-tpl-name">${esc(t.name)}</span>
-        <span class="xp-tpl-meta"><b>${t.pt > 0 ? '+' : ''}${t.pt}</b>${t.note ? ' · ' + esc(t.note) : ''}</span>
+        <span class="xp-tpl-pt">${t.pt > 0 ? '+' : ''}${t.pt}</span>
+        <span class="xp-tpl-note">${esc(t.note)}</span>
       </button>
       <button class="xp-tpl-del" onclick="xpTplDelete('${esc(t.id)}')" title="템플릿 삭제">✕</button>
     </div>`).join('');
+}
+
+/* 템플릿 목록 여닫기. 바깥을 누르면 닫히게 document 리스너를 열 때만 달았다가 뗀다. */
+window.xpTplToggle = function() {
+  const box = document.getElementById('xp-tpl-list');
+  if (!box) return;
+  if (box.style.display === 'none') { xpTplOpen(); } else { xpTplCloseList(); }
+};
+
+function xpTplOpen() {
+  const box = document.getElementById('xp-tpl-list');
+  if (!box) return;
+  box.style.display = '';
+  document.getElementById('xp-tpl-toggle')?.classList.add('open');
+  setTimeout(() => document.addEventListener('mousedown', xpTplOutside), 0);
+}
+
+function xpTplCloseList() {
+  const box = document.getElementById('xp-tpl-list');
+  if (!box) return;
+  box.style.display = 'none';
+  document.getElementById('xp-tpl-toggle')?.classList.remove('open');
+  document.removeEventListener('mousedown', xpTplOutside);
+}
+
+function xpTplOutside(e) {
+  if (!e.target.closest('.xp-tpl-pick')) xpTplCloseList();
 }
 
 window.xpTplSave = async function() {
@@ -8702,6 +8799,7 @@ window.xpTplApply = function(id) {
   const nEl  = document.getElementById('xp-manual-note');
   if (ptEl) ptEl.value = t.pt;
   if (nEl)  nEl.value  = t.note;
+  xpTplCloseList();
   const res = document.getElementById('xp-manual-result');
   if (res) { res.textContent = `"${t.name}" 템플릿을 채웠습니다. 학생을 고르고 [지급]을 누르세요.`; res.style.color = 'var(--sub)'; }
 };

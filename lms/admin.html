@@ -11,7 +11,7 @@
 <!-- 개념 체크 미리보기가 학생 화면(class/lesson.html)과 100% 동일하게 렌더링되도록 공용 슬라이드 스타일을 그대로 불러온다.
      이 파일의 :root 변수 중 --text/--border는 아래 이 페이지 자체 :root 선언이 나중에 와서 재정의하므로 전역 충돌은 없다. -->
 <link rel="stylesheet" href="slide-style.css?v=20260907d">
-<link rel="stylesheet" href="admin.css?v=20260909d">
+<link rel="stylesheet" href="admin.css?v=20260917a">
 <!-- 관리자 모드는 학생 LMS와 별개의 앱으로 홈 화면에 올라간다(이름 "LMS 관리자 모드").
      pwa.js는 "이미 있으면 건너뜀"이라, 여기 먼저 걸어 둔 것들이 루트 매니페스트·메타를 대신한다. -->
 <link rel="manifest" href="/hoistory/lms/admin.manifest.json">
@@ -896,8 +896,9 @@
         <div class="stu-card-body" style="display:flex;flex-direction:column;gap:14px">
           <div class="form-group">
             <label class="form-label">학생 검색 (학번 또는 이름)</label>
-            <input type="text" class="stu-search" style="width:100%;flex:none" id="xp-manual-search" placeholder="학번 또는 이름" oninput="xpManualSearch(this.value)">
-            <div id="xp-manual-dropdown" style="display:none;border:1px solid var(--hairline);border-radius:8px;margin-top:4px;overflow:hidden;background:var(--canvas);max-height:160px;overflow-y:auto"></div>
+            <input type="text" class="stu-search" style="width:100%;flex:none" id="xp-manual-search" placeholder="학번 또는 이름" autocomplete="off"
+                   oninput="xpManualSearch(this.value)" onkeydown="xpManualKey(event)" onblur="xpManualCloseDD(true)">
+            <div id="xp-manual-dropdown" class="xp-dd" style="display:none"></div>
           </div>
           <div id="xp-manual-target" class="xp-pick-box" style="display:none"></div>
           <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
@@ -915,14 +916,22 @@
         </div>
       </div>
 
-      <div class="stu-card">
+      <!-- 템플릿 목록이 카드 밖으로 겹쳐 펼쳐지므로 이 카드만 overflow를 풀어 둔다. -->
+      <div class="stu-card xp-tpl-card">
         <div class="stu-card-head">지급 템플릿</div>
         <div class="stu-card-body" style="display:flex;flex-direction:column;gap:12px">
+          <!-- 템플릿이 늘어나도 카드가 길어지지 않게, 목록은 버튼 아래로 펼쳐지는
+               드롭다운에 담는다. 한 줄에 이름·경험치·사유를 나란히 둔다. -->
+          <div class="xp-tpl-pick">
+            <button type="button" class="xp-tpl-toggle" id="xp-tpl-toggle" onclick="xpTplToggle()">
+              <span>템플릿 불러오기</span><span class="xp-tpl-count" id="xp-tpl-count"></span>
+            </button>
+            <div id="xp-tpl-list" class="xp-tpl-list" style="display:none"></div>
+          </div>
           <div class="xp-tpl-save">
             <input type="text" class="form-input" id="xp-tpl-name" maxlength="24" placeholder="템플릿 이름 (예: 발표 우수)">
             <button class="add-btn" onclick="xpTplSave()">현재 값으로 저장</button>
           </div>
-          <div id="xp-tpl-list" class="xp-tpl-list"></div>
         </div>
       </div>
     </div>
@@ -1295,6 +1304,6 @@
 <!-- hwpx 파일(zip+xml) 압축 해제용: 활동지 업로드로 새 강의 자동 생성 기능에 사용 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="slide-render.js?v=20260917a"></script>
-<script type="module" src="admin.js?v=20260910a"></script>
+<script type="module" src="admin.js?v=20260917a"></script>
 </body>
 </html>
