@@ -8759,7 +8759,7 @@ function xpTplRender() {
   if (cnt) cnt.textContent = _xpTpls.length ? `${_xpTpls.length}개` : '';
   if (!box) return;
   if (!_xpTpls.length) {
-    box.innerHTML = '<div class="xp-tpl-empty">저장된 템플릿이 없습니다. 왼쪽에서 경험치와 사유를 정한 뒤 이름을 붙여 저장하세요.</div>';
+    box.innerHTML = '<div class="xp-tpl-empty">저장된 템플릿이 없습니다. 위에서 경험치와 사유를 정한 뒤 맨 아래 칸에 이름을 붙여 저장하세요.</div>';
     return;
   }
   // 한 줄에 이름 / 경험치 / 사유. 사유가 길면 그 칸에서만 말줄임 처리된다.
@@ -8807,7 +8807,7 @@ window.xpTplSave = async function() {
   const pt   = Number(document.getElementById('xp-manual-pt')?.value) || 0;
   const note = document.getElementById('xp-manual-note')?.value.trim() || '';
   if (!name) { alert('템플릿 이름을 입력하세요.'); return; }
-  if (!pt)   { alert('왼쪽에서 경험치 양을 먼저 입력하세요.'); return; }
+  if (!pt)   { alert('경험치 양을 먼저 입력하세요.'); return; }
   //  같은 이름이 이미 있으면 새로 만들지 않고 덮어쓴다 — 값만 고치고 싶을 때가 많다.
   const exist = _xpTpls.find(t => t.name === name);
   const id = exist ? exist.id : 'tpl_' + Date.now().toString(36);
