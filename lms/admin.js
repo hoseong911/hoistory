@@ -8759,7 +8759,7 @@ function xpTplRender() {
   if (cnt) cnt.textContent = _xpTpls.length ? `${_xpTpls.length}개` : '';
   if (!box) return;
   if (!_xpTpls.length) {
-    box.innerHTML = '<div class="xp-tpl-empty">저장된 템플릿이 없습니다. 위에서 경험치와 사유를 정한 뒤 맨 아래 칸에 이름을 붙여 저장하세요.</div>';
+    box.innerHTML = '<div class="xp-tpl-empty">저장된 템플릿이 없습니다. 왼쪽에서 경험치와 사유를 정한 뒤 위 칸에 이름을 붙여 저장하세요.</div>';
     return;
   }
   // 한 줄에 이름 / 경험치 / 사유. 사유가 길면 그 칸에서만 말줄임 처리된다.
@@ -8772,33 +8772,6 @@ function xpTplRender() {
       </button>
       <button class="xp-tpl-del" onclick="xpTplDelete('${esc(t.id)}')" title="템플릿 삭제">✕</button>
     </div>`).join('');
-}
-
-/* 템플릿 목록 여닫기. 바깥을 누르면 닫히게 document 리스너를 열 때만 달았다가 뗀다. */
-window.xpTplToggle = function() {
-  const box = document.getElementById('xp-tpl-list');
-  if (!box) return;
-  if (box.style.display === 'none') { xpTplOpen(); } else { xpTplCloseList(); }
-};
-
-function xpTplOpen() {
-  const box = document.getElementById('xp-tpl-list');
-  if (!box) return;
-  box.style.display = '';
-  document.getElementById('xp-tpl-toggle')?.classList.add('open');
-  setTimeout(() => document.addEventListener('mousedown', xpTplOutside), 0);
-}
-
-function xpTplCloseList() {
-  const box = document.getElementById('xp-tpl-list');
-  if (!box) return;
-  box.style.display = 'none';
-  document.getElementById('xp-tpl-toggle')?.classList.remove('open');
-  document.removeEventListener('mousedown', xpTplOutside);
-}
-
-function xpTplOutside(e) {
-  if (!e.target.closest('.xp-tpl-pick')) xpTplCloseList();
 }
 
 window.xpTplSave = async function() {
@@ -8825,7 +8798,6 @@ window.xpTplApply = function(id) {
   const nEl  = document.getElementById('xp-manual-note');
   if (ptEl) ptEl.value = t.pt;
   if (nEl)  nEl.value  = t.note;
-  xpTplCloseList();
   const res = document.getElementById('xp-manual-result');
   if (res) { res.textContent = `"${t.name}" 템플릿을 채웠습니다. 학생을 고르고 [지급]을 누르세요.`; res.style.color = 'var(--sub)'; }
 };
