@@ -3,7 +3,7 @@
    똑같이 이 파일을 불러써서, 슬라이드 HTML 생성 로직이 항상 일치하도록 한다.
    ════════════════════════════════════════════════════════ */
 (function (global) {
-  console.log('[SlideRender] v20260901a loaded');
+  console.log('[SlideRender] v20260917a loaded');
 
   // 스페이스를 2칸 이상 연달아 쓰면 브라우저가 하나로 줄여버리므로, 짝수 번째
   // 스페이스를 &nbsp;로 바꿔 타이핑한 칸 수 그대로 보이게 한다(홀수 번째는 일반
@@ -107,11 +107,16 @@
      줄바꿈)은 새 sub-line을 만들지 않고 직전 소제목의 sub-body 안에 <br>로 합쳐 넣는다 —
      sub-body가 본문 시작 위치에서 시작하는 flex:1 박스이므로, 안에서 줄이 나뉘어도(수동
      줄바꿈이든 자동 줄바꿈이든) 항상 본문 시작 위치에 맞춰 내어쓰기된다. */
-  function renderWithBreaks(text) {
+  function renderWithBreaks(text, abcIndent) {
     const lines = text
       .replace(new RegExp(String.fromCharCode(0x200B), 'g'), '')
       .replace(new RegExp(String.fromCharCode(0x2028), 'g'), '\n')
       .replace(/<\/?br\s*\/?>/gi, '\n').split('\n');
+    /* a./b./c. 들여쓰기는 항목이 "맨 처음부터" 마커로 시작할 때만 준다. 앞에 소제목
+       (item-lead)이 붙는 항목은 이미 소제목 폭만큼 오른쪽으로 밀려 있어서, 거기에 또
+       들여쓰면 층이 어긋나 보인다. 호출자가 abcIndent를 넘기지 않으면 넘겨받은 덩어리의
+       첫 줄로 판단한다(사료·흐름도처럼 소제목 없이 통째로 오는 텍스트). */
+    const allowAbc = abcIndent === undefined ? /^[a-z]\.\s/.test(lines[0] || '') : !!abcIndent;
     const out = [];
     let subLead = null, subBodyLines = null, subAbc = false;
     let lastBullet = false;
@@ -119,7 +124,7 @@
     function flushSub() {
       if (subLead === null) return;
       const body = linesWithBullets(subBodyLines.join('\n'), parseText);
-      // a./b./c. 하위 줄은 앞에 한 칸 들여쓴다(.abc-line).
+      // 맨 처음부터 a./b./c.로 시작한 덩어리일 때만 한 칸 들여쓴다(.abc-line).
       out.push(`<span class="sub-line${subAbc ? ' abc-line' : ''}"><span class="item-sublead">${parseText(subLead)}</span><span class="sub-body">${body}</span></span>`);
       subLead = null;
       subBodyLines = null;
@@ -133,7 +138,7 @@
         flushSub();
         subLead = line.slice(0, 2);
         subBodyLines = [line.slice(3)];
-        subAbc = true;
+        subAbc = allowAbc;
       } else {
         const colonIdx = line.indexOf(' : ');
         if (colonIdx > -1) {
@@ -179,7 +184,7 @@
 
     // Case 1: 아이템 자체가 a./b./c. 마커로 시작 → item-lead 없이 전체를 renderWithBreaks에 넘김
     if (/^[a-z]\.\s/.test(str)) {
-      return `<span class="item-text">${renderWithBreaks(str)}</span>`;
+      return `<span class="item-text">${renderWithBreaks(str, true)}</span>`;
     }
 
     // Case 2: "제목<br>a./b./c. 하위항목" 형태 — ① 뗀 후 첫 줄이 제목, <br> 이후 a.b.c. 시작
@@ -188,7 +193,7 @@
     if (firstBr > -1 && /^[a-z]\.\s/.test(str.slice(firstBr + 4))) {
       const heading = str.slice(0, firstBr);
       const subs    = str.slice(firstBr + 4);
-      return `<span class="item-lead">${parseText(heading)}</span><span class="item-text">${renderWithBreaks(subs)}</span>`;
+      return `<span class="item-lead">${parseText(heading)}</span><span class="item-text">${renderWithBreaks(subs, false)}</span>`;
     }
 
     // Case 2b: "소제목 a. ..." 형태 — 소제목 앞에 ' : ' 없는 경우
@@ -196,7 +201,7 @@
     if (subItemMatch && !subItemMatch[1].includes(' : ')) {
       const leadRaw = subItemMatch[1];
       const rest = str.slice(leadRaw.length + 1);
-      return `<span class="item-lead">${parseText(leadRaw)}</span><span class="item-text">${renderWithBreaks(rest)}</span>`;
+      return `<span class="item-lead">${parseText(leadRaw)}</span><span class="item-text">${renderWithBreaks(rest, false)}</span>`;
     }
 
     // Case 3: "소제목 : 본문" 형태 (기존 콜론 구분)
@@ -205,7 +210,7 @@
       const leadRaw = str.slice(0, colonIdx);
       let   rest     = str.slice(colonIdx + 3);
       if (isStackedItem(str)) rest = rest.replace(/^<br\s*\/?>/i, '');
-      return `<span class="item-lead">${parseText(leadRaw)}</span><span class="item-text">${renderWithBreaks(rest)}</span>`;
+      return `<span class="item-lead">${parseText(leadRaw)}</span><span class="item-text">${renderWithBreaks(rest, false)}</span>`;
     }
 
     return `<span class="item-text">${renderWithBreaks(str)}</span>`;
@@ -453,17 +458,19 @@
     }
 
     // 4. 렌더링
-    // a./b./c. 하위 줄은 마커 앞을 한 칸 들여쓴다(.abc-line).
-    function renderSub(sub) {
-      return `<span class="sub-line abc-line"><span class="item-sublead">${sub.marker}</span><span class="sub-body">${parseTextB(sub.body)}</span></span>`;
+    /* a./b./c. 하위 줄의 들여쓰기(.abc-line)는 그 줄이 "맨 처음부터" 마커로 시작한
+       덩어리일 때만 준다. 앞에 소제목(item-lead)이 붙는 title-with-subs 그룹은 이미
+       소제목 폭만큼 오른쪽으로 밀려 있어서, 거기에 또 들여쓰면 층이 어긋나 보인다. */
+    function renderSub(sub, indent) {
+      return `<span class="sub-line${indent ? ' abc-line' : ''}"><span class="item-sublead">${sub.marker}</span><span class="sub-body">${parseTextB(sub.body)}</span></span>`;
     }
 
     const itemsHtml = groups.map(g => {
       if (g.type === 'title-with-subs') {
-        return `<p class="cr-block"><span class="item-lead">${parseText(g.title)}</span><span class="item-text">${g.subs.map(renderSub).join('')}</span></p>`;
+        return `<p class="cr-block"><span class="item-lead">${parseText(g.title)}</span><span class="item-text">${g.subs.map(s => renderSub(s, false)).join('')}</span></p>`;
       }
       if (g.type === 'subs-standalone') {
-        return `<p class="cr-block"><span class="item-text">${g.subs.map(renderSub).join('')}</span></p>`;
+        return `<p class="cr-block"><span class="item-text">${g.subs.map(s => renderSub(s, true)).join('')}</span></p>`;
       }
       if (g.type === 'title-colon') {
         return `<p class="cr-block"><span class="item-lead">${parseText(g.title)}</span><span class="item-text">${parseTextB(g.content)}</span></p>`;
