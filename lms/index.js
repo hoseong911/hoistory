@@ -950,19 +950,23 @@ function showToast(msg, duration, iconName) {
 // 모았다가 한 번에 알려 준다.
 let _entryNotice = { ann: 0, fb: false };
 let _entryNoticeTimer = null;
-let _entryNoticeDone = false;
+// 이미 알린 것. 한 번 알린 종류만 막는다 — 예전에는 "한 번 띄웠으면 끝"이라 공지가
+// 먼저 도착해 토스트가 나가 버리면, 1.2초보다 늦게 끝나는 성적 조회에 붙어 온 피드백
+// 알림이 통째로 묻혔다(피드백이 있는데도 아무 말이 없던 자리).
+let _noticed = { ann: false, fb: false };
 function _queueEntryNotice(patch) {
-  if (_entryNoticeDone) return;
-  if (patch.ann) _entryNotice.ann = patch.ann;
-  if (patch.fb)  _entryNotice.fb  = true;
+  if (patch.ann && !_noticed.ann) _entryNotice.ann = patch.ann;
+  if (patch.fb  && !_noticed.fb)  _entryNotice.fb  = true;
+  if (!_entryNotice.ann && !_entryNotice.fb) return;
   clearTimeout(_entryNoticeTimer);
   _entryNoticeTimer = setTimeout(_flushEntryNotice, 1200); // 둘 다 도착할 여유
 }
 function _flushEntryNotice() {
-  if (_entryNoticeDone) return;
   const { ann, fb } = _entryNotice;
   if (!ann && !fb) return;
-  _entryNoticeDone = true;
+  _entryNotice = { ann: 0, fb: false };
+  if (ann) _noticed.ann = true;
+  if (fb)  _noticed.fb  = true;
   let msg, iconName;
   if (ann && fb)   { msg = `새 공지 ${ann}건과 선생님 피드백이 있어요`; iconName = 'megaphone'; }
   else if (ann)    { msg = `새 공지가 ${ann}건 있어요`;                 iconName = 'megaphone'; }
@@ -970,21 +974,35 @@ function _flushEntryNotice() {
   showToast(msg, 8000, iconName);
 }
 
+/* 지금 달려 있는 피드백 전체를 한 줄로 요약한 값. 글이 한 글자라도 바뀌면 달라지므로,
+   선생님이 고쳐 쓴 것도 "새로 올라온 것"으로 잡힌다. 마지막으로 열어 본 값은
+   localStorage(lms_seen_fb_학번)에 남겨 두고 이것과 견준다. */
 function _feedbackSig(g) {
   if (!g || !g.feedbacks) return '';
   return g.feedbacks.map(d => `${d.key}:${d.feedback}`).join('||');
 }
+function _seenFeedbackSig() {
+  try { return localStorage.getItem('lms_seen_fb_' + currentStudentId) || ''; } catch(_) { return ''; }
+}
+// 아직 안 본 피드백이 있나 — 성적 칩과 [선생님 피드백] 버튼의 빨간 점이 이걸 본다.
+function hasNewFeedback() {
+  const sig = _feedbackSig(sectionData.grade);
+  return !!sig && sig !== _seenFeedbackSig();
+}
+// 피드백을 열어 본 순간 "본 것"으로 적고, 빨간 점이 달린 자리들을 다시 그린다.
+function markFeedbackSeen() {
+  const sig = _feedbackSig(sectionData.grade);
+  try { localStorage.setItem('lms_seen_fb_' + currentStudentId, sig); } catch(_) {}
+  renderGradeBlock();
+  if (_gradeModalOpen) renderGradeSummaryModalContent();
+}
+
 let _fbToastShown = false;
 function _maybeNotifyFeedback() {
   if (_fbToastShown) return;
-  const sig = _feedbackSig(sectionData.grade);
-  if (!sig) return;
-  let seen = '';
-  try { seen = localStorage.getItem('lms_seen_fb_' + currentStudentId) || ''; } catch(_) {}
-  if (sig !== seen) {
-    _fbToastShown = true;
-    _queueEntryNotice({ fb: true });
-  }
+  if (!hasNewFeedback()) return;
+  _fbToastShown = true;
+  _queueEntryNotice({ fb: true });
 }
 
 /* ── 논술형 수행평가 (essay_records) ──
@@ -1038,7 +1056,7 @@ function renderGradeSummaryHTML(g) {
   if (g.totalPublished === 0) {
     // 성적은 아직 반영 전이어도 선생님 피드백은 바로 볼 수 있어야 한다.
     const fbOnly = g.feedbacks && g.feedbacks.length
-      ? `<div class="grade-btns"><button class="btn-grade-detail" onclick="openGradeFeedback()">선생님 피드백</button></div>`
+      ? `<div class="grade-btns"><button class="btn-grade-detail" onclick="openGradeFeedback()">선생님 피드백${hasNewFeedback() ? `<span class="new-dot"></span>` : ``}</button></div>`
       : '';
     return `<div class="grade-pending">아직 반영된 성적이 없습니다.<br>선생님이 반영 후 확인 가능합니다.</div>${fbOnly}`;
   }
@@ -1066,7 +1084,7 @@ function renderGradeSummaryHTML(g) {
     </div>
     ${(hasDetail || hasFeedback) ? `<div class="grade-btns">
       ${hasDetail ? `<button class="btn-grade-detail" onclick="openGradeDetail()">세부 채점 내역</button>` : ''}
-      ${hasFeedback ? `<button class="btn-grade-detail" onclick="openGradeFeedback()">선생님 피드백</button>` : ''}
+      ${hasFeedback ? `<button class="btn-grade-detail" onclick="openGradeFeedback()">선생님 피드백${hasNewFeedback() ? `<span class="new-dot"></span>` : ``}</button>` : ''}
     </div>` : ''}
   </div>`;
 }
@@ -1221,7 +1239,8 @@ function renderGradeBlock() {
   if (!menuVisible('grade')) { el.style.display = 'none'; return; }
   el.style.display = '';
   // 성적 칩은 제목만 노출한다(점수는 탭 후 모달에서 확인).
-  el.innerHTML = `<span class="hub-chip-title">성적 Check</span>`;
+  // 아직 안 본 선생님 피드백이 있으면 제목 옆에 빨간 점을 달아 눌러 보게 한다.
+  el.innerHTML = `<span class="hub-chip-title">성적 Check${hasNewFeedback() ? '<span class="new-dot" aria-label="새 피드백"></span>' : ''}</span>`;
   el.onclick = openGradeSummaryModal;
 }
 
@@ -1849,8 +1868,9 @@ window.openGradeFeedback = async function() {
   const el = document.getElementById('gradeFeedbackContent');
   el.innerHTML = body;
   document.getElementById('gradeFeedbackModal').style.display = 'flex';
-  // 확인한 피드백은 "본 것"으로 기록해 다음 입장 때 토스트가 다시 뜨지 않게 한다.
-  try { localStorage.setItem('lms_seen_fb_' + currentStudentId, _feedbackSig(g)); } catch(_) {}
+  // 확인한 피드백은 "본 것"으로 기록한다 — 빨간 점이 사라지고, 다음 입장 때 토스트도
+  // 다시 뜨지 않는다.
+  markFeedbackSeen();
   // 생각 체크에서 만점(30pt)을 받은 적이 있으면 간식 안내 배너를 맨 위에 붙인다.
   try {
     const rows = await _fetchXPRows();

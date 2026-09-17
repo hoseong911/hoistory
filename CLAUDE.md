@@ -225,7 +225,7 @@ LMS에서 미션 카드를 만들고 공개(잠금 해제)하면, 같은 Firesto
 
 피드백도 작성 즉시 저장되지만(`persistFeedbackOnly()`), 체크 쪽과 달리 **반영 상태(`published`)를 건드리지 않고 `feedback` 필드만 병합**한다. 학생 `lms/index.js`가 미반영 강의의 피드백을 `feedbacks` 배열로 따로 모아 보여주므로, 아직 공개하지 않은 반이어도 피드백은 바로 보인다. 점수와 "세부 채점 내역"은 그대로 공개된 강의만 쓴다.
 
-피드백 템플릿(`settings/feedback_templates`)은 두 곳에서 쓴다 — 템플릿 모달의 "일괄 적용"(피드백이 비어 있는 학생에게만)과, 개별 피드백 모달의 템플릿 고르기 줄(`renderGradeFeedbackTplSelect` / `insertFeedbackTemplateIntoInput`). 개별 쪽은 덮어쓰지 않고 **커서 자리에 끼워 넣는다** — 템플릿을 뼈대로 두고 학생별 한마디를 앞뒤에 붙이는 방식이라서다.
+피드백 템플릿(`settings/feedback_templates`)은 두 곳에서 쓴다 — 템플릿 모달의 "일괄 적용"(피드백이 비어 있는 학생에게만)과, 개별 피드백 모달의 템플릿 고르기 줄(`renderGradeFeedbackTplSelect` / `insertFeedbackTemplateIntoInput`). 개별 쪽은 고른 템플릿으로 입력칸을 **통째로 덮어쓴다**(2026-09-17 변경, 그전에는 커서 자리에 끼워 넣었다). 잘못 고른 템플릿을 지우고 다시 고르는 손이 더 많이 갔기 때문이며, 커서는 글 끝에 두어 바로 이어 쓸 수 있게 한다.
 
 ## 대시보드 공개 관리의 [수정] 버튼 (2026-08-31)
 

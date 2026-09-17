@@ -4916,22 +4916,19 @@ function renderGradeFeedbackTplSelect() {
     _feedbackTemplates.map(t => `<option value="${esc(t.id)}">${esc(t.label)}</option>`).join('');
 }
 
-// 고른 템플릿을 지금 커서 자리에 끼워 넣는다(글자를 선택해 뒀다면 그 자리를 대신한다).
-// 덮어쓰지 않는 이유 — 템플릿은 보통 공통 문장이고, 그 앞뒤에 학생별 한마디를 붙이게 된다.
-// select의 onchange에서 부르므로 따로 누를 버튼이 없다. 넣고 나면 고른 값을 도로 비워서
-// 같은 템플릿을 연달아 두 번 넣을 수 있게 한다(안 비우면 change가 안 일어난다).
+/* 고른 템플릿으로 입력칸을 통째로 갈아 끼운다. 템플릿을 잘못 골랐을 때 지우고 다시
+   고르는 손이 더 많이 가서, 이어 붙이기가 아니라 덮어쓰기로 정했다(2026-09-17).
+   select의 onchange에서 부르므로 따로 누를 버튼이 없다. 넣고 나면 고른 값을 도로 비워서
+   같은 템플릿을 연달아 두 번 넣을 수 있게 한다(안 비우면 change가 안 일어난다). */
 function insertFeedbackTemplateIntoInput() {
   const sel = document.getElementById('gradeFeedbackTplSel');
   const tpl = _feedbackTemplates.find(t => t.id === sel.value);
   sel.value = '';
   if (!tpl) return;
   const ta = document.getElementById('gradeFeedbackInput');
-  const start = ta.selectionStart ?? ta.value.length;
-  const end   = ta.selectionEnd   ?? ta.value.length;
-  ta.value = ta.value.slice(0, start) + tpl.text + ta.value.slice(end);
-  const caret = start + tpl.text.length;
+  ta.value = tpl.text;
   ta.focus();
-  ta.setSelectionRange(caret, caret);
+  ta.setSelectionRange(ta.value.length, ta.value.length);   // 커서는 끝에 — 바로 이어 쓸 수 있게
 }
 
 function closeGradeFeedbackModal() {
