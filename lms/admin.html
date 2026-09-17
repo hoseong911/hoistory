@@ -11,7 +11,7 @@
 <!-- 개념 체크 미리보기가 학생 화면(class/lesson.html)과 100% 동일하게 렌더링되도록 공용 슬라이드 스타일을 그대로 불러온다.
      이 파일의 :root 변수 중 --text/--border는 아래 이 페이지 자체 :root 선언이 나중에 와서 재정의하므로 전역 충돌은 없다. -->
 <link rel="stylesheet" href="slide-style.css?v=20260907d">
-<link rel="stylesheet" href="admin.css?v=20260917d">
+<link rel="stylesheet" href="admin.css?v=20260917e">
 <!-- 관리자 모드는 학생 LMS와 별개의 앱으로 홈 화면에 올라간다(이름 "LMS 관리자 모드").
      pwa.js는 "이미 있으면 건너뜀"이라, 여기 먼저 걸어 둔 것들이 루트 매니페스트·메타를 대신한다. -->
 <link rel="manifest" href="/hoistory/lms/admin.manifest.json">
@@ -895,35 +895,54 @@
     <div class="stu-card xp-tpl-card">
       <div class="stu-card-head">수동 경험치 지급</div>
       <div class="stu-card-body xp-award-body">
+        <!-- 왼쪽: 지급. 라벨은 입력칸 왼쪽 같은 줄에 두고 칸 폭을 못 박아 세로로 줄을 맞춘다. -->
         <div class="xp-award-col">
-          <div class="xp-field">
-            <label class="form-label" for="xp-manual-search">학생 검색</label>
-            <input type="text" class="stu-search" style="width:100%;flex:none" id="xp-manual-search" placeholder="학번 또는 이름" autocomplete="off"
-                   oninput="xpManualSearch(this.value)" onkeydown="xpManualKey(event)" onblur="xpManualCloseDD(true)">
-            <div id="xp-manual-dropdown" class="xp-dd" style="display:none"></div>
-          </div>
-          <div id="xp-manual-target" class="xp-pick-box" style="display:none"></div>
-          <div class="xp-award-row">
-            <div class="xp-field" style="flex:0 0 auto">
-              <label class="form-label" for="xp-manual-pt">경험치</label>
-              <input type="number" class="form-input" id="xp-manual-pt" value="10" style="width:92px">
+          <div class="xp-row">
+            <label class="xp-lb" for="xp-manual-search">학생 검색</label>
+            <div class="xp-inputwrap">
+              <input type="text" class="stu-search" style="width:100%;flex:none" id="xp-manual-search" placeholder="학번 또는 이름" autocomplete="off"
+                     oninput="xpManualSearch(this.value)" onkeydown="xpManualKey(event)" onblur="xpManualCloseDD(true)">
+              <div id="xp-manual-dropdown" class="xp-dd" style="display:none"></div>
             </div>
-            <div class="xp-field" style="flex:1;min-width:140px">
-              <label class="form-label" for="xp-manual-note">사유</label>
+          </div>
+          <div class="xp-row">
+            <label class="xp-lb" for="xp-manual-pt">경험치</label>
+            <div><input type="number" class="form-input" id="xp-manual-pt" value="10" style="width:92px"></div>
+          </div>
+          <div class="xp-row">
+            <label class="xp-lb" for="xp-manual-note">사유</label>
+            <div class="xp-inline">
               <input type="text" class="form-input" id="xp-manual-note" placeholder="예) 수업 참여 우수">
+              <button class="add-btn" onclick="xpManualAward()">지급</button>
             </div>
-            <button class="add-btn" onclick="xpManualAward()">지급</button>
           </div>
-          <div id="xp-manual-result" style="font-size:13px;min-height:20px"></div>
         </div>
 
+        <!-- 오른쪽: 템플릿. 목록은 늘어나도 칸이 길어지지 않게 버튼 아래로 겹쳐 펼친다. -->
         <div class="xp-award-col xp-award-col-tpl">
-          <div class="xp-col-head">템플릿<span class="xp-tpl-count" id="xp-tpl-count"></span></div>
-          <div class="xp-tpl-save">
-            <input type="text" class="form-input" id="xp-tpl-name" maxlength="24" placeholder="왼쪽 값을 저장할 이름">
-            <button class="add-btn" onclick="xpTplSave()">저장</button>
+          <div class="xp-row">
+            <label class="xp-lb">템플릿</label>
+            <div class="xp-tpl-pick">
+              <button type="button" class="xp-tpl-toggle" id="xp-tpl-toggle" onclick="xpTplToggle()">
+                불러오기<span class="xp-tpl-count" id="xp-tpl-count"></span>
+              </button>
+              <div id="xp-tpl-list" class="xp-tpl-list" style="display:none"></div>
+            </div>
           </div>
-          <div id="xp-tpl-list" class="xp-tpl-list"></div>
+          <div class="xp-row">
+            <span class="xp-lb"></span>
+            <div class="xp-inline">
+              <input type="text" class="form-input" id="xp-tpl-name" maxlength="24" placeholder="왼쪽 값을 저장할 이름">
+              <button class="add-btn" onclick="xpTplSave()">저장</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 지급 대상과 결과는 칸이 나타났다 사라지며 위 입력칸들을 밀어내지 않도록
+             섹션 맨 아래에 따로 둔다. -->
+        <div class="xp-award-foot">
+          <div id="xp-manual-target" class="xp-pick-box" style="display:none"></div>
+          <div id="xp-manual-result" style="font-size:13px;min-height:20px"></div>
         </div>
       </div>
     </div>
@@ -1296,6 +1315,6 @@
 <!-- hwpx 파일(zip+xml) 압축 해제용: 활동지 업로드로 새 강의 자동 생성 기능에 사용 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="slide-render.js?v=20260917a"></script>
-<script type="module" src="admin.js?v=20260917d"></script>
+<script type="module" src="admin.js?v=20260917e"></script>
 </body>
 </html>
