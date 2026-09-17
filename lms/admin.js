@@ -710,36 +710,44 @@ function dbRender() {
     </div>
     <div class="stu-card" style="margin-top:14px">
       <div class="stu-card-head">공지사항</div>
-      <div class="stu-card-body">${annTableHTML(DB_TOGGLE_HEAD)}</div>
+      <div class="stu-card-body">${annTableHTML(DB_TOGGLE_HEAD, false)}</div>
     </div>`;
 }
 
 /* 공지 목록 표. 대시보드와 설정 NOTICE가 같이 쓴다.
    head를 주면 그만큼만 펴 두고 나머지는 [+ 더보기]로 접는다(공개 관리와 같은 방식).
    조회수·좋아요 숫자를 누르면 누가 읽었는지 명단이 뜬다. */
-function annTableHTML(head) {
+function annTableHTML(head, showComments) {
   if (!_dbAnnList.length) return '<p class="ann-empty">등록된 공지가 없습니다.</p>';
   const row = a => {
     const rows  = _dbAnnReads[a.docId] || [];
     const likes = rows.filter(r => r.liked).length;
     const stat = n =>
       `<button class="ann-stat" onclick="openAnnStats('${a.docId}')" title="누가 읽었는지 봅니다">${n}</button>`;
-    return `<div class="ann-row${a.docId === _dbAnnEditId ? ' editing' : ''}">
+    // 댓글 수는 누르면 그 아래로 펼쳐진다(설정 NOTICE에서만 — 대시보드는 목록만 본다).
+    const cms = (_dbAnnComments[a.docId] || []).length;
+    const open = _noticeOpenCm === a.docId;
+    const cmCell = showComments
+      ? `<span class="ann-c-num"><button class="ann-stat" onclick="noticeToggleComments('${a.docId}')" title="댓글 보기">${cms}</button></span>`
+      : '';
+    return `<div class="ann-row${a.docId === _dbAnnEditId ? ' editing' : ''}${showComments ? ' has-cm' : ''}">
       <span class="ann-c-title" title="${esc(a.title || '')}">${esc(a.title || '(제목 없음)')}</span>
       <span class="ann-c-date">${dbAnnDate(a.createdAt)}</span>
       <span class="ann-c-num">${stat(rows.length)}</span>
       <span class="ann-c-num">${stat(likes)}</span>
+      ${cmCell}
       <span class="ann-c-btns">
         <button class="stu-btn stu-btn-edit" onclick="dbEditAnnouncement('${a.docId}')">수정</button>
         <button class="stu-btn stu-btn-del" onclick="dbDeleteAnnouncement('${a.docId}')">삭제</button>
       </span>
-    </div>`;
+    </div>` + (open ? `<div class="ann-cm-panel">${noticeCommentsHTML(a.docId)}</div>` : '');
   };
-  const header = `<div class="ann-row ann-head">
+  const header = `<div class="ann-row ann-head${showComments ? ' has-cm' : ''}">
       <span class="ann-c-title">제목</span>
       <span class="ann-c-date">작성일</span>
       <span class="ann-c-num">조회</span>
       <span class="ann-c-num">좋아요</span>
+      ${showComments ? '<span class="ann-c-num">댓글</span>' : ''}
       <span class="ann-c-btns"></span>
     </div>`;
   const list = _dbAnnList;
@@ -761,7 +769,77 @@ async function noticeLoad() {
     });
   } catch (e) { /* 못 읽으면 들고 있던 목록을 그대로 쓴다 */ }
   await dbLoadAnnReads();
+  await noticeLoadComments();
+  await noticeLoadRelease();
   noticeRender();
+}
+
+/* ── 새 기능 공개일 (settings/lms_config.releaseAt, 'YYYY-MM-DD') ──
+   학생 화면(index.js)이 이 값을 보고 뽑기·댓글을 띄울지, 포인트를 줄지 정한다. */
+async function noticeLoadRelease() {
+  const el = document.getElementById('notice-release');
+  if (!el) return;
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'lms_config'));
+    el.value = (snap.exists() && snap.data().releaseAt) || '';
+  } catch (e) {}
+}
+window.noticeSaveRelease = async function() {
+  const el = document.getElementById('notice-release');
+  const msg = document.getElementById('notice-release-msg');
+  if (!el) return;
+  try {
+    await setDoc(doc(db, 'settings', 'lms_config'), { releaseAt: el.value || null }, { merge: true });
+    if (msg) { msg.textContent = '저장되었습니다.'; msg.style.color = 'var(--c3)'; }
+  } catch (e) {
+    if (msg) { msg.textContent = '저장 실패: ' + e.message; msg.style.color = 'var(--critical)'; }
+  }
+};
+
+/* ── 공지 댓글 ──
+   공지별 개수를 목록에 붙이고, 펼치면 누가 무엇을 썼는지 보고 지울 수 있다.
+   학생 글이라 선생님이 걷어낼 길이 있어야 한다. */
+let _dbAnnComments = {};   // { [공지ID]: [{id, studentId, name, text, createdAt}] }
+let _noticeOpenCm  = '';   // 지금 펼쳐 둔 공지
+
+async function noticeLoadComments() {
+  try {
+    const snap = await getDocs(collection(db, 'announcement_comments'));
+    const by = {};
+    snap.docs.forEach(d => {
+      const v = d.data();
+      if (!v.annId) return;
+      (by[v.annId] || (by[v.annId] = [])).push({ id: d.id, ...v });
+    });
+    Object.values(by).forEach(list =>
+      list.sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0)));
+    _dbAnnComments = by;
+  } catch (e) { _dbAnnComments = {}; }
+}
+
+window.noticeToggleComments = function(annId) {
+  _noticeOpenCm = _noticeOpenCm === annId ? '' : annId;
+  noticeRender();
+};
+
+window.noticeDeleteComment = async function(annId, id) {
+  if (!confirm('이 댓글을 지울까요? 학생 화면에서도 바로 사라집니다.')) return;
+  try {
+    await deleteDoc(doc(db, 'announcement_comments', id));
+    _dbAnnComments[annId] = (_dbAnnComments[annId] || []).filter(c => c.id !== id);
+    noticeRender();
+  } catch (e) { alert('삭제 실패: ' + e.message); }
+};
+
+function noticeCommentsHTML(annId) {
+  const list = _dbAnnComments[annId] || [];
+  if (!list.length) return '<div class="ann-cm-none">아직 댓글이 없습니다.</div>';
+  return list.map(c => `<div class="ann-cm-row">
+      <span class="ann-cm-who">${esc(c.studentId || '')} ${esc(c.name || '')}</span>
+      <span class="ann-cm-body">${esc(c.text || '')}</span>
+      <span class="ann-cm-at">${dbAnnDate(c.createdAt)}</span>
+      <button class="stu-btn stu-btn-del" onclick="noticeDeleteComment('${esc(annId)}','${esc(c.id)}')">삭제</button>
+    </div>`).join('');
 }
 
 function noticeRender() {
@@ -771,7 +849,7 @@ function noticeRender() {
   const editing = _dbAnnEditId ? _dbAnnList.find(a => a.docId === _dbAnnEditId) : null;
   if (_dbAnnEditId && !editing) _dbAnnEditId = null;
 
-  listEl.innerHTML = annTableHTML(0);   // 여기서는 전부 편다
+  listEl.innerHTML = annTableHTML(0, true);   // 여기서는 전부 편다
   // 폼은 "새 글" / "수정" 두 모습만 다르다. 입력칸 값은 수정에 들어갈 때만 채워 넣는다.
   document.getElementById('notice-form-head').textContent = editing ? '공지 수정' : '새 공지 작성';
   document.getElementById('notice-form-btns').innerHTML =
@@ -8399,7 +8477,7 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
 import { loadXPConfig, saveXPConfig, adminAddXP, adminRemoveXPEntries, DEFAULT_LEVELS, DEFAULT_FORMULA, DEFAULT_ACTIVITIES, calcLevel, calcNextThreshold } from '../shared/xp.js';
 
 const XP_ROOT = 'xp';
-const ACT_LABELS = { attendance:'출석 체크', mileage:'히스토리 마일리지', thinkCheck:'생각 체크', typingReview:'타이핑 복습 (일일 1회, 강의당 10회까지)', oxQuiz:'OX 퀴즈 (일일 최대)' };
+const ACT_LABELS = { attendance:'출석 체크', mileage:'히스토리 마일리지', thinkCheck:'생각 체크', typingReview:'타이핑 복습 (일일 1회, 강의당 10회까지)', oxQuiz:'OX 퀴즈 (일일 최대)', annComment:'공지 댓글 (글마다 한 번)', annLike:'공지 좋아요 (글마다 한 번)', lottery:'일일 뽑기 (등수별 점수는 고정)' };
 /* 설정 표의 이름은 상한까지 적어 둬야 뜻이 통하지만, 기록 표에서는 그 괄호가 활동 칸을
    통째로 잡아먹는다. 기록에는 짧은 이름만 쓴다. */
 const XP_HIST_LABELS = { attendance:'출석 체크', mileage:'히스토리 마일리지', thinkCheck:'생각 체크', typingReview:'타이핑 복습', oxQuiz:'OX 퀴즈' };
@@ -8600,9 +8678,13 @@ async function xpLoadSettings() {
       const label = key === 'thinkCheck' ? '생각 체크 (제출 시 AI 채점, 10~최대)' : (ACT_LABELS[key] || key);
       const ptVal = key === 'oxQuiz' ? (v.dailyMax ?? 20) : (v.pt ?? 0);
       const ptLabel = key === 'oxQuiz' ? `일일 최대 ${ptVal}pt (정답당 ${v.ptPer??1}pt)` : `${ptVal} pt`;
+      // 뽑기는 등수마다 점수가 정해져 있어(index.js의 LOTTERY 표) 여기서 고칠 값이 없다.
+      const ptCell = key === 'lottery'
+        ? '<span style="font-size:12px;color:var(--sub)">등수별 고정</span>'
+        : `<input type="number" data-act="${key}" data-field="${key==='oxQuiz'?'dailyMax':'pt'}" value="${ptVal}" style="width:70px;border:1px solid var(--hairline);border-radius:6px;padding:4px 8px;font-family:inherit;font-size:13px;text-align:center">`;
       return `<tr>
         <td>${label}</td>
-        <td><input type="number" data-act="${key}" data-field="${key==='oxQuiz'?'dailyMax':'pt'}" value="${ptVal}" style="width:70px;border:1px solid var(--hairline);border-radius:6px;padding:4px 8px;font-family:inherit;font-size:13px;text-align:center"></td>
+        <td>${ptCell}</td>
         <td><div class="toggle-switch ${v.enabled?'on':''}" data-act="${key}" onclick="xpToggleAct(this)"></div></td>
       </tr>`;
     }).join('');

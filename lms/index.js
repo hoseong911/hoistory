@@ -2,13 +2,14 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import {
   initializeFirestore, collection, query, orderBy, where, onSnapshot, getDocs, limit,
-  doc, getDoc, setDoc, addDoc, updateDoc, serverTimestamp
+  doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getDatabase, ref as rtdbRef, get as rtdbGet, set as rtdbSet, push as rtdbPush, update as rtdbUpdate, onValue as rtdbOnValue, runTransaction as rtdbRunTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { initAuth, verifyStudentId, verifyStudentName, isStudentMapLoaded } from "../shared/auth.js";
 import "../shared/offline.js";
 import { firebaseConfig } from "../shared/firebase-config.js";
-import { initXP, onXPChange, checkAndAddAttendance, calcLevel } from "../shared/xp.js";
+import { initXP, onXPChange, checkAndAddAttendance, calcLevel,
+         addAnnCommentXP, addAnnLikeXP, addLotteryXP, getLotteryToday } from "../shared/xp.js";
 import { findBadWord } from "../shared/profanity.js";
 import { icon } from "../shared/icons.js";
 import { blockPaste } from "../shared/textLimit.js?v=20260901";
@@ -403,16 +404,21 @@ async function _initXPForStudent(id, name) {
     _showXPFloat(result.pt);
     if (result.levelUp) _showLevelUpModal(result.newLevel);
   }
+  // 공개일을 먼저 읽고(뽑기 배너가 보일지 정해진다) 오늘 뽑았는지 확인한다.
+  await loadReleaseDate();
+  await initLottery();
 }
 
 function _updateXPWidget(state) {
   const total = state.total || 0;
+  window._xpTotalNow = total;   // 뽑기 결과 화면의 '뽑기 전' 숫자로 쓴다
   const lv    = state.level || 1;
   document.getElementById('xpHistTotal').textContent = `${total} pt`;
   document.getElementById('xpHistLevel').textContent = `Lv.${lv}`;
 }
 
-const ACT_ICONS = { attendance:'calendar-days', mileage:'footprints', conceptCheck:'book-open', thinkCheck:'message-circle', oxQuiz:'circle-help', manual:'pencil' };
+const ACT_ICONS = { attendance:'calendar-days', mileage:'footprints', conceptCheck:'book-open', thinkCheck:'message-circle', oxQuiz:'circle-help', manual:'pencil',
+                    annComment:'message-circle', annLike:'heart', lottery:'gift' };
 
 // 데스크톱: 클릭 시 경험치 내역 모달 / 모바일: 인라인 아코디언 펼침
 // 모바일도 PC처럼 모달로 연다(인라인 아코디언은 닫아도 내용이 남고 스크롤이 지저분해 폐기).
@@ -1157,6 +1163,165 @@ function renderAnnounceList() {
     btn.addEventListener('click', () => openAnnounceDetail(btn.dataset.id));
   });
 }
+/* ── 새 기능 공개일 ────────────────────────────────────────────
+   오늘 올린 것을 내일부터 보이게 하려고 둔 장치다. 이 시각 전에는 뽑기 배너와 공지 댓글이
+   아예 렌더되지 않고, 포인트도 이 시각 뒤에 올라온 공지에만 붙는다 — 그래서 "이미 써 둔
+   공지에는 적용하지 않는다"는 요구가 같은 장치로 함께 풀린다.
+   설정(settings/lms_config.releaseAt, 'YYYY-MM-DD')이 없으면 아래 기본값을 쓴다. */
+const DEFAULT_RELEASE_DATE = '2026-09-18';
+let _releaseMs = releaseMsOf(DEFAULT_RELEASE_DATE);
+function releaseMsOf(dateStr) {
+  const t = Date.parse(String(dateStr || '') + 'T00:00:00+09:00');   // 한국시간 자정 기준
+  return isNaN(t) ? releaseMsOf(DEFAULT_RELEASE_DATE) : t;
+}
+function featuresLive() { return Date.now() >= _releaseMs; }
+// 이 공지가 포인트 대상인가 — 공개 시각 뒤에 올라온 글만.
+function annEarnsPoints(a) {
+  const ms = a && a.createdAt && a.createdAt.seconds ? a.createdAt.seconds * 1000 : null;
+  return ms != null && ms >= _releaseMs;
+}
+async function loadReleaseDate() {
+  try {
+    const snap = await getDoc(doc(db, 'settings', 'lms_config'));
+    const v = snap.exists() ? snap.data().releaseAt : null;
+    if (v) _releaseMs = releaseMsOf(v);
+  } catch (_) {}
+  renderLotteryBanner();
+}
+
+/* ══ 일일 뽑기 ═══════════════════════════════════════════════════
+   100장 중 몇 장인지가 곧 확률이다(개인별 독립 시행 — 상자를 비우는 방식이 아니라,
+   학생마다 100장짜리 통에서 한 장을 뽑는다). 장수 합이 100이라야 표의 % 표시가 맞다.
+   등수를 고르는 일은 여기에 있고, 경험치를 적는 일은 shared/xp.js의 addLotteryXP가 한다.
+   ─ 하루 한 번: xp/students/{학번}/lottery.day 를 트랜잭션에서 검사한다(연타·다중 탭 방지).
+   ─ 꽝(-50)은 가진 만큼만 깎인다. RTDB 규칙이 total >= 0을 요구하기 때문이다. */
+const LOTTERY = [
+  { rank:1, tickets:1,  pt:200, label:'대박',   msg:'1등입니다. 오늘 최고의 운이었습니다.' },
+  { rank:2, tickets:9,  pt:20,  label:'좋음',   msg:'2등입니다. 꽤 잘 뽑았습니다.' },
+  { rank:3, tickets:15, pt:10,  label:'괜찮음', msg:'3등입니다.' },
+  { rank:4, tickets:20, pt:5,   label:'무난',   msg:'4등입니다.' },
+  { rank:5, tickets:54, pt:1,   label:'참가',   msg:'5등입니다. 내일 다시 도전해 보십시오.' },
+  { rank:6, tickets:1,  pt:-50, label:'꽝',     msg:'6등입니다. 오늘은 운이 없었습니다.' },
+];
+const ODDS_SUM = LOTTERY.reduce((n, o) => n + o.tickets, 0);   // 100이라야 한다
+const ltById = r => LOTTERY.find(o => o.rank === r) || LOTTERY[LOTTERY.length - 1];
+function ltDrawOnce() {
+  const t = Math.floor(Math.random() * ODDS_SUM);
+  let acc = 0;
+  for (const o of LOTTERY) { acc += o.tickets; if (t < acc) return o; }
+  return LOTTERY[LOTTERY.length - 1];
+}
+
+let _ltToday = null;     // 오늘 뽑은 결과({day,rank,pt}) — 없으면 아직 안 뽑음
+let _ltBusy  = false;
+
+function renderLotteryBanner() {
+  const el = document.getElementById('lotteryBanner');
+  if (!el) return;
+  if (!featuresLive()) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  const done = !!_ltToday;
+  el.classList.toggle('done', done);
+  document.getElementById('lbIcon').innerHTML = icon(done ? 'clock' : 'gift', 22);
+  document.getElementById('lbSub').textContent = done
+    ? `오늘은 ${_ltToday.rank}등을 뽑았습니다`
+    : '하루에 한 번, 경험치를 걸고 뽑습니다';
+  document.getElementById('lbBadge').textContent = done ? '내일 다시' : '뽑으러 가기';
+}
+
+function ltRenderOdds(hitRank) {
+  const body = document.getElementById('ltOddsBody');
+  if (!body) return;
+  body.innerHTML = LOTTERY.map(o => `
+    <tr class="${o.rank === hitRank ? 'hit' : ''}">
+      <td class="rk">${o.rank}등</td>
+      <td>${o.tickets}장</td>
+      <td>${Math.round(o.tickets / ODDS_SUM * 100)}%</td>
+      <td class="${o.pt < 0 ? 'minus' : ''}">${o.pt > 0 ? '+' : ''}${o.pt}</td>
+    </tr>`).join('');
+}
+
+const LT_RANK_ICON = { 1:'trophy', 2:'medal', 3:'medal', 4:'star', 5:'star', 6:'triangle-alert' };
+function ltPaintResult(rank, realPt) {
+  const o  = ltById(rank);
+  const st = document.getElementById('ltStage');
+  st.className = 'lt-stage done r' + rank;
+  st.innerHTML = `<span class="lt-medal">${icon(LT_RANK_ICON[rank] || 'star', 26)}</span>
+    <span class="lt-rank">${rank}<span class="lt-rank-unit">등</span></span>
+    <span class="lt-prize">${realPt > 0 ? '+' : ''}${realPt}pt · ${esc(o.label)}</span>`;
+  document.getElementById('ltMsg').textContent = o.msg;
+  ltRenderOdds(rank);
+}
+function ltPaintReady() {
+  const st = document.getElementById('ltStage');
+  st.className = 'lt-stage';
+  st.innerHTML = '<span class="lt-q">?</span>';
+  document.getElementById('ltMsg').textContent = '뽑기를 누르면 오늘의 등수가 정해집니다.';
+  document.getElementById('ltDelta').style.display = 'none';
+  ltRenderOdds(null);
+}
+
+function ltSyncFoot() {
+  const go = document.getElementById('ltGo');
+  if (!go) return;
+  go.disabled = !!_ltToday || _ltBusy;
+  go.textContent = _ltToday ? '오늘은 뽑았습니다' : (_ltBusy ? '뽑는 중…' : '뽑기');
+}
+
+function ltOpen() {
+  if (!featuresLive()) return;
+  document.getElementById('lotteryModal').classList.add('open');
+  document.getElementById('ltHeadIcon').innerHTML = icon('gift', 22);
+  document.getElementById('ltHeadSub').textContent = _ltToday ? '오늘 뽑은 결과입니다' : '하루에 한 번 뽑을 수 있습니다';
+  if (_ltToday) { ltPaintResult(_ltToday.rank, _ltToday.pt); document.getElementById('ltDelta').style.display = 'none'; }
+  else ltPaintReady();
+  ltSyncFoot();
+}
+function ltClose() { document.getElementById('lotteryModal').classList.remove('open'); }
+
+async function ltDraw() {
+  if (_ltToday || _ltBusy) return;
+  _ltBusy = true; ltSyncFoot();
+  const before = (window._xpTotalNow ?? 0);
+  const st = document.getElementById('ltStage');
+  st.className = 'lt-stage rolling';
+  st.innerHTML = '<span class="lt-q">?</span>';
+  document.getElementById('ltMsg').textContent = '뽑는 중…';
+  // 눈이 따라갈 만큼만 굴린다. 결과는 이미 정해져 있고 연출만 기다린다.
+  const picked = ltDrawOnce();
+  await new Promise(r => setTimeout(r, 900));
+  const res = await addLotteryXP(picked.rank, picked.pt, picked.label);
+  _ltBusy = false;
+  if (!res) {   // 이미 오늘 뽑았거나(다른 탭) 활동이 꺼져 있음
+    _ltToday = await getLotteryToday();
+    if (_ltToday) ltPaintResult(_ltToday.rank, _ltToday.pt);
+    else { ltPaintReady(); document.getElementById('ltMsg').textContent = '지금은 뽑을 수 없습니다.'; }
+    renderLotteryBanner(); ltSyncFoot();
+    return;
+  }
+  _ltToday = { day: kstDate(), rank: res.rank, pt: res.pt };
+  ltPaintResult(res.rank, res.pt);
+  const d = document.getElementById('ltDelta');
+  document.getElementById('ltBefore').textContent = before.toLocaleString('ko-KR');
+  document.getElementById('ltAfter').textContent  = res.newTotal.toLocaleString('ko-KR');
+  d.style.display = 'flex';
+  renderLotteryBanner(); ltSyncFoot();
+  if (res.levelUp) showToast(`레벨 업! Lv.${res.newLevel}`, 4000, 'trophy');
+}
+
+async function initLottery() {
+  if (!featuresLive()) { renderLotteryBanner(); return; }
+  _ltToday = await getLotteryToday();
+  renderLotteryBanner();
+}
+
+document.getElementById('lotteryBanner')?.addEventListener('click', ltOpen);
+document.getElementById('ltGo')?.addEventListener('click', ltDraw);
+document.getElementById('ltCloseBtn')?.addEventListener('click', ltClose);
+document.getElementById('lotteryModal')?.addEventListener('click', e => {
+  if (e.target.id === 'lotteryModal') ltClose();
+});
+
 /* ── 공지 열람 기록 + 좋아요 ──
    글을 열면 "읽었다"를 남기고, 좋아요는 학생이 직접 누른다. 선생님은 어드민에서
    누가 읽었는지·좋아요를 눌렀는지 명단으로 본다. 문서 ID를 "공지ID_학번"으로 고정해
@@ -1189,10 +1354,113 @@ async function toggleAnnounceLike(annId) {
       classNum: String(Math.floor((parseInt(currentStudentId) - 30000) / 100)),
       liked: next, likedAt: serverTimestamp(), readAt: serverTimestamp(),
     }, { merge: true });
+    /* 처음 켤 때 한 번만 준다. 껐다 켰다 해도 두 번은 없고(annLikeIds에 적힌다),
+       취소해도 이미 받은 것을 도로 걷지 않는다 — 실수로 누른 학생이 손해 보지 않게. */
+    if (next) {
+      const a = _announcements.find(x => x.id === annId);
+      if (a && annEarnsPoints(a)) {
+        const res = await addAnnLikeXP(annId);
+        if (res) showToast(`좋아요 +${res.pt}pt`, 3500, 'heart');
+        renderAnnounceEarnNote(annId);
+      }
+    }
   } catch (_) {
     _annMyReads[annId] = { ...(_annMyReads[annId] || {}), liked: !next }; // 실패하면 되돌린다
     renderAnnounceLike(annId);
   }
+}
+
+/* ── 공지 댓글 ─────────────────────────────────────────────────
+   announcement_comments의 문서 하나가 댓글 한 건이다. 자기가 쓴 것만 지울 수 있고,
+   첫 댓글에만 포인트가 붙는다(지웠다 다시 써도 두 번 주지 않는다 — annCommentIds).
+   공개일 전에 올라온 공지에는 댓글창은 뜨되 포인트가 붙지 않는다. */
+let _annCmUnsub = null;
+let _annCmList  = [];
+
+function annCmTime(ts) {
+  const d = ts && ts.seconds ? new Date(ts.seconds * 1000) : null;
+  if (!d) return '방금';
+  return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function renderAnnComments() {
+  const box = document.getElementById('annCommentList');
+  const cnt = document.getElementById('annCommentCount');
+  if (!box) return;
+  if (cnt) cnt.textContent = _annCmList.length;
+  if (!_annCmList.length) { box.innerHTML = '<div class="ann-cm-empty">아직 댓글이 없어요. 먼저 남겨 보세요.</div>'; return; }
+  box.innerHTML = _annCmList.map(c => {
+    const mine = c.studentId === currentStudentId;
+    return `<div class="ann-cm-item">
+      <div class="ann-cm-top">
+        <span class="ann-cm-who">${esc(c.name || '')}</span>
+        <span class="ann-cm-when">${annCmTime(c.createdAt)}</span>
+        ${mine ? `<button class="ann-cm-del" data-id="${esc(c.id)}">삭제</button>` : ''}
+      </div>
+      <div class="ann-cm-text">${esc(c.text || '')}</div>
+    </div>`;
+  }).join('');
+  box.querySelectorAll('.ann-cm-del').forEach(b =>
+    b.addEventListener('click', () => deleteAnnComment(b.dataset.id)));
+}
+
+function watchAnnComments(annId) {
+  if (_annCmUnsub) { _annCmUnsub(); _annCmUnsub = null; }
+  _annCmList = [];
+  renderAnnComments();
+  _annCmUnsub = onSnapshot(
+    query(collection(db, 'announcement_comments'), where('annId', '==', annId)),
+    snap => {
+      // 정렬은 여기서 한다 — where + orderBy를 같이 쓰면 색인을 따로 만들어야 한다.
+      _annCmList = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+      renderAnnComments();
+    },
+    () => {}
+  );
+}
+
+async function postAnnComment() {
+  const annId = _annOpenId;
+  const ta  = document.getElementById('annCommentInput');
+  const btn = document.getElementById('annCommentSend');
+  const msg = document.getElementById('annCommentMsg');
+  if (!annId || !ta || !currentStudentId) return;
+  const text = ta.value.trim();
+  if (!text) return;
+  const bad = findBadWord(text);
+  if (bad) { msg.textContent = '바른 말로 다시 써 주세요.'; return; }
+  btn.disabled = true; msg.textContent = '';
+  try {
+    await addDoc(collection(db, 'announcement_comments'), {
+      annId, studentId: currentStudentId, name: currentStudentName,
+      classNum: String(Math.floor((parseInt(currentStudentId) - 30000) / 100)),
+      text, createdAt: serverTimestamp(),
+    });
+    ta.value = '';
+    const a = _announcements.find(x => x.id === annId);
+    if (a && annEarnsPoints(a)) {
+      const res = await addAnnCommentXP(annId);
+      if (res) { msg.textContent = `+${res.pt}pt 받았어요`; showToast(`댓글 +${res.pt}pt`, 3500, 'message-circle'); }
+      renderAnnounceEarnNote(annId);
+    }
+  } catch (e) {
+    msg.textContent = '등록에 실패했어요. 잠시 뒤 다시 시도해 주세요.';
+  } finally { btn.disabled = false; }
+}
+
+async function deleteAnnComment(id) {
+  if (!id || !confirm('이 댓글을 지울까요? 받은 포인트는 그대로 두지만, 다시 써도 포인트는 한 번뿐이에요.')) return;
+  try { await deleteDoc(doc(db, 'announcement_comments', id)); } catch (_) {}
+}
+
+/* 좋아요 줄 오른쪽의 안내. 포인트 대상 글에서만 뜨고, 이미 받았으면 문구가 바뀐다. */
+function renderAnnounceEarnNote(annId) {
+  const el = document.getElementById('announceEarnNote');
+  if (!el) return;
+  const a = _announcements.find(x => x.id === annId);
+  if (!a || !featuresLive() || !annEarnsPoints(a)) { el.textContent = ''; return; }
+  el.textContent = '좋아요 +2pt, 댓글 +5pt (글마다 한 번)';
 }
 
 function renderAnnounceLike(annId) {
@@ -1215,8 +1483,19 @@ function openAnnounceDetail(id) {
   document.getElementById('announceDetailModal').style.display = 'flex';
   _annOpenId = id;
   renderAnnounceLike(id);
+  renderAnnounceEarnNote(id);
   const likeBtn = document.getElementById('announceLikeBtn');
   if (likeBtn) likeBtn.onclick = () => toggleAnnounceLike(id);
+  // 댓글창은 공개일 전에는 아예 띄우지 않는다.
+  const cmWrap = document.getElementById('annCommentsWrap');
+  if (cmWrap) {
+    cmWrap.style.display = featuresLive() ? '' : 'none';
+    if (featuresLive()) {
+      const msg = document.getElementById('annCommentMsg');
+      if (msg) msg.textContent = '';
+      watchAnnComments(id);
+    }
+  }
   markAnnounceRead(id);
   if (!_annReadSet.has(id)) {
     _annReadSet.add(id);
@@ -1227,7 +1506,15 @@ function openAnnounceDetail(id) {
 function closeAnnounceDetail() {
   document.getElementById('announceDetailModal').style.display = 'none';
   _annOpenId = '';
+  if (_annCmUnsub) { _annCmUnsub(); _annCmUnsub = null; }   // 닫으면 댓글 구독도 끊는다
 }
+document.getElementById('annCommentSend')?.addEventListener('click', postAnnComment);
+// Enter로 바로 보내고 Shift+Enter로 줄을 바꾼다(모바일에서는 줄바꿈이 기본이라 그대로 둔다).
+document.getElementById('annCommentInput')?.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey && !/Mobi|Android/i.test(navigator.userAgent)) {
+    e.preventDefault(); postAnnComment();
+  }
+});
 document.getElementById('announceDetailClose').addEventListener('click', closeAnnounceDetail);
 document.getElementById('announceDetailModal').addEventListener('click', e => {
   if (e.target.id === 'announceDetailModal') closeAnnounceDetail();

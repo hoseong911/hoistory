@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
-<link rel="stylesheet" href="index.css?v=20260917b">
+<link rel="stylesheet" href="index.css?v=20260917c">
   <!-- LMS 전용 PWA: "홈 화면에 추가" 시 루트가 아니라 LMS로 바로 실행되도록 전용 매니페스트를 먼저 링크한다.
        pwa.js는 "이미 있으면 건너뜀" 방식이라, 이 링크들이 루트 매니페스트/메타를 대신한다. -->
   <link rel="manifest" href="/hoistory/lms/manifest.json">
@@ -185,6 +185,17 @@
     <button class="hub-chip" id="gradeBlock" type="button"></button>
     <button class="hub-chip" id="mileageBlock" type="button"></button>
     <button class="hub-chip" id="contentsBlock" type="button"></button>
+    <!-- 일일 뽑기 배너. 칩 네 개가 이미 4단을 꽉 채우고 있어 다섯 번째를 끼워 넣으면 격자가
+         깨지므로, 하루 한 번뿐인 동작인 만큼 한 줄을 통째로 쓰는 배너로 둔다.
+         공개일(lms_config.releaseAt) 전에는 아예 렌더하지 않는다. -->
+    <button class="hub-chip" id="lotteryBanner" type="button" style="display:none">
+      <span class="lb-ic" id="lbIcon"></span>
+      <span class="lb-txt">
+        <span class="lb-t">오늘의 뽑기</span>
+        <span class="lb-s" id="lbSub">하루에 한 번, 경험치를 걸고 뽑습니다</span>
+      </span>
+      <span class="lb-badge" id="lbBadge">뽑으러 가기</span>
+    </button>
     <!-- 2행(긴 카드): 공지·개념·미션·생각 — 접고 펼침 없이 항상 표시 -->
     <div class="announce-banner" id="announceBanner" style="display:none"></div>
     <div class="sec-card s-concept" id="secConcept"></div>
@@ -221,6 +232,17 @@
       <button class="announce-like-btn" id="announceLikeBtn" type="button">
         <span class="alb-ic">♥</span><span class="alb-txt">좋아요</span><span class="alb-n" id="announceLikeCount"></span>
       </button>
+      <span class="ann-earn" id="announceEarnNote"></span>
+    </div>
+    <!-- 댓글. 공개일 전에는 통째로 감춘다(annCommentsWrap). -->
+    <div class="ann-cm-wrap" id="annCommentsWrap" style="display:none">
+      <div class="ann-cm-head">댓글 <span id="annCommentCount">0</span></div>
+      <div class="ann-cm-list" id="annCommentList"></div>
+      <div class="ann-cm-form">
+        <textarea id="annCommentInput" maxlength="300" rows="2" placeholder="댓글을 남겨 보세요"></textarea>
+        <button class="ann-cm-send" id="annCommentSend" type="button">등록</button>
+      </div>
+      <div class="ann-cm-msg" id="annCommentMsg"></div>
     </div>
   </div>
 </div>
@@ -269,6 +291,39 @@
   </div>
 </div>
 
+<!-- ── 일일 뽑기 모달 ── -->
+<div id="lotteryModal">
+  <div class="lt-box">
+    <div class="lt-head">
+      <span class="lt-h-ic" id="ltHeadIcon"></span>
+      <div>
+        <div class="lt-title">오늘의 뽑기</div>
+        <div class="lt-sub" id="ltHeadSub">하루에 한 번 뽑을 수 있습니다</div>
+      </div>
+    </div>
+    <div class="lt-body">
+      <div class="lt-stage" id="ltStage"><span class="lt-q">?</span></div>
+      <div class="lt-msg" id="ltMsg">뽑기를 누르면 오늘의 등수가 정해집니다.</div>
+      <div class="lt-delta" id="ltDelta" style="display:none">
+        <div class="d-cell"><div class="d-lb">뽑기 전</div><div class="d-v" id="ltBefore">0</div></div>
+        <div class="d-cell now"><div class="d-lb">뽑은 뒤</div><div class="d-v" id="ltAfter">0</div></div>
+      </div>
+      <div class="lt-note">하루가 지나면 다시 뽑을 수 있습니다. 뽑은 결과는 경험치 내역에 남습니다.</div>
+      <details class="lt-odds">
+        <summary>어떤 등수가 얼마나 나오나요<span class="oc">100장 중</span></summary>
+        <table>
+          <thead><tr><th>등수</th><th>장수</th><th>확률</th><th>경험치</th></tr></thead>
+          <tbody id="ltOddsBody"></tbody>
+        </table>
+      </details>
+    </div>
+    <div class="lt-foot">
+      <button class="lt-btn go" id="ltGo">뽑기</button>
+      <button class="lt-btn close" id="ltCloseBtn">닫기</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── 각종 콘텐츠 앱 모달 ── -->
 <div id="contentAppModal" class="grade-modal content-app-modal">
   <div class="gd-box">
@@ -280,7 +335,7 @@
   </div>
 </div>
 
-<script type="module" src="index.js?v=20260917b"></script>
+<script type="module" src="index.js?v=20260917c"></script>
 
 <div id="xpLevelUpModal">
   <div class="xp-modal-box">

@@ -17,6 +17,9 @@ export const DEFAULT_ACTIVITIES = {
   thinkCheck:   { pt: 30, enabled: true }, // pt = 최대치. 실제 지급은 제출 AI 채점으로 10~pt 차등.
   typingReview: { pt: 20, perLectureMax: 10, enabled: true }, // 하루 1회 + perLectureMax = 한 강의로 받을 수 있는 총 횟수(≈10일치)
   oxQuiz:       { ptPer: 1, dailyMax: 30, enabled: true }, // 정답 1개 = ptPer점, 하루 dailyMax까지. 같은 강의는 하루 한 번만 지급된다(addOxQuizXP).
+  annComment:   { pt: 5,  enabled: true }, // 공지 댓글 — 한 글에 한 번만
+  annLike:      { pt: 2,  enabled: true }, // 공지 좋아요 — 한 글에 한 번만(취소해도 돌려받지 않고, 다시 눌러도 또 주지 않는다)
+  lottery:      { enabled: true },         // 일일 뽑기 — 등수별 점수는 index.js의 LOTTERY 표에 있다
 };
 
 let _rtdb, _sid, _sname, _fb;
@@ -275,6 +278,72 @@ export async function getOxQuizToday() {
 function _lectureKey(num) {
   const k = String(num ?? '').trim().replace(/[.#$[\]/]/g, '_');
   return k || null;
+}
+// 공지 문서 id도 같은 규칙으로 RTDB 키에 쓴다.
+function _annKey(annId) {
+  const k = String(annId ?? '').trim().replace(/[.#$[\]/]/g, '_');
+  return k || null;
+}
+
+/* ── 공지 댓글 · 좋아요 ─────────────────────────────────────────
+   한 글에 한 번씩만 준다. 받은 글은 annCommentIds / annLikeIds에 적어 두므로,
+   댓글을 지웠다 다시 써도, 좋아요를 껐다 다시 켜도 두 번 지급되지 않는다.
+   (좋아요를 취소해도 이미 받은 것을 회수하지는 않는다 — 껐다 켰다로 장난치는 걸
+    막는 쪽이 중요하고, 회수까지 하면 실수로 누른 학생이 손해를 본다.) */
+export async function addAnnCommentXP(annId) {
+  const act = _config?.activities?.annComment;
+  const key = _annKey(annId);
+  if (!act?.enabled || !key) return null;
+  return addXP('annComment', act.pt ?? DEFAULT_ACTIVITIES.annComment.pt, '공지 댓글 작성',
+    { map: 'annCommentIds', key, max: 1 }, { ann: key });
+}
+export async function addAnnLikeXP(annId) {
+  const act = _config?.activities?.annLike;
+  const key = _annKey(annId);
+  if (!act?.enabled || !key) return null;
+  return addXP('annLike', act.pt ?? DEFAULT_ACTIVITIES.annLike.pt, '공지 좋아요',
+    { map: 'annLikeIds', key, max: 1 }, { ann: key });
+}
+
+/* ── 일일 뽑기 ──────────────────────────────────────────────────
+   하루에 한 번, 등수에 따라 경험치를 더하거나 뺀다. 꽝은 마이너스인데 RTDB 규칙이
+   total >= 0을 요구하므로 가진 만큼만 깎는다(실제로 오르내린 양을 real로 돌려준다).
+   뽑은 결과는 lottery에 남겨 둔다 — 그날 다시 열면 같은 결과를 그대로 보여 준다.
+   등수를 고르는 일(확률표)은 호출하는 쪽에 있다. 여기서는 정해진 등수를 적기만 한다. */
+export async function addLotteryXP(rank, pt, label) {
+  const act = _config?.activities?.lottery;
+  if (!act?.enabled || !_rtdb || !_sid) return null;
+  const base = `${XP_ROOT}/students/${_sid}`;
+  const today = _today();
+  const histKey = _fb.push(_fb.ref(_rtdb, `${base}/history`)).key;
+  let result = null;
+  const txRes = await _fb.runTransaction(_fb.ref(_rtdb, base), cur => {
+    cur = cur || {};
+    if (cur.lottery && cur.lottery.day === today) return;   // 오늘 이미 뽑음 → 중단
+    const prevTotal = cur.total || 0;
+    const newTotal  = Math.max(0, prevTotal + pt);
+    const real      = newTotal - prevTotal;
+    const newLevel  = calcLevel(newTotal);
+    result = { newTotal, newLevel, wasLevel: calcLevel(prevTotal), real };
+    const next = { ...cur, total: newTotal, level: newLevel, name: _sname };
+    next.lottery = { day: today, rank, pt: real };
+    next.history = { ...(cur.history || {}),
+      [histKey]: { type: 'lottery', pt: real, note: `일일 뽑기 ${rank}등${label ? ` (${label})` : ''}`, ts: Date.now() } };
+    return next;
+  });
+  if (!txRes.committed || !result) return null;
+  return { rank, pt: result.real, newTotal: result.newTotal, newLevel: result.newLevel,
+           levelUp: result.newLevel > result.wasLevel };
+}
+
+// 오늘 뽑은 결과({ day, rank, pt }) — 아직 안 뽑았으면 null.
+export async function getLotteryToday() {
+  if (!_rtdb || !_sid) return null;
+  try {
+    const snap = await _fb.get(_fb.ref(_rtdb, `${XP_ROOT}/students/${_sid}/lottery`));
+    const v = snap.exists() ? snap.val() : null;
+    return (v && v.day === _today()) ? v : null;
+  } catch (e) { return null; }
 }
 
 // ── 어드민 전용 ──
