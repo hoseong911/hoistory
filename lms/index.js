@@ -404,8 +404,6 @@ async function _initXPForStudent(id, name) {
     _showXPFloat(result.pt);
     if (result.levelUp) _showLevelUpModal(result.newLevel);
   }
-  // 공개일을 먼저 읽고(뽑기 배너가 보일지 정해진다) 오늘 뽑았는지 확인한다.
-  await loadReleaseDate();
   await initLottery();
 }
 
@@ -742,7 +740,7 @@ function startListening() {
       _missionRaw = snap.docs
         .map(d => { const data = d.data(); return { docId: d.id, ...data, label: data.title || data.label, url: resolveAppUrl(data.url) }; })
         .filter(x => notHismile(x) && x.locked !== true) // 비공개(locked)는 생각 체크처럼 허브에서 숨긴다
-        .sort((a, b) => (a.order ?? 999) - (b.order ?? 999)); // 어드민과 동일한 오름차순(order 작은 게 위)
+        .sort((a, b) => (b.order ?? -1) - (a.order ?? -1)); // 최신순 — 새 카드는 order=최댓값+1로 붙는다
       _missionRawReady = true;
       applyVisibility();
     });
@@ -808,7 +806,7 @@ function startListening() {
       sectionData.contents = snap.docs
         .map(d => { const data = d.data(); return { docId: d.id, ...data, label: data.title || data.label, url: resolveAppUrl(data.url), openInModal: !!data.openInModal }; })
         .filter(x => notHismile(x) && x.locked !== true) // 비공개(locked)는 생각 체크처럼 허브에서 숨긴다
-        .sort((a, b) => (a.order ?? 999) - (b.order ?? 999)); // 어드민과 동일한 오름차순(order 작은 게 위)
+        .sort((a, b) => (b.order ?? -1) - (a.order ?? -1)); // 최신순 — 새 카드는 order=최댓값+1로 붙는다
       renderAll();
     });
   }).catch(() => { sectionData.contents = []; renderAll(); });
@@ -1100,15 +1098,20 @@ function renderGradeSummaryHTML(g) {
 // ── 렌더 공통 조각 ──
 const LOADING_HTML = '<div class="loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
 const SEC_CLS    = { concept:'s-concept', mission:'s-mission', think:'s-think', contents:'s-contents' };
+/* 개념·미션·생각은 강의가 쌓일수록 목록이 길어져 모바일에서 스크롤만 하게 된다.
+   최신 6개만 펴 두고 나머지는 [+ 더보기] 뒤에 둔다(각종 콘텐츠는 개수가 적어 그대로).
+   세 목록 모두 최신이 위에 오도록 정렬돼 있어 앞 6개가 곧 최신 6개다. */
+const SEC_HEAD = 6;
+const SEC_CAPPED = new Set(['concept', 'mission', 'think']);
 const SEC_LABELS = { concept:'개념 Check', mission:'미션 Check', think:'생각 Check', contents:'각종 콘텐츠' };
 const GRADE_CAPTION = '채점 기준에 따른 실시간 점수를 제공합니다. 최종 점수는 학기말에 별도로 안내됩니다.';
 const isMobile = () => mqMobile.matches;
 
 // PC 공통 카드 골격 (헤더 + 아이콘 그리드)
-function renderGridCard(el, name, items) {
+function renderGridCard(el, name, items, head) {
   const body = items === null ? LOADING_HTML : `<div class="icon-grid"></div>`;
   el.innerHTML = `<div class="sec-head"><div class="sec-name">${name}</div></div><hr class="sec-divider"><div class="sec-body">${body}</div>`;
-  if (items !== null) fillIconGrid(el.querySelector('.icon-grid'), items);
+  if (items !== null) fillIconGrid(el.querySelector('.icon-grid'), items, head);
 }
 
 // 개념·미션·생각 3개 섹션 — PC는 카드+아이콘 그리드, 모바일은 3열 칩(탭 시 목록 모달)
@@ -1123,7 +1126,7 @@ function renderSections() {
       card.innerHTML = `<button class="sec-chip" type="button"><span class="chip-name">${s.name}</span></button>`;
       card.querySelector('.sec-chip').onclick = () => openSectionList(s.key);
     } else {
-      renderGridCard(card, s.name, items);
+      renderGridCard(card, s.name, items, SEC_CAPPED.has(s.key) ? SEC_HEAD : 0);
     }
   });
 }
@@ -1144,53 +1147,40 @@ function _annDateLabel(ts) {
   const d = new Date(ts.seconds * 1000);
   return `${d.getMonth() + 1}.${d.getDate()}`;
 }
+/* 목록에 펴 두는 것은 상단 고정 글뿐이고, 나머지는 [+ 더보기] 뒤에 둔다.
+   고정한 글이 하나도 없으면 아무것도 안 보이는 셈이 되므로 그때는 맨 위 한 건만 펴 둔다
+   — 공지 칸이 통째로 빈 것처럼 보이는 편이 더 나쁘다. */
 function renderAnnounceList() {
   const banner = document.getElementById('announceBanner');
   if (!_announcements.length) { banner.style.display = 'none'; return; }
   const unreadCount = _announcements.filter(a => !_annReadSet.has(a.id)).length;
-  const rows = _announcements.map(a => `
-    <button type="button" class="announce-item${_annReadSet.has(a.id) ? '' : ' unread'}${a.pinned ? ' pinned' : ''}" data-id="${esc(a.id)}">
+  // 고정 글이 앞으로 정렬돼 있으므로 펴 둘 개수만 세면 된다.
+  const pinned = _announcements.filter(a => a.pinned).length;
+  const head   = pinned || 1;
+  const hidden = Math.max(0, _announcements.length - head);
+  const row = (a, i) => `
+    <button type="button" class="announce-item${_annReadSet.has(a.id) ? '' : ' unread'}${a.pinned ? ' pinned' : ''}${i >= head ? ' announce-hidden' : ''}" data-id="${esc(a.id)}">
       <span class="announce-item-title">${a.pinned ? '<span class="announce-pin">고정</span>' : ''}${esc(a.title || '공지')}</span>
       <span class="announce-item-date">${_annDateLabel(a.createdAt)}</span>
-    </button>`).join('');
+    </button>`;
   banner.innerHTML = `
     <div class="sec-head announce-head">
       <div class="sec-name">공지사항</div>
       ${unreadCount ? `<span class="announce-unread">${unreadCount}</span>` : ''}
     </div>
     <hr class="sec-divider">
-    <div class="announce-list">${rows}</div>`;
+    <div class="announce-list">${_announcements.map(row).join('')}</div>
+    ${hidden ? `<button type="button" class="announce-more-btn">+ 더보기 (${hidden})</button>` : ''}`;
   banner.style.display = 'block';
   banner.querySelectorAll('.announce-item').forEach(btn => {
     btn.addEventListener('click', () => openAnnounceDetail(btn.dataset.id));
   });
+  const more = banner.querySelector('.announce-more-btn');
+  if (more) more.addEventListener('click', () => {
+    banner.querySelectorAll('.announce-hidden').forEach(el => el.classList.remove('announce-hidden'));
+    more.remove();
+  });
 }
-/* ── 새 기능 공개일 ────────────────────────────────────────────
-   오늘 올린 것을 내일부터 보이게 하려고 둔 장치다. 이 시각 전에는 뽑기 배너와 공지 댓글이
-   아예 렌더되지 않고, 포인트도 이 시각 뒤에 올라온 공지에만 붙는다 — 그래서 "이미 써 둔
-   공지에는 적용하지 않는다"는 요구가 같은 장치로 함께 풀린다.
-   설정(settings/lms_config.releaseAt, 'YYYY-MM-DD')이 없으면 아래 기본값을 쓴다. */
-const DEFAULT_RELEASE_DATE = '2026-09-18';
-let _releaseMs = releaseMsOf(DEFAULT_RELEASE_DATE);
-function releaseMsOf(dateStr) {
-  const t = Date.parse(String(dateStr || '') + 'T00:00:00+09:00');   // 한국시간 자정 기준
-  return isNaN(t) ? releaseMsOf(DEFAULT_RELEASE_DATE) : t;
-}
-function featuresLive() { return Date.now() >= _releaseMs; }
-// 이 공지가 포인트 대상인가 — 공개 시각 뒤에 올라온 글만.
-function annEarnsPoints(a) {
-  const ms = a && a.createdAt && a.createdAt.seconds ? a.createdAt.seconds * 1000 : null;
-  return ms != null && ms >= _releaseMs;
-}
-async function loadReleaseDate() {
-  try {
-    const snap = await getDoc(doc(db, 'settings', 'lms_config'));
-    const v = snap.exists() ? snap.data().releaseAt : null;
-    if (v) _releaseMs = releaseMsOf(v);
-  } catch (_) {}
-  renderLotteryBanner();
-}
-
 /* ══ 일일 뽑기 ═══════════════════════════════════════════════════
    1000장 중 몇 장인지가 곧 확률이다(개인별 독립 시행 — 상자를 비우는 방식이 아니라,
    학생마다 1000장짜리 통에서 한 장을 뽑는다). 장수 합이 1000이라야 표의 % 표시가 맞다.
@@ -1229,7 +1219,6 @@ let _ltBusy  = false;
 function renderLotteryBanner() {
   const el = document.getElementById('lotteryBanner');
   if (!el) return;
-  if (!featuresLive()) { el.style.display = 'none'; return; }
   el.style.display = '';
   const done = !!_ltToday;
   el.classList.toggle('done', done);
@@ -1280,7 +1269,6 @@ function ltSyncFoot() {
 }
 
 function ltOpen() {
-  if (!featuresLive()) return;
   document.getElementById('lotteryModal').classList.add('open');
   document.getElementById('ltHeadIcon').innerHTML = icon('gift', 22);
   document.getElementById('ltHeadSub').textContent = '1일 1회';
@@ -1320,7 +1308,6 @@ async function ltDraw() {
 }
 
 async function initLottery() {
-  if (!featuresLive()) { renderLotteryBanner(); return; }
   _ltToday = await getLotteryToday();
   renderLotteryBanner();
 }
@@ -1367,12 +1354,9 @@ async function toggleAnnounceLike(annId) {
     /* 처음 켤 때 한 번만 준다. 껐다 켰다 해도 두 번은 없고(annLikeIds에 적힌다),
        취소해도 이미 받은 것을 도로 걷지 않는다 — 실수로 누른 학생이 손해 보지 않게. */
     if (next) {
-      const a = _announcements.find(x => x.id === annId);
-      if (a && annEarnsPoints(a)) {
-        const res = await addAnnLikeXP(annId);
-        if (res) showToast(`좋아요 +${res.pt}pt`, 3500, 'heart');
-        renderAnnounceEarnNote(annId);
-      }
+      const res = await addAnnLikeXP(annId);
+      if (res) showToast(`좋아요 +${res.pt}pt`, 3500, 'heart');
+      renderAnnounceEarnNote(annId);
     }
   } catch (_) {
     _annMyReads[annId] = { ...(_annMyReads[annId] || {}), liked: !next }; // 실패하면 되돌린다
@@ -1448,12 +1432,9 @@ async function postAnnComment() {
       text, createdAt: serverTimestamp(),
     });
     ta.value = '';
-    const a = _announcements.find(x => x.id === annId);
-    if (a && annEarnsPoints(a)) {
-      const res = await addAnnCommentXP(annId);
-      if (res) { msg.textContent = `+${res.pt}pt 받았어요`; showToast(`댓글 +${res.pt}pt`, 3500, 'message-circle'); }
-      renderAnnounceEarnNote(annId);
-    }
+    const res = await addAnnCommentXP(annId);
+    if (res) { msg.textContent = `+${res.pt}pt 받았어요`; showToast(`댓글 +${res.pt}pt`, 3500, 'message-circle'); }
+    renderAnnounceEarnNote(annId);
   } catch (e) {
     msg.textContent = '등록에 실패했어요. 잠시 뒤 다시 시도해 주세요.';
   } finally { btn.disabled = false; }
@@ -1464,12 +1445,10 @@ async function deleteAnnComment(id) {
   try { await deleteDoc(doc(db, 'announcement_comments', id)); } catch (_) {}
 }
 
-/* 좋아요 줄 오른쪽의 안내. 포인트 대상 글에서만 뜨고, 이미 받았으면 문구가 바뀐다. */
+/* 좋아요 줄 오른쪽의 안내. 글마다 한 번씩만 주므로 문구는 늘 같다. */
 function renderAnnounceEarnNote(annId) {
   const el = document.getElementById('announceEarnNote');
   if (!el) return;
-  const a = _announcements.find(x => x.id === annId);
-  if (!a || !featuresLive() || !annEarnsPoints(a)) { el.textContent = ''; return; }
   el.textContent = '좋아요 +2pt, 댓글 +5pt (글마다 한 번)';
 }
 
@@ -1496,15 +1475,12 @@ function openAnnounceDetail(id) {
   renderAnnounceEarnNote(id);
   const likeBtn = document.getElementById('announceLikeBtn');
   if (likeBtn) likeBtn.onclick = () => toggleAnnounceLike(id);
-  // 댓글창은 공개일 전에는 아예 띄우지 않는다.
   const cmWrap = document.getElementById('annCommentsWrap');
   if (cmWrap) {
-    cmWrap.style.display = featuresLive() ? '' : 'none';
-    if (featuresLive()) {
-      const msg = document.getElementById('annCommentMsg');
-      if (msg) msg.textContent = '';
-      watchAnnComments(id);
-    }
+    cmWrap.style.display = '';
+    const msg = document.getElementById('annCommentMsg');
+    if (msg) msg.textContent = '';
+    watchAnnComments(id);
   }
   markAnnounceRead(id);
   if (!_annReadSet.has(id)) {
@@ -1604,7 +1580,7 @@ function openSectionList(key, fromHistory) {
     body.innerHTML = LOADING_HTML;
   } else {
     body.innerHTML = `<div class="icon-grid ${SEC_CLS[key] || ''}"></div>`;
-    fillIconGrid(body.querySelector('.icon-grid'), items);
+    fillIconGrid(body.querySelector('.icon-grid'), items, SEC_CAPPED.has(key) ? SEC_HEAD : 0);
   }
   document.getElementById('sectionListModal').style.display = 'flex';
   if (!fromHistory) { try { history.pushState({ sectionList: key }, '', location.href); } catch (e) {} }
@@ -1628,9 +1604,26 @@ window.addEventListener('popstate', e => {
   }
 });
 
-function fillIconGrid(container, items) {
+function fillIconGrid(container, items, head) {
   if (!items.length) { container.innerHTML = '<div class="icon-empty">아직 비어있어요</div>'; return; }
-  items.forEach(item => container.appendChild(makeIconItem(item)));
+  // 숨길 것도 일단 다 만들어 둔다 — 더보기를 눌렀을 때 다시 그리지 않아도 되고,
+  // 실시간 갱신으로 이 함수가 다시 불려도 펼쳐 둔 상태가 자연스럽게 초기화된다.
+  const hide = head > 0 && items.length > head;
+  items.forEach((item, i) => {
+    const el = makeIconItem(item);
+    if (hide && i >= head) el.classList.add('icon-hidden');
+    container.appendChild(el);
+  });
+  if (!hide) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'icon-more-btn';
+  btn.textContent = `+ 더보기 (${items.length - head})`;
+  btn.addEventListener('click', () => {
+    container.querySelectorAll('.icon-hidden').forEach(el => el.classList.remove('icon-hidden'));
+    btn.remove();
+  });
+  container.insertAdjacentElement('afterend', btn);
 }
 
 function makeIconItem(item) {

@@ -780,31 +780,8 @@ async function noticeLoad() {
   } catch (e) { /* 못 읽으면 들고 있던 목록을 그대로 쓴다 */ }
   await dbLoadAnnReads();
   await noticeLoadComments();
-  await noticeLoadRelease();
   noticeRender();
 }
-
-/* ── 새 기능 공개일 (settings/lms_config.releaseAt, 'YYYY-MM-DD') ──
-   학생 화면(index.js)이 이 값을 보고 뽑기·댓글을 띄울지, 포인트를 줄지 정한다. */
-async function noticeLoadRelease() {
-  const el = document.getElementById('notice-release');
-  if (!el) return;
-  try {
-    const snap = await getDoc(doc(db, 'settings', 'lms_config'));
-    el.value = (snap.exists() && snap.data().releaseAt) || '';
-  } catch (e) {}
-}
-window.noticeSaveRelease = async function() {
-  const el = document.getElementById('notice-release');
-  const msg = document.getElementById('notice-release-msg');
-  if (!el) return;
-  try {
-    await setDoc(doc(db, 'settings', 'lms_config'), { releaseAt: el.value || null }, { merge: true });
-    if (msg) { msg.textContent = '저장되었습니다.'; msg.style.color = 'var(--c3)'; }
-  } catch (e) {
-    if (msg) { msg.textContent = '저장 실패: ' + e.message; msg.style.color = 'var(--critical)'; }
-  }
-};
 
 /* ── 공지 댓글 ──
    공지별 개수를 목록에 붙이고, 펼치면 누가 무엇을 썼는지 보고 지울 수 있다.
