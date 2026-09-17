@@ -11,7 +11,7 @@ import { firebaseConfig } from "../shared/firebase-config.js";
 import { initXP, onXPChange, checkAndAddAttendance, calcLevel,
          addAnnCommentXP, addAnnLikeXP, addLotteryXP, getLotteryToday } from "../shared/xp.js";
 import { findBadWord } from "../shared/profanity.js";
-import { icon } from "../shared/icons.js";
+import { icon } from "../shared/icons.js?v=20260918";
 import { blockPaste } from "../shared/textLimit.js?v=20260901";
 import { typingBlockReason, kstDate } from "../shared/util.js?v=20260828";
 
@@ -1160,7 +1160,7 @@ function renderAnnounceList() {
   const hidden = Math.max(0, _announcements.length - head);
   const row = (a, i) => `
     <button type="button" class="announce-item${_annReadSet.has(a.id) ? '' : ' unread'}${a.pinned ? ' pinned' : ''}${i >= head ? ' announce-hidden' : ''}" data-id="${esc(a.id)}">
-      <span class="announce-item-title">${a.pinned ? '<span class="announce-pin">고정</span>' : ''}${esc(a.title || '공지')}</span>
+      <span class="announce-item-title">${a.pinned ? `<span class="announce-pin" title="상단 고정">${icon('pin', 13)}</span>` : ''}${esc(a.title || '공지')}</span>
       <span class="announce-item-date">${_annDateLabel(a.createdAt)}</span>
     </button>`;
   banner.innerHTML = `
@@ -1229,36 +1229,58 @@ function renderLotteryBanner() {
   document.getElementById('lbBadge').textContent = done ? '내일 다시' : '뽑으러 가기';
 }
 
-function ltRenderOdds(hitRank) {
-  const body = document.getElementById('ltOddsBody');
-  if (!body) return;
-  body.innerHTML = LOTTERY.map(o => `
-    <tr class="${o.rank === hitRank ? 'hit' : ''}">
-      <td class="rk">${ltRankLabel(o.rank)}</td>
-      <td>${(o.tickets / ODDS_SUM * 100).toFixed(1)}%</td>
-      <td class="${o.pt < 0 ? 'minus' : ''}">${o.pt > 0 ? '+' : ''}${o.pt}</td>
-    </tr>`).join('');
+/* ── 슬롯머신 릴 ────────────────────────────────────────────────
+   등수 칸(.lt-cell)을 세로로 이어 붙인 띠를 만들어, 창(.lt-reel) 안에서 translateY로
+   훑어 내린다. 띠 끝이 뽑힌 등수가 되게 잘라 두고 감속 커브로 당기면 거기서 멈춘다 —
+   중간에 멈출 곳을 계산할 필요가 없어 어긋날 일이 없다.
+   한 칸 높이(LT_CELL)는 CSS의 .lt-cell/.lt-reel 높이와 반드시 같아야 한다. */
+const LT_REEL_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0];
+const LT_CELL    = 96;    // px — index.css의 .lt-cell 높이
+const LT_LOOPS   = 4;     // 멈추기 전까지 표를 몇 바퀴 훑을 것인가
+const LT_ROLL_MS = 1700;
+
+// rank가 null이면 아직 안 뽑은 '?' 칸이다.
+function ltCellHTML(rank) {
+  if (rank == null) return '<div class="lt-cell q">?</div>';
+  const inner = rank === 0
+    ? '<span class="lt-miss">꽝</span>'
+    : `${rank}<span class="lt-rank-unit">등</span>`;
+  return `<div class="lt-cell">${inner}</div>`;
+}
+// 띠를 되감는다. transition을 끈 채 옮기고 한 번 강제로 재 보아야(offsetHeight)
+// 다음에 켤 transition이 "0에서 출발"로 잡힌다 — 안 그러면 애니메이션이 통째로 생략된다.
+function ltReelReset(html) {
+  const reel = document.getElementById('ltReel');
+  reel.style.transition = 'none';
+  reel.style.transform  = 'translateY(0)';
+  reel.innerHTML = html;
+  void reel.offsetHeight;
+  return reel;
 }
 
-const LT_RANK_ICON = { 1:'trophy', 2:'medal', 3:'medal', 4:'star', 5:'star',
-                       6:'star', 7:'star', 8:'star', 9:'star', 10:'star', 0:'triangle-alert' };
+function ltRoll(rank) {
+  const idx   = LT_REEL_ORDER.indexOf(rank);
+  const cells = [];
+  for (let i = 0; i < LT_LOOPS; i++) LT_REEL_ORDER.forEach(r => cells.push(r));
+  for (let i = 0; i <= idx; i++) cells.push(LT_REEL_ORDER[i]);
+  const reel = ltReelReset(cells.map(r => ltCellHTML(r)).join(''));
+  reel.style.transition = `transform ${LT_ROLL_MS}ms cubic-bezier(.16,.72,.24,1)`;
+  reel.style.transform  = `translateY(-${(cells.length - 1) * LT_CELL}px)`;
+}
+
 function ltPaintResult(rank, realPt) {
   const o  = ltById(rank);
   const st = document.getElementById('ltStage');
   st.className = 'lt-stage done r' + rank;
-  st.innerHTML = `<span class="lt-medal">${icon(LT_RANK_ICON[rank] || 'star', 26)}</span>
-    ${rank === 0
-      ? '<span class="lt-rank lt-rank-miss">꽝</span>'
-      : `<span class="lt-rank">${rank}<span class="lt-rank-unit">등</span></span>`}
-    <span class="lt-prize">${realPt > 0 ? '+' : ''}${realPt}pt${rank === 0 ? '' : ` · ${esc(o.label)}`}</span>`;
-  ltRenderOdds(rank);
+  ltReelReset(ltCellHTML(rank));
+  document.getElementById('ltPrize').textContent =
+    `${realPt > 0 ? '+' : ''}${realPt}pt${rank === 0 ? '' : ` · ${o.label}`}`;
 }
 function ltPaintReady() {
-  const st = document.getElementById('ltStage');
-  st.className = 'lt-stage';
-  st.innerHTML = '<span class="lt-q">?</span>';
+  document.getElementById('ltStage').className = 'lt-stage';
+  ltReelReset(ltCellHTML(null));
+  document.getElementById('ltPrize').textContent = '';
   document.getElementById('ltDelta').style.display = 'none';
-  ltRenderOdds(null);
 }
 
 function ltSyncFoot() {
@@ -1271,7 +1293,7 @@ function ltSyncFoot() {
 function ltOpen() {
   document.getElementById('lotteryModal').classList.add('open');
   document.getElementById('ltHeadIcon').innerHTML = icon('gift', 22);
-  document.getElementById('ltHeadSub').textContent = '1일 1회';
+  document.getElementById('ltHeadSub').textContent = _ltToday ? '내일 다시' : '1일 1회';
   if (_ltToday) { ltPaintResult(_ltToday.rank, _ltToday.pt); document.getElementById('ltDelta').style.display = 'none'; }
   else ltPaintReady();
   ltSyncFoot();
@@ -1282,13 +1304,18 @@ async function ltDraw() {
   if (_ltToday || _ltBusy) return;
   _ltBusy = true; ltSyncFoot();
   const before = (window._xpTotalNow ?? 0);
-  const st = document.getElementById('ltStage');
-  st.className = 'lt-stage rolling';
-  st.innerHTML = '<span class="lt-q">?</span>';
-  // 눈이 따라갈 만큼만 굴린다. 결과는 이미 정해져 있고 연출만 기다린다.
+  document.getElementById('ltStage').className = 'lt-stage rolling';
+  document.getElementById('ltPrize').textContent = '';
+  document.getElementById('ltDelta').style.display = 'none';
+  /* 결과는 여기서 이미 정해진다. 릴은 그 결과를 보여 주는 연출일 뿐이라,
+     경험치 기록은 릴이 도는 동안 같이 보낸다 — 멈춘 뒤에야 저장을 시작하면
+     그만큼 더 기다리게 된다. 둘 중 늦은 쪽까지 기다렸다가 결과를 칠한다. */
   const picked = ltDrawOnce();
-  await new Promise(r => setTimeout(r, 900));
-  const res = await addLotteryXP(picked.rank, picked.pt, picked.label);
+  ltRoll(picked.rank);
+  const [res] = await Promise.all([
+    addLotteryXP(picked.rank, picked.pt, picked.label),
+    new Promise(r => setTimeout(r, LT_ROLL_MS + 120)),
+  ]);
   _ltBusy = false;
   if (!res) {   // 이미 오늘 뽑았거나(다른 탭) 활동이 꺼져 있음
     _ltToday = await getLotteryToday();

@@ -7,7 +7,7 @@ import { getDatabase, ref, get, set, remove, update, onValue, push } from "https
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
 import { mountIconPicker } from '../shared/icon-picker.js?v=20260822a';
-import { icon } from '../shared/icons.js';
+import { icon } from '../shared/icons.js?v=20260918';
 
 import { firebaseConfig } from "../shared/firebase-config.js";
 
@@ -739,7 +739,7 @@ function annTableHTML(head, showComments) {
       ? `<span class="ann-c-num"><button class="ann-stat" onclick="noticeToggleComments('${a.docId}')" title="댓글 보기">${cms}</button></span>`
       : '';
     return `<div class="ann-row${a.docId === _dbAnnEditId ? ' editing' : ''}${showComments ? ' has-cm' : ''}${a.pinned ? ' pinned' : ''}">
-      <span class="ann-c-title" title="${esc(a.title || '')}">${a.pinned ? '<span class="ann-pin">고정</span>' : ''}${esc(a.title || '(제목 없음)')}</span>
+      <span class="ann-c-title" title="${esc(a.title || '')}">${a.pinned ? `<span class="ann-pin" title="상단 고정">${icon('pin', 13)}</span>` : ''}${esc(a.title || '(제목 없음)')}</span>
       <span class="ann-c-date">${dbAnnDate(a.createdAt)}</span>
       <span class="ann-c-num">${stat(rows.length)}</span>
       <span class="ann-c-num">${stat(likes)}</span>
