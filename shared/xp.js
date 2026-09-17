@@ -328,7 +328,7 @@ export async function addLotteryXP(rank, pt, label) {
     const next = { ...cur, total: newTotal, level: newLevel, name: _sname };
     next.lottery = { day: today, rank, pt: real };
     next.history = { ...(cur.history || {}),
-      [histKey]: { type: 'lottery', pt: real, note: `일일 뽑기 ${rank}등${label ? ` (${label})` : ''}`, ts: Date.now() } };
+      [histKey]: { type: 'lottery', pt: real, note: `일일 뽑기 ${rank === 0 ? '꽝' : rank + '등'}`, ts: Date.now() } };
     return next;
   });
   if (!txRes.committed || !result) return null;

@@ -565,8 +565,9 @@ async function dbLoad() {
 
     // 공지사항 — 대시보드 카드가 최근 5건만 펴고 나머지는 [+ 더보기]로 접으므로 자르지 않는다
     _dbAnnList = annSnap
-      ? annSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt }; })
+      ? annSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt, pinned: v.pinned === true }; })
       : [];
+    annSortList();
 
     dbRender();
     dbRenderLateNote(late);
@@ -714,6 +715,13 @@ function dbRender() {
     </div>`;
 }
 
+// 고정 글이 위, 그 뒤는 최신순. 학생 화면(index.js)도 같은 규칙으로 줄을 세운다.
+function annSortList() {
+  // 방금 올린 글은 아직 서버 시각이 없다(createdAt null) — 가장 최신으로 본다.
+  const at = a => (a.createdAt?.seconds ?? Number.MAX_SAFE_INTEGER);
+  _dbAnnList.sort((a, b) => (b.pinned === true) - (a.pinned === true) || at(b) - at(a));
+}
+
 /* 공지 목록 표. 대시보드와 설정 NOTICE가 같이 쓴다.
    head를 주면 그만큼만 펴 두고 나머지는 [+ 더보기]로 접는다(공개 관리와 같은 방식).
    조회수·좋아요 숫자를 누르면 누가 읽었는지 명단이 뜬다. */
@@ -730,8 +738,8 @@ function annTableHTML(head, showComments) {
     const cmCell = showComments
       ? `<span class="ann-c-num"><button class="ann-stat" onclick="noticeToggleComments('${a.docId}')" title="댓글 보기">${cms}</button></span>`
       : '';
-    return `<div class="ann-row${a.docId === _dbAnnEditId ? ' editing' : ''}${showComments ? ' has-cm' : ''}">
-      <span class="ann-c-title" title="${esc(a.title || '')}">${esc(a.title || '(제목 없음)')}</span>
+    return `<div class="ann-row${a.docId === _dbAnnEditId ? ' editing' : ''}${showComments ? ' has-cm' : ''}${a.pinned ? ' pinned' : ''}">
+      <span class="ann-c-title" title="${esc(a.title || '')}">${a.pinned ? '<span class="ann-pin">고정</span>' : ''}${esc(a.title || '(제목 없음)')}</span>
       <span class="ann-c-date">${dbAnnDate(a.createdAt)}</span>
       <span class="ann-c-num">${stat(rows.length)}</span>
       <span class="ann-c-num">${stat(likes)}</span>
@@ -765,8 +773,10 @@ async function noticeLoad() {
     const snap = await getDocs(query(collection(db, 'announcements'), orderBy('createdAt', 'desc')));
     _dbAnnList = snap.docs.map(d => {
       const v = d.data();
-      return { docId: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt };
+      return { docId: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt,
+               pinned: v.pinned === true };
     });
+    annSortList();
   } catch (e) { /* 못 읽으면 들고 있던 목록을 그대로 쓴다 */ }
   await dbLoadAnnReads();
   await noticeLoadComments();
@@ -928,8 +938,10 @@ window.dbEditAnnouncement = function(docId) {
   const a = _dbAnnList.find(x => x.docId === docId);
   const titleEl = document.getElementById('db-ann-title');
   const bodyEl  = document.getElementById('db-ann-body');
+  const pinEl   = document.getElementById('db-ann-pinned');
   if (titleEl) titleEl.value = a?.title || '';
   if (bodyEl)  bodyEl.value  = a?.body  || '';
+  if (pinEl)   pinEl.checked = a?.pinned === true;
   noticeRender();
   bodyEl?.focus();
 };
@@ -938,8 +950,10 @@ window.dbCancelAnnEdit = function() {
   _dbAnnEditId = null;
   const titleEl = document.getElementById('db-ann-title');
   const bodyEl  = document.getElementById('db-ann-body');
+  const pinEl   = document.getElementById('db-ann-pinned');
   if (titleEl) titleEl.value = '';
   if (bodyEl)  bodyEl.value  = '';
+  if (pinEl)   pinEl.checked = false;
   annRefreshViews();
 };
 
@@ -947,22 +961,26 @@ window.dbCancelAnnEdit = function() {
 window.dbPostAnnouncement = async function() {
   const titleEl = document.getElementById('db-ann-title');
   const bodyEl  = document.getElementById('db-ann-body');
+  const pinEl   = document.getElementById('db-ann-pinned');
   const title = (titleEl?.value || '').trim();
   const body  = (bodyEl?.value  || '').trim();
+  const pinned = pinEl?.checked === true;
   if (!body) { alert('내용을 입력해 주세요.'); return; }
   try {
     if (_dbAnnEditId) {
       const docId = _dbAnnEditId;
-      await updateDoc(doc(db, 'announcements', docId), { title, body });
+      await updateDoc(doc(db, 'announcements', docId), { title, body, pinned });
       const t = _dbAnnList.find(a => a.docId === docId);
-      if (t) { t.title = title; t.body = body; }
+      if (t) { t.title = title; t.body = body; t.pinned = pinned; }
       _dbAnnEditId = null;
     } else {
-      const docRef = await addDoc(collection(db, 'announcements'), { title, body, createdAt: serverTimestamp() });
-      _dbAnnList = [{ docId: docRef.id, title, body, createdAt: null }, ..._dbAnnList];
+      const docRef = await addDoc(collection(db, 'announcements'), { title, body, pinned, createdAt: serverTimestamp() });
+      _dbAnnList = [{ docId: docRef.id, title, body, pinned, createdAt: null }, ..._dbAnnList];
     }
+    annSortList();
     if (titleEl) titleEl.value = '';   // 쓴 글은 목록으로 내려가므로 폼은 비워 둔다
     if (bodyEl)  bodyEl.value  = '';
+    if (pinEl)   pinEl.checked = false;
     annRefreshViews();
   } catch(e) { alert((_dbAnnEditId ? '저장' : '게시') + ' 실패: ' + e.message); }
 };
@@ -8665,6 +8683,69 @@ window.xpResetAll = async function() {
     xpRenderStatus();
     alert(`${scope}의 경험치를 초기화했습니다.`);
   } catch (e) { alert('초기화 실패: ' + e.message); }
+};
+
+/* ── 일일 뽑기 기록 초기화 ────────────────────────────────────────
+   확률표를 갈아엎었을 때 쓴다. 두 갈래로 나눠 둔 이유는 쓰임이 다르기 때문이다.
+   ─ 오늘 기록만: xp/students/{학번}/lottery 만 지운다. 그 문이 오늘 하루 한 번만
+     열리는 장치라, 지우면 오늘 다시 뽑을 수 있다. 이미 받은 경험치는 건드리지 않는다.
+   ─ 전체 되돌리기: 여기에 더해 history에서 type:'lottery' 기록을 모두 걷어내고,
+     그 기록들이 더하고 뺀 합을 total에서 되돌린다(RTDB 규칙상 0 밑으로는 안 내려간다).
+     레벨도 되돌린 total로 다시 계산한다. */
+async function xpLotteryReset(full) {
+  const msg = document.getElementById('xp-lottery-msg');
+  const say = t => { if (msg) msg.textContent = t; };
+  say('불러오는 중…');
+  const snap = await get(ref(rtdb, `${XP_ROOT}/students`));
+  const all = snap.exists() ? snap.val() : {};
+  await xpEnsureConfig();
+  const levels  = _xpCfg.levels || DEFAULT_LEVELS;
+  const formula = _xpCfg.levelFormula;
+
+  const updates = {};
+  let touched = 0, rolled = 0;
+  Object.entries(all).forEach(([sid, v]) => {
+    if (!v || typeof v !== 'object') return;
+    let hit = false;
+    if (v.lottery) { updates[`${XP_ROOT}/students/${sid}/lottery`] = null; hit = true; }
+    if (full) {
+      let back = 0;
+      Object.entries(v.history || {}).forEach(([hid, h]) => {
+        if (!h || h.type !== 'lottery') return;
+        updates[`${XP_ROOT}/students/${sid}/history/${hid}`] = null;
+        back += (h.pt || 0);
+        hit = true;
+      });
+      if (back) {
+        const next = Math.max(0, (v.total || 0) - back);
+        updates[`${XP_ROOT}/students/${sid}/total`] = next;
+        updates[`${XP_ROOT}/students/${sid}/level`] = calcLevel(next, levels, formula);
+        if (_xpStuAll[sid]) { _xpStuAll[sid].total = next; _xpStuAll[sid].level = calcLevel(next, levels, formula); }
+        rolled++;
+      }
+    }
+    if (hit) touched++;
+  });
+
+  if (!touched) { say('되돌릴 뽑기 기록이 없습니다.'); return; }
+  await update(ref(rtdb, '/'), updates);
+  xpRenderStatus();
+  say(full
+    ? `${touched}명의 뽑기 기록을 지웠습니다(경험치를 되돌린 학생 ${rolled}명).`
+    : `${touched}명의 오늘 뽑기 기록을 지웠습니다. 모두 다시 뽑을 수 있습니다.`);
+}
+
+window.xpResetLotteryToday = async function() {
+  if (!confirm('오늘 뽑기 기록을 지울까요?\n모든 학생이 오늘 한 번 더 뽑을 수 있게 됩니다. 이미 받은 경험치는 그대로 둡니다.')) return;
+  try { await xpLotteryReset(false); }
+  catch (e) { alert('초기화 실패: ' + e.message); }
+};
+
+window.xpResetLotteryAll = async function() {
+  const val = prompt('지금까지의 뽑기 기록을 모두 되돌립니다.\n뽑기로 오르내린 경험치가 빠지고 기록도 사라집니다. 되돌릴 수 없습니다.\n진행하려면 "초기화"를 입력하세요.');
+  if (val !== '초기화') return;
+  try { await xpLotteryReset(true); }
+  catch (e) { alert('초기화 실패: ' + e.message); }
 };
 
 // ── SETTINGS ──

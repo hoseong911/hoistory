@@ -712,7 +712,9 @@ function startListening() {
   // 0. 공지사항(패치노트 리스트, 최신 30건) — 미확인 글은 뱃지 표시 + 입장 시 1회 토스트
   _loadAnnReadSet();
   onSnapshot(query(collection(db, 'announcements'), orderBy('createdAt', 'desc'), limit(30)), snap => {
-    _announcements = snap.docs.map(d => { const v = d.data(); return { id: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt }; });
+    _announcements = snap.docs.map(d => { const v = d.data(); return { id: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt, pinned: v.pinned === true }; });
+    // 상단 고정이 먼저, 그 뒤는 최신순(쿼리가 이미 최신순이라 고정 여부만 앞으로 당긴다).
+    _announcements.sort((a, b) => (b.pinned === true) - (a.pinned === true));
     renderAnnounceList();
     const unread = _announcements.filter(a => !_annReadSet.has(a.id)).length;
     if (unread && !_annToastShown) { _annToastShown = true; _queueEntryNotice({ ann: unread }); }
@@ -1147,8 +1149,8 @@ function renderAnnounceList() {
   if (!_announcements.length) { banner.style.display = 'none'; return; }
   const unreadCount = _announcements.filter(a => !_annReadSet.has(a.id)).length;
   const rows = _announcements.map(a => `
-    <button type="button" class="announce-item${_annReadSet.has(a.id) ? '' : ' unread'}" data-id="${esc(a.id)}">
-      <span class="announce-item-title">${esc(a.title || '공지')}</span>
+    <button type="button" class="announce-item${_annReadSet.has(a.id) ? '' : ' unread'}${a.pinned ? ' pinned' : ''}" data-id="${esc(a.id)}">
+      <span class="announce-item-title">${a.pinned ? '<span class="announce-pin">고정</span>' : ''}${esc(a.title || '공지')}</span>
       <span class="announce-item-date">${_annDateLabel(a.createdAt)}</span>
     </button>`).join('');
   banner.innerHTML = `
@@ -1190,21 +1192,30 @@ async function loadReleaseDate() {
 }
 
 /* ══ 일일 뽑기 ═══════════════════════════════════════════════════
-   100장 중 몇 장인지가 곧 확률이다(개인별 독립 시행 — 상자를 비우는 방식이 아니라,
-   학생마다 100장짜리 통에서 한 장을 뽑는다). 장수 합이 100이라야 표의 % 표시가 맞다.
-   등수를 고르는 일은 여기에 있고, 경험치를 적는 일은 shared/xp.js의 addLotteryXP가 한다.
+   1000장 중 몇 장인지가 곧 확률이다(개인별 독립 시행 — 상자를 비우는 방식이 아니라,
+   학생마다 1000장짜리 통에서 한 장을 뽑는다). 장수 합이 1000이라야 표의 % 표시가 맞다.
+   1등과 꽝을 각각 1장(0.1%)으로 못 박고, 나머지 998장을 2~10등에 피라미드로 나눈다
+   (아래로 갈수록 넓어진다 — 가중치 1:2:3…9). 등수를 고르는 일은 여기에 있고,
+   경험치를 적는 일은 shared/xp.js의 addLotteryXP가 한다.
    ─ 하루 한 번: xp/students/{학번}/lottery.day 를 트랜잭션에서 검사한다(연타·다중 탭 방지).
-   ─ 꽝(-50)은 가진 만큼만 깎인다. RTDB 규칙이 total >= 0을 요구하기 때문이다. */
+   ─ 꽝(-50)은 가진 만큼만 깎인다. RTDB 규칙이 total >= 0을 요구하기 때문이다.
+   ─ 꽝은 rank 0으로 적는다(등수가 아니라는 뜻). 화면에도 '꽝'으로 나간다. */
 const LOTTERY = [
-  { rank:1, tickets:1,  pt:200, label:'대박',   msg:'1등입니다. 오늘 최고의 운이었습니다.' },
-  { rank:2, tickets:9,  pt:20,  label:'좋음',   msg:'2등입니다. 꽤 잘 뽑았습니다.' },
-  { rank:3, tickets:15, pt:10,  label:'괜찮음', msg:'3등입니다.' },
-  { rank:4, tickets:20, pt:5,   label:'무난',   msg:'4등입니다.' },
-  { rank:5, tickets:54, pt:1,   label:'참가',   msg:'5등입니다. 내일 다시 도전해 보십시오.' },
-  { rank:6, tickets:1,  pt:-50, label:'꽝',     msg:'6등입니다. 오늘은 운이 없었습니다.' },
+  { rank:1,  tickets:1,   pt:200, label:'대박' },
+  { rank:2,  tickets:22,  pt:50,  label:'좋음' },
+  { rank:3,  tickets:44,  pt:35,  label:'좋음' },
+  { rank:4,  tickets:66,  pt:25,  label:'괜찮음' },
+  { rank:5,  tickets:88,  pt:18,  label:'괜찮음' },
+  { rank:6,  tickets:111, pt:12,  label:'무난' },
+  { rank:7,  tickets:133, pt:8,   label:'무난' },
+  { rank:8,  tickets:155, pt:5,   label:'참가' },
+  { rank:9,  tickets:177, pt:3,   label:'참가' },
+  { rank:10, tickets:202, pt:1,   label:'참가' },
+  { rank:0,  tickets:1,   pt:-50, label:'꽝' },
 ];
-const ODDS_SUM = LOTTERY.reduce((n, o) => n + o.tickets, 0);   // 100이라야 한다
+const ODDS_SUM = LOTTERY.reduce((n, o) => n + o.tickets, 0);   // 1000이라야 한다
 const ltById = r => LOTTERY.find(o => o.rank === r) || LOTTERY[LOTTERY.length - 1];
+const ltRankLabel = r => (r === 0 ? '꽝' : `${r}등`);
 function ltDrawOnce() {
   const t = Math.floor(Math.random() * ODDS_SUM);
   let acc = 0;
@@ -1224,8 +1235,8 @@ function renderLotteryBanner() {
   el.classList.toggle('done', done);
   document.getElementById('lbIcon').innerHTML = icon(done ? 'clock' : 'gift', 22);
   document.getElementById('lbSub').textContent = done
-    ? `오늘은 ${_ltToday.rank}등을 뽑았습니다`
-    : '하루에 한 번, 경험치를 걸고 뽑습니다';
+    ? `오늘은 ${ltRankLabel(_ltToday.rank)}`
+    : '1일 1회';
   document.getElementById('lbBadge').textContent = done ? '내일 다시' : '뽑으러 가기';
 }
 
@@ -1234,29 +1245,29 @@ function ltRenderOdds(hitRank) {
   if (!body) return;
   body.innerHTML = LOTTERY.map(o => `
     <tr class="${o.rank === hitRank ? 'hit' : ''}">
-      <td class="rk">${o.rank}등</td>
-      <td>${o.tickets}장</td>
-      <td>${Math.round(o.tickets / ODDS_SUM * 100)}%</td>
+      <td class="rk">${ltRankLabel(o.rank)}</td>
+      <td>${(o.tickets / ODDS_SUM * 100).toFixed(1)}%</td>
       <td class="${o.pt < 0 ? 'minus' : ''}">${o.pt > 0 ? '+' : ''}${o.pt}</td>
     </tr>`).join('');
 }
 
-const LT_RANK_ICON = { 1:'trophy', 2:'medal', 3:'medal', 4:'star', 5:'star', 6:'triangle-alert' };
+const LT_RANK_ICON = { 1:'trophy', 2:'medal', 3:'medal', 4:'star', 5:'star',
+                       6:'star', 7:'star', 8:'star', 9:'star', 10:'star', 0:'triangle-alert' };
 function ltPaintResult(rank, realPt) {
   const o  = ltById(rank);
   const st = document.getElementById('ltStage');
   st.className = 'lt-stage done r' + rank;
   st.innerHTML = `<span class="lt-medal">${icon(LT_RANK_ICON[rank] || 'star', 26)}</span>
-    <span class="lt-rank">${rank}<span class="lt-rank-unit">등</span></span>
-    <span class="lt-prize">${realPt > 0 ? '+' : ''}${realPt}pt · ${esc(o.label)}</span>`;
-  document.getElementById('ltMsg').textContent = o.msg;
+    ${rank === 0
+      ? '<span class="lt-rank lt-rank-miss">꽝</span>'
+      : `<span class="lt-rank">${rank}<span class="lt-rank-unit">등</span></span>`}
+    <span class="lt-prize">${realPt > 0 ? '+' : ''}${realPt}pt${rank === 0 ? '' : ` · ${esc(o.label)}`}</span>`;
   ltRenderOdds(rank);
 }
 function ltPaintReady() {
   const st = document.getElementById('ltStage');
   st.className = 'lt-stage';
   st.innerHTML = '<span class="lt-q">?</span>';
-  document.getElementById('ltMsg').textContent = '뽑기를 누르면 오늘의 등수가 정해집니다.';
   document.getElementById('ltDelta').style.display = 'none';
   ltRenderOdds(null);
 }
@@ -1272,7 +1283,7 @@ function ltOpen() {
   if (!featuresLive()) return;
   document.getElementById('lotteryModal').classList.add('open');
   document.getElementById('ltHeadIcon').innerHTML = icon('gift', 22);
-  document.getElementById('ltHeadSub').textContent = _ltToday ? '오늘 뽑은 결과입니다' : '하루에 한 번 뽑을 수 있습니다';
+  document.getElementById('ltHeadSub').textContent = '1일 1회';
   if (_ltToday) { ltPaintResult(_ltToday.rank, _ltToday.pt); document.getElementById('ltDelta').style.display = 'none'; }
   else ltPaintReady();
   ltSyncFoot();
@@ -1286,7 +1297,6 @@ async function ltDraw() {
   const st = document.getElementById('ltStage');
   st.className = 'lt-stage rolling';
   st.innerHTML = '<span class="lt-q">?</span>';
-  document.getElementById('ltMsg').textContent = '뽑는 중…';
   // 눈이 따라갈 만큼만 굴린다. 결과는 이미 정해져 있고 연출만 기다린다.
   const picked = ltDrawOnce();
   await new Promise(r => setTimeout(r, 900));
@@ -1295,7 +1305,7 @@ async function ltDraw() {
   if (!res) {   // 이미 오늘 뽑았거나(다른 탭) 활동이 꺼져 있음
     _ltToday = await getLotteryToday();
     if (_ltToday) ltPaintResult(_ltToday.rank, _ltToday.pt);
-    else { ltPaintReady(); document.getElementById('ltMsg').textContent = '지금은 뽑을 수 없습니다.'; }
+    else { ltPaintReady(); showToast('지금은 뽑을 수 없습니다.', 2500); }
     renderLotteryBanner(); ltSyncFoot();
     return;
   }
