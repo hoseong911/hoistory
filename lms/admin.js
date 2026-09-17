@@ -270,7 +270,7 @@ const SUBNAV_MAP = {
   concept: ['concept-content', 'concept-design'],
   grade: ['grade-check', 'grade-grade', 'grade-setting'],
   xp: ['xp-award', 'xp-ranking', 'xp-settings'],
-  settings: ['settings-schedule', 'settings-student', 'settings-system']
+  settings: ['settings-notice', 'settings-schedule', 'settings-student', 'settings-system']
 };
 
 // ── 모바일 소프트 게이트 ──
@@ -415,6 +415,7 @@ function switchNav(nav, fromHistory) {
   if (panelId === 'panel-settings-student' && typeof stRenderTestIds === 'function') stRenderTestIds();
   if (panelId === 'panel-xp-settings' && typeof xpLoadSettings       === 'function') xpLoadSettings();
   if (panelId === 'panel-settings-schedule' && typeof plLoad         === 'function') plLoad();
+  if (panelId === 'panel-settings-notice') noticeLoad();
   if (panelId === 'panel-dashboard') dbLoad();
 
   // 모바일: 저작 패널이면 안내 카드로 대체(강제 열기 전까지), 그리고 열린 드로어를 닫는다.
@@ -562,9 +563,9 @@ async function dbLoad() {
     Object.entries(xp).forEach(([sid, x]) => { if (!x || isTestId(sid)) return; if (x.lastAttendance === today) attend++; if (x.lastTypingReview === today) review++; });
     _dbToday = { attend, thinkSubmit, review };
 
-    // 공지사항(패치노트 리스트, 최신 10건)
+    // 공지사항 — 대시보드 카드가 최근 5건만 펴고 나머지는 [+ 더보기]로 접으므로 자르지 않는다
     _dbAnnList = annSnap
-      ? annSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt }; }).slice(0, 10)
+      ? annSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt }; })
       : [];
 
     dbRender();
@@ -685,9 +686,6 @@ function dbRender() {
   const el = document.getElementById('db-content');
   if (!el) return;
   const totalUngraded = _dbThink.reduce((a, t) => a + (t.ungraded || 0), 0);
-  // 수정 중인 공지가 있으면 오른쪽 폼을 "수정" 모드로 그린다(_dbAnnEditId는 목록에서 "수정"을 누를 때 설정).
-  const editing = _dbAnnEditId ? _dbAnnList.find(a => a.docId === _dbAnnEditId) : null;
-  if (_dbAnnEditId && !editing) _dbAnnEditId = null; // 수정 중이던 글이 사라졌으면 작성 모드로 되돌린다
   el.innerHTML = `
     <div class="db-summary-row">
       <div class="db-summary-card"><div class="db-summary-label">오늘 출석</div><div class="db-summary-val">${_dbToday.attend} / ${_dbStuCount}명</div></div>
@@ -712,37 +710,80 @@ function dbRender() {
     </div>
     <div class="stu-card" style="margin-top:14px">
       <div class="stu-card-head">공지사항</div>
-      <div class="db-ann-grid">
-        <div>
-          <div class="db-ann-col-head">등록된 공지</div>
-          <div id="db-ann-list">${dbAnnListHTML()}</div>
-        </div>
-        <div>
-          <div class="db-ann-col-head">${editing ? '공지 수정' : '새 공지 작성'}</div>
-          <input id="db-ann-title" class="stu-edit-input" style="width:100%" maxlength="60" placeholder="제목(선택)" value="${editing ? esc(editing.title || '') : ''}">
-          <textarea id="db-ann-body" class="stu-edit-input" style="width:100%;height:120px;resize:vertical;border-radius:10px;margin-top:8px" placeholder="예) 8월 25일(화) 역사 수행평가는 개념 체크 3~5강 범위입니다.">${editing ? esc(editing.body || '') : ''}</textarea>
-          <div style="display:flex;gap:8px;margin-top:10px">
-            <button class="add-btn" onclick="dbPostAnnouncement()">${editing ? '저장하기' : '게시하기'}</button>
-            ${editing ? '<button class="stu-btn stu-btn-cancel" onclick="dbCancelAnnEdit()">취소</button>' : ''}
-          </div>
-        </div>
-      </div>
+      <div class="stu-card-body">${annTableHTML(DB_TOGGLE_HEAD)}</div>
     </div>`;
 }
 
-// 대시보드 공지사항 — announcements 컬렉션(패치노트 리스트). 각 글은 오른쪽 폼에서 수정하거나 삭제한다.
-function dbAnnListHTML() {
-  if (!_dbAnnList.length) return '<p style="font-size:13px;color:var(--sub);padding:4px 0">등록된 공지가 없습니다.</p>';
-  return _dbAnnList.map(a => `
-    <div class="db-ann-item${a.docId === _dbAnnEditId ? ' editing' : ''}">
-      <div class="db-ann-item-title">${esc(a.title || '(제목 없음)')}</div>
-      <div class="db-ann-item-date">${dbAnnDate(a.createdAt)}</div>
-      <div class="db-ann-item-btns">
-        <button class="stu-btn stu-btn-edit" style="padding:6px 12px;font-size:12px" onclick="openAnnStats('${a.docId}')" title="누가 읽었는지 / 좋아요를 눌렀는지 봅니다">${annStatLabel(a.docId)}</button>
-        <button class="stu-btn stu-btn-edit" style="padding:6px 12px;font-size:12px" onclick="dbEditAnnouncement('${a.docId}')">수정</button>
-        <button class="stu-btn stu-btn-del" style="padding:6px 12px;font-size:12px" onclick="dbDeleteAnnouncement('${a.docId}')">삭제</button>
-      </div>
-    </div>`).join('');
+/* 공지 목록 표. 대시보드와 설정 NOTICE가 같이 쓴다.
+   head를 주면 그만큼만 펴 두고 나머지는 [+ 더보기]로 접는다(공개 관리와 같은 방식).
+   조회수·좋아요 숫자를 누르면 누가 읽었는지 명단이 뜬다. */
+function annTableHTML(head) {
+  if (!_dbAnnList.length) return '<p class="ann-empty">등록된 공지가 없습니다.</p>';
+  const row = a => {
+    const rows  = _dbAnnReads[a.docId] || [];
+    const likes = rows.filter(r => r.liked).length;
+    const stat = n =>
+      `<button class="ann-stat" onclick="openAnnStats('${a.docId}')" title="누가 읽었는지 봅니다">${n}</button>`;
+    return `<div class="ann-row${a.docId === _dbAnnEditId ? ' editing' : ''}">
+      <span class="ann-c-title" title="${esc(a.title || '')}">${esc(a.title || '(제목 없음)')}</span>
+      <span class="ann-c-date">${dbAnnDate(a.createdAt)}</span>
+      <span class="ann-c-num">${stat(rows.length)}</span>
+      <span class="ann-c-num">${stat(likes)}</span>
+      <span class="ann-c-btns">
+        <button class="stu-btn stu-btn-edit" onclick="dbEditAnnouncement('${a.docId}')">수정</button>
+        <button class="stu-btn stu-btn-del" onclick="dbDeleteAnnouncement('${a.docId}')">삭제</button>
+      </span>
+    </div>`;
+  };
+  const header = `<div class="ann-row ann-head">
+      <span class="ann-c-title">제목</span>
+      <span class="ann-c-date">작성일</span>
+      <span class="ann-c-num">조회</span>
+      <span class="ann-c-num">좋아요</span>
+      <span class="ann-c-btns"></span>
+    </div>`;
+  const list = _dbAnnList;
+  if (!head || list.length <= head) return header + list.map(row).join('');
+  return header + list.slice(0, head).map(row).join('') + `
+    <div class="db-more"><div class="db-more-inner">${list.slice(head).map(row).join('')}</div></div>
+    <button type="button" class="db-more-btn" onclick="dbToggleMore(this)">+ 더보기</button>`;
+}
+
+/* ── 설정 - NOTICE 패널 ──────────────────────────────────────────
+   대시보드는 목록만 보여 주고, 쓰고 고치는 일은 여기서 한다. 패널에 들어올 때마다
+   공지와 열람 기록을 다시 읽는다(대시보드를 안 거치고 바로 들어와도 비지 않게). */
+async function noticeLoad() {
+  try {
+    const snap = await getDocs(query(collection(db, 'announcements'), orderBy('createdAt', 'desc')));
+    _dbAnnList = snap.docs.map(d => {
+      const v = d.data();
+      return { docId: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt };
+    });
+  } catch (e) { /* 못 읽으면 들고 있던 목록을 그대로 쓴다 */ }
+  await dbLoadAnnReads();
+  noticeRender();
+}
+
+function noticeRender() {
+  const listEl = document.getElementById('notice-list');
+  if (!listEl) return;
+  // 수정하던 글이 사라졌으면 작성 모드로 되돌린 뒤에 그린다(없는 줄에 표시가 남지 않게).
+  const editing = _dbAnnEditId ? _dbAnnList.find(a => a.docId === _dbAnnEditId) : null;
+  if (_dbAnnEditId && !editing) _dbAnnEditId = null;
+
+  listEl.innerHTML = annTableHTML(0);   // 여기서는 전부 편다
+  // 폼은 "새 글" / "수정" 두 모습만 다르다. 입력칸 값은 수정에 들어갈 때만 채워 넣는다.
+  document.getElementById('notice-form-head').textContent = editing ? '공지 수정' : '새 공지 작성';
+  document.getElementById('notice-form-btns').innerHTML =
+    `<button class="add-btn" onclick="dbPostAnnouncement()">${editing ? '저장하기' : '게시하기'}</button>` +
+    (editing ? '<button class="stu-btn stu-btn-cancel" onclick="dbCancelAnnEdit()">취소</button>' : '');
+}
+
+// 공지가 바뀌면 두 화면을 같이 맞춘다. NOTICE 패널은 숨어 있어도 미리 그려 두면
+// 나중에 열 때 옛 목록이 잠깐 비치지 않는다.
+function annRefreshViews() {
+  noticeRender();
+  if (_currentPanelId === 'panel-dashboard') dbRender();
 }
 
 /* ── 공지 열람 명단 · 좋아요 ──
@@ -765,12 +806,6 @@ async function dbLoadAnnReads() {
     });
     _dbAnnReads = by;
   } catch (_) {}
-}
-
-function annStatLabel(annId) {
-  const rows = _dbAnnReads[annId] || [];
-  const likes = rows.filter(r => r.liked).length;
-  return `읽음 ${rows.length} · ♥ ${likes}`;
 }
 
 window.openAnnStats = function(annId) {
@@ -806,16 +841,28 @@ function dbAnnDate(ts) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 }
 
-// 목록의 "수정"을 누르면 오른쪽 폼이 그 글의 내용으로 채워진 수정 모드로 바뀐다.
+/* 목록의 "수정" — 공지 폼은 설정 NOTICE에만 있으므로, 대시보드에서 눌렀으면 그 메뉴로
+   옮겨 간 뒤 폼을 채운다. 입력칸 값은 이때만 건드린다(쓰는 중에 다시 그려도 날아가지
+   않게, noticeRender는 제목·버튼만 바꾼다). */
 window.dbEditAnnouncement = function(docId) {
   _dbAnnEditId = docId;
-  dbRender();
-  document.getElementById('db-ann-body')?.focus();
+  if (_currentPanelId !== 'panel-settings-notice') switchNav('settings-notice');
+  const a = _dbAnnList.find(x => x.docId === docId);
+  const titleEl = document.getElementById('db-ann-title');
+  const bodyEl  = document.getElementById('db-ann-body');
+  if (titleEl) titleEl.value = a?.title || '';
+  if (bodyEl)  bodyEl.value  = a?.body  || '';
+  noticeRender();
+  bodyEl?.focus();
 };
 
 window.dbCancelAnnEdit = function() {
   _dbAnnEditId = null;
-  dbRender();
+  const titleEl = document.getElementById('db-ann-title');
+  const bodyEl  = document.getElementById('db-ann-body');
+  if (titleEl) titleEl.value = '';
+  if (bodyEl)  bodyEl.value  = '';
+  annRefreshViews();
 };
 
 // 새 글이면 게시, 수정 모드면 그 글을 덮어쓴다. 작성 시각(createdAt)은 수정해도 그대로 둔다.
@@ -834,9 +881,11 @@ window.dbPostAnnouncement = async function() {
       _dbAnnEditId = null;
     } else {
       const docRef = await addDoc(collection(db, 'announcements'), { title, body, createdAt: serverTimestamp() });
-      _dbAnnList = [{ docId: docRef.id, title, body, createdAt: null }, ..._dbAnnList].slice(0, 10);
+      _dbAnnList = [{ docId: docRef.id, title, body, createdAt: null }, ..._dbAnnList];
     }
-    dbRender();
+    if (titleEl) titleEl.value = '';   // 쓴 글은 목록으로 내려가므로 폼은 비워 둔다
+    if (bodyEl)  bodyEl.value  = '';
+    annRefreshViews();
   } catch(e) { alert((_dbAnnEditId ? '저장' : '게시') + ' 실패: ' + e.message); }
 };
 
@@ -846,7 +895,7 @@ window.dbDeleteAnnouncement = async function(docId) {
     await deleteDoc(doc(db, 'announcements', docId));
     _dbAnnList = _dbAnnList.filter(a => a.docId !== docId);
     if (_dbAnnEditId === docId) _dbAnnEditId = null; // 수정 중이던 글을 지웠으면 폼도 작성 모드로
-    dbRender();
+    annRefreshViews();
   } catch(e) { alert('삭제 실패: ' + e.message); }
 };
 
