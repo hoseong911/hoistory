@@ -7271,43 +7271,6 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
     }
   };
 
-  // ── CSV 내보내기 ──
-  function stCsvEscape(v) {
-    const s = String(v ?? '');
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  }
-
-  window.stSettingsExportGradesCsv = async function() {
-    try {
-      const snap = await getDocs(collection(db, 'grade_records'));
-      /* 가중치가 2배인 항목은 달성·기한이 각각 2칸이라 Y/N으로는 "2칸 중 1칸"이 표현되지
-         않는다. 그래서 체크된 칸 수를 그대로 적는다(보통은 0 또는 1). 칸 수를 적어 두지
-         않던 옛 문서는 Y=1, N=0으로 친다. */
-      const n = (b, k) => {
-        const v = b ? b[k + 'N'] : null;
-        return typeof v === 'number' && isFinite(v) ? v : (b && b[k] ? 1 : 0);
-      };
-      const rows = [['강의','학번','개념체크_달성칸','개념체크_기한칸','미션체크_달성칸','미션체크_기한칸','생각체크_달성칸','생각체크_기한칸','결석','피드백']];
-      snap.docs.forEach(d => {
-        const r = d.data();
-        rows.push([
-          r.lessonKey ?? '', r.studentId ?? '',
-          n(r.concept, 'achieved'), n(r.concept, 'onTime'),
-          n(r.mission, 'achieved'), n(r.mission, 'onTime'),
-          n(r.think,   'achieved'), n(r.think,   'onTime'),
-          r.absent ? 'Y' : 'N', r.feedback ?? '',
-        ]);
-      });
-      const csv = '﻿' + rows.map(row => row.map(stCsvEscape).join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `grade_records_${kstDate()}.csv`;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
-    } catch(e) { alert('내보내기에 실패했습니다.'); }
-  };
-
   // ── 초기 로드 ──
   (async function stInit() {
     try {
