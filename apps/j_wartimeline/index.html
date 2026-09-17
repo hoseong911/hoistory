@@ -117,6 +117,11 @@ input,textarea,select{font-size:var(--fs-md);font-family:inherit}
 .slot{width:100%;min-height:54px;border:2px dashed var(--hairline);border-radius:12px;display:flex;align-items:center;justify-content:center;padding:6px;transition:.12s;background:var(--canvas);position:relative;font-family:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .slot:active,.slot:focus-visible{border-color:var(--accent);outline:none}
 .slot.filled{border-style:solid}
+/* 채점 뒤 표시 — 어긋난 칸만 눈에 띄게 하고, 맞은 칸은 테두리 색으로만 알린다.
+   어느 칸이 틀렸는지만 알려 주고 정답이 무엇인지는 알려 주지 않는다. */
+.slot.ok{border-color:var(--pass)}
+.slot.no{border-color:var(--fail);background:var(--fail-l)}
+.slot-mark{position:absolute;top:-8px;right:8px;background:var(--fail);color:#20160A;font-size:11px;font-weight:800;line-height:1;padding:3px 8px;border-radius:100px}
 .slot-num{display:inline-flex;align-items:center;gap:7px;font-size:var(--fs-sm);font-weight:800;color:var(--stone)}
 .slot-pick{font-weight:700;color:var(--primary)}
 .slot .tile{width:100%;max-width:none;min-width:0;box-shadow:none;background:none;border:none;padding:2px}
@@ -338,6 +343,10 @@ let placed={};          // slotKey('phase:order') -> eventId
 let pickSlot=null;      // 팝업이 열려 있는 빈칸의 slotKey
 let causalAnswers={};    // effectId -> {causeId, reason}
 let causalReview=false;  // 채점한 뒤 정오 표시를 켠다
+/* 1단계 채점 결과. slotKey -> true(맞음)/false(다시). 어느 칸이 어긋났는지만 알려 주고
+   정답이 무엇인지는 알려 주지 않는다 — 그래야 [다시 맞추기]가 찍기가 아니라 다시
+   따져 보는 일이 된다. 칸의 내용을 바꾸면 그 칸의 표시는 지운다(옛 채점이 남지 않게). */
+let orderMarks={};
 let myResult=null;
 
 /* label = 보드 위 구간 이름표(두 글자짜리는 자간을 벌려 놓는다)
@@ -363,6 +372,15 @@ function showScreen(id){
 }
 function classNumOf(sid){sid=String(sid||'');if(sid.length<3)return null;const c=parseInt(sid.slice(1,3),10);return isNaN(c)?null:c;}
 function evById(id){return EVENTS.find(e=>e.id===id);}
+/* 보드를 흐르는 차례. 국내·국제는 나란한 두 갈래라 같은 층이다(서로가 서로의 원인이
+   되지 않는다). 2단계에서 "결과보다 앞선 사건"만 원인 후보로 남기는 데 쓴다. */
+const PHASE_RANK={war:0,domestic:1,foreign:1,horan:2,after:3};
+function isBefore(a,b){
+  if(!a||!b)return false;
+  const ra=PHASE_RANK[a.phase],rb=PHASE_RANK[b.phase];
+  if(ra!==rb)return ra<rb;
+  return a.phase===b.phase&&a.order<b.order;   // 같은 층이어도 다른 갈래면 앞뒤를 따지지 않는다
+}
 function phaseEvents(p){return EVENTS.filter(e=>e.phase===p).sort((a,b)=>a.order-b.order);}
 function allSlots(){const s=[];PHASES.forEach(p=>phaseEvents(p.key).forEach((e,i)=>s.push({phase:p.key,order:i,correctId:e.id})));return s;}
 function totalSlots(){return allSlots().length;}
@@ -410,6 +428,7 @@ document.getElementById('causal-back').addEventListener('click',openOrder);
    지난번 정오 표시가 그대로 떠 있다. 고른 원인과 써 둔 이유는 그대로 둔다. */
 document.getElementById('done-menu').addEventListener('click',()=>{
   causalReview=false;
+  orderMarks={};   // 1단계의 '다시' 표시도 같이 끈다 — 한 판을 끝내고 처음부터 보는 길이므로
   document.getElementById('causal-save').textContent='';
   openOrder();
 });
@@ -424,7 +443,7 @@ function openOrder(){
 document.getElementById('order-reset').addEventListener('click',()=>{
   if(!Object.keys(placed).length)return;
   if(!confirm('세운 도미노를 모두 빼고 처음부터 다시 할까요?'))return;
-  placed={};renderBoard();
+  placed={};orderMarks={};renderBoard();
 });
 
 /* 아직 어느 칸에도 놓지 않은 사건. 채점할 때 '남은 것'을 세는 데 쓴다. */
@@ -474,9 +493,11 @@ function renderBoard(){
 function slotHtml(phase,order){
   const key=phase+':'+order;
   const id=placed[key];
-  const cls='slot'+(id?' filled':'');
+  const mark=orderMarks[key];   // undefined면 아직 채점 안 한 칸
+  const cls='slot'+(id?' filled':'')+(mark===true?' ok':mark===false?' no':'');
   const inner=id?tileHtml(id):`<span class="slot-num">${order+1}<span class="slot-pick">사건 고르기</span></span>`;
-  return`<button type="button" class="${cls}" data-slot="${esc(key)}">${inner}</button>`;
+  const badge=mark===false?'<span class="slot-mark">다시</span>':'';
+  return`<button type="button" class="${cls}" data-slot="${esc(key)}">${inner}${badge}</button>`;
 }
 
 /* ── 빈칸 탭 → 도미노 고르기 팝업 ──
@@ -502,11 +523,15 @@ function openPick(slotKey){
   document.getElementById('pick-where').innerHTML=
     `<b>${esc(slotLabel(slotKey))}</b>에 세울 사건 도미노는?`+
     (current?`<span class="modal-now">(현재 '${esc(evById(current)?.title||'')}')</span>`:'');
-  /* 목록은 늘 사건 전체를 가나다순으로 보여 준다. 이미 세운 것을 빼고 보여 주면 고른 도미노가
-     목록에서 사라져 '어디 갔지?' 하게 되고, 두 칸을 맞바꾸려면 한 칸을 먼저 비워야 한다.
-     이미 선 도미노는 흐리게 두고 어느 칸에 있는지 적어 준다 — 고르면 두 칸이 맞바뀐다. */
+  /* 목록은 그 칸이 속한 구간의 사건만 가나다순으로 보여 준다(2026-09-17).
+     구간 이름표는 보드에 이미 붙어 있으므로 새 정보를 주는 것이 아니고, 학생에게 이미
+     보이는 것을 매 칸마다 열다섯 개 중에서 손으로 다시 골라내게 시키던 헛수고만 던다.
+     구간 안의 차례를 따져 보는 것은 그대로 남는다.
+     이미 세운 것도 빼지 않고 흐리게 두고 어느 칸에 있는지 적어 준다 — 목록에서 사라지면
+     '어디 갔지?' 하게 되고, 두 칸을 맞바꾸려면 한 칸을 먼저 비워야 하기 때문이다. */
+  const slotPhase=String(slotKey).split(':')[0];
   const list=document.getElementById('pick-list');
-  list.innerHTML=EVENTS.slice().sort(byTitle).map(e=>{
+  list.innerHTML=EVENTS.filter(e=>e.phase===slotPhase).sort(byTitle).map(e=>{
     const at=slotOf(e.id);
     const here=at===slotKey;
     const cls='pick-item'+(here?' now':at?' used':'');
@@ -515,7 +540,7 @@ function openPick(slotKey){
     return`<button type="button" class="${cls}" data-id="${esc(e.id)}"${here?' disabled':''}>
       <span>${esc(e.title)}</span>${note}
     </button>`;
-  }).join('')||'<div class="pick-empty">세울 도미노가 없어요.</div>';
+  }).join('')||'<div class="pick-empty">이 구간에 세울 도미노가 없어요.</div>';
   list.querySelectorAll('.pick-item').forEach(btn=>{
     btn.addEventListener('click',()=>{placeInto(pickSlot,btn.dataset.id);closePick();renderBoard();});
   });
@@ -533,7 +558,7 @@ function closePick(){
 }
 document.getElementById('pick-close').addEventListener('click',closePick);
 document.getElementById('pick-clear').addEventListener('click',()=>{
-  if(pickSlot)delete placed[pickSlot];
+  if(pickSlot){delete placed[pickSlot];delete orderMarks[pickSlot];}
   closePick();renderBoard();
 });
 /* 시트 바깥(어두운 자리)을 누르면 닫는다 — 모바일에서 가장 익숙한 닫기 동작이다. */
@@ -547,8 +572,10 @@ function placeInto(slotKey,id){
     /* 다른 칸에 있던 도미노를 가져오면 두 칸이 맞바뀐다(빈 칸에서 가져왔으면 그 칸은 빈다). */
     if(occupant)placed[from]=occupant;
     else delete placed[from];
+    delete orderMarks[from];
   }
   placed[slotKey]=id;
+  delete orderMarks[slotKey];   // 내용이 바뀐 칸은 지난 채점 표시를 지운다
 }
 
 document.getElementById('order-submit').addEventListener('click',async()=>{
@@ -557,15 +584,26 @@ document.getElementById('order-submit').addEventListener('click',async()=>{
   }
   const slots=allSlots();
   let correct=0;
-  slots.forEach(s=>{if(placed[s.phase+':'+s.order]===s.correctId)correct++;});
+  // 칸마다 맞았는지를 남겨 둔다. 보드로 돌아가면 어긋난 칸에 '다시'가 붙는다(정답은 숨김).
+  orderMarks={};
+  slots.forEach(s=>{
+    const key=s.phase+':'+s.order;
+    if(!placed[key])return;            // 비워 둔 칸은 표시하지 않는다(틀린 게 아니라 안 한 것)
+    const hit=placed[key]===s.correctId;
+    orderMarks[key]=hit;
+    if(hit)correct++;
+  });
   const total=slots.length;
   const pct=Math.round(correct/total*100);
   // 결과 화면
   const scoreEl=document.getElementById('res-score');
   scoreEl.textContent=pct+'%';
   scoreEl.className='result-score '+(pct>=80?'hi':pct>=50?'mid':'lo');
+  const wrong=total-correct;
   document.getElementById('res-detail').textContent=`${total}칸 중 ${correct}칸 정답`;
-  document.getElementById('res-msg').textContent=pct>=80?'훌륭해요! 흐름을 거의 완벽하게 세웠어요.':pct>=50?'좋아요! 어디가 어긋났을지 다시 짚어 볼까요?':'아직이에요. 사건의 앞뒤를 다시 따져 볼까요?';
+  document.getElementById('res-msg').textContent=
+    pct>=100?'훌륭해요! 흐름을 완벽하게 세웠어요.'
+    :`${pct>=50?'좋아요! ':'아직이에요. '}어긋난 ${wrong}칸에 표시해 뒀어요. 다시 맞추기로 돌아가 그 자리를 다시 따져 볼까요?`;
   // 저장
   await saveTimeline(correct,total,pct);
   showScreen('screen-order-result');
@@ -598,9 +636,20 @@ function renderCausal(){
   /* 1단계와 같은 이유로 연도를 적지 않는다. 연도가 보이면 앞뒤를 따져 보지 않고 숫자만
      견주어 고르게 된다. 차례도 가나다순으로 세운다 — EVENTS에 담긴 차례가 곧 정답 순서라,
      그대로 늘어놓으면 '위에 있는 것이 앞선 사건'이라는 힌트가 되어 버린다. */
-  const opts=EVENTS.slice().sort(byTitle).map(e=>`<option value="${esc(e.id)}">${esc(e.title)}</option>`).join('');
+  /* 원인 후보는 그 결과보다 앞선 사건만 남긴다(2026-09-17). 뒤에 일어난 일이 앞의 원인이
+     될 수는 없으므로 답이 될 수 없는 선택지를 치우는 것일 뿐, 정답을 좁혀 주는 것이 아니다.
+     다만 선생님이 넣은 정답이 이 규칙에 걸러지거나(구간 설정을 달리 했을 수 있다) 후보가
+     하나밖에 안 남으면 그 문제만 전체를 보여 준다 — 못 푸는 문제나 답이 뻔한 문제를
+     만들지 않으려는 안전장치다. */
+  const optsFor=c=>{
+    const eff=evById(c.effectId);
+    let cand=EVENTS.filter(e=>isBefore(e,eff));
+    if(cand.length<2||!cand.some(e=>e.id===c.causeId))cand=EVENTS.slice();
+    return cand.sort(byTitle).map(e=>`<option value="${esc(e.id)}">${esc(e.title)}</option>`).join('');
+  };
   list.innerHTML=CAUSAL.map((c,i)=>{
     const eff=evById(c.effectId);if(!eff)return'';
+    const opts=optsFor(c);
     const saved=causalAnswers[c.effectId]||{};
     const ok=causalReview&&saved.causeId===c.causeId;
     const no=causalReview&&saved.causeId&&saved.causeId!==c.causeId;
