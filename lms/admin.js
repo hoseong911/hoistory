@@ -983,12 +983,13 @@ async function dbComputeStudentScore(recByKey, sid) {
   publishedLectures.forEach(key => {
     const en = enabledMap[key];
     const rec = recByKey[key];
-    if (en.concept) { cN += 2*en.conceptWeight; if (rec?.concept?.achieved) cA += en.conceptWeight; if (rec?.concept?.onTime) cA += en.conceptWeight; }
-    if (en.mission) { mN += 2*en.missionWeight; if (rec?.mission?.achieved) mA += en.missionWeight; if (rec?.mission?.onTime) mA += en.missionWeight; }
-    if (en.think)   { tN += 2*en.thinkWeight;   if (rec?.think?.achieved)   tA += en.thinkWeight;   if (rec?.think?.onTime)   tA += en.thinkWeight; }
+    // 가중치 w면 달성 w칸·기한 w칸이고, 켜진 칸 수가 그대로 점수다(반 칸만 깎을 수 있다).
+    if (en.concept) { cN += 2*en.conceptWeight; cA += gradeCellN(rec?.concept, 'achieved', en.conceptWeight) + gradeCellN(rec?.concept, 'onTime', en.conceptWeight); }
+    if (en.mission) { mN += 2*en.missionWeight; mA += gradeCellN(rec?.mission, 'achieved', en.missionWeight) + gradeCellN(rec?.mission, 'onTime', en.missionWeight); }
+    if (en.think)   { tN += 2*en.thinkWeight;   tA += gradeCellN(rec?.think,   'achieved', en.thinkWeight)   + gradeCellN(rec?.think,   'onTime', en.thinkWeight); }
     const cell = (kind, w) => en[kind]
-      ? { on:true, weight:w, achieved: rec?.[kind]?.achieved === true, onTime: rec?.[kind]?.onTime === true }
-      : { on:false, weight:w, achieved:false, onTime:false };
+      ? { on:true, weight:w, achievedN: gradeCellN(rec?.[kind], 'achieved', w), onTimeN: gradeCellN(rec?.[kind], 'onTime', w) }
+      : { on:false, weight:w, achievedN:0, onTimeN:0 };
     rows.push({
       key,
       concept: cell('concept', en.conceptWeight),
@@ -1029,10 +1030,12 @@ function dbRenderScoreChips(s, recCount) {
 function dbRenderScoreDetail(s) {
   const rows = s.rows || [];
   if (!rows.length) return '';
+  // 가중치만큼 칸이 늘어난다(2배면 달성 2칸, 기한 2칸). 켜진 칸 수만큼 앞에서부터 O.
   const mark = c => {
     if (!c.on) return `<span class="dbs-ox off" title="미실시">–</span><span class="dbs-ox off">–</span>`;
-    const one = (ok, label) => `<span class="dbs-ox ${ok ? 'o' : 'x'}" title="${label}">${ok ? 'O' : 'X'}</span>`;
-    return one(c.achieved, '달성') + one(c.onTime, '기한');
+    const run = (n, label) => Array.from({ length: c.weight }, (_, i) =>
+      `<span class="dbs-ox ${i < n ? 'o' : 'x'}" title="${label}">${i < n ? 'O' : 'X'}</span>`).join('');
+    return run(c.achievedN, '달성') + run(c.onTimeN, '기한');
   };
   //  가중치가 1이 아니면 강의 이름 옆에 조용히 붙여 준다(합계가 안 맞아 보이는 걸 막는다).
   const w = r => {
@@ -1052,7 +1055,7 @@ function dbRenderScoreDetail(s) {
       <table class="dbs-oxtable">
         <thead>
           <tr><th>강의</th><th>개념체크</th><th>미션체크</th><th>생각체크</th></tr>
-          <tr class="sub"><th></th><th>달성 · 기한</th><th>달성 · 기한</th><th>달성 · 기한</th></tr>
+          <tr class="sub"><th></th><th>달성 / 기한</th><th>달성 / 기한</th><th>달성 / 기한</th></tr>
         </thead>
         <tbody>${body}</tbody>
       </table>
@@ -4093,6 +4096,7 @@ let _gradeMissionTimes = {};
 let _gradeLessonKey   = '';
 let _gradeThinkDocId  = '';   // 현재 성적 표에 로드된 생각 체크 강의 docId (이탈 토글 즉시 반영용)
 let _gradeEnabled     = { concept: true, mission: true, think: true };
+let _gradeWeights     = { concept: 1, mission: 1, think: 1 };
 let _publishStatus    = {};   // { classNum: boolean }
 let _publishedAt      = {};   // { classNum: ms } 마지막 반영(갱신) 시각 — 반영 바에 함께 표시
 let _currentGradeClass = null;
@@ -4297,11 +4301,17 @@ const gradeEditKey = (sid, block) => `${sid}|${block}`;
    표를 [불러오기] 하는 것만으로 결석 사유로 인정해 준 기한이 지워지던 자리다. */
 let _gradeLegacy = new Set();
 
-// 자동 감지 결과를 표의 한 칸에 어떻게 적용할지. 옛 문서는 내려가는 방향만 막는다.
+/* 자동 감지 결과를 표의 한 칸에 어떻게 적용할지. 옛 문서는 내려가는 방향만 막는다.
+   자동 감지는 "했다/안 했다" 하나로만 판정하므로 가중치가 2배여도 칸을 통째로 켜고
+   끈다(반 칸만 깎는 건 선생님이 표에서 직접 하는 일이다). */
 function gradeAutoValue(sid, block, v) {
-  if (!_gradeLegacy.has(sid)) return { achieved: v.achieved, onTime: v.onTime };
+  const w = gradeW(block);
+  if (!_gradeLegacy.has(sid)) return gradeNormBlock({ achieved: v.achieved, onTime: v.onTime }, w);
   const cur = _gradeRecords[sid][block];
-  return { achieved: cur.achieved || v.achieved, onTime: cur.onTime || v.onTime };
+  return gradeNormBlock({
+    achieved: cur.achieved || v.achieved,
+    onTime:   cur.onTime   || v.onTime,
+  }, w);
 }
 
 // grade_records에 저장할 형태 — 이 학생의 어느 블록이 손으로 정해진 값인지.
@@ -4362,8 +4372,8 @@ async function gradeLiveRefresh(lessonKey) {
   const mark = (sid, block, v) => {
     const r = _gradeRecords[sid][block];
     const next = gradeAutoValue(sid, block, v);
-    if (r.achieved !== next.achieved || r.onTime !== next.onTime) changed.add(sid);
-    r.achieved = next.achieved; r.onTime = next.onTime;
+    if (r.achievedN !== next.achievedN || r.onTimeN !== next.onTimeN) changed.add(sid);
+    Object.assign(r, next);
   };
 
   let apps = [], filled = 0;
@@ -4500,14 +4510,17 @@ function renderMissionLinkNote(apps, achievedCount, live) {
 }
 
 // 생각 체크 최종 판정: 문구(verdict)·달성(achieved)·기한(onTime) 세 가지를 한 번에 계산한다.
-// 우선순위(동시에 여러 개 어겨도 하나만 표시): 이탈 5회↑ > 50자 미만 > AI 미흡(조금 미흡)
+// 우선순위(동시에 여러 개 어겨도 하나만 표시): 50자 미만 > 이탈 5회↑ > AI 미흡(조금 미흡)
 // > 지연 제출 > 통과. 각 사유별 표시 규칙은 다음과 같다(사용자 확정 기준):
 //   통과              → achieved✓ onTime✓
+//   통과(이탈)         → achieved✓ onTime✓ (이탈 5회 이상 — 성적은 통과, 포인트만 0)
 //   미흡(지연 제출)    → achieved✓ onTime✗ (내용·분량·AI 채점은 통과했으나 당일 제출 못함)
 //   조금 미흡          → achieved✗ onTime✓ (AI 채점 기준 미달)
 //   미흡(50자 미만)    → achieved✗ onTime✓
-//   미흡(이탈)         → achieved✗ onTime✓ (이탈 5회 이상)
 //   미흡(미제출)       → achieved✗ onTime✗ (호출 쪽에서 sub 자체가 없을 때 처리)
+// 이탈은 성적을 깎지 않는다(2026-09-17 확정). 화면을 왔다 갔다 한 것이 답변의 질과
+// 직결되지는 않으므로 통과는 시키되, 포인트만 0으로 둬서 성실히 쓴 학생과 구분한다.
+// 그래서 50자 미만 검사가 이탈보다 앞에 온다 — 둘 다 걸리면 진짜 미흡인 쪽이 이겨야 한다.
 // overrideVal(교사 수동 토글, gradeOverrides)이 있으면 이유와 무관하게 achieved만 덮어쓴다
 // — 포인트는 채점 시 이미 확정된 값 그대로이고, 토글로 새 포인트가 생기지는 않는다.
 // 제출 시각이 그 반의 수업일(class_progress 스케줄)보다 늦으면 true. 스케줄 정보가 없으면
@@ -4525,10 +4538,12 @@ function thinkVerdict(sub, lec, overrideVal) {
   const late = thIsLateSubmission(sub, lec);
   let verdict, achieved, onTime;
   const v = sub.aiVerdict;
-  if ((sub.cheatCount || 0) >= 5) {
-    verdict = '미흡(이탈)'; achieved = false; onTime = true;
-  } else if ((sub.textLength || 0) < 50) {
+  if ((sub.textLength || 0) < 50) {
     verdict = '미흡(50자 미만)'; achieved = false; onTime = true;
+  } else if ((sub.cheatCount || 0) >= 5) {
+    // 이탈은 성적을 깎지 않는다 — 통과로 두고 포인트만 0(thRunGrading에서 0점 처리).
+    // 지연 제출까지 겹쳤으면 기한 체크만 빠지는 것은 통과와 똑같이 따른다.
+    verdict = late ? '통과(이탈, 지연 제출)' : '통과(이탈)'; achieved = true; onTime = !late;
   } else if (sub.thGraded && v === '조금 미흡') {
     // 정확히 '조금 미흡'(AI 품질 미달)일 때만 여기서 잡는다. 넓게 "미흡" 포함 여부로
     // 검사하면 '미흡(지연 제출)'도 걸려버려(문자열에 "미흡"이 들어있음) 지연 제출인데도
@@ -4710,6 +4725,7 @@ async function loadGradeData() {
   const missionWeight  = parseInt(document.getElementById('gradeMissionWeight').value) || 1;
   const thinkWeight    = parseInt(document.getElementById('gradeThinkWeight').value)   || 1;
   _gradeEnabled = { concept: conceptEnabled, mission: missionEnabled, think: thinkEnabled };
+  _gradeWeights = { concept: conceptWeight, mission: missionWeight, think: thinkWeight };
 
   // 설정 저장
   try {
@@ -4738,9 +4754,9 @@ async function loadGradeData() {
     gradeAutoSaveLbl('', '');
     _gradeStudents.forEach(s => {
       _gradeRecords[s.id] = {
-        concept: { achieved: false, onTime: false },
-        mission: { achieved: false, onTime: false },
-        think:   { achieved: false, onTime: false },
+        concept: gradeNormBlock(null, gradeW('concept')),
+        mission: gradeNormBlock(null, gradeW('mission')),
+        think:   gradeNormBlock(null, gradeW('think')),
         absent:  false,
         feedback: '',
       };
@@ -4755,9 +4771,10 @@ async function loadGradeData() {
       const r = d.data();
       if (_gradeRecords[r.studentId]) {
         _gradeRecords[r.studentId] = {
-          concept: r.concept || { achieved: false, onTime: false },
-          mission: r.mission || { achieved: false, onTime: false },
-          think:   r.think   || { achieved: false, onTime: false },
+          // 가중치가 바뀌었거나 N이 없는 옛 문서도 지금 가중치 기준으로 맞춰 읽는다.
+          concept: gradeNormBlock(r.concept, gradeW('concept')),
+          mission: gradeNormBlock(r.mission, gradeW('mission')),
+          think:   gradeNormBlock(r.think,   gradeW('think')),
           absent:  r.absent  || false,
           feedback: r.feedback || '',
         };
@@ -4775,7 +4792,7 @@ async function loadGradeData() {
 
     // 자동 감지가 저장된 값을 무엇으로 바꿨는지 나중에 비교하려고 "불러온 직후" 상태를 떠 둔다.
     // 달라진 학생은 이미 반영된 반이라면 아래에서 학생 성적까지 곧바로 갱신한다.
-    const blockKey = b => `${b.achieved ? 1 : 0}${b.onTime ? 1 : 0}`;
+    const blockKey = b => `${b.achievedN}-${b.onTimeN}`;   // 반 칸 차이도 잡히게 개수로 비교
     const loadedSnapshot = {};
     Object.keys(_gradeRecords).forEach(sid => {
       loadedSnapshot[sid] = blockKey(_gradeRecords[sid].mission) + blockKey(_gradeRecords[sid].think);
@@ -5140,6 +5157,36 @@ async function applyFeedbackTemplate() {
   }
 }
 
+/* ── 가중치와 체크 칸 ─────────────────────────────────────────────
+   가중치 w인 항목은 달성 w칸, 기한 w칸을 갖는다(2배면 "달성 달성 기한 기한").
+   한 칸만 빼서 절반만 깎을 수 있게 하려는 것 — 예전에는 달성/기한이 boolean
+   하나씩이라 2배 항목은 2점이 통째로 왔다 갔다 했다.
+
+   저장 모양: { achieved, onTime, achievedN, onTimeN }
+     · achievedN / onTimeN — 실제로 체크된 칸 수(0~w). 점수 계산은 이 값을 쓴다.
+     · achieved / onTime   — "다 채웠나"(N === w). w가 1이면 예전과 완전히 같은 값이라,
+       O/X 표시·통계·CSV처럼 boolean만 보던 곳들은 손대지 않아도 그대로 돈다.
+   N이 없는 옛 문서는 boolean을 보고 w 또는 0으로 친다(gradeCellN). */
+function gradeW(block) { return Math.max(1, parseInt(_gradeWeights[block], 10) || 1); }
+
+/* 저장된 칸에서 체크된 개수를 읽는다.
+   "다 채움"(boolean true)이 N보다 먼저다 — 그래야 (a) N이 아예 없는 옛 문서가 만점으로
+   읽히고, (b) 채점을 끝낸 뒤에 가중치를 1배에서 2배로 올려도 다 한 학생이 1/2로 깎이지
+   않는다. 반 칸짜리는 achieved가 false이므로 N을 그대로 쓴다. */
+function gradeCellN(cell, key, w) {
+  if (cell && cell[key]) return w;
+  const n = cell ? cell[key + 'N'] : null;
+  if (typeof n === 'number' && isFinite(n)) return Math.max(0, Math.min(w, Math.round(n)));
+  return 0;
+}
+
+// 어떤 모양으로 들어오든(boolean만 있는 자동 감지 결과 포함) 저장 모양으로 맞춘다.
+function gradeNormBlock(cell, w) {
+  const a = gradeCellN(cell, 'achieved', w);
+  const o = gradeCellN(cell, 'onTime', w);
+  return { achieved: a === w, onTime: o === w, achievedN: a, onTimeN: o };
+}
+
 /* 이름 앞 체크박스(행 전체 체크) 도우미 —
    "이 학생은 다 했다/안 했다"를 한 번에 넘기는 용도라, 실시 중인 항목의 달성·기한을
    전부 같은 값으로 맞춘다. 미실시로 꺼 둔 항목은 표에 열 자체가 없으므로 세지 않는다. */
@@ -5165,8 +5212,8 @@ function syncGradeAllCb() {
   const wrap = document.getElementById('gradeTableWrap');
   if (!wrap) return;
   wrap.querySelectorAll('.grade-all-cb').forEach(allCb => {
-    const { t, f } = allCb.dataset;
-    const boxes = Array.from(wrap.querySelectorAll(`.grade-cb.${t}[data-f="${f}"]`)).filter(c => {
+    const { t, f, i } = allCb.dataset;   // 가중치 칸마다 열이 따로 있으므로 i까지 맞춰 센다
+    const boxes = Array.from(wrap.querySelectorAll(`.grade-cb.${t}[data-f="${f}"][data-i="${i}"]`)).filter(c => {
       if (c.disabled) return false;
       const row = c.closest('tr');
       return _currentGradeClass === 'all' || parseInt(row.dataset.cls) === _currentGradeClass;
@@ -5212,34 +5259,49 @@ function renderGradeTable() {
   const mE = _gradeEnabled.mission;
   const tE = _gradeEnabled.think;
 
-  const allCb = (t, f) =>
-    `<input type="checkbox" class="grade-all-cb" data-t="${t}" data-f="${f}" title="전체 선택/해제 (현재 반에만 적용)">`;
-  const chk = (sid, type, field, checked, disabled) =>
-    `<input type="checkbox" class="grade-cb ${type}" data-sid="${esc(sid)}" data-t="${type}" data-f="${field}" ${checked?'checked':''} ${disabled?'disabled title="결석 처리된 학생은 미달성으로 고정됩니다"':''}>`;
+  /* 가중치만큼 칸을 늘린다. 2배면 달성 2칸, 기한 2칸 — "달성 달성 기한 기한"으로 서서
+     한 칸만 빼면 1점만 깎인다. 칸끼리는 서로 구분이 없고 몇 칸이 켜졌는지(N)만 센다.
+     data-i는 열을 구분하려고 붙이는 번호일 뿐이다(전체 선택이 열 단위로 돌게). */
+  const idx = n => Array.from({ length: n }, (_, i) => i);
+  const allCb = (t, f, i) =>
+    `<input type="checkbox" class="grade-all-cb" data-t="${t}" data-f="${f}" data-i="${i}" title="전체 선택/해제 (현재 반에만 적용)">`;
+  const chk = (sid, type, field, i, checked, disabled) =>
+    `<input type="checkbox" class="grade-cb ${type}" data-sid="${esc(sid)}" data-t="${type}" data-f="${field}" data-i="${i}" ${checked?'checked':''} ${disabled?'disabled title="결석 처리된 학생은 미달성으로 고정됩니다"':''}>`;
   const timeSpan = (d, isLate) =>
     `<span style="font-size:12px" class="${isLate?'grade-time-late':''}">${esc(fmtTime(d))}</span>`;
 
+  const wC = gradeW('concept'), wM = gradeW('mission'), wT = gradeW('think');
+  // 한 칸에 몇 개가 켜져야 하는지(N)를 받아, 앞에서부터 N개를 체크한 칸들을 만든다.
+  const cells = (sid, type, field, n, w, absent) =>
+    idx(w).map(i => `<td>${chk(sid, type, field, i, i < n, absent)}</td>`).join('');
+  const headCells = (type, field, label, w, cls) =>
+    idx(w).map(i => `<th class="${cls}">${allCb(type, field, i)}${label}</th>`).join('');
+
   // colgroup으로 열 폭을 고정한다 → 실시/미실시(열 개수)를 바꿔도 각 칸 폭이 그대로 유지된다.
+  const cbCols = w => '<col style="width:80px">'.repeat(2 * w);
   let cols = '<col style="width:82px"><col style="width:128px">'; // 이름 칸은 앞의 행 체크박스까지 담는다
-  if (cE) cols += '<col style="width:80px"><col style="width:80px">';
-  if (mE) cols += '<col style="width:80px"><col style="width:80px"><col style="width:112px">';
-  if (tE) cols += '<col style="width:80px"><col style="width:80px"><col style="width:112px">';
+  if (cE) cols += cbCols(wC);
+  if (mE) cols += cbCols(wM) + '<col style="width:112px">';
+  if (tE) cols += cbCols(wT) + '<col style="width:112px">';
   cols += '<col style="width:110px">';
+
+  // 가중치가 1이 아니면 제목 옆에 조용히 붙여 둔다(칸이 왜 늘었는지 알아보게).
+  const wTag = w => w > 1 ? `<span class="gh-weight">×${w}</span>` : '';
 
   let html = `<div class="grade-table-wrap"><table class="grade-table grade-table-fixed">
     <colgroup>${cols}</colgroup>
     <thead>
       <tr>
         <th rowspan="2">학번</th><th rowspan="2">이름</th>
-        ${cE ? `<th colspan="2" class="gh-concept">개념체크</th>` : ''}
-        ${mE ? `<th colspan="3" class="gh-mission">미션체크</th>` : ''}
-        ${tE ? `<th colspan="3" class="gh-think">생각체크</th>` : ''}
+        ${cE ? `<th colspan="${2*wC}" class="gh-concept">개념체크${wTag(wC)}</th>` : ''}
+        ${mE ? `<th colspan="${2*wM+1}" class="gh-mission">미션체크${wTag(wM)}</th>` : ''}
+        ${tE ? `<th colspan="${2*wT+1}" class="gh-think">생각체크${wTag(wT)}</th>` : ''}
         <th rowspan="2">피드백</th>
       </tr>
       <tr>
-        ${cE ? `<th class="gh-concept">${allCb('concept','achieved')}달성</th><th class="gh-concept">${allCb('concept','onTime')}기한</th>` : ''}
-        ${mE ? `<th class="gh-mission">${allCb('mission','achieved')}달성</th><th class="gh-mission">${allCb('mission','onTime')}기한</th><th class="gh-mission">제출시간</th>` : ''}
-        ${tE ? `<th class="gh-think">${allCb('think','achieved')}달성</th><th class="gh-think">${allCb('think','onTime')}기한</th><th class="gh-think">제출시간</th>` : ''}
+        ${cE ? headCells('concept','achieved','달성',wC,'gh-concept') + headCells('concept','onTime','기한',wC,'gh-concept') : ''}
+        ${mE ? headCells('mission','achieved','달성',wM,'gh-mission') + headCells('mission','onTime','기한',wM,'gh-mission') + `<th class="gh-mission">제출시간</th>` : ''}
+        ${tE ? headCells('think','achieved','달성',wT,'gh-think') + headCells('think','onTime','기한',wT,'gh-think') + `<th class="gh-think">제출시간</th>` : ''}
       </tr>
     </thead><tbody>`;
 
@@ -5254,9 +5316,9 @@ function renderGradeTable() {
       html += `<tr data-cls="${cls}" data-sid="${esc(s.id)}" class="${r.absent ? 'absent-row' : ''}">
         <td class="tc-id">${esc(s.id)}</td>
         <td class="tc-name" data-sid="${esc(s.id)}" title="이름을 누르면 결석으로 표시/해제됩니다"><input type="checkbox" class="grade-row-cb" data-sid="${esc(s.id)}" ${gradeRowAllChecked(s.id) ? 'checked' : ''} ${r.absent ? 'disabled' : ''} title="이 학생의 달성과 기한을 한 번에 켜고 끕니다"><span class="tc-name-label">${esc(s.name)}</span></td>
-        ${cE ? `<td>${chk(s.id,'concept','achieved',r.concept.achieved,r.absent)}</td><td>${chk(s.id,'concept','onTime',r.concept.onTime,r.absent)}</td>` : ''}
-        ${mE ? `<td>${chk(s.id,'mission','achieved',r.mission.achieved,r.absent)}</td><td>${chk(s.id,'mission','onTime',r.mission.onTime,r.absent)}</td><td>${timeSpan(mD,!!(mD&&mMaj&&dayKey(mD)!==mMaj))}</td>` : ''}
-        ${tE ? `<td>${chk(s.id,'think','achieved',r.think.achieved,r.absent)}</td><td>${chk(s.id,'think','onTime',r.think.onTime,r.absent)}</td><td>${timeSpan(tD,!!(tD&&tMaj&&dayKey(tD)!==tMaj))}</td>` : ''}
+        ${cE ? cells(s.id,'concept','achieved',r.concept.achievedN,wC,r.absent) + cells(s.id,'concept','onTime',r.concept.onTimeN,wC,r.absent) : ''}
+        ${mE ? cells(s.id,'mission','achieved',r.mission.achievedN,wM,r.absent) + cells(s.id,'mission','onTime',r.mission.onTimeN,wM,r.absent) + `<td>${timeSpan(mD,!!(mD&&mMaj&&dayKey(mD)!==mMaj))}</td>` : ''}
+        ${tE ? cells(s.id,'think','achieved',r.think.achievedN,wT,r.absent) + cells(s.id,'think','onTime',r.think.onTimeN,wT,r.absent) + `<td>${timeSpan(tD,!!(tD&&tMaj&&dayKey(tD)!==tMaj))}</td>` : ''}
         <td><button class="stu-btn ${r.feedback ? 'stu-btn-fb-done' : 'stu-btn-edit'}" onclick="openGradeFeedbackModal('${esc(s.id)}','${esc(s.name)}')">${r.feedback ? '피드백 수정' : '피드백 작성'}</button></td>
       </tr>`;
     });
@@ -5273,10 +5335,22 @@ function renderGradeTable() {
     });
   }
 
+  /* 한 학생의 한 칸(달성 또는 기한)에서 지금 몇 개가 켜져 있는지 DOM을 보고 다시 센다.
+     칸이 여럿일 때 어느 칸을 껐는지는 뜻이 없고 개수만 중요하므로, 화면에 보이는
+     그대로를 읽어 기록에 옮긴다(다시 그리지 않으니 사용자가 끈 칸이 그 자리에 남는다). */
+  function gradeSyncCount(sid, t, f) {
+    const boxes = wrap.querySelectorAll(`.grade-cb.${t}[data-sid="${sid}"][data-f="${f}"]`);
+    const n = Array.from(boxes).filter(c => c.checked).length;
+    const rec = _gradeRecords[sid];
+    if (!rec) return;
+    rec[t][f + 'N'] = n;
+    rec[t][f] = n === gradeW(t);
+  }
+
   wrap.querySelectorAll('.grade-cb').forEach(cb => {
     cb.addEventListener('change', e => {
       const { sid, t, f } = e.target.dataset;
-      if (_gradeRecords[sid]) _gradeRecords[sid][t][f] = e.target.checked;
+      gradeSyncCount(sid, t, f);
       _gradeManualEdit.add(gradeEditKey(sid, t)); // 손으로 고친 칸은 자동 감지가 덮어쓰지 않는다
       syncGradeAllCb();
       syncGradeRowCb(sid);
@@ -5289,16 +5363,18 @@ function renderGradeTable() {
   // 결석 처리된 학생은 미달성으로 고정돼야 하므로 전체 선택에서도 건너뛴다.
   wrap.querySelectorAll('.grade-all-cb').forEach(cb => {
     cb.addEventListener('change', e => {
-      const { t, f } = e.target.dataset;
+      const { t, f, i } = e.target.dataset;
       const checked = e.target.checked;
       const touched = [];
-      wrap.querySelectorAll(`.grade-cb.${t}[data-f="${f}"]`).forEach(c => {
+      // 열 하나(= 그 가중치 칸 하나)만 켜고 끈다. 2배 항목이면 "달성" 열이 둘이라
+      // 각각 따로 전체 선택된다.
+      wrap.querySelectorAll(`.grade-cb.${t}[data-f="${f}"][data-i="${i}"]`).forEach(c => {
         const sid = c.dataset.sid;
         const row = c.closest('tr');
         if (_currentGradeClass !== 'all' && parseInt(row.dataset.cls) !== _currentGradeClass) return;
         if (_gradeRecords[sid]?.absent) return;
         c.checked = checked;
-        if (_gradeRecords[sid]) _gradeRecords[sid][t][f] = checked;
+        gradeSyncCount(sid, t, f);
         _gradeManualEdit.add(gradeEditKey(sid, t));
         touched.push(sid);
       });
@@ -5320,8 +5396,7 @@ function renderGradeTable() {
       if (!r || r.absent) return; // 결석 학생은 미달성 고정
       const checked = e.target.checked;
       gradeRowBlocks().forEach(b => {
-        r[b].achieved = checked;
-        r[b].onTime   = checked;
+        Object.assign(r[b], gradeNormBlock({ achieved: checked, onTime: checked }, gradeW(b)));
         _gradeManualEdit.add(gradeEditKey(sid, b));
       });
       wrap.querySelectorAll(`.grade-cb[data-sid="${sid}"]`).forEach(c => { c.checked = checked; });
@@ -5346,9 +5421,9 @@ function renderGradeTable() {
       ['concept', 'mission', 'think'].forEach(b => _gradeManualEdit.add(gradeEditKey(sid, b)));
       r.absent = !r.absent;
       if (r.absent) {
-        r.concept.achieved = false; r.concept.onTime = false;
-        r.mission.achieved = false; r.mission.onTime = false;
-        r.think.achieved   = false; r.think.onTime   = false;
+        ['concept', 'mission', 'think'].forEach(b => {
+          Object.assign(r[b], gradeNormBlock(null, gradeW(b)));
+        });
       }
       renderGradeTable();
       renderGradeStats();
@@ -5498,9 +5573,9 @@ async function loadScoreData() {
           if (!publishedSet.has(`${key}_${cls}`)) return; // 미반영 강의 제외
           const en  = enabledMap[key];
           const rec = recByLec[key]?.[s.id];
-          if (en.concept) { cN += 2*en.conceptWeight; if (rec?.concept?.achieved) cA += en.conceptWeight; if (rec?.concept?.onTime) cA += en.conceptWeight; }
-          if (en.mission) { mN += 2*en.missionWeight; if (rec?.mission?.achieved) mA += en.missionWeight; if (rec?.mission?.onTime) mA += en.missionWeight; }
-          if (en.think)   { tN += 2*en.thinkWeight;   if (rec?.think?.achieved)   tA += en.thinkWeight;   if (rec?.think?.onTime)   tA += en.thinkWeight; }
+          if (en.concept) { cN += 2*en.conceptWeight; cA += gradeCellN(rec?.concept, 'achieved', en.conceptWeight) + gradeCellN(rec?.concept, 'onTime', en.conceptWeight); }
+          if (en.mission) { mN += 2*en.missionWeight; mA += gradeCellN(rec?.mission, 'achieved', en.missionWeight) + gradeCellN(rec?.mission, 'onTime', en.missionWeight); }
+          if (en.think)   { tN += 2*en.thinkWeight;   tA += gradeCellN(rec?.think,   'achieved', en.thinkWeight)   + gradeCellN(rec?.think,   'onTime', en.thinkWeight); }
         });
         const concept = calcScore(cA, cN, 'concept');
         const mission = calcScore(mA, mN, 'mission');
@@ -5629,15 +5704,17 @@ function openScoreDetail(sid) {
     const en  = _scoreDetail.enabled[key] || { concept:true, mission:true, think:true };
     const rec = _scoreDetail.records[key]?.[sid];
     const pub = _scoreDetail.published.has(`${key}_${cls}`);
-    const cell = (on, block) => {
+    // 가중치만큼 칸이 늘어난다(2배면 달성 2칸, 기한 2칸 — 켜진 칸 수만큼 앞에서부터 O).
+    const cell = (on, block, w) => {
       if (!on) return '<td class="sd-off">미실시</td>';
       const b = rec?.[block];
       if (!b) return '<td class="sd-off">—</td>';
-      return `<td>${ox(b.achieved)} ${ox(b.onTime)}</td>`;
+      const run = n => Array.from({ length: w }, (_, i) => ox(i < n)).join(' ');
+      return `<td>${run(gradeCellN(b, 'achieved', w))} ${run(gradeCellN(b, 'onTime', w))}</td>`;
     };
     return `<tr class="${pub ? '' : 'sd-unpub'}">
       <td class="sd-lec">${esc(lecTag(key))}<div class="sd-lec-t">${esc(cleanTitle(_scoreDetail.titles[key] || ''))}</div></td>
-      ${cell(en.concept, 'concept')}${cell(en.mission, 'mission')}${cell(en.think, 'think')}
+      ${cell(en.concept, 'concept', en.conceptWeight || 1)}${cell(en.mission, 'mission', en.missionWeight || 1)}${cell(en.think, 'think', en.thinkWeight || 1)}
       <td>${rec?.absent ? '<span class="sd-x">결석</span>' : (pub ? '반영됨' : '<span class="sd-off">미반영</span>')}</td>
     </tr>`;
   }).join('');
@@ -5650,7 +5727,7 @@ function openScoreDetail(sid) {
       <strong>총점 ${s.total}</strong>
     </div>
     <table class="sd-table">
-      <thead><tr><th>강의</th><th class="sh-c">개념<br><span>달성·기한</span></th><th class="sh-m">미션<br><span>달성·기한</span></th><th class="sh-t">생각<br><span>달성·기한</span></th><th>상태</th></tr></thead>
+      <thead><tr><th>강의</th><th class="sh-c">개념<br><span>달성 / 기한</span></th><th class="sh-m">미션<br><span>달성 / 기한</span></th><th class="sh-t">생각<br><span>달성 / 기한</span></th><th>상태</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="5">반영할 강의가 없습니다.</td></tr>'}</tbody>
     </table>
     <p class="sd-note">회색 줄은 아직 반영(공개)하지 않아 점수 집계에서 빠진 강의입니다.</p>`;
@@ -6449,7 +6526,12 @@ function gradeLessonContext(lesson, S) {
   const subByStudent = {};
   if (thinkLec) (S.subsByLecture[thinkDocId] || []).forEach(s => { subByStudent[s.id] = s; });
 
-  return { key, pubClasses, perSource, thinkLec, overrides, subByStudent };
+  // 가중치는 강의마다 다르므로 여기 들고 다닌다 — 지금 표에 올라온 강의의 값
+  // (_gradeWeights)을 쓰면 엉뚱한 강의에 다른 칸 수를 써 버린다.
+  const wOf = v => Math.max(1, parseInt(v, 10) || 1);
+  const weights = { concept: wOf(cfg.conceptWeight), mission: wOf(cfg.missionWeight), think: wOf(cfg.thinkWeight) };
+
+  return { key, pubClasses, perSource, thinkLec, overrides, subByStudent, weights };
 }
 
 /* 자동 판정 결과를 저장된 값에 어떻게 얹을지 정한다.
@@ -6458,10 +6540,13 @@ function gradeLessonContext(lesson, S) {
      그래서 "내려가는 방향"만 막는다 — 자동 판정이 켜는 건 받아들이고, 저장된 O를
      X로 되돌리지는 않는다. 결석 사유로 인정해 준 기한이 이 규칙으로 살아남는다.
      (표시가 붙은 뒤로는 이 보수적인 규칙 없이 웹앱 채점을 그대로 따라간다.) */
-function gradeRefreshKeep(cur, next, isManual, isLegacy) {
-  if (isManual) return cur;
-  if (!isLegacy) return next;
-  return { achieved: cur.achieved || next.achieved, onTime: cur.onTime || next.onTime };
+function gradeRefreshKeep(cur, next, isManual, isLegacy, w) {
+  if (isManual) return gradeNormBlock(cur, w);
+  if (!isLegacy) return gradeNormBlock(next, w);
+  // 옛 문서는 내려가는 방향만 막는다 — 칸 수로 보면 더 많이 켜진 쪽을 남기는 것.
+  const aN = Math.max(gradeCellN(cur, 'achieved', w), gradeCellN(next, 'achieved', w));
+  const oN = Math.max(gradeCellN(cur, 'onTime',   w), gradeCellN(next, 'onTime',   w));
+  return { achieved: aN === w, onTime: oN === w, achievedN: aN, onTimeN: oN };
 }
 
 // 두 버튼이 같이 쓰는 앞단 확인 — 명단이 없으면 계산할 게 없다.
@@ -6511,18 +6596,18 @@ async function gradeApplyAllLessons() {
 
         // 새로 만드는 문서라 덮어쓸 손 체크가 없다. 지금 채점 결과대로 채워 둔다.
         const rec = {
-          concept: { achieved: false, onTime: false }, // 자동으로 가져올 소스가 없다
-          mission: { achieved: false, onTime: false },
-          think:   { achieved: false, onTime: false },
+          concept: gradeNormBlock(null, ctx.weights.concept), // 자동으로 가져올 소스가 없다
+          mission: gradeNormBlock(null, ctx.weights.mission),
+          think:   gradeNormBlock(null, ctx.weights.think),
         };
         if (ctx.perSource.length) {
           const v = missionVerdictFor(stu.id, cls, ctx.key, ctx.perSource);
-          if (!v.blank) rec.mission = { achieved: v.achieved, onTime: v.onTime };
+          if (!v.blank) rec.mission = gradeNormBlock(v, ctx.weights.mission);
         }
         const sub = ctx.thinkLec ? ctx.subByStudent[stu.id] : null;
         if (sub) {
           const v = thinkVerdict(sub, ctx.thinkLec, ctx.overrides[sub.subId]);
-          rec.think = { achieved: v.achieved, onTime: v.onTime };
+          rec.think = gradeNormBlock(v, ctx.weights.think);
         }
 
         writes.push({
@@ -6588,9 +6673,10 @@ async function gradeRefreshAllLessons() {
         const manual   = rec.manualEdit || {};
         const isLegacy = !rec.manualEdit; // 표시가 도입되기 전에 저장된 문서
 
+        const wM = ctx.weights.mission, wT = ctx.weights.think;
         const cur = {
-          mission: rec.mission || { achieved: false, onTime: false },
-          think:   rec.think   || { achieved: false, onTime: false },
+          mission: gradeNormBlock(rec.mission, wM),
+          think:   gradeNormBlock(rec.think,   wT),
         };
         const next = { mission: cur.mission, think: cur.think };
         let kept = false;
@@ -6598,9 +6684,9 @@ async function gradeRefreshAllLessons() {
         if (ctx.perSource.length) {
           const v = missionVerdictFor(stu.id, cls, ctx.key, ctx.perSource);
           if (!v.blank) {
-            next.mission = gradeRefreshKeep(
-              cur.mission, { achieved: v.achieved, onTime: v.onTime }, !!manual.mission, isLegacy);
-            if (next.mission.achieved !== v.achieved || next.mission.onTime !== v.onTime) kept = true;
+            const auto = gradeNormBlock(v, wM);
+            next.mission = gradeRefreshKeep(cur.mission, auto, !!manual.mission, isLegacy, wM);
+            if (next.mission.achievedN !== auto.achievedN || next.mission.onTimeN !== auto.onTimeN) kept = true;
           }
         }
         // 생각 체크는 제출한 학생만 다시 매긴다(불러오기 때와 같은 규칙 — 미제출자는
@@ -6608,13 +6694,13 @@ async function gradeRefreshAllLessons() {
         const sub = ctx.thinkLec ? ctx.subByStudent[stu.id] : null;
         if (sub) {
           const v = thinkVerdict(sub, ctx.thinkLec, ctx.overrides[sub.subId]);
-          next.think = gradeRefreshKeep(
-            cur.think, { achieved: v.achieved, onTime: v.onTime }, !!manual.think, isLegacy);
-          if (next.think.achieved !== v.achieved || next.think.onTime !== v.onTime) kept = true;
+          const auto = gradeNormBlock(v, wT);
+          next.think = gradeRefreshKeep(cur.think, auto, !!manual.think, isLegacy, wT);
+          if (next.think.achievedN !== auto.achievedN || next.think.onTimeN !== auto.onTimeN) kept = true;
         }
         if (kept) keptCount++;
 
-        const same = b => cur[b].achieved === next[b].achieved && cur[b].onTime === next[b].onTime;
+        const same = b => cur[b].achievedN === next[b].achievedN && cur[b].onTimeN === next[b].onTimeN;
         if (same('mission') && same('think')) continue;
 
         writes.push({
@@ -7194,14 +7280,21 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
   window.stSettingsExportGradesCsv = async function() {
     try {
       const snap = await getDocs(collection(db, 'grade_records'));
-      const rows = [['강의','학번','개념체크_달성','개념체크_기한내','미션체크_달성','미션체크_기한내','생각체크_달성','생각체크_기한내','결석','피드백']];
+      /* 가중치가 2배인 항목은 달성·기한이 각각 2칸이라 Y/N으로는 "2칸 중 1칸"이 표현되지
+         않는다. 그래서 체크된 칸 수를 그대로 적는다(보통은 0 또는 1). 칸 수를 적어 두지
+         않던 옛 문서는 Y=1, N=0으로 친다. */
+      const n = (b, k) => {
+        const v = b ? b[k + 'N'] : null;
+        return typeof v === 'number' && isFinite(v) ? v : (b && b[k] ? 1 : 0);
+      };
+      const rows = [['강의','학번','개념체크_달성칸','개념체크_기한칸','미션체크_달성칸','미션체크_기한칸','생각체크_달성칸','생각체크_기한칸','결석','피드백']];
       snap.docs.forEach(d => {
         const r = d.data();
         rows.push([
           r.lessonKey ?? '', r.studentId ?? '',
-          r.concept?.achieved ? 'Y' : 'N', r.concept?.onTime ? 'Y' : 'N',
-          r.mission?.achieved ? 'Y' : 'N', r.mission?.onTime ? 'Y' : 'N',
-          r.think?.achieved   ? 'Y' : 'N', r.think?.onTime   ? 'Y' : 'N',
+          n(r.concept, 'achieved'), n(r.concept, 'onTime'),
+          n(r.mission, 'achieved'), n(r.mission, 'onTime'),
+          n(r.think,   'achieved'), n(r.think,   'onTime'),
           r.absent ? 'Y' : 'N', r.feedback ?? '',
         ]);
       });
@@ -7666,15 +7759,23 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
     const isPicked = data.isPicked;
     const time = thFmtSubTime(data.createdAt);
     const metaParts = [time ? `${time} 제출` : '', `${data.textLength||0}자`];
-    if (data.cheatCount) metaParts.push(`이탈 ${data.cheatCount}회`);
+    // 눈에 띄어야 하는 것(이탈 5회 이상, 붙여넣기 시도, 한 번에 긴 입력)은 빨간 칩으로
+    // 따로 뽑아 둔다. 목록을 훑을 때 놓치지 않으려는 것 — 판정에는 넣지 않는다.
+    const flag = t => `<span class="th-meta-flag">${t}</span>`;
+    const cheat = data.cheatCount || 0;
+    if (cheat) metaParts.push(cheat >= 5 ? flag(`이탈 ${cheat}회`) : `이탈 ${cheat}회`);
     // 아래 둘은 참고용 표시일 뿐 통과/미흡 판정에는 넣지 않는다. 빠르게 치거나 자판
     // 자동완성을 쓰는 학생도 있어서, 기계가 단정할 일이 아니라 선생님이 보고 판단할 일이다.
     // 0회도 보여 준다 — "0회"와 "표시 없음"(기록을 넣기 전의 옛 제출물)은 뜻이 다르다.
-    if (data.pasteTry != null) metaParts.push(`붙여넣기 시도 ${data.pasteTry}회`);
-    if ((data.maxJump || 0) >= 30) metaParts.push(`한 번에 ${data.maxJump}자 입력`);
+    if (data.pasteTry != null) {
+      metaParts.push(data.pasteTry > 0 ? flag(`붙여넣기 시도 ${data.pasteTry}회`) : `붙여넣기 시도 0회`);
+    }
+    if ((data.maxJump || 0) >= 30) metaParts.push(flag(`한 번에 ${data.maxJump}자 입력`));
     const meta = metaParts.filter(Boolean).join(' ｜ ');
+    // 칩 하나라도 붙은 카드는 배경을 옅게 물들여 목록에서 바로 눈에 띄게 한다.
+    const flagged = cheat >= 5 || (data.pasteTry || 0) > 0 || (data.maxJump || 0) >= 30;
     return `
-      <div class="th-answer-card">
+      <div class="th-answer-card${flagged ? ' th-answer-flagged' : ''}">
         <div class="th-student-row">
           <span class="th-student-name">${thEsc(data.id)} ${thEsc(data.name)} <span class="th-student-meta">｜ ${meta}</span></span>
           <div class="th-answer-actions">
@@ -7747,7 +7848,7 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
     const failIds = new Set();
     thActivityData.absent.forEach(s => failIds.add(String(s.studentId)));
     thActivityData.short.forEach(s => failIds.add(String(s.id)));
-    thActivityData.cheat.forEach(s => { if (!thIsOverridePass(s.subId)) failIds.add(String(s.id)); });
+    thActivityData.cheat.forEach(s => { if (thIsOverrideFail(s.subId)) failIds.add(String(s.id)); });  // 이탈은 기본 통과
     const cacheKey = `${lecId}_${cls}`;
     (thAiCache[cacheKey]||[]).forEach(s => { if (thIsOverrideFail(s.subId)) failIds.add(String(s.id)); });
     const total = classStu.length;
@@ -7838,7 +7939,7 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
     const failIds = new Set();
     thActivityData.absent.forEach(s => failIds.add(String(s.studentId)));
     thActivityData.short.forEach(s => failIds.add(String(s.id)));
-    thActivityData.cheat.forEach(s => { if (!thIsOverridePass(s.subId)) failIds.add(String(s.id)); });
+    thActivityData.cheat.forEach(s => { if (thIsOverrideFail(s.subId)) failIds.add(String(s.id)); });  // 이탈은 기본 통과
     const cacheKey = `${thGradeCtx.lecId}_${thGradeCtx.cls}`;
     (thAiCache[cacheKey]||[]).filter(s=>thIsOverrideFail(s.subId)).forEach(s=>failIds.add(String(s.id)));
     const fail = failIds.size;
@@ -7856,14 +7957,14 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
       const failIds = new Set();
       thActivityData.absent.forEach(s => failIds.add(String(s.studentId)));
       thActivityData.short.forEach(s => failIds.add(String(s.id)));
-      thActivityData.cheat.forEach(s => { if (!thIsOverridePass(s.subId)) failIds.add(String(s.id)); });
+      thActivityData.cheat.forEach(s => { if (thIsOverrideFail(s.subId)) failIds.add(String(s.id)); });  // 이탈은 기본 통과
       aiCached.filter(s=>thIsOverrideFail(s.subId)).forEach(s=>failIds.add(String(s.id)));
       const passStu = thStudents.filter(s => thClassNum(s.studentId) === clsNum && !failIds.has(String(s.studentId)));
       body.innerHTML = passStu.length
         ? `<p style="font-size:13px;color:var(--sub);margin-bottom:12px">총 <strong style="color:var(--c3)">${passStu.length}명</strong> 통과</p><div>${passStu.map(s=>`<span class="th-chip th-chip-pass">${s.studentId} ${s.studentName}</span>`).join('')}</div>`
         : '<div class="empty-panel">통과한 학생이 없습니다.</div>';
     } else if (thGradeTabName === 'fail') {
-      const cheatFail = thActivityData.cheat.filter(s => !thIsOverridePass(s.subId));
+      const cheatFail = thActivityData.cheat.filter(s => thIsOverrideFail(s.subId));
       const aiFail = aiCached.filter(s => thIsOverrideFail(s.subId));
       const totalFail = thActivityData.absent.length + thActivityData.short.length + cheatFail.length + aiFail.length;
       if (!totalFail) { body.innerHTML = '<div style="text-align:center;padding:32px 0;font-weight:700;color:var(--c3)">미흡 학생 없음!</div>'; return; }
@@ -7876,16 +7977,16 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
     } else if (thGradeTabName === 'cheat') {
       const list = thActivityData.cheat;
       if (!list.length) { body.innerHTML = '<div style="text-align:center;padding:32px 0;font-weight:700;color:var(--c3)">이탈 5회 이상 없음!</div>'; return; }
-      body.innerHTML = `<p style="font-size:13px;color:var(--sub);margin-bottom:12px">이탈 ${list.length}건. 기본적으로 미흡이며, 사정에 따라 통과로 변경할 수 있습니다.</p>` +
+      body.innerHTML = `<p style="font-size:13px;color:var(--sub);margin-bottom:12px">이탈 ${list.length}건. 성적은 기본적으로 <strong style="color:var(--c3)">통과</strong>이고 포인트만 0점입니다. 사정에 따라 미흡으로 바꿀 수 있습니다.</p>` +
         [...list].sort((a,b)=>b.cheatCount-a.cheatCount).map(s => {
-          const isPassing = thIsOverridePass(s.subId);
-          return `<div class="th-review-card" style="${isPassing?'opacity:0.55':''}">
+          const isFailing = thIsOverrideFail(s.subId);   // 이탈은 기본 통과 — 미흡으로 내린 것만 표시
+          return `<div class="th-review-card" style="${isFailing?'':'opacity:0.55'}">
             <div class="th-review-card-top">
               <span class="th-review-card-name">${thEsc(s.id)} ${thEsc(s.name)}</span>
               <span class="th-chip th-chip-cheat">${s.cheatCount}회 이탈</span>
               <div class="th-grade-toggle">
-                <button class="th-grade-btn pass ${isPassing?'active':''}" onclick="thToggleOverride('${s.subId}','pass')">통과</button>
-                <button class="th-grade-btn fail ${!isPassing?'active':''}" onclick="thToggleOverride('${s.subId}','fail')">미흡</button>
+                <button class="th-grade-btn pass ${!isFailing?'active':''}" onclick="thToggleOverride('${s.subId}','pass')">통과</button>
+                <button class="th-grade-btn fail ${isFailing?'active':''}" onclick="thToggleOverride('${s.subId}','fail')">미흡</button>
               </div>
             </div>
             <div class="th-review-card-text">${thEsc(s.text||'')}</div>
@@ -7897,7 +7998,7 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
       const subs = (thSubs||[]).filter(s => s.lectureDocId === thGradeCtx.lecId && thClassNum(s.id) === clsN)
         .sort((a,b)=>String(a.id).localeCompare(String(b.id),undefined,{numeric:true}));
       const ungraded = subs.filter(s => !s.thGraded);
-      const vColor = { '통과':'var(--c3)', '조금 미흡':'#B8860B', '미흡(지연 제출)':'#B8860B' };
+      const vColor = { '통과':'var(--c3)', '조금 미흡':'#B8860B', '미흡(지연 제출)':'#B8860B', '통과(이탈)':'#B8860B', '통과(이탈, 지연 제출)':'#B8860B' };
       const gradedN = subs.length - ungraded.length;
       let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
           <button class="th-btn-ai" ${ungraded.length?'':'disabled'} onclick="thRunGrading()">AI 채점 &amp; 포인트 지급${ungraded.length?` (미채점 ${ungraded.length})`:''}</button>
@@ -8006,8 +8107,12 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
       patch.ovrGrantedPt = 0;
       patch.xpAwarded = false;
     } else if (newVal === 'pass') {
+      // 이탈 5회 이상은 "성적은 통과, 포인트는 0"으로 정해 둔 건이라 통과로 되돌려도
+      // 포인트를 새로 주지 않는다 — 기본 상태가 이미 통과여서, 버튼을 눌렀다는 이유로
+      // 10pt가 생기면 0점 처리한 뜻이 사라진다.
+      const cheatZero = (sub.cheatCount || 0) >= 5;
       // 이미 이 강의로 포인트를 들고 있으면(AI가 준 점수 그대로) 더 주지 않는다.
-      if (!(await thHasLectureXP(sub.id, isThisLecture))) {
+      if (!cheatZero && !(await thHasLectureXP(sub.id, isThisLecture))) {
         await adminAddXP(rtdb, sub.id, sub.name, THINK_OVERRIDE_PT, `생각 체크(교사 통과): ${lecTitle}`,
           fbFns, _xpCfg.levels, _xpCfg.levelFormula, { src: 'thinkCheck', lecId, ovr: true });
         patch.ovrGrantedPt = THINK_OVERRIDE_PT;
@@ -8033,9 +8138,10 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
     if (_gradeThinkDocId && _gradeThinkDocId === thGradeCtx.lecId) {
       const rec = _gradeRecords[sub.id];
       if (!rec || rec.absent) return;   // 결석 학생은 미달성 고정 — 건드리지 않는다.
-      const changed = rec.think.achieved !== achieved || rec.think.onTime !== onTime;
-      rec.think.achieved = achieved;
-      rec.think.onTime = onTime;
+      // 토글은 "했다/안 했다" 하나로만 판정하므로 가중치 칸을 통째로 켜고 끈다.
+      const next = gradeNormBlock({ achieved, onTime }, gradeW('think'));
+      const changed = rec.think.achievedN !== next.achievedN || rec.think.onTimeN !== next.onTimeN;
+      Object.assign(rec.think, next);
       // 손으로 뒤집은 생각 체크는 자동 감지가 도로 덮어쓰지 않게 표시해 둔다
       // (미션 체크는 그대로 웹앱 채점을 따라간다).
       _gradeManualEdit.add(gradeEditKey(sub.id, 'think'));
@@ -8053,13 +8159,18 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
      칸만 덮어쓴다. 개념·미션은 손대지 않는다 — 여기서는 그 값을 알 수 없고, 알 필요도 없다. */
   async function thPushThinkStandalone(sid, achieved, onTime) {
     const lecId = thGradeCtx.lecId;
-    let lessonKey = '';
+    let lessonKey = '', wT = 1;
     try {
       const snap = await getDocs(query(
         collection(db, 'grade_lecture_config'),
         where('thinkLectureDocId', '==', lecId)
       ));
-      if (!snap.empty) lessonKey = snap.docs[0].id;
+      if (!snap.empty) {
+        lessonKey = snap.docs[0].id;
+        // 그 강의의 생각 체크 가중치. 표를 안 열어 둔 채로 쓰는 경로라 _gradeWeights를
+        // 믿을 수 없으므로(다른 강의가 올라와 있을 수 있다) 설정에서 직접 읽는다.
+        wT = Math.max(1, parseInt(snap.docs[0].data().thinkWeight, 10) || 1);
+      }
     } catch (e) { return; }
     if (!lessonKey) return; // 성적 체크에 연결해 둔 강의가 없으면 반영할 곳도 없다
 
@@ -8079,10 +8190,14 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
 
       // manualEdit 표시가 없는 옛 문서는 어느 칸이 손으로 켠 것인지 알 수 없으므로
       // 저장된 O를 X로 되돌리지 않는다(성적 체크 표의 gradeAutoValue와 같은 규칙).
-      const prev = rec.think || { achieved: false, onTime: false };
-      const next = rec.manualEdit
-        ? { achieved, onTime }
-        : { achieved: prev.achieved || achieved, onTime: prev.onTime || onTime };
+      const prev = gradeNormBlock(rec.think, wT);
+      const auto = gradeNormBlock({ achieved, onTime }, wT);
+      const next = rec.manualEdit ? auto : {
+        achieved: prev.achieved || auto.achieved,
+        onTime:   prev.onTime   || auto.onTime,
+        achievedN: Math.max(prev.achievedN, auto.achievedN),
+        onTimeN:   Math.max(prev.onTimeN,   auto.onTimeN),
+      };
 
       await setDoc(recRef, { think: next, updatedAt: serverTimestamp() }, { merge: true });
       gradeLiveToast(`${sid} 생각 체크 반영`);
@@ -8090,7 +8205,7 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
   }
 
   // AI 채점 & 포인트 지급: 아직 채점 안 된 제출만 채점한다(채점된 학생은 고정).
-  // 0점=구조적 미흡(50자 미만/이탈 5회↑), 5점=AI 조금 미흡, 10~30=AI 품질 차등
+  // 0점=50자 미만(미흡)과 이탈 5회 이상(성적은 통과), 5점=AI 조금 미흡, 10~30=AI 품질 차등
   // (내용 기준 통과인데 수업 당일 제출을 못했으면 포인트는 그대로 주되 verdict만
   // "미흡(지연 제출)"로 남겨 성적 표의 달성/기한 체크가 갈리게 한다 — thinkVerdict() 참고).
   window.thRunGrading = async function() {
@@ -8139,11 +8254,14 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
       return;
     }
 
-    // 1) 구조적 미흡(0점) vs AI 채점 대상 분리
-    const structFail = [], needAi = [];
+    // 1) 0점 처리 대상 vs AI 채점 대상 분리
+    //    · 50자 미만 → 0점이면서 미흡(성적도 깎인다)
+    //    · 이탈 5회 이상 → 0점이지만 성적은 통과(thinkVerdict 주석 참고). AI에 보내 봐야
+    //      포인트가 0인 건 정해져 있으므로 채점 요청에서 빼 토큰을 아낀다.
+    const structFail = [], cheatZero = [], needAi = [];
     ungraded.forEach(s => {
       if ((s.textLength||0) < 50)      structFail.push({ s, verdict: '미흡(50자 미만)' });
-      else if ((s.cheatCount||0) >= 5) structFail.push({ s, verdict: '미흡(이탈)' });
+      else if ((s.cheatCount||0) >= 5) cheatZero.push({ s, verdict: thIsLateSubmission(s, lec) ? '통과(이탈, 지연 제출)' : '통과(이탈)' });
       else needAi.push(s);
     });
 
@@ -8205,6 +8323,7 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
       }
     }
     for (const { s, verdict } of structFail) await commit(s, 0, verdict, null);
+    for (const { s, verdict } of cheatZero)  await commit(s, 0, verdict, null);
     for (const s of needAi) {
       const q = quality[s.subId];
       let pt, verdict;

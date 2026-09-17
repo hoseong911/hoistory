@@ -817,6 +817,16 @@ function renderAll() {
   if (_gradeModalOpen && document.getElementById('gradeSummaryModal').style.display === 'flex') renderGradeSummaryModalContent();
 }
 
+/* 가중치 w인 항목은 달성 w칸·기한 w칸을 갖고, achievedN/onTimeN이 켜진 칸 수다
+   (어드민 admin.js의 gradeCellN과 같은 규칙 — 규칙이 갈라지면 학생 화면 점수가
+   선생님 화면과 달라진다). 칸 수가 없는 옛 문서는 boolean을 보고 w 또는 0으로 친다. */
+function cellN(cell, key, w) {
+  if (cell && cell[key]) return w;   // "다 채움"은 가중치가 늘어도 만점
+  const n = cell ? cell[key + 'N'] : null;
+  if (typeof n === 'number' && isFinite(n)) return Math.max(0, Math.min(w, Math.round(n)));
+  return 0;
+}
+
 // ── 성적 체크 계산 ──
 async function loadStudentGrade() {
   sectionData.grade = null;
@@ -876,16 +886,20 @@ async function loadStudentGrade() {
       if (!publishedSet.has(key)) return; // 점수 집계는 미반영 강의 제외
       const r  = records[key];
       const en = enabledMap[key];
-      // 어드민과 동일: 항목당 체크 2개(달성 achieved + 기한 onTime)를 가중치만큼 집계
-      if (en.concept) { cN += 2*en.conceptWeight; if (r?.concept?.achieved) cA += en.conceptWeight; if (r?.concept?.onTime) cA += en.conceptWeight; }
-      if (en.mission) { mN += 2*en.missionWeight; if (r?.mission?.achieved) mA += en.missionWeight; if (r?.mission?.onTime) mA += en.missionWeight; }
-      if (en.think)   { tN += 2*en.thinkWeight;   if (r?.think?.achieved)   tA += en.thinkWeight;   if (r?.think?.onTime)   tA += en.thinkWeight; }
+      // 어드민과 동일: 항목마다 달성 w칸 + 기한 w칸이고, 켜진 칸 수가 그대로 점수다.
+      if (en.concept) { cN += 2*en.conceptWeight; cA += cellN(r?.concept,'achieved',en.conceptWeight) + cellN(r?.concept,'onTime',en.conceptWeight); }
+      if (en.mission) { mN += 2*en.missionWeight; mA += cellN(r?.mission,'achieved',en.missionWeight) + cellN(r?.mission,'onTime',en.missionWeight); }
+      if (en.think)   { tN += 2*en.thinkWeight;   tA += cellN(r?.think,  'achieved',en.thinkWeight)   + cellN(r?.think,  'onTime', en.thinkWeight); }
+      const detail = (kind, w) => ({
+        enabled: en[kind], weight: w,
+        achievedN: en[kind] ? cellN(r?.[kind], 'achieved', w) : 0,
+        onTimeN:   en[kind] ? cellN(r?.[kind], 'onTime',   w) : 0,
+      });
       lectureDetails.push({
         key, title: titleMap[key],
-        // 각 항목은 체크 2개(달성 achieved + 기한 onTime)
-        concept: { achieved: en.concept && !!(r?.concept?.achieved), onTime: en.concept && !!(r?.concept?.onTime), enabled: en.concept },
-        mission: { achieved: en.mission && !!(r?.mission?.achieved), onTime: en.mission && !!(r?.mission?.onTime), enabled: en.mission },
-        think:   { achieved: en.think   && !!(r?.think?.achieved),   onTime: en.think   && !!(r?.think?.onTime),   enabled: en.think   },
+        concept: detail('concept', en.conceptWeight),
+        mission: detail('mission', en.missionWeight),
+        think:   detail('think',   en.thinkWeight),
         feedback: r?.feedback || '',
       });
     });
@@ -1783,12 +1797,13 @@ function resolveAppUrl(u) {
 window.openGradeDetail = function() {
   const g = sectionData.grade;
   if (!g || !g.lectureDetails || !g.lectureDetails.length) return;
-  // 항목별 체크 2개(달성+기한): 둘 다 ● / 하나 △ / 없음 ✗ / 미실시 –
+  // 항목별 체크 2w개(달성 w + 기한 w): 다 채우면 ● / 일부 △ / 하나도 없으면 ✗ / 미실시 –
   const mark = c => {
     if (!c.enabled) return `<span class="gd-na">–</span>`;
-    const n = (c.achieved ? 1 : 0) + (c.onTime ? 1 : 0);
-    return n >= 2 ? `<span class="gd-ok">●</span>`
-         : n === 1 ? `<span class="gd-half">△</span>`
+    const w = Math.max(1, c.weight || 1);
+    const n = (c.achievedN || 0) + (c.onTimeN || 0);
+    return n >= 2 * w ? `<span class="gd-ok">●</span>`
+         : n > 0      ? `<span class="gd-half">△</span>`
          : `<span class="gd-no">✗</span>`;
   };
   const rows = g.lectureDetails.map(d => `<tr>
