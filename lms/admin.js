@@ -452,7 +452,7 @@ window.openContentsAppAdmin = function(el, adminUrl) {
 
 // ══════════ 대시보드 ══════════
 let _dbConcept = [], _dbMission = [], _dbThink = [];
-let _dbStuCount = 0, _dbToday = { attend: 0, thinkSubmit: 0, review: 0 };
+let _dbStuCount = 0, _dbToday = { attend: 0, review: 0, lottery: 0 };
 let _dbStudents = []; // 학생 검색용 명단 캐시 ({studentId, name})
 let _dbAnnList = []; // 공지사항(announcements 컬렉션, 패치노트 리스트, 최신순 최대 10건)
 let _dbAnnEditId = null; // 수정 중인 공지 docId (null이면 새 글 작성 모드)
@@ -533,7 +533,6 @@ async function dbLoad() {
     if (!tsSnap) late.push('제출 현황');
     const ungraded = {};
     const newestUngraded = {}; // lectureDocId → { secs, cls }
-    let thinkSubmit = 0;
     (tsSnap ? tsSnap.docs : []).forEach(d => {
       const s = d.data();
       if (isTestId(s.id)) return; // 테스트 학생 제출은 집계·채점대기에서 제외
@@ -546,7 +545,6 @@ async function dbLoad() {
           newestUngraded[s.lectureDocId] = { secs: secs || 0, cls };
         }
       }
-      if (secs && kstDate(secs * 1000) === today) thinkSubmit++;
     });
     _dbThink.forEach(t => {
       t.ungraded    = ungraded[t.docId] || 0;
@@ -559,9 +557,15 @@ async function dbLoad() {
     _dbStudents = Object.values(stuData).filter(v => v && v.studentId).map(v => ({ studentId: String(v.studentId), name: v.name || v.studentName || '' }));
     _dbStuCount = _dbStudents.filter(s => !isTestId(s.studentId)).length; // 테스트 학생은 총원에서 제외(이름 조회는 유지)
     const xp = xpSnap && xpSnap.exists() ? (xpSnap.val() || {}) : {};
-    let attend = 0, review = 0;
-    Object.entries(xp).forEach(([sid, x]) => { if (!x || isTestId(sid)) return; if (x.lastAttendance === today) attend++; if (x.lastTypingReview === today) review++; });
-    _dbToday = { attend, thinkSubmit, review };
+    // 뽑기는 하루 한 번이라 lottery.day가 오늘이면 그 학생이 오늘 참여한 것이다(shared/xp.js).
+    let attend = 0, review = 0, lottery = 0;
+    Object.entries(xp).forEach(([sid, x]) => {
+      if (!x || isTestId(sid)) return;
+      if (x.lastAttendance === today) attend++;
+      if (x.lastTypingReview === today) review++;
+      if (x.lottery && x.lottery.day === today) lottery++;
+    });
+    _dbToday = { attend, review, lottery };
 
     // 공지사항 — 대시보드 카드가 최근 5건만 펴고 나머지는 [+ 더보기]로 접으므로 자르지 않는다
     _dbAnnList = annSnap
@@ -690,9 +694,9 @@ function dbRender() {
   el.innerHTML = `
     <div class="db-summary-row">
       <div class="db-summary-card"><div class="db-summary-label">오늘 출석</div><div class="db-summary-val">${_dbToday.attend} / ${_dbStuCount}명</div></div>
-      <div class="db-summary-card"><div class="db-summary-label">오늘 생각체크 제출</div><div class="db-summary-val">${_dbToday.thinkSubmit}건</div></div>
       <div class="db-summary-card"><div class="db-summary-label">오늘 복습 퀴즈</div><div class="db-summary-val">${_dbToday.review}명</div></div>
       <div class="db-summary-card"><div class="db-summary-label">채점 대기(생각체크)</div><div class="db-summary-val" style="color:${totalUngraded ? 'var(--critical)' : 'var(--text)'}">${totalUngraded}건</div></div>
+      <div class="db-summary-card"><div class="db-summary-label">오늘 포인트 뽑기</div><div class="db-summary-val">${_dbToday.lottery}명</div></div>
       <div class="db-summary-card db-autoopen"><div class="db-summary-label">수업일 자동 공개</div><div class="th-toggle ${_dbAutoOpen ? 'on' : ''}" onclick="dbToggleAutoOpen(this)"></div></div>
     </div>
     ${_dbAutoOpened.length ? `<div class="db-autoopen-done">수업일이 되어 ${_dbAutoOpened.length}개를 공개했습니다 — ${esc(_dbAutoOpened.join(', '))}</div>` : ''}
