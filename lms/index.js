@@ -1274,7 +1274,7 @@ function ltPaintResult(rank, realPt) {
   st.className = 'lt-stage done r' + rank;
   ltReelReset(ltCellHTML(rank));
   document.getElementById('ltPrize').textContent =
-    `${realPt > 0 ? '+' : ''}${realPt}pt${rank === 0 ? '' : ` · ${o.label}`}`;
+    `${realPt > 0 ? '+' : ''}${realPt}pt${rank === 0 ? '' : ` ${o.label}`}`;
 }
 function ltPaintReady() {
   document.getElementById('ltStage').className = 'lt-stage';
@@ -1683,38 +1683,17 @@ let _thinkPasteTry = 0, _thinkMaxJump = 0, _thinkLastLen = 0;
 // 채점 전이라 고쳐 쓸 수 있는 기존 제출물. null이면 이번이 첫 제출이다.
 // cheatCount는 이어서 더한다 — 다시 쓰면서 0으로 초기화되면 이탈 벌칙을 피할 수 있다.
 let _thinkPrev = null;
-// AI 도움 상태 — 도움 질문도, 제출 전 점검도 답변당 딱 1회씩.
-// 점검을 다 쓴 뒤 "제출하기"를 누르면 점검 없이 바로 제출된다.
-let _thinkHintUsed = false, _thinkCheckCount = 0, _thinkFlagged = 0, _thinkFixed = false;
-let _thinkProfane = false, _thinkTextAtCheck = '';
-const THINK_CHECK_MAX = 1;
+// AI 도움 상태 — 도움 질문은 답변당 딱 1회.
+let _thinkHintUsed = false;
 
 function resetThinkAid() {
-  _thinkHintUsed = false; _thinkCheckCount = 0; _thinkFlagged = 0;
-  _thinkFixed = false; _thinkProfane = false; _thinkTextAtCheck = '';
+  _thinkHintUsed = false;
   const hintBtn = document.getElementById('thinkHintBtn');
   hintBtn.style.display = 'inline-flex';
   hintBtn.disabled = false;
   hintBtn.textContent = '도움질문';
   document.getElementById('thinkHintPanel').style.display  = 'none';
   document.getElementById('thinkHintList').innerHTML       = '';
-  hideThinkCheck();
-}
-
-// 버튼만 "제출하기" 한 개짜리로 되돌린다. 점검 패널은 그대로 두어
-// 학생이 무엇을 고쳐야 하는지 보면서 위 입력칸을 수정할 수 있게 한다.
-function resetThinkButtons() {
-  document.getElementById('thinkSubmitBtn').style.display = '';
-  document.getElementById('thinkReviseBtn').style.display = 'none';
-  document.getElementById('thinkForceBtn').style.display  = 'none';
-}
-
-function hideThinkCheck() {
-  document.getElementById('thinkCheckPanel').style.display = 'none';
-  document.getElementById('thinkCheckList').innerHTML      = '';
-  document.getElementById('thinkFixList').innerHTML        = '';
-  document.getElementById('thinkFixList').style.display    = 'none';
-  resetThinkButtons();
 }
 
 /* ── 쓰다 만 답 되살리기 ──
@@ -1936,70 +1915,13 @@ ${lessonCtx ? `오늘 배운 내용:\n${lessonCtx}` : ''}
   }
 });
 
-// ── 제출 전 점검: 오탈자와 비속어만 본다 ──
-// 답변의 내용·품질은 일부러 판단하지 않는다. 그건 학생 본인의 실력이고,
-// AI가 "생각이 부족하다"고 훈수를 두기 시작하면 답변이 AI 취향으로 수렴한다.
-async function runThinkCheck(text) {
-  const prompt = `중학교 3학년 학생이 쓴 글에서 오탈자와 비속어만 찾아라. 글의 내용이 좋은지 나쁜지, 논리가 있는지는 절대 판단하지 마라.
-
-학생 글: """${text}"""
-
-1. typos: 글자가 명백히 틀린 것만 최대 4개. 다음은 절대 넣지 마라 — 띄어쓰기 오류, 문장부호, 어색한 표현이나 문체, 줄임말·구어체(예: "같다", "했음"), 맞다고 볼 여지가 있는 것. 받침·철자가 틀린 것만 골라라. 각 항목은 {"was":"틀린 그대로","now":"고친 말","why":"6자 이내 이유"}
-2. profanity: 욕설·비속어로 볼 수 있는 표현만 배열로. 없으면 []
-
-확신이 없으면 넣지 마라. 틀리지 않은 것을 틀렸다고 하면 안 된다.
-다른 텍스트 없이 JSON만 출력: {"typos":[],"profanity":[]}`;
-
-  const raw = await thinkAskClaude(prompt, 500);
-  const r   = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}');
-  const typos = (Array.isArray(r.typos) ? r.typos : [])
-    .filter(t => t && typeof t.was === 'string' && typeof t.now === 'string' && t.was !== t.now)
-    .filter(t => text.includes(t.was))   // 실제 답변에 없는 말을 지적하는 환각 방지
-    .slice(0, 4);
-  // 비속어는 공용 사전(shared/profanity.js)을 우선하고, AI가 잡은 변형을 더한다.
-  const local = findBadWord(text);
-  const bad   = [...new Set([...(local ? [local] : []), ...(Array.isArray(r.profanity) ? r.profanity : []).filter(w => typeof w === 'string' && w.trim())])];
-  return { typos, bad };
-}
-
-function renderThinkCheck(r) {
-  const row = (cls, ic, html) => `<div class="think-check ${cls}">${icon(ic, 16)}<span>${html}</span></div>`;
-  const rows = [];
-  if (r.bad.length)
-    rows.push(row('bad', 'triangle-alert', '<b>쓰면 안 되는 말이 있어요</b> — 고쳐서 내 주세요.'));
-  if (r.typos.length)
-    rows.push(row('warn', 'triangle-alert', `<b>고칠 곳 ${r.typos.length}군데</b> — 아래를 고쳐서 내면 더 좋아요.`));
-  document.getElementById('thinkCheckList').innerHTML = rows.join('');
-
-  const fixEl = document.getElementById('thinkFixList');
-  if (r.typos.length) {
-    fixEl.innerHTML = r.typos.map(t => `<div class="think-fix">
-        <span class="think-fix-was">${esc(t.was)}</span>
-        <span class="think-fix-now">${esc(t.now)}</span>
-        ${t.why ? `<span class="think-fix-why">${esc(String(t.why).slice(0, 8))}</span>` : ''}
-      </div>`).join('');
-    fixEl.style.display = 'flex';
-  } else {
-    fixEl.innerHTML = ''; fixEl.style.display = 'none';
-  }
-
-  const panel = document.getElementById('thinkCheckPanel');
-  panel.style.display = 'flex';
-  document.getElementById('thinkSubmitBtn').style.display = 'none';
-  document.getElementById('thinkReviseBtn').style.display = '';
-  document.getElementById('thinkForceBtn').style.display  = '';
-  panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-}
-
 // ── 실제 제출 ──
 async function doThinkSubmit(triggerId) {
   const text = thinkTextarea.value.trim();
   const textLength = text.replace(/\s/g, '').length;
   if (!_thinkItem) return;
-  // 점검에서 지적받은 뒤 실제로 글을 고쳤는지 ("이대로 제출"로 바로 낸 경우도 여기서 판정된다)
-  if (_thinkTextAtCheck && text !== _thinkTextAtCheck) _thinkFixed = true;
   const duration = Math.floor((Date.now() - _thinkStart) / 1000);
-  const btns = ['thinkSubmitBtn', 'thinkReviseBtn', 'thinkForceBtn'].map(id => document.getElementById(id));
+  const btns = [document.getElementById('thinkSubmitBtn')];
   btns.forEach(b => b.disabled = true);
   const activeBtn = document.getElementById(triggerId || 'thinkSubmitBtn');
   const activeLabel = activeBtn.textContent;
@@ -2020,8 +1942,7 @@ async function doThinkSubmit(triggerId) {
       name: currentStudentName,
       text, textLength, duration,
       // AI 도움 사용 기록 — 채점 참고용이며 점수에는 관여하지 않는다.
-      aiHintUsed: _thinkHintUsed, spellFlagged: _thinkFlagged,
-      spellFixed: _thinkFixed, hasProfanity: _thinkProfane,
+      aiHintUsed: _thinkHintUsed,
       // 붙여넣기 시도와 한 번에 밀려 들어온 최대 글자수. 채점 참고용이며 점수에는 관여하지 않는다.
       pasteTry: _thinkPasteTry, maxJump: _thinkMaxJump,
       source: 'lms',
@@ -2076,44 +1997,18 @@ function withTimeout(promise, ms) {
   ]);
 }
 
-document.getElementById('thinkReviseBtn').addEventListener('click', () => {
-  // 점검 결과는 남겨둔 채 버튼만 되돌린다 — 고칠 목록을 보면서 위 입력칸을 수정한다.
-  resetThinkButtons();
-  updateThinkMeta();
-  thinkTextarea.focus();
-  thinkTextarea.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-});
-document.getElementById('thinkForceBtn').addEventListener('click', () => doThinkSubmit('thinkForceBtn'));
-
-document.getElementById('thinkSubmitBtn').addEventListener('click', async () => {
+/* 제출 전 확인은 분량 하나뿐이다. 오탈자·표현을 AI가 훑던 점검은 걷어냈다 —
+   "영향을 미친", "백성이 죽어" 같은 보통 문장이 비속어로 걸리고, 맞는 말을 틀렸다고
+   짚는 일이 잦아 학생이 멀쩡한 글을 고치게 만들었다.
+   50자 미만은 채점에서 미흡(0점)으로 처리되므로 그것만 미리 알려 준다. */
+document.getElementById('thinkSubmitBtn').addEventListener('click', () => {
   const text = thinkTextarea.value.trim();
   const textLength = text.replace(/\s/g, '').length;
   if (!_thinkItem) return;
   if (textLength > THINK_MAX_CHARS) return;
-  if (textLength < 50 && !confirm('50자 미만 작성했습니다. 그래도 제출 하시겠습니까?')) return;
-
-  // 점검 횟수를 다 썼으면 그냥 제출한다.
-  if (_thinkCheckCount >= THINK_CHECK_MAX) { doThinkSubmit(); return; }
-
-  const btn = document.getElementById('thinkSubmitBtn');
-  btn.disabled = true; btn.textContent = '점검 중...';
-  let r = null;
-  try { r = await runThinkCheck(text); } catch(_) {}
-  _thinkCheckCount++;
-  btn.disabled = false; btn.textContent = '제출하기';
-
-  // 점검에 실패하면 건너뛰고 제출한다 — AI 때문에 제출을 못 하는 일은 없어야 한다.
-  if (!r) { doThinkSubmit(); return; }
-
-  if (_thinkCheckCount === 1) _thinkFlagged = r.typos.length;
-  if (r.bad.length) _thinkProfane = true;
-  if (_thinkTextAtCheck && text !== _thinkTextAtCheck) _thinkFixed = true;
-  _thinkTextAtCheck = text;
-
-  // 지적할 게 없으면 한 번 더 누르게 하지 않고 바로 제출한다.
-  if (!r.typos.length && !r.bad.length) { doThinkSubmit(); return; }
-
-  renderThinkCheck(r);
+  if (textLength < 50 &&
+      !confirm('50자 미만은 미흡으로 처리되어 포인트를 받지 못합니다.\n그래도 제출하시겠습니까?')) return;
+  doThinkSubmit();
 });
 
 function esc(s) {
