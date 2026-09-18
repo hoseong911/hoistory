@@ -8236,24 +8236,74 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
     await thPushThinkStandalone(sub.id, achieved, onTime);
   }
 
+  /* AI 채점이 끝난 뒤 그 반 학생들을 한꺼번에 미는 경로.
+     판정은 토글과 같은 thinkVerdict를 쓰되 두 가지가 다르다 —
+     ① 표를 한 번만 다시 그린다(학생 수만큼 그리면 눈에 띄게 버벅인다).
+     ② _gradeManualEdit에 표시하지 않는다. 그건 "선생님이 손으로 정했으니 자동 감지가
+        건드리지 말라"는 뜻인데, AI 채점은 자동 감지 그 자체라 표시하면 이후 재채점이
+        영영 반영되지 않는다. */
+  async function thSyncGradeAchievedMany(subIds) {
+    if (!subIds || !subIds.length) return;
+    const lec = thLectures.find(l => l.docId === thGradeCtx.lecId);
+
+    // 성적 체크 표가 마침 이 강의로 열려 있으면 표 위에서 바로 고친다.
+    if (_gradeThinkDocId && _gradeThinkDocId === thGradeCtx.lecId) {
+      const changed = [];
+      subIds.forEach(subId => {
+        const sub = (thSubs || []).find(x => x.subId === subId);
+        if (!sub) return;
+        const rec = _gradeRecords[sub.id];
+        if (!rec || rec.absent) return;                     // 결석은 미달성 고정
+        if (!gradeCanAutoApply(sub.id, 'think')) return;    // 손으로 만진 칸은 지킨다
+        const { achieved, onTime } = thinkVerdict(sub, lec, thOverrides[subId]);
+        const next = gradeNormBlock({ achieved, onTime }, gradeW('think'));
+        if (rec.think.achievedN !== next.achievedN || rec.think.onTimeN !== next.onTimeN) changed.push(sub.id);
+        Object.assign(rec.think, next);
+      });
+      renderGradeTable();
+      renderGradeStats();
+      if (changed.length) await gradePushLive(changed);
+      return;
+    }
+
+    // 표를 안 열어 뒀으면 학생 성적 문서에 바로 쓴다(이미 반영한 반만).
+    for (const subId of subIds) {
+      const sub = (thSubs || []).find(x => x.subId === subId);
+      if (!sub) continue;
+      const { achieved, onTime } = thinkVerdict(sub, lec, thOverrides[subId]);
+      await thPushThinkStandalone(sub.id, achieved, onTime);
+    }
+  }
+
   /* 성적 체크 표를 안 열어 둔 채 토글했을 때 쓰는 경로. 이 생각 체크 강의가 붙어 있는
      강의(grade_lecture_config의 thinkLectureDocId)를 거꾸로 찾아, 그 학생의 생각 체크
      칸만 덮어쓴다. 개념·미션은 손대지 않는다 — 여기서는 그 값을 알 수 없고, 알 필요도 없다. */
+  // 강의 설정 조회 결과를 강의별로 한 번만 들고 있는다 — AI 채점은 한 반을 통째로
+  // 밀기 때문에, 캐시가 없으면 학생 수만큼 같은 컬렉션을 다시 뒤진다.
+  let _thGradeCfg = { lecId: '', lessonKey: '', wT: 1 };
+
   async function thPushThinkStandalone(sid, achieved, onTime) {
     const lecId = thGradeCtx.lecId;
     let lessonKey = '', wT = 1;
-    try {
-      const snap = await getDocs(query(
-        collection(db, 'grade_lecture_config'),
-        where('thinkLectureDocId', '==', lecId)
-      ));
-      if (!snap.empty) {
-        lessonKey = snap.docs[0].id;
-        // 그 강의의 생각 체크 가중치. 표를 안 열어 둔 채로 쓰는 경로라 _gradeWeights를
-        // 믿을 수 없으므로(다른 강의가 올라와 있을 수 있다) 설정에서 직접 읽는다.
-        wT = Math.max(1, parseInt(snap.docs[0].data().thinkWeight, 10) || 1);
-      }
-    } catch (e) { return; }
+    if (_thGradeCfg.lecId === lecId) {
+      lessonKey = _thGradeCfg.lessonKey; wT = _thGradeCfg.wT;
+    } else {
+      try {
+        const snap = await getDocs(query(
+          collection(db, 'grade_lecture_config'),
+          where('thinkLectureDocId', '==', lecId)
+        ));
+        if (!snap.empty) {
+          lessonKey = snap.docs[0].id;
+          // 그 강의의 생각 체크 가중치. 표를 안 열어 둔 채로 쓰는 경로라 _gradeWeights를
+          // 믿을 수 없으므로(다른 강의가 올라와 있을 수 있다) 설정에서 직접 읽는다.
+          wT = Math.max(1, parseInt(snap.docs[0].data().thinkWeight, 10) || 1);
+        }
+        // 못 찾았을 때는 캐시하지 않는다 — 나중에 성적 설정에서 강의를 연결해도
+        // 빈 결과를 계속 들고 있으면 영영 반영되지 않는다.
+        if (lessonKey) _thGradeCfg = { lecId, lessonKey, wT };
+      } catch (e) { return; }
+    }
     if (!lessonKey) return; // 성적 체크에 연결해 둔 강의가 없으면 반영할 곳도 없다
 
     const cls = Math.floor((parseInt(sid) - 30000) / 100);
@@ -8387,6 +8437,7 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
     // 트랜잭션으로 "아직 채점 안 됨 → 채점됨"을 먼저 원자적으로 확정한 뒤에만 포인트를 지급한다.
     // (다중 탭에서 동시에 채점하거나, 이전 실행의 저장이 조용히 실패해 다시 채점 대상으로 잡히는 경우 등
     //  같은 제출물이 중복 채점되면서 XP가 여러 번 지급되는 사고를 막기 위함)
+    const graded = [];   // 이번에 채점이 확정된 제출(아래에서 성적 체크로 민다)
     async function commit(s, pt, verdict, score) {
       const subRef = doc(db, 'think_submissions', s.subId);
       let claimed = false;
@@ -8402,6 +8453,7 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
         });
       } catch (e) { console.warn('채점 결과 저장 실패:', s.subId, e); return; }
       if (!claimed) return; // 이미 다른 실행에서 채점된 제출물 → 포인트 지급 건너뜀
+      graded.push(s.subId);   // 채점이 확정된 것만 성적으로 민다
       const local = (thSubs || []).find(x => x.subId === s.subId);
       if (local) { local.aiScore = score == null ? null : score; local.aiVerdict = verdict; local.aiPt = pt; local.xpAwarded = pt > 0; local.thGraded = true; }
       if (pt > 0) {
@@ -8425,6 +8477,11 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
       }
       await commit(s, pt, verdict, q == null ? null : q);
     }
+    // 채점 결과를 성적 체크의 "달성"에 그대로 넘긴다. 예전에는 손으로 통과/미흡을
+    // 뒤집었을 때만 넘어가서, AI 채점만 돌린 강의는 성적이 옛 값에 그대로 멈춰 있었다.
+    if (statusEl) statusEl.textContent = '성적 반영 중…';
+    try { await thSyncGradeAchievedMany(graded); }
+    catch (e) { console.warn('생각 체크 성적 반영 실패:', e); }
     if (statusEl) statusEl.textContent = '';
     document.querySelectorAll('.th-btn-ai').forEach(b => b.disabled = false);
     thUpdateGradeSummary(); thRenderGradeBody(); window.thRenderAnswerClass();
