@@ -8290,7 +8290,10 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
   // 0점=50자 미만(미흡)과 이탈 5회 이상(성적은 통과), 5점=AI 조금 미흡, 10~30=AI 품질 차등
   // (내용 기준 통과인데 수업 당일 제출을 못했으면 포인트는 그대로 주되 verdict만
   // "미흡(지연 제출)"로 남겨 성적 표의 달성/기한 체크가 갈리게 한다 — thinkVerdict() 참고).
-  const THINK_FULL_Q = 90;   // AI 품질 점수가 이 위면 만점
+  /* 만점 기준점. 옛 환산식(품질 100에서만 만점)에서 28pt가 나오던 자리가 품질 94라,
+     거기를 만점으로 놓고 아래를 차등으로 눌렀다. 만점이 닿지 않던 것만 풀고
+     그 아래 간격은 옛 식과 비슷하게 남긴다. */
+  const THINK_FULL_Q = 94;
 
   window.thRunGrading = async function() {
     const { lecId, cls } = thGradeCtx;
@@ -8413,8 +8416,8 @@ ${lec.reference ? `수업 참고: "${String(lec.reference).slice(0,300)}"` : ''}
       let pt, verdict;
       if (q == null || q < 40) { pt = 5; verdict = '조금 미흡'; }
       else {
-        /* 품질 40 → 10pt, THINK_FULL_Q 위로는 만점.
-           전에는 100을 받아야만 만점이라 28pt에서 천장에 걸렸다 — 아무도 만점을 못 봤다. */
+        // 품질 40 → 10pt, THINK_FULL_Q 위로는 만점.
+        // 전에는 100을 받아야만 만점이라 28pt에서 천장에 걸렸다 — 아무도 만점을 못 봤다.
         pt = Math.max(10, Math.min(maxPt, Math.round(10 + (q - 40) / (THINK_FULL_Q - 40) * (maxPt - 10))));
         // 내용·분량·AI 채점은 통과 기준이어도 수업 당일에 제출하지 못했으면 "미흡(지연 제출)"로
         // 표시한다(포인트는 그대로 — 지급 여부가 아니라 달성/기한 체크 표시만 갈린다).
