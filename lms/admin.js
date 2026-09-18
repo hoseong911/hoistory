@@ -4805,8 +4805,8 @@ function gradeUpdateThinkLabel(docId) {
     return;
   }
   label.style.color = '';
-  const lec = _thLecCache.find(l => l.docId === docId);
-  label.textContent = lec ? `생각체크 자동 연결: ${cleanTitle(lec.title)}` : '생각체크 자동 연결됨';
+  // 잘 붙은 경우에는 아무 말도 하지 않는다 — 정상이 기본이라 알릴 것이 없다.
+  label.textContent = '';
 }
 
 // 학생 명단(_gradeStudents)에서 반 번호 목록을 뽑는다(00000·범위 밖 제외).
