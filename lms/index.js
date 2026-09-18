@@ -754,6 +754,12 @@ function startListening() {
     if (modal && modal.style.display === 'flex' && _annOpenId) renderAnnounceLike(_annOpenId);
   }, () => {});
 
+  // 0-2. 내 댓글 차단 여부. 선생님이 풀어 주면 열어 둔 공지에서도 바로 입력칸이 돌아온다.
+  onSnapshot(doc(db, 'comment_bans', String(currentStudentId)), snap => {
+    _cmBan = snap.exists() ? (snap.data() || {}) : null;
+    if (_annOpenId) renderAnnCmForm();
+  }, () => {});
+
   // 3-0. 생각 체크 자동 숨김에 필요한 두 가지를 먼저 받아 둔다.
   //      (수업 스케줄 / 내가 이미 낸 제출물) — 나중에 도착해도 applyVisibility()가
   //      다시 걸러 주므로 순서를 신경 쓰지 않아도 된다.
@@ -1398,6 +1404,26 @@ async function toggleAnnounceLike(annId) {
 let _annCmUnsub = null;
 let _annCmList  = [];
 
+/* 댓글 차단 — 선생님이 comment_bans/{학번}에 문서를 놓으면 그 학생은 댓글을 못 쓴다.
+   같은 문서를 firestore.rules에서도 보므로 화면만 가리는 장치가 아니다(콘솔로 우회할 수 없다).
+   지우는 길은 막지 않는다 — 이미 쓴 글을 스스로 거둘 수는 있어야 한다. */
+let _cmBan = null;   // 차단이면 { reason }, 아니면 null
+
+function renderAnnCmForm() {
+  const form = document.querySelector('#annCommentsWrap .ann-cm-form');
+  const note = document.getElementById('annCmBanNote');
+  const msg  = document.getElementById('annCommentMsg');
+  const banned = !!_cmBan;
+  if (form) form.style.display = banned ? 'none' : '';
+  if (note) {
+    note.style.display = banned ? '' : 'none';
+    note.textContent = banned
+      ? (_cmBan.reason ? `댓글을 쓸 수 없어요 — ${_cmBan.reason}` : '댓글을 쓸 수 없어요. 선생님께 문의하세요.')
+      : '';
+  }
+  if (banned && msg) msg.textContent = '';
+}
+
 function annCmTime(ts) {
   const d = ts && ts.seconds ? new Date(ts.seconds * 1000) : null;
   if (!d) return '방금';
@@ -1449,6 +1475,7 @@ async function postAnnComment() {
   if (!annId || !ta || !currentStudentId) return;
   const text = ta.value.trim();
   if (!text) return;
+  if (_cmBan) { msg.textContent = '댓글을 쓸 수 없어요.'; renderAnnCmForm(); return; }
   const bad = findBadWord(text);
   if (bad) { msg.textContent = '바른 말로 다시 써 주세요.'; return; }
   btn.disabled = true; msg.textContent = '';
@@ -1492,7 +1519,11 @@ function openAnnounceDetail(id) {
   if (!a) return;
   document.getElementById('announceDetailTitle').textContent = a.title || '공지';
   document.getElementById('announceDetailDate').textContent = _annDateLabel(a.createdAt);
+  /* 본문은 **굵게** 문법을 받는다(활동지·슬라이드와 같은 표기). 순서가 중요하다 —
+     esc로 태그를 먼저 막고, 굵게를 <strong>으로 바꾼 뒤에 링크를 건다. 링크 정규식이
+     '<'를 안 먹으므로 <strong> 태그를 넘어가 잡아먹는 일이 없다. */
   const html = esc(a.body)
+    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\n/g, '<br>')
     .replace(/https?:\/\/[^\s<&]+/g, url => `<a href="${url}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;font-weight:700">${url}</a>`);
   document.getElementById('announceDetailBody').innerHTML = html;
@@ -1507,6 +1538,7 @@ function openAnnounceDetail(id) {
     cmWrap.style.display = '';
     const msg = document.getElementById('annCommentMsg');
     if (msg) msg.textContent = '';
+    renderAnnCmForm();
     watchAnnComments(id);
   }
   markAnnounceRead(id);

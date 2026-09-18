@@ -784,6 +784,7 @@ async function noticeLoad() {
   } catch (e) { /* 못 읽으면 들고 있던 목록을 그대로 쓴다 */ }
   await dbLoadAnnReads();
   await noticeLoadComments();
+  await noticeLoadBans();
   noticeRender();
 }
 
@@ -808,6 +809,98 @@ async function noticeLoadComments() {
   } catch (e) { _dbAnnComments = {}; }
 }
 
+/* ── 댓글 차단 ──────────────────────────────────────────────────
+   comment_bans/{학번} 문서 하나가 "이 학생은 댓글을 못 쓴다"는 뜻이다. 문서를 지우면
+   풀린다. 학생 화면이 이 문서를 구독하고(index.js), firestore.rules의 댓글 create도
+   같은 문서를 보므로 화면만 가리는 장치가 아니다.
+   이미 쓴 댓글은 그대로 둔다 — 지우는 일은 옆의 [삭제]가 따로 한다. */
+let _dbCmBans = {};   // { [학번]: { name, classNum, reason, bannedAt } }
+
+async function noticeLoadBans() {
+  try {
+    const snap = await getDocs(collection(db, 'comment_bans'));
+    const by = {};
+    snap.docs.forEach(d => { by[d.id] = d.data() || {}; });
+    _dbCmBans = by;
+  } catch (e) { _dbCmBans = {}; }
+  // 대시보드를 안 거치고 NOTICE로 바로 들어오면 명단이 비어 이름 자리가 학번만 남는다.
+  // 차단 자체는 학번만으로 서지만, 명단은 이름이 있어야 읽힌다.
+  if (!_dbStudents.length) {
+    try {
+      const stu = await get(ref(rtdb, 'students'));
+      _dbStudents = Object.values(stu.exists() ? (stu.val() || {}) : {})
+        .filter(v => v && v.studentId)
+        .map(v => ({ studentId: String(v.studentId), name: v.name || v.studentName || '' }));
+    } catch (_) {}
+  }
+}
+
+function noticeStuName(sid) {
+  return (_dbStudents.find(s => s.studentId === String(sid))?.name) || '';
+}
+
+async function noticeBan(sid, name, reason) {
+  sid = String(sid);
+  const who = name || noticeStuName(sid);
+  const why = String(reason || '').trim().slice(0, 100);
+  const cls = Math.floor((parseInt(sid, 10) - 30000) / 100);
+  await setDoc(doc(db, 'comment_bans', sid), {
+    name: who,
+    classNum: Number.isFinite(cls) ? String(cls) : '',
+    reason: why,
+    bannedAt: serverTimestamp(),
+  });
+  _dbCmBans[sid] = { name: who, reason: why };
+}
+
+window.noticeToggleBan = async function(sid, name) {
+  sid = String(sid || '').trim();
+  if (!sid) return;
+  const who = `${sid} ${name || noticeStuName(sid)}`.trim();
+  try {
+    if (_dbCmBans[sid]) {
+      if (!confirm(`${who} 학생의 댓글 차단을 풀까요?`)) return;
+      await deleteDoc(doc(db, 'comment_bans', sid));
+      delete _dbCmBans[sid];
+    } else {
+      // 사유는 학생 화면에 그대로 나간다(비워 두면 일반 안내만 뜬다).
+      const reason = prompt(`${who} 학생의 댓글 쓰기를 막습니다.\n학생에게 보일 사유를 적어 주세요(비워 둬도 됩니다).`);
+      if (reason === null) return;
+      await noticeBan(sid, name, reason);
+    }
+    noticeRender();
+  } catch (e) { alert('실패: ' + e.message); }
+};
+
+// 댓글을 안 쓴 학생도 미리 막을 수 있게, 학번을 직접 받는 길을 하나 둔다.
+window.noticeBanByInput = async function() {
+  const el = document.getElementById('notice-ban-sid');
+  const sid = (el?.value || '').trim();
+  if (!/^\d{5}$/.test(sid)) { alert('학번 5자리를 입력해 주세요.'); return; }
+  if (_dbCmBans[sid]) { alert('이미 차단된 학생입니다.'); return; }
+  const reason = prompt(`${sid} ${noticeStuName(sid)} 학생의 댓글 쓰기를 막습니다.\n학생에게 보일 사유를 적어 주세요(비워 둬도 됩니다).`);
+  if (reason === null) return;
+  try {
+    await noticeBan(sid, '', reason);
+    if (el) el.value = '';
+    noticeRender();
+  } catch (e) { alert('실패: ' + e.message); }
+};
+
+function noticeBansHTML() {
+  const ids = Object.keys(_dbCmBans).sort();
+  if (!ids.length) return '<div class="ann-cm-none">차단된 학생이 없습니다.</div>';
+  return ids.map(sid => {
+    const b = _dbCmBans[sid] || {};
+    const name = b.name || noticeStuName(sid);
+    return `<div class="ann-ban-row">
+      <span class="ann-cm-who">${esc(sid)} ${esc(name)}</span>
+      <span class="ann-cm-body">${b.reason ? esc(b.reason) : '<span class="ann-empty">사유 없음</span>'}</span>
+      <button class="stu-btn stu-btn-edit" onclick="noticeToggleBan('${esc(sid)}','${esc(name)}')">차단 해제</button>
+    </div>`;
+  }).join('');
+}
+
 window.noticeToggleComments = function(annId) {
   _noticeOpenCm = _noticeOpenCm === annId ? '' : annId;
   noticeRender();
@@ -825,12 +918,17 @@ window.noticeDeleteComment = async function(annId, id) {
 function noticeCommentsHTML(annId) {
   const list = _dbAnnComments[annId] || [];
   if (!list.length) return '<div class="ann-cm-none">아직 댓글이 없습니다.</div>';
-  return list.map(c => `<div class="ann-cm-row">
-      <span class="ann-cm-who">${esc(c.studentId || '')} ${esc(c.name || '')}</span>
+  return list.map(c => {
+    const sid = String(c.studentId || '');
+    const banned = !!_dbCmBans[sid];
+    return `<div class="ann-cm-row">
+      <span class="ann-cm-who">${esc(sid)} ${esc(c.name || '')}${banned ? '<span class="ann-ban-tag">차단</span>' : ''}</span>
       <span class="ann-cm-body">${esc(c.text || '')}</span>
       <span class="ann-cm-at">${dbAnnDate(c.createdAt)}</span>
+      <button class="stu-btn ${banned ? 'stu-btn-edit' : 'stu-btn-del'}" onclick="noticeToggleBan('${esc(sid)}','${esc(c.name || '')}')">${banned ? '해제' : '차단'}</button>
       <button class="stu-btn stu-btn-del" onclick="noticeDeleteComment('${esc(annId)}','${esc(c.id)}')">삭제</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function noticeRender() {
@@ -841,6 +939,8 @@ function noticeRender() {
   if (_dbAnnEditId && !editing) _dbAnnEditId = null;
 
   listEl.innerHTML = annTableHTML(0, true);   // 여기서는 전부 편다
+  const banEl = document.getElementById('notice-ban-list');
+  if (banEl) banEl.innerHTML = noticeBansHTML();
   // 폼은 "새 글" / "수정" 두 모습만 다르다. 입력칸 값은 수정에 들어갈 때만 채워 넣는다.
   document.getElementById('notice-form-head').textContent = editing ? '공지 수정' : '새 공지 작성';
   document.getElementById('notice-form-btns').innerHTML =
