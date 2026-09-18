@@ -4402,41 +4402,6 @@ async function thinkAutoDetect(thinkDocId) {
   return out;
 }
 
-/* 생각 체크 잠금 해제 (2026-09-18) ─────────────────────────────────
-   2026-08-19~09-18 사이, 생각 체크 탭에서 통과/미흡을 뒤집으면 그 학생의 생각 체크가
-   grade_records.manualEdit.think = true 로 찍혔다. 그 표시는 "선생님이 성적 표에서 직접
-   만졌으니 자동 감지가 건드리지 말라"는 뜻이라, 찍힌 순간부터 그 학생은 채점을 아무리
-   다시 해도 성적에 반영되지 않았다(불러오기·실시간·AI 채점 전부). 표시를 남기던 코드는
-   없앴지만 이미 찍힌 것은 데이터에 남아 있어, 한 번 훑어 지워 주는 단추를 둔다.
-   지우는 것은 think 하나뿐이다 — 개념·미션 표시는 표에서 직접 만진 것이므로 그대로 둔다. */
-async function gradeUnlockThinkManual() {
-  const btn = document.getElementById('gradeUnlockThinkBtn');
-  if (!confirm('생각 체크가 성적에 반영되지 않게 잠긴 학생을 풀어 줍니다.\n' +
-               '성적 표에서 생각 체크 칸을 직접 체크해 둔 것이 있다면 그것도 같이 풀려,\n' +
-               '다음 불러오기부터는 채점 결과를 따라갑니다. 진행할까요?')) return;
-  if (btn) { btn.disabled = true; btn.textContent = '푸는 중…'; }
-  try {
-    const snap = await getDocs(collection(db, 'grade_records'));
-    const stuck = snap.docs.filter(d => d.data().manualEdit?.think === true);
-    if (!stuck.length) { alert('잠긴 학생이 없습니다.'); return; }
-    // 한 배치의 상한(500)에 여유를 두고 400씩 끊는다.
-    // merge는 중첩 맵을 깊게 합치므로 manualEdit의 개념·미션 표시는 그대로 남는다.
-    for (let i = 0; i < stuck.length; i += 400) {
-      const batch = writeBatch(db);
-      stuck.slice(i, i + 400).forEach(d =>
-        batch.set(doc(db, 'grade_records', d.id), { manualEdit: { think: false } }, { merge: true }));
-      await batch.commit();
-    }
-    // 지금 표에 올라와 있는 강의도 곧바로 풀어 준다(다시 불러오지 않아도 되게).
-    [...(_gradeManualEdit || [])].forEach(k => { if (k.endsWith('|think')) _gradeManualEdit.delete(k); });
-    alert(`${stuck.length}건을 풀었습니다. 생각 체크에서 [불러오기]나 재채점을 하면 성적에 반영됩니다.`);
-  } catch (e) {
-    alert('실패: ' + e.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '생각 체크 잠금 해제'; }
-  }
-}
-
 /* ── 미션 채점 실시간 반영 ──────────────────────────────────────────
    웹앱 어드민(예: 인터뷰 ANSWER의 통과/미흡 토글)에서 채점을 고치면, 성적 체크 표를
    다시 불러오지 않아도 그 자리에서 따라 바뀌게 한다. 예전에는 자동 감지가 "불러오기"를
@@ -4765,7 +4730,6 @@ async function initGradeTab() {
   document.getElementById('gradeLoadBtn').addEventListener('click', loadGradeData);
   document.getElementById('gradeApplyAllBtn')?.addEventListener('click', gradeApplyAllLessons);
   document.getElementById('gradeRefreshAllBtn')?.addEventListener('click', gradeRefreshAllLessons);
-  document.getElementById('gradeUnlockThinkBtn')?.addEventListener('click', gradeUnlockThinkManual);
   document.getElementById('gradeScoreLoadBtn').addEventListener('click', loadScoreData);
   document.getElementById('gradeExportBtn').addEventListener('click', exportScoreCSV);
 
@@ -4776,11 +4740,17 @@ async function onGradeLessonChange() {
   const key = document.getElementById('gradeLessonSel').value;
   if (!key) return;
   try {
+    await thEnsureLecCache();   // 캐시가 비면 자동 매칭이 통째로 실패한다
     const cfg = await getDoc(doc(db, 'grade_lecture_config', key));
     if (cfg.exists()) {
       const d = cfg.data();
-      document.getElementById('gradeThinkSel').value = d.thinkLectureDocId || '';
-      gradeUpdateThinkLabel(d.thinkLectureDocId || '');
+      /* 저장된 연결이 비어 있으면 다시 찾아본다. 비어 있다는 것은 "연결이 없다"가 아니라
+         "그때 못 찾았다"는 뜻인데, 설정 문서가 있다는 이유로 그대로 받아들이면 한 번
+         실패한 강의는 영영 연결되지 않는다. 그 빈 값은 불러오기 때 다시 저장되기까지 해서
+         스스로 굳는다 — 생각 체크 달성도 제출시간도 성적으로 넘어오지 않던 자리다. */
+      const linked = d.thinkLectureDocId || (gradeFindMatchingThinkLec(key)?.docId || '');
+      document.getElementById('gradeThinkSel').value = linked;
+      gradeUpdateThinkLabel(linked);
       document.getElementById('gradeConceptOn').checked = d.conceptEnabled !== false;
       document.getElementById('gradeMissionOn').checked = d.missionEnabled !== false;
       document.getElementById('gradeThinkOn').checked   = d.thinkEnabled   !== false;
@@ -4791,7 +4761,7 @@ async function onGradeLessonChange() {
       // 저장된 연결 설정이 아직 없으면(이 강의를 성적 체크에서 처음 고른 경우), 강의수
       // 번호(class_lessons.num == think_lectures.icon)가 같은 생각 체크 강의를 자동으로
       // 찾아 연결한다(수동 선택 UI 없음 — 못 찾으면 빈 채로 둔다).
-      const matched = gradeFindMatchingThinkLec(key);
+      const matched = gradeFindMatchingThinkLec(key);   // 강의 번호 == 생각 체크 icon
       document.getElementById('gradeThinkSel').value = matched ? matched.docId : '';
       gradeUpdateThinkLabel(matched ? matched.docId : '');
       document.getElementById('gradeConceptOn').checked = true;
@@ -4807,6 +4777,19 @@ async function onGradeLessonChange() {
 // class_lessons.num(예: "24")과 icon이 같은 think_lectures 강의를 찾아 {docId,title}을
 // 돌려준다(없으면 null). "생각 체크" 관리 블록 안의 thLectures는 그 블록 밖(여기)에서
 // 직접 못 읽으므로, thPopulateSelects()가 갱신할 때마다 _thLecCache에 복사해 둔 걸 쓴다.
+/* _thLecCache는 생각 체크 탭의 think_lectures 구독이 채운다. 성적 체크 탭을 먼저 열면
+   아직 비어 있어 자동 매칭이 전부 실패하므로, 비었을 때만 한 번 직접 읽어 채운다. */
+async function thEnsureLecCache() {
+  if (_thLecCache.length) return;
+  try {
+    const snap = await getDocs(collection(db, 'think_lectures'));
+    _thLecCache = snap.docs.map(d => {
+      const l = d.data();
+      return { docId: d.id, icon: l.icon || '', title: l.title || '' };
+    });
+  } catch (e) {}
+}
+
 function gradeFindMatchingThinkLec(num) {
   const lec = _thLecCache.find(l => l.icon && l.icon === String(num));
   return lec ? { docId: lec.docId, title: lec.title } : null;
@@ -4816,7 +4799,12 @@ function gradeFindMatchingThinkLec(num) {
 function gradeUpdateThinkLabel(docId) {
   const label = document.getElementById('gradeThinkAutoLabel');
   if (!label) return;
-  if (!docId) { label.textContent = '연결된 생각 체크 강의를 찾지 못했습니다'; return; }
+  if (!docId) {
+    label.textContent = '생각 체크 강의가 연결되지 않았습니다 — 생각 체크 강의의 강의수를 이 강의 번호와 같게 맞춰 주세요 (달성과 제출시간이 넘어오지 않습니다)';
+    label.style.color = 'var(--critical)';
+    return;
+  }
+  label.style.color = '';
   const lec = _thLecCache.find(l => l.docId === docId);
   label.textContent = lec ? `생각체크 자동 연결: ${cleanTitle(lec.title)}` : '생각체크 자동 연결됨';
 }
@@ -4872,7 +4860,13 @@ async function loadGradeData() {
 
   _gradeLessonKey = lessonNum;
 
-  const thinkDocId  = document.getElementById('gradeThinkSel').value;
+  await thEnsureLecCache();
+  // 비어 있으면 여기서 한 번 더 붙여 본다. 이 값은 바로 아래에서 설정에 저장되므로,
+  // 빈 채로 통과시키면 그 강의는 다음부터도 빈 값을 되읽어 영영 연결되지 않는다.
+  let thinkDocId = document.getElementById('gradeThinkSel').value
+                || (gradeFindMatchingThinkLec(_gradeLessonKey)?.docId || '');
+  document.getElementById('gradeThinkSel').value = thinkDocId;
+  gradeUpdateThinkLabel(thinkDocId);
   _gradeThinkDocId  = thinkDocId;
   // 미션 체크는 강의에 연결된 미션 카드(lessonNum)를 따라가 자동 감지한다 — MISSION_SOURCES 참고.
   // 연결된 카드가 없거나 표에 없는 앱이면 예전처럼 표에서 직접 체크하면 된다.
