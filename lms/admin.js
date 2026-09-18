@@ -4402,6 +4402,41 @@ async function thinkAutoDetect(thinkDocId) {
   return out;
 }
 
+/* 생각 체크 잠금 해제 (2026-09-18) ─────────────────────────────────
+   2026-08-19~09-18 사이, 생각 체크 탭에서 통과/미흡을 뒤집으면 그 학생의 생각 체크가
+   grade_records.manualEdit.think = true 로 찍혔다. 그 표시는 "선생님이 성적 표에서 직접
+   만졌으니 자동 감지가 건드리지 말라"는 뜻이라, 찍힌 순간부터 그 학생은 채점을 아무리
+   다시 해도 성적에 반영되지 않았다(불러오기·실시간·AI 채점 전부). 표시를 남기던 코드는
+   없앴지만 이미 찍힌 것은 데이터에 남아 있어, 한 번 훑어 지워 주는 단추를 둔다.
+   지우는 것은 think 하나뿐이다 — 개념·미션 표시는 표에서 직접 만진 것이므로 그대로 둔다. */
+async function gradeUnlockThinkManual() {
+  const btn = document.getElementById('gradeUnlockThinkBtn');
+  if (!confirm('생각 체크가 성적에 반영되지 않게 잠긴 학생을 풀어 줍니다.\n' +
+               '성적 표에서 생각 체크 칸을 직접 체크해 둔 것이 있다면 그것도 같이 풀려,\n' +
+               '다음 불러오기부터는 채점 결과를 따라갑니다. 진행할까요?')) return;
+  if (btn) { btn.disabled = true; btn.textContent = '푸는 중…'; }
+  try {
+    const snap = await getDocs(collection(db, 'grade_records'));
+    const stuck = snap.docs.filter(d => d.data().manualEdit?.think === true);
+    if (!stuck.length) { alert('잠긴 학생이 없습니다.'); return; }
+    // 한 배치의 상한(500)에 여유를 두고 400씩 끊는다.
+    // merge는 중첩 맵을 깊게 합치므로 manualEdit의 개념·미션 표시는 그대로 남는다.
+    for (let i = 0; i < stuck.length; i += 400) {
+      const batch = writeBatch(db);
+      stuck.slice(i, i + 400).forEach(d =>
+        batch.set(doc(db, 'grade_records', d.id), { manualEdit: { think: false } }, { merge: true }));
+      await batch.commit();
+    }
+    // 지금 표에 올라와 있는 강의도 곧바로 풀어 준다(다시 불러오지 않아도 되게).
+    [...(_gradeManualEdit || [])].forEach(k => { if (k.endsWith('|think')) _gradeManualEdit.delete(k); });
+    alert(`${stuck.length}건을 풀었습니다. 생각 체크에서 [불러오기]나 재채점을 하면 성적에 반영됩니다.`);
+  } catch (e) {
+    alert('실패: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '생각 체크 잠금 해제'; }
+  }
+}
+
 /* ── 미션 채점 실시간 반영 ──────────────────────────────────────────
    웹앱 어드민(예: 인터뷰 ANSWER의 통과/미흡 토글)에서 채점을 고치면, 성적 체크 표를
    다시 불러오지 않아도 그 자리에서 따라 바뀌게 한다. 예전에는 자동 감지가 "불러오기"를
@@ -4730,6 +4765,7 @@ async function initGradeTab() {
   document.getElementById('gradeLoadBtn').addEventListener('click', loadGradeData);
   document.getElementById('gradeApplyAllBtn')?.addEventListener('click', gradeApplyAllLessons);
   document.getElementById('gradeRefreshAllBtn')?.addEventListener('click', gradeRefreshAllLessons);
+  document.getElementById('gradeUnlockThinkBtn')?.addEventListener('click', gradeUnlockThinkManual);
   document.getElementById('gradeScoreLoadBtn').addEventListener('click', loadScoreData);
   document.getElementById('gradeExportBtn').addEventListener('click', exportScoreCSV);
 
@@ -8224,9 +8260,12 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
       const next = gradeNormBlock({ achieved, onTime }, gradeW('think'));
       const changed = rec.think.achievedN !== next.achievedN || rec.think.onTimeN !== next.onTimeN;
       Object.assign(rec.think, next);
-      // 손으로 뒤집은 생각 체크는 자동 감지가 도로 덮어쓰지 않게 표시해 둔다
-      // (미션 체크는 그대로 웹앱 채점을 따라간다).
-      _gradeManualEdit.add(gradeEditKey(sub.id, 'think'));
+      /* 여기서 _gradeManualEdit에 표시하면 안 된다. 그 표시는 "선생님이 성적 표에서 직접
+         칸을 만졌으니 자동 감지가 건드리지 말라"는 뜻인데, 생각 체크 탭의 통과/미흡은
+         성적 표를 만진 것이 아니라 채점 그 자체다(미션의 웹앱 채점과 같은 자리).
+         표시해 두면 그 값이 grade_records.manualEdit.think로 저장되고, 다음 불러오기 때
+         메모리로 되살아나 gradeCanAutoApply가 그 학생의 생각 체크를 영구히 막는다 —
+         토글 한 번으로 그 학생은 이후 어떤 채점도 성적에 반영되지 않았다(2026-09-02~). */
       renderGradeTable();
       renderGradeStats();
       if (changed) await gradePushLive([sub.id]);
