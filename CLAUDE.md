@@ -183,6 +183,16 @@ LMS에서 미션 카드를 만들고 공개(잠금 해제)하면, 같은 Firesto
 - **연동된 앱**: `j_interview`(interview_joseon_answers), `j_wartimeline`(j_wartimeline_results), `j_brain`(j_brain_works), `j_4cut`(fourcut_submissions).
 - **`fourcut_submissions` 예외**: 학번당 1문서짜리 가벼운 요약 컬렉션을 따로 둔다 — 학생이 공유할 때 제출 사실·시각을 남기고(`apps/j_4cut/index.html`의 `saveSubmissionMark`), 선생님이 작품별 통과/미흡을 누를 때 합산 `status`를 써 넣는다(`apps/j_4cut/admin.html`의 `syncSubmissionSummary`). **채점 결과를 제출 문서 자신에 둔다는 표준 스키마의 유일한 예외**이며, 이유는 오직 이미지 용량이다. 작품별 `status`는 표준대로 `fourcut_works` 문서에 그대로 남는다.
 
+## 뇌구조도 머리 그림과 글자 자리 (j_brain, 2026-09-21)
+
+`apps/j_brain`의 머리 그림은 선생님이 올린 레포 파일이다. **원본은 `brain.png`(1.1MB), 화면이 쓰는 것은 같은 크기로 다시 구운 `brain.webp`(91KB)** 이며 `brain.js`의 `HEAD_IMG`가 webp를 가리킨다. png를 지우지 말 것 — 그림을 고칠 때의 원본이다.
+
+- **글자가 놓이는 자리는 `brain.js`의 `FIELD_ROWS`에 줄마다 좌우 끝으로 적혀 있다.** 그림을 캔버스로 읽어 흰 머릿속 구간을 실제로 재서 VB 320 기준으로 환산한 값이다. 면류관이 왼쪽 위를 비스듬히 덮고 있어 타원 하나로는 잡히지 않는다(타원에 맞추면 아래 넓은 데가 통째로 남고, 타원을 키우면 윗줄 글자가 관 밑을 파고든다).
+- **그림을 바꾸면 `VB`, `FIELD_ROWS`, `ANCHOR_YS`를 다시 재야 한다.** 눈대중으로 고치지 말 것.
+- 칩은 그려 놓은 뒤 상자 크기를 실제로 재서 머릿속으로 밀어 넣는다(`settle()`). 낱말 길이와 비중에 따라 상자가 제각각이라 좌표만 보고는 삐져나오는지 알 수 없기 때문이다. 갤러리와 어드민에서도 돌아가므로 예전 좌표로 저장된 작품도 안쪽에 들어와 보인다(저장값은 건드리지 않고 화면만 고친다).
+- 머릿속 높이가 딱 네 줄이라 한 인물당 기본 4칸이다(`DEFAULT_CONFIG.maxChips`). 어드민 SETTING에서 늘릴 수 있지만 늘리면 큰 글자끼리 겹친다.
+- 두 임금은 **같은 그림 한 장**을 쓰고 색(`--bm-yeongjo` / `--bm-jeongjo`)과 이름표로만 갈라진다. 색을 입히려 CSS filter를 걸면 관의 금색과 붉은 깃까지 같이 돌아가 딴 그림이 된다.
+
 ## 사화 네컷 만화 이미지는 레포 파일 (2026-08-31)
 
 `apps/j_4cut`의 만화 그림은 **레포에 직접 올린 파일**에서 끌어온다. 사건 순서대로 무오사화 `1`, 갑자사화 `2`, 기묘사화 `3`이며, 확장자는 `resolveEventImage()`가 png/jpg/jpeg/webp 순으로 찾아 먼저 열리는 것을 쓴다(어드민과 학생 화면에 같은 함수가 각각 들어 있다).

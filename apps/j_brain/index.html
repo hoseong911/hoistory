@@ -16,7 +16,6 @@
 body{
   --bm-yeongjo:#2F5D62;
   --bm-jeongjo:#8B2F3F;
-  --bm-fill:#FBF8F1;      /* 귀 안쪽이 머리에 가려지려면 불투명해야 한다 */
   --bm-need:var(--hi-accent);
   --bm-ink:var(--hi-text);
   --bm-chip-bg:rgba(255,255,255,.7);
@@ -328,13 +327,16 @@ function renderEditor(){
     }
   });
 
+  /* 끄는 동안에는 글자 크기만 바로 바꿔 보여 주고, 손을 뗄 때 머리를 다시 그린다.
+     커진 글자가 머릿속을 벗어났는지는 상자를 다시 재 봐야 알 수 있는데(renderBrain이
+     그려 놓고 재서 밀어 넣는다) 그 일을 손가락이 움직이는 내내 할 필요는 없다. */
   $('ed-range').addEventListener('input', e => {
     chip.w = +e.target.value;
     $('ed-wname').textContent = (WEIGHTS.find(w => w.w === chip.w) || WEIGHTS[1]).label;
     const node = stageEl && stageEl.querySelector('.bm-chip[data-k="' + CSS.escape(chip.k) + '"]');
     if (node) node.style.fontSize = chipEm(chip.w) + 'em';
-    saveDraft();
   });
+  $('ed-range').addEventListener('change', () => { renderStage(); saveDraft(); });
 
   $('ed-del').addEventListener('click', () => {
     data[side] = chipsOf(side).filter(c => c.k !== chip.k);
@@ -465,8 +467,8 @@ function renderGallery(){
       <div class="gal-pair"><div data-mini="y${i}"></div><div data-mini="j${i}"></div></div>
     </div>`).join('');
   galWorks.forEach((w,i) => {
-    renderBrain($('gal-grid').querySelector('[data-mini="y'+i+'"]'), { side:'yeongjo', chips: w.yeongjo || [] });
-    renderBrain($('gal-grid').querySelector('[data-mini="j'+i+'"]'), { side:'jeongjo', chips: w.jeongjo || [] });
+    renderBrain($('gal-grid').querySelector('[data-mini="y'+i+'"]'), { side:'yeongjo', chips: w.yeongjo || [], nameTag: true });
+    renderBrain($('gal-grid').querySelector('[data-mini="j'+i+'"]'), { side:'jeongjo', chips: w.jeongjo || [], nameTag: true });
   });
   $('gal-grid').querySelectorAll('.gal-card').forEach(c =>
     c.addEventListener('click', () => openOverlay(galWorks[+c.dataset.i])));

@@ -2,21 +2,98 @@
    학생 편집 화면, 갤러리, 어드민 미리보기가 모두 이 파일 하나로 그린다.
    (세 곳이 따로 그리면 학생이 옮겨 둔 자리와 선생님이 보는 자리가 어긋난다.)
 
-   좌표계: 아래 VB 크기의 SVG 안쪽 좌표를 그대로 저장한다. 화면 크기가 달라져도
-   비율로 다시 계산되므로 폰에서 놓은 자리가 칠판 화면에서도 그대로다. */
+   좌표계: 아래 VB 크기 안쪽 좌표를 그대로 저장한다. 화면 크기가 달라져도 비율로 다시
+   계산되므로 폰에서 놓은 자리가 칠판 화면에서도 그대로다. 그림(brain.png)이 정사각형이라
+   VB도 정사각형이다 — 그림을 바꾸면 VB와 FIELD를 함께 다시 재야 한다. */
 
-export const VB = { w: 320, h: 360 };
+export const VB = { w: 320, h: 320 };
 
-/* 글자가 머리 밖으로 삐져나오지 않도록, 실루엣보다 조금 작은 타원을 "놓을 수 있는 곳"으로 둔다.
-   위쪽은 익선관이 덮는 만큼 더 내려 잡는다(관 밑으로 글자가 숨지 않게). */
-export const FIELD = { cx: 160, cy: 202, rx: 94, ry: 104 };
+/* 면류관 쓴 옆모습 머리. 두 임금이 같은 그림을 쓰고 색과 이름표로만 갈라진다.
+   화면에는 webp 를 쓴다 — 원본 png 가 1.1MB라 학생 폰에서 그림 한 장에 1MB를 쓰게 된다.
+   같은 크기(1254px) 그대로 다시 구운 것이고 91KB다. **brain.png 가 원본이니 지우지 말 것**,
+   그림을 고치면 png 를 갈아 끼운 뒤 webp 를 다시 굽고 FIELD_ROWS 도 다시 잰다. */
+export const HEAD_IMG = new URL('brain.webp', import.meta.url).href;
 
-/* 새 키워드를 놓을 자리 차례. 가로로 나란히 두면 긴 낱말끼리 겹치므로 한 줄에 하나씩
-   위에서 아래로 쌓는다(학생이 끌어 옮겨 다시 꾸밀 수 있다). */
-export const ANCHORS = [
-  [160, 122], [160, 159], [160, 196], [160, 233], [160, 270], [160, 300],
-  [122, 140], [198, 140], [122, 255], [198, 255]
+/* 글자를 놓을 수 있는 곳 — 그림의 흰 머릿속 윤곽이다. 타원 하나로 잡으려 했더니
+   면류관이 왼쪽 위를 비스듬히 덮고 있어, 타원에 맞추면 아래쪽 넓은 데가 통째로 남고
+   타원을 키우면 윗줄 글자가 관 밑을 파고든다. 그래서 줄마다 좌우 끝을 재서 표로 둔다.
+   brain.png(1254px)를 캔버스로 읽어 줄마다 흰 구간을 잰 값을 VB 320 기준으로 환산한
+   것이다. **그림을 바꾸면 이 표를 다시 재야 한다.** */
+const FIELD_ROWS = [
+  [135.0,  79.4, 179.4],
+  [146.8,  77.3, 188.1],
+  [158.5,  78.1, 198.3],
+  [170.2,  79.4, 212.8],
+  [182.0,  70.4, 233.0],
+  [193.7,  62.0, 232.5],
+  [205.4,  73.0, 228.9],
+  [217.2,  70.9, 221.0],
+  [228.9,  72.0, 210.0],
+  [240.7,  78.9, 206.5],
+  [252.4,  78.3, 209.5]
 ];
+/* 글자가 윤곽선에 닿지 않게 사방으로 남겨 두는 여백 */
+const MARGIN = 7;
+
+export const FIELD_TOP = FIELD_ROWS[0][0] + MARGIN;
+export const FIELD_BOTTOM = FIELD_ROWS[FIELD_ROWS.length - 1][0] - MARGIN;
+
+/* 그 높이에서 쓸 수 있는 좌우 끝. 표의 두 줄 사이는 곧게 이어 본다. */
+function rowAt(y) {
+  const R = FIELD_ROWS;
+  if (y <= R[0][0]) return { lo: R[0][1] + MARGIN, hi: R[0][2] - MARGIN };
+  const last = R[R.length - 1];
+  if (y >= last[0]) return { lo: last[1] + MARGIN, hi: last[2] - MARGIN };
+  for (let i = 1; i < R.length; i++) {
+    if (y <= R[i][0]) {
+      const [y0, l0, h0] = R[i - 1], [y1, l1, h1] = R[i];
+      const t = (y - y0) / (y1 - y0);
+      return { lo: l0 + (l1 - l0) * t + MARGIN, hi: h0 + (h1 - h0) * t - MARGIN };
+    }
+  }
+  return { lo: last[1] + MARGIN, hi: last[2] - MARGIN };
+}
+
+/* 높이 h짜리 상자가 y에 놓일 때 쓸 수 있는 좌우 끝 — 상자가 걸치는 모든 줄에서 가장
+   좁은 구간을 쓴다. 가운데 한 점만 보고 놓으면 큰 글자의 위아래 모서리가 밖으로 나간다. */
+function bandFor(y, h) {
+  let lo = -Infinity, hi = Infinity;
+  const top = y - h / 2, bot = y + h / 2;
+  for (let s = 0; s <= 4; s++) {
+    const r = rowAt(top + (bot - top) * (s / 4));
+    lo = Math.max(lo, r.lo);
+    hi = Math.min(hi, r.hi);
+  }
+  return { lo, hi };
+}
+
+/* 상자(가로 w, 세로 h)를 머릿속에 앉힌다. 밖으로 나간 만큼만 끌어당기므로 끌다가
+   손가락이 조금 벗어나도 칩이 튕겨 나가지 않는다. */
+export function clampBox(x, y, w, h) {
+  const yy = Math.min(Math.max(y, FIELD_TOP + h / 2), FIELD_BOTTOM - h / 2);
+  const b = bandFor(yy, h);
+  const room = b.hi - b.lo;
+  const xx = room <= w
+    ? (b.lo + b.hi) / 2                                   // 그 줄이 글자보다 좁으면 가운데로
+    : Math.min(Math.max(x, b.lo + w / 2), b.hi - w / 2);
+  return { x: xx, y: yy };
+}
+
+/* 새 키워드를 놓을 자리 차례. 머릿속이 가로로 넓어 보여도 낱말이 길어 두 칸씩은 못 넣는다.
+   한 줄에 하나씩 위에서 아래로 쌓고, 학생이 끌어 옮겨 다시 꾸민다. 가로 자리는 그 높이의
+   한가운데로 잡는다(머리가 아래로 갈수록 오른쪽으로 벌어지기 때문). */
+const ANCHOR_YS = [152, 182, 212, 238, 167, 197, 225, 160, 190, 220];
+export const ANCHORS = ANCHOR_YS.map(y => {
+  const r = rowAt(y);
+  return [(r.lo + r.hi) / 2, y];
+});
+
+/* 아무것도 안 놓였을 때 안내를 띄울 자리 = 머릿속 한가운데 */
+const EMPTY_AT = (() => {
+  const y = (FIELD_TOP + FIELD_BOTTOM) / 2;
+  const r = rowAt(y);
+  return { x: (r.lo + r.hi) / 2, y };
+})();
 
 export const WEIGHTS = [
   { w: 1, label: '잠깐 스쳤다' },
@@ -26,7 +103,7 @@ export const WEIGHTS = [
   { w: 5, label: '머릿속을 가득 채웠다' }
 ];
 
-const CHIP_EM = { 1: 0.9, 2: 1.12, 3: 1.36, 4: 1.7, 5: 2.1 };
+const CHIP_EM = { 1: 0.92, 2: 1.12, 3: 1.36, 4: 1.6, 5: 1.9 };
 /* 비중(1~5)에 따른 글자 크기. 학생 화면이 슬라이더를 움직일 때 칩 하나만 손보므로
    여기서 내보내 둔다 — 표를 양쪽에 적어 두면 한쪽만 고치는 일이 생긴다. */
 export function chipEm(w) { return CHIP_EM[w] || CHIP_EM[2]; }
@@ -41,49 +118,28 @@ export function sideName(key) {
   return s ? s.name : key;
 }
 
-/* 타원 밖으로 나간 점을 가장자리 안쪽으로 끌어당긴다. 밖이면 아예 못 놓게 막는 편이
-   구현은 쉽지만, 끌다가 손가락이 조금 벗어나면 칩이 튕겨 나가 답답하다. */
-export function clampToField(x, y) {
-  const dx = (x - FIELD.cx) / FIELD.rx;
-  const dy = (y - FIELD.cy) / FIELD.ry;
-  const d = Math.hypot(dx, dy);
-  if (d <= 1) return { x, y };
-  return { x: FIELD.cx + (dx / d) * FIELD.rx, y: FIELD.cy + (dy / d) * FIELD.ry };
-}
-
 /* 이미 놓인 칩과 겹치지 않는 빈자리를 고른다. 자리가 다 차면 가운데 언저리에 흩뿌린다. */
 export function nextSpot(chips) {
   const used = chips || [];
   for (const [x, y] of ANCHORS) {
-    const near = used.some(c => Math.hypot(c.x - x, c.y - y) < 32);
+    const near = used.some(c => Math.abs(c.y - y) < 18);
     if (!near) return { x, y };
   }
-  const a = Math.random() * Math.PI * 2;
-  return clampToField(FIELD.cx + Math.cos(a) * 50, FIELD.cy + Math.sin(a) * 50);
+  const y = FIELD_TOP + Math.random() * (FIELD_BOTTOM - FIELD_TOP);
+  const r = rowAt(y);
+  return { x: (r.lo + r.hi) / 2, y };
 }
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-/* ── 실루엣 ──
-   조선 왕이라는 것이 한눈에 보이도록 익선관을 얹은 앞모습 머리. 옆모습은 그리기는
-   그럴듯해도 안쪽 폭이 좁아 글자가 들어갈 자리가 반으로 줄어든다. */
-function silhouette(side) {
-  const c = `var(--bm-${side})`;
-  return `
-<svg class="bm-svg" viewBox="0 0 ${VB.w} ${VB.h}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-  <g fill="none" stroke="${c}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
-    <ellipse cx="58" cy="212" rx="15" ry="22" fill="var(--bm-fill)"/>
-    <ellipse cx="262" cy="212" rx="15" ry="22" fill="var(--bm-fill)"/>
-    <path d="M160 74 C96 74 58 124 58 198 C58 270 100 322 160 322 C220 322 262 270 262 198 C262 124 224 74 160 74 Z"
-          fill="var(--bm-fill)"/>
-    <!-- 관. 옆이 거의 곧고 위만 둥근 사다리꼴이라야 "쓴 것"으로 읽힌다 —
-         둥근 돔에 뿔 두 개를 세워 보았더니 임금이 아니라 곰 모자가 됐다. -->
-    <path d="M104 92 L104 60 C104 44 126 36 160 36 C194 36 216 44 216 60 L216 92 Z" fill="${c}" stroke="none"/>
-    <path d="M104 92 L216 92" stroke-width="3"/>
-  </g>
-</svg>`;
+/* ── 머리 그림 ──
+   손으로 그린 SVG 실루엣을 쓰다가 선생님이 올린 그림 파일로 바꿨다. 그림은 한 장뿐이고
+   두 임금은 색과 이름표로만 갈라진다 — 색을 입히려 filter 를 걸면 관의 금색과 붉은 깃까지
+   같이 돌아가 딴 그림이 된다. */
+function headImage() {
+  return `<img class="bm-img" src="${HEAD_IMG}" alt="" draggable="false">`;
 }
 
 /* 한 번만 넣으면 되는 공용 스타일. 학생 화면과 어드민이 같은 모양을 쓰게 하려고
@@ -93,10 +149,11 @@ function ensureStyle() {
   const el = document.createElement('style');
   el.id = 'bm-style';
   el.textContent = `
-.bm-stage{position:relative;width:100%;max-width:420px;margin:0 auto;aspect-ratio:${VB.w}/${VB.h};touch-action:none}
-.bm-svg{position:absolute;inset:0;width:100%;height:100%}
+.bm-stage{position:relative;width:100%;max-width:480px;margin:0 auto;aspect-ratio:${VB.w}/${VB.h};touch-action:none}
+.bm-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;pointer-events:none}
 .bm-layer{position:absolute;inset:0}
-.bm-chip{position:absolute;transform:translate(-50%,-50%);max-width:56%;padding:.08em .4em;border-radius:.45em;
+/* 머릿속 가로폭이 무대의 39%뿐이라 칩이 그보다 넓으면 얼굴 밖으로 삐져나온다. */
+.bm-chip{position:absolute;transform:translate(-50%,-50%);max-width:38%;padding:.08em .4em;border-radius:.45em;
   font-weight:800;line-height:1.2;text-align:center;word-break:keep-all;color:var(--bm-ink);
   background:var(--bm-chip-bg);border:1px solid transparent;cursor:grab;user-select:none;-webkit-user-select:none}
 .bm-chip.bm-live:active{cursor:grabbing}
@@ -106,8 +163,13 @@ function ensureStyle() {
 .bm-chip.bm-ok{color:var(--bm-ok)}
 .bm-chip.bm-no{color:var(--bm-no)}
 .bm-chip.bm-trap{color:var(--bm-no);text-decoration:line-through;text-decoration-thickness:1px}
-.bm-empty{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);width:60%;text-align:center;
-  font-size:13px;line-height:1.7;color:var(--hi-text-muted);word-break:keep-all}
+.bm-empty{position:absolute;left:${(EMPTY_AT.x / VB.w * 100).toFixed(1)}%;top:${(EMPTY_AT.y / VB.h * 100).toFixed(1)}%;
+  transform:translate(-50%,-50%);width:36%;text-align:center;
+  font-size:12px;line-height:1.6;color:var(--hi-text-muted);word-break:keep-all}
+/* 두 임금을 가를 이름표. 그림이 한 장이라 갤러리에서 이것으로 구별한다. */
+/* 오른쪽 아래는 곤룡포 깃이 차지하므로 턱 아래 빈 곳에 둔다. */
+.bm-name{position:absolute;left:30%;bottom:4%;transform:translateX(-50%);padding:3px 12px;border-radius:999px;
+  font-size:12px;font-weight:800;color:#fff;white-space:nowrap}
 `;
   document.head.appendChild(el);
 }
@@ -127,6 +189,7 @@ function fitFont(stage) {
  *   selected  선택된 칩 id
  *   live      true면 끌어 옮기기와 누르기를 받는다
  *   emptyText 칩이 하나도 없을 때 가운데에 띄울 안내
+ *   nameTag   true면 그림 아래에 임금 이름표를 붙인다(갤러리처럼 둘이 나란히 설 때)
  *   review    {ok:Set, trap:Set} — 어드민에서 정오 표시를 켤 때만
  *   onPick(k) 칩을 눌렀을 때
  *   onMove(k,x,y) 칩을 옮겨 놓았을 때
@@ -134,11 +197,20 @@ function fitFont(stage) {
 export function renderBrain(el, opts) {
   ensureStyle();
   const o = opts || {};
+  const side = o.side || 'yeongjo';
   const chips = Array.isArray(o.chips) ? o.chips : [];
   const stage = document.createElement('div');
   stage.className = 'bm-stage';
-  stage.innerHTML = silhouette(o.side || 'yeongjo') + '<div class="bm-layer"></div>';
+  stage.innerHTML = headImage() + '<div class="bm-layer"></div>';
   const layer = stage.querySelector('.bm-layer');
+
+  if (o.nameTag) {
+    const tag = document.createElement('div');
+    tag.className = 'bm-name';
+    tag.style.background = `var(--bm-${side})`;
+    tag.textContent = sideName(side);
+    layer.appendChild(tag);
+  }
 
   if (!chips.length && o.emptyText) {
     const em = document.createElement('div');
@@ -169,8 +241,36 @@ export function renderBrain(el, opts) {
   el.innerHTML = '';
   el.appendChild(stage);
   fitFont(stage);
-  if (window.ResizeObserver) new ResizeObserver(() => fitFont(stage)).observe(stage);
+  settle(stage, chips, o);
+  if (window.ResizeObserver) new ResizeObserver(() => { fitFont(stage); settle(stage, chips, o); }).observe(stage);
   return stage;
+}
+
+/* 그려 놓고 나서 칩 상자를 실제로 재어 머릿속으로 밀어 넣는다.
+   낱말 길이와 비중에 따라 상자 크기가 제각각이라, 놓을 때 좌표만 보고는 삐져나오는지
+   알 수 없다. 갤러리와 어드민에서도 돌리므로 예전에 저장된 좌표도 안쪽에 들어와 보인다
+   (저장값은 건드리지 않고 화면만 고친다 — 학생 화면에서 끌어 옮기면 그때 저장된다). */
+function settle(stage, chips, o) {
+  const sw = stage.clientWidth, sh = stage.clientHeight;
+  if (!sw || !sh) return;
+  chips.forEach(c => {
+    const node = stage.querySelector('.bm-chip[data-k="' + cssEscape(c.k) + '"]');
+    if (!node) return;
+    const w = node.offsetWidth / sw * VB.w;
+    const h = node.offsetHeight / sh * VB.h;
+    const p = clampBox(c.x, c.y, w, h);
+    if (Math.abs(p.x - c.x) > 0.5 || Math.abs(p.y - c.y) > 0.5) {
+      if (o.live) { c.x = p.x; c.y = p.y; }   // 편집 중이면 저장값도 따라간다
+      node.style.left = (p.x / VB.w * 100) + '%';
+      node.style.top = (p.y / VB.h * 100) + '%';
+    }
+    node.dataset.bw = w.toFixed(2);
+    node.dataset.bh = h.toFixed(2);
+  });
+}
+
+function cssEscape(v) {
+  return window.CSS && CSS.escape ? CSS.escape(String(v)) : String(v).replace(/["\\]/g, '\\$&');
 }
 
 function bindDrag(node, stage, chip, o) {
@@ -191,7 +291,9 @@ function bindDrag(node, stage, chip, o) {
     moved = true;
     const x = (e.clientX - rect.left) / rect.width * VB.w;
     const y = (e.clientY - rect.top) / rect.height * VB.h;
-    const p = clampToField(x, y);
+    /* 상자 크기는 그릴 때 재어 둔 값을 쓴다 — 끄는 동안 매번 재면 레이아웃을 다시 계산하느라
+       손가락을 따라오지 못한다. */
+    const p = clampBox(x, y, +node.dataset.bw || 0, +node.dataset.bh || 0);
     chip.x = p.x; chip.y = p.y;
     node.style.left = (p.x / VB.w * 100) + '%';
     node.style.top = (p.y / VB.h * 100) + '%';
@@ -240,8 +342,8 @@ export const DEFAULT_KEYWORDS = [
 
 export const DEFAULT_CONFIG = {
   keywords: DEFAULT_KEYWORDS,
-  maxChips: 6,   // 한 인물에 놓을 수 있는 최대 개수
-  minChips: 4,   // 제출하려면 한 인물에 적어도 이만큼
+  maxChips: 4,   // 한 인물에 놓을 수 있는 최대 개수 — 머릿속 높이가 딱 네 줄이다
+  minChips: 3,   // 제출하려면 한 인물에 적어도 이만큼
   noteMax: 40    // 근거 한 줄의 글자 수 상한
 };
 
