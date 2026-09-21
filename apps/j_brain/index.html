@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>영정조 뇌구조도</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;700;900&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/theme.css">
+<style>
+/* 두 임금을 색으로 갈라 둔다. 갤러리에서 두 머리가 나란히 서므로 색이 곧 이름표다.
+   프리셋(hi-preset-paper)이 --hi-* 를 body 에서 정하므로 이 묶음도 body 에 둔다 —
+   :root 에 두면 --hi-text 가 프리셋 이전의 기본값(흰색)으로 굳어 글자가 안 보인다. */
+body{
+  --bm-yeongjo:#2F5D62;
+  --bm-jeongjo:#8B2F3F;
+  --bm-fill:#FBF8F1;      /* 귀 안쪽이 머리에 가려지려면 불투명해야 한다 */
+  --bm-need:var(--hi-accent);
+  --bm-ink:var(--hi-text);
+  --bm-chip-bg:rgba(255,255,255,.7);
+  --bm-chip-sel:rgba(184,134,11,.25);
+  --bm-ok:#166534;
+  --bm-no:#B91C1C;
+}
+body{background:var(--hi-bg-base);color:var(--hi-text);font-family:'Pretendard',sans-serif;margin:0;
+  min-height:100vh;-webkit-tap-highlight-color:transparent}
+.wrap{max-width:560px;margin:0 auto;padding:22px 16px 40px}
+.screen{display:none}
+.screen.active{display:block}
+
+/* 머리글 */
+.bm-head{text-align:center;margin-bottom:18px}
+.bm-eyebrow{font-size:12px;letter-spacing:.18em;color:var(--hi-text-muted);font-weight:700}
+.bm-title{font-family:'Noto Serif KR',serif;font-size:27px;font-weight:900;margin:6px 0 4px;color:var(--hi-text)}
+.bm-lead{font-size:13px;color:var(--hi-text-soft);line-height:1.7;word-break:keep-all}
+
+/* 인물 탭 */
+.side-tabs{display:flex;gap:8px;justify-content:center;margin-bottom:14px}
+.side-tab{flex:1;max-width:180px;padding:11px 8px;border-radius:12px;border:1.5px solid var(--hi-border);
+  background:var(--hi-bg-surface);font-family:'Noto Serif KR',serif;font-size:17px;font-weight:700;
+  color:var(--hi-text-muted);cursor:pointer;transition:.15s;line-height:1.3}
+.side-tab .st-reign{display:block;font-family:'Pretendard',sans-serif;font-size:11px;font-weight:600;margin-top:3px;opacity:.8}
+.side-tab.on{color:#fff;border-color:transparent}
+.side-tab.on[data-side="yeongjo"]{background:var(--bm-yeongjo)}
+.side-tab.on[data-side="jeongjo"]{background:var(--bm-jeongjo)}
+.side-count{display:inline-block;min-width:18px;margin-left:5px;padding:0 5px;border-radius:9px;
+  background:var(--hi-accent-soft);color:var(--hi-text-soft);font-family:'Pretendard',sans-serif;font-size:12px;font-weight:800}
+.side-tab.on .side-count{background:rgba(255,255,255,.25);color:#fff}
+
+/* 무대 */
+.stage-box{background:var(--hi-bg-surface);border:1px solid var(--hi-border);border-radius:16px;padding:10px 8px 14px;margin-bottom:12px}
+
+/* 고른 칩 편집 */
+.editor{background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:14px;padding:14px;margin-bottom:14px}
+.ed-hint{font-size:13px;color:var(--hi-text-muted);text-align:center;line-height:1.7;word-break:keep-all;padding:6px 0}
+.ed-top{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.ed-name{font-family:'Noto Serif KR',serif;font-size:18px;font-weight:900;flex:1;min-width:0}
+.ed-row{margin-bottom:12px}
+.ed-lbl{font-size:12px;font-weight:800;color:var(--hi-text-muted);margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.ed-lbl .ed-wname{margin-left:auto;color:var(--hi-accent-strong);font-weight:800}
+.ed-range{width:100%;accent-color:var(--hi-accent);height:26px}
+.ed-note{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid var(--hi-border);border-radius:10px;
+  background:var(--hi-bg-elevated);font-family:inherit;font-size:14px;color:var(--hi-text);outline:none;resize:none;line-height:1.6}
+.ed-note:focus{border-color:var(--hi-border-light)}
+.ed-count{text-align:right;font-size:11px;color:var(--hi-text-muted);margin-top:4px}
+
+/* 키워드 서랍 */
+.pool-box{margin-bottom:16px}
+.pool-title{font-size:12px;font-weight:800;color:var(--hi-text-muted);margin-bottom:8px;text-align:center;letter-spacing:.04em}
+.pool{display:flex;flex-wrap:wrap;gap:7px;justify-content:center}
+.pool-item{padding:8px 13px;border-radius:999px;border:1.5px solid var(--hi-border);background:var(--hi-bg-surface);
+  font-family:inherit;font-size:14px;font-weight:700;color:var(--hi-text-soft);cursor:pointer;transition:.12s}
+.pool-item:hover{border-color:var(--hi-border-light)}
+.pool-item.used{opacity:.4;text-decoration:line-through;text-decoration-thickness:1px}
+
+/* 아래 버튼 */
+.footbar{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.b{padding:13px 26px;border-radius:12px;border:none;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;transition:.15s}
+.b-main{background:var(--hi-accent);color:#fff}
+.b-main:hover{background:var(--hi-accent-hover)}
+.b-ghost{background:var(--hi-bg-surface);border:1.5px solid var(--hi-border);color:var(--hi-text-soft)}
+.b-ghost:hover{border-color:var(--hi-border-light);color:var(--hi-text)}
+.b-sm{padding:8px 15px;font-size:13px;border-radius:10px}
+.done-note{text-align:center;font-size:12px;color:var(--hi-text-muted);margin-bottom:10px}
+
+/* 갤러리 */
+.gal-head{display:flex;align-items:center;gap:8px;margin-bottom:14px}
+.gal-head .bm-title{margin:0;font-size:22px;flex:1;text-align:left}
+.gal-grid{display:grid;grid-template-columns:1fr;gap:12px}
+.gal-card{background:var(--hi-bg-surface);border:1px solid var(--hi-border);border-radius:16px;padding:12px;cursor:pointer}
+.gal-who{font-weight:800;font-size:14px;margin-bottom:8px;text-align:center}
+.gal-pair{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.gal-pair .bm-stage{max-width:100%}
+.gal-empty{text-align:center;padding:50px 20px;color:var(--hi-text-muted);font-size:14px;line-height:1.8}
+
+/* 크게 보기 */
+.ov{position:fixed;inset:0;background:rgba(26,18,8,.55);display:none;align-items:flex-start;justify-content:center;
+  z-index:80;padding:20px 12px;overflow-y:auto}
+.ov.show{display:flex}
+.ov-box{background:var(--hi-bg-base);border-radius:18px;padding:18px 16px 22px;max-width:520px;width:100%}
+.ov-top{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.ov-who{font-family:'Noto Serif KR',serif;font-size:18px;font-weight:900;flex:1}
+.ov-sec{margin-top:16px}
+.ov-sec-h{font-family:'Noto Serif KR',serif;font-size:16px;font-weight:900;text-align:center;margin-bottom:8px}
+.ov-sec-h[data-side="yeongjo"]{color:var(--bm-yeongjo)}
+.ov-sec-h[data-side="jeongjo"]{color:var(--bm-jeongjo)}
+.ov-notes{margin-top:8px;display:flex;flex-direction:column;gap:6px}
+.ov-note{background:var(--hi-bg-card);border-radius:10px;padding:9px 12px;font-size:13px;line-height:1.6;color:var(--hi-text-soft)}
+.ov-note b{color:var(--hi-text);font-weight:800}
+
+/* 로그인 안내 */
+.gate{background:var(--hi-bg-surface);border:1px solid var(--hi-border);border-radius:16px;padding:44px 22px;text-align:center}
+.gate-t{font-family:'Noto Serif KR',serif;font-size:19px;font-weight:900;margin-bottom:8px}
+.gate-d{font-size:13px;color:var(--hi-text-muted);line-height:1.8}
+
+@media(max-width:600px){
+  .bm-title{font-size:24px}
+  .gal-grid{grid-template-columns:1fr}
+}
+</style>
+<script src="/hoistory/pwa.js"></script>
+</head>
+<body class="hi-preset-paper">
+
+<div class="wrap">
+
+  <!-- 만들기 -->
+  <div class="screen active" id="screen-make">
+    <div class="gate" id="gate" style="display:none">
+      <div class="gate-t">로그인이 필요해요</div>
+      <div class="gate-d">수업 홈에서 로그인한 뒤 이 활동으로 들어와 주세요.</div>
+    </div>
+
+    <div id="make-main" style="display:none">
+      <div class="bm-head">
+        <div class="bm-eyebrow">탕평의 시대</div>
+        <h1 class="bm-title">영정조 뇌구조도</h1>
+        <div class="bm-lead">두 임금의 머릿속을 채워 보세요. 크게 넣을수록 그 일에 더 마음을 쏟았다는 뜻입니다.</div>
+      </div>
+
+      <div class="side-tabs" id="side-tabs"></div>
+
+      <div class="stage-box"><div id="stage"></div></div>
+
+      <div class="editor" id="editor"></div>
+
+      <div class="pool-box">
+        <div class="pool-title">머릿속에 넣을 것 고르기</div>
+        <div class="pool" id="pool"></div>
+      </div>
+
+      <div class="done-note" id="done-note"></div>
+      <div class="footbar">
+        <button class="b b-main" id="submit-btn">제출하기</button>
+        <button class="b b-ghost" id="gallery-btn" style="display:none">친구들 작품 보기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 갤러리 -->
+  <div class="screen" id="screen-gallery">
+    <div class="gal-head">
+      <h1 class="bm-title">우리 반 뇌구조도</h1>
+      <button class="b b-ghost b-sm" id="gal-back">돌아가기</button>
+    </div>
+    <div class="gal-grid" id="gal-grid"></div>
+  </div>
+
+</div>
+
+<!-- 크게 보기 -->
+<div class="ov" id="ov">
+  <div class="ov-box">
+    <div class="ov-top">
+      <div class="ov-who" id="ov-who"></div>
+      <button class="b b-ghost b-sm" id="ov-close">닫기</button>
+    </div>
+    <div id="ov-body"></div>
+  </div>
+</div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import{getFirestore,doc,getDoc,setDoc,serverTimestamp,collection,query,where,getDocs}
+  from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import "../../shared/offline.js";
+import { firebaseConfig } from "../../shared/firebase-config.js";
+import { showToast, showCelebration } from "../../shared/toast.js";
+import { containsBadWord } from "../../shared/profanity.js";
+import { mountCharCounter, blockPaste, trimCompact } from "../../shared/textLimit.js?v=20260901";
+import { icon } from "../../shared/icons.js";
+import { renderBrain, nextSpot, mergeConfig, chipEm, SIDES, sideName, WEIGHTS } from "./brain.js";
+
+/* 근거는 학생이 직접 쓴 것이어야 한다 — 붙여넣기를 막는다. */
+blockPaste(document, { notice: true });
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let CFG = mergeConfig(null);
+let student = null;
+let side = 'yeongjo';
+let data = { yeongjo: [], jeongjo: [] };
+let selected = null;
+let submittedAt = null;
+let stageEl = null;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const chipsOf = s => data[s] || (data[s] = []);
+const kwById = id => CFG.keywords.find(k => k.id === id);
+function classNumOf(sid){ sid = String(sid || ''); if (sid.length < 3) return null; const c = parseInt(sid.slice(1,3),10); return isNaN(c) ? null : c; }
+
+/* ── 학생 확인 (LMS가 남긴 값을 읽는다, 자체 로그인 없음) ── */
+function getStudent(){
+  const sid = sessionStorage.getItem('lms_sid') || localStorage.getItem('lms_autosave_sid');
+  const nm  = sessionStorage.getItem('lms_sname') || localStorage.getItem('lms_autosave_sname');
+  if (!sid || !nm || String(sid).length < 5) return null;
+  return { studentId: String(sid), name: nm, classNum: classNumOf(sid) };
+}
+
+/* ── 임시 보관 (제출 전에는 이 기기에만 둔다) ── */
+const draftKey = () => 'j_brain_draft_' + (student ? student.studentId : 'x');
+function saveDraft(){
+  try{ localStorage.setItem(draftKey(), JSON.stringify(data)); }catch(e){}
+}
+function loadDraft(){
+  try{
+    const raw = localStorage.getItem(draftKey());
+    if (!raw) return null;
+    const d = JSON.parse(raw);
+    if (d && Array.isArray(d.yeongjo) && Array.isArray(d.jeongjo)) return d;
+  }catch(e){}
+  return null;
+}
+
+/* ── 시작 ── */
+async function init(){
+  try{
+    const snap = await getDoc(doc(db,'settings','j_brain_config'));
+    CFG = mergeConfig(snap.exists() ? snap.data() : null);
+  }catch(e){ CFG = mergeConfig(null); }
+
+  student = getStudent();
+  if (!student){ $('gate').style.display = 'block'; return; }
+  $('make-main').style.display = 'block';
+
+  try{
+    const snap = await getDoc(doc(db,'j_brain_works',student.studentId));
+    if (snap.exists()){
+      const d = snap.data();
+      data.yeongjo = Array.isArray(d.yeongjo) ? d.yeongjo : [];
+      data.jeongjo = Array.isArray(d.jeongjo) ? d.jeongjo : [];
+      submittedAt = d.submittedAt || null;
+    }
+  }catch(e){}
+
+  /* 낸 뒤에 고치던 중이던 것이 있으면 그쪽이 더 최근이다. */
+  const draft = loadDraft();
+  if (draft && (draft.yeongjo.length || draft.jeongjo.length)) data = draft;
+
+  renderTabs(); renderStage(); renderEditor(); renderPool(); renderFoot();
+}
+
+/* ── 인물 탭 ── */
+function renderTabs(){
+  $('side-tabs').innerHTML = SIDES.map(s => `
+    <button class="side-tab${s.key === side ? ' on' : ''}" data-side="${s.key}">
+      ${s.name}<span class="side-count">${chipsOf(s.key).length}</span>
+      <span class="st-reign">${s.reign}</span>
+    </button>`).join('');
+  $('side-tabs').querySelectorAll('.side-tab').forEach(b => b.addEventListener('click', () => {
+    if (side === b.dataset.side) return;
+    side = b.dataset.side; selected = null;
+    renderTabs(); renderStage(); renderEditor(); renderPool();
+  }));
+}
+
+/* ── 머리 ── */
+function renderStage(){
+  stageEl = renderBrain($('stage'), {
+    side, chips: chipsOf(side), selected, live: true,
+    emptyText: '아래에서 키워드를 골라 ' + sideName(side) + '의 머릿속을 채워 보세요',
+    onPick: k => { selected = (selected === k ? null : k); renderStage(); renderEditor(); },
+    onMove: () => saveDraft()
+  });
+}
+
+/* ── 고른 칩 편집 ── */
+function renderEditor(){
+  const box = $('editor');
+  const chip = chipsOf(side).find(c => c.k === selected);
+  if (!chip){
+    box.innerHTML = '<div class="ed-hint">머릿속에 넣은 것을 누르면 크기와 그렇게 본 까닭을 적을 수 있어요.</div>';
+    return;
+  }
+  const wname = (WEIGHTS.find(w => w.w === chip.w) || WEIGHTS[1]).label;
+  box.innerHTML = `
+    <div class="ed-top">
+      <div class="ed-name">${esc(chip.label)}</div>
+      <button class="b b-ghost b-sm" id="ed-del">빼기</button>
+    </div>
+    <div class="ed-row">
+      <div class="ed-lbl">머릿속에서 차지한 크기<span class="ed-wname" id="ed-wname">${esc(wname)}</span></div>
+      <input type="range" class="ed-range" id="ed-range" min="1" max="5" step="1" value="${chip.w}">
+    </div>
+    <div class="ed-row" style="margin-bottom:0">
+      <div class="ed-lbl">그렇게 본 까닭</div>
+      <textarea class="ed-note" id="ed-note" rows="2" placeholder="왜 이만큼 마음을 쏟았을까요"></textarea>
+      <div class="ed-count" id="ed-count"></div>
+    </div>`;
+
+  const noteEl = $('ed-note');
+  noteEl.value = chip.note || '';
+  mountCharCounter({ input: noteEl, counter: $('ed-count'), max: CFG.noteMax, excludeSpaces: true,
+                     format: (n, m) => `${n} / ${m}` });
+  noteEl.addEventListener('input', () => {
+    chip.note = noteEl.value;
+    saveDraft();
+    /* 글자를 칠 때마다 머리를 다시 그리면 글쓰던 칸에서 커서가 빠져나간다. 점만 갈아 끼운다. */
+    const node = stageEl && stageEl.querySelector('.bm-chip[data-k="' + CSS.escape(chip.k) + '"]');
+    if (node){
+      const has = !!node.querySelector('.bm-need');
+      if (!chip.note && !has) node.insertAdjacentHTML('beforeend', '<span class="bm-need"></span>');
+      if (chip.note && has) node.querySelector('.bm-need').remove();
+    }
+  });
+
+  $('ed-range').addEventListener('input', e => {
+    chip.w = +e.target.value;
+    $('ed-wname').textContent = (WEIGHTS.find(w => w.w === chip.w) || WEIGHTS[1]).label;
+    const node = stageEl && stageEl.querySelector('.bm-chip[data-k="' + CSS.escape(chip.k) + '"]');
+    if (node) node.style.fontSize = chipEm(chip.w) + 'em';
+    saveDraft();
+  });
+
+  $('ed-del').addEventListener('click', () => {
+    data[side] = chipsOf(side).filter(c => c.k !== chip.k);
+    selected = null; saveDraft();
+    renderTabs(); renderStage(); renderEditor(); renderPool(); renderFoot();
+  });
+}
+
+/* ── 키워드 서랍 ──
+   순서를 섞되 학번으로 섞어 둔다. 새로 고칠 때마다 자리가 바뀌면 찾던 것을 다시 찾아야 한다.
+   함정을 눈에 띄지 않게 하려는 것이므로 정답끼리 모여 있지 않게만 하면 된다. */
+function shuffled(list, seedStr){
+  let seed = 0; String(seedStr || '').split('').forEach(ch => { seed = (seed * 31 + ch.charCodeAt(0)) >>> 0; });
+  const a = list.slice();
+  for (let i = a.length - 1; i > 0; i--){
+    seed = (seed * 1103515245 + 12345) >>> 0;
+    const j = seed % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+function renderPool(){
+  const used = new Set(chipsOf(side).map(c => c.k));
+  const list = shuffled(CFG.keywords, student ? student.studentId : 'x');
+  $('pool').innerHTML = list.map(k =>
+    `<button class="pool-item${used.has(k.id) ? ' used' : ''}" data-id="${esc(k.id)}">${esc(k.label)}</button>`).join('');
+  $('pool').querySelectorAll('.pool-item').forEach(b => b.addEventListener('click', () => addChip(b.dataset.id)));
+}
+
+function addChip(id){
+  const kw = kwById(id);
+  if (!kw) return;
+  const chips = chipsOf(side);
+  if (chips.some(c => c.k === id)){
+    /* 이미 놓인 것을 다시 누르면 그 칩을 고른 상태로 만든다(빼려는 손이 헤매지 않게). */
+    selected = id; renderStage(); renderEditor(); return;
+  }
+  if (chips.length >= CFG.maxChips){
+    showToast(sideName(side) + '의 머릿속은 ' + CFG.maxChips + '칸까지예요', 'info');
+    return;
+  }
+  const p = nextSpot(chips);
+  chips.push({ k: id, label: kw.label, w: 3, x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10, note: '' });
+  selected = id; saveDraft();
+  renderTabs(); renderStage(); renderEditor(); renderPool(); renderFoot();
+}
+
+/* ── 아래 버튼 ── */
+function renderFoot(){
+  $('submit-btn').textContent = submittedAt ? '다시 제출하기' : '제출하기';
+  $('gallery-btn').style.display = submittedAt ? '' : 'none';
+  $('done-note').textContent = submittedAt ? '이미 한 번 냈어요. 고쳐서 다시 낼 수 있습니다.' : '';
+}
+
+function firstGap(){
+  for (const s of SIDES){
+    const chips = chipsOf(s.key);
+    if (chips.length < CFG.minChips) return s.name + '의 머릿속이 아직 덜 찼어요';
+    const empty = chips.find(c => trimCompact(c.note).length < 2);
+    if (empty) return s.name + '의 "' + empty.label + '"에 까닭을 적어 주세요';
+    const bad = chips.find(c => containsBadWord(c.note));
+    if (bad) return '바르지 않은 말이 섞여 있어요';
+  }
+  return null;
+}
+
+$('submit-btn').addEventListener('click', async () => {
+  const gap = firstGap();
+  if (gap){ showToast(gap, 'info'); return; }
+  const btn = $('submit-btn');
+  btn.disabled = true;
+  try{
+    const pack = s => ({ chips: chipsOf(s).map(c => ({
+      k: c.k, label: c.label, w: c.w,
+      x: Math.round(c.x * 10) / 10, y: Math.round(c.y * 10) / 10,
+      note: trimCompact(c.note).slice(0, 120)
+    })) });
+    await setDoc(doc(db,'j_brain_works',student.studentId), {
+      studentId: student.studentId, name: student.name, classNum: student.classNum,
+      yeongjo: pack('yeongjo').chips, jeongjo: pack('jeongjo').chips,
+      submittedAt: serverTimestamp()
+    }, { merge: true });
+    submittedAt = true;
+    renderFoot();
+    showCelebration({ icon: icon('crown', 40), title: '두 임금의 머릿속이 완성됐어요',
+                      message: '친구들은 무엇을 크게 그렸는지 보러 가 볼까요' });
+  }catch(e){
+    showToast('제출하지 못했어요. 잠시 뒤에 다시 눌러 주세요', 'error');
+  }
+  btn.disabled = false;
+});
+
+/* ── 갤러리 ── */
+$('gallery-btn').addEventListener('click', openGallery);
+$('gal-back').addEventListener('click', () => showScreen('screen-make'));
+
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+let galWorks = [];
+async function openGallery(){
+  showScreen('screen-gallery');
+  $('gal-grid').innerHTML = '<div class="gal-empty">불러오는 중이에요</div>';
+  try{
+    const q = query(collection(db,'j_brain_works'), where('classNum','==', student.classNum));
+    const snap = await getDocs(q);
+    galWorks = [];
+    snap.forEach(d => { const v = d.data(); if (v.submittedAt) galWorks.push(v); });
+    galWorks.sort((a,b) => String(a.studentId).localeCompare(String(b.studentId)));
+  }catch(e){
+    $('gal-grid').innerHTML = '<div class="gal-empty">작품을 불러오지 못했어요</div>';
+    return;
+  }
+  renderGallery();
+}
+
+function renderGallery(){
+  if (!galWorks.length){
+    $('gal-grid').innerHTML = '<div class="gal-empty">아직 낸 친구가 없어요</div>';
+    return;
+  }
+  $('gal-grid').innerHTML = galWorks.map((w,i) => `
+    <div class="gal-card" data-i="${i}">
+      <div class="gal-who">${esc(w.name)}</div>
+      <div class="gal-pair"><div data-mini="y${i}"></div><div data-mini="j${i}"></div></div>
+    </div>`).join('');
+  galWorks.forEach((w,i) => {
+    renderBrain($('gal-grid').querySelector('[data-mini="y'+i+'"]'), { side:'yeongjo', chips: w.yeongjo || [] });
+    renderBrain($('gal-grid').querySelector('[data-mini="j'+i+'"]'), { side:'jeongjo', chips: w.jeongjo || [] });
+  });
+  $('gal-grid').querySelectorAll('.gal-card').forEach(c =>
+    c.addEventListener('click', () => openOverlay(galWorks[+c.dataset.i])));
+}
+
+function openOverlay(w){
+  $('ov-who').textContent = w.name + '의 뇌구조도';
+  $('ov-body').innerHTML = SIDES.map(s => `
+    <div class="ov-sec">
+      <div class="ov-sec-h" data-side="${s.key}">${s.name}</div>
+      <div data-big="${s.key}"></div>
+      <div class="ov-notes">${(w[s.key] || []).map(c =>
+        `<div class="ov-note"><b>${esc(c.label)}</b> ${esc(c.note || '')}</div>`).join('')}</div>
+    </div>`).join('');
+  SIDES.forEach(s => renderBrain($('ov-body').querySelector('[data-big="'+s.key+'"]'), { side: s.key, chips: w[s.key] || [] }));
+  $('ov').classList.add('show');
+}
+$('ov-close').addEventListener('click', () => $('ov').classList.remove('show'));
+$('ov').addEventListener('click', e => { if (e.target === $('ov')) $('ov').classList.remove('show'); });
+
+init();
+</script>
+</body>
+</html>
