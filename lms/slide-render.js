@@ -913,6 +913,20 @@
   }
 
   /* slide + lesson 데이터를 받아 완성된 <div class="slide ...">...</div> HTML 문자열을 돌려준다 */
+  /* 페이지별 글자 크기가 덮어써야 할 변수. 본문 글자를 그리는 변수만 적는다
+     (사료 인용의 소제목·출처, 연표의 연도처럼 곁다리 글자는 디자인 탭 값을 따른다). */
+  const PAGE_FS_VARS = {
+    rows:         ['--fs-rows-body'],
+    quote:        ['--fs-qt-text'],
+    notice:       ['--fs-notice'],
+    compare:      ['--fs-cmp-body'],
+    'timeline-h': ['--fs-tl-text'],
+    'timeline-v': ['--fs-tl-text'],
+    'flow-h':     ['--fs-fl-text'],
+    'flow-v':     ['--fs-fl-text'],
+    cols:         ['--fs-cols-head', '--fs-cols-body']
+  };
+
   function renderSlideHTML(slide, lesson) {
     let extraClass = '';
     let inner = '';
@@ -965,19 +979,21 @@
     // 예전에는 미션 Check 전체가 CSS로 양쪽 정렬이라 끌 수가 없었다.
     if (slide.align === 'justify') extraClass += ' align-justify';
     else if (slide.align === 'center') extraClass += ' align-center';
-    // 페이지별 본문 글자 크기 오버라이드. 중앙 나열(cols)은 소제목/내용이 전용 변수를 쓰므로
-    // --fs-body만 덮어써서는 안 먹는다 — 그 페이지에 한해 전용 변수도 같이 덮어쓴다.
+    /* 페이지별 본문 글자 크기 오버라이드("형식 변경 / 페이지 설정"의 글자 크기 칸).
+       형식마다 본문이 읽는 변수가 다르므로(--fs-rows-body, --fs-qt-text …) 그 형식의
+       변수를 함께 덮어쓴다. 예전에는 --fs-body 하나만 덮어썼는데, 디자인 탭이 형식별
+       변수를 언제나 채우기 때문에 --fs-body는 어느 규칙에도 닿지 않아 이 설정이 통째로
+       먹지 않았다(중앙 나열만 따로 손봐 둔 상태였다). 형식을 새로 만들면 여기 한 줄을
+       더해야 그 형식에서도 페이지별 크기가 먹는다. */
     let fsStyle = '';
+    const decls = [];
     if (slide.fontSize) {
-      fsStyle = slide.format === 'cols'
-        ? ` style="--fs-body:${slide.fontSize}px;--fs-cols-head:${slide.fontSize}px;--fs-cols-body:${slide.fontSize}px"`
-        : ` style="--fs-body:${slide.fontSize}px"`;
+      // --fs-body 도 같이 남긴다 — 아직 PAGE_FS_VARS 에 안 올라온 규칙을 위한 안전판.
+      decls.push(`--fs-body:${slide.fontSize}px`);
+      (PAGE_FS_VARS[slide.format || 'rows'] || []).forEach(v => decls.push(`${v}:${slide.fontSize}px`));
     }
-    if (slide.colsTitleSize) {
-      fsStyle = fsStyle
-        ? fsStyle.replace(/"$/, `;--fs-cols-title:${slide.colsTitleSize}px"`)
-        : ` style="--fs-cols-title:${slide.colsTitleSize}px"`;
-    }
+    if (slide.colsTitleSize) decls.push(`--fs-cols-title:${slide.colsTitleSize}px`);
+    if (decls.length) fsStyle = ` style="${decls.join(';')}"`;
     return `<div class="slide${extraClass}"${fsStyle}>${inner}</div>`;
   }
 
