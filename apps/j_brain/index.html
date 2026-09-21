@@ -16,7 +16,6 @@
 body{
   --bm-yeongjo:#2F5D62;
   --bm-jeongjo:#8B2F3F;
-  --bm-need:var(--hi-accent);
   --bm-ink:var(--hi-text);
   --bm-chip-bg:rgba(255,255,255,.7);
   --bm-chip-sel:rgba(184,134,11,.25);
@@ -25,7 +24,7 @@ body{
 }
 body{background:var(--hi-bg-base);color:var(--hi-text);font-family:'Pretendard',sans-serif;margin:0;
   min-height:100vh;-webkit-tap-highlight-color:transparent}
-.wrap{max-width:560px;margin:0 auto;padding:22px 16px 40px}
+.wrap{max-width:640px;margin:0 auto;padding:22px 16px 40px}
 .screen{display:none}
 .screen.active{display:block}
 
@@ -49,7 +48,7 @@ body{background:var(--hi-bg-base);color:var(--hi-text);font-family:'Pretendard',
 .side-tab.on .side-count{background:rgba(255,255,255,.25);color:#fff}
 
 /* 무대 */
-.stage-box{background:var(--hi-bg-surface);border:1px solid var(--hi-border);border-radius:16px;padding:10px 8px 14px;margin-bottom:12px}
+.stage-box{background:var(--hi-bg-surface);border:1px solid var(--hi-border);border-radius:16px;padding:8px 6px 10px;margin-bottom:12px}
 
 /* 고른 칩 편집 */
 .editor{background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:14px;padding:14px;margin-bottom:14px}
@@ -318,13 +317,10 @@ function renderEditor(){
   noteEl.addEventListener('input', () => {
     chip.note = noteEl.value;
     saveDraft();
-    /* 글자를 칠 때마다 머리를 다시 그리면 글쓰던 칸에서 커서가 빠져나간다. 점만 갈아 끼운다. */
+    /* 글자를 칠 때마다 머리를 다시 그리면 글쓰던 칸에서 커서가 빠져나간다.
+       구름 테두리(점선 = 아직 안 씀 / 실선 = 씀)만 갈아 끼운다. */
     const node = stageEl && stageEl.querySelector('.bm-chip[data-k="' + CSS.escape(chip.k) + '"]');
-    if (node){
-      const has = !!node.querySelector('.bm-need');
-      if (!chip.note && !has) node.insertAdjacentHTML('beforeend', '<span class="bm-need"></span>');
-      if (chip.note && has) node.querySelector('.bm-need').remove();
-    }
+    if (node) node.classList.toggle('bm-open', !chip.note);
   });
 
   /* 끄는 동안에는 글자 크기만 바로 바꿔 보여 주고, 손을 뗄 때 머리를 다시 그린다.

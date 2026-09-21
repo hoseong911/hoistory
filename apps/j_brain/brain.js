@@ -3,97 +3,160 @@
    (세 곳이 따로 그리면 학생이 옮겨 둔 자리와 선생님이 보는 자리가 어긋난다.)
 
    좌표계: 아래 VB 크기 안쪽 좌표를 그대로 저장한다. 화면 크기가 달라져도 비율로 다시
-   계산되므로 폰에서 놓은 자리가 칠판 화면에서도 그대로다. 그림(brain.png)이 정사각형이라
-   VB도 정사각형이다 — 그림을 바꾸면 VB와 FIELD를 함께 다시 재야 한다. */
+   계산되므로 폰에서 놓은 자리가 칠판 화면에서도 그대로다. 그림이 정사각형이라 VB도
+   정사각형이다. */
 
 export const VB = { w: 320, h: 320 };
 
 /* 면류관 쓴 옆모습 머리. 두 임금이 같은 그림을 쓰고 색과 이름표로만 갈라진다.
    화면에는 webp 를 쓴다 — 원본 png 가 1.1MB라 학생 폰에서 그림 한 장에 1MB를 쓰게 된다.
    같은 크기(1254px) 그대로 다시 구운 것이고 91KB다. **brain.png 가 원본이니 지우지 말 것**,
-   그림을 고치면 png 를 갈아 끼운 뒤 webp 를 다시 굽고 FIELD_ROWS 도 다시 잰다. */
+   그림을 고치면 png 를 갈아 끼운 뒤 webp 를 다시 굽고 아래 BLOCKED 도 다시 잰다. */
 export const HEAD_IMG = new URL('brain.webp', import.meta.url).href;
 
-/* 글자를 놓을 수 있는 곳 — 그림의 흰 머릿속 윤곽이다. 타원 하나로 잡으려 했더니
-   면류관이 왼쪽 위를 비스듬히 덮고 있어, 타원에 맞추면 아래쪽 넓은 데가 통째로 남고
-   타원을 키우면 윗줄 글자가 관 밑을 파고든다. 그래서 줄마다 좌우 끝을 재서 표로 둔다.
-   brain.png(1254px)를 캔버스로 읽어 줄마다 흰 구간을 잰 값을 VB 320 기준으로 환산한
-   것이다. **그림을 바꾸면 이 표를 다시 재야 한다.** */
-const FIELD_ROWS = [
-  [135.0,  79.4, 179.4],
-  [146.8,  77.3, 188.1],
-  [158.5,  78.1, 198.3],
-  [170.2,  79.4, 212.8],
-  [182.0,  70.4, 233.0],
-  [193.7,  62.0, 232.5],
-  [205.4,  73.0, 228.9],
-  [217.2,  70.9, 221.0],
-  [228.9,  72.0, 210.0],
-  [240.7,  78.9, 206.5],
-  [252.4,  78.3, 209.5]
+/* ── 글자가 못 들어가는 곳 ──
+   면류관과 옷깃만 막고 나머지는 머리 안이든 밖이든 다 쓴다. 표는 눈대중이 아니라 그림을
+   캔버스로 읽어 만든 것이다: 흰 배경이 아닌 화소를 모은 뒤 "열기"(깎았다 부풀리기)로
+   가는 선을 지워 덩어리만 남기고(그래서 머리 윤곽선과 목선은 사라지고 면류관·유·옷깃만
+   남는다) 글자가 닿지 않게 한 번 더 부풀린 값이다. 64x64 칸이고 한 칸이 VB 5이다.
+   **그림을 바꾸면 이 표를 다시 재야 한다.** 재는 방법은 CLAUDE.md에 적어 두었다. */
+const GRID = 64;
+const CELL = VB.w / GRID;
+const BLOCKED = [
+  '0000000000000001111111100000000000000000000000000000000000000000',
+  '0000001111111111111111111111100000000000000000000000000000000000',
+  '0000111111111111111111111111111110000000000000000000000000000000',
+  '0000111111111111111111111111111111111100000000000000000000000000',
+  '0000011111111111111111111111111111111111110000000000000000000000',
+  '0000001111111111111111111111111111111111111111000000000000000000',
+  '0000000111111111111111111111111111111111111111111110000000000000',
+  '0000000111111111111111111111111111111111111111111111111000000000',
+  '0000000111111111111111111111111111111111111111111111111111110000',
+  '0000000111111111011111111111111111111111111111111111111111111110',
+  '0000000111111111001111111111111111111111111111111111111111111110',
+  '0000000111111111011111111111111111111111111111111111111111111110',
+  '0000000111111111011111111111111111111111111111111111111111111100',
+  '0000000111011111011111111111111111111111111111111111111111110000',
+  '0000000111111111011111111111111111111111111111111111111111110000',
+  '0000000111111111011111111111111111111111111111111100111111110000',
+  '0000000111111111111111111111111111111111111111111000111111110000',
+  '0000000111111111111111111111111111111111111111111000111111110000',
+  '0000000111111111111111111111111111111111111111111000111111111000',
+  '0000000111111111111111111111111111111111111111111000111111111000',
+  '0000000111111111111111111111111111111111111111111000111111111000',
+  '0000001111111111111111111111111111111111111111111000111111111000',
+  '0000001111111111111111111111111111111111111111111000111111111000',
+  '0000000111111111111111111111111111111111111111111000111111111000',
+  '0000001111111111111111111111111111111111111111111000111111111000',
+  '0000001111111111111111111111111111111111111111111100111111111000',
+  '0000001111111110000000000000111111111111111111111100111111111000',
+  '0000001111111110000000000000000001111111111111111100111111111000',
+  '0000000000111100000000000000000000001111111111111100111111111000',
+  '0000000000000000000000000000000000001111111111111100111111111000',
+  '0000000000000000000000000000000000000111111111111000111111111000',
+  '0000000000000000000000000000000000000011111111111000111111111000',
+  '0000000000000000000000000000000000000001111111111000111111111000',
+  '0000000000000000000000000000000000000000111111111000011111111000',
+  '0000000000000000000000000000000000000000011111111000000111111000',
+  '0000000000000000000000000000000000000000001111111000000001111000',
+  '0000000000000000000000000000000000000000000011111000000000000000',
+  '0000000000000000000000000000000000000000000000000000000000000000',
+  '0000000000000000000000000000000000000000000000000000000000000000',
+  '0000000000000000000000000000000000000000000000000000000000000000',
+  '0000000000000000000000000000000000000000000000000000000000000000',
+  '0000000000000000000000000000000000000000000000000000000000000000',
+  '0000000000000000000000000000000000000000000000000000000000000000',
+  '0000000000000000000000000000000000000000000000000000000000000000',
+  '0000000000000000000000000000000000000000000000000000000000000000',
+  '0000000000000000000000000000000000000000000000000000000000000000',
+  '0000000000000000000000000000000000000000000000000000000000000000',
+  '0000000000000000000000000000000000000000000000000000000000000000',
+  '0000000000000000000000000000000000000000000000000000000000000000',
+  '0000000000000000000000000000000000000000000000000000000000000000',
+  '0000000000000000000000000000000000000000000111000000000000000000',
+  '0000000000000000000000000000000000000000011111000000000000000000',
+  '0000000000000000000000000000000000000001111111110000000000000000',
+  '0000000000000000000000000000000000000011111111110000000000000000',
+  '0000000000000000000000000000000000001111111111111000000000000000',
+  '0000000000000000000000000000000000011111111111111100000000000000',
+  '0000000000000000000000000000000000111111111111111100000000000000',
+  '0000000000000000000000000000000011111111111111111110000000000000',
+  '0000000000000000000000000000000011111111111111111111000000000000',
+  '0000000000000000000000000000000111111111111111111111000000000000',
+  '0000000000000000000000000000011111111111111111111111000000000000',
+  '0000000000000000000000000000011111111111111111111110000000000000',
+  '0000000000000000000000000000011111111111111111100000000000000000',
+  '0000000000000000000000000000011111111110000000000000000000000000'
 ];
-/* 글자가 윤곽선에 닿지 않게 사방으로 남겨 두는 여백 */
-const MARGIN = 7;
 
-export const FIELD_TOP = FIELD_ROWS[0][0] + MARGIN;
-export const FIELD_BOTTOM = FIELD_ROWS[FIELD_ROWS.length - 1][0] - MARGIN;
+/* 그림 가장자리에서 이만큼은 비워 둔다(글자가 화면 밖으로 걸치지 않게) */
+const EDGE = 6;
 
-/* 그 높이에서 쓸 수 있는 좌우 끝. 표의 두 줄 사이는 곧게 이어 본다. */
-function rowAt(y) {
-  const R = FIELD_ROWS;
-  if (y <= R[0][0]) return { lo: R[0][1] + MARGIN, hi: R[0][2] - MARGIN };
-  const last = R[R.length - 1];
-  if (y >= last[0]) return { lo: last[1] + MARGIN, hi: last[2] - MARGIN };
-  for (let i = 1; i < R.length; i++) {
-    if (y <= R[i][0]) {
-      const [y0, l0, h0] = R[i - 1], [y1, l1, h1] = R[i];
-      const t = (y - y0) / (y1 - y0);
-      return { lo: l0 + (l1 - l0) * t + MARGIN, hi: h0 + (h1 - h0) * t - MARGIN };
+function cellBlocked(gx, gy) {
+  if (gx < 0 || gy < 0 || gx >= GRID || gy >= GRID) return true;
+  return BLOCKED[gy].charCodeAt(gx) === 49;   // '1'
+}
+
+/* 가운데가 (x,y)이고 크기가 w x h인 상자를 놓을 수 있는가 */
+export function boxFree(x, y, w, h) {
+  const x0 = x - w / 2, x1 = x + w / 2, y0 = y - h / 2, y1 = y + h / 2;
+  if (x0 < EDGE || y0 < EDGE || x1 > VB.w - EDGE || y1 > VB.h - EDGE) return false;
+  const gx0 = Math.floor(x0 / CELL), gx1 = Math.floor((x1 - 0.001) / CELL);
+  const gy0 = Math.floor(y0 / CELL), gy1 = Math.floor((y1 - 0.001) / CELL);
+  for (let gy = gy0; gy <= gy1; gy++)
+    for (let gx = gx0; gx <= gx1; gx++)
+      if (cellBlocked(gx, gy)) return false;
+  return true;
+}
+
+/* 두 상자가 겹치는가. 구름은 가장자리가 둥글어 조금 닿는 정도는 오히려 자연스러우므로
+   2만큼은 봐 준다. */
+function hits(a, b) {
+  return Math.abs(a.x - b.x) < (a.w + b.w) / 2 - 2 &&
+         Math.abs(a.y - b.y) < (a.h + b.h) / 2 - 2;
+}
+
+/* 막힌 데(면류관·옷깃)도 아니고 이미 놓인 구름과도 겹치지 않는가 */
+function fits(x, y, w, h, avoid) {
+  if (!boxFree(x, y, w, h)) return false;
+  const me = { x, y, w, h };
+  return !avoid || !avoid.some(r => hits(me, r));
+}
+
+/* 놓을 수 없는 자리에 있는 상자를 가장 가까운 빈자리로 옮긴다(나선으로 넓혀 가며 찾는다).
+   찾지 못하면 원래 자리를 그대로 돌려준다 — 못 찾았다고 화면 밖으로 던지지 않는다. */
+export function findSpot(x, y, w, h, avoid) {
+  if (fits(x, y, w, h, avoid)) return { x, y };
+  for (let r = 4; r <= 150; r += 4) {
+    for (let a = 0; a < 24; a++) {
+      const t = (a / 24) * Math.PI * 2;
+      const nx = x + Math.cos(t) * r, ny = y + Math.sin(t) * r;
+      if (fits(nx, ny, w, h, avoid)) return { x: nx, y: ny };
     }
   }
-  return { lo: last[1] + MARGIN, hi: last[2] - MARGIN };
+  return { x, y };
 }
 
-/* 높이 h짜리 상자가 y에 놓일 때 쓸 수 있는 좌우 끝 — 상자가 걸치는 모든 줄에서 가장
-   좁은 구간을 쓴다. 가운데 한 점만 보고 놓으면 큰 글자의 위아래 모서리가 밖으로 나간다. */
-function bandFor(y, h) {
-  let lo = -Infinity, hi = Infinity;
-  const top = y - h / 2, bot = y + h / 2;
-  for (let s = 0; s <= 4; s++) {
-    const r = rowAt(top + (bot - top) * (s / 4));
-    lo = Math.max(lo, r.lo);
-    hi = Math.min(hi, r.hi);
+/* 새 키워드를 놓을 자리 차례. 머릿속 한가운데에서 시작해 바깥으로 퍼진다.
+   표에서 직접 찾아내므로 그림이 바뀌어도 (표만 다시 재면) 자리는 저절로 따라온다. */
+const HEART = { x: 150, y: 212 };          // 머릿속 한가운데 — 여기서 가까운 자리부터 채운다
+export const ANCHORS = (() => {
+  const pw = 58, ph = 26;                  // 보통 크기 칩 하나
+  const cands = [];
+  for (let y = 12; y <= VB.h - 12; y += 6)
+    for (let x = 12; x <= VB.w - 12; x += 6)
+      if (boxFree(x, y, pw, ph)) cands.push([x, y, Math.hypot(x - HEART.x, y - HEART.y)]);
+  cands.sort((a, b) => a[2] - b[2]);
+  const out = [];
+  for (const [x, y] of cands) {
+    if (out.every(o => Math.hypot(o[0] - x, o[1] - y) >= 36)) out.push([x, y]);
+    if (out.length >= 16) break;
   }
-  return { lo, hi };
-}
-
-/* 상자(가로 w, 세로 h)를 머릿속에 앉힌다. 밖으로 나간 만큼만 끌어당기므로 끌다가
-   손가락이 조금 벗어나도 칩이 튕겨 나가지 않는다. */
-export function clampBox(x, y, w, h) {
-  const yy = Math.min(Math.max(y, FIELD_TOP + h / 2), FIELD_BOTTOM - h / 2);
-  const b = bandFor(yy, h);
-  const room = b.hi - b.lo;
-  const xx = room <= w
-    ? (b.lo + b.hi) / 2                                   // 그 줄이 글자보다 좁으면 가운데로
-    : Math.min(Math.max(x, b.lo + w / 2), b.hi - w / 2);
-  return { x: xx, y: yy };
-}
-
-/* 새 키워드를 놓을 자리 차례. 머릿속이 가로로 넓어 보여도 낱말이 길어 두 칸씩은 못 넣는다.
-   한 줄에 하나씩 위에서 아래로 쌓고, 학생이 끌어 옮겨 다시 꾸민다. 가로 자리는 그 높이의
-   한가운데로 잡는다(머리가 아래로 갈수록 오른쪽으로 벌어지기 때문). */
-const ANCHOR_YS = [152, 182, 212, 238, 167, 197, 225, 160, 190, 220];
-export const ANCHORS = ANCHOR_YS.map(y => {
-  const r = rowAt(y);
-  return [(r.lo + r.hi) / 2, y];
-});
-
-/* 아무것도 안 놓였을 때 안내를 띄울 자리 = 머릿속 한가운데 */
-const EMPTY_AT = (() => {
-  const y = (FIELD_TOP + FIELD_BOTTOM) / 2;
-  const r = rowAt(y);
-  return { x: (r.lo + r.hi) / 2, y };
+  return out;
 })();
+
+/* 아무것도 안 놓였을 때 안내를 띄울 자리 */
+const EMPTY_AT = ANCHORS[0] || [HEART.x, HEART.y];
 
 export const WEIGHTS = [
   { w: 1, label: '잠깐 스쳤다' },
@@ -103,7 +166,7 @@ export const WEIGHTS = [
   { w: 5, label: '머릿속을 가득 채웠다' }
 ];
 
-const CHIP_EM = { 1: 0.92, 2: 1.12, 3: 1.36, 4: 1.6, 5: 1.9 };
+const CHIP_EM = { 1: 0.82, 2: 1.0, 3: 1.22, 4: 1.5, 5: 1.85 };
 /* 비중(1~5)에 따른 글자 크기. 학생 화면이 슬라이더를 움직일 때 칩 하나만 손보므로
    여기서 내보내 둔다 — 표를 양쪽에 적어 두면 한쪽만 고치는 일이 생긴다. */
 export function chipEm(w) { return CHIP_EM[w] || CHIP_EM[2]; }
@@ -118,26 +181,48 @@ export function sideName(key) {
   return s ? s.name : key;
 }
 
-/* 이미 놓인 칩과 겹치지 않는 빈자리를 고른다. 자리가 다 차면 가운데 언저리에 흩뿌린다. */
+/* 이미 놓인 칩과 겹치지 않는 빈자리를 고른다. 자리가 다 차면 아무 빈자리에나 놓는다. */
 export function nextSpot(chips) {
   const used = chips || [];
   for (const [x, y] of ANCHORS) {
-    const near = used.some(c => Math.abs(c.y - y) < 18);
-    if (!near) return { x, y };
+    if (!used.some(c => Math.hypot(c.x - x, c.y - y) < 34)) return { x, y };
   }
-  const y = FIELD_TOP + Math.random() * (FIELD_BOTTOM - FIELD_TOP);
-  const r = rowAt(y);
-  return { x: (r.lo + r.hi) / 2, y };
+  const pick = ANCHORS[Math.floor(Math.random() * ANCHORS.length)] || [HEART.x, HEART.y];
+  return { x: pick[0], y: pick[1] };
 }
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-/* ── 머리 그림 ──
-   손으로 그린 SVG 실루엣을 쓰다가 선생님이 올린 그림 파일로 바꿨다. 그림은 한 장뿐이고
-   두 임금은 색과 이름표로만 갈라진다 — 색을 입히려 filter 를 걸면 관의 금색과 붉은 깃까지
-   같이 돌아가 딴 그림이 된다. */
+/* ── 구름 ──
+   글자를 둘러싸는 뭉게구름. 타원 위에 점을 고르게 찍고 이웃한 두 점을 바깥으로 불룩한
+   호로 잇는다(가리비 모양). 네모 상자에 모서리를 굴리고 혹을 붙이는 식으로는 테두리를
+   실선/점선으로 갈라 그릴 수 없어서, 길 하나로 떨어지는 이 방법을 쓴다. */
+function cloudPath(w, h) {
+  const a = w / 2, b = h / 2;
+  const n = Math.max(8, Math.min(18, Math.round((w + h) / Math.max(9, h * 0.44))));
+  const N = n % 2 ? n + 1 : n;
+  const pt = i => {
+    const t = (i / N) * Math.PI * 2;
+    return [a + a * Math.cos(t), b + b * Math.sin(t)];
+  };
+  let d = '';
+  for (let i = 0; i < N; i++) {
+    const p = pt(i), q = pt(i + 1);
+    const len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    const r = (len / 2) * 1.2;
+    if (!i) d += `M${p[0].toFixed(1)} ${p[1].toFixed(1)}`;
+    d += `A${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${q[0].toFixed(1)} ${q[1].toFixed(1)}`;
+  }
+  return d + 'Z';
+}
+
+/* 구름이 글자를 다 덮으려면 타원이 글자 네모를 품어야 한다. 네모의 모서리가 타원 안에
+   들어오도록 가로 1.44배, 세로 1.56배로 잡은 값이다((0.694)^2+(0.641)^2 < 1). */
+const CLOUD_W = 1.44, CLOUD_H = 1.56;
+
+/* ── 머리 그림 ── */
 function headImage() {
   return `<img class="bm-img" src="${HEAD_IMG}" alt="" draggable="false">`;
 }
@@ -149,33 +234,38 @@ function ensureStyle() {
   const el = document.createElement('style');
   el.id = 'bm-style';
   el.textContent = `
-.bm-stage{position:relative;width:100%;max-width:480px;margin:0 auto;aspect-ratio:${VB.w}/${VB.h};touch-action:none}
+.bm-stage{position:relative;width:100%;max-width:560px;margin:0 auto;aspect-ratio:${VB.w}/${VB.h};touch-action:none}
 .bm-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;pointer-events:none}
 .bm-layer{position:absolute;inset:0}
-/* 머릿속 가로폭이 무대의 39%뿐이라 칩이 그보다 넓으면 얼굴 밖으로 삐져나온다. */
-.bm-chip{position:absolute;transform:translate(-50%,-50%);max-width:38%;padding:.08em .4em;border-radius:.45em;
+.bm-chip{position:absolute;transform:translate(-50%,-50%);max-width:30%;
   font-weight:800;line-height:1.2;text-align:center;word-break:keep-all;color:var(--bm-ink);
-  background:var(--bm-chip-bg);border:1px solid transparent;cursor:grab;user-select:none;-webkit-user-select:none}
+  cursor:grab;user-select:none;-webkit-user-select:none}
+.bm-chip .bm-cloud{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  pointer-events:none;overflow:visible}
+.bm-chip .bm-cloud path{fill:var(--bm-chip-bg);stroke:currentColor;stroke-width:1.5;vector-effect:non-scaling-stroke}
+.bm-chip .bm-txt{position:relative}
 .bm-chip.bm-live:active{cursor:grabbing}
-.bm-chip.sel{border-color:currentColor;background:var(--bm-chip-sel)}
+/* 까닭을 아직 안 쓴 것은 점선, 쓴 것은 실선 */
+.bm-chip.bm-open .bm-cloud path{stroke-dasharray:4 3;opacity:.85}
+.bm-chip.sel .bm-cloud path{fill:var(--bm-chip-sel);stroke-width:2.5}
 .bm-chip.bm-static{cursor:default}
-.bm-chip .bm-need{display:block;width:.34em;height:.34em;border-radius:50%;border:.1em solid var(--bm-need);margin:.18em auto 0}
 .bm-chip.bm-ok{color:var(--bm-ok)}
 .bm-chip.bm-no{color:var(--bm-no)}
-.bm-chip.bm-trap{color:var(--bm-no);text-decoration:line-through;text-decoration-thickness:1px}
-.bm-empty{position:absolute;left:${(EMPTY_AT.x / VB.w * 100).toFixed(1)}%;top:${(EMPTY_AT.y / VB.h * 100).toFixed(1)}%;
-  transform:translate(-50%,-50%);width:36%;text-align:center;
+.bm-chip.bm-trap{color:var(--bm-no)}
+.bm-chip.bm-trap .bm-txt{text-decoration:line-through;text-decoration-thickness:1px}
+.bm-empty{position:absolute;left:${(EMPTY_AT[0] / VB.w * 100).toFixed(1)}%;top:${(EMPTY_AT[1] / VB.h * 100).toFixed(1)}%;
+  transform:translate(-50%,-50%);width:38%;text-align:center;
   font-size:12px;line-height:1.6;color:var(--hi-text-muted);word-break:keep-all}
 /* 두 임금을 가를 이름표. 그림이 한 장이라 갤러리에서 이것으로 구별한다. */
-/* 오른쪽 아래는 곤룡포 깃이 차지하므로 턱 아래 빈 곳에 둔다. */
-.bm-name{position:absolute;left:30%;bottom:4%;transform:translateX(-50%);padding:3px 12px;border-radius:999px;
+.bm-name{position:absolute;left:50%;bottom:1.5%;transform:translateX(-50%);padding:3px 12px;border-radius:999px;
   font-size:12px;font-weight:800;color:#fff;white-space:nowrap}
 `;
   document.head.appendChild(el);
 }
 
 /* 칩 글자 크기를 무대 폭에 맞춰 키운다. em으로 적어 두고 무대의 font-size만 바꾸면
-   비중(1~5)에 따른 크기 차이가 화면 크기와 상관없이 같은 비율로 유지된다. */
+   비중(1~5)에 따른 크기 차이가 화면 크기와 상관없이 같은 비율로 유지된다.
+   그래서 폰에서 그림이 작아져도 들어가는 글자 수는 데스크톱과 똑같다. */
 function fitFont(stage) {
   const w = stage.clientWidth || 320;
   stage.style.fontSize = (w / VB.w * 11) + 'px';
@@ -221,18 +311,21 @@ export function renderBrain(el, opts) {
 
   chips.forEach(c => {
     const d = document.createElement('div');
-    d.className = 'bm-chip' + (o.live ? ' bm-live' : ' bm-static') + (o.selected === c.k ? ' sel' : '');
+    let cls = 'bm-chip' + (o.live ? ' bm-live' : ' bm-static');
+    if (o.selected === c.k) cls += ' sel';
+    /* 까닭을 아직 안 쓴 칩은 테두리를 점선으로 둔다(편집 화면에서만 — 갤러리와
+       어드민에서는 다 쓴 뒤라 구별할 일이 없다). */
+    if (o.live && !c.note) cls += ' bm-open';
     if (o.review) {
-      if (o.review.trap && o.review.trap.has(c.k)) d.classList.add('bm-trap');
-      else if (o.review.ok && o.review.ok.has(c.k)) d.classList.add('bm-ok');
-      else d.classList.add('bm-no');
+      if (o.review.trap && o.review.trap.has(c.k)) cls += ' bm-trap';
+      else if (o.review.ok && o.review.ok.has(c.k)) cls += ' bm-ok';
+      else cls += ' bm-no';
     }
+    d.className = cls;
     d.style.left = (c.x / VB.w * 100) + '%';
     d.style.top = (c.y / VB.h * 100) + '%';
     d.style.fontSize = chipEm(c.w) + 'em';
-    /* 아직 까닭을 안 쓴 칩에만 작은 고리를 붙인다(쓴 것마다 점을 찍으면 다 채운 화면이
-       점투성이가 된다). 편집 화면에서만 쓰고 갤러리와 어드민에서는 붙이지 않는다. */
-    d.innerHTML = esc(c.label) + (o.live && !c.note ? '<span class="bm-need"></span>' : '');
+    d.innerHTML = '<span class="bm-txt">' + esc(c.label) + '</span>';
     d.dataset.k = c.k;
     if (o.live) bindDrag(d, stage, c, o);
     layer.appendChild(d);
@@ -246,24 +339,46 @@ export function renderBrain(el, opts) {
   return stage;
 }
 
-/* 그려 놓고 나서 칩 상자를 실제로 재어 머릿속으로 밀어 넣는다.
-   낱말 길이와 비중에 따라 상자 크기가 제각각이라, 놓을 때 좌표만 보고는 삐져나오는지
-   알 수 없다. 갤러리와 어드민에서도 돌리므로 예전에 저장된 좌표도 안쪽에 들어와 보인다
-   (저장값은 건드리지 않고 화면만 고친다 — 학생 화면에서 끌어 옮기면 그때 저장된다). */
+/* 그려 놓고 나서 글자 상자를 실제로 재어 구름을 씌우고, 막힌 데(면류관·옷깃)에 걸쳤으면
+   가장 가까운 빈자리로 옮긴다. 낱말 길이와 비중에 따라 구름 크기가 제각각이라 놓을 때
+   좌표만 보고는 걸치는지 알 수 없다. 갤러리와 어드민에서도 돌리므로 예전에 저장된
+   좌표도 제자리에 들어와 보인다(저장값은 건드리지 않고 화면만 고친다 — 학생이 끌어
+   옮기면 그때 저장된다). */
 function settle(stage, chips, o) {
   const sw = stage.clientWidth, sh = stage.clientHeight;
   if (!sw || !sh) return;
+  /* 먼저 자리 잡은 구름을 쌓아 두고 뒤엣것이 그것을 피해 앉는다. 막힌 데만 피하게 두면
+     구름끼리 포개져 글자가 서로에 묻힌다. */
+  const placed = [];
   chips.forEach(c => {
     const node = stage.querySelector('.bm-chip[data-k="' + cssEscape(c.k) + '"]');
     if (!node) return;
-    const w = node.offsetWidth / sw * VB.w;
-    const h = node.offsetHeight / sh * VB.h;
-    const p = clampBox(c.x, c.y, w, h);
+    const txt = node.querySelector('.bm-txt');
+    if (!txt) return;
+
+    const tw = txt.offsetWidth, th = txt.offsetHeight;
+    const cw = Math.max(18, tw * CLOUD_W), chh = Math.max(18, th * CLOUD_H);
+    let svg = node.querySelector('.bm-cloud');
+    if (!svg) {
+      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'bm-cloud');
+      svg.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'path'));
+      node.insertBefore(svg, node.firstChild);
+    }
+    svg.setAttribute('width', cw);
+    svg.setAttribute('height', chh);
+    svg.setAttribute('viewBox', `0 0 ${cw.toFixed(1)} ${chh.toFixed(1)}`);
+    svg.firstChild.setAttribute('d', cloudPath(cw, chh));
+
+    /* 부딪힘을 따질 때 쓰는 크기는 글자가 아니라 구름이다. */
+    const w = cw / sw * VB.w, h = chh / sh * VB.h;
+    const p = findSpot(c.x, c.y, w, h, placed);
     if (Math.abs(p.x - c.x) > 0.5 || Math.abs(p.y - c.y) > 0.5) {
-      if (o.live) { c.x = p.x; c.y = p.y; }   // 편집 중이면 저장값도 따라간다
+      if (o.live) { c.x = p.x; c.y = p.y; }
       node.style.left = (p.x / VB.w * 100) + '%';
       node.style.top = (p.y / VB.h * 100) + '%';
     }
+    placed.push({ x: p.x, y: p.y, w, h });
     node.dataset.bw = w.toFixed(2);
     node.dataset.bh = h.toFixed(2);
   });
@@ -291,12 +406,20 @@ function bindDrag(node, stage, chip, o) {
     moved = true;
     const x = (e.clientX - rect.left) / rect.width * VB.w;
     const y = (e.clientY - rect.top) / rect.height * VB.h;
-    /* 상자 크기는 그릴 때 재어 둔 값을 쓴다 — 끄는 동안 매번 재면 레이아웃을 다시 계산하느라
-       손가락을 따라오지 못한다. */
-    const p = clampBox(x, y, +node.dataset.bw || 0, +node.dataset.bh || 0);
-    chip.x = p.x; chip.y = p.y;
-    node.style.left = (p.x / VB.w * 100) + '%';
-    node.style.top = (p.y / VB.h * 100) + '%';
+    /* 구름 크기는 그릴 때 재어 둔 값을 쓴다 — 끄는 동안 매번 재면 레이아웃을 다시
+       계산하느라 손가락을 따라오지 못한다. */
+    const w = +node.dataset.bw || 0, h = +node.dataset.bh || 0;
+    let nx = x, ny = y;
+    if (!boxFree(nx, ny, w, h)) {
+      /* 막힌 데에 닿으면 가장자리를 따라 미끄러지게 한다(한 축씩 따로 시도).
+         둘 다 막혔으면 그 자리에 둔다 — 면류관 위로 끌려 들어가지 않는다. */
+      if (boxFree(nx, chip.y, w, h)) ny = chip.y;
+      else if (boxFree(chip.x, ny, w, h)) nx = chip.x;
+      else return;
+    }
+    chip.x = nx; chip.y = ny;
+    node.style.left = (nx / VB.w * 100) + '%';
+    node.style.top = (ny / VB.h * 100) + '%';
   });
 
   node.addEventListener('pointerup', e => {
@@ -342,8 +465,8 @@ export const DEFAULT_KEYWORDS = [
 
 export const DEFAULT_CONFIG = {
   keywords: DEFAULT_KEYWORDS,
-  maxChips: 4,   // 한 인물에 놓을 수 있는 최대 개수 — 머릿속 높이가 딱 네 줄이다
-  minChips: 3,   // 제출하려면 한 인물에 적어도 이만큼
+  maxChips: 8,   // 한 인물에 놓을 수 있는 최대 개수 — 면류관과 옷깃 빼고 다 쓰므로 넉넉하다
+  minChips: 4,   // 제출하려면 한 인물에 적어도 이만큼
   noteMax: 40    // 근거 한 줄의 글자 수 상한
 };
 
