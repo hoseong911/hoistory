@@ -122,6 +122,8 @@
    마우스를 올리면 뜬다. 이 표의 본체는 맨 아랫줄의 '자리별 정답률'이다. 학생 카드를 하나씩
    열어 보는 방식으로는 반 전체가 어느 자리에서 무너졌는지가 끝내 보이지 않았다. */
 .heat-class{margin-bottom:24px}
+.heat-tbl{margin:0 auto}
+.heat-class-head{justify-content:center}
 .heat-class-head{font-size:13px;font-weight:800;color:var(--jw-accent-deep);margin-bottom:8px;display:flex;align-items:baseline;gap:8px}
 .heat-class-head .hc-sub{font-size:11px;font-weight:600;color:var(--hi-text-muted)}
 .heat-scroll{overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;border:1px solid var(--hi-border);border-radius:12px;background:var(--hi-bg-surface);padding:10px 12px}
@@ -152,6 +154,17 @@
 .heat-cell i.ok{background:var(--jw-pass);border-color:var(--jw-pass)}
 .heat-cell i.no{background:var(--jw-fail);border-color:var(--jw-fail)}
 .heat-cell i.empty{background:transparent;border-style:dashed}
+.heat-qcell{width:34px}
+.heat-qcell b{display:block;width:30px;height:22px;line-height:22px;margin:2px auto;border-radius:5px;font-size:11px;font-weight:800;color:var(--hi-text);font-variant-numeric:tabular-nums}
+.hq4{background:rgba(34,197,94,.30)}
+.hq3{background:rgba(34,197,94,.15)}
+.hq2{background:rgba(217,119,6,.20)}
+.hq1{background:rgba(243,114,127,.20)}
+.hq0{background:rgba(243,114,127,.34)}
+.hqx{background:var(--hi-bg-mid);color:var(--hi-text-muted)}
+.heat-name .hn-sub{font-size:10px;font-weight:600;color:var(--hi-text-muted)}
+.heat-legend .lg-scale{display:inline-flex;align-items:center;gap:3px}
+.heat-legend .lg-scale b{width:16px;height:12px;border-radius:3px;display:inline-block}
 
 .heat-tail{padding-left:12px;font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
 .heat-tail.t-pct{font-size:12px;font-weight:800;color:var(--hi-text);min-width:48px}
@@ -166,7 +179,7 @@
 .heat-rate.r-hi{color:var(--jw-pass)}
 .heat-rate.r-mid{color:#D97706}
 .heat-rate.r-lo{color:var(--jw-fail)}
-.heat-legend{display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--hi-text-muted);margin:10px 2px 0}
+.heat-legend{display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--hi-text-muted);margin:10px 2px 0}
 .heat-legend span{display:inline-flex;align-items:center;gap:5px}
 .heat-legend i{width:12px;height:12px;border-radius:4px;border:1px solid var(--hi-border);display:inline-block}
 .heat-legend i.ok{background:var(--jw-pass);border-color:var(--jw-pass)}
@@ -674,73 +687,136 @@ function classStudents(cn){
   return list.sort((a,b)=>a.sid.localeCompare(b.sid));
 }
 function rateClass(pct){return pct>=80?'r-hi':pct>=50?'r-mid':'r-lo';}
+function qBucket(pct){return pct>=80?'hq4':pct>=60?'hq3':pct>=40?'hq2':pct>=20?'hq1':'hq0';}
+/* 한 반에서 실제로 세우기를 마친 사람만 추린다. 정답률의 분모는 늘 이 사람들이다 —
+   안 낸 사람까지 넣으면 그 자리가 어려웠던 것인지 결석이 많았던 것인지 구분이 안 된다. */
+function heatDone(studs){return studs.map(s=>results.find(x=>String(x.id)===s.sid)).filter(r=>r&&r.timelinePlaced);}
+function slotRate(done,sl){
+  if(!done.length)return null;
+  return Math.round(done.filter(r=>r.timelinePlaced[sl.key]===sl.ev.id).length/done.length*100);
+}
+function avgPct(done){return done.length?Math.round(done.reduce((a,r)=>a+(r.timelinePct||0),0)/done.length):0;}
+/* 넘기기 평균은 '2.8/4'처럼 푼 사람 기준으로만 낸다. */
+function avgCausal(done){
+  const w=done.filter(r=>r.causalTotal);
+  if(!w.length)return'—';
+  const c=w.reduce((a,r)=>a+(r.causalCorrect||0),0)/w.length;
+  return (Math.round(c*10)/10)+'/'+w[0].causalTotal;
+}
+function heatHead(groups,slots){
+  const lead='<th class="heat-name"></th>';
+  return `<thead>
+    <tr>${lead}${groups.map(g=>`<th class="heat-phase" colspan="${g.evs.length}"><span>${esc(g.label)}</span></th>`).join('')}<th class="heat-head-tail">세우기</th><th class="heat-head-tail">넘기기</th></tr>
+    <tr>${lead}${slots.map(sl=>`<th class="heat-ev" title="${esc(sl.label+' '+sl.no+'번째 자리 · 정답 '+sl.ev.title)}"><span>${esc(sl.ev.title)}</span></th>`).join('')}<th></th><th></th></tr>
+  </thead>`;
+}
 function renderHeat(){
   const wrap=document.getElementById('heat-wrap');
   const groups=heatGroups();
   const slots=groups.flatMap(g=>g.evs.map((e,i)=>({key:g.key+':'+i,ev:e,label:g.label,no:i+1})));
   const nums=classNums();
-  const targets=currentFilter==='전체'?nums:nums.filter(n=>String(n)===currentFilter);
-  if(!slots.length||!targets.length){wrap.innerHTML='<div class="no-data">아직 참여한 학생이 없습니다.</div>';return;}
+  if(!slots.length||!nums.length){wrap.innerHTML='<div class="no-data">아직 참여한 학생이 없습니다.</div>';return;}
+  wrap.innerHTML=currentFilter==='전체'?heatOverview(groups,slots,nums):heatClass(groups,slots,+currentFilter);
+}
 
-  const lead=rest=>'<th class="heat-name"></th>'+rest;
-  let html=targets.map(cn=>{
-    const studs=classStudents(cn);
-    const rows=studs.map(s=>{
-      const r=results.find(x=>String(x.id)===s.sid);
-      const placed=r&&r.timelinePlaced;
-      const cells=slots.map(sl=>{
-        if(!placed)return'<td class="heat-cell"><i></i></td>';
-        const got=placed[sl.key];
-        const cls=got===sl.ev.id?'ok':(got?'no':'empty');
-        const mine=got?evLabel(got):'빈칸';
-        return`<td class="heat-cell" title="${esc(sl.label+' '+sl.no+'번째 · 정답 '+sl.ev.title+' · 학생 '+mine)}"><i class="${cls}"></i></td>`;
-      }).join('');
-      const tl=r&&r.timelineTotal?r.timelinePct+'%':'—';
-      const ca=r&&r.causalTotal?`${r.causalCorrect}/${r.causalTotal}`:'—';
-      const st=(r&&r.status)||'';
-      const hint=r?'클릭하면 넘기기 답안으로 이동합니다':'아직 참여하지 않았습니다';
-      const onclick=r?` onclick="window.jumpToReason('${esc(s.sid)}')"`:'';
-      return `<tr class="heat-row${r?'':' absent'}">
-        <th class="heat-name${r?' clickable':''}"${onclick}><div class="hn-in" title="${esc(hint)}">
-          <span class="hn-dot ${st}"></span><span class="hn-sid">${esc(s.sid)}</span><span class="hn-nm">${esc(s.name)}</span>
-        </div></th>
-        ${cells}
-        <td class="heat-tail t-pct${r?'':' muted'}">${tl}</td>
-        <td class="heat-tail t-ca">${ca}</td>
-      </tr>`;
+/* ── 전체: 반별 통계만 ──
+   반이 여럿일 때 학생 줄을 전부 쌓으면 수백 줄이 되어 아무것도 안 보인다. 전체에서는
+   한 반이 한 줄이고, 칸마다 그 반의 자리별 정답률이 들어간다. 반끼리 견주는 자리다.
+   한 반만 보려면 위의 반 칩을 누른다. */
+function heatOverview(groups,slots,nums){
+  const stats=nums.map(cn=>{const studs=classStudents(cn);return{cn,studs,done:heatDone(studs)};});
+  const rows=stats.map(st=>{
+    const cells=slots.map(sl=>{
+      const pct=slotRate(st.done,sl);
+      if(pct===null)return'<td class="heat-qcell"><b class="hqx">—</b></td>';
+      return`<td class="heat-qcell" title="${esc(st.cn+'반 · '+sl.label+' '+sl.no+'번째 · 정답 '+sl.ev.title)}"><b class="${qBucket(pct)}">${pct}</b></td>`;
     }).join('');
-
-    /* 자리별 정답률은 '참여한 학생' 중에서만 센다. 안 낸 사람까지 분모에 넣으면
-       그 자리가 어려웠던 것인지 결석이 많았던 것인지 구분이 안 된다. */
-    const done=studs.map(s=>results.find(x=>String(x.id)===s.sid)).filter(r=>r&&r.timelinePlaced);
-    const foot=slots.map(sl=>{
-      if(!done.length)return'<td><span class="heat-rate">—</span></td>';
-      const ok=done.filter(r=>r.timelinePlaced[sl.key]===sl.ev.id).length;
-      const pct=Math.round(ok/done.length*100);
-      return`<td><span class="heat-rate ${rateClass(pct)}">${pct}</span></td>`;
-    }).join('');
-    const avg=done.length?Math.round(done.reduce((a,r)=>a+(r.timelinePct||0),0)/done.length):0;
-
-    return `<div class="heat-class">
-      <div class="heat-class-head">${cn}반 <span class="hc-sub">제출 ${done.length}/${studs.length} · 평균 ${avg}%</span></div>
-      <div class="heat-scroll"><table class="heat-tbl">
-        <thead>
-          <tr>${lead(groups.map(g=>`<th class="heat-phase" colspan="${g.evs.length}"><span>${esc(g.label)}</span></th>`).join(''))}<th class="heat-head-tail">세우기</th><th class="heat-head-tail">넘기기</th></tr>
-          <tr>${lead(slots.map(sl=>`<th class="heat-ev" title="${esc(sl.label+' '+sl.no+'번째 자리 · 정답 '+sl.ev.title)}"><span>${esc(sl.ev.title)}</span></th>`).join(''))}<th></th><th></th></tr>
-        </thead>
-        <tbody>${rows}</tbody>
-        <tfoot><tr class="heat-foot"><th class="heat-name"><div class="hn-in">자리별 정답률</div></th>${foot}<td class="heat-tail t-pct">${avg}%</td><td></td></tr></tfoot>
-      </table></div>
-    </div>`;
+    return `<tr class="heat-row">
+      <th class="heat-name clickable" onclick="window.focusClass('${st.cn}')"><div class="hn-in" title="클릭하면 이 반의 학생별 표로 넘어갑니다">
+        <span class="hn-nm">${st.cn}반</span><span class="hn-sub">제출 ${st.done.length}/${st.studs.length}</span>
+      </div></th>
+      ${cells}
+      <td class="heat-tail t-pct">${avgPct(st.done)}%</td>
+      <td class="heat-tail t-ca">${avgCausal(st.done)}</td>
+    </tr>`;
   }).join('');
 
-  html+=`<div class="heat-legend">
+  const all=stats.flatMap(st=>st.done);
+  const allStuds=stats.reduce((a,st)=>a+st.studs.length,0);
+  const foot=slots.map(sl=>{
+    const pct=slotRate(all,sl);
+    return pct===null?'<td><span class="heat-rate">—</span></td>':`<td><span class="heat-rate ${rateClass(pct)}">${pct}</span></td>`;
+  }).join('');
+
+  return `<div class="heat-class">
+    <div class="heat-class-head">반별 자리 정답률 <span class="hc-sub">제출 ${all.length}/${allStuds} · 평균 ${avgPct(all)}%</span></div>
+    <div class="heat-scroll"><table class="heat-tbl">
+      ${heatHead(groups,slots)}
+      <tbody>${rows}</tbody>
+      <tfoot><tr class="heat-foot"><th class="heat-name"><div class="hn-in">전체</div></th>${foot}<td class="heat-tail t-pct">${avgPct(all)}%</td><td class="heat-tail t-ca">${avgCausal(all)}</td></tr></tfoot>
+    </table></div>
+  </div>
+  <div class="heat-legend">
+    <span class="lg-scale">낮음<b class="hq0"></b><b class="hq1"></b><b class="hq2"></b><b class="hq3"></b><b class="hq4"></b>높음</span>
+    <span>숫자는 그 반이 그 자리를 맞힌 비율(%)입니다.</span>
+    <span>반 이름을 누르면 학생별 표로 넘어갑니다.</span>
+  </div>`;
+}
+
+/* ── 한 반: 학생별 ── */
+function heatClass(groups,slots,cn){
+  const studs=classStudents(cn);
+  const rows=studs.map(s=>{
+    const r=results.find(x=>String(x.id)===s.sid);
+    const placed=r&&r.timelinePlaced;
+    const cells=slots.map(sl=>{
+      if(!placed)return'<td class="heat-cell"><i></i></td>';
+      const got=placed[sl.key];
+      const cls=got===sl.ev.id?'ok':(got?'no':'empty');
+      const mine=got?evLabel(got):'빈칸';
+      return`<td class="heat-cell" title="${esc(sl.label+' '+sl.no+'번째 · 정답 '+sl.ev.title+' · 학생 '+mine)}"><i class="${cls}"></i></td>`;
+    }).join('');
+    const tl=r&&r.timelineTotal?r.timelinePct+'%':'—';
+    const ca=r&&r.causalTotal?`${r.causalCorrect}/${r.causalTotal}`:'—';
+    const st=(r&&r.status)||'';
+    const hint=r?'클릭하면 넘기기 답안으로 이동합니다':'아직 참여하지 않았습니다';
+    const onclick=r?` onclick="window.jumpToReason('${esc(s.sid)}')"`:'';
+    return `<tr class="heat-row${r?'':' absent'}">
+      <th class="heat-name${r?' clickable':''}"${onclick}><div class="hn-in" title="${esc(hint)}">
+        <span class="hn-dot ${st}"></span><span class="hn-sid">${esc(s.sid)}</span><span class="hn-nm">${esc(s.name)}</span>
+      </div></th>
+      ${cells}
+      <td class="heat-tail t-pct${r?'':' muted'}">${tl}</td>
+      <td class="heat-tail t-ca">${ca}</td>
+    </tr>`;
+  }).join('');
+
+  const done=heatDone(studs);
+  const foot=slots.map(sl=>{
+    const pct=slotRate(done,sl);
+    return pct===null?'<td><span class="heat-rate">—</span></td>':`<td><span class="heat-rate ${rateClass(pct)}">${pct}</span></td>`;
+  }).join('');
+  const avg=avgPct(done);
+
+  return `<div class="heat-class">
+    <div class="heat-class-head">${cn}반 <span class="hc-sub">제출 ${done.length}/${studs.length} · 평균 ${avg}%</span></div>
+    <div class="heat-scroll"><table class="heat-tbl">
+      ${heatHead(groups,slots)}
+      <tbody>${rows}</tbody>
+      <tfoot><tr class="heat-foot"><th class="heat-name"><div class="hn-in">자리별 정답률</div></th>${foot}<td class="heat-tail t-pct">${avg}%</td><td></td></tr></tfoot>
+    </table></div>
+  </div>
+  <div class="heat-legend">
     <span><i class="ok"></i>정답</span><span><i class="no"></i>오답</span>
     <span><i class="empty"></i>비워 둠</span><span><i class="none"></i>미참여</span>
     <span>칸에 마우스를 올리면 학생이 넣은 사건이 보입니다.</span>
   </div>`;
-  wrap.innerHTML=html;
 }
+/* 전체 표에서 반 이름을 누르면 그 반 칩을 누른 것과 같게 만든다. */
+window.focusClass=cn=>{
+  const btn=document.querySelector('#class-filter .cf-btn[data-c="'+cn+'"]');
+  if(btn)btn.click();
+};
 /* 표에서 이름을 누르면 그 학생의 서술형으로 건너뛴다 — 표를 보다 눈에 걸리는 줄이 있을 때. */
 window.jumpToReason=sid=>{
   document.querySelector('#answer-subtabs .sub-tab[data-sub="reason"]').click();
