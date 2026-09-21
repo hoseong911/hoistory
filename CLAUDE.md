@@ -20,7 +20,7 @@ Each lives in its own folder with a consistent pattern:
 - `<folder>/index.html` — Student view (requires student ID + name login)
 - `<folder>/admin.html` — Teacher view (password-gated)
 
-Current sub-apps (LMS 미션 체크 연결, `apps/` 하위): `blind_ryeo/`, `escape/`, `goryeo_choice/`, `j_yugyo/`, `j_interview/`, `j_science/`, `j_wartimeline/`, `oxquiz/`, `s_threads/`, `sillaver/`, `samguk_goods/`
+Current sub-apps (LMS 미션 체크 연결, `apps/` 하위): `blind_ryeo/`, `escape/`, `goryeo_choice/`, `j_brain/`, `j_yugyo/`, `j_interview/`, `j_science/`, `j_wartimeline/`, `oxquiz/`, `s_threads/`, `sillaver/`, `samguk_goods/`
 루트 앱 (LMS 연동이지만 미션 체크 앱 아님): `hismile/`, `survey/`, `ox/`
 
 The `mission/` folder contains standalone single-file HTML pages (no sub-folder structure).
@@ -180,7 +180,7 @@ LMS에서 미션 카드를 만들고 공개(잠금 해제)하면, 같은 Firesto
   - **웹앱 어드민의 채점이 언제나 기준이다.** 자동 감지를 막는 건 (a) 결석 처리된 학생, (b) 이번 세션에 표에서 직접 만진 칸 두 가지뿐이다(`gradeCanAutoApply(sid, block)` / `_gradeManualEdit`, 열쇠는 `sid|mission` 형태로 **항목별**).
   - **예전 규칙(제거됨)**: "이미 저장된 채점 기록이 있는 학생(`savedSet`)은 덮어쓰지 않는다". 저장은 개념/미션/생각을 학생 전원에 대해 한꺼번에 쓰기 때문에, [성적 반영]을 한 번이라도 누른 강의는 그 순간부터 자동 감지가 영구히 죽는 버그가 있었다. 다시 넣지 말 것.
 - **반영 시점**: 표를 열어 둔 채 채점이 바뀌면 실시간으로 따라오고(`startMissionLive`), [불러오기] 때 저장값과 달라진 학생은 **이미 반영(공개)한 반에 한해** 학생 성적 문서까지 바로 갱신한다(`gradePushLive`). 아직 반영하지 않은 반은 표만 바뀐다 — 공개 시점은 선생님이 정하는 것이므로.
-- **연동된 앱**: `j_interview`(interview_joseon_answers), `j_wartimeline`(j_wartimeline_results), `j_4cut`(fourcut_submissions).
+- **연동된 앱**: `j_interview`(interview_joseon_answers), `j_wartimeline`(j_wartimeline_results), `j_brain`(j_brain_works), `j_4cut`(fourcut_submissions).
 - **`fourcut_submissions` 예외**: 학번당 1문서짜리 가벼운 요약 컬렉션을 따로 둔다 — 학생이 공유할 때 제출 사실·시각을 남기고(`apps/j_4cut/index.html`의 `saveSubmissionMark`), 선생님이 작품별 통과/미흡을 누를 때 합산 `status`를 써 넣는다(`apps/j_4cut/admin.html`의 `syncSubmissionSummary`). **채점 결과를 제출 문서 자신에 둔다는 표준 스키마의 유일한 예외**이며, 이유는 오직 이미지 용량이다. 작품별 `status`는 표준대로 `fourcut_works` 문서에 그대로 남는다.
 
 ## 사화 네컷 만화 이미지는 레포 파일 (2026-08-31)
