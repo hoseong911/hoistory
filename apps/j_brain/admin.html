@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>영정조 뇌구조도 - 관리자 모드</title>
+<title>영조와 정조의 머릿속 - 관리자 모드</title>
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
 <link rel="stylesheet" href="../../shared/theme.css">
 <link rel="stylesheet" href="../../shared/admin-base.css">
@@ -16,12 +16,11 @@ body{
   --bp-accent:#27384F;--bp-accent-deep:#172554;--bp-accent-l:rgba(39,56,79,.12);
   --bp-pass:#22c55e;--bp-pass-l:rgba(34,197,94,.12);
   --bp-fail:var(--hi-negative);--bp-fail-l:rgba(243,114,127,.1);
-  /* 뇌구조도 미리보기(brain.js)가 읽는 값. 학생 화면과 같은 색을 쓴다. */
+  /* 뇌구조도 미리보기(brain.js)가 읽는 값. 학생 화면과 같은 색을 쓴다.
+     구름 색은 brain.js 가 임금별로 들고 있으므로 여기에는 없다. */
   --bm-yeongjo:#2F5D62;
   --bm-jeongjo:#8B2F3F;
   --bm-ink:var(--hi-text);
-  --bm-chip-bg:rgba(255,255,255,.75);
-  --bm-chip-sel:rgba(255,107,61,.2);
   --bm-ok:#166534;
   --bm-no:#B91C1C;
 }
@@ -96,7 +95,14 @@ body{
 .ssb{padding:6px 16px;border-radius:8px;font-family:inherit;font-size:12px;font-weight:700;border:1.5px solid transparent;cursor:pointer}
 .ssb-pass{background:var(--bp-pass-l);color:var(--bp-pass);border-color:rgba(22,163,74,.2)}.ssb-pass.active,.ssb-pass:hover{background:var(--bp-pass);color:#fff}
 .ssb-fail{background:var(--bp-fail-l);color:var(--bp-fail);border-color:rgba(220,38,38,.2)}.ssb-fail.active,.ssb-fail:hover{background:var(--bp-fail);color:#fff}
+/* 인트로 편집 */
+.intro-ta{width:100%;box-sizing:border-box;min-height:190px;padding:12px 14px;border:1px solid var(--hi-border);
+  border-radius:10px;background:var(--hi-bg-mid);font-family:inherit;font-size:13.5px;line-height:1.8;
+  color:var(--hi-text);outline:none;resize:vertical}
+.intro-ta:focus{border-color:var(--hi-border-light)}
 .pair{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+/* 머리 그림 바탕이 흰색이라 미리보기 칸도 흰색으로 둔다(학생 화면과 같게). */
+.pair [data-brain]{background:#fff;border:1px solid var(--hi-border);border-radius:12px;padding:4px}
 /* 채점은 목록을 훑는 일이라 미리보기가 학생 화면만큼 클 이유가 없다. */
 .pair .bm-stage{max-width:290px}
 @media(max-width:640px){.pair{grid-template-columns:1fr}}
@@ -119,7 +125,7 @@ body{
 <!-- 로그인 -->
 <div id="loginScreen">
   <div class="login-card">
-    <div class="login-title">영정조 뇌구조도</div>
+    <div class="login-title">영조와 정조의 머릿속</div>
     <div class="login-sub">관리자 모드</div>
     <div class="field-group" style="text-align:left;margin:14px 0">
       <label class="form-label">이메일</label>
@@ -137,7 +143,7 @@ body{
 <!-- 어드민 -->
 <div id="adminApp">
   <header class="adm-header">
-    <div class="adm-logo">영정조 뇌구조도<span class="adm-badge">관리자 모드</span></div>
+    <div class="adm-logo">영조와 정조의 머릿속<span class="adm-badge">관리자 모드</span></div>
     <div class="adm-tabs">
       <button class="adm-tab active" data-tab="setting">SETTING</button>
       <button class="adm-tab" data-tab="answer">ANSWER</button>
@@ -151,6 +157,18 @@ body{
 
     <!-- SETTING -->
     <div class="tab-panel active" id="tab-setting">
+      <div class="section-card">
+        <div class="section-title">활동 안내글
+          <button class="btn btn-primary btn-sm" id="save-intro-btn" style="margin-left:auto">저장</button>
+        </div>
+        <div class="section-desc">학생이 활동을 열었을 때 제목 아래에 뜨는 글입니다. 빈 줄을 하나 넣으면 문단이 나뉘어요. 맨 아래 "두 임금의 머릿속을 채워 보세요" 한 줄은 늘 붙으므로 여기에 적지 않아도 됩니다.</div>
+        <textarea class="intro-ta" id="intro-ta" placeholder="활동을 여는 글"></textarea>
+        <div style="display:flex;justify-content:center;gap:8px;margin-top:12px">
+          <button class="btn btn-ghost" id="reset-intro-btn">기본 글로 되돌리기</button>
+        </div>
+        <div class="save-msg" id="intro-msg"></div>
+      </div>
+
       <div class="section-card">
         <div class="section-title">키워드 풀
           <button class="btn btn-primary btn-sm" id="save-kw-btn" style="margin-left:auto">저장</button>
@@ -169,11 +187,10 @@ body{
         <div class="section-title">활동 규칙
           <button class="btn btn-primary btn-sm" id="save-rule-btn" style="margin-left:auto">저장</button>
         </div>
-        <div class="section-desc">한 임금의 머릿속에 넣을 수 있는 칸 수와 까닭 한 줄의 길이입니다.</div>
+        <div class="section-desc">한 임금의 머릿속에 넣을 수 있는 칸 수입니다. 까닭은 글자 수를 제한하지 않습니다.</div>
         <div class="rule-row">
           <div class="rule-box">최대 <input type="number" class="meta-input" id="rule-max" min="1" max="10">칸</div>
           <div class="rule-box">제출하려면 최소 <input type="number" class="meta-input" id="rule-min" min="1" max="10">칸</div>
-          <div class="rule-box">까닭 <input type="number" class="meta-input" id="rule-note" min="10" max="200">자</div>
         </div>
         <div class="save-msg" id="rule-msg"></div>
       </div>
@@ -216,7 +233,7 @@ import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https:
 import{getDatabase,ref,get}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { firebaseConfig } from "../../shared/firebase-config.js";
 import { icon } from "../../shared/icons.js";
-import { renderBrain, mergeConfig, DEFAULT_KEYWORDS, DEFAULT_CONFIG, SIDES, judge } from "./brain.js";
+import { renderBrain, mergeConfig, DEFAULT_KEYWORDS, DEFAULT_CONFIG, DEFAULT_INTRO, SIDES, judge } from "./brain.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -284,7 +301,7 @@ async function loadConfig(){
     CFG = mergeConfig(snap.exists() ? snap.data() : null);
   }catch(e){ CFG = mergeConfig(null); }
   KW = CFG.keywords.map(k => ({ ...k }));
-  renderKw(); renderRules();
+  renderKw(); renderRules(); renderIntro();
 }
 async function loadRoster(){
   try{
@@ -299,6 +316,22 @@ async function loadRoster(){
 }
 
 /* ════════ SETTING ════════ */
+/* 활동 안내글 — 학생 화면이 빈 줄로 문단을 나누어 읽는다. */
+function renderIntro(){ $('intro-ta').value = CFG.intro || ''; }
+$('save-intro-btn').addEventListener('click', async () => {
+  const intro = $('intro-ta').value.replace(/\r\n/g, '\n').trim();
+  if (!intro){ msg('intro-msg', '안내글이 비어 있어요', false); return; }
+  try{
+    await setDoc(doc(db,'settings','j_brain_config'), { intro }, { merge: true });
+    CFG.intro = intro;
+    msg('intro-msg', '저장했습니다', true);
+  }catch(e){ msg('intro-msg', '저장하지 못했어요', false); }
+});
+$('reset-intro-btn').addEventListener('click', () => {
+  if (!confirm('안내글을 기본 글로 되돌릴까요? 저장을 눌러야 실제로 바뀝니다.')) return;
+  $('intro-ta').value = DEFAULT_INTRO;
+});
+
 function renderKw(){
   const count = v => KW.filter(k => k.side === v).length;
   $('kw-sum').innerHTML = SIDE_OPTS.map(o => `<span>${o.t} ${count(o.v)}</span>`).join('');
@@ -352,15 +385,13 @@ $('save-kw-btn').addEventListener('click', async () => {
 function renderRules(){
   $('rule-max').value = CFG.maxChips;
   $('rule-min').value = CFG.minChips;
-  $('rule-note').value = CFG.noteMax;
 }
 $('save-rule-btn').addEventListener('click', async () => {
   const maxChips = Math.max(1, +$('rule-max').value || DEFAULT_CONFIG.maxChips);
   const minChips = Math.min(maxChips, Math.max(1, +$('rule-min').value || DEFAULT_CONFIG.minChips));
-  const noteMax = Math.max(10, +$('rule-note').value || DEFAULT_CONFIG.noteMax);
   try{
-    await setDoc(doc(db,'settings','j_brain_config'), { maxChips, minChips, noteMax }, { merge: true });
-    CFG.maxChips = maxChips; CFG.minChips = minChips; CFG.noteMax = noteMax;
+    await setDoc(doc(db,'settings','j_brain_config'), { maxChips, minChips }, { merge: true });
+    CFG.maxChips = maxChips; CFG.minChips = minChips;
     renderRules();
     msg('rule-msg', '저장했습니다', true);
   }catch(e){ msg('rule-msg', '저장하지 못했어요', false); }

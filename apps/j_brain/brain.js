@@ -172,8 +172,8 @@ const CHIP_EM = { 1: 0.82, 2: 1.0, 3: 1.22, 4: 1.5, 5: 1.85 };
 export function chipEm(w) { return CHIP_EM[w] || CHIP_EM[2]; }
 
 export const SIDES = [
-  { key: 'yeongjo', name: '영조', reign: '1724 - 1776' },
-  { key: 'jeongjo', name: '정조', reign: '1776 - 1800' }
+  { key: 'yeongjo', name: '영조' },
+  { key: 'jeongjo', name: '정조' }
 ];
 
 export function sideName(key) {
@@ -242,16 +242,22 @@ function ensureStyle() {
   cursor:grab;user-select:none;-webkit-user-select:none}
 .bm-chip .bm-cloud{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   pointer-events:none;overflow:visible}
-.bm-chip .bm-cloud path{fill:var(--bm-chip-bg);stroke:currentColor;stroke-width:1.5;vector-effect:non-scaling-stroke}
+.bm-chip .bm-cloud path{fill:var(--bm-cloud-fill);stroke:var(--bm-cloud-line);stroke-width:1.5;vector-effect:non-scaling-stroke}
 .bm-chip .bm-txt{position:relative}
 .bm-chip.bm-live:active{cursor:grabbing}
+/* 구름 색은 임금마다 다르다 — 갤러리에서 두 머리가 나란히 서므로 색이 곧 이름표다.
+   연한 채움 + 진한 테두리 한 쌍으로 두고 글자는 먹색 그대로 둔다(색 글자는 작을 때 읽기 나쁘다). */
+.bm-stage.bm-side-yeongjo{--bm-cloud-fill:#E3EFEC;--bm-cloud-line:#2F5D62;--bm-cloud-sel:#BCDCD4}
+.bm-stage.bm-side-jeongjo{--bm-cloud-fill:#F8E7E9;--bm-cloud-line:#8B2F3F;--bm-cloud-sel:#EFC7CD}
 /* 까닭을 아직 안 쓴 것은 점선, 쓴 것은 실선 */
-.bm-chip.bm-open .bm-cloud path{stroke-dasharray:4 3;opacity:.85}
-.bm-chip.sel .bm-cloud path{fill:var(--bm-chip-sel);stroke-width:2.5}
+.bm-chip.bm-open .bm-cloud path{stroke-dasharray:4 3;opacity:.9}
+.bm-chip.sel .bm-cloud path{fill:var(--bm-cloud-sel);stroke-width:2.5}
 .bm-chip.bm-static{cursor:default}
+/* 어드민 정오 표시 — 이때만 구름 테두리가 글자 색을 따라간다 */
 .bm-chip.bm-ok{color:var(--bm-ok)}
 .bm-chip.bm-no{color:var(--bm-no)}
 .bm-chip.bm-trap{color:var(--bm-no)}
+.bm-chip.bm-ok .bm-cloud path,.bm-chip.bm-no .bm-cloud path,.bm-chip.bm-trap .bm-cloud path{stroke:currentColor}
 .bm-chip.bm-trap .bm-txt{text-decoration:line-through;text-decoration-thickness:1px}
 .bm-empty{position:absolute;left:${(EMPTY_AT[0] / VB.w * 100).toFixed(1)}%;top:${(EMPTY_AT[1] / VB.h * 100).toFixed(1)}%;
   transform:translate(-50%,-50%);width:38%;text-align:center;
@@ -290,7 +296,7 @@ export function renderBrain(el, opts) {
   const side = o.side || 'yeongjo';
   const chips = Array.isArray(o.chips) ? o.chips : [];
   const stage = document.createElement('div');
-  stage.className = 'bm-stage';
+  stage.className = 'bm-stage bm-side-' + side;
   stage.innerHTML = headImage() + '<div class="bm-layer"></div>';
   const layer = stage.querySelector('.bm-layer');
 
@@ -463,21 +469,34 @@ export const DEFAULT_KEYWORDS = [
   { id: 't5', label: '삼정이정청 설치', side: 'trap' }
 ];
 
+/* 활동을 열었을 때 맨 위에 뜨는 안내. 선생님이 어드민에서 고친다(빈 줄이 문단을 나눈다).
+   맨 아래 "두 임금의 머릿속을 채워 보세요" 한 줄은 화면에 붙박이라 여기 들어 있지 않다. */
+export const DEFAULT_INTRO =
+`영조와 정조는 각각 오십 년 가까이 조선을 다스린 임금입니다. 두 사람은 붕당끼리 서로를 죽이던 시대를 물려받아, 흔들리는 왕권을 다시 세우고 백성의 살림을 펴는 일에 평생을 걸었습니다.
+
+이어진 시대를 살았지만 두 임금이 밤낮으로 골몰한 일은 서로 달랐습니다. 할아버지가 아들을 뒤주에 가둔 일도, 그 아들의 아들이 화성을 쌓은 일도 모두 이 머릿속에서 나온 것입니다.
+
+오늘 배운 일들 가운데 어느 임금의 일인지 가려내고, 그 임금이 그 일에 얼마나 마음을 쏟았을지 크기로 나타내 보세요.`;
+
 export const DEFAULT_CONFIG = {
   keywords: DEFAULT_KEYWORDS,
+  intro: DEFAULT_INTRO,
   maxChips: 8,   // 한 인물에 놓을 수 있는 최대 개수 — 면류관과 옷깃 빼고 다 쓰므로 넉넉하다
-  minChips: 4,   // 제출하려면 한 인물에 적어도 이만큼
-  noteMax: 40    // 근거 한 줄의 글자 수 상한
+  minChips: 4    // 제출하려면 한 인물에 적어도 이만큼
 };
+
+/* 까닭은 글자 수를 제한하지 않는다(학생에게 세는 칸도 보여 주지 않는다).
+   다만 문서 하나가 끝없이 커지지는 않게 저장할 때만 조용히 끊는다. */
+export const NOTE_HARD_CAP = 1000;
 
 /* 저장된 설정과 기본값을 섞는다(선생님이 일부만 고쳐 두었을 때를 위해). */
 export function mergeConfig(data) {
   const d = data || {};
   return {
     keywords: Array.isArray(d.keywords) && d.keywords.length ? d.keywords : DEFAULT_KEYWORDS,
+    intro: typeof d.intro === 'string' && d.intro.trim() ? d.intro : DEFAULT_INTRO,
     maxChips: Number(d.maxChips) > 0 ? Number(d.maxChips) : DEFAULT_CONFIG.maxChips,
-    minChips: Number(d.minChips) > 0 ? Number(d.minChips) : DEFAULT_CONFIG.minChips,
-    noteMax: Number(d.noteMax) > 0 ? Number(d.noteMax) : DEFAULT_CONFIG.noteMax
+    minChips: Number(d.minChips) > 0 ? Number(d.minChips) : DEFAULT_CONFIG.minChips
   };
 }
 
