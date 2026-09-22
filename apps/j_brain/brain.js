@@ -478,9 +478,37 @@ export const DEFAULT_INTRO =
 
 오늘 배운 일들 가운데 어느 임금의 일인지 가려내고, 그 임금이 그 일에 얼마나 마음을 쏟았을지 크기로 나타내 보세요.`;
 
+/* 까닭 자동 검토의 기준. 어드민에서 고친다 — 프롬프트에서 이 글 아래로 학생 답이 붙고,
+   판정(충실/보통/부실)과 한두 줄 코멘트를 받아 온다. 판정은 어디까지나 참고이고
+   통과/미흡은 선생님이 누른다. */
+export const DEFAULT_AI_PROMPT =
+`다음 세 가지를 봐 주세요.
+
+1. 까닭이 역사적 사실에 맞는가. 틀렸다면 무엇이 틀렸는지 짚어 주세요.
+2. 까닭이 스스로 정한 크기와 어울리는가. 5칸을 주고도 까닭이 대수롭지 않거나, 1칸인데 까닭이 절실하면 어긋난 것입니다.
+3. 까닭이 키워드를 되풀이한 말이 아니라, 그 임금이 놓인 처지와 노린 바를 자기 말로 설명하고 있는가.
+
+판정 기준
+- 충실: 대체로 사실에 맞고, 크기와 까닭이 어울리며, 자기 말로 설명했다.
+- 보통: 큰 잘못은 없으나 몇 개는 키워드를 되풀이했거나 크기와 어긋난다.
+- 부실: 사실이 틀린 것이 여럿이거나, 까닭이 대부분 키워드를 되풀이한 말이다.
+
+중학교 2학년이 쓴 글입니다. 맞춤법이나 문장 다듬기는 보지 마세요.`;
+
+export const AI_LEVELS = [
+  { key: 'good', label: '충실' },
+  { key: 'mid',  label: '보통' },
+  { key: 'weak', label: '부실' }
+];
+export function aiLevelLabel(key){
+  const v = AI_LEVELS.find(l => l.key === key);
+  return v ? v.label : '';
+}
+
 export const DEFAULT_CONFIG = {
   keywords: DEFAULT_KEYWORDS,
   intro: DEFAULT_INTRO,
+  aiPrompt: DEFAULT_AI_PROMPT,
   maxChips: 8,   // 한 인물에 놓을 수 있는 최대 개수 — 면류관과 옷깃 빼고 다 쓰므로 넉넉하다
   minChips: 4    // 제출하려면 한 인물에 적어도 이만큼
 };
@@ -495,6 +523,7 @@ export function mergeConfig(data) {
   return {
     keywords: Array.isArray(d.keywords) && d.keywords.length ? d.keywords : DEFAULT_KEYWORDS,
     intro: typeof d.intro === 'string' && d.intro.trim() ? d.intro : DEFAULT_INTRO,
+    aiPrompt: typeof d.aiPrompt === 'string' && d.aiPrompt.trim() ? d.aiPrompt : DEFAULT_AI_PROMPT,
     maxChips: Number(d.maxChips) > 0 ? Number(d.maxChips) : DEFAULT_CONFIG.maxChips,
     minChips: Number(d.minChips) > 0 ? Number(d.minChips) : DEFAULT_CONFIG.minChips
   };

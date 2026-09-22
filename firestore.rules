@@ -306,12 +306,19 @@ service cloud.firestore {
     }
 
     // ── 영정조 뇌구조도 (j_brain): 학생이 채운 두 임금의 머릿속 ──
-    //    문서 id가 곧 학번이라 1인 1장이 구조로 강제된다. 채점(status)은 어드민만 쓴다.
+    //    문서 id가 곧 학번이라 1인 1장이 구조로 강제된다.
+    //    채점(status)과 까닭 자동 검토 결과(aiReview)는 어드민만 쓴다 — 학생은 다시 제출해도
+    //    그 두 칸을 건드릴 수 없다(제출은 나머지 칸만 merge 로 덮어쓴다).
     match /j_brain_works/{studentId} {
       allow read: if true;
-      allow create, update: if isAdmin() || (
+      allow create: if isAdmin() || (
         request.resource.data.studentId == studentId &&
-        (!('status' in request.resource.data) || resource == null || request.resource.data.status == resource.data.status)
+        !('status' in request.resource.data) &&
+        !('aiReview' in request.resource.data)
+      );
+      allow update: if isAdmin() || (
+        request.resource.data.studentId == studentId &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'aiReview'])
       );
     }
 

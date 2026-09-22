@@ -115,6 +115,19 @@ body{
 .note-item .nm{font-weight:800;margin-left:4px}
 .note-item .nm-ok{color:var(--bm-ok)}
 .note-item .nm-no{color:var(--bm-no)}
+
+/* AI 까닭 검토 — 판정은 참고용이라 통과/미흡 배지와 색을 달리해 섞이지 않게 둔다. */
+.ai-badge{flex-shrink:0;display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:7px;
+  font-size:11px;font-weight:800;border:1px solid transparent}
+.ai-good{background:rgba(14,159,110,.1);color:#0E7C5A;border-color:rgba(14,159,110,.25)}
+.ai-mid{background:rgba(234,179,8,.12);color:#92700B;border-color:rgba(234,179,8,.3)}
+.ai-weak{background:rgba(220,38,38,.09);color:#B42318;border-color:rgba(220,38,38,.22)}
+.ai-stale{background:var(--hi-bg-mid);color:var(--hi-text-muted);border-color:var(--hi-border)}
+.ai-box{margin-top:10px;background:var(--bp-accent-l);border:1px solid var(--hi-border);border-radius:10px;padding:10px 12px}
+.ai-box-h{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;color:var(--hi-text-muted);margin-bottom:5px}
+.ai-box-c{font-size:12.5px;line-height:1.7;color:var(--hi-text-soft);white-space:pre-wrap}
+.ai-weak-list{margin-top:6px;font-size:11.5px;color:var(--bm-no);font-weight:700}
+.ai-note{font-size:11px;color:var(--hi-text-muted);margin-top:6px}
 .legend{text-align:center;font-size:11px;color:var(--hi-text-muted);margin-top:10px}
 .no-data{text-align:center;padding:40px 20px;color:var(--hi-text-muted);font-size:14px}
 </style>
@@ -170,6 +183,18 @@ body{
       </div>
 
       <div class="section-card">
+        <div class="section-title">까닭 자동 검토 기준
+          <button class="btn btn-primary btn-sm" id="save-ai-btn" style="margin-left:auto">저장</button>
+        </div>
+        <div class="section-desc">ANSWER 탭의 [까닭 자동 검토]가 학생 한 명씩 이 기준으로 읽고 <b>충실·보통·부실</b>과 한두 줄 코멘트를 남깁니다. 키워드 정답표와 학생이 적은 것(임금·키워드·크기·까닭)은 자동으로 붙으니 여기에는 <b>보는 눈</b>만 적으면 됩니다. 통과·미흡 판정은 바뀌지 않습니다 — 검토는 참고일 뿐이고 누르는 것은 선생님입니다.</div>
+        <textarea class="intro-ta" id="ai-ta" placeholder="검토 기준"></textarea>
+        <div style="display:flex;justify-content:center;gap:8px;margin-top:12px">
+          <button class="btn btn-ghost" id="reset-ai-btn">기본 기준으로 되돌리기</button>
+        </div>
+        <div class="save-msg" id="ai-msg"></div>
+      </div>
+
+      <div class="section-card">
         <div class="section-title">키워드 풀
           <button class="btn btn-primary btn-sm" id="save-kw-btn" style="margin-left:auto">저장</button>
         </div>
@@ -209,6 +234,7 @@ body{
       </div>
       <div class="adm-action-row">
         <button class="btn btn-primary btn-sm" id="autoscore-btn">자동 채점</button>
+        <button class="btn btn-ghost btn-sm" id="aireview-btn">까닭 자동 검토</button>
         <div class="thr-box">정답 키워드 <input type="number" class="thr-in" id="thr-rate" value="70" min="0" max="100">% 이상이고 함정이 없으면 통과</div>
         <div class="ans-right-group">
           <div class="sort-box">
@@ -227,13 +253,17 @@ body{
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import{getFirestore,doc,getDoc,setDoc,updateDoc,deleteField,collection,onSnapshot,writeBatch}
+import{getFirestore,doc,getDoc,setDoc,updateDoc,deleteField,collection,onSnapshot,writeBatch,Timestamp}
   from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import{getDatabase,ref,get}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { firebaseConfig } from "../../shared/firebase-config.js";
 import { icon } from "../../shared/icons.js";
-import { renderBrain, mergeConfig, DEFAULT_KEYWORDS, DEFAULT_CONFIG, DEFAULT_INTRO, SIDES, judge } from "./brain.js";
+import { renderBrain, mergeConfig, DEFAULT_KEYWORDS, DEFAULT_CONFIG, DEFAULT_INTRO, DEFAULT_AI_PROMPT,
+         SIDES, judge, WEIGHTS, aiLevelLabel } from "./brain.js";
+
+/* 키는 서버(Secret Manager)에만 있고 이 프록시를 거쳐 부른다. 다른 앱 어드민과 같은 주소다. */
+const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -301,7 +331,7 @@ async function loadConfig(){
     CFG = mergeConfig(snap.exists() ? snap.data() : null);
   }catch(e){ CFG = mergeConfig(null); }
   KW = CFG.keywords.map(k => ({ ...k }));
-  renderKw(); renderRules(); renderIntro();
+  renderKw(); renderRules(); renderIntro(); renderAiPrompt();
 }
 async function loadRoster(){
   try{
@@ -330,6 +360,22 @@ $('save-intro-btn').addEventListener('click', async () => {
 $('reset-intro-btn').addEventListener('click', () => {
   if (!confirm('안내글을 기본 글로 되돌릴까요? 저장을 눌러야 실제로 바뀝니다.')) return;
   $('intro-ta').value = DEFAULT_INTRO;
+});
+
+/* 까닭 자동 검토 기준 */
+function renderAiPrompt(){ $('ai-ta').value = CFG.aiPrompt || ''; }
+$('save-ai-btn').addEventListener('click', async () => {
+  const aiPrompt = $('ai-ta').value.replace(/\r\n/g, '\n').trim();
+  if (!aiPrompt){ msg('ai-msg', '검토 기준이 비어 있어요', false); return; }
+  try{
+    await setDoc(doc(db,'settings','j_brain_config'), { aiPrompt }, { merge: true });
+    CFG.aiPrompt = aiPrompt;
+    msg('ai-msg', '저장했습니다', true);
+  }catch(e){ msg('ai-msg', '저장하지 못했어요', false); }
+});
+$('reset-ai-btn').addEventListener('click', () => {
+  if (!confirm('검토 기준을 기본값으로 되돌릴까요? 저장을 눌러야 실제로 바뀝니다.')) return;
+  $('ai-ta').value = DEFAULT_AI_PROMPT;
 });
 
 function renderKw(){
@@ -462,12 +508,25 @@ function reviewSets(w, side){
   });
   return { ok, trap };
 }
-function timeOf(w){
-  const t = w.submittedAt;
+function msOf(t){
   if (!t) return 0;
   if (typeof t.toMillis === 'function') return t.toMillis();
   if (t.seconds) return t.seconds * 1000;
   return 0;
+}
+function timeOf(w){ return msOf(w.submittedAt); }
+
+/* AI 까닭 검토 결과. 검토한 뒤에 학생이 다시 냈으면 stale — 그 코멘트는 옛 글을 본 것이다. */
+function aiOf(w){
+  const a = w.aiReview;
+  if (!a || !a.level) return null;
+  return {
+    level: a.level,
+    comment: String(a.comment || ''),
+    weak: Array.isArray(a.weak) ? a.weak : [],
+    at: msOf(a.at),
+    stale: msOf(a.at) > 0 && timeOf(w) > msOf(a.at) + 2000
+  };
 }
 function timeText(w){
   const ms = timeOf(w);
@@ -494,7 +553,8 @@ function renderResults(){
   $('s-pass').textContent = pass;
   $('s-fail').textContent = fail;
   $('s-avg').textContent = avg + '%';
-  $('legend').textContent = list.length ? '초록은 맞게 넣은 것, 빨강은 그 임금의 일이 아닌 것, 줄이 그어진 것은 함정입니다.' : '';
+  $('legend').textContent = list.length
+    ? '초록은 맞게 넣은 것, 빨강은 그 임금의 일이 아닌 것, 줄이 그어진 것은 함정입니다. AI 배지는 까닭을 읽은 참고 의견이며 통과·미흡과는 별개입니다.' : '';
 
   if (!list.length){
     $('result-list').innerHTML = '<div class="no-data">아직 낸 학생이 없어요</div>';
@@ -506,6 +566,9 @@ function renderResults(){
     const badge = w.status === 'pass' ? '<span class="status-badge sb-pass">통과</span>'
                 : w.status === 'fail' ? '<span class="status-badge sb-fail">미흡</span>'
                 : '<span class="status-badge sb-pending">미채점</span>';
+    const ai = aiOf(w);
+    const aiBadge = !ai ? ''
+      : `<span class="ai-badge ${ai.stale ? 'ai-stale' : 'ai-' + ai.level}">AI ${esc(aiLevelLabel(ai.level))}${ai.stale ? ' · 수정됨' : ''}</span>`;
     return `
     <div class="std-card" data-sid="${esc(w.studentId)}">
       <div class="std-card-head">
@@ -514,6 +577,7 @@ function renderResults(){
           <span class="std-meta-time">${timeText(w)}</span>
           <span class="score-pill">${t.ok}/${t.total}</span>
           ${t.trap ? `<span class="status-badge sb-fail">함정 ${t.trap}</span>` : ''}
+          ${aiBadge}
           ${badge}
         </div>
       </div>
@@ -532,6 +596,13 @@ function renderResults(){
               }).join('')}</div>
             </div>`).join('')}
         </div>
+        ${ai ? `
+        <div class="ai-box">
+          <div class="ai-box-h">까닭 자동 검토 — ${esc(aiLevelLabel(ai.level))}${ai.stale ? ' (검토 뒤에 다시 낸 글이라 지금 글과 다를 수 있어요)' : ''}</div>
+          <div class="ai-box-c">${esc(ai.comment)}</div>
+          ${ai.weak.length ? `<div class="ai-weak-list">다시 볼 곳 · ${ai.weak.map(esc).join(' / ')}</div>` : ''}
+          <div class="ai-note">참고용입니다. 통과·미흡은 아래에서 선생님이 누른 것만 기록됩니다.</div>
+        </div>` : ''}
         <div class="score-btns">
           <button class="ssb ssb-pass${w.status === 'pass' ? ' active' : ''}" data-mark="pass" data-sid="${esc(w.studentId)}">통과</button>
           <button class="ssb ssb-fail${w.status === 'fail' ? ' active' : ''}" data-mark="fail" data-sid="${esc(w.studentId)}">미흡</button>
@@ -582,6 +653,102 @@ $('autoscore-btn').addEventListener('click', async () => {
   });
   try{ await batch.commit(); }
   catch(e){ alert('채점을 저장하지 못했어요.'); }
+});
+
+/* ── 까닭 자동 검토 ──
+   학생 한 명을 한 번 부른다(한 사람 안에서 두 임금을 같이 봐야 "크기와 까닭이 어울리는가"를
+   따질 수 있다). 결과는 참고용이라 status 에 손대지 않는다 — 통과/미흡은 선생님 몫이다. */
+function sideNameOf(key){ const s = SIDES.find(v => v.key === key); return s ? s.name : key; }
+function weightLabel(n){ const v = WEIGHTS.find(x => x.w === n); return v ? v.label : ''; }
+
+function reviewPrompt(w){
+  const body = SIDES.map(s => {
+    const lines = chipsOf(w, s.key).map(c => {
+      const kw = kwById(c.k);
+      const truth = !kw ? '목록에서 지워진 키워드'
+        : kw.side === 'trap' ? '실제로는 두 임금과 관계없는 일(함정)'
+        : kw.side === 'both' ? '두 임금 모두에게 해당하는 일'
+        : '실제로는 ' + sideNameOf(kw.side) + '의 일';
+      const note = String(c.note || '').trim() || '(안 씀)';
+      return `- ${c.label} / 크기 ${c.w}칸(${weightLabel(c.w)}) / 정답표: ${truth} / 까닭: ${note}`;
+    });
+    return `[${s.name}의 머릿속]\n` + (lines.length ? lines.join('\n') : '- (비어 있음)');
+  }).join('\n\n');
+
+  return `당신은 중학교 역사 수업을 돕는 보조 교사입니다.
+학생은 "영조와 정조의 머릿속" 활동에서 키워드를 골라 두 임금의 머릿속에 넣고, 그 임금이 그 일에 얼마나 마음을 쏟았을지 크기(1~5칸)를 스스로 정하고, 그렇게 본 까닭을 적었습니다.
+
+당신이 볼 것은 **까닭**입니다. 키워드를 맞게 골랐는지는 정답표로 이미 따로 세고 있으니 거기에 판정을 걸지 마세요.
+다만 엉뚱한 임금의 일이나 함정을 넣고 그 까닭까지 사실이 아닌 말로 채웠다면, 그것은 까닭의 문제이므로 코멘트에 짚어 주세요.
+
+${CFG.aiPrompt}
+
+학생이 낸 것
+${body}
+
+아래 JSON 하나만 출력하세요. 다른 말은 쓰지 마세요.
+{"level":"충실 또는 보통 또는 부실","comment":"선생님에게 하는 말, 두 문장 이내","weak":["다시 봐야 할 키워드 이름","..."]}`;
+}
+
+const LEVEL_KEY = { '충실': 'good', '보통': 'mid', '부실': 'weak' };
+
+async function reviewOne(w){
+  const res = await fetch(CLAUDE_PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 400,
+                           messages: [{ role: 'user', content: reviewPrompt(w) }] })
+  });
+  if (!res.ok) throw new Error('API ' + res.status);
+  const data = await res.json();
+  let raw = String((data.content && data.content[0] && data.content[0].text) || '').replace(/```json|```/g, '').trim();
+  const a = raw.indexOf('{'), b = raw.lastIndexOf('}');
+  if (a === -1 || b === -1) throw new Error('형식 오류');
+  const out = JSON.parse(raw.slice(a, b + 1));
+  const level = LEVEL_KEY[String(out.level || '').trim()];
+  if (!level) throw new Error('판정 없음');
+  const weak = (Array.isArray(out.weak) ? out.weak : [])
+    .filter(v => typeof v === 'string' && v.trim()).slice(0, 6).map(v => v.trim().slice(0, 40));
+  await updateDoc(doc(db,'j_brain_works', w.studentId), {
+    aiReview: { level, comment: String(out.comment || '').trim().slice(0, 400), weak, at: Timestamp.now() }
+  });
+}
+
+let reviewing = false;
+$('aireview-btn').addEventListener('click', async () => {
+  if (reviewing) return;
+  const inView = works.filter(inFilter);
+  if (!inView.length){ alert('검토할 학생이 없어요.'); return; }
+  /* 아직 안 본 사람과 검토 뒤에 다시 낸 사람만 부른다 — 같은 글을 두 번 부를 이유가 없다. */
+  let targets = inView.filter(w => { const a = aiOf(w); return !a || a.stale; });
+  if (!targets.length){
+    if (!confirm('새로 낸 학생이 없어요. ' + inView.length + '명을 모두 다시 검토할까요?')) return;
+    targets = inView;
+  } else if (!confirm(targets.length + '명의 까닭을 검토할까요?\n학생 한 명마다 AI를 한 번 부릅니다.')){
+    return;
+  }
+
+  const btn = $('aireview-btn');
+  reviewing = true; btn.disabled = true;
+  let done = 0, failed = 0;
+  const show = () => { btn.textContent = '검토 중 ' + done + '/' + targets.length; };
+  show();
+
+  /* 셋씩 나란히 부른다 — 한 명씩이면 한 반에 너무 오래 걸리고, 한꺼번에 다 부르면 막힌다. */
+  const queue = targets.slice();
+  const worker = async () => {
+    while (queue.length){
+      const w = queue.shift();
+      try{ await reviewOne(w); }
+      catch(e){ failed++; }
+      done++; show();
+    }
+  };
+  await Promise.all([worker(), worker(), worker()]);
+
+  reviewing = false; btn.disabled = false; btn.textContent = '까닭 자동 검토';
+  alert(failed ? (targets.length - failed) + '명 검토했어요. ' + failed + '명은 실패했습니다(다시 눌러 주세요).'
+               : targets.length + '명 검토했어요.');
 });
 
 /* 정적 HTML에 박힌 아이콘 주입 */
