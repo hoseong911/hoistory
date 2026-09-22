@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>생각 체크 한 번에 N자 기록 정리 - 관리자 모드</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link rel="stylesheet" href="../shared/theme.css">
+<link rel="stylesheet" href="../shared/admin-base.css">
+<style>
+.mig-wrap{max-width:720px;margin:0 auto;padding:32px 20px 80px}
+.mig-card{background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:14px;padding:20px;margin-bottom:16px}
+.mig-title{font-weight:800;font-size:15px;color:var(--hi-text);margin-bottom:4px}
+.mig-desc{font-size:13px;color:var(--hi-text-muted);margin-bottom:14px;line-height:1.6}
+.mig-result{font-size:13px;color:var(--hi-text-soft);margin-top:10px;white-space:pre-line}
+.dup-row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;background:var(--hi-bg-soft);margin-bottom:8px;font-size:13px}
+.dup-name{font-weight:700;color:var(--hi-text)}
+.dup-lec{color:var(--hi-text-muted);margin-left:6px}
+.dup-pt{font-weight:800;color:#DC2626}
+</style>
+</head>
+<body class="hi-preset-admin">
+
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">잘못된 입력 기록 정리</div>
+    <div class="login-sub">관리자 모드</div>
+    <input type="email" class="hi-input" id="adminEmail"
+           placeholder="이메일" autocomplete="username"
+           onkeydown="if(event.key==='Enter') document.getElementById('adminPw').focus()"
+           style="margin-bottom:10px;">
+    <input type="password" class="hi-input" id="adminPw"
+           placeholder="비밀번호" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter') tryLogin()"
+           style="text-align:center; letter-spacing:3px;">
+    <div class="login-err" id="loginErr">이메일 또는 비밀번호가 올바르지 않습니다</div>
+    <button class="login-btn" id="loginBtn" onclick="tryLogin()">접속하기</button>
+  </div>
+</div>
+
+<div id="adminApp" style="display:none">
+  <header class="adm-header">
+    <div class="adm-logo">잘못된 입력 기록 정리</div>
+    <button class="adm-logout" onclick="logoutAdmin()">로그아웃</button>
+  </header>
+  <div class="mig-wrap">
+    <div class="mig-card">
+      <div class="mig-title">고쳐 쓴 답에 잘못 찍힌 "한 번에 N자 입력" 지우기</div>
+      <div class="mig-desc">
+        학생이 낸 답을 나중에 고쳐 쓰려고 다시 열면 앱이 이전 답을 입력칸에 자동으로 채워 줬는데,
+        그 글자를 학생이 방금 친 것으로 잘못 셌습니다. 그래서 정직하게 고쳐 쓴 학생에게도
+        "한 번에 241자 입력" 같은 표시가 붙었습니다. 원인은 고쳤고, 이 도구는 그 전에 잘못
+        찍힌 기록을 지웁니다.<br><br>
+        대상은 <b>수정한 적이 있으면서 "한 번에 30자 이상"으로 기록된</b> 제출물이고, 그 값만 0으로
+        되돌립니다. 답 내용·점수·채점 결과·붙여넣기 시도 기록은 건드리지 않습니다.
+        (수정한 답은 이 값에 진짜와 가짜가 섞여 있어 가려낼 방법이 없습니다. 실제 붙여넣기 시도는
+        따로 세는 "붙여넣기 시도" 값에 그대로 남아 있습니다.)<br><br>
+        먼저 "찾기"로 대상을 확인한 뒤 "기록 지우기 실행"을 눌러주세요.
+      </div>
+      <button class="hi-btn hi-btn-primary hi-btn-sm" id="btn-scan" onclick="scanBadJumps()">찾기</button>
+      <button class="hi-btn hi-btn-primary hi-btn-sm" id="btn-fix" onclick="fixBadJumps()" style="display:none;margin-left:8px">기록 지우기 실행</button>
+      <div id="dup-list" style="margin-top:16px"></div>
+      <div class="mig-result" id="result-main"></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, updateDoc }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { firebaseConfig } from "../shared/firebase-config.js";
+
+const app  = initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const auth = getAuth(app);
+
+window.tryLogin = async () => {
+  const email = document.getElementById('adminEmail').value.trim();
+  const pw = document.getElementById('adminPw').value;
+  const err = document.getElementById('loginErr');
+  const btn = document.getElementById('loginBtn');
+  err.classList.remove('show');
+  if (!email || !pw) { err.textContent = '이메일과 비밀번호를 입력해주세요'; err.classList.add('show'); return; }
+  btn.disabled = true; btn.textContent = '접속 중...';
+  try {
+    await signInWithEmailAndPassword(auth, email, pw);
+  } catch (e) {
+    err.textContent = '이메일 또는 비밀번호가 올바르지 않습니다';
+    err.classList.add('show');
+  } finally {
+    btn.disabled = false; btn.textContent = '접속하기';
+  }
+};
+window.logoutAdmin = () => signOut(auth);
+
+onAuthStateChanged(auth, user => {
+  document.getElementById('loginScreen').style.display = user ? 'none' : 'flex';
+  document.getElementById('adminApp').style.display = user ? 'block' : 'none';
+});
+
+let _targets = [];  // [{ subId, id, name, lectureTitle, maxJump, editCount }]
+
+window.scanBadJumps = async function() {
+  const btn = document.getElementById('btn-scan');
+  const listEl = document.getElementById('dup-list');
+  const resultEl = document.getElementById('result-main');
+  btn.disabled = true; btn.textContent = '검색 중…';
+  resultEl.textContent = '';
+  listEl.innerHTML = '';
+  _targets = [];
+  try {
+    const snap = await getDocs(collection(db, 'think_submissions'));
+    snap.docs.forEach(d => {
+      const s = d.data();
+      // 고쳐 쓴 적이 있는 제출물만 대상이다. 한 번만 내고 끝낸 답의 "한 번에 N자"는
+      // 이 문제와 무관하게 실제로 한꺼번에 들어온 기록이므로 그대로 둔다.
+      if ((s.editCount || 0) >= 1 && (s.maxJump || 0) >= 30) {
+        _targets.push({ subId: d.id, id: s.id, name: s.name, lectureTitle: s.lectureTitle,
+                        maxJump: s.maxJump, editCount: s.editCount });
+      }
+    });
+    _targets.sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    if (!_targets.length) {
+      resultEl.textContent = '정리할 기록이 없습니다.';
+      document.getElementById('btn-fix').style.display = 'none';
+    } else {
+      listEl.innerHTML = _targets.map(t => `
+        <div class="dup-row">
+          <div>
+            <span class="dup-name">${esc(t.id)} ${esc(t.name || '')}</span>
+            <span class="dup-lec">${esc(stripEmph(t.lectureTitle || ''))} · 수정 ${t.editCount}회</span>
+          </div>
+          <span class="dup-pt">한 번에 ${t.maxJump}자</span>
+        </div>`).join('');
+      resultEl.textContent = `대상 ${_targets.length}건.`;
+      document.getElementById('btn-fix').style.display = '';
+    }
+  } catch (e) {
+    resultEl.textContent = '검색 실패: ' + (e && e.message ? e.message : e);
+  } finally {
+    btn.disabled = false; btn.textContent = '찾기';
+  }
+};
+
+window.fixBadJumps = async function() {
+  if (!_targets.length) return;
+  if (!confirm(`${_targets.length}건의 "한 번에 N자 입력" 기록을 지웁니다. 진행할까요?`)) return;
+  const btn = document.getElementById('btn-fix');
+  const resultEl = document.getElementById('result-main');
+  btn.disabled = true; btn.textContent = '정리 중…';
+  let done = 0, failed = 0;
+  for (const t of _targets) {
+    try {
+      await updateDoc(doc(db, 'think_submissions', t.subId), { maxJump: 0 });
+      done++;
+    } catch (e) {
+      console.warn('정리 실패:', t.subId, e);
+      failed++;
+    }
+  }
+  resultEl.textContent = `완료: ${done}건 정리${failed ? `, 실패 ${failed}건` : ''}.`;
+  btn.disabled = false; btn.textContent = '기록 지우기 실행';
+  document.getElementById('dup-list').innerHTML = '';
+  _targets = [];
+  btn.style.display = 'none';
+};
+
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function stripEmph(t) { return String(t || '').replace(/\*\*/g, ''); }
+</script>
+</body>
+</html>

@@ -7972,25 +7972,39 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
     return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
   }
 
+  /* 쓰는 동안 남은 흔적 중 선생님이 봐야 할 것만 짧은 말로 뽑아 준다.
+     전부 참고용이다 — 통과/미흡 판정에는 넣지 않는다. 빠르게 치는 학생도, 자판
+     자동완성을 쓰는 학생도 있어서 기계가 단정할 일이 아니라 사람이 보고 판단할 일이다. */
+  function thWriteWarnings(d) {
+    const out = [];
+    if ((d.cheatCount || 0) >= 5) out.push(`이탈 ${d.cheatCount}회`);
+    if ((d.pasteTry  || 0) > 0)   out.push(`붙여넣기 ${d.pasteTry}회`);
+    if ((d.maxJump   || 0) >= 30) out.push(`한번에 ${d.maxJump}자`);
+    if ((d.oddInsert || 0) > 0)   out.push(`자동입력 ${d.oddInsert}회`);
+    /* 아래 둘은 "다른 데 있는 글을 보고 옮겨 적었나"를 보는 눈이다. 스스로 생각하며
+       쓴 글에는 지운 자국과 멈칫한 구간이 반드시 남는다. 완성된 글을 보고 치면 둘 다
+       거의 남지 않는다. 짧은 답은 원래 고칠 것도 멈출 것도 없으니 100자부터 본다.
+       기록 자체가 없는 옛 제출물(undefined)은 건너뛴다 — 0과 뜻이 다르다. */
+    const len = d.textLength || 0;
+    if (len >= 100 && d.delCount   != null && d.delCount   <= 1) out.push('고친 흔적 없음');
+    if (len >= 100 && d.pauseCount != null && d.pauseCount <= 2) out.push('쉼 없이 씀');
+    return out;
+  }
+
   function thBuildAnswerCard(data, showMeta) {
     const isPicked = data.isPicked;
     const time = thFmtSubTime(data.createdAt);
+    // 목록 줄은 짧게 — 시각·길이·수정 여부까지만 늘 보여 준다. 쓰는 동안의 흔적은
+    // 이상이 있을 때만 빨간 칩 하나로 묶어 붙인다. 평소 줄이 짧아야 이상한 줄이 눈에
+    // 띄기 때문이다(예전에는 "붙여넣기 시도 0회"를 늘 붙였는데, 멀쩡한 답까지 줄이
+    // 길어져 정작 봐야 할 카드가 묻혔다).
     const metaParts = [time ? `${time} 제출` : '', `${data.textLength||0}자`];
-    // 눈에 띄어야 하는 것(이탈 5회 이상, 붙여넣기 시도, 한 번에 긴 입력)은 빨간 칩으로
-    // 따로 뽑아 둔다. 목록을 훑을 때 놓치지 않으려는 것 — 판정에는 넣지 않는다.
-    const flag = t => `<span class="th-meta-flag">${t}</span>`;
-    const cheat = data.cheatCount || 0;
-    if (cheat) metaParts.push(cheat >= 5 ? flag(`이탈 ${cheat}회`) : `이탈 ${cheat}회`);
-    // 아래 둘은 참고용 표시일 뿐 통과/미흡 판정에는 넣지 않는다. 빠르게 치거나 자판
-    // 자동완성을 쓰는 학생도 있어서, 기계가 단정할 일이 아니라 선생님이 보고 판단할 일이다.
-    // 0회도 보여 준다 — "0회"와 "표시 없음"(기록을 넣기 전의 옛 제출물)은 뜻이 다르다.
-    if (data.pasteTry != null) {
-      metaParts.push(data.pasteTry > 0 ? flag(`붙여넣기 시도 ${data.pasteTry}회`) : `붙여넣기 시도 0회`);
-    }
-    if ((data.maxJump || 0) >= 30) metaParts.push(flag(`한 번에 ${data.maxJump}자 입력`));
+    if (data.editCount) metaParts.push(`수정 ${data.editCount}회`);
+    const warns = thWriteWarnings(data);
+    if (warns.length) metaParts.push(`<span class="th-meta-flag">${warns.join(' · ')}</span>`);
     const meta = metaParts.filter(Boolean).join(' ｜ ');
-    // 칩 하나라도 붙은 카드는 배경을 옅게 물들여 목록에서 바로 눈에 띄게 한다.
-    const flagged = cheat >= 5 || (data.pasteTry || 0) > 0 || (data.maxJump || 0) >= 30;
+    // 칩이 붙은 카드는 배경을 옅게 물들여 목록에서 바로 눈에 띄게 한다.
+    const flagged = warns.length > 0;
     return `
       <div class="th-answer-card${flagged ? ' th-answer-flagged' : ''}">
         <div class="th-student-row">
