@@ -141,7 +141,7 @@ export function findSpot(x, y, w, h, avoid) {
    표에서 직접 찾아내므로 그림이 바뀌어도 (표만 다시 재면) 자리는 저절로 따라온다. */
 const HEART = { x: 150, y: 212 };          // 머릿속 한가운데 — 여기서 가까운 자리부터 채운다
 export const ANCHORS = (() => {
-  const pw = 58, ph = 26;                  // 보통 크기 칩 하나
+  const pw = 46, ph = 22;                  // 보통 크기 칩 하나(CHIP_EM을 줄이며 같이 줄였다)
   const cands = [];
   for (let y = 12; y <= VB.h - 12; y += 6)
     for (let x = 12; x <= VB.w - 12; x += 6)
@@ -149,7 +149,7 @@ export const ANCHORS = (() => {
   cands.sort((a, b) => a[2] - b[2]);
   const out = [];
   for (const [x, y] of cands) {
-    if (out.every(o => Math.hypot(o[0] - x, o[1] - y) >= 36)) out.push([x, y]);
+    if (out.every(o => Math.hypot(o[0] - x, o[1] - y) >= 30)) out.push([x, y]);
     if (out.length >= 16) break;
   }
   return out;
@@ -166,9 +166,13 @@ export const WEIGHTS = [
   { w: 5, label: '머릿속을 가득 채웠다' }
 ];
 
-const CHIP_EM = { 1: 0.82, 2: 1.0, 3: 1.22, 4: 1.5, 5: 1.85 };
-/* 비중(1~5)에 따른 글자 크기. 학생 화면이 슬라이더를 움직일 때 칩 하나만 손보므로
-   여기서 내보내 둔다 — 표를 양쪽에 적어 두면 한쪽만 고치는 일이 생긴다. */
+/* 비중(1~5)에 따른 글자 크기. 단계는 다섯 그대로 두고 전체 크기만 줄인 값이다 —
+   한 임금에 여덟 개까지 들어가는데 예전 값(0.82~1.85)은 큰 것 두어 개만 놓아도
+   머릿속이 꽉 차 나머지가 얼굴 밖으로 밀려났다. 단계 사이의 비율(약 1.2배씩)은
+   그대로라 '크게 넣을수록 더 마음을 쏟았다'는 것은 똑같이 읽힌다.
+   학생 화면이 슬라이더를 움직일 때 칩 하나만 손보므로 여기서 내보내 둔다 —
+   표를 양쪽에 적어 두면 한쪽만 고치는 일이 생긴다. */
+const CHIP_EM = { 1: 0.68, 2: 0.82, 3: 0.98, 4: 1.18, 5: 1.42 };
 export function chipEm(w) { return CHIP_EM[w] || CHIP_EM[2]; }
 
 export const SIDES = [
@@ -185,7 +189,7 @@ export function sideName(key) {
 export function nextSpot(chips) {
   const used = chips || [];
   for (const [x, y] of ANCHORS) {
-    if (!used.some(c => Math.hypot(c.x - x, c.y - y) < 34)) return { x, y };
+    if (!used.some(c => Math.hypot(c.x - x, c.y - y) < 28)) return { x, y };
   }
   const pick = ANCHORS[Math.floor(Math.random() * ANCHORS.length)] || [HEART.x, HEART.y];
   return { x: pick[0], y: pick[1] };
@@ -234,7 +238,10 @@ function ensureStyle() {
   const el = document.createElement('style');
   el.id = 'bm-style';
   el.textContent = `
-.bm-stage{position:relative;width:100%;max-width:560px;margin:0 auto;aspect-ratio:${VB.w}/${VB.h};touch-action:none}
+/* 끌어 옮기는 화면에서만 touch-action을 끈다. 갤러리처럼 보기만 하는 머리에서까지 꺼 두면
+   머리 그림 위에 손가락을 얹은 채로는 페이지가 안 내려간다(폰에서는 화면이 거의 머리다). */
+.bm-stage{position:relative;width:100%;max-width:560px;margin:0 auto;aspect-ratio:${VB.w}/${VB.h};touch-action:pan-y}
+.bm-stage.bm-editable{touch-action:none}
 .bm-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;pointer-events:none}
 .bm-layer{position:absolute;inset:0}
 .bm-chip{position:absolute;transform:translate(-50%,-50%);max-width:30%;
@@ -296,7 +303,7 @@ export function renderBrain(el, opts) {
   const side = o.side || 'yeongjo';
   const chips = Array.isArray(o.chips) ? o.chips : [];
   const stage = document.createElement('div');
-  stage.className = 'bm-stage bm-side-' + side;
+  stage.className = 'bm-stage bm-side-' + side + (o.live ? ' bm-editable' : '');
   stage.innerHTML = headImage() + '<div class="bm-layer"></div>';
   const layer = stage.querySelector('.bm-layer');
 
