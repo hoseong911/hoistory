@@ -137,15 +137,20 @@ export function findSpot(x, y, w, h, avoid) {
   return { x, y };
 }
 
-/* 새 키워드를 놓을 자리 차례. 머릿속 한가운데에서 시작해 바깥으로 퍼진다.
+/* 새 키워드를 놓을 자리 차례. 머릿속에서 시작해 바깥으로 퍼진다.
    표에서 직접 찾아내므로 그림이 바뀌어도 (표만 다시 재면) 자리는 저절로 따라온다. */
-const HEART = { x: 150, y: 212 };          // 머릿속 한가운데 — 여기서 가까운 자리부터 채운다
+const HEART = { x: 140, y: 180 };          // 이마와 턱 사이 — 여기서 가까운 자리부터 채운다
+
+/* 퍼질 때 가로를 세로보다 이만큼 비싸게 친다. 1이면(자리 차례가 동그랗게 퍼지면) 쓸 수
+   있는 데가 눈높이 아래로 가로로 넓어 여덟 개가 한 줄로 옆에만 늘어서고 이마가 통째로
+   빈다. 가로를 눌러 두면 차례가 위아래로 먼저 뻗어 면류관 바로 밑까지 올라간다. */
+const SPREAD_X = 2.2;
 export const ANCHORS = (() => {
   const pw = 46, ph = 22;                  // 보통 크기 칩 하나(CHIP_EM을 줄이며 같이 줄였다)
   const cands = [];
   for (let y = 12; y <= VB.h - 12; y += 6)
     for (let x = 12; x <= VB.w - 12; x += 6)
-      if (boxFree(x, y, pw, ph)) cands.push([x, y, Math.hypot(x - HEART.x, y - HEART.y)]);
+      if (boxFree(x, y, pw, ph)) cands.push([x, y, Math.hypot((x - HEART.x) * SPREAD_X, y - HEART.y)]);
   cands.sort((a, b) => a[2] - b[2]);
   const out = [];
   for (const [x, y] of cands) {
