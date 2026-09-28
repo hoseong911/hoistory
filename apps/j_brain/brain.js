@@ -543,3 +543,100 @@ export function judge(kw, side) {
   if (kw.side === 'both' || kw.side === side) return 'ok';
   return 'no';
 }
+
+/* ── 채점 기준 ──
+   두 관문(키워드 분류 / 까닭)을 다 넘어야 통과다. 기준을 여기 한 곳에만 두는 것은
+   어드민 화면이 "왜 미흡인지"를 적어 주는 셈과 자동 채점이 매기는 셈이 반드시
+   같아야 하기 때문이다(둘이 갈리면 선생님이 보는 이유와 찍힌 도장이 어긋난다).
+
+   관문 A는 임금마다 따로 본다 — 한쪽만 잘하고 다른 쪽은 엉망인데 둘을 합친 평균으로
+   넘어가는 길을 막는다. 셋을 같이 보는 까닭:
+   - rate  : 비율만 보면 많이 놓은 학생이 불리하다(하나 틀려도 비율이 크게 떨어진다).
+   - minOk : 개수만 보면 확실한 것 몇 개만 놓고 끝내는 길이 열린다.
+   - minOwn: 탕평책·왕권 강화·붕당의 대립(both)은 양쪽 다 정답이라, 그것만 돌려 놓으면
+             가려낸 것이 하나도 없이 정답률 100%가 된다. 그 임금 고유의 것을 요구한다.
+   함정은 한 개도 봐주지 않는다 — 훈민정음을 영조 머릿속에 넣은 것은 비율로 깎을 잘못이
+   아니라 시대를 통째로 잘못 안 것이다. */
+export const GRADE = {
+  rate: 75,        // 임금별 정답률(%)
+  minOk: 3,        // 임금별 정답 개수
+  minOwn: 2,       // 임금별 고유(both 아닌) 정답 개수
+  minNoteBody: 8   // 까닭에서 키워드 이름을 지우고도 남아야 하는 글자 수
+};
+
+const squash = s => String(s == null ? '' : s).replace(/\s+/g, '');
+
+/* 까닭이 키워드를 되풀이한 말뿐인지 본다. 글자 수만 재면 "균역법 균역법 균역법"이
+   통과하므로, 키워드 이름을 모두 지우고 남는 글자로 센다. */
+function noteBodyLen(note, label) {
+  const lab = squash(label);
+  let t = squash(note);
+  if (lab) t = t.split(lab).join('');
+  return t.length;
+}
+
+/**
+ * 한 사람의 작품을 채점한다.
+ * @param {object} w       j_brain_works 문서
+ * @param {Array}  kwList  키워드 목록(CFG.keywords)
+ * @param {object} opt     { ai: {level, stale}|null, rate: 임계값 덮어쓰기 }
+ * @returns {{result:'pass'|'fail'|'hold', reasons:string[]}}
+ *   pass — 두 관문을 다 넘었다
+ *   fail — 기계가 확실히 아는 미달이 있다
+ *   hold — 미달은 없는데 까닭의 질을 기계가 정할 수 없다(검토 전이거나 AI가 부실이라 함).
+ *          **보류는 아무 표시도 남기지 않는다** — 선생님이 읽고 누를 몫이다.
+ */
+export function gradeWork(w, kwList, opt) {
+  const g = Object.assign({}, GRADE, opt && opt.rate ? { rate: opt.rate } : {});
+  const byId = new Map((kwList || []).map(k => [k.id, k]));
+  const chipsOf = key => (Array.isArray(w[key]) ? w[key] : []);
+  const bad = [];
+  let trap = 0;
+
+  /* ── 관문 A: 키워드 분류 ── */
+  SIDES.forEach(s => {
+    const chips = chipsOf(s.key);
+    let ok = 0, own = 0;
+    chips.forEach(c => {
+      const kw = byId.get(c.k);
+      const v = judge(kw, s.key);
+      if (v === 'trap') trap++;
+      else if (v === 'ok') { ok++; if (kw && kw.side === s.key) own++; }
+    });
+    if (!chips.length) { bad.push(s.name + ' 비어 있음'); return; }
+    const rate = Math.round(ok / chips.length * 100);
+    if (rate < g.rate) bad.push(s.name + ' 정답률 ' + rate + '%');
+    if (ok < g.minOk) bad.push(s.name + ' 정답 ' + ok + '개');
+    if (own < g.minOwn) bad.push(s.name + ' 고유 키워드 ' + own + '개');
+  });
+  if (trap) bad.push('함정 ' + trap + '개');
+
+  /* ── 관문 B: 까닭(기계가 확실히 셀 수 있는 것만) ── */
+  let empty = 0, thin = 0, dup = 0;
+  SIDES.forEach(s => {
+    /* 같은 까닭을 찾는 일은 임금 안에서만 한다. 탕평책처럼 두 임금에 다 넣는 키워드
+       (both)에 같은 까닭을 쓰는 것은 있을 수 있는 일이라 잡으면 억울하다. 반대로 한
+       임금 안에서 같은 문장이 두 번 나오는 것은 칸을 메운 것이다. */
+    const seen = new Map();
+    chipsOf(s.key).forEach(c => {
+      const n = squash(c.note);
+      if (!n) { empty++; return; }
+      if (noteBodyLen(c.note, c.label) < g.minNoteBody) thin++;
+      seen.set(n, (seen.get(n) || 0) + 1);
+    });
+    seen.forEach(n => { if (n > 1) dup += n - 1; });
+  });
+  if (empty) bad.push('까닭 빠짐 ' + empty + '개');
+  if (thin) bad.push('키워드 되풀이 ' + thin + '개');
+  if (dup) bad.push('같은 까닭 ' + dup + '개');
+
+  if (bad.length) return { result: 'fail', reasons: bad };
+
+  /* ── 관문 B: 까닭의 질(AI 보조) ──
+     AI 판정만으로 미흡을 찍지는 않는다. 통과 도장을 보류할 뿐이다. */
+  const ai = opt && opt.ai;
+  if (!ai || !ai.level) return { result: 'hold', reasons: ['까닭 검토 전'] };
+  if (ai.stale) return { result: 'hold', reasons: ['검토 뒤에 다시 냄'] };
+  if (ai.level === 'weak') return { result: 'hold', reasons: ['AI 부실 — 읽어 보고 판단'] };
+  return { result: 'pass', reasons: [] };
+}

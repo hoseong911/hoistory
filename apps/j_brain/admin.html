@@ -75,6 +75,11 @@ body{
 .adm-action-row .btn,.adm-action-row .sort-btn{white-space:nowrap}
 .ans-right-group{display:flex;align-items:center;gap:8px;margin-left:auto}
 .thr-box{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--hi-text-muted);font-weight:700;white-space:nowrap}
+/* 자동 채점이 이 학생을 어떻게 보는지 — 카드를 펼쳤을 때 채점 버튼 바로 위에 붙는다 */
+.grade-why{margin:12px 0 10px;padding:9px 12px;border-radius:9px;font-size:12.5px;font-weight:700;line-height:1.6;word-break:keep-all}
+.gw-pass{background:var(--bp-pass-l);color:var(--bp-pass)}
+.gw-fail{background:var(--bp-fail-l);color:var(--bp-fail)}
+.gw-hold{background:var(--hi-bg-mid);color:var(--hi-text-muted)}
 .thr-in{width:56px;padding:6px 8px;border:1px solid var(--hi-border);border-radius:7px;font-family:inherit;font-size:14px;background:var(--hi-bg-mid);color:var(--hi-text);text-align:center}
 
 /* ANSWER — 학생 카드 */
@@ -235,7 +240,7 @@ body{
       <div class="adm-action-row">
         <button class="btn btn-primary btn-sm" id="autoscore-btn">자동 채점</button>
         <button class="btn btn-ghost btn-sm" id="aireview-btn">까닭 자동 검토</button>
-        <div class="thr-box">정답 키워드 <input type="number" class="thr-in" id="thr-rate" value="70" min="0" max="100">% 이상이고 함정이 없으면 통과</div>
+        <div class="thr-box" title="임금마다 따로 봅니다. 함정은 한 개도 봐주지 않고, 까닭이 부실하거나 아직 검토 전이면 도장을 보류합니다.">임금별 정답 <input type="number" class="thr-in" id="thr-rate" value="75" min="0" max="100">% 이상 · 함정 0 · 까닭까지 넘어야 통과</div>
         <div class="ans-right-group">
           <div class="sort-box">
             <button class="sort-btn active" id="sort-newest">최신순</button>
@@ -260,7 +265,7 @@ import{getDatabase,ref,get}from"https://www.gstatic.com/firebasejs/10.12.2/fireb
 import { firebaseConfig } from "../../shared/firebase-config.js";
 import { icon } from "../../shared/icons.js";
 import { renderBrain, mergeConfig, DEFAULT_KEYWORDS, DEFAULT_CONFIG, DEFAULT_INTRO, DEFAULT_AI_PROMPT,
-         SIDES, judge, WEIGHTS, aiLevelLabel } from "./brain.js";
+         SIDES, judge, WEIGHTS, aiLevelLabel, gradeWork, GRADE } from "./brain.js";
 
 /* 키는 서버(Secret Manager)에만 있고 이 프록시를 거쳐 부른다. 다른 앱 어드민과 같은 주소다. */
 const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
@@ -536,6 +541,17 @@ function timeText(w){
   return `${d.getMonth()+1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
+/* 자동 채점이 이 학생을 어떻게 보는지를 카드에 적어 준다. 도장과 같은 셈(gradeWork)을
+   쓰므로 화면에 적힌 까닭과 찍힌 도장이 어긋나지 않는다. 보류된 학생에게는 이 줄이
+   곧 "무엇을 읽어 보라"는 안내다. */
+function gradeWhyHTML(w){
+  const rate = Math.max(0, Math.min(100, +$('thr-rate').value || 0));
+  const g = gradeWork(w, CFG.keywords, { ai: aiOf(w), rate });
+  if (g.result === 'pass') return '<div class="grade-why gw-pass">채점 기준을 모두 넘었어요</div>';
+  if (g.result === 'fail') return `<div class="grade-why gw-fail">미달 · ${esc(g.reasons.join(' / '))}</div>`;
+  return `<div class="grade-why gw-hold">보류 · ${esc(g.reasons.join(' / '))} — 키워드 분류는 기준을 넘었어요</div>`;
+}
+
 function renderResults(){
   const list = works.filter(inFilter).slice();
   list.sort((a,b) => answerSort === 'sid'
@@ -554,7 +570,7 @@ function renderResults(){
   $('s-fail').textContent = fail;
   $('s-avg').textContent = avg + '%';
   $('legend').textContent = list.length
-    ? '초록은 맞게 넣은 것, 빨강은 그 임금의 일이 아닌 것, 줄이 그어진 것은 함정입니다. AI 배지는 까닭을 읽은 참고 의견이며 통과·미흡과는 별개입니다.' : '';
+    ? '초록은 맞게 넣은 것, 빨강은 그 임금의 일이 아닌 것, 줄이 그어진 것은 함정입니다. 자동 채점은 통과·미흡·보류 셋으로 가르며, 까닭이 부실하거나 아직 검토 전인 학생은 보류해 아무 표시도 남기지 않습니다.' : '';
 
   if (!list.length){
     $('result-list').innerHTML = '<div class="no-data">아직 낸 학생이 없어요</div>';
@@ -601,8 +617,9 @@ function renderResults(){
           <div class="ai-box-h">까닭 자동 검토 — ${esc(aiLevelLabel(ai.level))}${ai.stale ? ' (검토 뒤에 다시 낸 글이라 지금 글과 다를 수 있어요)' : ''}</div>
           <div class="ai-box-c">${esc(ai.comment)}</div>
           ${ai.weak.length ? `<div class="ai-weak-list">다시 볼 곳 · ${ai.weak.map(esc).join(' / ')}</div>` : ''}
-          <div class="ai-note">참고용입니다. 통과·미흡은 아래에서 선생님이 누른 것만 기록됩니다.</div>
+          <div class="ai-note">자동 채점은 이 판정만으로 미흡을 찍지 않습니다. 부실이면 도장을 보류하고 선생님께 넘깁니다.</div>
         </div>` : ''}
+        ${gradeWhyHTML(w)}
         <div class="score-btns">
           <button class="ssb ssb-pass${w.status === 'pass' ? ' active' : ''}" data-mark="pass" data-sid="${esc(w.studentId)}">통과</button>
           <button class="ssb ssb-fail${w.status === 'fail' ? ' active' : ''}" data-mark="fail" data-sid="${esc(w.studentId)}">미흡</button>
@@ -639,21 +656,37 @@ function drawCard(card){
 }
 
 /* 자동 채점 — 아직 손대지 않은(미채점) 학생만 매긴다.
-   선생님이 이미 눌러 둔 판정을 뒤집지 않는 것이 규칙이다. */
+   선생님이 이미 눌러 둔 판정을 뒤집지 않는 것이 규칙이다.
+   셋으로 갈린다: 통과 / 미흡 / 보류. **보류는 아무것도 쓰지 않는다** — 미채점 그대로
+   남겨 두고 선생님이 카드를 열어 읽고 누른다. 기준은 brain.js 의 gradeWork 한 곳에 있다. */
 $('autoscore-btn').addEventListener('click', async () => {
-  const need = Math.max(0, Math.min(100, +$('thr-rate').value || 0));
+  const rate = Math.max(0, Math.min(100, +$('thr-rate').value || 0));
   const targets = works.filter(inFilter).filter(w => w.status !== 'pass' && w.status !== 'fail');
   if (!targets.length){ alert('채점할 학생이 없어요.'); return; }
   const batch = writeBatch(db);
+  let nPass = 0, nFail = 0, nHold = 0;
   targets.forEach(w => {
-    const t = tally(w);
-    const allNoted = SIDES.every(s => chipsOf(w, s.key).every(c => String(c.note || '').trim().length >= 2));
-    const pass = t.trap === 0 && t.rate >= need && allNoted && t.total > 0;
-    batch.update(doc(db,'j_brain_works', w.studentId), { status: pass ? 'pass' : 'fail' });
+    const g = gradeWork(w, CFG.keywords, { ai: aiOf(w), rate });
+    if (g.result === 'hold'){ nHold++; return; }
+    if (g.result === 'pass') nPass++; else nFail++;
+    batch.update(doc(db,'j_brain_works', w.studentId), { status: g.result });
   });
-  try{ await batch.commit(); }
+  const done = `통과 ${nPass}명 · 미흡 ${nFail}명 · 보류 ${nHold}명`;
+  if (!nPass && !nFail){
+    alert(`${done}\n\n도장을 찍을 학생이 없었어요. 보류는 아무 표시도 남기지 않으니 카드를 열어 직접 눌러 주세요.`);
+    return;
+  }
+  try{
+    await batch.commit();
+    alert(nHold ? `${done}\n\n보류한 ${nHold}명은 미채점 그대로 두었어요. 카드에 적힌 까닭을 보고 직접 눌러 주세요.` : done);
+  }
   catch(e){ alert('채점을 저장하지 못했어요.'); }
 });
+
+/* 임계값은 기준표(brain.js GRADE)에서 가져온다 — HTML에 숫자를 따로 적어 두면
+   기준을 고칠 때 한쪽만 바뀐다. 값을 바꾸면 카드에 적힌 까닭도 바로 따라 바뀐다. */
+$('thr-rate').value = GRADE.rate;
+$('thr-rate').addEventListener('change', renderResults);
 
 /* ── 까닭 자동 검토 ──
    학생 한 명을 한 번 부른다(한 사람 안에서 두 임금을 같이 봐야 "크기와 까닭이 어울리는가"를
