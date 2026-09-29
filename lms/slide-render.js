@@ -390,6 +390,20 @@
   const labelLineHTML = (o, cls) =>
     `<span class="${cls}${o.sub ? ' sub' : ''}"${o.scale ? ` style="font-size:${o.scale}em"` : ''}>${preserveSpaces(o.t)}</span>`;
 
+  /* 원문자(①②③…)로 시작하면서 ' : '도 'a.'도 없는 줄이 "소제목"인지 "번호 매긴 문장"인지
+     가른다. 소제목은 짧고 문장부호가 없다("왕권 강화 기반", "세부 채점 기준"). 문장은 쉼표·
+     마침표를 달고 있거나, 소제목이라기엔 길다.
+       - 마침표는 뒤에 숫자가 오면 안 센다. "3.1 운동" "6.25 전쟁"은 문장이 아니라 제목이다.
+       - 가운뎃점(·)도 안 센다. "정치·경제"처럼 제목에서 흔히 쓴다.
+       - 길이는 **강조**와 {빈칸} 표시를 걷어낸 알맹이로 잰다. 지금 쓰는 소제목 중 가장 긴
+         "도요토미 히데요시"가 9자라 16자면 넉넉하다. */
+  const SENTENCE_PUNCT_RE = /[,!?;…]|\.(?!\d)/;
+  const TITLE_MAX_LEN = 16;
+  function looksLikeSentence(bare) {
+    const plain = bare.replace(/\*\*/g, '').replace(/[{}]/g, '').trim();
+    return SENTENCE_PUNCT_RE.test(plain) || plain.length > TITLE_MAX_LEN;
+  }
+
   function rowHTML(row, labelPos, bottomQuote) {
     const rawItems = row.items || [];
     const CIRCLE_RE = /^[①-⑳㉑-㊿]\s*/;
@@ -425,6 +439,10 @@
         }
         // 콜론 구분 → 제목+내용
         if (ci > -1) return { type: 'title-colon', title: bare.slice(0, ci), content: bare.slice(ci + 3) };
+        // 구분자가 없다. 원문자를 소제목에 붙인 건지("① 왕권 강화 기반"), 문장에 번호를
+        // 매긴 건지("① 당 자체를 없앤 것이 아니라, …")를 가려야 한다. 전자는 굵은 소제목
+        // (item-lead)으로, 후자는 콜론 뒤 내용과 같은 본문 서체(item-text)로 내보낸다.
+        if (looksLikeSentence(bare)) return { type: 'text', content: bare };
         // 제목만
         return { type: 'title-alone', title: bare };
       }
