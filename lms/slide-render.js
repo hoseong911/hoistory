@@ -3,7 +3,7 @@
    똑같이 이 파일을 불러써서, 슬라이드 HTML 생성 로직이 항상 일치하도록 한다.
    ════════════════════════════════════════════════════════ */
 (function (global) {
-  console.log('[SlideRender] v20260929a loaded');
+  console.log('[SlideRender] v20261001a loaded');
 
   // 스페이스를 2칸 이상 연달아 쓰면 브라우저가 하나로 줄여버리므로, 짝수 번째
   // 스페이스를 &nbsp;로 바꿔 타이핑한 칸 수 그대로 보이게 한다(홀수 번째는 일반
@@ -691,17 +691,25 @@
     return `<div class="fmt-flow-${orientation}">${inner}</div>`;
   }
 
-  /* 중앙 나열 형식(cols): 대제목(slide.title) 아래에 소제목+내용 칸을 가로로 균등 배치하고
-     전체를 화면 정중앙에 놓는다. 칸 개수(2~N)에 상관없이 여백은 균등. */
-  function colsBodyHTML(slide) {
-    const cols = (slide.cols || []).map(c => `
+  /* 중앙 나열의 실제 내용(대제목 + 가로 균등 칸). 중앙 나열(cols) 형식 페이지와, 행 나열
+     페이지 아래에 덧붙는 중앙 나열 블록(bottomCols)이 같은 모양으로 나와야 하므로 둘이
+     이 함수를 같이 쓴다. extraClass로 바깥 래퍼에 변형 클래스만 더한다. */
+  function colsInnerHTML(colList, title, extraClass, styleVars) {
+    const cols = (colList || []).map(c => `
       <div class="cx-col">
         <div class="cx-head">${parseText(c.head || '')}</div>
         ${(c.body && c.body.trim()) ? `<div class="cx-body">${renderWithBreaks(c.body)}</div>` : ''}
       </div>`).join('');
-    // 상단 배지 헤더(slide.title)와 별개로, 본문 가운데에 큰 대제목(slide.colsTitle)을 둔다.
-    const bigTitle = (slide.colsTitle && slide.colsTitle.trim()) ? `<div class="cx-title">${parseText(slide.colsTitle)}</div>` : '';
-    return `<div class="fmt-cols-wrap">${bigTitle}<div class="fmt-cols">${cols}</div></div>`;
+    // 상단 배지 헤더(slide.title)와 별개로, 본문 가운데에 큰 대제목을 둔다.
+    const bigTitle = (title && title.trim()) ? `<div class="cx-title">${parseText(title)}</div>` : '';
+    const st = styleVars ? ` style="${styleVars}"` : '';
+    return `<div class="fmt-cols-wrap${extraClass || ''}"${st}>${bigTitle}<div class="fmt-cols">${cols}</div></div>`;
+  }
+
+  /* 중앙 나열 형식(cols): 대제목(slide.colsTitle) 아래에 소제목+내용 칸을 가로로 균등
+     배치하고 전체를 화면 정중앙에 놓는다. 칸 개수(2~N)에 상관없이 여백은 균등. */
+  function colsBodyHTML(slide) {
+    return colsInnerHTML(slide.cols, slide.colsTitle, '');
   }
 
   // 제목 없는 헤더(배지 없이 제목만) — 안내 슬라이드와 '배지 숨김' 옵션에서 공용.
@@ -748,7 +756,24 @@
       <div class="concept-rows">
         ${slide.rows.map((r, idx) => rowHTML(r, slide.labelPos, hasBQ && idx === slide.rows.length - 1 ? bq : null)).join('')}
       </div>`;
-    return wrapWithImg(`${header}${rows}`, slide, lesson);
+    /* 행 나열 + 중앙 나열 혼합: 행들 아래에 중앙 나열 블록(bottomCols)을 이어 붙인다.
+       하단 사료(bottomQuote)와 같은 방식 — 페이지의 형식(format)은 그대로 'rows'로 두고
+       다른 유형의 블록 하나만 덧붙이므로, 기존 행 나열 페이지는 필드가 없으면 그대로다.
+       블록은 남은 높이의 가운데에 서고(cols-inline), 자리가 없으면 내용 높이만 차지한다. */
+    const bcCols = (slide.bottomCols || []).filter(c => (c.head && c.head.trim()) || (c.body && c.body.trim()));
+    const bcTitle = (slide.bottomColsTitle || '').trim();
+    /* 페이지 글자 크기 칸(fontSize)은 행 본문(--fs-rows-body)만 건드린다. 블록은 원래
+       중앙 나열 페이지였던 내용이라 크기를 따로 잡을 수 있게 자기 필드를 쓴다.
+       비우면 디자인 탭의 중앙 나열 값을 그대로 따른다. */
+    const bcVars = [
+      slide.bottomColsSize      ? `--fs-cols-head:${slide.bottomColsSize}px;--fs-cols-body:${slide.bottomColsSize}px` : '',
+      slide.bottomColsTitleSize ? `--fs-cols-title:${slide.bottomColsTitleSize}px` : ''
+    ].filter(Boolean).join(';');
+    // 행이 하나도 없으면 블록 위 점선을 지운다(cols-solo) — 나눌 구역이 위에 없다.
+    const hasRows = (slide.rows || []).some(r => (r.label && String(r.label).trim()) || (r.items || []).some(it => it && String(it).trim()));
+    const colsBlock = (bcCols.length || bcTitle)
+      ? colsInnerHTML(bcCols, bcTitle, ' cols-inline' + (hasRows ? '' : ' cols-solo'), bcVars) : '';
+    return wrapWithImg(`${header}${rows}${colsBlock}`, slide, lesson);
   }
 
   function conceptHTML(slide, lesson) { return checkStyleHTML(slide, lesson, '개념 Check'); }
@@ -865,6 +890,18 @@
         if ((!fmt || fmt === 'rows') && line.quoteText && line.quoteText.trim()) {
           current.bottomQuote = { text: line.quoteText, source: line.quoteSource || '', label: line.quoteLabel || '' };
         }
+        /* 행 나열 페이지에 중앙 나열 블록이 붙어 있으면 함께 넘긴다(행+중앙 혼합).
+           내용이 있는 칸만 걸러 넘겨야 빈 칸이 가로 균등 배치의 폭을 먹지 않는다. */
+        if (!fmt || fmt === 'rows') {
+          const bcKept = (line.bottomCols || []).filter(c => (c.head && c.head.trim()) || (c.body && c.body.trim()));
+          const bcTitle = (line.bottomColsTitle || '').trim();
+          if (bcKept.length || bcTitle) {
+            current.bottomCols = bcKept;
+            current.bottomColsTitle = bcTitle;
+            if (line.bottomColsSize != null) current.bottomColsSize = line.bottomColsSize;
+            if (line.bottomColsTitleSize != null) current.bottomColsTitleSize = line.bottomColsTitleSize;
+          }
+        }
         if (line.img != null) {
           current.img = line.img;
           current.layout = line.imgLayout || 'right';
@@ -902,6 +939,7 @@
       if (s.format === 'compare') return (((s.left && s.left.items) || []).length + ((s.right && s.right.items) || []).length) > 0;
       if (s.format === 'flow-h' || s.format === 'flow-v') return (s.stages || []).length > 0;
       if (s.bottomQuote && s.bottomQuote.text && s.bottomQuote.text.trim()) return true;
+      if ((s.bottomCols || []).length || (s.bottomColsTitle || '').trim()) return true;
       return (s.rows || []).some(r => (r.label && r.label.trim()) || (r.items || []).some(it => it && String(it).trim()));
     });
   }

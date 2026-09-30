@@ -2177,8 +2177,51 @@ function ceColsEditor(target, i, line) {
       <div class="cl-fmt-hint">상단 배지 헤더는 위 슬라이드 제목칸 / 아래 대제목은 본문 가운데 큰 제목(선택) / 항목은 가로로 균등 배치 / **글자**로 감싸면 강조색</div>
       <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="대제목 (본문 가운데 큰 제목, 선택)" value="${esc(line.colsTitle||'')}" oninput="updateLine('${target}',${i},'colsTitle',this.value)">
       ${rows}
-      <button type="button" class="cbtn-sm" onclick="addCol('${target}',${i})">+ 항목 추가</button>
+      <div class="cl-fmt-row">
+        <button type="button" class="cbtn-sm" onclick="addCol('${target}',${i})">+ 항목 추가</button>
+        ${ceColsMergeUpBtn(target, i)}
+      </div>
     </div>`;
+}
+
+/* 중앙 나열 페이지를 바로 위 행 나열 페이지의 "중앙 나열 블록"으로 옮겨 한 페이지로 합친다.
+   (행 나열 페이지를 만들고 블록에 다시 타이핑하지 않아도 되도록 둔 단추.)
+   위 페이지가 행 나열이 아니면 단추를 아예 내보내지 않는다 — 블록은 행 나열에만 붙는다. */
+function cePrevDividerIdx(lines, i) {
+  for (let k = i - 1; k >= 0; k--) if (lines[k].type === 'divider') return k;
+  return -1;
+}
+function ceColsMergeUpBtn(target, i) {
+  const lines = ceLinesFor(target);
+  const pd = cePrevDividerIdx(lines, i);
+  const prev = pd > -1 ? lines[pd] : null;
+  if (!prev || (prev.format && prev.format !== 'rows')) return '';
+  if ((prev.bottomCols || []).length || (prev.bottomColsTitle || '').trim()) return '';  // 이미 블록이 있으면 덮어쓰지 않는다
+  return `<button type="button" class="cbtn-sm" onclick="mergeColsIntoPrevPage('${target}',${i})">↑ 위 행 나열 페이지에 합치기</button>`;
+}
+function mergeColsIntoPrevPage(target, i) {
+  const lines = ceLinesFor(target);
+  const pd = cePrevDividerIdx(lines, i);
+  if (pd < 0) return;
+  const prev = lines[pd], cur = lines[i];
+  /* 이 페이지 블록의 끝(다음 divider 전까지). 중앙 나열로 바꾸기 전에 행이 남아 있었다면
+     그 행들은 화면에 안 나오던 것이고, 페이지를 없애면서 같이 사라지므로 미리 알린다. */
+  let end = i + 1;
+  while (end < lines.length && lines[end].type !== 'divider') end++;
+  const strayRows = end - i - 1;
+  const msg = strayRows
+    ? `이 중앙 나열을 위 페이지 아래에 붙이고 이 페이지를 없앱니다.
+이 페이지에 안 쓰이고 남아 있던 행 ${strayRows}개도 함께 지워집니다.`
+    : '이 중앙 나열을 위 페이지 아래에 붙이고 이 페이지를 없앱니다.';
+  if (!confirm(msg)) return;
+  prev.bottomCols = (cur.cols || []).map(c => ({ head: c.head || '', body: c.body || '' }));
+  prev.bottomColsTitle = cur.colsTitle || '';
+  // 중앙 나열 페이지에서 쓰던 글자 크기를 블록 전용 필드로 옮겨, 합쳐도 크기가 그대로다.
+  if (cur.fontSize != null) prev.bottomColsSize = cur.fontSize;
+  if (cur.colsTitleSize != null) prev.bottomColsTitleSize = cur.colsTitleSize;
+  lines.splice(i, end - i);
+  ceRenderContentLines(target);
+  ceRenderPreview();
 }
 function updateColField(target,i,j,f,v){ ceLinesFor(target)[i].cols[j][f]=v; ceRenderPreview(); }
 function addCol(target,i){ ceLinesFor(target)[i].cols.push({head:'',body:''}); ceRenderContentLines(target); ceRenderPreview(); }
@@ -2204,6 +2247,56 @@ function ceBottomQuoteEditor(target, i, line) {
         <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="출처 (선택, 자동으로 겹낫표 『』 표시)" value="${esc(line.quoteSource||'')}" oninput="updateLine('${target}',${i},'quoteSource',this.value)">
       </div>
     </details>`;
+}
+
+/* 행 나열 아래에 붙는 중앙 나열 블록(선택) — 한 페이지에 행 나열 + 중앙 나열 두 유형을
+   같이 두려고 만든 칸. 하단 사료 인용과 같은 방식으로, 페이지 형식은 '행 나열' 그대로 두고
+   블록 데이터만 따로 담는다(bottomCols / bottomColsTitle). 칸을 다 비우면 안 붙는다. */
+function ceBottomColsEditor(target, i, line) {
+  const cols = line.bottomCols || [];
+  const hasAny = !!(cols.some(c => (c.head && c.head.trim()) || (c.body && c.body.trim())) || (line.bottomColsTitle || '').trim());
+  const rows = cols.map((c, j) => `
+    <div class="cl-fmt-row">
+      <input type="text" class="cl-fmt-sm" style="width:150px" placeholder="소제목" value="${esc(c.head||'')}" oninput="updateBottomColField('${target}',${i},${j},'head',this.value)">
+      <input type="text" class="cl-fmt-grow" placeholder="내용 (선택), {단어}는 빈칸" value="${esc(c.body||'')}" oninput="updateBottomColField('${target}',${i},${j},'body',this.value)">
+      <button class="cl-fmt-del" onclick="removeBottomCol('${target}',${i},${j})">삭제</button>
+    </div>`).join('');
+  return `
+    <details class="cl-bq" ${hasAny ? 'open' : ''}>
+      <summary class="cl-bq-summary">중앙 나열 블록 (선택)</summary>
+      <div class="cl-fmt-fields">
+        <div class="cl-fmt-hint">행들 아래에 중앙 나열이 한 구역으로 붙는다 / 항목을 다 비우면 안 붙음 / **글자**로 감싸면 강조색</div>
+        <input type="text" class="cl-fmt-sm" style="width:100%" placeholder="대제목 (블록 가운데 큰 제목, 선택)" value="${esc(line.bottomColsTitle||'')}" oninput="updateLine('${target}',${i},'bottomColsTitle',this.value)">
+        ${rows}
+        <div class="cl-fmt-row">
+          <button type="button" class="cbtn-sm" onclick="addBottomCol('${target}',${i})">+ 항목 추가</button>
+          <label class="cl-opt">글자 크기(소제목/내용) <input type="number" min="10" max="140" placeholder="기본" value="${line.bottomColsSize != null ? line.bottomColsSize : ''}" oninput="setBottomColsSize('${target}',${i},'bottomColsSize',this.value)"> px</label>
+          <label class="cl-opt">글자 크기(대제목) <input type="number" min="10" max="200" placeholder="기본" value="${line.bottomColsTitleSize != null ? line.bottomColsTitleSize : ''}" oninput="setBottomColsSize('${target}',${i},'bottomColsTitleSize',this.value)"> px</label>
+        </div>
+      </div>
+    </details>`;
+}
+function updateBottomColField(target,i,j,f,v){ ceLinesFor(target)[i].bottomCols[j][f]=v; ceRenderPreview(); }
+function addBottomCol(target,i){
+  const line = ceLinesFor(target)[i];
+  if (!line.bottomCols) line.bottomCols = [];
+  line.bottomCols.push({head:'',body:''});
+  ceRenderContentLines(target); ceRenderPreview();
+}
+function removeBottomCol(target,i,j){
+  const line = ceLinesFor(target)[i];
+  line.bottomCols.splice(j,1);
+  // 항목을 다 지우면 필드째 없애서 예전 행 나열 페이지와 똑같은 데이터로 돌려 둔다.
+  if (!line.bottomCols.length) delete line.bottomCols;
+  ceRenderContentLines(target); ceRenderPreview();
+}
+// 블록 자체 글자 크기(소제목·내용 / 대제목). 비우면 필드를 지워 디자인 탭 기본값을 따른다.
+function setBottomColsSize(target,i,field,v){
+  const line = ceLinesFor(target)[i];
+  const n = parseInt(v, 10);
+  if (v === '' || isNaN(n)) delete line[field];
+  else line[field] = n;
+  ceRenderPreview();
 }
 
 function ceTimelineEditor(target, i, line) {
@@ -2436,6 +2529,7 @@ function ceRenderContentLines(target) {
                   ${fmt === 'cols' ? `<label class="cl-opt">글자 크기(대제목) <input type="number" min="10" max="200" placeholder="기본" value="${div.colsTitleSize != null ? div.colsTitleSize : ''}" oninput="setColsTitleSize('${target}',${divIdx},this.value)"> px</label>` : ''}
                 </div>
                 ${fmt === 'rows' ? ceBottomQuoteEditor(target,divIdx,div) : ''}
+                ${fmt === 'rows' ? ceBottomColsEditor(target,divIdx,div) : ''}
               </div>
             </details>
             <div class="cl-slide-body">${bodyHtml}</div>
@@ -3198,6 +3292,9 @@ function ceSanitizeParsedLesson(d) {
     if (fmt === 'compare') return (((line.left && line.left.items) || []).length + ((line.right && line.right.items) || []).length) > 0;
     if (fmt === 'flow-h' || fmt === 'flow-v') return (line.stages || []).length > 0;
     if (line.quoteText && line.quoteText.trim()) return true;  // rows + 하단 사료만 있는 페이지
+    // rows + 중앙 나열 블록만 있는 페이지도 내용 있음
+    if ((line.bottomCols || []).some(c => (c.head && c.head.trim()) || (c.body && c.body.trim()))) return true;
+    if ((line.bottomColsTitle || '').trim()) return true;
     return false;                                   // rows 형식인데 뒤에 행 없음 → 빈 슬라이드, 제거
   });
   if (d.conceptContentLines) d.conceptContentLines = dropEmptyDividers(enforceOnePerSlide(d.conceptContentLines));
@@ -7151,6 +7248,8 @@ Object.assign(window, {
   updateCompareField, updateCompareItems,
   updateStageField, addStage, removeStage,
   updateColField, addCol, removeCol,
+  updateBottomColField, addBottomCol, removeBottomCol, setBottomColsSize,
+  mergeColsIntoPrevPage,
   updateImageItem, addImageItem, removeImageItem,
   addFullImageSlide, deleteFullImage, addVideoSlide, updateVideoUrl,
   updateLesson, updateObjectives, updateLine, updateLineItems, updateThink,
