@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>중3 사회 수행평가 문제 추첨</title>
+<meta name="theme-color" content="#FF6B3D">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<style>
+@font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-9Black.woff2') format('woff2');font-weight:900;font-style:normal;font-display:swap}
+@font-face{font-family:'Paperlogy';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --canvas:#FAFAF9;--surface:#F4F3EE;
+  --hairline:#E5E4DF;--hairline-soft:#ECEAE4;
+  --ink-deep:#0A1317;--ink:#2C3333;--charcoal:#4A5568;--slate:#6B7280;--stone:#C4C4C4;
+  --primary:#FF6B3D;--primary-deep:#E24E1B;--primary-l:rgba(255,107,61,0.14);--primary-m:rgba(255,107,61,0.26);
+  --accent:#27384F;
+  --shadow:rgba(20,22,26,0.10) 0px 1px 4px 0px;
+  --shadow-hover:rgba(20,22,26,0.16) 0px 10px 24px 0px;
+}
+html{background:linear-gradient(160deg,#FFF1EB 0%,#F4F3EE 50%,#EEF1F5 100%);min-height:100%}
+html,body{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;min-height:100vh;color:var(--ink-deep);-webkit-font-smoothing:antialiased}
+body{background:transparent;overflow-x:hidden}
+body::before{content:'';position:fixed;top:-120px;right:-80px;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(255,107,61,0.30) 0%,rgba(255,107,61,0) 70%);pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;bottom:-100px;left:-60px;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle,rgba(39,56,79,0.18) 0%,rgba(39,56,79,0) 70%);pointer-events:none;z-index:0}
+*::-webkit-scrollbar{width:8px;height:8px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-button{display:none;width:0;height:0}
+*::-webkit-scrollbar-thumb{background:rgba(128,128,128,.36);border-radius:4px}
+
+.page{position:relative;z-index:1;max-width:560px;margin:0 auto;padding:40px 20px 56px;display:flex;flex-direction:column;align-items:center;min-height:100vh}
+
+h1{font-family:'Paperlogy',sans-serif;font-weight:700;font-size:26px;letter-spacing:.2px;line-height:1.3;text-align:center}
+h1 span{color:var(--primary-deep)}
+.sub{margin-top:8px;font-size:14px;color:var(--slate);text-align:center}
+
+/* ===== 결과 카드 ===== */
+.card{
+  width:100%;margin-top:28px;background:rgba(255,255,255,.82);
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border:1px solid var(--hairline-soft);border-radius:28px;
+  box-shadow:var(--shadow);padding:34px 24px 30px;
+  display:flex;flex-direction:column;align-items:center;gap:18px;
+}
+.card.pop{animation:pop .45s cubic-bezier(.2,1.3,.4,1)}
+@keyframes pop{0%{transform:scale(.94);opacity:.6}60%{transform:scale(1.02)}100%{transform:scale(1);opacity:1}}
+
+.combo-label{font-size:13px;font-weight:700;letter-spacing:2px;color:var(--primary-deep)}
+.combo-no{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:76px;line-height:1;
+  background:linear-gradient(135deg,#FF6B3D,#E24E1B);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  font-variant-numeric:tabular-nums}
+.combo-no small{font-size:24px;-webkit-text-fill-color:var(--slate);font-weight:700;margin-left:4px}
+
+.divider{width:48px;height:3px;border-radius:2px;background:var(--primary-l)}
+
+.q-label{font-size:13px;color:var(--slate);font-weight:600;letter-spacing:.5px}
+.q-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.q{
+  width:62px;height:62px;border-radius:20px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Paperlogy',sans-serif;font-weight:700;font-size:28px;color:#fff;
+  background:linear-gradient(135deg,rgba(255,107,61,.95),rgba(226,78,27,.96));
+  box-shadow:0 6px 16px rgba(226,78,27,.22);
+  font-variant-numeric:tabular-nums;
+}
+/* 아직 안 뽑은 상태 / 돌아가는 중에는 회색 */
+.card.idle .combo-no,.card.rolling .combo-no{background:linear-gradient(135deg,#C9C7C1,#B6B4AE);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.card.idle .combo-no{font-size:56px}
+.card.idle .q,.card.rolling .q{background:#E6E4DE;color:#B6B4AE;box-shadow:none}
+
+/* ===== 버튼 ===== */
+.btn{
+  margin-top:26px;width:100%;max-width:340px;border:none;cursor:pointer;
+  font-family:'Paperlogy',sans-serif;font-weight:700;font-size:20px;color:#fff;letter-spacing:.5px;
+  padding:18px 24px;border-radius:999px;
+  background:linear-gradient(135deg,rgba(255,107,61,.95),rgba(226,78,27,.96));
+  box-shadow:var(--shadow);transition:transform .15s ease,box-shadow .15s ease,opacity .15s ease;
+}
+.btn:hover{transform:translateY(-2px);box-shadow:var(--shadow-hover)}
+.btn:active{transform:translateY(0) scale(.99)}
+.btn:disabled{opacity:.6;cursor:default;transform:none;box-shadow:var(--shadow)}
+
+.toggle{margin-top:14px;display:flex;align-items:center;gap:8px;font-size:13px;color:var(--charcoal);cursor:pointer;user-select:none}
+.toggle input{width:16px;height:16px;accent-color:var(--primary-deep);cursor:pointer}
+
+.history{width:100%;margin-top:22px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.history span{
+  font-size:12px;font-weight:600;color:var(--charcoal);
+  background:rgba(255,255,255,.7);border:1px solid var(--hairline-soft);
+  border-radius:999px;padding:5px 11px;
+}
+.history .empty{border:none;background:none;color:var(--slate)}
+
+.foot{margin-top:auto;padding-top:28px;font-size:12px;color:var(--slate);text-align:center}
+
+@media (max-width:420px){
+  .combo-no{font-size:64px}
+  .q{width:56px;height:56px;font-size:25px;border-radius:18px}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>중3 사회 <span>수행평가</span> 문제 추첨</h1>
+  <p class="sub">버튼을 누르면 16개 조합 중 하나가 뽑힙니다</p>
+
+  <div class="card idle" id="card">
+    <div class="combo-label">COMBINATION</div>
+    <div class="combo-no" id="comboNo">?<small>번</small></div>
+    <div class="divider"></div>
+    <div class="q-label">문제 번호</div>
+    <div class="q-row" id="qRow">
+      <div class="q">?</div><div class="q">?</div><div class="q">?</div><div class="q">?</div>
+    </div>
+  </div>
+
+  <button class="btn" id="drawBtn">추첨하기</button>
+
+  <label class="toggle"><input type="checkbox" id="noRepeat"> 나온 조합은 빼고 뽑기</label>
+
+  <div class="history" id="history"><span class="empty">아직 뽑은 조합이 없습니다</span></div>
+
+  <div class="foot">Dive into HISTORY</div>
+</div>
+
+<script>
+// 조합표 (조합 1~16 → 문제 번호 4개)
+var COMBOS = [
+  [1,2,4,7],[1,2,4,8],[1,2,6,7],[1,2,6,8],
+  [1,4,5,7],[1,4,5,8],[1,5,6,7],[1,5,6,8],
+  [2,3,4,7],[2,3,4,8],[2,3,6,7],[2,3,6,8],
+  [3,4,5,7],[3,4,5,8],[3,5,6,7],[3,5,6,8]
+];
+
+var card      = document.getElementById('card');
+var comboNo   = document.getElementById('comboNo');
+var qRow      = document.getElementById('qRow');
+var btn       = document.getElementById('drawBtn');
+var noRepeat  = document.getElementById('noRepeat');
+var historyEl = document.getElementById('history');
+
+var drawn = [];      // 지금까지 뽑힌 조합 번호(1~16)
+var rolling = false;
+
+function render(idx){                       // idx: 0-based
+  comboNo.innerHTML = (idx + 1) + '<small>번</small>';
+  qRow.innerHTML = COMBOS[idx].map(function(n){ return '<div class="q">' + n + '</div>'; }).join('');
+}
+
+function renderHistory(){
+  if(!drawn.length){ historyEl.innerHTML = '<span class="empty">아직 뽑은 조합이 없습니다</span>'; return; }
+  historyEl.innerHTML = drawn.map(function(n){
+    return '<span>' + n + '번 · ' + COMBOS[n-1].join(', ') + '</span>';
+  }).join('');
+}
+
+function pick(){
+  var pool = COMBOS.map(function(_, i){ return i; });
+  if(noRepeat.checked){
+    var rest = pool.filter(function(i){ return drawn.indexOf(i + 1) === -1; });
+    if(rest.length === 0){ drawn = []; renderHistory(); }   // 16개 다 나오면 새 판으로
+    else pool = rest;
+  }
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function draw(){
+  if(rolling) return;
+  rolling = true;
+  btn.disabled = true;
+  card.classList.remove('idle', 'pop');
+  card.classList.add('rolling');
+
+  var target = pick();
+  var start = Date.now();
+  var DURATION = 1100;
+
+  (function spin(){
+    var t = Date.now() - start;
+    if(t < DURATION){
+      render(Math.floor(Math.random() * COMBOS.length));
+      setTimeout(spin, 45 + 170 * Math.pow(t / DURATION, 3));   // 뒤로 갈수록 느려지게
+    }else{
+      card.classList.remove('rolling');
+      render(target);
+      void card.offsetWidth;
+      card.classList.add('pop');
+      drawn.push(target + 1);
+      renderHistory();
+      btn.textContent = '다시 추첨';
+      btn.disabled = false;
+      rolling = false;
+    }
+  })();
+}
+
+btn.addEventListener('click', draw);
+document.addEventListener('keydown', function(e){
+  if(e.code === 'Space' || e.code === 'Enter'){ e.preventDefault(); draw(); }
+});
+noRepeat.addEventListener('change', function(){
+  if(!noRepeat.checked){ drawn = []; renderHistory(); }
+});
+</script>
+</body>
+</html>
