@@ -315,7 +315,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
         <div class="ox-today-l">오늘 받은 포인트</div>
         <div class="ox-today-bar"><i id="today-bar"></i></div>
       </div>
-      <div class="ox-today-v"><b id="today-earned">0</b> / <span id="today-max">30</span> pt</div>
+      <div class="ox-today-v"><b id="today-earned">0</b> / <span id="today-max">50</span> pt</div>
     </div>
 
     <div class="ox-note" id="pick-note"></div>
@@ -332,6 +332,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
         <button type="button" data-n="10">10문제</button>
         <button type="button" data-n="20">20문제</button>
         <button type="button" data-n="30">30문제</button>
+        <button type="button" data-n="50">50문제</button>
         <button type="button" data-n="0">전체</button>
       </div>
       <button class="hi-btn hi-btn-primary hi-btn-block" id="pickbar-go">퀴즈 시작</button>
@@ -445,7 +446,7 @@ function show(name) {
 /* ══════════ 상태 ══════════ */
 const S = {
   lessons: [],          // [{ num, title, order, list }]
-  today:   { enabled: true, earned: 0, dailyMax: 30, lessonsDone: new Set() },
+  today:   { enabled: true, earned: 0, dailyMax: 50, doneToday: false },
   sel:     new Set(),   // 고른 강의 번호 — 여러 강의를 한 번에 풀 수 있다
   limit:   20,          // 낼 문항 수 (0 = 고른 강의의 전체 문항)
   quiz:    null,        // { nums, list, idx, correct, wrong, answered, per }
@@ -509,15 +510,16 @@ function renderPick() {
   const { earned, dailyMax, enabled } = S.today;
   document.getElementById('today-earned').textContent = earned;
   document.getElementById('today-max').textContent    = dailyMax;
-  document.getElementById('today-bar').style.width    = dailyMax ? Math.min(100, earned / dailyMax * 100) + '%' : '0%';
+  document.getElementById('today-bar').style.width    = dailyMax ? Math.max(0, Math.min(100, earned / dailyMax * 100)) + '%' : '0%';
 
   const note = document.getElementById('pick-note');
   if (!enabled) {
     note.innerHTML = '지금은 OX 퀴즈 포인트 지급이 꺼져 있습니다. 풀이 기록은 그대로 남습니다.';
-  } else if (earned >= dailyMax) {
-    note.innerHTML = '오늘 받을 수 있는 <b>' + dailyMax + 'pt</b>를 모두 받았습니다. 더 풀어도 포인트는 오르지 않지만 기록은 남습니다.';
+  } else if (S.today.doneToday) {
+    note.innerHTML = '오늘 몫은 이미 받았습니다. 더 풀어도 포인트는 움직이지 않지만 기록은 남습니다.';
   } else {
-    note.innerHTML = '맞힌 문제 하나가 <b>1pt</b>, 하루 최대 <b>' + dailyMax + 'pt</b>까지 받습니다. 같은 강의로는 하루에 한 번만 받을 수 있어요.';
+    note.innerHTML = '맞히면 <b>+1pt</b>, 틀리면 <b>-1pt</b>로 합산해 다 푼 뒤 한 번에 쌓입니다. ' +
+                     '<b>하루 한 번</b>만 받을 수 있으니 신중하게 푸세요. 하루 최대 <b>' + dailyMax + 'pt</b>입니다.';
   }
 
   const wrap = document.getElementById('lec-list');
@@ -532,8 +534,7 @@ function renderPick() {
 
   wrap.innerHTML = '';
   S.lessons.forEach(L => {
-    const done = S.today.lessonsDone.has(L.num);
-    const on   = S.sel.has(L.num);
+    const on = S.sel.has(L.num);
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'ox-lec' + (on ? ' on' : '');
@@ -543,8 +544,7 @@ function renderPick() {
       '<span class="ox-lec-body">' +
         '<span class="ox-lec-title">' + esc(stripEmph(L.title) || '제목 없는 강의') + '</span>' +
         '<span class="ox-lec-meta">' + L.list.length + '문제</span>' +
-      '</span>' +
-      (done ? '<span class="ox-lec-flag done">오늘 받음</span>' : '');
+      '</span>';
     b.addEventListener('click', () => {
       if (S.sel.has(L.num)) S.sel.delete(L.num); else S.sel.add(L.num);
       renderPick();
@@ -564,7 +564,7 @@ function renderPickBar() {
   const pool = S.lessons.filter(L => S.sel.has(L.num)).reduce((a, L) => a + L.list.length, 0);
   const will = S.limit > 0 ? Math.min(S.limit, pool) : pool;
   document.getElementById('pickbar-sum').innerHTML =
-    '강의 <b>' + nums.length + '개</b> 선택 · 보유 ' + pool + '문제 중 <b>' + will + '문제</b> 출제';
+    '강의 <b>' + nums.length + '개</b> 선택, 보유 ' + pool + '문제 중 <b>' + will + '문제</b> 출제';
 
   [...document.querySelectorAll('#amt button')].forEach(btn => {
     const n = +btn.dataset.n;
@@ -721,8 +721,8 @@ async function finishQuiz() {
     }
     const labels = Q.nums.map(lecLabel);
     return labels.length <= 3
-      ? labels.join(' · ')
-      : labels.slice(0, 3).join(' · ') + ' 외 ' + (labels.length - 3) + '개';
+      ? labels.join(', ')
+      : labels.slice(0, 3).join(', ') + ' 외 ' + (labels.length - 3) + '개';
   })();
   document.getElementById('res-correct').textContent = correct;
   document.getElementById('res-total').textContent   = total;
@@ -744,11 +744,11 @@ async function finishQuiz() {
   }
   show('result');
 
-  // 포인트 지급 — 강의마다 따로 부른다. "같은 강의는 하루 한 번"이 강의 단위 규칙이라
-  // 여러 강의를 섞어 풀어도 각 강의 몫이 제대로 계산되어야 한다. 상한 판정은 전부
-  // addOxQuizXP의 트랜잭션이 하므로 여기서는 결과만 합친다.
-  const res = await grantPoints(Q);
-  renderPoint(res, correct);
+  // 포인트 지급 — 맞힌 수와 틀린 수를 넘기면 합산해서 한 번에 넣어 준다.
+  // 하루 한 번 규칙과 상한 판정은 전부 addOxQuizXP의 트랜잭션이 한다.
+  let res = null;
+  try { res = await addOxQuizXP(correct, total - correct, Q.nums); } catch (e) { console.error(e); }
+  renderPoint(res, correct, total);
 
   // 기록 저장은 포인트와 별개다. 상한에 걸려 포인트를 못 받아도 참여는 남는다.
   saveRecord(Q, correct, total, rate, (res && res.pt) || 0).catch(e => {
@@ -757,57 +757,34 @@ async function finishQuiz() {
   });
 
   await loadToday();
-  if (res && res.pt) {
+  if (res && res.pt > 0) {
     if (res.levelUp) showCelebration({ icon: icon('trophy', 46), title: '레벨 ' + res.newLevel + ' 달성', message: 'OX 퀴즈로 ' + res.pt + 'pt를 받았어요' });
     else             showToast(res.pt + 'pt를 받았어요');
+  } else if (res && res.pt < 0) {
+    showToast(res.pt + 'pt 반영됐어요', 'error');
   }
 }
 
-/* 강의별로 지급하고 합계를 낸다. 한 강의가 막혀도(오늘 이미 받음) 나머지는 받는다. */
-async function grantPoints(Q) {
-  let pt = 0, earnedToday = 0, dailyMax = 0, levelUp = false, newLevel = 0;
-  const blocked = {};
-  const byLesson = {};
-
-  for (const num of Q.nums) {
-    const p = Q.per[num];
-    if (!p) continue;
-    let r = null;
-    try { r = await addOxQuizXP(num, p.correct); } catch (e) { console.error(e); }
-    byLesson[num] = (r && r.pt) || 0;
-    if (!r) { blocked.off = true; continue; }
-    if (r.pt) {
-      pt += r.pt;
-      if (r.levelUp) { levelUp = true; newLevel = r.newLevel; }
-    } else if (r.blocked) {
-      blocked[r.blocked] = true;
-    }
-    if (r.dailyMax)    dailyMax    = r.dailyMax;
-    if (r.earnedToday) earnedToday = Math.max(earnedToday, r.earnedToday);
-  }
-  return { pt, earnedToday, dailyMax, levelUp, newLevel, blocked, byLesson };
-}
-
-function renderPoint(res, correct) {
+function renderPoint(res, correct, total) {
   const el = document.getElementById('res-pt');
+  const wrong = Math.max(0, (total || 0) - (correct || 0));
   const zero = function (why) {
     el.innerHTML = '포인트 <b>0pt</b><span class="why">' + why + '</span>';
   };
-  const b = (res && res.blocked) || {};
-
-  if (res && res.pt) {
-    // 일부 강의만 막힌 경우도 있어 그럴 땐 한 줄 덧붙인다.
-    const partial = b.lesson ? ' · 오늘 이미 받은 강의는 빼고 계산했습니다' : '';
-    el.innerHTML = '이번 퀴즈로 <b>' + res.pt + 'pt</b> 획득' +
-                   '<span class="why">오늘 누적 ' + res.earnedToday + ' / ' + res.dailyMax + ' pt' + partial + '</span>';
-  } else if (b.daily) {
-    zero('오늘 받을 수 있는 ' + (res.dailyMax || S.today.dailyMax) + 'pt를 모두 채웠습니다.');
-  } else if (b.lesson) {
-    zero('고른 강의는 오늘 이미 포인트를 받았습니다. 다른 강의를 풀면 더 받을 수 있어요.');
-  } else if (correct === 0) {
-    zero('맞힌 문제가 없어요. 해설을 보고 다시 풀어 보세요.');
+  if (!res) { zero('지금은 OX 퀴즈 포인트 지급이 꺼져 있습니다.'); return; }
+  if (res.blocked === 'daily') {
+    zero('OX 퀴즈 포인트는 하루 한 번입니다. 오늘 몫은 이미 받았어요.');
+    return;
+  }
+  // 가감점이라 결과가 0이거나 음수일 수 있다 — 어떻게 나온 수인지 같이 보여 준다.
+  const how = '맞힌 ' + correct + '개에서 틀린 ' + wrong + '개를 뺀 값입니다';
+  if (res.pt > 0) {
+    el.innerHTML = '이번 퀴즈로 <b>+' + res.pt + 'pt</b> 획득<span class="why">' + how + '</span>';
+  } else if (res.pt < 0) {
+    el.innerHTML = '이번 퀴즈로 <b>' + res.pt + 'pt</b><span class="why">' + how +
+                   '. 다음에는 해설을 보고 천천히 풀어 보세요.</span>';
   } else {
-    zero('지금은 OX 퀴즈 포인트 지급이 꺼져 있습니다.');
+    el.innerHTML = '포인트 <b>0pt</b><span class="why">' + how + '</span>';
   }
 }
 

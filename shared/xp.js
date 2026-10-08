@@ -16,7 +16,7 @@ export const DEFAULT_ACTIVITIES = {
   mileage:      { pt: 20, enabled: true },
   thinkCheck:   { pt: 30, enabled: true }, // pt = 최대치. 실제 지급은 제출 AI 채점으로 10~pt 차등.
   typingReview: { pt: 20, perLectureMax: 10, enabled: true }, // 하루 1회 + perLectureMax = 한 강의로 받을 수 있는 총 횟수(≈10일치)
-  oxQuiz:       { ptPer: 1, dailyMax: 50, enabled: true }, // 정답 1개 = ptPer점, 하루 dailyMax까지. 같은 강의는 하루 한 번만 지급된다(addOxQuizXP).
+  oxQuiz:       { ptPer: 1, dailyMax: 50, enabled: true }, // 맞힌 문제 +ptPer / 틀린 문제 -ptPer를 합산해 하루 한 번만 적립(addOxQuizXP). dailyMax는 하루 상한.
   annComment:   { pt: 5,  enabled: true }, // 공지 댓글 — 한 글에 한 번만
   annLike:      { pt: 2,  enabled: true }, // 공지 좋아요 — 한 글에 한 번만(취소해도 돌려받지 않고, 다시 눌러도 또 주지 않는다)
   lottery:      { enabled: true },         // 일일 뽑기 — 등수별 점수는 index.js의 LOTTERY 표에 있다
@@ -186,29 +186,31 @@ export async function addTypingReviewXP(lectureNum) {
   return null;
 }
 
-// OX 퀴즈: 맞힌 개수만큼 포인트를 준다(정답 1개 = ptPer, 기본 1pt).
-// 두 가지 상한이 함께 걸린다.
-//   1. 하루 총 dailyMax(기본 30pt) — 강의를 가리지 않고 오늘 받은 것을 모두 합쳐 센다.
-//   2. 같은 강의는 하루 한 번만 — 쉬운 강의 하나를 반복해 풀어 상한을 채우는 걸 막는다.
-//      여러 강의를 돌수록 이득이 되도록 한 설계라, 이 규칙을 빼면 1번만 남아 반복 풀이가 그대로 통한다.
-// 저장 위치: xp/students/{sid}/dailyOX/{날짜}      = 오늘 받은 pt 합계
-//            xp/students/{sid}/oxLessonDay/{강의키} = 그 강의로 마지막에 받은 날짜
-// 두 맵 모두 오늘 것만 남기고 지난 날짜는 트랜잭션에서 걷어낸다(학기 내내 쌓이지 않게).
+// OX 퀴즈: 맞힌 문제 +ptPer, 틀린 문제 -ptPer를 합산해 다 푼 시점에 한 번에 적립한다.
+// 하루 한 번만 받는다 — 어느 강의를 골랐든, 몇 문제를 풀었든 그날 첫 한 판만 점수가 된다.
+// 다 푼 순간 그날 몫을 쓴 것으로 치므로, 합이 0이거나 음수여도 다시 풀어 만회할 수는 없다.
+// 많이 틀려 합이 음수가 되면 누적에서 깎이지만, 누적 점수가 0 밑으로 내려가지는 않는다.
+// dailyMax는 하루에 받을 수 있는 상한으로만 남는다(문항을 아무리 많이 풀어도 그 이상은 없다).
+// 저장 위치: xp/students/{sid}/dailyOX/{날짜} = 오늘 적립된 pt
+//            xp/students/{sid}/oxDay          = 오늘 몫을 썼으면 오늘 날짜
+// dailyOX는 오늘 것만 남기고 지난 날짜는 트랜잭션에서 걷어낸다(학기 내내 쌓이지 않게).
 //
-// 반환값: 지급 성공 시 { pt, earnedToday, dailyMax, newTotal, newLevel, levelUp },
-//         못 받았으면 { blocked: 'daily' | 'lesson' | 'zero', earnedToday, dailyMax },
-//         활동이 꺼져 있거나 강의 번호가 없으면 null.
-export async function addOxQuizXP(lessonNum, correctCount) {
+// 반환값: 적립됐으면 { pt, earnedToday, dailyMax, correct, wrong, newTotal, newLevel, levelUp },
+//         오늘 이미 풀었으면 { blocked: 'daily', earnedToday, dailyMax },
+//         활동이 꺼져 있으면 null.
+export async function addOxQuizXP(correctCount, wrongCount, lessonNums) {
   const act = _config?.activities?.oxQuiz;
   if (!act?.enabled) return null;
-  const key = _lectureKey(lessonNum);
-  if (!key) return null; // 어느 강의 몫인지 모르면 상한을 셀 수 없으므로 지급하지 않는다
   if (!_rtdb || !_sid) return null;
 
   const ptPer    = Number(act.ptPer ?? DEFAULT_ACTIVITIES.oxQuiz.ptPer) || 0;
   const dailyMax = Number(act.dailyMax ?? DEFAULT_ACTIVITIES.oxQuiz.dailyMax) || 0;
-  const correct  = Math.max(0, Number(correctCount) || 0);
   if (ptPer <= 0 || dailyMax <= 0) return null;
+
+  const correct = Math.max(0, Number(correctCount) || 0);
+  const wrong   = Math.max(0, Number(wrongCount)   || 0);
+  // 맞힌 만큼 더하고 틀린 만큼 뺀 합. 상한은 지키되 음수는 음수 그대로 간다.
+  const net = Math.min((correct - wrong) * ptPer, dailyMax);
 
   const base    = `${XP_ROOT}/students/${_sid}`;
   const today   = _today();
@@ -217,35 +219,30 @@ export async function addOxQuizXP(lessonNum, correctCount) {
 
   const txRes = await _fb.runTransaction(_fb.ref(_rtdb, base), cur => {
     cur = cur || {};
-    const earned = Number((cur.dailyOX || {})[today]) || 0;
-    if (earned >= dailyMax)                     { blocked = 'daily';  return; }
-    if ((cur.oxLessonDay || {})[key] === today) { blocked = 'lesson'; return; }
-    const grant = Math.min(correct * ptPer, dailyMax - earned);
-    // 한 문제도 못 맞혔으면 아무것도 쓰지 않는다 — 강의를 소모하지 않으므로 다시 풀어 볼 수 있다.
-    if (grant <= 0)                             { blocked = 'zero';   return; }
+    // 하루 한 번. 다 푼 순간 그날 몫은 끝나므로 점수가 0이거나 음수여도 횟수는 쓴 것으로 본다.
+    if (cur.oxDay === today) { blocked = 'daily'; return; }
 
     const prevTotal = cur.total || 0;
-    const newTotal  = prevTotal + grant;
+    const newTotal  = Math.max(0, prevTotal + net); // 많이 틀려도 누적이 음수로 내려가지는 않는다
+    const grant     = newTotal - prevTotal;         // 실제로 움직인 양(깎인 경우 음수)
     const newLevel  = calcLevel(newTotal);
-    result = { pt: grant, earnedToday: earned + grant, newTotal, newLevel, wasLevel: calcLevel(prevTotal) };
+    result = { pt: grant, newTotal, newLevel, wasLevel: calcLevel(prevTotal) };
 
     return {
       ...cur,
       total: newTotal, level: newLevel, name: _sname,
-      dailyOX:     { [today]: earned + grant },                       // 지난 날짜는 버린다
-      oxLessonDay: { ..._todayOnly(cur.oxLessonDay, today), [key]: today },
-      history:     { ...(cur.history || {}), [histKey]: { type: 'oxQuiz', pt: grant, note: 'OX 퀴즈 정답', ts: Date.now(), lec: key } },
+      oxDay:   today,                 // 오늘 몫을 썼다는 표시
+      dailyOX: { [today]: grant },    // 지난 날짜는 버린다
+      history: { ...(cur.history || {}), [histKey]: { type: 'oxQuiz', pt: grant, note: 'OX 퀴즈 참여', ts: Date.now() } },
     };
   });
 
   if (!txRes.committed || !result) {
-    // 왜 못 받았는지 알려 준다(화면 문구가 달라야 해서). 트랜잭션은 재시도될 수 있으므로
-    // 이유만 blocked에서 쓰고 수치는 커밋된 최신 스냅샷에서 읽는다.
     const cur = (txRes.snapshot && txRes.snapshot.val()) || {};
     return { blocked: blocked || 'daily',
              earnedToday: Number((cur.dailyOX || {})[today]) || 0, dailyMax };
   }
-  return { pt: result.pt, earnedToday: result.earnedToday, dailyMax,
+  return { pt: result.pt, earnedToday: result.pt, dailyMax, correct, wrong,
            newTotal: result.newTotal, newLevel: result.newLevel,
            levelUp: result.newLevel > result.wasLevel };
 }
@@ -257,21 +254,21 @@ function _todayOnly(map, today) {
   return out;
 }
 
-// OX 퀴즈 오늘 현황 — 강의를 고르는 화면에 "오늘 12 / 30 pt"와 이미 받은 강의를 표시하는 용도다.
+// OX 퀴즈 오늘 현황 — 고르는 화면에 "오늘 12 / 50 pt"와 오늘 몫을 썼는지 보여 주는 용도다.
 // 지급 여부는 언제나 addOxQuizXP의 트랜잭션이 정하므로 이 값은 보여 주기 전용이다.
 export async function getOxQuizToday() {
   const act      = _config?.activities?.oxQuiz;
   const dailyMax = Number(act?.dailyMax ?? DEFAULT_ACTIVITIES.oxQuiz.dailyMax) || 0;
   const enabled  = act?.enabled !== false;
   const today    = _today();
-  let earned = 0, lessons = {};
+  let earned = 0, done = false;
   try {
     const snap = await _fb.get(_fb.ref(_rtdb, `${XP_ROOT}/students/${_sid}`));
     const cur  = snap.exists() ? (snap.val() || {}) : {};
-    earned  = Number((cur.dailyOX || {})[today]) || 0;
-    lessons = _todayOnly(cur.oxLessonDay, today); // 오늘 이미 포인트를 받은 강의
+    earned = Number((cur.dailyOX || {})[today]) || 0;
+    done   = cur.oxDay === today;
   } catch (e) { /* 못 읽으면 0으로 둔다 */ }
-  return { enabled, earned, dailyMax, lessonsDone: new Set(Object.keys(lessons)) };
+  return { enabled, earned, dailyMax, doneToday: done };
 }
 
 // RTDB 키로 쓸 수 없는 문자(. # $ [ ] /)를 치환한 강의 키
