@@ -719,6 +719,43 @@ function dbRender() {
     </div>`;
 }
 
+/* ── 공지 본문 보기 ────────────────────────────────────────────
+   목록에서 제목을 누르면 그 줄 아래로 본문이 펼쳐진다. 전에는 본문을 보려면 [수정]을
+   누를 수밖에 없어서, 읽기만 하고 빠져나오려고 [취소]를 누르면 글이 사라진 것처럼
+   보였다. 서식은 학생 화면(index.js annFormat)과 같은 규칙으로 그린다 — 선생님이 보는
+   모습이 학생이 보는 모습과 같아야 색·굵게가 제대로 걸렸는지 여기서 확인할 수 있다. */
+const ANN_COLORS = {
+  '빨강': 'var(--critical-strong)',
+  '파랑': '#2563EB',
+  '초록': '#15803D',
+  '보라': '#7C3AED',
+  '주황': 'var(--accent)',
+};
+// 반드시 esc()를 거친 문자열을 넘길 것(화이트리스트에 없는 색 이름은 원문 그대로 둔다).
+function annFormat(escaped) {
+  return String(escaped == null ? '' : escaped)
+    .replace(/\(\(\s*(?:([^:()\n]{1,6})\s*:)?\s*([^()\n]+?)\s*\)\)/g, (m, name, text) => {
+      const color = name ? ANN_COLORS[name.trim()] : ANN_COLORS['주황'];
+      if (!color) return m;
+      return `<span style="color:${color};font-weight:700">${text}</span>`;
+    })
+    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+}
+function annBodyHTML(body) {
+  if (!String(body || '').trim()) return '<div class="ann-cm-none">본문이 비어 있습니다.</div>';
+  const html = annFormat(esc(body))
+    .replace(/\n/g, '<br>')
+    .replace(/https?:\/\/[^\s<&]+/g, url => `<a href="${url}" target="_blank" rel="noopener">${url}</a>`);
+  return `<div class="ann-body-text">${html}</div>`;
+}
+
+let _noticeOpenBody = '';  // 지금 본문을 펼쳐 둔 공지
+
+window.noticeToggleBody = function(annId) {
+  _noticeOpenBody = _noticeOpenBody === annId ? '' : annId;
+  annRefreshViews();
+};
+
 // 고정 글이 위, 그 뒤는 최신순. 학생 화면(index.js)도 같은 규칙으로 줄을 세운다.
 function annSortList() {
   // 방금 올린 글은 아직 서버 시각이 없다(createdAt null) — 가장 최신으로 본다.
@@ -742,8 +779,9 @@ function annTableHTML(head, showComments) {
     const cmCell = showComments
       ? `<span class="ann-c-num"><button class="ann-stat" onclick="noticeToggleComments('${a.docId}')" title="댓글 보기">${cms}</button></span>`
       : '';
+    const openBody = _noticeOpenBody === a.docId;
     return `<div class="ann-row${a.docId === _dbAnnEditId ? ' editing' : ''}${showComments ? ' has-cm' : ''}${a.pinned ? ' pinned' : ''}">
-      <span class="ann-c-title" title="${esc(a.title || '')}">${a.pinned ? `<span class="ann-pin" title="상단 고정">${icon('pin', 13)}</span>` : ''}${esc(a.title || '(제목 없음)')}</span>
+      <span class="ann-c-title" title="${esc(a.title || '')}">${a.pinned ? `<span class="ann-pin" title="상단 고정">${icon('pin', 13)}</span>` : ''}<button class="ann-title-btn${openBody ? ' open' : ''}" onclick="noticeToggleBody('${a.docId}')" title="본문 보기">${icon('chevron-right', 13)}<span>${esc(a.title || '(제목 없음)')}</span></button></span>
       <span class="ann-c-date">${dbAnnDate(a.createdAt)}</span>
       <span class="ann-c-num">${stat(rows.length)}</span>
       <span class="ann-c-num">${stat(likes)}</span>
@@ -752,7 +790,12 @@ function annTableHTML(head, showComments) {
         <button class="stu-btn stu-btn-edit" onclick="dbEditAnnouncement('${a.docId}')">수정</button>
         <button class="stu-btn stu-btn-del" onclick="dbDeleteAnnouncement('${a.docId}')">삭제</button>
       </span>
-    </div>` + (open ? `<div class="ann-cm-panel">${noticeCommentsHTML(a.docId)}</div>` : '');
+    </div>`
+      + (openBody ? `<div class="ann-body-panel">
+          <div class="ann-body-head"><span>${dbAnnDate(a.createdAt)} 작성${a.pinned ? ' · 상단 고정' : ''}</span>
+            <button class="stu-btn stu-btn-edit" onclick="dbEditAnnouncement('${a.docId}')">수정</button></div>
+          ${annBodyHTML(a.body)}</div>` : '')
+      + (open ? `<div class="ann-cm-panel">${noticeCommentsHTML(a.docId)}</div>` : '');
   };
   const header = `<div class="ann-row ann-head${showComments ? ' has-cm' : ''}">
       <span class="ann-c-title">제목</span>
@@ -945,7 +988,7 @@ function noticeRender() {
   document.getElementById('notice-form-head').textContent = editing ? '공지 수정' : '새 공지 작성';
   document.getElementById('notice-form-btns').innerHTML =
     `<button class="add-btn" onclick="dbPostAnnouncement()">${editing ? '저장하기' : '게시하기'}</button>` +
-    (editing ? '<button class="stu-btn stu-btn-cancel" onclick="dbCancelAnnEdit()">취소</button>' : '');
+    (editing ? '<button class="stu-btn stu-btn-cancel" onclick="dbCancelAnnEdit()" title="글은 그대로 두고 수정만 그만둡니다">수정 그만두기</button>' : '');
 }
 
 // 공지가 바뀌면 두 화면을 같이 맞춘다. NOTICE 패널은 숨어 있어도 미리 그려 두면
@@ -1027,7 +1070,24 @@ window.dbEditAnnouncement = function(docId) {
   bodyEl?.focus();
 };
 
+/* 폼에 담긴 값이 저장된 글과 다른지 — [수정 그만두기]를 누를 때 고치던 내용을 말없이
+   버리지 않으려고 본다. */
+function annFormDirty(a) {
+  if (!a) return false;
+  const title = (document.getElementById('db-ann-title')?.value || '').trim();
+  const body  = (document.getElementById('db-ann-body')?.value  || '').trim();
+  const pinned = document.getElementById('db-ann-pinned')?.checked === true;
+  return title !== (a.title || '').trim() || body !== (a.body || '').trim() || pinned !== (a.pinned === true);
+}
+
+/* 수정을 그만둔다 — 글은 손대지 않는다(저장은 [저장하기]만 한다).
+   폼을 비우되 그 글의 본문을 목록에 펼쳐 둔다. 전에는 폼만 비워져서, 본문이 보이는
+   곳이 폼뿐이었던 탓에 글이 날아간 것처럼 보였다. */
 window.dbCancelAnnEdit = function() {
+  const docId = _dbAnnEditId;
+  const a = docId ? _dbAnnList.find(x => x.docId === docId) : null;
+  if (annFormDirty(a) &&
+      !confirm('고치던 내용을 버리고 수정을 그만둘까요?\n공지는 고치기 전 내용 그대로 남습니다.')) return;
   _dbAnnEditId = null;
   const titleEl = document.getElementById('db-ann-title');
   const bodyEl  = document.getElementById('db-ann-body');
@@ -1035,6 +1095,7 @@ window.dbCancelAnnEdit = function() {
   if (titleEl) titleEl.value = '';
   if (bodyEl)  bodyEl.value  = '';
   if (pinEl)   pinEl.checked = false;
+  if (docId) _noticeOpenBody = docId;   // 그만둔 글의 본문은 목록에서 계속 보이게
   annRefreshViews();
 };
 
@@ -1054,6 +1115,7 @@ window.dbPostAnnouncement = async function() {
       const t = _dbAnnList.find(a => a.docId === docId);
       if (t) { t.title = title; t.body = body; t.pinned = pinned; }
       _dbAnnEditId = null;
+      _noticeOpenBody = docId;   // 고친 글이 어떻게 나가는지 바로 보이게 본문을 펴 둔다
     } else {
       const docRef = await addDoc(collection(db, 'announcements'), { title, body, pinned, createdAt: serverTimestamp() });
       _dbAnnList = [{ docId: docRef.id, title, body, pinned, createdAt: null }, ..._dbAnnList];
@@ -1072,6 +1134,7 @@ window.dbDeleteAnnouncement = async function(docId) {
     await deleteDoc(doc(db, 'announcements', docId));
     _dbAnnList = _dbAnnList.filter(a => a.docId !== docId);
     if (_dbAnnEditId === docId) _dbAnnEditId = null; // 수정 중이던 글을 지웠으면 폼도 작성 모드로
+    if (_noticeOpenBody === docId) _noticeOpenBody = '';
     annRefreshViews();
   } catch(e) { alert('삭제 실패: ' + e.message); }
 };
