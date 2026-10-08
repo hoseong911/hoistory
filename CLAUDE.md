@@ -20,7 +20,7 @@ Each lives in its own folder with a consistent pattern:
 - `<folder>/index.html` — Student view (requires student ID + name login)
 - `<folder>/admin.html` — Teacher view (password-gated)
 
-Current sub-apps (LMS 미션 체크 연결, `apps/` 하위): `blind_ryeo/`, `escape/`, `goryeo_choice/`, `j_brain/`, `j_yugyo/`, `j_interview/`, `j_science/`, `j_wartimeline/`, `oxquiz/`, `s_threads/`, `sillaver/`, `samguk_goods/`
+Current sub-apps (LMS 미션 체크 연결, `apps/` 하위): `blind_ryeo/`, `escape/`, `goryeo_choice/`, `j_brain/`, `j_yugyo/`, `j_interview/`, `j_science/`, `j_wartimeline/`, `s_threads/`, `sillaver/`, `samguk_goods/`
 루트 앱 (LMS 연동이지만 미션 체크 앱 아님): `hismile/`, `survey/`, `ox/`
 
 The `mission/` folder contains standalone single-file HTML pages (no sub-folder structure).
@@ -316,7 +316,7 @@ LMS에서 미션 카드를 만들고 공개(잠금 해제)하면, 같은 Firesto
 
 LMS 허브의 **각종 콘텐츠**에서 들어가는 복습용 OX 퀴즈. `apps/` 밑이 아니라 루트에 두는 것은 미션 체크 앱이 아니기 때문이다(`hismile/`, `survey/`와 같은 자리).
 
-- **예전 `apps/oxquiz/`와는 다른 앱이다.** 그쪽은 compat SDK에 `ox2606_*` 컬렉션(이름 규칙이 금지한 형태)을 쓰는 옛 버전이라 건드리지 않고 그대로 뒀다. 새로 만드는 문제는 전부 `ox_questions`로 들어간다.
+- **구버전 `apps/oxquiz/`는 2026-10-08에 삭제했다.** compat SDK에 `ox2606_*` 컬렉션(이름 규칙이 금지한 형태)을 쓰던 옛 버전이고, LMS 어디에서도 링크되지 않은 고립 상태였다. Firestore의 `ox2606_*` 데이터(문항 400개)와 `firestore.rules`의 해당 블록은 신버전 이관용으로 아직 남겨 두었다. 문제는 전부 `ox_questions`로 들어간다.
 - **모달이 아니라 화면 이동이다.** LMS 각종 콘텐츠 카드를 등록할 때 "팝업으로 열기"를 **체크하지 않으면** `lms/index.js`의 `makeIconItem()`이 `<a href>`로 만들어 같은 창에서 이동한다. LMS 쪽 코드는 손댈 게 없다.
 - **로그인 화면이 없다.** 학생이 누구인지는 LMS가 남긴 `sessionStorage.lms_sid` / `lms_sname`(없으면 `localStorage.lms_autosave_*`)에서 읽는다(`apps/j_sahwa`와 같은 방식). 둘 다 없으면 "수업 홈에서 열어 주세요" 화면만 띄운다.
 - **강의 = `class_lessons.num`.** 문제의 `lessonNum`이 곧 그 번호다. 제목은 `class_lessons`에서 끌어오되 강의가 없어도 번호만으로 목록에 남는다(문제가 사라지지 않게).
