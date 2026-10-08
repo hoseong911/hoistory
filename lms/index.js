@@ -1196,42 +1196,67 @@ function renderAnnounceList() {
    ─ 하루 한 번: xp/students/{학번}/lottery.day 를 트랜잭션에서 검사한다(연타·다중 탭 방지).
    ─ 꽝(-50)은 가진 만큼만 깎인다. RTDB 규칙이 total >= 0을 요구하기 때문이다.
    ─ 꽝은 rank 0으로 적는다(등수가 아니라는 뜻). 화면에도 '꽝'으로 나간다. */
+/* 표의 합은 2000이라야 한다. 예전엔 1000이었는데, 0.05%짜리 S등을 넣으려면
+   1000분의 0.5가 되어 버려 전부 2배로 늘렸다(각 등수의 확률은 그대로다).
+   S 한 장을 끼우는 대신 10등에서 한 장을 뺐다 — 그래야 합이 2000으로 맞는다. */
+const LT_SPECIAL = { rank:'S', tickets:1, pt:1000, label:'스페셜' };
+const LT_SPECIAL_UNTIL = '2026-11-01';   // 이 날까지만 나온다(KST). 지나면 표에서 저절로 빠진다.
 const LOTTERY = [
-  { rank:1,  tickets:1,   pt:200, label:'대박' },
-  { rank:2,  tickets:22,  pt:50,  label:'좋음' },
-  { rank:3,  tickets:44,  pt:35,  label:'좋음' },
-  { rank:4,  tickets:66,  pt:25,  label:'괜찮음' },
-  { rank:5,  tickets:88,  pt:18,  label:'괜찮음' },
-  { rank:6,  tickets:111, pt:12,  label:'무난' },
-  { rank:7,  tickets:133, pt:8,   label:'무난' },
-  { rank:8,  tickets:155, pt:5,   label:'참가' },
-  { rank:9,  tickets:177, pt:3,   label:'참가' },
-  { rank:10, tickets:202, pt:1,   label:'참가' },
-  { rank:0,  tickets:1,   pt:-50, label:'꽝' },
+  LT_SPECIAL,
+  { rank:1,  tickets:2,   pt:200, label:'대박' },
+  { rank:2,  tickets:44,  pt:50,  label:'좋음' },
+  { rank:3,  tickets:88,  pt:35,  label:'좋음' },
+  { rank:4,  tickets:132, pt:25,  label:'괜찮음' },
+  { rank:5,  tickets:176, pt:18,  label:'괜찮음' },
+  { rank:6,  tickets:222, pt:12,  label:'무난' },
+  { rank:7,  tickets:266, pt:8,   label:'무난' },
+  { rank:8,  tickets:310, pt:5,   label:'참가' },
+  { rank:9,  tickets:354, pt:3,   label:'참가' },
+  { rank:10, tickets:403, pt:1,   label:'참가' },
+  { rank:0,  tickets:2,   pt:-50, label:'꽝' },
 ];
-const ODDS_SUM = LOTTERY.reduce((n, o) => n + o.tickets, 0);   // 1000이라야 한다
+// 기간이 지나면 S를 빼고 그 한 장을 10등에 돌려준다 — 합은 언제나 2000이다.
+const ltSpecialOn = () => kstDate() <= LT_SPECIAL_UNTIL;
+function ltTable() {
+  if (ltSpecialOn()) return LOTTERY;
+  return LOTTERY.filter(o => o.rank !== 'S')
+                .map(o => (o.rank === 10 ? { ...o, tickets: o.tickets + 1 } : o));
+}
 const ltById = r => LOTTERY.find(o => o.rank === r) || LOTTERY[LOTTERY.length - 1];
-const ltRankLabel = r => (r === 0 ? '꽝' : `${r}등`);
+const ltRankLabel = r => (r === 0 ? '꽝' : (r === 'S' ? '스페셜 S' : `${r}등`));
 function ltDrawOnce() {
-  const t = Math.floor(Math.random() * ODDS_SUM);
+  const table = ltTable();
+  const sum   = table.reduce((n, o) => n + o.tickets, 0);   // 2000이라야 한다
+  const t = Math.floor(Math.random() * sum);
   let acc = 0;
-  for (const o of LOTTERY) { acc += o.tickets; if (t < acc) return o; }
-  return LOTTERY[LOTTERY.length - 1];
+  for (const o of table) { acc += o.tickets; if (t < acc) return o; }
+  return table[table.length - 1];
 }
 
-let _ltToday = null;     // 오늘 뽑은 결과({day,rank,pt}) — 없으면 아직 안 뽑음
+/* 오늘 뽑기 현황 { used, max, remain, tickets, last } — xp.js의 getLotteryToday가 준다. */
+let _ltState = { used: 0, max: 1, remain: 1, tickets: {}, last: null };
 let _ltBusy  = false;
+
+const ltRemain = () => _ltState.remain;
+/* 보너스를 어떻게 더 받는지 한 줄로 안내한다. 안 한 활동만 적어야 쓸모가 있다. */
+const LT_TICKET_LABELS = { oxQuiz: 'OX 퀴즈', mileage: '히스토리 마일리지', typingReview: '타이핑 복습' };
+function ltTodoText() {
+  const todo = Object.keys(LT_TICKET_LABELS).filter(k => !_ltState.tickets[k]);
+  if (!todo.length) return '';
+  return todo.map(k => LT_TICKET_LABELS[k]).join(', ') + '을 하면 한 번씩 더 뽑아요';
+}
 
 function renderLotteryBanner() {
   const el = document.getElementById('lotteryBanner');
   if (!el) return;
   el.style.display = '';
-  const done = !!_ltToday;
+  const remain = ltRemain();
+  const done = remain <= 0;
   el.classList.toggle('done', done);
   document.getElementById('lbIcon').innerHTML = icon(done ? 'clock' : 'gift', 22);
   document.getElementById('lbSub').textContent = done
-    ? `오늘은 ${ltRankLabel(_ltToday.rank)}`
-    : '1일 1회';
+    ? (_ltState.last ? `오늘은 ${ltRankLabel(_ltState.last.rank)}` : '내일 다시')
+    : `남은 ${remain}회` + (ltTodoText() ? ' · ' + ltTodoText() : '');
   document.getElementById('lbBadge').textContent = done ? '내일 다시' : '뽑으러 가기';
 }
 
@@ -1240,7 +1265,8 @@ function renderLotteryBanner() {
    훑어 내린다. 띠 끝이 뽑힌 등수가 되게 잘라 두고 감속 커브로 당기면 거기서 멈춘다 —
    중간에 멈출 곳을 계산할 필요가 없어 어긋날 일이 없다.
    한 칸 높이(LT_CELL)는 CSS의 .lt-cell/.lt-reel 높이와 반드시 같아야 한다. */
-const LT_REEL_ORDER = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0];
+const ltReelOrder = () => (ltSpecialOn() ? ['S', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0]
+                                        : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0]);
 const LT_CELL    = 96;    // px — index.css의 .lt-cell 높이
 const LT_LOOPS   = 4;     // 멈추기 전까지 표를 몇 바퀴 훑을 것인가
 const LT_ROLL_MS = 1700;
@@ -1248,9 +1274,9 @@ const LT_ROLL_MS = 1700;
 // rank가 null이면 아직 안 뽑은 '?' 칸이다.
 function ltCellHTML(rank) {
   if (rank == null) return '<div class="lt-cell q">?</div>';
-  const inner = rank === 0
-    ? '<span class="lt-miss">꽝</span>'
-    : `${rank}<span class="lt-rank-unit">등</span>`;
+  const inner = rank === 0   ? '<span class="lt-miss">꽝</span>'
+              : rank === 'S' ? '<span class="lt-special">S</span>'
+              : `${rank}<span class="lt-rank-unit">등</span>`;
   return `<div class="lt-cell">${inner}</div>`;
 }
 // 띠를 되감는다. transition을 끈 채 옮기고 한 번 강제로 재 보아야(offsetHeight)
@@ -1265,10 +1291,11 @@ function ltReelReset(html) {
 }
 
 function ltRoll(rank) {
-  const idx   = LT_REEL_ORDER.indexOf(rank);
+  const order = ltReelOrder();
+  const idx   = Math.max(0, order.indexOf(rank));
   const cells = [];
-  for (let i = 0; i < LT_LOOPS; i++) LT_REEL_ORDER.forEach(r => cells.push(r));
-  for (let i = 0; i <= idx; i++) cells.push(LT_REEL_ORDER[i]);
+  for (let i = 0; i < LT_LOOPS; i++) order.forEach(r => cells.push(r));
+  for (let i = 0; i <= idx; i++) cells.push(order[i]);
   const reel = ltReelReset(cells.map(r => ltCellHTML(r)).join(''));
   reel.style.transition = `transform ${LT_ROLL_MS}ms cubic-bezier(.16,.72,.24,1)`;
   reel.style.transform  = `translateY(-${(cells.length - 1) * LT_CELL}px)`;
@@ -1292,22 +1319,31 @@ function ltPaintReady() {
 function ltSyncFoot() {
   const go = document.getElementById('ltGo');
   if (!go) return;
-  go.disabled = !!_ltToday || _ltBusy;
-  go.textContent = _ltToday ? '오늘은 뽑았습니다' : (_ltBusy ? '뽑는 중…' : '뽑기');
+  const remain = ltRemain();
+  go.disabled = remain <= 0 || _ltBusy;
+  go.textContent = remain <= 0 ? '오늘은 다 뽑았습니다'
+                 : _ltBusy     ? '뽑는 중…'
+                 : (remain > 1 ? `뽑기 (남은 ${remain}회)` : '뽑기');
 }
 
 function ltOpen() {
   document.getElementById('lotteryModal').classList.add('open');
   document.getElementById('ltHeadIcon').innerHTML = icon('gift', 22);
-  document.getElementById('ltHeadSub').textContent = _ltToday ? '내일 다시' : '1일 1회';
-  if (_ltToday) { ltPaintResult(_ltToday.rank, _ltToday.pt); document.getElementById('ltDelta').style.display = 'none'; }
-  else ltPaintReady();
+  const remain = ltRemain();
+  document.getElementById('ltHeadSub').textContent =
+    remain > 0 ? `남은 ${remain}회` + (ltTodoText() ? ' · ' + ltTodoText() : '')
+               : '내일 다시';
+  // 아직 뽑을 수 있으면 '?' 칸으로 두고, 다 썼으면 마지막 결과를 그대로 보여 준다.
+  if (remain <= 0 && _ltState.last) {
+    ltPaintResult(_ltState.last.rank, _ltState.last.pt);
+    document.getElementById('ltDelta').style.display = 'none';
+  } else ltPaintReady();
   ltSyncFoot();
 }
 function ltClose() { document.getElementById('lotteryModal').classList.remove('open'); }
 
 async function ltDraw() {
-  if (_ltToday || _ltBusy) return;
+  if (ltRemain() <= 0 || _ltBusy) return;
   _ltBusy = true; ltSyncFoot();
   const before = (window._xpTotalNow ?? 0);
   document.getElementById('ltStage').className = 'lt-stage rolling';
@@ -1323,14 +1359,15 @@ async function ltDraw() {
     new Promise(r => setTimeout(r, LT_ROLL_MS + 120)),
   ]);
   _ltBusy = false;
-  if (!res) {   // 이미 오늘 뽑았거나(다른 탭) 활동이 꺼져 있음
-    _ltToday = await getLotteryToday();
-    if (_ltToday) ltPaintResult(_ltToday.rank, _ltToday.pt);
+  if (!res) {   // 남은 횟수를 다 썼거나(다른 탭) 활동이 꺼져 있음
+    _ltState = await getLotteryToday();
+    if (_ltState.last) ltPaintResult(_ltState.last.rank, _ltState.last.pt);
     else { ltPaintReady(); showToast('지금은 뽑을 수 없습니다.', 2500); }
     renderLotteryBanner(); ltSyncFoot();
     return;
   }
-  _ltToday = { day: kstDate(), rank: res.rank, pt: res.pt };
+  _ltState = { ..._ltState, used: res.used, max: res.max, remain: res.remain,
+               last: { day: kstDate(), rank: res.rank, pt: res.pt } };
   ltPaintResult(res.rank, res.pt);
   const d = document.getElementById('ltDelta');
   document.getElementById('ltBefore').textContent = before.toLocaleString('ko-KR');
@@ -1341,7 +1378,7 @@ async function ltDraw() {
 }
 
 async function initLottery() {
-  _ltToday = await getLotteryToday();
+  _ltState = await getLotteryToday();
   renderLotteryBanner();
 }
 
@@ -1514,16 +1551,40 @@ function renderAnnounceLike(annId) {
   btn.querySelector('.alb-txt').textContent = liked ? '좋아요 취소' : '좋아요';
 }
 
+/* 공지 본문 서식.
+     **굵게**        → <strong>
+     ((글자))        → 강조색(주황)
+     ((빨강:글자))   → 이름 붙인 색
+   색 이름은 아래 표에 있는 것만 받는다 — 본문이 style에 임의의 값을 꽂을 수 있으면
+   공지가 CSS를 쓰는 통로가 되므로 화이트리스트로만 통과시킨다. 모르는 이름이 오면
+   바꾸지 않고 원문 그대로 둔다(선생님이 오타를 바로 알아볼 수 있게).
+   반드시 esc()를 거친 문자열을 넘길 것. */
+const ANN_COLORS = {
+  '빨강': 'var(--critical-strong)',
+  '파랑': '#2563EB',
+  '초록': '#15803D',
+  '보라': '#7C3AED',
+  '주황': 'var(--accent)',
+};
+function annFormat(escaped) {
+  return String(escaped == null ? '' : escaped)
+    .replace(/\(\(\s*(?:([^:()\n]{1,6})\s*:)?\s*([^()\n]+?)\s*\)\)/g, (m, name, text) => {
+      const color = name ? ANN_COLORS[name.trim()] : ANN_COLORS['주황'];
+      if (!color) return m;
+      return `<span style="color:${color};font-weight:700">${text}</span>`;
+    })
+    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+}
+
 function openAnnounceDetail(id) {
   const a = _announcements.find(x => x.id === id);
   if (!a) return;
   document.getElementById('announceDetailTitle').textContent = a.title || '공지';
   document.getElementById('announceDetailDate').textContent = _annDateLabel(a.createdAt);
-  /* 본문은 **굵게** 문법을 받는다(활동지·슬라이드와 같은 표기). 순서가 중요하다 —
-     esc로 태그를 먼저 막고, 굵게를 <strong>으로 바꾼 뒤에 링크를 건다. 링크 정규식이
-     '<'를 안 먹으므로 <strong> 태그를 넘어가 잡아먹는 일이 없다. */
-  const html = esc(a.body)
-    .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+  /* 본문은 **굵게**와 ((색글자)) 문법을 받는다. 순서가 중요하다 — esc로 태그를 먼저
+     막고, 서식을 태그로 바꾼 뒤에 링크를 건다. 링크 정규식이 '<'를 안 먹으므로
+     앞서 만든 태그를 넘어가 잡아먹는 일이 없다. */
+  const html = annFormat(esc(a.body))
     .replace(/\n/g, '<br>')
     .replace(/https?:\/\/[^\s<&]+/g, url => `<a href="${url}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;font-weight:700">${url}</a>`);
   document.getElementById('announceDetailBody').innerHTML = html;

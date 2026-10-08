@@ -97,6 +97,21 @@ export function calcNextThreshold(total, levels, formula) {
   return threshold + gap;
 }
 
+/* ── 일일 뽑기 티켓 ─────────────────────────────────────────────
+   기본 1회에 더해, 아래 활동을 그날 처음 해내면 뽑기를 한 번씩 더 준다.
+   저장 위치: xp/students/{sid}/lotteryTickets/{활동} = 티켓을 딴 날짜
+   날짜를 값으로 들고 있으므로 다음 날이 되면 자동으로 무효가 된다(따로 청소할 게 없다).
+   실제로 몇 번 썼는지는 lotteryUsed = { day, n }이 센다. */
+export const LOTTERY_TICKET_SOURCES = ['oxQuiz', 'mileage', 'typingReview'];
+
+// 트랜잭션 안에서 쓰는 순수 함수 — cur를 건드리지 않고 오늘치 티켓 수만 센다.
+function _ticketCount(cur, today) {
+  const m = (cur && cur.lotteryTickets) || {};
+  return LOTTERY_TICKET_SOURCES.reduce((n, k) => n + (m[k] === today ? 1 : 0), 0);
+}
+// 오늘 뽑을 수 있는 총 횟수(기본 1 + 활동 보너스).
+function _lotteryMax(cur, today) { return 1 + _ticketCount(cur, today); }
+
 // ── XP 적립 ──
 // gate를 주면 "읽고→확인→쓰기" 사이 시간차로 같은 지급이 여러 번 통과하는 레이스 컨디션을
 // 막기 위해 RTDB 트랜잭션 하나로 게이트 확인 + 합계 갱신 + 기록 추가를 원자적으로 처리한다.
@@ -107,7 +122,8 @@ export function calcNextThreshold(total, levels, formula) {
 //     cur[map][key]가 max 이상이면 중단, 통과하면 1 증가. 날짜 게이트에 막히면 횟수는 안 는다.
 // extra: 기록 한 줄에 함께 남길 부가 정보({ lec: '28' } 등). 어드민 기록 표가 이걸 보고
 //        활동 이름을 더 자세히 적는다(adminAddXP의 extra와 같은 자리).
-export async function addXP(type, pt, note, gate, extra) {
+// ticket: 주면 같은 트랜잭션 안에서 그날의 뽑기 티켓도 함께 찍는다(활동당 하루 한 장).
+export async function addXP(type, pt, note, gate, extra, ticket) {
   if (!_rtdb || !_sid) return null;
   const base = `${XP_ROOT}/students/${_sid}`;
   const today   = _today();
@@ -130,6 +146,8 @@ export async function addXP(type, pt, note, gate, extra) {
     const next = { ...cur, total: newTotal, level: newLevel, name: _sname };
     if (dayGate) next[dayGate] = today;
     if (cap) next[cap.map] = { ...(cur[cap.map] || {}), [cap.key]: used + 1 };
+    // 티켓은 지급이 실제로 성사된 이 트랜잭션 안에서만 찍힌다(연타로 여러 장 생기지 않는다).
+    if (ticket) next.lotteryTickets = { ...(cur.lotteryTickets || {}), [ticket]: today };
     next.history = { ...(cur.history || {}), [histKey]: { type, pt, note: note || '', ts: Date.now(), ...(extra || {}) } };
     return next;
   });
@@ -148,7 +166,7 @@ export async function checkAndAddAttendance() {
 
 export async function addMileageXP() {
   if (!_config?.activities?.mileage?.enabled) return null;
-  return addXP('mileage', _config.activities.mileage.pt ?? 20, '히스토리 마일리지 완주', 'lastMileage');
+  return addXP('mileage', _config.activities.mileage.pt ?? 20, '히스토리 마일리지 완주', 'lastMileage', null, 'mileage');
 }
 
 // 타이핑 복습: 하루 1회(lastTypingReview 날짜 게이트, 강 무관)를 그대로 두고, 여기에
@@ -171,7 +189,7 @@ export async function addTypingReviewXP(lectureNum) {
   //  몇 강을 복습했는지 기록에 남긴다. 예전엔 그냥 '타이핑 복습'이라 어드민 기록에서
   //  어느 강의였는지 알 수 없었다(2026-09-03). 어드민은 이 lec을 보고 "타이핑 복습(28강)"으로 적는다.
   const res = await addXP('typingReview', act.pt ?? 20, '타이핑 복습',
-    { day: 'lastTypingReview', map: 'typingReviewCounts', key, max }, { lec: key });
+    { day: 'lastTypingReview', map: 'typingReviewCounts', key, max }, { lec: key }, 'typingReview');
   if (res) return res;
 
   // 못 받았을 때 "오늘 이미 받음"인지 "이 강의 상한 소진"인지 구분해서 알려준다
@@ -233,6 +251,8 @@ export async function addOxQuizXP(correctCount, wrongCount, lessonNums) {
       total: newTotal, level: newLevel, name: _sname,
       oxDay:   today,                 // 오늘 몫을 썼다는 표시
       dailyOX: { [today]: grant },    // 지난 날짜는 버린다
+      // 점수가 0이거나 음수여도 끝까지 풀었으면 뽑기 한 장은 준다(참여에 주는 몫).
+      lotteryTickets: { ...(cur.lotteryTickets || {}), oxQuiz: today },
       history: { ...(cur.history || {}), [histKey]: { type: 'oxQuiz', pt: grant, note: 'OX 퀴즈 참여', ts: Date.now() } },
     };
   });
@@ -303,9 +323,11 @@ export async function addAnnLikeXP(annId) {
 }
 
 /* ── 일일 뽑기 ──────────────────────────────────────────────────
-   하루에 한 번, 등수에 따라 경험치를 더하거나 뺀다. 꽝은 마이너스인데 RTDB 규칙이
-   total >= 0을 요구하므로 가진 만큼만 깎는다(실제로 오르내린 양을 real로 돌려준다).
-   뽑은 결과는 lottery에 남겨 둔다 — 그날 다시 열면 같은 결과를 그대로 보여 준다.
+   기본 하루 한 번. 여기에 OX 퀴즈·히스토리 마일리지·타이핑 복습을 그날 해내면
+   한 장씩 더 붙어 최대 네 번까지 뽑는다(lotteryTickets). 몇 번 썼는지는
+   lotteryUsed = { day, n }이 센다 — 남은 횟수 판정은 전부 이 트랜잭션 안에서 한다.
+   꽝은 마이너스인데 RTDB 규칙이 total >= 0을 요구하므로 가진 만큼만 깎는다
+   (실제로 오르내린 양을 real로 돌려준다).
    등수를 고르는 일(확률표)은 호출하는 쪽에 있다. 여기서는 정해진 등수를 적기만 한다. */
 export async function addLotteryXP(rank, pt, label) {
   const act = _config?.activities?.lottery;
@@ -316,31 +338,43 @@ export async function addLotteryXP(rank, pt, label) {
   let result = null;
   const txRes = await _fb.runTransaction(_fb.ref(_rtdb, base), cur => {
     cur = cur || {};
-    if (cur.lottery && cur.lottery.day === today) return;   // 오늘 이미 뽑음 → 중단
+    const max  = _lotteryMax(cur, today);
+    const used = (cur.lotteryUsed && cur.lotteryUsed.day === today) ? (Number(cur.lotteryUsed.n) || 0) : 0;
+    if (used >= max) return;                                // 남은 횟수 없음 → 중단
     const prevTotal = cur.total || 0;
     const newTotal  = Math.max(0, prevTotal + pt);
     const real      = newTotal - prevTotal;
     const newLevel  = calcLevel(newTotal);
-    result = { newTotal, newLevel, wasLevel: calcLevel(prevTotal), real };
+    result = { newTotal, newLevel, wasLevel: calcLevel(prevTotal), real, used: used + 1, max };
     const next = { ...cur, total: newTotal, level: newLevel, name: _sname };
-    next.lottery = { day: today, rank, pt: real };
+    next.lottery     = { day: today, rank, pt: real };      // 마지막으로 뽑은 결과(화면 복원용)
+    next.lotteryUsed = { day: today, n: used + 1 };
     next.history = { ...(cur.history || {}),
-      [histKey]: { type: 'lottery', pt: real, note: `일일 뽑기 ${rank === 0 ? '꽝' : rank + '등'}`, ts: Date.now() } };
+      [histKey]: { type: 'lottery', pt: real, note: `일일 뽑기 ${rank === 0 ? '꽝' : (rank === 'S' ? '스페셜 S' : rank + '등')}`, ts: Date.now() } };
     return next;
   });
   if (!txRes.committed || !result) return null;
   return { rank, pt: result.real, newTotal: result.newTotal, newLevel: result.newLevel,
-           levelUp: result.newLevel > result.wasLevel };
+           levelUp: result.newLevel > result.wasLevel,
+           used: result.used, max: result.max, remain: result.max - result.used };
 }
 
-// 오늘 뽑은 결과({ day, rank, pt }) — 아직 안 뽑았으면 null.
+/* 오늘 뽑기 현황.
+   { used, max, remain, tickets: {활동: true}, last: { day, rank, pt } | null }
+   last는 마지막으로 뽑은 결과다 — 남은 횟수가 있어도 직전 결과를 그대로 보여 주려고 든다. */
 export async function getLotteryToday() {
-  if (!_rtdb || !_sid) return null;
+  if (!_rtdb || !_sid) return { used: 0, max: 1, remain: 1, tickets: {}, last: null };
+  const today = _today();
   try {
-    const snap = await _fb.get(_fb.ref(_rtdb, `${XP_ROOT}/students/${_sid}/lottery`));
-    const v = snap.exists() ? snap.val() : null;
-    return (v && v.day === _today()) ? v : null;
-  } catch (e) { return null; }
+    const snap = await _fb.get(_fb.ref(_rtdb, `${XP_ROOT}/students/${_sid}`));
+    const cur  = snap.exists() ? (snap.val() || {}) : {};
+    const max  = _lotteryMax(cur, today);
+    const used = (cur.lotteryUsed && cur.lotteryUsed.day === today) ? (Number(cur.lotteryUsed.n) || 0) : 0;
+    const tickets = {};
+    LOTTERY_TICKET_SOURCES.forEach(k => { if ((cur.lotteryTickets || {})[k] === today) tickets[k] = true; });
+    const last = (cur.lottery && cur.lottery.day === today) ? cur.lottery : null;
+    return { used, max, remain: Math.max(0, max - used), tickets, last };
+  } catch (e) { return { used: 0, max: 1, remain: 1, tickets: {}, last: null }; }
 }
 
 // ── 어드민 전용 ──
