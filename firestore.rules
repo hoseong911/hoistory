@@ -133,8 +133,11 @@ service cloud.firestore {
         request.resource.data.text is string &&
         request.resource.data.text.size() > 0 &&
         request.resource.data.text.size() <= 300 &&
+        // earned = 성의 기준(글자 수·반복·베끼기)을 넘겨 포인트가 붙었는지. 선생님 화면에서
+        // 걸러진 댓글을 알아보는 데만 쓴다 — 실제 지급은 RTDB xp 쪽 규칙이 따로 본다.
+        (!('earned' in request.resource.data) || request.resource.data.earned is bool) &&
         request.resource.data.keys().hasOnly(
-          ['annId', 'studentId', 'name', 'classNum', 'text', 'createdAt']) &&
+          ['annId', 'studentId', 'name', 'classNum', 'text', 'earned', 'createdAt']) &&
         // 맨 끝에 둔다 — 여기서만 문서를 한 번 더 읽으므로, 형식이 틀린 요청은
         // 그 앞의 값 검사에서 걸러져 읽기 값을 쓰지 않는다.
         !cmBanned(request.resource.data.studentId)

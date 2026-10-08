@@ -964,9 +964,12 @@ function noticeCommentsHTML(annId) {
   return list.map(c => {
     const sid = String(c.studentId || '');
     const banned = !!_dbCmBans[sid];
+    // earned === false면 성의 기준(글자 수·같은 글자 반복·베끼기)에 걸려 포인트가 안 붙은
+    // 댓글이다. 이 표시가 없는 옛 댓글은 기준을 넣기 전에 쓴 글이라 따로 적지 않는다.
+    const noPt = c.earned === false;
     return `<div class="ann-cm-row">
       <span class="ann-cm-who">${esc(sid)} ${esc(c.name || '')}${banned ? '<span class="ann-ban-tag">차단</span>' : ''}</span>
-      <span class="ann-cm-body">${esc(c.text || '')}</span>
+      <span class="ann-cm-body">${noPt ? '<span class="ann-nopt-tag" title="성의 기준에 걸려 포인트가 붙지 않았습니다">무포인트</span>' : ''}${esc(c.text || '')}</span>
       <span class="ann-cm-at">${dbAnnDate(c.createdAt)}</span>
       <button class="stu-btn ${banned ? 'stu-btn-edit' : 'stu-btn-del'}" onclick="noticeToggleBan('${esc(sid)}','${esc(c.name || '')}')">${banned ? '해제' : '차단'}</button>
       <button class="stu-btn stu-btn-del" onclick="noticeDeleteComment('${esc(annId)}','${esc(c.id)}')">삭제</button>

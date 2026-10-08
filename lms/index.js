@@ -1504,6 +1504,33 @@ function watchAnnComments(annId) {
   );
 }
 
+/* ── 댓글 포인트 자격 ────────────────────────────────────────────
+   "ㅇㅇ", "ㅋㅋㅋㅋ", "11111", 앞사람 글 그대로 베끼기처럼 성의 없는 댓글에는 포인트를
+   주지 않는다. 댓글 자체는 그대로 올라간다 — 하고 싶은 말을 막을 이유는 없고, 막으면
+   학생은 무엇이 걸렸는지 모른 채 같은 말을 되풀이하게 된다.
+   기준 숫자는 화면에 적지 않는다. 적어 두면 "몇 자만 채우면 된다"는 과제로 바뀐다.
+   포인트 기록(annCommentIds)은 받은 글에만 남으므로, 대충 쓴 뒤 제대로 다시 쓰면
+   그때 받는다. 숫자를 고칠 일이 있으면 아래 두 상수만 바꾸면 된다. */
+const CM_MIN_LEN    = 12;  // 공백·기호·이모지를 뺀 글자 수
+const CM_MIN_UNIQUE = 6;   // 서로 다른 글자 수 — 같은 글자 반복("ㅋㅋㅋㅋㅋㅋ")을 걸러낸다
+
+// 글자 수를 셀 때 쓰는 알맹이. 띄어쓰기·문장부호·이모지를 떼고 글자만 남긴다.
+function annCmCore(text) {
+  return String(text || '').replace(/[^0-9A-Za-z가-힣ㄱ-ㅎㅏ-ㅣ\u4e00-\u9fff]/g, '');
+}
+
+/* 포인트를 줄 수 없는 이유('short' | 'dup')를 돌려준다. 줄 수 있으면 null.
+   list는 같은 공지에 이미 올라온 댓글들(_annCmList) — 똑같은 글은 한 번만 쳐 준다. */
+function annCmNoPointReason(text, list) {
+  const core = annCmCore(text);
+  if (core.length < CM_MIN_LEN) return 'short';
+  if (new Set(core).size < CM_MIN_UNIQUE) return 'short';
+  // 자모(ㅇㅇ, ㅋㅋ)와 숫자만으로 채운 글 — 길이를 넘겼더라도 내용이 없다.
+  if (!/[가-힣A-Za-z\u4e00-\u9fff]/.test(core)) return 'short';
+  if ((list || []).some(c => annCmCore(c.text) === core)) return 'dup';
+  return null;
+}
+
 async function postAnnComment() {
   const annId = _annOpenId;
   const ta  = document.getElementById('annCommentInput');
@@ -1517,14 +1544,23 @@ async function postAnnComment() {
   if (bad) { msg.textContent = '바른 말로 다시 써 주세요.'; return; }
   btn.disabled = true; msg.textContent = '';
   try {
+    // 포인트 자격은 올리기 전에 가린다(지금 올리는 글이 중복 검사에 자기 자신으로
+    // 걸리지 않게). earned는 선생님 화면에서 "이 댓글은 포인트가 안 붙었다"를 보려고 적는다.
+    const noPt = annCmNoPointReason(text, _annCmList);
     await addDoc(collection(db, 'announcement_comments'), {
       annId, studentId: currentStudentId, name: currentStudentName,
       classNum: String(Math.floor((parseInt(currentStudentId) - 30000) / 100)),
-      text, createdAt: serverTimestamp(),
+      text, earned: !noPt, createdAt: serverTimestamp(),
     });
     ta.value = '';
-    const res = await addAnnCommentXP(annId);
-    if (res) { msg.textContent = `+${res.pt}pt 받았어요`; showToast(`댓글 +${res.pt}pt`, 3500, 'message-circle'); }
+    if (noPt) {
+      msg.textContent = noPt === 'dup'
+        ? '앞사람과 똑같은 댓글에는 포인트가 붙지 않아요.'
+        : '댓글이 올라갔어요. 생각을 좀 더 담아 쓰면 포인트도 받을 수 있어요.';
+    } else {
+      const res = await addAnnCommentXP(annId);
+      if (res) { msg.textContent = `+${res.pt}pt 받았어요`; showToast(`댓글 +${res.pt}pt`, 3500, 'message-circle'); }
+    }
     renderAnnounceEarnNote(annId);
   } catch (e) {
     msg.textContent = '등록에 실패했어요. 잠시 뒤 다시 시도해 주세요.';
