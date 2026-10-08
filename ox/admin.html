@@ -390,6 +390,9 @@ function classNumOf(sid) {
   const n = parseInt(String(sid).slice(1, 3), 10);
   return Number.isFinite(n) ? n : null;
 }
+/* 강의 제목 원문에는 커버 슬라이드용 편집 문법(**강조**, {빈칸})이 섞여 있다.
+   어드민은 제목을 평문으로만 쓰므로 불러올 때 한 번 떼어낸다(lms/admin.js의 cleanTitle과 같은 규칙). */
+function stripEmph(t) { return String(t == null ? '' : t).replace(/[*]{2}/g, '').replace(/[{}]/g, ''); }
 function lecTitleOf(num) {
   const L = S.lessons.find(x => x.num === String(num));
   return L ? L.title : '';
@@ -402,7 +405,7 @@ async function loadLessons() {
     const snap = await getDocs(collection(db, 'class_lessons'));
     S.lessons = snap.docs.map(d => {
       const v = d.data() || {};
-      return { num: String(v.num == null ? '' : v.num).trim(), title: v.title || '', order: Number(v.order || 0) };
+      return { num: String(v.num == null ? '' : v.num).trim(), title: stripEmph(v.title), order: Number(v.order || 0) };
     }).filter(x => x.num)
       .sort((a, b) => b.order - a.order); // LMS 강의 목록과 같은 기준(최신이 위)
   } catch (e) { S.lessons = []; }
@@ -886,7 +889,9 @@ async function openDetail(sid) {
           const when = d ? (d.getMonth() + 1) + '/' + d.getDate() + ' ' +
                            String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') : '';
           return '<div class="dt-row">' +
-            '<span class="l">' + esc(lecLabel(x.lessonNum)) + '</span>' +
+            '<span class="l">' + esc(Array.isArray(x.lessonNums) && x.lessonNums.length > 1
+                ? '여러 강의 ' + x.lessonNums.length + '개 (' + x.lessonNums.map(lecLabel).join(', ') + ')'
+                : lecLabel(x.lessonNum)) + '</span>' +
             '<span class="r">' + (x.correct || 0) + ' / ' + (x.total || 0) + ' (' + (x.rate || 0) + '%) / ' +
             (x.pt || 0) + 'pt <span style="opacity:.7">' + esc(when) + '</span></span>' +
           '</div>';

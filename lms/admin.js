@@ -9049,7 +9049,7 @@ async function xpLoadSettings() {
     const acts = _xpCfg.activities || DEFAULT_ACTIVITIES;
     actBody.innerHTML = Object.entries(acts).filter(([key]) => key !== 'conceptCheck').map(([key, v]) => {
       const label = key === 'thinkCheck' ? '생각 체크 (제출 시 AI 채점, 10~최대)' : (ACT_LABELS[key] || key);
-      const ptVal = key === 'oxQuiz' ? (v.dailyMax ?? 20) : (v.pt ?? 0);
+      const ptVal = key === 'oxQuiz' ? (v.dailyMax ?? 50) : (v.pt ?? 0);
       const ptLabel = key === 'oxQuiz' ? `일일 최대 ${ptVal}pt (정답당 ${v.ptPer??1}pt)` : `${ptVal} pt`;
       // 뽑기는 등수마다 점수가 정해져 있어(index.js의 LOTTERY 표) 여기서 고칠 값이 없다.
       const ptCell = key === 'lottery'

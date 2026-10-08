@@ -26,6 +26,13 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 
 /* ── 미니멀: theme.css의 .hi-btn 기본 반경이 알약(9999px)이라 이 앱에서만 각지게 덮어쓴다 ── */
 .hi-btn { border-radius: var(--hi-r-input); letter-spacing: -0.2px; }
+
+/* hi-preset-lms에는 positive 계열 토큰이 없다 — 정답(초록)/오답(빨강) 신호에 쓰려고 여기서 채운다. */
+.hi-preset-lms {
+  --hi-positive: #16A34A;
+  --hi-positive-soft: rgba(22,163,74,0.10);
+  --hi-negative-soft: rgba(220,38,38,0.08);
+}
 .hi-btn-primary { box-shadow: none; }
 
 .hi-page { max-width: 560px; margin: 0 auto; padding: 14px 16px 48px; }
@@ -104,6 +111,43 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 }
 .ox-lec-flag.done { color: var(--hi-accent); background: var(--hi-accent-soft); }
 
+/* 여러 강의를 한 번에 고른다 — 카드 자체가 체크 토글이다. */
+.ox-lec.on { border-color: var(--hi-accent); background: var(--hi-accent-soft); }
+.ox-lec-check {
+  flex: 0 0 auto; width: 20px; height: 20px;
+  border: 1.5px solid var(--hi-border); border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  color: transparent; transition: .15s;
+}
+.ox-lec.on .ox-lec-check { border-color: var(--hi-accent); background: var(--hi-accent); color: var(--hi-on-accent); }
+
+/* 아래에 붙어 따라오는 시작 막대 */
+.ox-pickbar {
+  position: sticky; bottom: 0; z-index: 5;
+  margin: 14px -4px 0; padding: 12px 14px 14px;
+  background: var(--hi-bg-surface);
+  border: 1px solid var(--hi-border); border-radius: var(--hi-r-card);
+  box-shadow: var(--hi-shadow-card);
+}
+.ox-pickbar.hi-hidden { display: none; }
+.ox-pickbar-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-size: 13px; font-weight: 700; color: var(--hi-text); margin-bottom: 10px;
+}
+.ox-pickbar-top b { color: var(--hi-accent); }
+.ox-pickbar-clear {
+  background: none; border: 0; padding: 0; cursor: pointer; font-family: inherit;
+  font-size: 12px; font-weight: 700; color: var(--hi-text-muted); text-decoration: underline;
+}
+.ox-amt { display: flex; gap: 6px; margin-bottom: 10px; }
+.ox-amt button {
+  flex: 1 1 0; padding: 7px 0; font-family: inherit;
+  font-size: 12px; font-weight: 700; color: var(--hi-text-soft);
+  background: var(--hi-bg-mid); border: 1.5px solid transparent;
+  border-radius: var(--hi-r-small); cursor: pointer; transition: .12s;
+}
+.ox-amt button.on { color: var(--hi-accent); border-color: var(--hi-accent); background: var(--hi-accent-soft); }
+
 /* ── 퀴즈 화면 ── */
 .ox-prog { margin-bottom: 18px; }
 .ox-prog-top {
@@ -144,8 +188,16 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 .ox-choice button:hover:not(:disabled) { border-color: var(--hi-accent); color: var(--hi-accent); }
 .ox-choice button:active:not(:disabled) { transform: scale(0.98); }
 .ox-choice button:disabled { cursor: default; opacity: .4; }
-.ox-choice button.is-answer { border-color: var(--hi-accent); background: var(--hi-accent-soft); color: var(--hi-accent); opacity: 1; }
-.ox-choice button.is-wrong  { border-color: var(--hi-negative); background: rgba(220,38,38,0.08); color: var(--hi-negative); opacity: 1; }
+.ox-choice button.is-answer { border-color: var(--hi-positive); background: var(--hi-positive-soft); color: var(--hi-positive); opacity: 1; }
+.ox-choice button.is-wrong  { border-color: var(--hi-negative); background: var(--hi-negative-soft); color: var(--hi-negative); opacity: 1; }
+
+/* 정답이면 초록, 오답이면 빨강이 문제 카드에 그대로 들어온다. */
+.ox-q { transition: border-color .18s, background .18s; }
+.ox-q.lit-ok { border-color: var(--hi-positive); background: var(--hi-positive-soft); animation: ox-lamp-ok .5s ease-out; }
+.ox-q.lit-no { border-color: var(--hi-negative); background: var(--hi-negative-soft); animation: ox-lamp-no .5s ease-out; }
+@keyframes ox-lamp-ok { from { box-shadow: 0 0 0 0 rgba(22,163,74,.40); } to { box-shadow: 0 0 0 16px rgba(22,163,74,0); } }
+@keyframes ox-lamp-no { from { box-shadow: 0 0 0 0 rgba(220,38,38,.40); } to { box-shadow: 0 0 0 16px rgba(220,38,38,0); } }
+@media (prefers-reduced-motion: reduce) { .ox-q.lit-ok, .ox-q.lit-no { animation: none; } }
 
 /* 판정 + 해설 */
 .ox-judge {
@@ -158,8 +210,10 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   display: flex; align-items: center; gap: 7px;
   font-size: 15px; font-weight: 800; letter-spacing: -0.3px;
 }
-.ox-judge-head.ok { color: var(--hi-accent); }
+.ox-judge-head.ok { color: var(--hi-positive); }
 .ox-judge-head.no { color: var(--hi-negative); }
+.ox-judge.lit-ok { border-color: var(--hi-positive); background: var(--hi-positive-soft); }
+.ox-judge.lit-no { border-color: var(--hi-negative); background: var(--hi-negative-soft); }
 .ox-judge-body {
   font-size: 14px; line-height: 1.65; color: var(--hi-text-soft);
   word-break: keep-all; margin-top: 8px; white-space: pre-wrap;
@@ -268,6 +322,20 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
 
     <div class="ox-sec">강의 선택</div>
     <div class="ox-lec-list" id="lec-list"></div>
+
+    <div class="ox-pickbar hi-hidden" id="pickbar">
+      <div class="ox-pickbar-top">
+        <span id="pickbar-sum"></span>
+        <button type="button" class="ox-pickbar-clear" id="pickbar-clear">선택 해제</button>
+      </div>
+      <div class="ox-amt" id="amt">
+        <button type="button" data-n="10">10문제</button>
+        <button type="button" data-n="20">20문제</button>
+        <button type="button" data-n="30">30문제</button>
+        <button type="button" data-n="0">전체</button>
+      </div>
+      <button class="hi-btn hi-btn-primary hi-btn-block" id="pickbar-go">퀴즈 시작</button>
+    </div>
   </div>
 
   <!-- ════════ 문제 풀이 ════════ -->
@@ -285,7 +353,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
       <div class="ox-prog-bar"><i id="q-bar"></i></div>
     </div>
 
-    <div class="ox-q"><div class="ox-q-text" id="q-text"></div></div>
+    <div class="ox-q" id="ox-qcard"><div class="ox-q-text" id="q-text"></div></div>
 
     <div class="ox-choice">
       <button type="button" id="btn-o" data-v="O">O</button>
@@ -322,7 +390,7 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
     </div>
 
     <div class="ox-actions">
-      <button class="hi-btn hi-btn-outline" id="res-retry">이 강의 다시 풀기</button>
+      <button class="hi-btn hi-btn-outline" id="res-retry">같은 범위 다시 풀기</button>
       <button class="hi-btn hi-btn-primary" id="res-other">다른 강의 풀기</button>
     </div>
   </div>
@@ -376,9 +444,11 @@ function show(name) {
 
 /* ══════════ 상태 ══════════ */
 const S = {
-  lessons: [],   // [{ num, title, order, list }]
+  lessons: [],          // [{ num, title, order, list }]
   today:   { enabled: true, earned: 0, dailyMax: 30, lessonsDone: new Set() },
-  quiz:    null, // { num, title, list, idx, correct, wrong, answered }
+  sel:     new Set(),   // 고른 강의 번호 — 여러 강의를 한 번에 풀 수 있다
+  limit:   20,          // 낼 문항 수 (0 = 고른 강의의 전체 문항)
+  quiz:    null,        // { nums, list, idx, correct, wrong, answered, per }
 };
 
 /* ══════════ 부팅 ══════════ */
@@ -453,25 +523,64 @@ function renderPick() {
   const wrap = document.getElementById('lec-list');
   if (!S.lessons.length) {
     wrap.innerHTML = '<div class="ox-empty">' + icon('circle-help', 34) + '아직 등록된 문제가 없습니다</div>';
+    renderPickBar();
     return;
   }
+  // 사라진 강의가 선택에 남아 있으면 떨어낸다(관리자가 문제를 지운 경우).
+  const alive = new Set(S.lessons.map(L => L.num));
+  [...S.sel].forEach(n => { if (!alive.has(n)) S.sel.delete(n); });
+
   wrap.innerHTML = '';
   S.lessons.forEach(L => {
     const done = S.today.lessonsDone.has(L.num);
+    const on   = S.sel.has(L.num);
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'ox-lec';
+    b.className = 'ox-lec' + (on ? ' on' : '');
     b.innerHTML =
+      '<span class="ox-lec-check">' + icon('check', 13) + '</span>' +
       '<span class="ox-lec-num">' + esc(lecLabel(L.num)) + '</span>' +
       '<span class="ox-lec-body">' +
-        '<span class="ox-lec-title">' + esc(L.title || '제목 없는 강의') + '</span>' +
+        '<span class="ox-lec-title">' + esc(stripEmph(L.title) || '제목 없는 강의') + '</span>' +
         '<span class="ox-lec-meta">' + L.list.length + '문제</span>' +
       '</span>' +
       (done ? '<span class="ox-lec-flag done">오늘 받음</span>' : '');
-    b.addEventListener('click', () => startQuiz(L));
+    b.addEventListener('click', () => {
+      if (S.sel.has(L.num)) S.sel.delete(L.num); else S.sel.add(L.num);
+      renderPick();
+    });
     wrap.appendChild(b);
   });
+  renderPickBar();
 }
+
+/* 고른 강의가 하나라도 있으면 아래에 시작 막대가 따라 올라온다. */
+function renderPickBar() {
+  const bar = document.getElementById('pickbar');
+  const nums = [...S.sel];
+  if (!nums.length) { bar.classList.add('hi-hidden'); return; }
+  bar.classList.remove('hi-hidden');
+
+  const pool = S.lessons.filter(L => S.sel.has(L.num)).reduce((a, L) => a + L.list.length, 0);
+  const will = S.limit > 0 ? Math.min(S.limit, pool) : pool;
+  document.getElementById('pickbar-sum').innerHTML =
+    '강의 <b>' + nums.length + '개</b> 선택 · 보유 ' + pool + '문제 중 <b>' + will + '문제</b> 출제';
+
+  [...document.querySelectorAll('#amt button')].forEach(btn => {
+    const n = +btn.dataset.n;
+    btn.classList.toggle('on', n === S.limit);
+    // 가진 문제보다 큰 묶음은 고를 이유가 없다(전체는 언제나 남겨 둔다).
+    btn.disabled = n > 0 && n > pool;
+    btn.style.opacity = btn.disabled ? '.35' : '';
+  });
+  document.getElementById('pickbar-go').textContent = will + '문제 풀기';
+}
+
+document.getElementById('pickbar-clear').addEventListener('click', () => { S.sel.clear(); renderPick(); });
+document.getElementById('pickbar-go').addEventListener('click', () => { if (S.sel.size) startQuiz([...S.sel]); });
+[...document.querySelectorAll('#amt button')].forEach(btn => {
+  btn.addEventListener('click', () => { S.limit = +btn.dataset.n; renderPickBar(); });
+});
 
 function lecLabel(num) { return /^\d+$/.test(num) ? num + '강' : num; }
 function esc(s) {
@@ -479,15 +588,46 @@ function esc(s) {
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/* 강의 제목 원문에는 커버 슬라이드용 편집 문법(**강조**, {빈칸})이 섞여 있다.
+   여기서는 평문으로만 보여 주므로 lms/index.js의 stripEmph와 같은 규칙으로 떼어낸다. */
+function stripEmph(t) { return String(t == null ? '' : t).replace(/\*\*/g, '').replace(/[{}]/g, ''); }
+/* 한 강의면 "24강", 여러 강의면 몇 개인지로 적는다. */
+function rangeLabel(nums) { return nums.length === 1 ? lecLabel(nums[0]) : '여러 강의 ' + nums.length + '개'; }
+
 /* ══════════ 퀴즈 ══════════ */
-function startQuiz(L) {
-  // 그 강의에 등록된 문제를 전부 풀되 순서만 섞는다.
-  const list = shuffle(L.list.slice());
-  S.quiz = { num: L.num, title: L.title, list, idx: 0, correct: 0, wrong: [], answered: false };
-  document.getElementById('quiz-lec-title').innerHTML = esc(lecLabel(L.num)) + ' <span>OX</span>';
+function startQuiz(nums) {
+  const picked = S.lessons.filter(L => nums.includes(L.num));
+  if (!picked.length) return;
+  const list = samplePool(picked, S.limit);
+  if (!list.length) return;
+
+  // 어느 강의 몫인지 문항마다 들고 다닌다 — 포인트는 강의별로 따로 지급되기 때문이다.
+  const per = {};
+  list.forEach(q => { (per[q.lessonNum] = per[q.lessonNum] || { correct: 0, total: 0 }).total++; });
+
+  S.quiz = { nums: picked.map(L => L.num), list, idx: 0, correct: 0, wrong: [], answered: false, per };
+  document.getElementById('quiz-lec-title').innerHTML = esc(rangeLabel(S.quiz.nums)) + ' <span>OX</span>';
   document.getElementById('q-total').textContent = list.length;
   show('quiz');
   renderQuestion();
+}
+
+/* 고른 강의에서 문항을 뽑는다. 한 강의에 쏠리지 않게 한 바퀴씩 돌아가며 집고,
+   마지막에 다시 섞어 강의 순서까지 흐트러뜨린다. */
+function samplePool(picked, limit) {
+  const buckets = picked.map(L => shuffle(L.list.map(q => ({ ...q, lessonNum: L.num }))));
+  const out = [];
+  if (limit <= 0) { buckets.forEach(b => out.push(...b)); return shuffle(out); }
+  for (let i = 0; out.length < limit; i++) {
+    let moved = false;
+    for (const b of buckets) {
+      if (i >= b.length) continue;
+      out.push(b[i]); moved = true;
+      if (out.length >= limit) break;
+    }
+    if (!moved) break;
+  }
+  return shuffle(out);
 }
 
 function shuffle(a) {
@@ -505,7 +645,8 @@ function renderQuestion() {
   document.getElementById('q-correct').textContent = '맞힌 문제 ' + S.quiz.correct + '개';
   document.getElementById('q-bar').style.width     = (S.quiz.idx / S.quiz.list.length * 100) + '%';
   document.getElementById('q-text').textContent    = q.text || '';
-  document.getElementById('judge').classList.add('hi-hidden');
+  document.getElementById('ox-qcard').className    = 'ox-q';        // 지난 문제의 초록/빨강 불을 끈다
+  document.getElementById('judge').className       = 'ox-judge hi-hidden';
   ['btn-o', 'btn-x'].forEach(id => {
     const b = document.getElementById(id);
     b.disabled = false;
@@ -523,14 +664,22 @@ function answer(pick) {
   const q  = S.quiz.list[S.quiz.idx];
   const ans = String(q.answer || '').toUpperCase();
   const ok  = ans === pick;
-  if (ok) S.quiz.correct++;
-  else    S.quiz.wrong.push({ text: q.text, answer: ans, explain: q.explain || '', picked: pick });
+  if (ok) {
+    S.quiz.correct++;
+    if (S.quiz.per[q.lessonNum]) S.quiz.per[q.lessonNum].correct++;
+  } else {
+    S.quiz.wrong.push({ text: q.text, answer: ans, explain: q.explain || '', picked: pick, lessonNum: q.lessonNum });
+  }
+
+  // 정답이면 초록, 오답이면 빨강 — 문제 카드와 판정 상자에 같이 불이 들어온다.
+  document.getElementById('ox-qcard').className = 'ox-q ' + (ok ? 'lit-ok' : 'lit-no');
 
   const bo = document.getElementById('btn-o'), bx = document.getElementById('btn-x');
   bo.disabled = true; bx.disabled = true;
   (ans === 'O' ? bo : bx).classList.add('is-answer');
   if (!ok) (pick === 'O' ? bo : bx).classList.add('is-wrong');
 
+  document.getElementById('judge').className = 'ox-judge ' + (ok ? 'lit-ok' : 'lit-no');
   const head = document.getElementById('judge-head');
   head.className = 'ox-judge-head ' + (ok ? 'ok' : 'no');
   head.innerHTML = (ok ? icon('check', 19) : icon('x', 19)) +
@@ -543,7 +692,6 @@ function answer(pick) {
   const last = S.quiz.idx >= S.quiz.list.length - 1;
   document.getElementById('btn-next').textContent   = last ? '결과 보기' : '다음 문제';
   document.getElementById('q-correct').textContent  = '맞힌 문제 ' + S.quiz.correct + '개';
-  document.getElementById('judge').classList.remove('hi-hidden');
 }
 
 document.getElementById('btn-next').addEventListener('click', () => {
@@ -565,7 +713,17 @@ async function finishQuiz() {
   const total = Q.list.length, correct = Q.correct;
   const rate  = total ? Math.round(correct / total * 100) : 0;
 
-  document.getElementById('res-lec').textContent     = lecLabel(Q.num) + (Q.title ? ' ' + Q.title : '');
+  // 한 강의면 "28강 제목", 여러 강의면 번호만 늘어놓되 길어지면 뒤를 줄인다.
+  document.getElementById('res-lec').textContent = (() => {
+    if (Q.nums.length === 1) {
+      const t = stripEmph((S.lessons.find(L => L.num === Q.nums[0]) || {}).title);
+      return lecLabel(Q.nums[0]) + (t ? ' ' + t : '');
+    }
+    const labels = Q.nums.map(lecLabel);
+    return labels.length <= 3
+      ? labels.join(' · ')
+      : labels.slice(0, 3).join(' · ') + ' 외 ' + (labels.length - 3) + '개';
+  })();
   document.getElementById('res-correct').textContent = correct;
   document.getElementById('res-total').textContent   = total;
   document.getElementById('res-rate').textContent    = '정답률 ' + rate + '%';
@@ -586,9 +744,10 @@ async function finishQuiz() {
   }
   show('result');
 
-  // 포인트 지급 — 상한 판정은 전부 addOxQuizXP의 트랜잭션이 한다.
-  let res = null;
-  try { res = await addOxQuizXP(Q.num, correct); } catch (e) { console.error(e); }
+  // 포인트 지급 — 강의마다 따로 부른다. "같은 강의는 하루 한 번"이 강의 단위 규칙이라
+  // 여러 강의를 섞어 풀어도 각 강의 몫이 제대로 계산되어야 한다. 상한 판정은 전부
+  // addOxQuizXP의 트랜잭션이 하므로 여기서는 결과만 합친다.
+  const res = await grantPoints(Q);
   renderPoint(res, correct);
 
   // 기록 저장은 포인트와 별개다. 상한에 걸려 포인트를 못 받아도 참여는 남는다.
@@ -604,18 +763,47 @@ async function finishQuiz() {
   }
 }
 
+/* 강의별로 지급하고 합계를 낸다. 한 강의가 막혀도(오늘 이미 받음) 나머지는 받는다. */
+async function grantPoints(Q) {
+  let pt = 0, earnedToday = 0, dailyMax = 0, levelUp = false, newLevel = 0;
+  const blocked = {};
+  const byLesson = {};
+
+  for (const num of Q.nums) {
+    const p = Q.per[num];
+    if (!p) continue;
+    let r = null;
+    try { r = await addOxQuizXP(num, p.correct); } catch (e) { console.error(e); }
+    byLesson[num] = (r && r.pt) || 0;
+    if (!r) { blocked.off = true; continue; }
+    if (r.pt) {
+      pt += r.pt;
+      if (r.levelUp) { levelUp = true; newLevel = r.newLevel; }
+    } else if (r.blocked) {
+      blocked[r.blocked] = true;
+    }
+    if (r.dailyMax)    dailyMax    = r.dailyMax;
+    if (r.earnedToday) earnedToday = Math.max(earnedToday, r.earnedToday);
+  }
+  return { pt, earnedToday, dailyMax, levelUp, newLevel, blocked, byLesson };
+}
+
 function renderPoint(res, correct) {
   const el = document.getElementById('res-pt');
   const zero = function (why) {
     el.innerHTML = '포인트 <b>0pt</b><span class="why">' + why + '</span>';
   };
+  const b = (res && res.blocked) || {};
+
   if (res && res.pt) {
+    // 일부 강의만 막힌 경우도 있어 그럴 땐 한 줄 덧붙인다.
+    const partial = b.lesson ? ' · 오늘 이미 받은 강의는 빼고 계산했습니다' : '';
     el.innerHTML = '이번 퀴즈로 <b>' + res.pt + 'pt</b> 획득' +
-                   '<span class="why">오늘 누적 ' + res.earnedToday + ' / ' + res.dailyMax + ' pt</span>';
-  } else if (res && res.blocked === 'lesson') {
-    zero('이 강의는 오늘 이미 포인트를 받았습니다. 다른 강의를 풀면 더 받을 수 있어요.');
-  } else if (res && res.blocked === 'daily') {
-    zero('오늘 받을 수 있는 ' + res.dailyMax + 'pt를 모두 채웠습니다.');
+                   '<span class="why">오늘 누적 ' + res.earnedToday + ' / ' + res.dailyMax + ' pt' + partial + '</span>';
+  } else if (b.daily) {
+    zero('오늘 받을 수 있는 ' + (res.dailyMax || S.today.dailyMax) + 'pt를 모두 채웠습니다.');
+  } else if (b.lesson) {
+    zero('고른 강의는 오늘 이미 포인트를 받았습니다. 다른 강의를 풀면 더 받을 수 있어요.');
   } else if (correct === 0) {
     zero('맞힌 문제가 없어요. 해설을 보고 다시 풀어 보세요.');
   } else {
@@ -634,16 +822,22 @@ async function saveRecord(Q, correct, total, rate, pt) {
     if (snap.exists()) prev = snap.data() || {};
   } catch (e) { /* 못 읽으면 새로 만든다 */ }
 
+  // 여러 강의를 섞어 풀었으면 강의마다 그 강의 몫만 올린다.
   const lessons = Object.assign({}, prev.lessons || {});
-  const L = lessons[Q.num] || { attempts: 0, correct: 0, total: 0, bestRate: 0 };
-  lessons[Q.num] = {
-    attempts: (L.attempts || 0) + 1,
-    correct:  (L.correct  || 0) + correct,
-    total:    (L.total    || 0) + total,
-    bestRate: Math.max(L.bestRate || 0, rate),
-    lastRate: rate,
-    lastAt:   Date.now(),
-  };
+  Q.nums.forEach(num => {
+    const p = Q.per[num];
+    if (!p || !p.total) return;
+    const lrate = Math.round(p.correct / p.total * 100);
+    const L = lessons[num] || { attempts: 0, correct: 0, total: 0, bestRate: 0 };
+    lessons[num] = {
+      attempts: (L.attempts || 0) + 1,
+      correct:  (L.correct  || 0) + p.correct,
+      total:    (L.total    || 0) + p.total,
+      bestRate: Math.max(L.bestRate || 0, lrate),
+      lastRate: lrate,
+      lastAt:   Date.now(),
+    };
+  });
 
   await setDoc(recRef, {
     sid: ME.sid, name: ME.name, classNum: classNumOf(ME.sid),
@@ -657,15 +851,19 @@ async function saveRecord(Q, correct, total, rate, pt) {
 
   await addDoc(collection(db, 'ox_sessions'), {
     sid: ME.sid, name: ME.name, classNum: classNumOf(ME.sid),
-    lessonNum: Q.num, lessonTitle: Q.title || '',
+    // 한 강의만 풀었으면 예전과 같은 모양으로 남긴다(어드민 기존 목록이 그대로 읽힌다).
+    lessonNum:  Q.nums.length === 1 ? Q.nums[0] : '',
+    lessonNums: Q.nums,
+    lessonTitle: Q.nums.length === 1
+      ? stripEmph((S.lessons.find(L => L.num === Q.nums[0]) || {}).title)
+      : '',
     correct, total, rate, pt,
     at: serverTimestamp(),
   });
 }
 
 document.getElementById('res-retry').addEventListener('click', () => {
-  const L = S.lessons.find(x => x.num === S.quiz.num);
-  if (L) startQuiz(L);
+  if (S.quiz && S.quiz.nums.length) startQuiz(S.quiz.nums);
 });
 document.getElementById('res-other').addEventListener('click', () => { renderPick(); show('pick'); });
 </script>

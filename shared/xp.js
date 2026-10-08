@@ -16,7 +16,7 @@ export const DEFAULT_ACTIVITIES = {
   mileage:      { pt: 20, enabled: true },
   thinkCheck:   { pt: 30, enabled: true }, // pt = 최대치. 실제 지급은 제출 AI 채점으로 10~pt 차등.
   typingReview: { pt: 20, perLectureMax: 10, enabled: true }, // 하루 1회 + perLectureMax = 한 강의로 받을 수 있는 총 횟수(≈10일치)
-  oxQuiz:       { ptPer: 1, dailyMax: 30, enabled: true }, // 정답 1개 = ptPer점, 하루 dailyMax까지. 같은 강의는 하루 한 번만 지급된다(addOxQuizXP).
+  oxQuiz:       { ptPer: 1, dailyMax: 50, enabled: true }, // 정답 1개 = ptPer점, 하루 dailyMax까지. 같은 강의는 하루 한 번만 지급된다(addOxQuizXP).
   annComment:   { pt: 5,  enabled: true }, // 공지 댓글 — 한 글에 한 번만
   annLike:      { pt: 2,  enabled: true }, // 공지 좋아요 — 한 글에 한 번만(취소해도 돌려받지 않고, 다시 눌러도 또 주지 않는다)
   lottery:      { enabled: true },         // 일일 뽑기 — 등수별 점수는 index.js의 LOTTERY 표에 있다
