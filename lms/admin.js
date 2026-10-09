@@ -19,7 +19,7 @@ const db   = initializeFirestore(app, { experimentalAutoDetectLongPolling: true 
 const rtdb = getDatabase(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
-import { CLAUDE_PROXY_URL, kstDate } from '../shared/util.js?v=20260826';
+import { CLAUDE_PROXY_URL, kstDate, loadHolidays, isRestDay, studyClosedReason } from '../shared/util.js?v=20261009';
 
 /* ── 마지막으로 보던 화면 기억하기 ──
    새로고침하면 늘 대시보드로 돌아가 버려서, 한 화면을 고쳐가며 확인할 때 매번 다시
@@ -7580,6 +7580,57 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
     } catch(e) { alert('저장에 실패했습니다.'); }
   };
 
+  /* 공휴일 지정 — settings/holidays { dates: ['YYYY-MM-DD', ...] }.
+     학생 화면의 이용 시간 판정(shared/util.js의 studyClosedReason)이 이 목록을 읽는다.
+     문서가 아직 없으면 util.js의 기본 목록(2026년 공휴일 + 재량휴업일)을 보여 주고,
+     추가나 삭제를 한 번 하는 순간 그 목록 전체가 문서로 저장된다. */
+  let holidayDates = [];
+  const HOLI_DOW = ['일', '월', '화', '수', '목', '금', '토'];
+
+  function stRenderHolidays() {
+    const box = document.getElementById('st-holiday-list');
+    if (!box) return;
+    const today = kstDate();
+    const dates = [...holidayDates].sort();
+    box.innerHTML = dates.length
+      ? dates.map(d => {
+          const [y, m, dd] = d.split('-').map(Number);
+          const dow = HOLI_DOW[new Date(Date.UTC(y, m - 1, dd)).getUTCDay()];
+          const past = d < today ? ';opacity:.45' : '';
+          return `<span class="test-id-chip" style="font-variant-numeric:tabular-nums${past}" title="${d}">${y}.${m}.${dd} (${dow})<button title="제거" onclick="stRemoveHoliday('${d}')">×</button></span>`;
+        }).join('')
+      : '<span style="font-size:13px;color:var(--sub)">지정된 공휴일이 없습니다.</span>';
+
+    const t = document.getElementById('st-holiday-today');
+    if (t) {
+      const now = Date.now();
+      const rest = isRestDay(now, holidayDates);
+      const closed = studyClosedReason(now, holidayDates);
+      t.textContent = `오늘(${today})은 ${rest ? '주말 또는 공휴일' : '평일'} 기준입니다. 지금은 ${closed ? '이용 시간이 아닙니다' : '이용할 수 있습니다'}.`;
+    }
+  }
+
+  async function stSaveHolidays(next) {
+    const prev = holidayDates;
+    holidayDates = next;
+    stRenderHolidays();
+    try { await setDoc(doc(db, 'settings', 'holidays'), { dates: [...next].sort() }); }
+    catch (e) { holidayDates = prev; stRenderHolidays(); alert('저장 실패: ' + e.message); }
+  }
+
+  window.stAddHoliday = async function() {
+    const inp = document.getElementById('st-holiday-input');
+    const d = (inp?.value || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { alert('날짜를 고르세요.'); return; }
+    if (holidayDates.includes(d)) { alert('이미 지정된 날짜입니다.'); return; }
+    await stSaveHolidays([...holidayDates, d]);
+    if (inp) inp.value = '';
+  };
+
+  window.stRemoveHoliday = async function(d) {
+    await stSaveHolidays(holidayDates.filter(x => x !== d));
+  };
+
   /* 학생 앱 강제 새로고침 —
      settings/app_version 의 reloadToken 을 새 값으로 바꾸면, 그 문서를 구독하고 있는
      학생 화면이 "처음 보는 토큰"으로 인식해 스스로 새로고침한다(index.js 참고).
@@ -7708,6 +7759,8 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
     document.getElementById('st-lock-text').value = lockData.message || '';
     stApplyLockdownToggleUI();
     stRenderMenuList();
+    holidayDates = await loadHolidays(db, { doc, getDoc });
+    stRenderHolidays();
     window.stSettingsRefreshRoster();
   })();
 }

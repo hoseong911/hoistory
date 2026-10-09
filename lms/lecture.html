@@ -372,7 +372,7 @@ import { initXP, addTypingReviewXP } from '../shared/xp.js';
 import { icon } from '../shared/icons.js';
 import { blockPaste } from '../shared/textLimit.js?v=20260901';
 import { applyScreenProtection } from '../shared/protect.js?v=20260901';
-import { typingBlockReason } from '../shared/util.js?v=20260826';
+import { studyClosedReason, loadHolidays } from '../shared/util.js?v=20261009';
 
 // 학생 화면 복사/붙여넣기·우클릭 차단(부정행위 방지)
 blockPaste(document);
@@ -477,10 +477,11 @@ async function init() {
   const num = new URLSearchParams(location.search).get('num');
   if (!num) { showError('강의 번호(?num=)가 없습니다.'); return; }
 
-  // 복습 모드는 수업 시간에 열 수 없다(규칙은 shared/util.js의 typingBlockReason).
+  // 복습 모드는 이용 시간에만 연다(규칙은 shared/util.js의 studyClosedReason).
   // index.js가 버튼에서 이미 막지만, 주소 직접 입력·예전 탭 새로고침 경로가 남아 여기서도 확인한다.
   if (new URLSearchParams(location.search).get('mode') === 'typing') {
-    const blocked = typingBlockReason(await serverNow());
+    const [now, holidays] = await Promise.all([serverNow(), loadHolidays(db, { doc, getDoc })]);
+    const blocked = studyClosedReason(now, holidays);
     if (blocked) { showError(blocked); return; }
   }
   initTypingXP(); // sid가 URL에 있으면 타이핑 복습 XP를 준비(없으면 아무것도 안 함)

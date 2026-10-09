@@ -13,7 +13,7 @@ import { initXP, onXPChange, checkAndAddAttendance, calcLevel,
 import { findBadWord } from "../shared/profanity.js";
 import { icon } from "../shared/icons.js?v=20260918";
 import { blockPaste } from "../shared/textLimit.js?v=20260901";
-import { typingBlockReason, kstDate } from "../shared/util.js?v=20260828";
+import { studyClosedReason, loadHolidays, kstDate } from "../shared/util.js?v=20261009";
 
 // 학생 화면 복사/붙여넣기·우클릭 차단(부정행위 방지). 관리자(admin.html)는 대상 아님.
 blockPaste(document);
@@ -38,6 +38,9 @@ const rtdb = getDatabase(app);
 let _serverTimeOffset = 0;
 function serverNow() { return Date.now() + _serverTimeOffset; }
 rtdbOnValue(rtdbRef(rtdb, '.info/serverTimeOffset'), s => { _serverTimeOffset = s.val() || 0; }, () => {});
+// 타이핑 복습 이용 시간 판정에 쓰는 공휴일 목록(설정 SYSTEM에서 지정). 받기 전엔 기본 목록.
+let _holidays;
+loadHolidays(db, { doc, getDoc }).then(d => { _holidays = d; });
 
 initAuth(rtdb);
 
@@ -2312,7 +2315,7 @@ const _cpEl = document.getElementById('conceptPicker');
 function openConceptPicker(item) {
   _cpItem = item;
   document.getElementById('cpTitle').textContent = item.label || '';
-  document.getElementById('cpTyping').classList.toggle('is-locked', !!typingBlockReason(serverNow()));
+  document.getElementById('cpTyping').classList.toggle('is-locked', !!studyClosedReason(serverNow(), _holidays));
   _cpEl.classList.add('show');
 }
 function closeConceptPicker() { _cpEl.classList.remove('show'); _cpItem = null; }
@@ -2325,8 +2328,8 @@ document.getElementById('cpBlank').addEventListener('click', () => {
   closeConceptPicker();
 });
 document.getElementById('cpTyping').addEventListener('click', () => {
-  // 수업 시간에는 복습 슬라이드를 열 수 없다(규칙은 shared/util.js의 typingBlockReason).
-  const blocked = typingBlockReason(serverNow());
+  // 이용 시간(평일 15시~, 주말과 공휴일 6시~ 자정)에만 연다(규칙은 shared/util.js의 studyClosedReason).
+  const blocked = studyClosedReason(serverNow(), _holidays);
   if (blocked) { showToast(blocked, 6000, 'clock-3'); closeConceptPicker(); return; }
   // 타이핑 복습은 학생 신원(sid/이름)을 URL로 넘겨 lecture.html에서 90% 이상 정답 시 XP를 적립한다.
   if (_cpItem) {

@@ -296,8 +296,8 @@ html, body { scrollbar-width: none; -ms-overflow-style: none; }
   <!-- ════════ LMS를 거치지 않고 들어온 경우 ════════ -->
   <div id="screen-blocked" class="hi-hidden">
     <div class="ox-block">
-      <h2>수업 홈에서 열어 주세요</h2>
-      <p>이 퀴즈는 수업 홈(LMS)에 로그인한 뒤 각종 콘텐츠에서 열어야 합니다.
+      <h2 id="blocked-title">수업 홈에서 열어 주세요</h2>
+      <p id="blocked-msg">이 퀴즈는 수업 홈(LMS)에 로그인한 뒤 각종 콘텐츠에서 열어야 합니다.
          주소를 직접 치고 들어오면 누가 푼 기록인지 알 수 없어 포인트가 쌓이지 않습니다.</p>
       <button class="hi-btn hi-btn-primary" id="go-lms">수업 홈으로 가기</button>
     </div>
@@ -408,6 +408,7 @@ import { firebaseConfig } from "../shared/firebase-config.js";
 import { icon } from "../shared/icons.js";
 import { initXP, addOxQuizXP, getOxQuizToday } from "../shared/xp.js";
 import { showToast, showCelebration } from "../shared/toast.js";
+import { studyClosedReason, loadHolidays } from "../shared/util.js?v=20261009";
 import "../shared/offline.js";
 
 const app  = initializeApp(firebaseConfig);
@@ -457,10 +458,28 @@ document.getElementById('go-lms').addEventListener('click',      () => { locatio
 document.getElementById('pick-home').addEventListener('click',   () => { location.href = LMS_HOME; });
 document.getElementById('result-home').addEventListener('click', () => { location.href = LMS_HOME; });
 
+/* ══════════ 이용 시간 ══════════
+   평일 15시~, 주말과 공휴일 6시~ 자정(KST). 규칙은 shared/util.js의 studyClosedReason.
+   시각은 RTDB 서버 시각으로 본다(기기 시계를 바꿔 우회하지 못하게). */
+let holidays;
+async function closedReasonNow() {
+  let offset = 0;
+  try { offset = (await get(ref(rtdb, '.info/serverTimeOffset'))).val() || 0; } catch (e) {}
+  if (!holidays) holidays = await loadHolidays(db, { doc, getDoc });
+  return studyClosedReason(Date.now() + offset, holidays);
+}
+function showClosed(msg) {
+  document.getElementById('blocked-title').textContent = '지금은 OX 퀴즈 시간이 아니에요';
+  document.getElementById('blocked-msg').textContent = msg;
+  show('blocked');
+}
+
 if (!ME.sid || !ME.name) show('blocked');
 else boot();
 
 async function boot() {
+  const closed = await closedReasonNow();
+  if (closed) { showClosed(closed); return; }
   show('pick');
   document.getElementById('lec-list').innerHTML = '<div class="ox-empty">문제를 불러오는 중입니다</div>';
   await initXP(rtdb, ME.sid, ME.name, { ref, get, set, push, update, onValue, runTransaction });
@@ -577,7 +596,13 @@ function renderPickBar() {
 }
 
 document.getElementById('pickbar-clear').addEventListener('click', () => { S.sel.clear(); renderPick(); });
-document.getElementById('pickbar-go').addEventListener('click', () => { if (S.sel.size) startQuiz([...S.sel]); });
+document.getElementById('pickbar-go').addEventListener('click', async () => {
+  if (!S.sel.size) return;
+  // 화면을 열어 둔 채 자정을 넘긴 경우도 막는다.
+  const closed = await closedReasonNow();
+  if (closed) { showClosed(closed); return; }
+  startQuiz([...S.sel]);
+});
 [...document.querySelectorAll('#amt button')].forEach(btn => {
   btn.addEventListener('click', () => { S.limit = +btn.dataset.n; renderPickBar(); });
 });
@@ -839,8 +864,11 @@ async function saveRecord(Q, correct, total, rate, pt) {
   });
 }
 
-document.getElementById('res-retry').addEventListener('click', () => {
-  if (S.quiz && S.quiz.nums.length) startQuiz(S.quiz.nums);
+document.getElementById('res-retry').addEventListener('click', async () => {
+  if (!(S.quiz && S.quiz.nums.length)) return;
+  const closed = await closedReasonNow();
+  if (closed) { showClosed(closed); return; }
+  startQuiz(S.quiz.nums);
 });
 document.getElementById('res-other').addEventListener('click', () => { renderPick(); show('pick'); });
 </script>

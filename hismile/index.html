@@ -583,7 +583,7 @@
                     <div class="guide-title">인증 가능 시간</div>
                     <div class="guide-desc">
                         평일: <b>오후 3시 ~ 자정</b><br>
-                        주말·공휴일: <b>오전 6시 ~ 자정</b><br>
+                        주말, 공휴일: <b>오전 6시 ~ 자정</b><br>
                         <span style="opacity:0.8;">(자정 이후는 수면 보장을 위해 차단됩니다)</span>
                     </div>
                 </div>
@@ -636,7 +636,9 @@
     import {
         getDatabase, ref, set, push, get, onValue, update, runTransaction
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+    import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
     import { initXP, addMileageXP } from '../shared/xp.js';
+    import { studyClosedReason, isRestDay, loadHolidays } from '../shared/util.js?v=20261009';
     import {
         getStorage, ref as sRef, uploadBytes, getDownloadURL
     } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-storage.js";
@@ -671,8 +673,12 @@ import { firebaseConfig } from "../shared/firebase-config.js";
     // Claude 호출은 서버 프록시(functions/claudeProxy)를 통해서만 한다 — API 키는 클라이언트에 두지 않는다.
     const CLAUDE_PROXY_URL = 'https://asia-northeast3-ho0911seong-56638.cloudfunctions.net/claudeProxy';
 
-    // 공휴일 (필요 시 admin에서 관리 가능)
-    const holidays = []; // 예: ["2026-03-01","2026-05-05"]
+    // 인증 가능 시간 판정 — 공휴일 목록은 LMS 어드민 설정 SYSTEM에서 지정한다(settings/holidays).
+    // 시각은 기기 시계 대신 RTDB 서버 시각으로 본다(시계를 바꿔 우회하지 못하게).
+    let holidays;
+    loadHolidays(getFirestore(app), { doc, getDoc }).then(d => { holidays = d; });
+    let serverTimeOffset = 0;
+    onValue(ref(db, '.info/serverTimeOffset'), s => { serverTimeOffset = s.val() || 0; }, () => {});
 
     // ── 상태 ──
     let currentUser = null;
@@ -996,23 +1002,13 @@ import { firebaseConfig } from "../shared/firebase-config.js";
             });
         }
 
-        // 시간 제한 (수면 보장 목적, 자정 이후는 자동으로 다음 날 새벽이 되어 차단)
-        const now = new Date();
-        const hour = now.getHours();
-        const dow = now.getDay();
-        const dateStr = now.toISOString().slice(0,10);
-        const isHolidayOrWeekend = holidays.includes(dateStr) || dow === 0 || dow === 6;
-        if (isHolidayOrWeekend) {
-            if (hour < 6) return showRichToast({
-                icon: icon('moon', 30), title: '아직 인증 시간이 아니에요',
-                message: '주말·공휴일은 오전 6시부터 자정까지 가능해요 (수면 보장)', kind: 'error'
-            });
-        } else {
-            if (hour < 15) return showRichToast({
-                icon: icon('book', 30), title: '아직 인증 시간이 아니에요',
-                message: '평일은 오후 3시부터 자정까지 가능해요 (수면 보장)', kind: 'error'
-            });
-        }
+        // 시간 제한 (평일 15시~, 주말과 공휴일 6시~ 자정, KST. 규칙은 shared/util.js의 studyClosedReason)
+        const nowMs = Date.now() + serverTimeOffset;
+        const closed = studyClosedReason(nowMs, holidays);
+        if (closed) return showRichToast({
+            icon: icon(isRestDay(nowMs, holidays) ? 'moon' : 'book', 30), title: '아직 인증 시간이 아니에요',
+            message: closed, kind: 'error'
+        });
 
         btn.disabled = true; btn.textContent = 'AI 분석 중…';
         document.getElementById('cert-result').style.display = 'none';
