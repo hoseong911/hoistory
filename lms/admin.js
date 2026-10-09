@@ -496,6 +496,7 @@ async function dbLoad() {
       dbSafe(get(ref(rtdb, `${XP_ROOT}/students`)), null),
       dbSafe(getDocs(query(collection(db, 'announcements'), orderBy('createdAt', 'desc'))), null),
       dbLoadAnnReads(),
+      dbSafe(noticeLoadComments(), null),   // 공지를 펼치면 본문 아래에 댓글이 뜬다
     ]);
 
     // 개념 체크 강의 — 카드가 최근 5개만 펴고 나머지는 [+ 더보기]로 접어 두므로 여기서 자르지 않는다
@@ -556,6 +557,8 @@ async function dbLoad() {
     const stuData = stuSnap && stuSnap.exists() ? (stuSnap.val() || {}) : {};
     _dbStudents = Object.values(stuData).filter(v => v && v.studentId).map(v => ({ studentId: String(v.studentId), name: v.name || v.studentName || '' }));
     _dbStuCount = _dbStudents.filter(s => !isTestId(s.studentId)).length; // 테스트 학생은 총원에서 제외(이름 조회는 유지)
+    // 댓글 줄의 [차단]/[해제]가 맞게 뜨도록 차단 명단도 읽는다(명단을 채운 뒤라 학생을 다시 읽지 않는다).
+    await noticeLoadBans();
     const xp = xpSnap && xpSnap.exists() ? (xpSnap.val() || {}) : {};
     // 뽑기는 하루 한 번이라 lottery.day가 오늘이면 그 학생이 오늘 참여한 것이다(shared/xp.js).
     let attend = 0, review = 0, lottery = 0;
@@ -763,6 +766,14 @@ function annSortList() {
   _dbAnnList.sort((a, b) => (b.pinned === true) - (a.pinned === true) || at(b) - at(a));
 }
 
+// 대시보드 공지 댓글은 처음 20개, [더보기]마다 20개씩 더 보인다.
+const DB_CM_PAGE = 20;
+const _dbCmShow = {};   // { [공지ID]: 지금 보이는 개수 }
+window.dbMoreComments = function(annId) {
+  _dbCmShow[annId] = (_dbCmShow[annId] || DB_CM_PAGE) + DB_CM_PAGE;
+  annRefreshViews();
+};
+
 /* 공지 목록 표. 대시보드와 설정 NOTICE가 같이 쓴다.
    head를 주면 그만큼만 펴 두고 나머지는 [+ 더보기]로 접는다(공개 관리와 같은 방식).
    조회수·좋아요 숫자를 누르면 누가 읽었는지 명단이 뜬다. */
@@ -773,13 +784,17 @@ function annTableHTML(head, showComments) {
     const likes = rows.filter(r => r.liked).length;
     const stat = n =>
       `<button class="ann-stat" onclick="openAnnStats('${a.docId}')" title="누가 읽었는지 봅니다">${n}</button>`;
-    // 댓글 수는 누르면 그 아래로 펼쳐진다(설정 NOTICE에서만 — 대시보드는 목록만 본다).
+    // 댓글 수는 누르면 그 아래로 펼쳐진다(설정 NOTICE). 대시보드는 글을 펼치면 본문 아래에 댓글이 붙는다.
     const cms = (_dbAnnComments[a.docId] || []).length;
     const open = _noticeOpenCm === a.docId;
     const cmCell = showComments
       ? `<span class="ann-c-num"><button class="ann-stat" onclick="noticeToggleComments('${a.docId}')" title="댓글 보기">${cms}</button></span>`
       : '';
     const openBody = _noticeOpenBody === a.docId;
+    // 대시보드는 댓글 칸이 없는 대신, 글을 펼치면 본문 아래에 댓글을 바로 붙인다(최신순 20개씩).
+    const dashCm = !showComments && openBody
+      ? `<div class="ann-cm-panel"><div class="ann-cm-hd">댓글 ${cms}개</div>${noticeCommentsHTML(a.docId, _dbCmShow[a.docId] || DB_CM_PAGE)}</div>`
+      : '';
     return `<div class="ann-row${a.docId === _dbAnnEditId ? ' editing' : ''}${showComments ? ' has-cm' : ''}${a.pinned ? ' pinned' : ''}">
       <span class="ann-c-title" title="${esc(a.title || '')}">${a.pinned ? `<span class="ann-pin" title="상단 고정">${icon('pin', 13)}</span>` : ''}<button class="ann-title-btn${openBody ? ' open' : ''}" onclick="noticeToggleBody('${a.docId}')" title="본문 보기">${icon('chevron-right', 13)}<span>${esc(a.title || '(제목 없음)')}</span></button></span>
       <span class="ann-c-date">${dbAnnDate(a.createdAt)}</span>
@@ -795,7 +810,8 @@ function annTableHTML(head, showComments) {
           <div class="ann-body-head"><span>${dbAnnDate(a.createdAt)} 작성${a.pinned ? ' · 상단 고정' : ''}</span>
             <button class="stu-btn stu-btn-edit" onclick="dbEditAnnouncement('${a.docId}')">수정</button></div>
           ${annBodyHTML(a.body)}</div>` : '')
-      + (open ? `<div class="ann-cm-panel">${noticeCommentsHTML(a.docId)}</div>` : '');
+      + dashCm
+      + (showComments && open ? `<div class="ann-cm-panel">${noticeCommentsHTML(a.docId)}</div>` : '');
   };
   const header = `<div class="ann-row ann-head${showComments ? ' has-cm' : ''}">
       <span class="ann-c-title">제목</span>
@@ -807,9 +823,11 @@ function annTableHTML(head, showComments) {
     </div>`;
   const list = _dbAnnList;
   if (!head || list.length <= head) return header + list.map(row).join('');
+  // 접힌 쪽의 글을 펼쳐 둔 채 다시 그리면 접힘도 같이 열어 둔다(누른 글이 사라지지 않게).
+  const keepOpen = list.slice(head).some(a => a.docId === _noticeOpenBody);
   return header + list.slice(0, head).map(row).join('') + `
-    <div class="db-more"><div class="db-more-inner">${list.slice(head).map(row).join('')}</div></div>
-    <button type="button" class="db-more-btn" onclick="dbToggleMore(this)">+ 더보기</button>`;
+    <div class="db-more${keepOpen ? ' open' : ''}"><div class="db-more-inner">${list.slice(head).map(row).join('')}</div></div>
+    <button type="button" class="db-more-btn" onclick="dbToggleMore(this)">${keepOpen ? '− 접기' : '+ 더보기'}</button>`;
 }
 
 /* ── 설정 - NOTICE 패널 ──────────────────────────────────────────
@@ -911,7 +929,7 @@ window.noticeToggleBan = async function(sid, name) {
       if (reason === null) return;
       await noticeBan(sid, name, reason);
     }
-    noticeRender();
+    annRefreshViews();   // 대시보드에 펼친 댓글도 같이 맞춘다
   } catch (e) { alert('실패: ' + e.message); }
 };
 
@@ -926,7 +944,7 @@ window.noticeBanByInput = async function() {
   try {
     await noticeBan(sid, '', reason);
     if (el) el.value = '';
-    noticeRender();
+    annRefreshViews();
   } catch (e) { alert('실패: ' + e.message); }
 };
 
@@ -954,13 +972,20 @@ window.noticeDeleteComment = async function(annId, id) {
   try {
     await deleteDoc(doc(db, 'announcement_comments', id));
     _dbAnnComments[annId] = (_dbAnnComments[annId] || []).filter(c => c.id !== id);
-    noticeRender();
+    annRefreshViews();
   } catch (e) { alert('삭제 실패: ' + e.message); }
 };
 
-function noticeCommentsHTML(annId) {
-  const list = _dbAnnComments[annId] || [];
-  if (!list.length) return '<div class="ann-cm-none">아직 댓글이 없습니다.</div>';
+// limit을 주면(대시보드) 최신 댓글부터 그만큼만 보이고 나머지는 [더보기]로 넘긴다.
+// 설정 NOTICE는 limit 없이 쓴 순서대로 전부 편다.
+function noticeCommentsHTML(annId, limit) {
+  const all = _dbAnnComments[annId] || [];
+  if (!all.length) return '<div class="ann-cm-none">아직 댓글이 없습니다.</div>';
+  const list = limit ? [...all].reverse().slice(0, limit) : all;
+  const rest = all.length - list.length;
+  const more = rest > 0
+    ? `<button type="button" class="db-more-btn" onclick="dbMoreComments('${esc(annId)}')">+ 더보기 (${rest}개 남음)</button>`
+    : '';
   return list.map(c => {
     const sid = String(c.studentId || '');
     const banned = !!_dbCmBans[sid];
@@ -974,7 +999,7 @@ function noticeCommentsHTML(annId) {
       <button class="stu-btn ${banned ? 'stu-btn-edit' : 'stu-btn-del'}" onclick="noticeToggleBan('${esc(sid)}','${esc(c.name || '')}')">${banned ? '해제' : '차단'}</button>
       <button class="stu-btn stu-btn-del" onclick="noticeDeleteComment('${esc(annId)}','${esc(c.id)}')">삭제</button>
     </div>`;
-  }).join('');
+  }).join('') + more;
 }
 
 function noticeRender() {
