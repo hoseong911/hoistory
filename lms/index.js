@@ -1478,13 +1478,13 @@ function renderAnnComments() {
   if (!_annCmList.length) { box.innerHTML = '<div class="ann-cm-empty">아직 댓글이 없어요. 먼저 남겨 보세요.</div>'; return; }
   box.innerHTML = _annCmList.map(c => {
     const mine = c.studentId === currentStudentId;
-    // 한 줄: 학번 이름 | 내용(이 칸 안에서 줄바꿈) | 시간. 내 댓글이면 시간 위에 작은 삭제 아이콘.
+    // 한 줄: 학번 이름 | 내용(이 칸 안에서 줄바꿈) | 시간. 내 댓글이면 시간 아래에 작은 삭제 아이콘.
     return `<div class="ann-cm-item">
       <span class="ann-cm-who"><span class="ann-cm-sid">${esc(c.studentId || '')}</span>${esc(c.name || '')}</span>
       <div class="ann-cm-text">${esc(c.text || '')}</div>
       <div class="ann-cm-side">
-        ${mine ? `<button class="ann-cm-del" data-id="${esc(c.id)}" title="삭제" aria-label="삭제">${icon('trash-2', 13)}</button>` : ''}
         <span class="ann-cm-when">${annCmTime(c.createdAt)}</span>
+        ${mine ? `<button class="ann-cm-del" data-id="${esc(c.id)}" title="삭제" aria-label="삭제">${icon('trash-2', 13)}</button>` : ''}
       </div>
     </div>`;
   }).join('');

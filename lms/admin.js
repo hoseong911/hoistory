@@ -992,17 +992,17 @@ function noticeCommentsHTML(annId, limit) {
     // earned === false면 성의 기준(글자 수·같은 글자 반복·베끼기)에 걸려 포인트가 안 붙은
     // 댓글이다. 이 표시가 없는 옛 댓글은 기준을 넣기 전에 쓴 글이라 따로 적지 않는다.
     const noPt = c.earned === false;
-    // 학생 화면과 같은 한 줄 배치. 액션은 시간 위에 박스 없는 작은 아이콘으로 둔다
+    // 학생 화면과 같은 한 줄 배치. 액션은 시간 아래에 박스 없는 작은 아이콘으로 둔다
     // (차단 아이콘은 이미 차단된 학생이면 빨갛게 켜져 있고, 누르면 해제).
     return `<div class="ann-cm-row">
       <span class="ann-cm-who">${esc(sid)} ${esc(c.name || '')}${banned ? '<span class="ann-ban-tag">차단</span>' : ''}</span>
       <span class="ann-cm-body">${noPt ? '<span class="ann-nopt-tag" title="성의 기준에 걸려 포인트가 붙지 않았습니다">무포인트</span>' : ''}${esc(c.text || '')}</span>
       <span class="ann-cm-side">
+        <span class="ann-cm-at">${dbAnnDate(c.createdAt)}</span>
         <span class="ann-cm-acts">
           <button class="ann-cm-act${banned ? ' on' : ''}" title="${banned ? '차단 해제' : '댓글 차단'}" aria-label="${banned ? '차단 해제' : '댓글 차단'}" onclick="noticeToggleBan('${esc(sid)}','${esc(c.name || '')}')">${icon('ban', 13)}</button>
           <button class="ann-cm-act del" title="댓글 삭제" aria-label="댓글 삭제" onclick="noticeDeleteComment('${esc(annId)}','${esc(c.id)}')">${icon('trash-2', 13)}</button>
         </span>
-        <span class="ann-cm-at">${dbAnnDate(c.createdAt)}</span>
       </span>
     </div>`;
   }).join('') + more;
