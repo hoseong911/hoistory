@@ -725,7 +725,7 @@ function dbRender() {
    보였다. 서식은 학생 화면(index.js annFormat)과 같은 규칙으로 그린다 — 선생님이 보는
    모습이 학생이 보는 모습과 같아야 색·굵게가 제대로 걸렸는지 여기서 확인할 수 있다. */
 const ANN_COLORS = {
-  '빨강': 'var(--critical-strong)',
+  '빨강': '#DC2626',
   '파랑': '#2563EB',
   '초록': '#15803D',
   '보라': '#7C3AED',

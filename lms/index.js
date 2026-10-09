@@ -1599,7 +1599,7 @@ function renderAnnounceLike(annId) {
    바꾸지 않고 원문 그대로 둔다(선생님이 오타를 바로 알아볼 수 있게).
    반드시 esc()를 거친 문자열을 넘길 것. */
 const ANN_COLORS = {
-  '빨강': 'var(--critical-strong)',
+  '빨강': '#DC2626',
   '파랑': '#2563EB',
   '초록': '#15803D',
   '보라': '#7C3AED',
