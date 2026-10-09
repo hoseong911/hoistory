@@ -1500,8 +1500,10 @@ function watchAnnComments(annId) {
     query(collection(db, 'announcement_comments'), where('annId', '==', annId)),
     snap => {
       // 정렬은 여기서 한다 — where + orderBy를 같이 쓰면 색인을 따로 만들어야 한다.
+      // 최신 댓글이 위. 방금 쓴 글은 아직 서버 시각이 없으므로(createdAt null) 가장 최신으로 본다.
+      const at = c => c.createdAt?.seconds ?? Number.MAX_SAFE_INTEGER;
       _annCmList = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-        .sort((a, b) => (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0));
+        .sort((a, b) => at(b) - at(a));
       renderAnnComments();
     },
     () => {}

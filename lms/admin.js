@@ -976,12 +976,13 @@ window.noticeDeleteComment = async function(annId, id) {
   } catch (e) { alert('삭제 실패: ' + e.message); }
 };
 
-// limit을 주면(대시보드) 최신 댓글부터 그만큼만 보이고 나머지는 [더보기]로 넘긴다.
-// 설정 NOTICE는 limit 없이 쓴 순서대로 전부 편다.
+// 최신 댓글이 위(학생 화면과 같은 순서). limit을 주면(대시보드) 그만큼만 보이고
+// 나머지는 [더보기]로 넘긴다. 설정 NOTICE는 limit 없이 전부 편다.
 function noticeCommentsHTML(annId, limit) {
   const all = _dbAnnComments[annId] || [];
   if (!all.length) return '<div class="ann-cm-none">아직 댓글이 없습니다.</div>';
-  const list = limit ? [...all].reverse().slice(0, limit) : all;
+  const newest = [...all].reverse();   // _dbAnnComments는 오래된 순으로 들고 있다
+  const list = limit ? newest.slice(0, limit) : newest;
   const rest = all.length - list.length;
   const more = rest > 0
     ? `<button type="button" class="db-more-btn" onclick="dbMoreComments('${esc(annId)}')">+ 더보기 (${rest}개 남음)</button>`
