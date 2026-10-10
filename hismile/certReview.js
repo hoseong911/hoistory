@@ -36,8 +36,15 @@ export function grantedXpOf(cert, xpStudent) {
   return hit ? Number(hit.pt) || 0 : 0;
 }
 
+// 통과로 바꿀 때 입력 칸에 미리 채워 둘 금액: 회수했던 건이면 회수한 금액, 아니면 지금 설정값.
+// 실제 지급액은 선생님이 고친 값(opts.xp)이 우선한다.
+export function defaultPassXp(cert, cfgPt) {
+  return cert.revoked ? (Number(cert.revoked.xp) || 0) : (Number(cfgPt) || 0);
+}
+
 // fns: { ref, get, update, push } (호출하는 쪽 Firebase SDK의 함수를 넘긴다 — 버전 충돌 방지)
-export async function reviewCert(rtdb, fns, certId, cert, to) {
+// opts.xp: 통과로 바꿀 때 줄 경험치(선생님이 정한 값). 없으면 defaultPassXp.
+export async function reviewCert(rtdb, fns, certId, cert, to, opts = {}) {
   const from = cert.result || 'fail';
   if (from === to) return null;
   const sid = String(cert.studentNum);
@@ -57,8 +64,10 @@ export async function reviewCert(rtdb, fns, certId, cert, to) {
   let xpDelta = 0, dayDelta = 0;
   const updates = {};
   if (to === 'pass') {
-    xpDelta = cert.revoked ? (Number(cert.revoked.xp) || 0)
-                           : (Number(cfg.activities?.mileage?.pt ?? 20) || 0);
+    const chosen = Number(opts.xp);
+    xpDelta = Number.isFinite(chosen) && opts.xp !== '' && opts.xp != null
+      ? Math.max(0, Math.round(chosen))
+      : defaultPassXp(cert, cfg.activities?.mileage?.pt ?? 20);
     dayDelta = 1;
     updates[`${certPath}/revoked`] = null;
     updates[`${certPath}/grantedXp`] = xpDelta;
@@ -91,12 +100,12 @@ export async function reviewCert(rtdb, fns, certId, cert, to) {
   return { from, to, xpDelta, dayDelta };
 }
 
-// 확인 창에 띄울 한 줄 요약.
-export function reviewSummary(cert, to, cfgPt) {
+// 확인 창에 띄울 한 줄 요약. pt는 통과로 바꿀 때 실제로 줄 금액.
+export function reviewSummary(cert, to, pt) {
   const from = cert.result || 'fail';
   if (to === 'pass') {
-    const pt = cert.revoked ? Number(cert.revoked.xp) || 0 : cfgPt;
-    return `누적 +1일, 경험치 +${pt}${cert.revoked ? ' (회수했던 만큼 되돌려 줌)' : ''}`;
+    const back = cert.revoked ? ` (회수했던 금액 ${Number(cert.revoked.xp) || 0}pt)` : '';
+    return `누적 +1일, 경험치 +${pt}${back}`;
   }
   if (from === 'pass') return '누적 -1일, 그 인증으로 받은 경험치 회수';
   return '누적 일수·경험치 변화 없음';

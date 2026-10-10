@@ -700,7 +700,9 @@ function dbRender() {
       <div class="db-summary-card"><div class="db-summary-label">오늘 출석</div><div class="db-summary-val">${_dbToday.attend} / ${_dbStuCount}명</div></div>
       <div class="db-summary-card"><div class="db-summary-label">오늘 복습 퀴즈</div><div class="db-summary-val">${_dbToday.review}명</div></div>
       <div class="db-summary-card"><div class="db-summary-label">채점 대기(생각체크)</div><div class="db-summary-val" style="color:${totalUngraded ? 'var(--critical)' : 'var(--text)'}">${totalUngraded}건</div></div>
-      <div class="db-summary-card"><div class="db-summary-label">오늘 포인트 뽑기</div><div class="db-summary-val">${_dbToday.lottery}명</div></div>      <div class="db-summary-card db-autoopen"><div class="db-summary-label">수업일 자동 공개</div><div class="th-toggle ${_dbAutoOpen ? 'on' : ''}" onclick="dbToggleAutoOpen(this)"></div></div>
+      ${dbCertChipHTML()}
+      <div class="db-summary-card"><div class="db-summary-label">오늘 포인트 뽑기</div><div class="db-summary-val">${_dbToday.lottery}명</div></div>
+      <div class="db-summary-card db-autoopen"><div class="db-summary-label">수업일 자동 공개</div><div class="th-toggle ${_dbAutoOpen ? 'on' : ''}" onclick="dbToggleAutoOpen(this)"></div></div>
     </div>
     ${_dbAutoOpened.length ? `<div class="db-autoopen-done">수업일이 되어 ${_dbAutoOpened.length}개를 공개했습니다 — ${esc(_dbAutoOpened.join(', '))}</div>` : ''}
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px">
@@ -719,11 +721,10 @@ function dbRender() {
     <div class="stu-card" style="margin-top:14px">
       <div class="stu-card-head">공지사항</div>
       <div class="stu-card-body">${annTableHTML(DB_TOGGLE_HEAD, false)}</div>
-    </div>
-    ${dbCertSectionHTML()}`;
+    </div>`;
 }
 
-/* ── 열공 마일리지 검토 알림 (대시보드 맨 아래) ─────────────────
+/* ── 열공 마일리지 검토 칩 (대시보드 상단 통계 줄) ─────────────────
    목록은 hismile 어드민 CERTS에서 본다. 여기서는 보류·실패 건수만 보여 주고,
    누르면 그 서브메뉴로 바로 연다. 마지막으로 열어 본 뒤 새로 들어온 인증이 있으면
    점을 찍는다 — 기준은 이 브라우저에 적어 둔 "마지막으로 본 인증 id"다
@@ -758,24 +759,21 @@ function dbCertMarkSeen(results) {
   } catch (e) {}
 }
 
-function dbCertCard(r, label) {
+// 보류·실패 한 칸. 마지막으로 열어 본 뒤 새로 들어온 인증이 있으면 빨간 점과 개수를 붙인다.
+function dbCertPart(r, label) {
   const rows = _dbCerts.filter(c => c.result === r);
   const seen = dbCertSeen()[r] || '';
   const fresh = rows.filter(c => c.id > seen).length;
-  return `<button class="db-cert-link" onclick="dbOpenCerts('${r}')">
-    <span class="db-cert-link-label">${label}</span>
-    <span class="db-cert-link-val">${rows.length}건</span>
-    ${fresh ? `<span class="db-cert-new">새 인증 ${fresh}</span>` : ''}
+  return `<button class="db-cert-part" title="${label} 목록 열기" onclick="dbOpenCerts('${r}')">
+    ${label} <b>${rows.length}</b>${fresh ? `<span class="db-cert-new" title="새로 들어온 인증">+${fresh}</span>` : ''}
   </button>`;
 }
 
-function dbCertSectionHTML() {
-  return `<div class="stu-card" style="margin-top:14px">
-    <div class="stu-card-head">열공 마일리지 검토</div>
-    <div class="stu-card-body db-cert-links">
-      ${dbCertCard('pending', '보류 (선생님 확인 대기)')}
-      ${dbCertCard('fail', '실패')}
-    </div>
+// 상단 통계 칩 줄에 들어가는 칸. 채점 대기처럼 "처리할 일"이라 그 옆에 둔다.
+function dbCertChipHTML() {
+  return `<div class="db-summary-card db-cert-chip">
+    <div class="db-summary-label">열공 마일리지 검토</div>
+    <div class="db-summary-val">${dbCertPart('pending', '보류')}<span class="db-cert-sep">·</span>${dbCertPart('fail', '실패')}</div>
   </div>`;
 }
 

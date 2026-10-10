@@ -181,6 +181,9 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
 .cert-subtab-label{font-size:12px;font-weight:700;color:var(--sub)}
 .cert-subtab-val{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:28px;line-height:1}
 .cert-audit{margin-top:4px;font-size:12px;font-weight:700;color:var(--warn)}
+.xp-give{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:var(--sub)}
+.xp-give input{width:64px;padding:5px 6px;border:1.5px solid var(--hairline);border-radius:7px;font-family:inherit;font-size:13px;text-align:right;color:var(--ink);background:var(--canvas)}
+.xp-give input:focus{outline:none;border-color:var(--primary)}
 /* ── 인증 범위(SCOPE) ── */
 .scope-desc{font-size:13px;color:var(--sub);line-height:1.65;margin:-6px 0 14px;word-break:keep-all}
 .scope-lessons{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;max-height:340px;overflow-y:auto;padding:2px;margin-bottom:14px}
@@ -319,13 +322,16 @@ import { getFirestore, collection, getDocs } from "https://www.gstatic.com/fireb
 
 import { firebaseConfig } from "../shared/firebase-config.js";
 import { loadXPConfig } from "../shared/xp.js";
-import { reviewCert, reviewSummary } from "./certReview.js?v=20261010a";
+import { reviewCert, reviewSummary, defaultPassXp } from "./certReview.js?v=20261010b";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
 const fs = getFirestore(app);
 const rtdbFns = { ref, get, update, push }; // hismile/certReview.js · shared/xp.js에 넘기는 RTDB 함수
+// 지금 설정된 마일리지 경험치 — 회수 기록이 없는 건을 통과시킬 때 입력 칸에 미리 넣는 값이다.
+let mileageCfgPt = 0;
+loadXPConfig(db, rtdbFns).then(c => { mileageCfgPt = Number(c.activities?.mileage?.pt) || 0; renderAll(); }).catch(() => {});
 
 /* ─────────── State ─────────── */
 let roster = [];      // lms/admin 학생 관리(RTDB students/)와 동일한 명단, 읽기 전용
@@ -669,6 +675,9 @@ window.renderCerts = () => {
   rows = rows.filter(c => (c.result || 'fail') === resultF);
   if (dateF) rows = rows.filter(c => c.date === dateF);
 
+  // 학생이 인증할 때마다 다시 그려지므로, 선생님이 적고 있던 경험치 값은 살려 둔다.
+  const typed = {};
+  list.querySelectorAll('input[id^="xp-give-"]').forEach(i => { typed[i.id] = i.value; });
   if (!rows.length) { list.innerHTML = '<div class="no-data">조건에 맞는 인증이 없어요</div>'; return; }
 
   const showLimit = 100;
@@ -677,14 +686,14 @@ window.renderCerts = () => {
     const badgeClass = r === 'pass' ? 'badge-pass' : (r === 'pending' ? 'badge-pending' : 'badge-fail');
     const badgeLabel = r === 'pass' ? '통과' : (r === 'pending' ? '보류' : '실패');
     let actionsHtml = '';
-    // 회수했던 건은 승인하면 그때 회수한 만큼 돌려준다(hismile/certReview.js).
-    const backPt = c.revoked ? `, +${Number(c.revoked.xp) || 0}pt` : '';
+    // 통과로 바꿀 때 줄 경험치는 선생님이 칸에 적는다. 회수했던 건은 회수한 금액, 아니면 지금 설정값이 미리 들어 있다.
+    const xpInput = `<label class="xp-give">경험치 <input type="number" min="0" step="1" id="xp-give-${c.id}" value="${defaultPassXp(c, mileageCfgPt)}">pt</label>`;
     if (r === 'pending') {
-      actionsHtml = `
-        <button class="btn btn-accent btn-sm" onclick="window.overrideCert('${c.id}', 'pass')">승인 (+1일${backPt})</button>
+      actionsHtml = `${xpInput}
+        <button class="btn btn-accent btn-sm" onclick="window.overrideCert('${c.id}', 'pass')">승인 (+1일)</button>
         <button class="btn btn-danger btn-sm" onclick="window.overrideCert('${c.id}', 'fail')">반려</button>`;
     } else if (r === 'fail') {
-      actionsHtml = `<button class="btn btn-ghost btn-sm" onclick="window.overrideCert('${c.id}', 'pass')">통과로 변경 (+1일${backPt})</button>`;
+      actionsHtml = `${xpInput}<button class="btn btn-ghost btn-sm" onclick="window.overrideCert('${c.id}', 'pass')">통과로 변경 (+1일)</button>`;
     } else {
       actionsHtml = `<button class="btn btn-danger btn-sm" onclick="window.overrideCert('${c.id}', 'pending')">보류로 내리기 (-1일, 경험치 회수)</button>`;
     }
@@ -707,7 +716,7 @@ window.renderCerts = () => {
         ${c.studyFeeling ? `<div class="content" style="color:var(--sub)">느낀 점: "${escHtml(c.studyFeeling)}"</div>` : ''}
         <div class="meta">${c.time || ''} · ${escHtml(c.reason || '-')}</div>
         ${checksLine(c.checks)}
-        ${c.revoked ? `<div class="cert-audit">통과됐다가 회수됨: 누적 -1일, 경험치 -${Number(c.revoked.xp) || 0}pt${c.audit ? ' · ' + escHtml(c.audit.note) : ''}. 승인하면 그대로 돌려줍니다.</div>` : ''}
+        ${c.revoked ? `<div class="cert-audit">통과됐다가 회수됨: 누적 -1일, 경험치 -${Number(c.revoked.xp) || 0}pt${c.audit ? ' · ' + escHtml(c.audit.note) : ''}. 경험치 칸에 회수했던 금액이 들어 있으니 필요하면 고쳐서 승인하세요.</div>` : ''}
         <div class="actions">
           ${photoBtn}
           ${actionsHtml}
@@ -718,8 +727,9 @@ window.renderCerts = () => {
   }).join('');
 
   if (rows.length > showLimit) {
-    list.innerHTML += `<div class="no-data">최근 ${showLimit}건만 표시됩니다 (전체 ${rows.length}건)</div>`;
+    list.insertAdjacentHTML('beforeend', `<div class="no-data">최근 ${showLimit}건만 표시됩니다 (전체 ${rows.length}건)</div>`);
   }
+  Object.entries(typed).forEach(([id, v]) => { const el = document.getElementById(id); if (el) el.value = v; });
 };
 
 // AI 항목별 판정(hismile/certCheck.js의 decide). 보류를 검토할 때 어느 항목이 걸렸는지 보이게 한다.
@@ -750,11 +760,16 @@ window.overrideCert = async (certId, newResult) => {
   const cert = allCerts.find(c => c.id === certId);
   if (!cert || (cert.result || 'fail') === newResult) return;
   const resultLabel = newResult === 'pass' ? '통과' : newResult === 'pending' ? '보류' : '실패';
-  let cfgPt = 0;
-  try { cfgPt = Number((await loadXPConfig(db, rtdbFns)).activities?.mileage?.pt) || 0; } catch (e) {}
-  if (!confirm(`이 인증을 "${resultLabel}"(으)로 변경하시겠습니까?\n\n· ${cert.studentName}(${cert.studentNum})\n· ${reviewSummary(cert, newResult, cfgPt)}`)) return;
+  let xp = null;
+  if (newResult === 'pass') {
+    const raw = document.getElementById(`xp-give-${certId}`)?.value;
+    xp = Number(raw);
+    if (raw === '' || !Number.isFinite(xp) || xp < 0) { alert('경험치는 0 이상의 숫자로 적어 주세요.'); return; }
+    xp = Math.round(xp);
+  }
+  if (!confirm(`이 인증을 "${resultLabel}"(으)로 변경하시겠습니까?\n\n· ${cert.studentName}(${cert.studentNum})\n· ${reviewSummary(cert, newResult, xp)}`)) return;
   try {
-    await reviewCert(db, rtdbFns, certId, cert, newResult);
+    await reviewCert(db, rtdbFns, certId, cert, newResult, { xp });
   } catch (e) { alert('변경 실패: ' + e.message); }
 };
 
