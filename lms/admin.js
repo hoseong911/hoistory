@@ -20,6 +20,7 @@ const rtdb = getDatabase(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
 import { CLAUDE_PROXY_URL, kstDate, loadHolidays, isRestDay, studyClosedReason } from '../shared/util.js?v=20261009';
+import { reviewCert, reviewSummary } from '../hismile/certReview.js?v=20261010a';
 
 /* ── 마지막으로 보던 화면 기억하기 ──
    새로고침하면 늘 대시보드로 돌아가 버려서, 한 화면을 고쳐가며 확인할 때 매번 다시
@@ -497,6 +498,7 @@ async function dbLoad() {
       dbSafe(getDocs(query(collection(db, 'announcements'), orderBy('createdAt', 'desc'))), null),
       dbLoadAnnReads(),
       dbSafe(noticeLoadComments(), null),   // 공지를 펼치면 본문 아래에 댓글이 뜬다
+      dbLoadCerts(),                        // 열공 마일리지 보류·실패 목록
     ]);
 
     // 개념 체크 강의 — 카드가 최근 5개만 펴고 나머지는 [+ 더보기]로 접어 두므로 여기서 자르지 않는다
@@ -700,6 +702,7 @@ function dbRender() {
       <div class="db-summary-card"><div class="db-summary-label">오늘 복습 퀴즈</div><div class="db-summary-val">${_dbToday.review}명</div></div>
       <div class="db-summary-card"><div class="db-summary-label">채점 대기(생각체크)</div><div class="db-summary-val" style="color:${totalUngraded ? 'var(--critical)' : 'var(--text)'}">${totalUngraded}건</div></div>
       <div class="db-summary-card"><div class="db-summary-label">오늘 포인트 뽑기</div><div class="db-summary-val">${_dbToday.lottery}명</div></div>
+      <div class="db-summary-card" style="cursor:pointer" onclick="document.getElementById('db-cert-card').scrollIntoView({behavior:'smooth'})"><div class="db-summary-label">열공 마일리지 보류</div><div class="db-summary-val" style="color:${dbCertCount('pending') ? 'var(--critical)' : 'var(--text)'}">${dbCertCount('pending')}건</div></div>
       <div class="db-summary-card db-autoopen"><div class="db-summary-label">수업일 자동 공개</div><div class="th-toggle ${_dbAutoOpen ? 'on' : ''}" onclick="dbToggleAutoOpen(this)"></div></div>
     </div>
     ${_dbAutoOpened.length ? `<div class="db-autoopen-done">수업일이 되어 ${_dbAutoOpened.length}개를 공개했습니다 — ${esc(_dbAutoOpened.join(', '))}</div>` : ''}
@@ -707,6 +710,10 @@ function dbRender() {
       ${dbToggleCard('개념 Check', _dbConcept, 'concept')}
       ${dbToggleCard('미션 Check', _dbMission, 'mission')}
       ${dbToggleCard('생각 Check', _dbThink, 'think')}
+    </div>
+    <div class="stu-card" id="db-cert-card" style="margin-top:14px">
+      <div class="stu-card-head">열공 마일리지 검토</div>
+      <div class="stu-card-body" id="db-cert-body">${dbCertBodyHTML()}</div>
     </div>
     <div class="stu-card" style="margin-top:14px">
       <div class="stu-card-head">학생 검색</div>
@@ -721,6 +728,74 @@ function dbRender() {
       <div class="stu-card-body">${annTableHTML(DB_TOGGLE_HEAD, false)}</div>
     </div>`;
 }
+
+/* ── 열공 마일리지 검토 카드 ─────────────────────────────────────
+   hismile 어드민 CERTS의 보류·실패 목록을 대시보드에서도 바로 처리한다. 통과 목록은
+   검토할 일이 없어 여기엔 두지 않는다. 승인·반려 계산(누적 일수 + 경험치)은
+   hismile/certReview.js 한 곳에서 하므로 두 화면이 어긋나지 않는다. */
+let _dbCerts = [];          // [{ id, ...cert }]
+let _dbCertTab = 'pending'; // 'pending' | 'fail'
+let _dbCertShow = 20;       // 실패는 계속 쌓이므로 20건씩 더 본다
+const _dbCertFns = { ref, get, update, push };
+
+async function dbLoadCerts() {
+  const snap = await dbSafe(get(ref(rtdb, 'historyMileage/studyCert')), null);
+  const v = snap && snap.exists() ? (snap.val() || {}) : {};
+  _dbCerts = Object.entries(v).map(([id, c]) => ({ id, ...c }))
+    .filter(c => !isTestId(c.studentNum))
+    .sort((a, b) => b.id.localeCompare(a.id)); // push id 역순 = 최신이 위
+}
+
+function dbCertCount(r) { return _dbCerts.filter(c => (c.result || 'fail') === r).length; }
+
+function dbCertBodyHTML() {
+  const rows = _dbCerts.filter(c => (c.result || 'fail') === _dbCertTab);
+  const tab = (r, label) =>
+    `<button class="db-cert-tab${_dbCertTab === r ? ' on' : ''}" onclick="dbCertSetTab('${r}')">${label} <b>${dbCertCount(r)}</b></button>`;
+  const list = rows.slice(0, _dbCertShow).map(c => {
+    const back = c.revoked ? `, +${Number(c.revoked.xp) || 0}pt` : '';
+    const act = c.result === 'pending'
+      ? `<button class="add-btn" onclick="dbCertReview('${c.id}','pass')">승인 (+1일${back})</button>
+         <button class="add-btn" style="background:var(--critical)" onclick="dbCertReview('${c.id}','fail')">반려</button>`
+      : `<button class="add-btn a" onclick="dbCertReview('${c.id}','pass')">통과로 변경 (+1일${back})</button>`;
+    return `<div class="db-cert-row">
+      ${c.photoURL ? `<a class="db-cert-thumb" href="${esc(c.photoURL)}" target="_blank" rel="noopener"><img src="${esc(c.photoURL)}" alt="" loading="lazy"></a>` : '<div class="db-cert-thumb">사진 없음</div>'}
+      <div class="db-cert-main">
+        <div class="db-cert-who">${esc(c.studentName || '-')} <span>${esc(c.studentNum || '')} · ${esc(c.date || '')}</span></div>
+        <div class="db-cert-reason">${esc(c.reason || '-')}</div>
+        ${c.revoked ? `<div class="db-cert-revoked">통과됐다가 회수됨(누적 -1일, 경험치 -${Number(c.revoked.xp) || 0}pt). 승인하면 그대로 돌려줍니다.</div>` : ''}
+        <div class="db-cert-text">공부한 내용: ${esc(c.studyContent || '-')}</div>
+        ${c.studyFeeling ? `<div class="db-cert-text">느낀 점: ${esc(c.studyFeeling)}</div>` : ''}
+        <div class="db-cert-act">${act}</div>
+      </div>
+    </div>`;
+  }).join('');
+  const more = rows.length > _dbCertShow
+    ? `<div style="text-align:center;margin-top:10px"><button class="add-btn g" onclick="dbCertMore()">더보기 (${rows.length - _dbCertShow}건 남음)</button></div>` : '';
+  return `<div class="db-cert-tabs">${tab('pending', '보류 목록')}${tab('fail', '실패 목록')}</div>
+    ${rows.length ? list + more : `<div style="padding:18px;text-align:center;color:var(--sub);font-size:14px">${_dbCertTab === 'pending' ? '검토할 보류 인증이 없습니다' : '실패한 인증이 없습니다'}</div>`}`;
+}
+
+function dbCertRefresh() {
+  const el = document.getElementById('db-cert-body');
+  if (el) el.innerHTML = dbCertBodyHTML();
+}
+window.dbCertSetTab = function(r) { _dbCertTab = r; _dbCertShow = 20; dbCertRefresh(); };
+window.dbCertMore = function() { _dbCertShow += 20; dbCertRefresh(); };
+
+window.dbCertReview = async function(certId, to) {
+  const c = _dbCerts.find(x => x.id === certId);
+  if (!c) return;
+  let cfgPt = 0;
+  try { cfgPt = Number((await loadXPConfig(rtdb, _dbCertFns)).activities?.mileage?.pt) || 0; } catch (e) {}
+  const label = to === 'pass' ? '통과' : to === 'pending' ? '보류' : '실패';
+  if (!confirm(`이 인증을 "${label}"(으)로 변경할까요?\n\n· ${c.studentName}(${c.studentNum}) ${c.date || ''}\n· ${reviewSummary(c, to, cfgPt)}`)) return;
+  try {
+    await reviewCert(rtdb, _dbCertFns, certId, c, to);
+    await dbLoadCerts();
+    dbRender();
+  } catch (e) { alert('변경하지 못했습니다: ' + e.message); }
+};
 
 /* ── 공지 본문 보기 ────────────────────────────────────────────
    목록에서 제목을 누르면 그 줄 아래로 본문이 펼쳐진다. 전에는 본문을 보려면 [수정]을
@@ -8949,6 +9024,7 @@ const XP_HIST_LABELS = { attendance:'출석 체크', mileage:'히스토리 마�
    구분이 안 됐다. src(=thinkCheck)를 먼저 보고 이름을 붙인다(2026-09-03). */
 function xpHistLabel(h) {
   if (h.src === 'thinkCheck') return '생각 체크 답변 작성';
+  if (h.src === 'mileageReview') return '열공 마일리지 검토';
   const base = XP_HIST_LABELS[h.type] || (h.type === 'manual' ? '수동 조정' : (h.type || '-'));
   //  강의가 딸린 기록(타이핑 복습 등)은 "타이핑 복습(28강)"처럼 뒤에 붙여 준다.
   const lec = h.lec != null ? String(h.lec).trim() : '';

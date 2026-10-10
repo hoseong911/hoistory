@@ -173,6 +173,25 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
   .filter-row{gap:6px}
   .cert-detail{flex-wrap:wrap}
 }
+/* ── CERTS 결과별 서브메뉴 ── */
+.cert-subtabs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.cert-subtab{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 10px;border-radius:14px;border:1.5px solid var(--hairline-soft);background:var(--canvas);box-shadow:var(--shadow);cursor:pointer;font-family:inherit;transition:border-color .15s}
+.cert-subtab:hover{border-color:var(--hairline)}
+.cert-subtab.active{border-color:var(--primary);background:var(--primary-soft)}
+.cert-subtab-label{font-size:12px;font-weight:700;color:var(--sub)}
+.cert-subtab-val{font-family:'Paperlogy',sans-serif;font-weight:900;font-size:28px;line-height:1}
+.cert-audit{margin-top:4px;font-size:12px;font-weight:700;color:var(--warn)}
+/* ── 인증 범위(SCOPE) ── */
+.scope-desc{font-size:13px;color:var(--sub);line-height:1.65;margin:-6px 0 14px;word-break:keep-all}
+.scope-lessons{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:6px;max-height:340px;overflow-y:auto;padding:2px;margin-bottom:14px}
+.scope-lesson{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--hairline);border-radius:10px;font-size:13px;color:var(--ink);cursor:pointer;user-select:none}
+.scope-lesson:has(input:checked){border-color:var(--primary);background:var(--primary-soft)}
+.scope-lesson input{margin:0;accent-color:var(--primary)}
+.scope-lesson b{font-feature-settings:"tnum";flex:0 0 auto}
+.scope-label{display:block;font-size:12px;font-weight:700;color:var(--sub);margin-bottom:6px}
+.scope-note{width:100%;box-sizing:border-box;border:1px solid var(--hairline);border-radius:10px;padding:10px 12px;font-family:inherit;font-size:14px;resize:vertical;background:var(--canvas);color:var(--ink)}
+.scope-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:12px}
+.scope-saved{margin-right:auto;font-size:12px;color:var(--sub)}
 </style>
 <script>if(window.self!==window.top)document.documentElement.classList.add('in-iframe');</script>
   <script src="/hoistory/pwa.js"></script>
@@ -201,6 +220,7 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
     <div class="adm-tabs">
       <button class="adm-tab active" data-tab="class">CLASS</button>
       <button class="adm-tab" data-tab="certs">CERTS</button>
+      <button class="adm-tab" data-tab="scope">SCOPE</button>
     </div>
     <button class="adm-logout" id="logout-btn">로그아웃</button>
     <button class="adm-back" id="embed-back-btn">목록으로</button>
@@ -230,36 +250,43 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
     <div class="tab-panel" id="tab-certs">
       <div class="class-filter" id="certs-class-filter"></div>
 
-      <div class="stats-row" id="certs-stats-row">
-        <div class="stat-chip">
-          <div class="stat-chip-label">전체</div>
-          <div class="stat-chip-val" id="c-total">0</div>
-        </div>
-        <div class="stat-chip">
-          <div class="stat-chip-label">통과</div>
-          <div class="stat-chip-val" id="c-pass" style="color:var(--pass)">0</div>
-        </div>
-        <div class="stat-chip">
-          <div class="stat-chip-label">실패</div>
-          <div class="stat-chip-val" id="c-fail" style="color:var(--insuf)">0</div>
-        </div>
-        <div class="stat-chip">
-          <div class="stat-chip-label">보류</div>
-          <div class="stat-chip-val" id="c-pending" style="color:var(--warn)">0</div>
-        </div>
+      <!-- 결과별 서브메뉴 — 각 칸이 개수이자 목록 전환 버튼이다. 검토할 일이 있는 보류가 기본. -->
+      <div class="cert-subtabs" id="cert-subtabs">
+        <button class="cert-subtab" data-r="pass" onclick="window.setCertTab('pass')">
+          <span class="cert-subtab-label">통과 목록</span><span class="cert-subtab-val" id="c-pass" style="color:var(--pass)">0</span>
+        </button>
+        <button class="cert-subtab active" data-r="pending" onclick="window.setCertTab('pending')">
+          <span class="cert-subtab-label">보류 목록 (검토 필요)</span><span class="cert-subtab-val" id="c-pending" style="color:var(--warn)">0</span>
+        </button>
+        <button class="cert-subtab" data-r="fail" onclick="window.setCertTab('fail')">
+          <span class="cert-subtab-label">실패 목록</span><span class="cert-subtab-val" id="c-fail" style="color:var(--insuf)">0</span>
+        </button>
       </div>
 
       <div class="filter-row">
-        <select id="certs-result-filter" onchange="window.renderCerts()">
-          <option value="all">전체 결과</option>
-          <option value="pending">보류 (검토 필요)</option>
-          <option value="pass">통과</option>
-          <option value="fail">실패</option>
-        </select>
         <input type="date" id="certs-date-filter" onchange="window.renderCerts()">
         <button class="btn btn-ghost btn-sm" onclick="window.clearCertsFilter()">필터 초기화</button>
       </div>
       <div id="certs-list"></div>
+    </div>
+
+    <!-- ── Scope 탭: 인증으로 인정할 수업 진도 범위 ── -->
+    <div class="tab-panel" id="tab-scope">
+      <div class="section-card">
+        <div class="section-title">인증 범위 (수업 진도)</div>
+        <p class="scope-desc">
+          고른 강의와 메모를 AI가 판정 기준으로 씁니다. 역사 공부라도 범위 밖이면 실패로 처리되고, 학생 화면에도 범위가 표시됩니다.
+          아무것도 고르지 않고 메모도 비우면 범위 검사 없이 역사 과목이면 인정합니다.
+        </p>
+        <div class="scope-lessons" id="scope-lessons"></div>
+        <label class="scope-label" for="scope-note">메모 (선택)</label>
+        <textarea id="scope-note" class="scope-note" rows="2" placeholder="예) 조선 후기 ~ 개항기. 교과서 4단원과 학습지 포함"></textarea>
+        <div class="scope-actions">
+          <span class="scope-saved" id="scope-saved"></span>
+          <button class="btn btn-ghost btn-sm" onclick="window.clearScope()">범위 해제</button>
+          <button class="btn btn-primary btn-sm" onclick="window.saveScope()">저장</button>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -285,15 +312,20 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
-  getDatabase, ref, get, set, update, remove, onValue
+  getDatabase, ref, get, set, update, remove, onValue, push
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 import { firebaseConfig } from "../shared/firebase-config.js";
+import { loadXPConfig } from "../shared/xp.js";
+import { reviewCert, reviewSummary } from "./certReview.js?v=20261010a";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
+const fs = getFirestore(app);
+const rtdbFns = { ref, get, update, push }; // hismile/certReview.js · shared/xp.js에 넘기는 RTDB 함수
 
 /* ─────────── State ─────────── */
 let roster = [];      // lms/admin 학생 관리(RTDB students/)와 동일한 명단, 읽기 전용
@@ -302,6 +334,8 @@ let mileage = {};
 let classFilterClass = '전체';
 let classFilterCerts = '전체';
 let classSortMode = 'num';
+let scope = null;     // historyMileage/config/scope = { lessons:[{num,title}], note, updatedAt }
+let lessons = null;   // class_lessons (SCOPE 탭을 처음 열 때 읽는다)
 const isEmbedded = window.self !== window.top;
 
 /* ─────────── 반 번호 파싱 (학번 2~3번째 자리, 0n이면 n반) ─────────── */
@@ -329,6 +363,7 @@ onValue(ref(db, 'historyMileage'), snap => {
   const data = snap.val() || {};
   allCerts = data.studyCert ? Object.entries(data.studyCert).map(([id, c]) => ({ id, ...c })) : [];
   mileage = data.mileage || {};
+  scope = (data.config && data.config.scope) || null;
   renderAll();
 });
 
@@ -401,7 +436,66 @@ function renderAll() {
     renderCertsClassFilter();
     window.renderCerts();
   }
+  // 학생이 인증할 때마다 데이터가 바뀌어 여기로 오므로, 고르던 중에는 다시 그리지 않는다.
+  if (document.getElementById('tab-scope').classList.contains('active') && !scopeDirty) {
+    renderScope();
+  }
 }
+
+/* ─────────── 인증 범위 (SCOPE) ─────────── */
+let scopeDirty = false;
+document.getElementById('tab-scope').addEventListener('input', () => { scopeDirty = true; });
+
+function stripEmph(t) { return String(t == null ? '' : t).replace(/[*]{2}/g, '').replace(/[{}]/g, ''); }
+
+async function renderScope() {
+  const box = document.getElementById('scope-lessons');
+  if (!lessons) {
+    box.innerHTML = '<div class="scope-desc">강의 목록을 불러오는 중…</div>';
+    try {
+      const snap = await getDocs(collection(fs, 'class_lessons'));
+      lessons = snap.docs.map(d => d.data() || {})
+        .map(v => ({ num: String(v.num == null ? '' : v.num).trim(), title: stripEmph(v.title), order: Number(v.order || 0) }))
+        .filter(l => l.num)
+        .sort((a, b) => b.order - a.order); // LMS 강의 목록과 같은 기준(최신이 위)
+    } catch (e) {
+      console.error(e);
+      lessons = [];
+    }
+  }
+  const picked = new Set(((scope && scope.lessons) || []).map(l => String(l.num)));
+  box.innerHTML = lessons.length
+    ? lessons.map(l =>
+        `<label class="scope-lesson"><input type="checkbox" value="${escHtml(l.num)}"${picked.has(l.num) ? ' checked' : ''}>` +
+        `<b>${escHtml(l.num)}강</b><span>${escHtml(l.title)}</span></label>`).join('')
+    : '<div class="scope-desc">LMS에 등록된 강의가 없습니다. 메모로 범위를 적어 주세요.</div>';
+  document.getElementById('scope-note').value = (scope && scope.note) || '';
+  document.getElementById('scope-saved').textContent = scope && scope.updatedAt
+    ? '마지막 저장 ' + new Date(scope.updatedAt).toLocaleString('ko-KR')
+    : '지금은 범위 검사를 하지 않습니다';
+}
+
+window.saveScope = async () => {
+  const nums = [...document.querySelectorAll('#scope-lessons input:checked')].map(i => i.value);
+  const picked = (lessons || []).filter(l => nums.includes(l.num)).map(l => ({ num: l.num, title: l.title }));
+  const note = document.getElementById('scope-note').value.trim();
+  try {
+    await set(ref(db, 'historyMileage/config/scope'),
+      picked.length || note ? { lessons: picked, note, updatedAt: Date.now() } : null);
+    scopeDirty = false;
+    renderScope();
+    alert(picked.length || note ? '인증 범위를 저장했습니다.' : '범위를 비워 저장했습니다. 이제 역사 과목이면 인정합니다.');
+  } catch (e) {
+    console.error(e);
+    alert('저장하지 못했습니다. 로그인 상태를 확인해 주세요.');
+  }
+};
+
+window.clearScope = () => {
+  document.querySelectorAll('#scope-lessons input:checked').forEach(i => { i.checked = false; });
+  document.getElementById('scope-note').value = '';
+  scopeDirty = true;
+};
 
 /* ─────────── 반 필터 (공통) ─────────── */
 function classNumList() {
@@ -550,14 +644,20 @@ function certsFilteredByClass() {
 
 function updateCertsStats() {
   const rows = certsFilteredByClass();
-  document.getElementById('c-total').textContent = rows.length;
   document.getElementById('c-pass').textContent = rows.filter(c => c.result === 'pass').length;
   document.getElementById('c-fail').textContent = rows.filter(c => c.result === 'fail').length;
   document.getElementById('c-pending').textContent = rows.filter(c => c.result === 'pending').length;
 }
 
+let certTab = 'pending'; // 통과 / 보류 / 실패 서브메뉴. 검토할 일이 있는 보류가 기본.
+window.setCertTab = (r) => {
+  certTab = r;
+  document.querySelectorAll('#cert-subtabs .cert-subtab').forEach(b => b.classList.toggle('active', b.dataset.r === r));
+  window.renderCerts();
+};
+
 window.renderCerts = () => {
-  const resultF = document.getElementById('certs-result-filter')?.value || 'all';
+  const resultF = certTab;
   const dateF = document.getElementById('certs-date-filter')?.value || '';
   const list = document.getElementById('certs-list');
 
@@ -566,7 +666,7 @@ window.renderCerts = () => {
   // Firebase push id는 생성 순서대로 정렬되는 문자열이라, 시간 문자열(time)을 다시 파싱하는 것보다
   // id 역순 정렬이 "최신이 위로" 오는 걸 안정적으로 보장한다.
   let rows = certsFilteredByClass().sort((a, b) => b.id.localeCompare(a.id));
-  if (resultF !== 'all') rows = rows.filter(c => c.result === resultF);
+  rows = rows.filter(c => (c.result || 'fail') === resultF);
   if (dateF) rows = rows.filter(c => c.date === dateF);
 
   if (!rows.length) { list.innerHTML = '<div class="no-data">조건에 맞는 인증이 없어요</div>'; return; }
@@ -577,33 +677,37 @@ window.renderCerts = () => {
     const badgeClass = r === 'pass' ? 'badge-pass' : (r === 'pending' ? 'badge-pending' : 'badge-fail');
     const badgeLabel = r === 'pass' ? '통과' : (r === 'pending' ? '보류' : '실패');
     let actionsHtml = '';
+    // 회수했던 건은 승인하면 그때 회수한 만큼 돌려준다(hismile/certReview.js).
+    const backPt = c.revoked ? `, +${Number(c.revoked.xp) || 0}pt` : '';
     if (r === 'pending') {
       actionsHtml = `
-        <button class="btn btn-accent btn-sm" onclick="window.overrideCert('${c.id}', 'pass')">✓ 승인 (+1일)</button>
-        <button class="btn btn-danger btn-sm" onclick="window.overrideCert('${c.id}', 'fail')">✗ 반려</button>`;
+        <button class="btn btn-accent btn-sm" onclick="window.overrideCert('${c.id}', 'pass')">승인 (+1일${backPt})</button>
+        <button class="btn btn-danger btn-sm" onclick="window.overrideCert('${c.id}', 'fail')">반려</button>`;
     } else if (r === 'fail') {
-      actionsHtml = `<button class="btn btn-ghost btn-sm" onclick="window.overrideCert('${c.id}', 'pass')">✓ 통과로 변경 (+1일)</button>`;
+      actionsHtml = `<button class="btn btn-ghost btn-sm" onclick="window.overrideCert('${c.id}', 'pass')">통과로 변경 (+1일${backPt})</button>`;
     } else {
-      actionsHtml = `<button class="btn btn-danger btn-sm" onclick="window.overrideCert('${c.id}', 'fail')">✗ 통과 취소 (-1일)</button>`;
+      actionsHtml = `<button class="btn btn-danger btn-sm" onclick="window.overrideCert('${c.id}', 'pending')">보류로 내리기 (-1일, 경험치 회수)</button>`;
     }
     const photoBtn = c.photoURL
-      ? `<button class="btn btn-ghost btn-sm" onclick="window.showPhoto('${escHtml(c.photoURL)}')">🔍 사진 보기</button>`
-      : `<button class="btn btn-ghost btn-sm" disabled>📷 사진 없음</button>`;
+      ? `<button class="btn btn-ghost btn-sm" onclick="window.showPhoto('${escHtml(c.photoURL)}')">사진 보기</button>`
+      : `<button class="btn btn-ghost btn-sm" disabled>사진 없음</button>`;
     return `
     <div class="cert-detail">
       <div class="cert-thumb-wrap" ${c.photoURL ? `onclick="window.showPhoto('${escHtml(c.photoURL)}')"` : ''}>
-        ${c.photoURL ? `<img src="${escHtml(c.photoURL)}" onerror="this.style.display='none'">` : '📷'}
+        ${c.photoURL ? `<img src="${escHtml(c.photoURL)}" onerror="this.style.display='none'">` : '사진 없음'}
       </div>
       <div class="body">
         <div class="name">
           ${escHtml(c.studentName || '-')}
-          <span class="meta-inline">${c.studentNum || ''} · ${c.cls || classNumOf(c.studentNum) || '?'}반</span>
-          <span class="badge ${badgeClass}">${c.emoji || ''} ${badgeLabel}</span>
+          <span class="meta-inline">${c.studentNum || ''} · ${c.cls || classNumOf(c.studentNum) || '?'}반 · ${escHtml(c.date || '')}</span>
+          <span class="badge ${badgeClass}">${badgeLabel}</span>
           ${c.manualOverride ? '<span class="badge badge-override">수동 변경</span>' : ''}
         </div>
-        <div class="content">📚 "${escHtml(c.studyContent || '-')}"</div>
-        ${c.studyFeeling ? `<div class="content" style="color:var(--sub)">💭 "${escHtml(c.studyFeeling)}"</div>` : ''}
+        <div class="content">공부한 내용: "${escHtml(c.studyContent || '-')}"</div>
+        ${c.studyFeeling ? `<div class="content" style="color:var(--sub)">느낀 점: "${escHtml(c.studyFeeling)}"</div>` : ''}
         <div class="meta">${c.time || ''} · ${escHtml(c.reason || '-')}</div>
+        ${checksLine(c.checks)}
+        ${c.revoked ? `<div class="cert-audit">통과됐다가 회수됨: 누적 -1일, 경험치 -${Number(c.revoked.xp) || 0}pt${c.audit ? ' · ' + escHtml(c.audit.note) : ''}. 승인하면 그대로 돌려줍니다.</div>` : ''}
         <div class="actions">
           ${photoBtn}
           ${actionsHtml}
@@ -618,8 +722,17 @@ window.renderCerts = () => {
   }
 };
 
+// AI 항목별 판정(hismile/certCheck.js의 decide). 보류를 검토할 때 어느 항목이 걸렸는지 보이게 한다.
+const CHECK_LABELS = { date_ok: '날짜', in_scope: '진도 범위', content_match: '내용 일치', own_work: '직접 공부', is_new: '새 공부', writing_ok: '글' };
+function checksLine(checks) {
+  if (!checks) return '';
+  const mark = { yes: '맞음', no: '아님', unsure: '애매' };
+  const color = { yes: 'var(--pass)', no: 'var(--insuf)', unsure: 'var(--warn)' };
+  return '<div class="meta">AI 판정 · ' + Object.keys(CHECK_LABELS).map(k =>
+    `${CHECK_LABELS[k]} <b style="color:${color[checks[k]] || 'inherit'}">${mark[checks[k]] || '-'}</b>`).join(' · ') + '</div>';
+}
+
 window.clearCertsFilter = () => {
-  document.getElementById('certs-result-filter').value = 'all';
   document.getElementById('certs-date-filter').value = '';
   classFilterCerts = '전체';
   renderCertsClassFilter();
@@ -631,27 +744,17 @@ window.showPhoto = (url) => {
   document.getElementById('photo-modal').classList.add('open');
 };
 
+// 누적 일수와 경험치를 함께 맞춘다. 예전에는 일수만 바꾸고 경험치는 그대로 둬서,
+// 보류를 승인해도 경험치가 안 들어가고 통과를 취소해도 경험치가 남았다.
 window.overrideCert = async (certId, newResult) => {
   const cert = allCerts.find(c => c.id === certId);
-  if (!cert) return;
-  const oldResult = cert.result;
-  if (oldResult === newResult) return;
-  const delta = (newResult === 'pass' ? 1 : 0) - (oldResult === 'pass' ? 1 : 0);
-  const studentNum = cert.studentNum;
+  if (!cert || (cert.result || 'fail') === newResult) return;
   const resultLabel = newResult === 'pass' ? '통과' : newResult === 'pending' ? '보류' : '실패';
-  const deltaText = delta === 0 ? '누적 일수 변화 없음' : `누적 일수 ${delta > 0 ? '+' : ''}${delta}일`;
-  if (!confirm(`이 인증을 "${resultLabel}"(으)로 변경하시겠습니까?\n\n· ${cert.studentName}(${studentNum})\n· ${deltaText}`)) return;
+  let cfgPt = 0;
+  try { cfgPt = Number((await loadXPConfig(db, rtdbFns)).activities?.mileage?.pt) || 0; } catch (e) {}
+  if (!confirm(`이 인증을 "${resultLabel}"(으)로 변경하시겠습니까?\n\n· ${cert.studentName}(${cert.studentNum})\n· ${reviewSummary(cert, newResult, cfgPt)}`)) return;
   try {
-    await update(ref(db, `historyMileage/studyCert/${certId}`), {
-      result: newResult,
-      manualOverride: { at: new Date().toLocaleString('ko-KR'), from: oldResult, to: newResult }
-    });
-    if (delta !== 0) {
-      const curDays = mileage[studentNum] || 0;
-      const newDays = Math.max(0, curDays + delta);
-      await set(ref(db, `historyMileage/mileage/${studentNum}`), newDays);
-      await set(ref(db, `historyMileage/totalEarned/${studentNum}`), newDays);
-    }
+    await reviewCert(db, rtdbFns, certId, cert, newResult);
   } catch (e) { alert('변경 실패: ' + e.message); }
 };
 
