@@ -1,7 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import {
   initializeFirestore, collection, query, orderBy, where, onSnapshot,
-  addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, writeBatch, serverTimestamp, limit, runTransaction
+  addDoc, updateDoc, deleteDoc, doc, getDocs, getDoc, setDoc, writeBatch, serverTimestamp, limit, runTransaction,
+  getCountFromServer
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { getDatabase, ref, get, set, remove, update, onValue, push } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, EmailAuthProvider, reauthenticateWithCredential } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
@@ -471,39 +472,47 @@ async function dbSafe(promise, fallback, ms = 12000) {
 }
 
 let _dbLoading = false;
+let _dbEverRendered = false;  // 한 번이라도 그렸으면 새로고침 때 "불러오는 중"으로 지우지 않는다
+let _dbLate = [];             // 시간 안에 못 받아온 항목 이름
+let _dbPending = new Set();   // 아직 받는 중인 2단계 집계: 'today' | 'grade' | 'ann' | 'certs'
+
+// 2단계 집계가 아직이면 숫자 대신 "…"를 보여 준다.
+function dbWait(key, html) {
+  return _dbPending.has(key) ? '<span class="db-wait" title="불러오는 중">…</span>' : html;
+}
 
 /* 대시보드는 예전엔 조회를 한 줄씩 await로 이어 붙였다. 그래서 그중 하나라도 응답이
    안 오면(느린 망, 스트리밍이 막힌 네트워크) "불러오는 중..."에서 영영 안 넘어갔고,
    오류도 안 떠서 원인을 알 수 없었다. 이제
      · 서로 무관한 조회는 한꺼번에 보내고(Promise.all),
      · 각 조회에 시간 제한을 둬서 늦으면 그 부분만 비운 채로 그리며,
-     · 무엇을 못 받았는지 화면에 적고 다시 시도할 수 있게 한다. */
+     · 무엇을 못 받았는지 화면에 적고 다시 시도할 수 있게 한다.
+   2026-10-10부터는 가벼운 것만 받아 먼저 그리고, 무거운 집계는 받는 대로 채운다(2단계). */
 async function dbLoad() {
   const el = document.getElementById('db-content');
   if (_dbLoading) return;              // 메뉴를 연달아 눌러도 조회가 겹치지 않게
   _dbLoading = true;
-  if (el) el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--sub);font-size:14px">불러오는 중...</div>';
+  // 처음에만 "불러오는 중"을 띄운다. 새로고침 때는 지금 화면을 둔 채로 바꾼다.
+  if (el && !_dbEverRendered) el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--sub);font-size:14px">불러오는 중...</div>';
+  _dbLate = [];
   try {
     const today = kstDate(); // 한국시간 기준 (shared/util.js)
-    const late = []; // 시간 안에 못 받아온 항목 이름
 
-    const [clSnap, cfgSnap, tlSnap, tsSnap, stuSnap, xpSnap, annSnap] = await Promise.all([
+    /* 1단계 — 화면 뼈대(강의·카드·공지 목록)에 필요한 가벼운 것만 받고 바로 그린다.
+       예전에는 아래 2단계의 무거운 조회(제출물 1천여 건, 경험치 전체, 열람 기록)까지
+       다 끝나야 한 번에 그려서, 가장 느린 조회만큼 "불러오는 중"이 떠 있었다. */
+    const [clSnap, cfgSnap, tlSnap, stuSnap, annSnap] = await Promise.all([
       dbSafe(getDocs(query(collection(db, 'class_lessons'), orderBy('order', 'desc'))), null),
       dbSafe(getDoc(doc(db, 'settings', 'lms_config')), null),
       dbSafe(getDocs(query(collection(db, 'think_lectures'), orderBy('createdAt', 'desc'))), null),
-      dbSafe(getDocs(collection(db, 'think_submissions')), null, 20000), // 가장 무거운 조회
       dbSafe(get(ref(rtdb, 'students')), null),
-      dbSafe(get(ref(rtdb, `${XP_ROOT}/students`)), null),
       dbSafe(getDocs(query(collection(db, 'announcements'), orderBy('createdAt', 'desc'))), null),
-      dbLoadAnnReads(),
-      dbSafe(noticeLoadComments(), null),   // 공지를 펼치면 본문 아래에 댓글이 뜬다
-      dbLoadCerts(),                        // 열공 마일리지 보류·실패 목록
     ]);
 
     // 개념 체크 강의 — 카드가 최근 5개만 펴고 나머지는 [+ 더보기]로 접어 두므로 여기서 자르지 않는다
     if (clSnap) {
       _dbConcept = clSnap.docs.map(d => { const v = d.data(); return { docId: d.id, num: v.num, title: v.title || '', isOpen: v.isOpen !== false, autoOpenedAt: v.autoOpenedAt || null }; });
-    } else late.push('개념 체크');
+    } else _dbLate.push('개념 체크');
 
     // 미션 체크 카드 (mission_category)
     let missionCat = '';
@@ -515,61 +524,23 @@ async function dbLoad() {
       const mSnap = await dbSafe(getDocs(query(collection(db, 'cards'), where('category', '==', missionCat))), null);
       if (mSnap) {
         _dbMission = mSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || v.label || '', locked: v.locked === true, order: v.order ?? 999, lessonNum: v.lessonNum || '', adminUrl: v.adminUrl || '', autoOpenedAt: v.autoOpenedAt || null }; }).sort((a, b) => a.order - b.order);
-      } else late.push('미션 체크');
+      } else _dbLate.push('미션 체크');
     } else _dbMission = [];
 
     // 생각 체크 강의 — 개념 체크와 같이 카드 쪽에서 접으므로 여기서 자르지 않는다
     // order는 강 번호 기준 → 내림차순으로 강 번호 큰(최신) 강의가 맨 위. 개념 Check 카드와 방향 일치.
     // icon에 강의수("24"·"OT" 등)가 들어 있어 수업 스케줄 매칭에 쓴다(thScheduledDate와 같은 기준).
+    // 미채점 수(ungraded)는 2단계에서 채운다 — 그 전까지는 이전 값을 그대로 보여 준다.
     if (tlSnap) {
-      _dbThink = tlSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', isOpen: v.isOpen === true, order: v.order ?? -1, ungraded: 0, icon: v.icon || '', autoOpenedAt: v.autoOpenedAt || null }; }).sort((a, b) => b.order - a.order);
-    } else late.push('생각 체크');
+      const prev = Object.fromEntries(_dbThink.map(t => [t.docId, t]));
+      _dbThink = tlSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', isOpen: v.isOpen === true, order: v.order ?? -1, ungraded: prev[d.id]?.ungraded || 0, ungradedCls: prev[d.id]?.ungradedCls || 0, icon: v.icon || '', autoOpenedAt: v.autoOpenedAt || null }; }).sort((a, b) => b.order - a.order);
+    } else _dbLate.push('생각 체크');
 
-    // 수업일이 지난 강의와 미션을 자동 공개(설정이 켜져 있을 때만, 항목당 한 번만).
-    // 개념·미션·생각 세 가지를 모두 보므로 _dbThink까지 채운 뒤에 부른다.
-    // 여기서 실패해도 대시보드 자체는 그대로 떠야 하므로 따로 감싼다.
-    try { await dbAutoOpenBySchedule(); } catch (e) { console.warn('수업일 자동 공개 실패:', e); }
-
-    // 제출물: 강의별 미채점 수 + 오늘 제출 수
-    // 미채점 중 가장 최근 제출이 어느 반인지도 같이 기억해 둔다("채점" 버튼이 그 반으로 바로 열리게).
-    if (!tsSnap) late.push('제출 현황');
-    const ungraded = {};
-    const newestUngraded = {}; // lectureDocId → { secs, cls }
-    (tsSnap ? tsSnap.docs : []).forEach(d => {
-      const s = d.data();
-      if (isTestId(s.id)) return; // 테스트 학생 제출은 집계·채점대기에서 제외
-      const secs = s.createdAt?.seconds;
-      if (s.thGraded !== true) {
-        ungraded[s.lectureDocId] = (ungraded[s.lectureDocId] || 0) + 1;
-        const cls = parseInt(String(s.id || '').slice(1, 3), 10); // 학번 2~3번째 자리가 반
-        const cur = newestUngraded[s.lectureDocId];
-        if (cls >= 1 && cls <= 9 && (!cur || (secs || 0) > cur.secs)) {
-          newestUngraded[s.lectureDocId] = { secs: secs || 0, cls };
-        }
-      }
-    });
-    _dbThink.forEach(t => {
-      t.ungraded    = ungraded[t.docId] || 0;
-      t.ungradedCls = newestUngraded[t.docId]?.cls || 0;
-    });
-
-    // 학생 수 + 오늘 출석/복습(rtdb/xp)
-    if (!stuSnap) late.push('학생 명단');
+    // 학생 명단
+    if (!stuSnap) _dbLate.push('학생 명단');
     const stuData = stuSnap && stuSnap.exists() ? (stuSnap.val() || {}) : {};
     _dbStudents = Object.values(stuData).filter(v => v && v.studentId).map(v => ({ studentId: String(v.studentId), name: v.name || v.studentName || '' }));
     _dbStuCount = _dbStudents.filter(s => !isTestId(s.studentId)).length; // 테스트 학생은 총원에서 제외(이름 조회는 유지)
-    // 댓글 줄의 [차단]/[해제]가 맞게 뜨도록 차단 명단도 읽는다(명단을 채운 뒤라 학생을 다시 읽지 않는다).
-    await noticeLoadBans();
-    const xp = xpSnap && xpSnap.exists() ? (xpSnap.val() || {}) : {};
-    // 뽑기는 하루 한 번이라 lottery.day가 오늘이면 그 학생이 오늘 참여한 것이다(shared/xp.js).
-    let attend = 0, review = 0, lottery = 0;
-    Object.entries(xp).forEach(([sid, x]) => {
-      if (!x || isTestId(sid)) return;
-      if (x.lastAttendance === today) attend++;
-      if (x.lastTypingReview === today) review++;
-      if (x.lottery && x.lottery.day === today) lottery++;
-    });
-    _dbToday = { attend, review, lottery };
 
     // 공지사항 — 대시보드 카드가 최근 5건만 펴고 나머지는 [+ 더보기]로 접으므로 자르지 않는다
     _dbAnnList = annSnap
@@ -577,14 +548,95 @@ async function dbLoad() {
       : [];
     annSortList();
 
+    _dbPending = new Set(['today', 'grade', 'ann', 'certs']);
     dbRender();
-    dbRenderLateNote(late);
+    _dbEverRendered = true;
+
+    /* 2단계 — 무거운 집계는 따로따로 받아, 하나 끝날 때마다 그 칸만 채워 다시 그린다.
+       아직 못 받은 칸은 "…"로 둔다(dbWait). */
+    const done = key => { _dbPending.delete(key); dbRenderSoon(); };
+    await Promise.all([
+      // 오늘 출석·복습·뽑기 — 경험치 전체(학생별 기록 포함)를 받아야 해서 무겁다
+      dbSafe(get(ref(rtdb, `${XP_ROOT}/students`)), null).then(xpSnap => {
+        if (!xpSnap) _dbLate.push('오늘 집계');
+        const xp = xpSnap && xpSnap.exists() ? (xpSnap.val() || {}) : {};
+        // 뽑기는 하루 한 번이라 lottery.day가 오늘이면 그 학생이 오늘 참여한 것이다(shared/xp.js).
+        let attend = 0, review = 0, lottery = 0;
+        Object.entries(xp).forEach(([sid, x]) => {
+          if (!x || isTestId(sid)) return;
+          if (x.lastAttendance === today) attend++;
+          if (x.lastTypingReview === today) review++;
+          if (x.lottery && x.lottery.day === today) lottery++;
+        });
+        if (xpSnap) _dbToday = { attend, review, lottery };
+        done('today');
+      }),
+      dbSafe(dbLoadThinkUngraded(), false, 20000).then(ok => { if (!ok) _dbLate.push('제출 현황'); done('grade'); }),
+      // 조회수·좋아요·댓글. 댓글 줄의 [차단]/[해제]가 맞게 뜨도록 차단 명단도 같이 읽는다.
+      Promise.all([dbLoadAnnReads(), dbSafe(noticeLoadComments(), null), noticeLoadBans()])
+        .catch(e => console.warn('공지 집계 실패:', e)).then(() => done('ann')),
+      dbLoadCerts().catch(e => console.warn('열공 마일리지 집계 실패:', e)).then(() => done('certs')),
+      // 수업일이 지난 강의와 미션을 자동 공개(설정이 켜져 있을 때만, 항목당 한 번만).
+      // 개념·미션·생각 세 가지를 모두 보므로 1단계 뒤에 부른다. 실패해도 화면은 그대로 둔다.
+      dbAutoOpenBySchedule().then(dbRenderSoon).catch(e => console.warn('수업일 자동 공개 실패:', e)),
+    ]);
   } catch(e) {
     if (el) el.innerHTML = `<div style="padding:32px;color:var(--critical);font-size:14px">로드 실패: ${esc(e.message)}
       <div style="margin-top:12px"><button class="add-btn" onclick="dbLoad()">다시 시도</button></div></div>`;
   } finally {
     _dbLoading = false;
   }
+}
+
+/* 생각 체크 강의별 미채점 수. 예전에는 제출물 전체(1천 건 넘게, 수 MB)를 받아 셌다.
+   이제 강의마다 "전체 수 − 채점된 수"를 서버에서 숫자로만 받는다(getCountFromServer).
+   채점 전 제출물에는 thGraded 필드가 아예 없어서 "미채점"을 바로 고를 수는 없다.
+   테스트 학생 제출은 그 학생들 것만 받아 뺀다. 채점 버튼이 미채점이 남은 반으로 바로
+   열리도록, 미채점이 있는 강의만 제출물을 받아 가장 최근 반을 찾는다. */
+async function dbLoadThinkUngraded() {
+  if (!_dbThink.length) return true;
+  const col = collection(db, 'think_submissions');
+  const counts = await Promise.all(_dbThink.map(async t => {
+    const [all, graded] = await Promise.all([
+      getCountFromServer(query(col, where('lectureDocId', '==', t.docId))),
+      getCountFromServer(query(col, where('lectureDocId', '==', t.docId), where('thGraded', '==', true))),
+    ]);
+    return all.data().count - graded.data().count;
+  }));
+  const testUngraded = {};
+  const testIds = [..._testIds].slice(0, 30); // 'in'은 30개까지
+  if (testIds.length) {
+    const ts = await getDocs(query(col, where('id', 'in', testIds)));
+    ts.docs.forEach(d => {
+      const s = d.data();
+      if (s.thGraded !== true) testUngraded[s.lectureDocId] = (testUngraded[s.lectureDocId] || 0) + 1;
+    });
+  }
+  _dbThink.forEach((t, i) => { t.ungraded = Math.max(0, counts[i] - (testUngraded[t.docId] || 0)); });
+  dbRenderSoon();
+
+  await Promise.all(_dbThink.filter(t => t.ungraded > 0).map(async t => {
+    const snap = await getDocs(query(col, where('lectureDocId', '==', t.docId)));
+    let best = null;
+    snap.docs.forEach(d => {
+      const s = d.data();
+      if (s.thGraded === true || isTestId(s.id)) return;
+      const cls = parseInt(String(s.id || '').slice(1, 3), 10); // 학번 2~3번째 자리가 반
+      const secs = s.createdAt?.seconds || 0;
+      if (cls >= 1 && cls <= 9 && (!best || secs > best.secs)) best = { secs, cls };
+    });
+    t.ungradedCls = best ? best.cls : 0;
+  }));
+  _dbThink.filter(t => !t.ungraded).forEach(t => { t.ungradedCls = 0; });
+  return true;
+}
+
+// 2단계 집계가 하나씩 끝날 때마다 다시 그린다. 같은 틀에 몰려도 한 번만 그린다.
+let _dbRenderQueued = false;
+function dbRenderSoon() {
+  if (_dbRenderQueued) return;
+  _dbRenderQueued = true;
+  requestAnimationFrame(() => { _dbRenderQueued = false; dbRender(); });
 }
 
 // 일부만 못 받아왔을 때, 화면 위쪽에 무엇이 비었는지 적고 다시 시도할 길을 준다.
@@ -695,13 +747,17 @@ function dbRender() {
   const el = document.getElementById('db-content');
   if (!el) return;
   const totalUngraded = _dbThink.reduce((a, t) => a + (t.ungraded || 0), 0);
+  // 2단계 집계가 들어올 때마다 다시 그리므로, 학생 검색 칸에 치던 것과 결과는 살려 둔다.
+  const qEl = document.getElementById('db-stu-q');
+  const keep = qEl ? { q: qEl.value, focused: document.activeElement === qEl,
+                       res: document.getElementById('db-stu-result')?.innerHTML || '' } : null;
   el.innerHTML = `
     <div class="db-summary-row">
-      <div class="db-summary-card"><div class="db-summary-label">오늘 출석</div><div class="db-summary-val">${_dbToday.attend} / ${_dbStuCount}명</div></div>
-      <div class="db-summary-card"><div class="db-summary-label">오늘 복습 퀴즈</div><div class="db-summary-val">${_dbToday.review}명</div></div>
-      <div class="db-summary-card"><div class="db-summary-label">채점 대기(생각체크)</div><div class="db-summary-val" style="color:${totalUngraded ? 'var(--critical)' : 'var(--text)'}">${totalUngraded}건</div></div>
+      <div class="db-summary-card"><div class="db-summary-label">오늘 출석</div><div class="db-summary-val">${dbWait('today', `${_dbToday.attend} / ${_dbStuCount}명`)}</div></div>
+      <div class="db-summary-card"><div class="db-summary-label">오늘 복습 퀴즈</div><div class="db-summary-val">${dbWait('today', `${_dbToday.review}명`)}</div></div>
+      <div class="db-summary-card"><div class="db-summary-label">채점 대기(생각체크)</div><div class="db-summary-val" style="color:${totalUngraded && !_dbPending.has('grade') ? 'var(--critical)' : 'var(--text)'}">${dbWait('grade', `${totalUngraded}건`)}</div></div>
       ${dbCertChipHTML()}
-      <div class="db-summary-card"><div class="db-summary-label">오늘 포인트 뽑기</div><div class="db-summary-val">${_dbToday.lottery}명</div></div>
+      <div class="db-summary-card"><div class="db-summary-label">오늘 포인트 뽑기</div><div class="db-summary-val">${dbWait('today', `${_dbToday.lottery}명`)}</div></div>
       <div class="db-summary-card db-autoopen"><div class="db-summary-label">수업일 자동 공개</div><div class="th-toggle ${_dbAutoOpen ? 'on' : ''}" onclick="dbToggleAutoOpen(this)"></div></div>
     </div>
     ${_dbAutoOpened.length ? `<div class="db-autoopen-done">수업일이 되어 ${_dbAutoOpened.length}개를 공개했습니다 — ${esc(_dbAutoOpened.join(', '))}</div>` : ''}
@@ -722,6 +778,13 @@ function dbRender() {
       <div class="stu-card-head">공지사항</div>
       <div class="stu-card-body">${annTableHTML(DB_TOGGLE_HEAD, false)}</div>
     </div>`;
+  if (keep) {
+    const q = document.getElementById('db-stu-q');
+    const res = document.getElementById('db-stu-result');
+    if (q) { q.value = keep.q; if (keep.focused) q.focus(); }
+    if (res) res.innerHTML = keep.res;
+  }
+  dbRenderLateNote(_dbLate);
 }
 
 /* ── 열공 마일리지 검토 칩 (대시보드 상단 통계 줄) ─────────────────
@@ -773,7 +836,7 @@ function dbCertPart(r, label) {
 function dbCertChipHTML() {
   return `<div class="db-summary-card db-cert-chip">
     <div class="db-summary-label">열공 마일리지 검토</div>
-    <div class="db-summary-val">${dbCertPart('pending', '보류')}<span class="db-cert-sep">·</span>${dbCertPart('fail', '실패')}</div>
+    <div class="db-summary-val">${dbWait('certs', `${dbCertPart('pending', '보류')}<span class="db-cert-sep">·</span>${dbCertPart('fail', '실패')}`)}</div>
   </div>`;
 }
 
@@ -845,13 +908,13 @@ function annTableHTML(head, showComments) {
     const rows  = _dbAnnReads[a.docId] || [];
     const likes = rows.filter(r => r.liked).length;
     const stat = n =>
-      `<button class="ann-stat" onclick="openAnnStats('${a.docId}')" title="누가 읽었는지 봅니다">${n}</button>`;
+      `<button class="ann-stat" onclick="openAnnStats('${a.docId}')" title="누가 읽었는지 봅니다">${dbWait('ann', n)}</button>`;
     // 댓글 수는 두 화면 모두 보인다. 누르면 설정 NOTICE는 댓글만 그 아래로 펼치고,
     // 대시보드는 본문을 펼쳐 그 아래에 댓글을 붙인다. 댓글을 막은 글은 자물쇠를 붙인다.
     const cms = (_dbAnnComments[a.docId] || []).length;
     const open = _noticeOpenCm === a.docId;
     const lock = a.commentsOff ? `<span class="ann-cm-off" title="댓글 막음">${icon('lock', 11)}</span>` : '';
-    const cmCell = `<span class="ann-c-num"><button class="ann-stat" onclick="${showComments ? 'noticeToggleComments' : 'noticeToggleBody'}('${a.docId}')" title="${a.commentsOff ? '댓글 막음 · ' : ''}댓글 보기">${cms}${lock}</button></span>`;
+    const cmCell = `<span class="ann-c-num"><button class="ann-stat" onclick="${showComments ? 'noticeToggleComments' : 'noticeToggleBody'}('${a.docId}')" title="${a.commentsOff ? '댓글 막음 · ' : ''}댓글 보기">${dbWait('ann', cms)}${lock}</button></span>`;
     const openBody = _noticeOpenBody === a.docId;
     // 대시보드는 댓글 칸이 없는 대신, 글을 펼치면 본문 아래에 댓글을 바로 붙인다(최신순 20개씩).
     const dashCm = !showComments && openBody
