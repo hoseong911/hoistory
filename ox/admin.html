@@ -28,9 +28,24 @@
 /* 액션 줄에서는 공용 .hi-btn-sm과 높이를 맞춘다(admin-base.css가 36px로 잡아 둔 줄). */
 .adm-action-row .btn-sm { height: 36px; box-sizing: border-box; }
 
-/* ── 강의 선택 줄 ── */
+/* ── 아코디언 (문제 추가 · 문제 목록) ── */
+.acc > summary { list-style: none; cursor: pointer; margin-bottom: 0; user-select: none; }
+.acc > summary::-webkit-details-marker { display: none; }
+.acc[open] > summary { margin-bottom: 16px; }
+.acc-chev { margin-left: auto; display: inline-flex; color: var(--hi-text-muted); transition: transform .15s; }
+.acc[open] .acc-chev { transform: rotate(90deg); }
+
+/* ── 강의 선택 줄 ──
+   공용 .hi-select는 위아래 패딩이 14px이라 높이를 40px로 묶으면 글자가 잘려 반쯤만 보였다.
+   높이는 패딩으로 잡고, 글자는 진하게 둔다. */
 .lec-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 16px; }
-.lec-bar select { min-width: 260px; height: 40px; }
+.lec-bar select {
+  flex: 1 1 260px; min-width: 0; height: auto;
+  padding: 11px 38px 11px 14px; line-height: 1.4;
+  font-size: 15px; font-weight: 700; color: var(--hi-text);
+  background-color: var(--hi-bg-surface); cursor: pointer;
+}
+.q-lec { max-width: 160px; padding: 10px 14px; }
 .lec-bar .count { font-size: 13px; font-weight: 700; color: var(--hi-text-muted); font-feature-settings: 'tnum'; }
 
 /* ── 문제 입력 ── */
@@ -65,9 +80,14 @@
 .q-item-text { font-size: 14px; font-weight: 700; color: var(--hi-text); line-height: 1.55; word-break: keep-all; white-space: pre-wrap; }
 .q-item-exp { font-size: 13px; color: var(--hi-text-muted); line-height: 1.6; margin-top: 5px; word-break: keep-all; white-space: pre-wrap; }
 .q-item-act { flex: 0 0 auto; display: flex; gap: 4px; align-items: center; }
-.q-move { background: none; border: none; cursor: pointer; color: var(--hi-text-muted); font-family: inherit; font-size: 13px; font-weight: 800; padding: 3px 5px; border-radius: 5px; }
-.q-move:hover { background: var(--hi-bg-mid); color: var(--hi-text); }
-.q-move:disabled { opacity: .25; cursor: default; }
+.q-ic-btn {
+  width: 32px; height: 32px; border-radius: 8px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: 1.5px solid var(--hi-border); color: var(--hi-text-muted); transition: .15s;
+}
+.q-ic-btn:hover { border-color: var(--hi-border-light); color: var(--hi-text); }
+.q-ic-btn.del { color: var(--hi-negative); border-color: rgba(220,38,38,.2); background: rgba(220,38,38,.06); }
+.q-ic-btn.del:hover { background: rgba(220,38,38,.14); }
 
 /* ── 엑셀 업로드 칸 ── */
 .uz {
@@ -153,15 +173,35 @@ table.ans-table tr.none td { color: var(--hi-text-muted); }
   <div class="tab-panel active" id="tab-contents">
     <div class="admin-container">
 
-      <div class="lec-bar">
-        <select class="hi-select" id="lec-sel"></select>
-        <span class="count" id="lec-count"></span>
+      <!-- 엑셀 -->
+      <div class="section-card">
+        <div class="section-title">엑셀로 한꺼번에 올리기</div>
+        <p class="section-desc">첫 줄은 제목 줄로 보고 건너뜁니다. 강의 칸을 비우면 아래 강의 선택에서 고른 강의로 들어갑니다.</p>
+        <div class="uz" id="uz">
+          <div class="uz-t">엑셀 파일을 여기에 끌어 놓거나 눌러서 고르세요</div>
+          <div class="uz-d">.xlsx / .xls / .csv 지원. 기존 문제는 지워지지 않고 그대로 남습니다.</div>
+          <input type="file" id="xl-input" accept=".xlsx,.xls,.csv">
+        </div>
+        <div class="xl-guide">
+          <table>
+            <tr><th>A: 강의</th><th>B: 문제</th><th>C: 정답</th><th>D: 해설</th></tr>
+            <tr><td>12</td><td>세종은 훈민정음을 창제하였다.</td><td>O</td><td>1443년에 창제했다.</td></tr>
+          </table>
+        </div>
+        <div class="btn-row" style="margin-top:16px">
+          <button class="btn btn-ghost btn-sm" id="xl-sample">빈 양식 내려받기</button>
+          <button class="btn btn-ghost btn-sm" id="xl-export">전체 문제 내보내기</button>
+        </div>
       </div>
 
-      <!-- 문제 추가 -->
-      <div class="section-card">
-        <div class="section-title" id="q-form-title">새 문제 추가</div>
+      <!-- 문제 추가 (접어 둔다. 목록에서 수정을 누르면 열린다) -->
+      <details class="section-card acc" id="q-form-acc">
+        <summary class="section-title"><span id="q-form-title">새 문제 추가</span><span class="acc-chev"></span></summary>
         <div class="q-form">
+          <div>
+            <label class="form-label">강의 번호</label>
+            <input type="text" class="hi-input q-lec" id="q-lec" inputmode="numeric" placeholder="예) 36">
+          </div>
           <div>
             <label class="form-label">문제</label>
             <textarea class="hi-textarea" id="q-text" placeholder="예) 세종은 훈민정음을 창제하였다."></textarea>
@@ -180,37 +220,22 @@ table.ans-table tr.none td { color: var(--hi-text-muted); }
             <button class="btn btn-ghost" id="q-cancel" style="display:none">수정 취소</button>
           </div>
         </div>
+      </details>
+
+      <!-- 강의 선택 -->
+      <div class="lec-bar">
+        <select class="hi-select" id="lec-sel"></select>
+        <span class="count" id="lec-count"></span>
       </div>
 
-      <!-- 엑셀 -->
-      <div class="section-card">
-        <div class="section-title">엑셀로 한꺼번에 올리기</div>
-        <p class="section-desc">첫 줄은 제목 줄로 보고 건너뜁니다. 강의 칸을 비우면 위에서 고른 강의로 들어갑니다.</p>
-        <div class="uz" id="uz">
-          <div class="uz-t">엑셀 파일을 여기에 끌어 놓거나 눌러서 고르세요</div>
-          <div class="uz-d">.xlsx / .xls / .csv 지원. 기존 문제는 지워지지 않고 뒤에 이어 붙습니다.</div>
-          <input type="file" id="xl-input" accept=".xlsx,.xls,.csv">
-        </div>
-        <div class="xl-guide">
-          <table>
-            <tr><th>A: 강의</th><th>B: 문제</th><th>C: 정답</th><th>D: 해설</th></tr>
-            <tr><td>12</td><td>세종은 훈민정음을 창제하였다.</td><td>O</td><td>1443년에 창제했다.</td></tr>
-          </table>
-        </div>
-        <div class="btn-row" style="margin-top:16px">
-          <button class="btn btn-ghost btn-sm" id="xl-sample">빈 양식 내려받기</button>
-          <button class="btn btn-ghost btn-sm" id="xl-export">전체 문제 내보내기</button>
-        </div>
-      </div>
-
-      <!-- 문제 목록 -->
-      <div class="section-card">
-        <div class="section-title" id="q-list-title">등록된 문제</div>
+      <!-- 문제 목록 (접어 둔다) — 출제는 무작위라 순서에 뜻이 없으므로 O 먼저, 그 안에서 가나다순으로 늘어놓는다 -->
+      <details class="section-card acc" id="q-list-acc">
+        <summary class="section-title"><span id="q-list-title">등록된 문제</span><span class="acc-chev"></span></summary>
         <div class="q-list" id="q-list"></div>
         <div class="btn-row" style="margin-top:18px">
           <button class="btn btn-danger btn-sm" id="q-clear">이 강의 문제 전체 삭제</button>
         </div>
-      </div>
+      </details>
 
     </div>
   </div>
@@ -306,6 +331,7 @@ import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged }
 import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { firebaseConfig } from "../shared/firebase-config.js";
 import { showToast } from "../shared/toast.js";
+import { icon } from "../shared/icons.js";
 
 const app  = initializeApp(firebaseConfig);
 const db   = getFirestore(app);
@@ -316,9 +342,10 @@ const isEmbedded = window.self !== window.top;
 /* ══════════ 상태 ══════════ */
 const S = {
   lessons:   [],    // class_lessons: [{ num, title, order }]
-  questions: [],    // 전체 문제 [{ id, lessonNum, text, answer, explain, order }]
+  questions: [],    // 전체 문제 [{ id, lessonNum, text, answer, explain }]
   lecNum:    '',    // CONTENTS에서 고른 강의 번호
   editId:    null,  // 수정 중인 문제 id
+  formLec:   '',    // 수정에 들어가기 전 입력 폼의 강의 번호(취소하면 되돌린다)
   answer:    '',    // 입력 폼에서 고른 정답
   roster:    [],    // [{ sid, name, classNum }]
   records:   {},    // { sid: ox_records 문서 }
@@ -419,7 +446,7 @@ async function loadQuestions() {
       id: d.id,
       lessonNum: String(v.lessonNum == null ? '' : v.lessonNum).trim(),
       text: v.text || '', answer: String(v.answer || '').toUpperCase(),
-      explain: v.explain || '', order: Number(v.order || 0),
+      explain: v.explain || '',
     };
   });
 }
@@ -479,14 +506,23 @@ function populateLecSelect() {
 
 document.getElementById('lec-sel').addEventListener('change', e => {
   S.lecNum = e.target.value;
-  cancelEdit();
+  // 새 문제 입력은 강의 번호를 따로 적으므로 쓰던 초안은 두고, 수정 중일 때만 접는다.
+  if (S.editId) cancelEdit();
   renderQuestions();
 });
 
-function lecQuestions() {
-  return S.questions.filter(q => q.lessonNum === S.lecNum)
-                    .sort((a, b) => a.order - b.order);
+document.querySelectorAll('.acc-chev').forEach(el => { el.innerHTML = icon('chevron-right', 18); });
+
+/* 학생에게는 무작위로 나가므로 순서를 손으로 맞출 일이 없다. 늘 O 먼저, 그 안에서 가나다순. */
+function byAnswerText(a, b) {
+  return (a.answer === b.answer ? 0 : a.answer === 'O' ? -1 : 1) ||
+         a.text.localeCompare(b.text, 'ko');
 }
+function lecQuestions() {
+  return S.questions.filter(q => q.lessonNum === S.lecNum).sort(byAnswerText);
+}
+/* "36", "36강", " 36 " 모두 36으로 받는다. */
+function normLec(v) { return String(v == null ? '' : v).trim().replace(/\s*강$/, ''); }
 
 function renderQuestions() {
   const list = lecQuestions();
@@ -508,10 +544,8 @@ function renderQuestions() {
         (q.explain ? '<div class="q-item-exp">' + esc(q.explain) + '</div>' : '') +
       '</div>' +
       '<div class="q-item-act">' +
-        '<button class="q-move" data-act="up"   data-id="' + q.id + '"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
-        '<button class="q-move" data-act="down" data-id="' + q.id + '"' + (i === list.length - 1 ? ' disabled' : '') + '>↓</button>' +
-        '<button class="btn btn-ghost btn-sm" data-act="edit" data-id="' + q.id + '">수정</button>' +
-        '<button class="btn btn-danger btn-sm" data-act="del" data-id="' + q.id + '">삭제</button>' +
+        '<button class="q-ic-btn" data-act="edit" data-id="' + q.id + '" title="수정" aria-label="수정">' + icon('pencil', 16) + '</button>' +
+        '<button class="q-ic-btn del" data-act="del" data-id="' + q.id + '" title="삭제" aria-label="삭제">' + icon('trash-2', 16) + '</button>' +
       '</div>' +
     '</div>').join('');
 }
@@ -522,7 +556,6 @@ document.getElementById('q-list').addEventListener('click', async e => {
   const id = btn.dataset.id;
   if (btn.dataset.act === 'edit') startEdit(id);
   else if (btn.dataset.act === 'del') removeQuestion(id);
-  else moveQuestion(id, btn.dataset.act === 'up' ? -1 : 1);
 });
 
 /* 정답 고르기 */
@@ -536,8 +569,12 @@ document.querySelectorAll('.q-answer-btn').forEach(b => {
 function startEdit(id) {
   const q = S.questions.find(x => x.id === id);
   if (!q) return;
+  // 수정을 마치거나 취소하면 새 문제 추가에 쓰던 강의 번호로 되돌린다.
+  if (!S.editId) S.formLec = document.getElementById('q-lec').value;
   S.editId = id;
   S.answer = q.answer;
+  document.getElementById('q-form-acc').open = true;
+  document.getElementById('q-lec').value  = q.lessonNum;
   document.getElementById('q-text').value = q.text;
   document.getElementById('q-exp').value  = q.explain;
   document.querySelectorAll('.q-answer-btn').forEach(x => x.classList.toggle('on', x.dataset.a === S.answer));
@@ -548,6 +585,7 @@ function startEdit(id) {
 }
 
 function cancelEdit() {
+  if (S.editId) document.getElementById('q-lec').value = S.formLec || '';
   S.editId = null;
   S.answer = '';
   document.getElementById('q-text').value = '';
@@ -562,25 +600,29 @@ document.getElementById('q-cancel').addEventListener('click', cancelEdit);
 document.getElementById('q-save').addEventListener('click', async () => {
   const text = document.getElementById('q-text').value.trim();
   const exp  = document.getElementById('q-exp').value.trim();
-  if (!S.lecNum)  { showToast('먼저 강의를 고르세요', 'error'); return; }
+  const lec  = normLec(document.getElementById('q-lec').value);
+  if (!lec)       { showToast('강의 번호를 입력하세요', 'error'); return; }
   if (!text)      { showToast('문제를 입력하세요', 'error'); return; }
   if (!S.answer)  { showToast('정답을 고르세요', 'error'); return; }
+  // 오타로 엉뚱한 강의가 새로 생기지 않게, LMS에도 없고 문제도 없는 번호면 한 번 묻는다.
+  const known = S.lessons.some(l => l.num === lec) || S.questions.some(q => q.lessonNum === lec);
+  if (!known && !confirm(lecLabel(lec) + '은(는) LMS에 없는 강의 번호입니다. 그대로 저장할까요?')) return;
 
   try {
     if (S.editId) {
-      await updateDoc(doc(db, 'ox_questions', S.editId), { text, answer: S.answer, explain: exp });
+      await updateDoc(doc(db, 'ox_questions', S.editId), { lessonNum: lec, text, answer: S.answer, explain: exp });
       const q = S.questions.find(x => x.id === S.editId);
-      Object.assign(q, { text, answer: S.answer, explain: exp });
+      Object.assign(q, { lessonNum: lec, text, answer: S.answer, explain: exp });
       showToast('수정했습니다');
     } else {
-      const order = lecQuestions().length ? Math.max(...lecQuestions().map(q => q.order)) + 1 : 0;
       const r = await addDoc(collection(db, 'ox_questions'), {
-        lessonNum: S.lecNum, text, answer: S.answer, explain: exp, order, createdAt: serverTimestamp(),
+        lessonNum: lec, text, answer: S.answer, explain: exp, createdAt: serverTimestamp(),
       });
-      S.questions.push({ id: r.id, lessonNum: S.lecNum, text, answer: S.answer, explain: exp, order });
-      showToast('추가했습니다');
+      S.questions.push({ id: r.id, lessonNum: lec, text, answer: S.answer, explain: exp });
+      showToast(lecLabel(lec) + '에 추가했습니다');
     }
     cancelEdit();
+    S.lecNum = lec; // 방금 넣은 강의를 아래 목록에 띄운다
     populateLecSelect();
     renderQuestions();
   } catch (e) {
@@ -599,24 +641,6 @@ async function removeQuestion(id) {
     renderQuestions();
     showToast('삭제했습니다');
   } catch (e) { console.error(e); showToast('삭제하지 못했습니다', 'error'); }
-}
-
-/* 순서 이동 — 두 문제의 order를 맞바꾼다. */
-async function moveQuestion(id, dir) {
-  const list = lecQuestions();
-  const i = list.findIndex(q => q.id === id);
-  const j = i + dir;
-  if (i < 0 || j < 0 || j >= list.length) return;
-  const a = list[i], b = list[j];
-  const ao = a.order, bo = b.order;
-  try {
-    const batch = writeBatch(db);
-    batch.update(doc(db, 'ox_questions', a.id), { order: bo });
-    batch.update(doc(db, 'ox_questions', b.id), { order: ao });
-    await batch.commit();
-    a.order = bo; b.order = ao;
-    renderQuestions();
-  } catch (e) { console.error(e); showToast('순서를 바꾸지 못했습니다', 'error'); }
 }
 
 document.getElementById('q-clear').addEventListener('click', async () => {
@@ -678,7 +702,7 @@ async function importRows(rows) {
   const parsed = [];
   let skipped = 0;
   rows.slice(1).forEach(r => {
-    const lec  = String(r[0] == null ? '' : r[0]).trim() || S.lecNum;
+    const lec  = normLec(r[0]) || S.lecNum;
     const text = String(r[1] == null ? '' : r[1]).trim();
     const ans  = String(r[2] == null ? '' : r[2]).trim().toUpperCase();
     const exp  = String(r[3] == null ? '' : r[3]).trim();
@@ -695,22 +719,14 @@ async function importRows(rows) {
               (skipped ? '\n형식이 맞지 않는 ' + skipped + '줄은 건너뜁니다.' : '');
   if (!confirm(msg)) return;
 
-  // 강의별로 기존 문제 뒤에 이어 붙도록 order를 이어 준다.
-  const nextOrder = {};
-  lecs.forEach(l => {
-    const cur = S.questions.filter(q => q.lessonNum === l);
-    nextOrder[l] = cur.length ? Math.max(...cur.map(q => q.order)) + 1 : 0;
-  });
-
   try {
     for (let i = 0; i < parsed.length; i += 400) {
       const chunk = parsed.slice(i, i + 400);
       const batch = writeBatch(db);
       chunk.forEach(p => {
         const r = doc(collection(db, 'ox_questions'));
-        const order = nextOrder[p.lessonNum]++;
-        batch.set(r, { ...p, order, createdAt: serverTimestamp() });
-        S.questions.push({ id: r.id, ...p, order });
+        batch.set(r, { ...p, createdAt: serverTimestamp() });
+        S.questions.push({ id: r.id, ...p });
       });
       await batch.commit();
     }
@@ -739,7 +755,7 @@ document.getElementById('xl-sample').addEventListener('click', () => {
 document.getElementById('xl-export').addEventListener('click', () => {
   if (!S.questions.length) { showToast('내보낼 문제가 없습니다', 'error'); return; }
   const sorted = S.questions.slice().sort((a, b) =>
-    a.lessonNum.localeCompare(b.lessonNum, 'ko', { numeric: true }) || a.order - b.order);
+    a.lessonNum.localeCompare(b.lessonNum, 'ko', { numeric: true }) || byAnswerText(a, b));
   const ws = XLSX.utils.json_to_sheet(sorted.map(q => ({
     강의: q.lessonNum, 문제: q.text, 정답: q.answer, 해설: q.explain,
   })));
