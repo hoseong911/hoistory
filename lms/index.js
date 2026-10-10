@@ -713,7 +713,7 @@ function startListening() {
   // 0. 공지사항(패치노트 리스트, 최신 30건) — 미확인 글은 뱃지 표시 + 입장 시 1회 토스트
   _loadAnnReadSet();
   onSnapshot(query(collection(db, 'announcements'), orderBy('createdAt', 'desc'), limit(30)), snap => {
-    _announcements = snap.docs.map(d => { const v = d.data(); return { id: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt, pinned: v.pinned === true }; });
+    _announcements = snap.docs.map(d => { const v = d.data(); return { id: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt, pinned: v.pinned === true, commentsOff: v.commentsOff === true }; });
     // 상단 고정이 먼저, 그 뒤는 최신순(쿼리가 이미 최신순이라 고정 여부만 앞으로 당긴다).
     _announcements.sort((a, b) => (b.pinned === true) - (a.pinned === true));
     renderAnnounceList();
@@ -1449,19 +1449,26 @@ let _annCmList  = [];
    지우는 길은 막지 않는다 — 이미 쓴 글을 스스로 거둘 수는 있어야 한다. */
 let _cmBan = null;   // 차단이면 { reason }, 아니면 null
 
+// 선생님이 "댓글 막기"로 올린 공지인지(announcements.commentsOff). 이미 달린 댓글은 그대로 보인다.
+function annCommentsOff(annId) {
+  return (_announcements.find(x => x.id === annId) || {}).commentsOff === true;
+}
+
 function renderAnnCmForm() {
   const form = document.querySelector('#annCommentsWrap .ann-cm-form');
   const note = document.getElementById('annCmBanNote');
   const msg  = document.getElementById('annCommentMsg');
+  const off    = annCommentsOff(_annOpenId);
   const banned = !!_cmBan;
-  if (form) form.style.display = banned ? 'none' : '';
+  const blocked = off || banned;
+  if (form) form.style.display = blocked ? 'none' : '';
   if (note) {
-    note.style.display = banned ? '' : 'none';
-    note.textContent = banned
-      ? (_cmBan.reason ? `댓글을 쓸 수 없어요 — ${_cmBan.reason}` : '댓글을 쓸 수 없어요. 선생님께 문의하세요.')
+    note.style.display = blocked ? '' : 'none';
+    note.textContent = off ? '이 공지는 댓글을 달 수 없어요.'
+      : banned ? (_cmBan.reason ? `댓글을 쓸 수 없어요 — ${_cmBan.reason}` : '댓글을 쓸 수 없어요. 선생님께 문의하세요.')
       : '';
   }
-  if (banned && msg) msg.textContent = '';
+  if (blocked && msg) msg.textContent = '';
 }
 
 function annCmTime(ts) {
@@ -1545,7 +1552,7 @@ async function postAnnComment() {
   if (!annId || !ta || !currentStudentId) return;
   const text = ta.value.trim();
   if (!text) return;
-  if (_cmBan) { msg.textContent = '댓글을 쓸 수 없어요.'; renderAnnCmForm(); return; }
+  if (_cmBan || annCommentsOff(annId)) { msg.textContent = '댓글을 쓸 수 없어요.'; renderAnnCmForm(); return; }
   const bad = findBadWord(text);
   if (bad) { msg.textContent = '바른 말로 다시 써 주세요.'; return; }
   btn.disabled = true; msg.textContent = '';

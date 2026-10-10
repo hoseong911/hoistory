@@ -12,6 +12,10 @@ service cloud.firestore {
     function cmBanned(sid) {
       return exists(/databases/$(database)/documents/comment_bans/$(sid));
     }
+    // 선생님이 "댓글 막기"로 올린 공지(announcements.commentsOff == true)에는 새 댓글을 못 단다.
+    function annCommentsOff(annId) {
+      return get(/databases/$(database)/documents/announcements/$(annId)).data.get('commentsOff', false) == true;
+    }
 
     // ── 관리자 전용 콘텐츠 (허브/미션 카드, 각종 설정, 강의·성적 관리) ──
     match /cards/{id}                          { allow read: if true; allow write: if isAdmin(); }
@@ -140,7 +144,8 @@ service cloud.firestore {
           ['annId', 'studentId', 'name', 'classNum', 'text', 'earned', 'createdAt']) &&
         // 맨 끝에 둔다 — 여기서만 문서를 한 번 더 읽으므로, 형식이 틀린 요청은
         // 그 앞의 값 검사에서 걸러져 읽기 값을 쓰지 않는다.
-        !cmBanned(request.resource.data.studentId)
+        !cmBanned(request.resource.data.studentId) &&
+        !annCommentsOff(request.resource.data.annId)
       );
       allow update: if isAdmin();
       allow delete: if isAdmin() || resource.data.studentId is string;

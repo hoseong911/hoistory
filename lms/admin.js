@@ -573,7 +573,7 @@ async function dbLoad() {
 
     // 공지사항 — 대시보드 카드가 최근 5건만 펴고 나머지는 [+ 더보기]로 접으므로 자르지 않는다
     _dbAnnList = annSnap
-      ? annSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt, pinned: v.pinned === true }; })
+      ? annSnap.docs.map(d => { const v = d.data(); return { docId: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt, pinned: v.pinned === true, commentsOff: v.commentsOff === true }; })
       : [];
     annSortList();
 
@@ -846,18 +846,18 @@ function annTableHTML(head, showComments) {
     const likes = rows.filter(r => r.liked).length;
     const stat = n =>
       `<button class="ann-stat" onclick="openAnnStats('${a.docId}')" title="누가 읽었는지 봅니다">${n}</button>`;
-    // 댓글 수는 누르면 그 아래로 펼쳐진다(설정 NOTICE). 대시보드는 글을 펼치면 본문 아래에 댓글이 붙는다.
+    // 댓글 수는 두 화면 모두 보인다. 누르면 설정 NOTICE는 댓글만 그 아래로 펼치고,
+    // 대시보드는 본문을 펼쳐 그 아래에 댓글을 붙인다. 댓글을 막은 글은 자물쇠를 붙인다.
     const cms = (_dbAnnComments[a.docId] || []).length;
     const open = _noticeOpenCm === a.docId;
-    const cmCell = showComments
-      ? `<span class="ann-c-num"><button class="ann-stat" onclick="noticeToggleComments('${a.docId}')" title="댓글 보기">${cms}</button></span>`
-      : '';
+    const lock = a.commentsOff ? `<span class="ann-cm-off" title="댓글 막음">${icon('lock', 11)}</span>` : '';
+    const cmCell = `<span class="ann-c-num"><button class="ann-stat" onclick="${showComments ? 'noticeToggleComments' : 'noticeToggleBody'}('${a.docId}')" title="${a.commentsOff ? '댓글 막음 · ' : ''}댓글 보기">${cms}${lock}</button></span>`;
     const openBody = _noticeOpenBody === a.docId;
     // 대시보드는 댓글 칸이 없는 대신, 글을 펼치면 본문 아래에 댓글을 바로 붙인다(최신순 20개씩).
     const dashCm = !showComments && openBody
       ? `<div class="ann-cm-panel"><div class="ann-cm-hd">댓글 ${cms}개</div>${noticeCommentsHTML(a.docId, _dbCmShow[a.docId] || DB_CM_PAGE)}</div>`
       : '';
-    return `<div class="ann-row${a.docId === _dbAnnEditId ? ' editing' : ''}${showComments ? ' has-cm' : ''}${a.pinned ? ' pinned' : ''}">
+    return `<div class="ann-row has-cm${a.docId === _dbAnnEditId ? ' editing' : ''}${a.pinned ? ' pinned' : ''}">
       <span class="ann-c-title" title="${esc(a.title || '')}">${a.pinned ? `<span class="ann-pin" title="상단 고정">${icon('pin', 13)}</span>` : ''}<button class="ann-title-btn${openBody ? ' open' : ''}" onclick="noticeToggleBody('${a.docId}')" title="본문 보기">${icon('chevron-right', 13)}<span>${esc(a.title || '(제목 없음)')}</span></button></span>
       <span class="ann-c-date">${dbAnnDate(a.createdAt)}</span>
       <span class="ann-c-num">${stat(rows.length)}</span>
@@ -869,18 +869,18 @@ function annTableHTML(head, showComments) {
       </span>
     </div>`
       + (openBody ? `<div class="ann-body-panel">
-          <div class="ann-body-head"><span>${dbAnnDate(a.createdAt)} 작성${a.pinned ? ' · 상단 고정' : ''}</span>
+          <div class="ann-body-head"><span>${dbAnnDate(a.createdAt)} 작성${a.pinned ? ' · 상단 고정' : ''}${a.commentsOff ? ' · 댓글 막음' : ''}</span>
             <button class="stu-btn stu-btn-edit" onclick="dbEditAnnouncement('${a.docId}')">수정</button></div>
           ${annBodyHTML(a.body)}</div>` : '')
       + dashCm
       + (showComments && open ? `<div class="ann-cm-panel">${noticeCommentsHTML(a.docId)}</div>` : '');
   };
-  const header = `<div class="ann-row ann-head${showComments ? ' has-cm' : ''}">
+  const header = `<div class="ann-row ann-head has-cm">
       <span class="ann-c-title">제목</span>
       <span class="ann-c-date">작성일</span>
       <span class="ann-c-num">조회</span>
       <span class="ann-c-num">좋아요</span>
-      ${showComments ? '<span class="ann-c-num">댓글</span>' : ''}
+      <span class="ann-c-num">댓글</span>
       <span class="ann-c-btns"></span>
     </div>`;
   const list = _dbAnnList;
@@ -901,7 +901,7 @@ async function noticeLoad() {
     _dbAnnList = snap.docs.map(d => {
       const v = d.data();
       return { docId: d.id, title: v.title || '', body: v.body || '', createdAt: v.createdAt,
-               pinned: v.pinned === true };
+               pinned: v.pinned === true, commentsOff: v.commentsOff === true };
     });
     annSortList();
   } catch (e) { /* 못 읽으면 들고 있던 목록을 그대로 쓴다 */ }
@@ -1160,9 +1160,11 @@ window.dbEditAnnouncement = function(docId) {
   const titleEl = document.getElementById('db-ann-title');
   const bodyEl  = document.getElementById('db-ann-body');
   const pinEl   = document.getElementById('db-ann-pinned');
+  const nocmEl  = document.getElementById('db-ann-nocm');
   if (titleEl) titleEl.value = a?.title || '';
   if (bodyEl)  bodyEl.value  = a?.body  || '';
   if (pinEl)   pinEl.checked = a?.pinned === true;
+  if (nocmEl)  nocmEl.checked = a?.commentsOff === true;
   noticeRender();
   bodyEl?.focus();
 };
@@ -1174,7 +1176,9 @@ function annFormDirty(a) {
   const title = (document.getElementById('db-ann-title')?.value || '').trim();
   const body  = (document.getElementById('db-ann-body')?.value  || '').trim();
   const pinned = document.getElementById('db-ann-pinned')?.checked === true;
-  return title !== (a.title || '').trim() || body !== (a.body || '').trim() || pinned !== (a.pinned === true);
+  const nocm   = document.getElementById('db-ann-nocm')?.checked === true;
+  return title !== (a.title || '').trim() || body !== (a.body || '').trim() ||
+         pinned !== (a.pinned === true) || nocm !== (a.commentsOff === true);
 }
 
 /* 수정을 그만둔다 — 글은 손대지 않는다(저장은 [저장하기]만 한다).
@@ -1189,9 +1193,11 @@ window.dbCancelAnnEdit = function() {
   const titleEl = document.getElementById('db-ann-title');
   const bodyEl  = document.getElementById('db-ann-body');
   const pinEl   = document.getElementById('db-ann-pinned');
+  const nocmEl  = document.getElementById('db-ann-nocm');
   if (titleEl) titleEl.value = '';
   if (bodyEl)  bodyEl.value  = '';
   if (pinEl)   pinEl.checked = false;
+  if (nocmEl)  nocmEl.checked = false;
   if (docId) _noticeOpenBody = docId;   // 그만둔 글의 본문은 목록에서 계속 보이게
   annRefreshViews();
 };
@@ -1203,24 +1209,27 @@ window.dbPostAnnouncement = async function() {
   const pinEl   = document.getElementById('db-ann-pinned');
   const title = (titleEl?.value || '').trim();
   const body  = (bodyEl?.value  || '').trim();
+  const nocmEl  = document.getElementById('db-ann-nocm');
   const pinned = pinEl?.checked === true;
+  const commentsOff = nocmEl?.checked === true; // 학생 화면은 입력 칸을 감추고, firestore.rules가 새 댓글을 막는다
   if (!body) { alert('내용을 입력해 주세요.'); return; }
   try {
     if (_dbAnnEditId) {
       const docId = _dbAnnEditId;
-      await updateDoc(doc(db, 'announcements', docId), { title, body, pinned });
+      await updateDoc(doc(db, 'announcements', docId), { title, body, pinned, commentsOff });
       const t = _dbAnnList.find(a => a.docId === docId);
-      if (t) { t.title = title; t.body = body; t.pinned = pinned; }
+      if (t) { t.title = title; t.body = body; t.pinned = pinned; t.commentsOff = commentsOff; }
       _dbAnnEditId = null;
       _noticeOpenBody = docId;   // 고친 글이 어떻게 나가는지 바로 보이게 본문을 펴 둔다
     } else {
-      const docRef = await addDoc(collection(db, 'announcements'), { title, body, pinned, createdAt: serverTimestamp() });
-      _dbAnnList = [{ docId: docRef.id, title, body, pinned, createdAt: null }, ..._dbAnnList];
+      const docRef = await addDoc(collection(db, 'announcements'), { title, body, pinned, commentsOff, createdAt: serverTimestamp() });
+      _dbAnnList = [{ docId: docRef.id, title, body, pinned, commentsOff, createdAt: null }, ..._dbAnnList];
     }
     annSortList();
     if (titleEl) titleEl.value = '';   // 쓴 글은 목록으로 내려가므로 폼은 비워 둔다
     if (bodyEl)  bodyEl.value  = '';
     if (pinEl)   pinEl.checked = false;
+    if (nocmEl)  nocmEl.checked = false;
     annRefreshViews();
   } catch(e) { alert((_dbAnnEditId ? '저장' : '게시') + ' 실패: ' + e.message); }
 };
