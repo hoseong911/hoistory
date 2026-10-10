@@ -631,12 +631,13 @@ async function dbLoadThinkUngraded() {
   return true;
 }
 
-// 2단계 집계가 하나씩 끝날 때마다 다시 그린다. 같은 틀에 몰려도 한 번만 그린다.
+// 2단계 집계가 하나씩 끝날 때마다 다시 그린다. 한꺼번에 몰려도 한 번만 그린다.
+// requestAnimationFrame은 보이지 않는 탭에서 멈춰서, 대시보드를 열고 다른 탭으로 가면 "…"가 남았다.
 let _dbRenderQueued = false;
 function dbRenderSoon() {
   if (_dbRenderQueued) return;
   _dbRenderQueued = true;
-  requestAnimationFrame(() => { _dbRenderQueued = false; dbRender(); });
+  setTimeout(() => { _dbRenderQueued = false; dbRender(); }, 0);
 }
 
 // 일부만 못 받아왔을 때, 화면 위쪽에 무엇이 비었는지 적고 다시 시도할 길을 준다.
