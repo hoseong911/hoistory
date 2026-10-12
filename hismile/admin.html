@@ -139,6 +139,9 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
 
 /* ── 인증 검토 필터 ── */
 .filter-row{display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap;justify-content:center}
+/* CERTS 탭의 필터 줄 — 거르는 것은 왼쪽에 모으고 정렬 토글만 오른쪽 끝으로 민다. */
+.filter-row.split{justify-content:flex-start}
+.filter-row.split .row-right{margin-left:auto}
 .filter-row select,.filter-row input[type="date"]{padding:8px 12px;border:1.5px solid var(--hairline);border-radius:8px;font-family:inherit;font-size:14px;color:var(--ink);background:var(--canvas);outline:none}
 .filter-row select:focus,.filter-row input:focus{border-color:var(--primary)}
 
@@ -173,7 +176,9 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
   .cert-detail{flex-wrap:wrap}
 }
 /* ── CERTS 결과별 서브메뉴 ── */
-.cert-subtabs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+/* 통과·보류 두 칸뿐이라 가운데로 모은다(예전에는 실패까지 3칸 그리드였다). */
+.cert-subtabs{display:flex;justify-content:center;gap:10px;margin-bottom:14px}
+.cert-subtab{flex:0 1 240px}
 .cert-subtab{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 10px;border-radius:14px;border:1.5px solid var(--hairline-soft);background:var(--canvas);box-shadow:var(--shadow);cursor:pointer;font-family:inherit;transition:border-color .15s}
 .cert-subtab:hover{border-color:var(--hairline)}
 .cert-subtab.active{border-color:var(--primary);background:var(--primary-soft)}
@@ -262,9 +267,13 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
         </button>
       </div>
 
-      <div class="filter-row">
+      <div class="filter-row split">
         <input type="date" id="certs-date-filter" onchange="window.renderCerts()">
         <button class="btn btn-ghost btn-sm" onclick="window.clearCertsFilter()">필터 초기화</button>
+        <div class="row-right sort-toggle" id="certs-sort-toggle">
+          <button class="active" data-sort="recent" onclick="window.setCertSort('recent')">최신순</button>
+          <button data-sort="num" onclick="window.setCertSort('num')">학번순</button>
+        </div>
       </div>
       <div id="certs-list"></div>
     </div>
@@ -654,6 +663,23 @@ function updateCertsStats() {
 /* 통과 / 보류 두 가지뿐이다(2026-10-12에 실패 상태를 없앴다). 검토할 일이 있는 보류가 기본.
    옛 기록에 result가 없거나 'fail'로 남아 있어도 보류로 본다 — 'pass'가 아니면 전부 보류다. */
 let certTab = 'pending';
+
+/* 목록 정렬. 'recent'는 push id 역순(최신이 위), 'num'은 학번 오름차순이고 같은 학생 안에서는
+   다시 최신이 위로 온다. push id는 생성 순서대로 커지는 문자열이라 시각 문자열(time)을 다시
+   파싱하는 것보다 안정적이다. */
+let certSort = 'recent';
+window.setCertSort = (sort) => {
+  certSort = sort;
+  document.querySelectorAll('#certs-sort-toggle button').forEach(b => b.classList.toggle('active', b.dataset.sort === sort));
+  window.renderCerts();
+};
+function certSorter(a, b) {
+  if (certSort === 'num') {
+    const d = String(a.studentNum || '').localeCompare(String(b.studentNum || ''));
+    if (d) return d;
+  }
+  return b.id.localeCompare(a.id);
+}
 window.setCertTab = (r) => {
   certTab = r;
   document.querySelectorAll('#cert-subtabs .cert-subtab').forEach(b => b.classList.toggle('active', b.dataset.r === r));
@@ -667,9 +693,7 @@ window.renderCerts = () => {
 
   updateCertsStats();
 
-  // Firebase push id는 생성 순서대로 정렬되는 문자열이라, 시간 문자열(time)을 다시 파싱하는 것보다
-  // id 역순 정렬이 "최신이 위로" 오는 걸 안정적으로 보장한다.
-  let rows = certsFilteredByClass().sort((a, b) => b.id.localeCompare(a.id));
+  let rows = certsFilteredByClass().sort(certSorter);
   rows = rows.filter(c => (c.result === 'pass' ? 'pass' : 'pending') === resultF);
   if (dateF) rows = rows.filter(c => c.date === dateF);
 
