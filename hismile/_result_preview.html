@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>열공 마일리지 판정 결과 미리보기</title>
+<!--
+  학생이 제출한 뒤 보는 결과 칸 네 가지를 실제 제출 없이 한자리에서 본다.
+  진짜 index.html을 폰 크기 iframe으로 띄우고 window.previewCertResult(그 페이지의
+  showCertResult)를 부르므로, CSS와 마크업이 미리보기용으로 갈라지지 않는다.
+  판정 기준이나 문구를 고친 뒤 이 페이지만 열어 보면 학생 화면을 그대로 확인할 수 있다.
+-->
+<style>
+  body { margin:0; background:#23232a; color:#e8e8ef; font-family:Pretendard, -apple-system, sans-serif; padding:18px 14px 28px; }
+  h1 { font-size:17px; margin:0 0 4px; font-weight:800; }
+  .lead { font-size:12.5px; color:#a9a9b8; margin:0 0 16px; line-height:1.6; }
+  .row { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; }
+  .case { width:390px; }
+  .case h2 { font-size:13px; margin:0 0 3px; font-weight:800; }
+  .case p { font-size:11.5px; color:#a9a9b8; margin:0 0 8px; line-height:1.5; min-height:32px; }
+  iframe { width:390px; height:560px; border:0; border-radius:16px; background:#fff; box-shadow:0 8px 28px rgba(0,0,0,.45); }
+</style>
+</head>
+<body>
+<h1>열공 마일리지 — 제출 결과 화면</h1>
+<p class="lead">학생이 제출 버튼을 누른 뒤 보는 칸이다. 판정은 통과와 보류 둘뿐이며, 미흡한 항목이 있어도 실패로 떨어지지 않고 선생님 검토로 넘어간다.</p>
+<div class="row" id="row"></div>
+
+<script type="module">
+// 보여 줄 네 가지. checks는 AI가 항목별로 돌려주는 값(yes/no/unsure) 그대로다.
+const CASES = [
+  { key:'pass', title:'통과',
+    note:'여섯 항목이 모두 맞은 경우. 누적 +1일과 경험치가 들어간다.',
+    arg:[{ pass:true, pending:false, emoji:'party-popper',
+           checks:{date_ok:'yes',in_scope:'yes',content_match:'yes',own_work:'yes',is_new:'yes',writing_ok:'yes'} }, 12] },
+  { key:'no', title:'보류 — 미흡한 항목이 있음',
+    note:'예전 같으면 실패로 떨어졌을 경우. 어느 항목이 모자랐는지 표로 알려 주고 검토줄로 넘어간다.',
+    arg:[{ pass:false, pending:true, emoji:'pencil', reason:'직접 필기·풀이한 흔적이 보이지 않습니다',
+           checks:{date_ok:'yes',in_scope:'yes',content_match:'yes',own_work:'no',is_new:'yes',writing_ok:'yes'} }, 0] },
+  { key:'unsure', title:'보류 — AI가 확신하지 못함',
+    note:'사진이 흐리거나 판단이 애매한 경우. 물음표로 표시된다.',
+    arg:[{ pass:false, pending:true, emoji:'hourglass', reason:'타임스탬프가 흐려 날짜를 읽기 어렵습니다',
+           checks:{date_ok:'unsure',in_scope:'yes',content_match:'unsure',own_work:'yes',is_new:'yes',writing_ok:'yes'} }, 0] },
+  { key:'error', title:'제출이 끝나지 않음',
+    note:'사진 읽기·업로드·통신이 끊긴 경우. 이때만 [선생님께 직접 제출하기] 버튼이 나온다.',
+    arg:[{ error:true }, 0] },
+];
+
+const SRC = 'index.html?embed=1&sid=30600&sn=%EB%AF%B8%EB%A6%AC%EB%B3%B4%EA%B8%B0';
+const row = document.getElementById('row');
+
+for (const c of CASES) {
+  const box = document.createElement('div');
+  box.className = 'case';
+  box.innerHTML = `<h2>${c.title}</h2><p>${c.note}</p>`;
+  const f = document.createElement('iframe');
+  f.src = SRC;
+  f.addEventListener('load', () => {
+    // 앱이 로그인·렌더를 마칠 때까지 기다렸다가 결과 칸만 그리게 한다.
+    const tick = setInterval(() => {
+      const w = f.contentWindow;
+      if (!w || typeof w.previewCertResult !== 'function') return;
+      clearInterval(tick);
+      w.previewCertResult(...c.arg);
+      const el = f.contentDocument.getElementById('cert-result');
+      el.scrollIntoView({ block: 'center' });
+    }, 150);
+    setTimeout(() => clearInterval(tick), 15000);
+  });
+  box.appendChild(f);
+  row.appendChild(box);
+}
+</script>
+</body>
+</html>
