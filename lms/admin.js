@@ -801,10 +801,10 @@ async function dbLoadCerts() {
   const v = snap && snap.exists() ? (snap.val() || {}) : {};
   _dbCerts = Object.entries(v)
     .filter(([, c]) => c && !isTestId(c.studentNum))
-    .map(([id, c]) => ({ id, result: c.result || 'fail' }));
+    // 상태는 통과·보류 둘뿐이다(2026-10-12에 실패를 없앴다). 옛 기록도 'pass'가 아니면 보류로 본다.
+    .map(([id, c]) => ({ id, result: c.result === 'pass' ? 'pass' : 'pending' }));
   // 이 브라우저에서 처음 여는 거면 지금을 기준으로 잡는다(지금까지 쌓인 전부가 새 것으로 뜨지 않게).
-  const seen = dbCertSeen();
-  if (!seen.pending && !seen.fail) dbCertMarkSeen(['pending', 'fail']);
+  if (!dbCertSeen().pending) dbCertMarkSeen(['pending']);
 }
 
 function dbCertSeen() {
@@ -823,7 +823,7 @@ function dbCertMarkSeen(results) {
   } catch (e) {}
 }
 
-// 보류·실패 한 칸. 마지막으로 열어 본 뒤 새로 들어온 인증이 있으면 빨간 점과 개수를 붙인다.
+// 보류 한 칸. 마지막으로 열어 본 뒤 새로 들어온 인증이 있으면 빨간 점과 개수를 붙인다.
 function dbCertPart(r, label) {
   const rows = _dbCerts.filter(c => c.result === r);
   const seen = dbCertSeen()[r] || '';
@@ -837,7 +837,7 @@ function dbCertPart(r, label) {
 function dbCertChipHTML() {
   return `<div class="db-summary-card db-cert-chip">
     <div class="db-summary-label">열공 마일리지 검토</div>
-    <div class="db-summary-val">${dbWait('certs', `${dbCertPart('pending', '보류')}<span class="db-cert-sep">·</span>${dbCertPart('fail', '실패')}`)}</div>
+    <div class="db-summary-val">${dbWait('certs', dbCertPart('pending', '보류'))}</div>
   </div>`;
 }
 

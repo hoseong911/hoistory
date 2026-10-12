@@ -1,4 +1,6 @@
-// 열공 마일리지 인증을 선생님이 손으로 통과·보류·실패로 바꿀 때 쓰는 공통 처리.
+// 열공 마일리지 인증을 선생님이 손으로 통과·보류로 바꿀 때 쓰는 공통 처리.
+// 상태는 통과(pass)와 보류(pending) 둘뿐이다 — 2026-10-12에 실패를 없앴다.
+// 옛 기록에 남아 있던 'fail'은 전부 지웠고, 혹시 남아 있어도 보류와 같이 다룬다.
 // hismile/admin.html(CERTS)과 lms/admin.js(대시보드 검토 카드)가 같이 쓴다 — 두 곳이 따로 계산하면
 // 한쪽에서 승인하고 다른 쪽에서 반려할 때 일수·경험치가 어긋난다.
 //
@@ -11,7 +13,7 @@
 //   · 통과로 바꿀 때: 회수했던 건(revoked)이면 그때 회수한 만큼 되돌려 준다. 처음 승인하는 건이면 지금 설정값.
 //   · 통과에서 내릴 때: 그 인증으로 실제 받은 만큼 회수한다(grantedXp, 없으면 그날의 마일리지 지급 기록).
 //     설정값이 나중에 올랐더라도 예전 인증은 예전 금액으로 회수해야 하기 때문이다.
-//   · 보류 ↔ 실패는 일수·경험치에 손대지 않는다.
+//   · 보류로 내릴 때: 통과가 아니었다면 일수·경험치에 손대지 않는다.
 
 import { loadXPConfig, calcLevel } from '../shared/xp.js';
 
@@ -45,7 +47,7 @@ export function defaultPassXp(cert, cfgPt) {
 // fns: { ref, get, update, push } (호출하는 쪽 Firebase SDK의 함수를 넘긴다 — 버전 충돌 방지)
 // opts.xp: 통과로 바꿀 때 줄 경험치(선생님이 정한 값). 없으면 defaultPassXp.
 export async function reviewCert(rtdb, fns, certId, cert, to, opts = {}) {
-  const from = cert.result || 'fail';
+  const from = cert.result === 'pass' ? 'pass' : 'pending'; // 'fail'·빈 값은 보류로 본다
   if (from === to) return null;
   const sid = String(cert.studentNum);
   const xpBase = `xp/students/${sid}`;
@@ -102,7 +104,7 @@ export async function reviewCert(rtdb, fns, certId, cert, to, opts = {}) {
 
 // 확인 창에 띄울 한 줄 요약. pt는 통과로 바꿀 때 실제로 줄 금액.
 export function reviewSummary(cert, to, pt) {
-  const from = cert.result || 'fail';
+  const from = cert.result === 'pass' ? 'pass' : 'pending';
   if (to === 'pass') {
     const back = cert.revoked ? ` (회수했던 금액 ${Number(cert.revoked.xp) || 0}pt)` : '';
     return `누적 +1일, 경험치 +${pt}${back}`;

@@ -156,7 +156,6 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
 /* ── 배지 ── */
 .badge{display:inline-flex;align-items:center;font-size:12px;font-weight:700;padding:3px 10px;border-radius:100px;letter-spacing:.3px}
 .badge-pass{background:var(--pass-l);color:var(--pass)}
-.badge-fail{background:var(--insuf-l);color:var(--insuf)}
 .badge-pending{background:var(--warn-l);color:var(--warn)}
 .badge-override{background:var(--pick-l);color:var(--pick);margin-left:4px}
 
@@ -261,9 +260,6 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
         <button class="cert-subtab active" data-r="pending" onclick="window.setCertTab('pending')">
           <span class="cert-subtab-label">보류 목록 (검토 필요)</span><span class="cert-subtab-val" id="c-pending" style="color:var(--warn)">0</span>
         </button>
-        <button class="cert-subtab" data-r="fail" onclick="window.setCertTab('fail')">
-          <span class="cert-subtab-label">실패 목록</span><span class="cert-subtab-val" id="c-fail" style="color:var(--insuf)">0</span>
-        </button>
       </div>
 
       <div class="filter-row">
@@ -278,7 +274,7 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
       <div class="section-card">
         <div class="section-title">인증 범위 (수업 진도)</div>
         <p class="scope-desc">
-          고른 강의와 메모를 AI가 판정 기준으로 씁니다. 역사 공부라도 범위 밖이면 실패로 처리되고, 학생 화면에도 범위가 표시됩니다.
+          고른 강의와 메모를 AI가 판정 기준으로 씁니다. 역사 공부라도 범위 밖이면 통과하지 못하고 보류로 넘어가며, 학생 화면에도 범위가 표시됩니다.
           아무것도 고르지 않고 메모도 비우면 범위 검사 없이 역사 과목이면 인정합니다.
         </p>
         <div class="scope-lessons" id="scope-lessons"></div>
@@ -322,7 +318,8 @@ import { getFirestore, collection, getDocs } from "https://www.gstatic.com/fireb
 
 import { firebaseConfig } from "../shared/firebase-config.js";
 import { loadXPConfig } from "../shared/xp.js";
-import { reviewCert, reviewSummary, defaultPassXp } from "./certReview.js?v=20261010b";
+import { reviewCert, reviewSummary, defaultPassXp } from "./certReview.js?v=20261012a";
+import { CHECK_LABELS } from "./certCheck.js?v=20261012a";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -651,11 +648,12 @@ function certsFilteredByClass() {
 function updateCertsStats() {
   const rows = certsFilteredByClass();
   document.getElementById('c-pass').textContent = rows.filter(c => c.result === 'pass').length;
-  document.getElementById('c-fail').textContent = rows.filter(c => c.result === 'fail').length;
-  document.getElementById('c-pending').textContent = rows.filter(c => c.result === 'pending').length;
+  document.getElementById('c-pending').textContent = rows.filter(c => c.result !== 'pass').length;
 }
 
-let certTab = 'pending'; // 통과 / 보류 / 실패 서브메뉴. 검토할 일이 있는 보류가 기본.
+/* 통과 / 보류 두 가지뿐이다(2026-10-12에 실패 상태를 없앴다). 검토할 일이 있는 보류가 기본.
+   옛 기록에 result가 없거나 'fail'로 남아 있어도 보류로 본다 — 'pass'가 아니면 전부 보류다. */
+let certTab = 'pending';
 window.setCertTab = (r) => {
   certTab = r;
   document.querySelectorAll('#cert-subtabs .cert-subtab').forEach(b => b.classList.toggle('active', b.dataset.r === r));
@@ -672,7 +670,7 @@ window.renderCerts = () => {
   // Firebase push id는 생성 순서대로 정렬되는 문자열이라, 시간 문자열(time)을 다시 파싱하는 것보다
   // id 역순 정렬이 "최신이 위로" 오는 걸 안정적으로 보장한다.
   let rows = certsFilteredByClass().sort((a, b) => b.id.localeCompare(a.id));
-  rows = rows.filter(c => (c.result || 'fail') === resultF);
+  rows = rows.filter(c => (c.result === 'pass' ? 'pass' : 'pending') === resultF);
   if (dateF) rows = rows.filter(c => c.date === dateF);
 
   // 학생이 인증할 때마다 다시 그려지므로, 선생님이 적고 있던 경험치 값은 살려 둔다.
@@ -682,21 +680,16 @@ window.renderCerts = () => {
 
   const showLimit = 100;
   list.innerHTML = rows.slice(0, showLimit).map(c => {
-    const r = c.result || 'fail';
-    const badgeClass = r === 'pass' ? 'badge-pass' : (r === 'pending' ? 'badge-pending' : 'badge-fail');
-    const badgeLabel = r === 'pass' ? '통과' : (r === 'pending' ? '보류' : '실패');
-    let actionsHtml = '';
+    const r = c.result === 'pass' ? 'pass' : 'pending';
+    const badgeClass = r === 'pass' ? 'badge-pass' : 'badge-pending';
+    const badgeLabel = r === 'pass' ? '통과' : '보류';
     // 통과로 바꿀 때 줄 경험치는 선생님이 칸에 적는다. 회수했던 건은 회수한 금액, 아니면 지금 설정값이 미리 들어 있다.
     const xpInput = `<label class="xp-give">경험치 <input type="number" min="0" step="1" id="xp-give-${c.id}" value="${defaultPassXp(c, mileageCfgPt)}">pt</label>`;
-    if (r === 'pending') {
-      actionsHtml = `${xpInput}
-        <button class="btn btn-accent btn-sm" onclick="window.overrideCert('${c.id}', 'pass')">승인 (+1일)</button>
-        <button class="btn btn-danger btn-sm" onclick="window.overrideCert('${c.id}', 'fail')">반려</button>`;
-    } else if (r === 'fail') {
-      actionsHtml = `${xpInput}<button class="btn btn-ghost btn-sm" onclick="window.overrideCert('${c.id}', 'pass')">통과로 변경 (+1일)</button>`;
-    } else {
-      actionsHtml = `<button class="btn btn-danger btn-sm" onclick="window.overrideCert('${c.id}', 'pending')">보류로 내리기 (-1일, 경험치 회수)</button>`;
-    }
+    /* 보류에는 [승인]만 둔다. 반려는 보류로 두는 것과 같아져(실패 상태가 없다) 버튼을 없앴고,
+       정말 아닌 것은 옆의 [기록 삭제]로 지운다. */
+    const actionsHtml = r === 'pending'
+      ? `${xpInput}<button class="btn btn-accent btn-sm" onclick="window.overrideCert('${c.id}', 'pass')">승인 (+1일)</button>`
+      : `<button class="btn btn-danger btn-sm" onclick="window.overrideCert('${c.id}', 'pending')">보류로 내리기 (-1일, 경험치 회수)</button>`;
     const photoBtn = c.photoURL
       ? `<button class="btn btn-ghost btn-sm" onclick="window.showPhoto('${escHtml(c.photoURL)}')">사진 보기</button>`
       : `<button class="btn btn-ghost btn-sm" disabled>사진 없음</button>`;
@@ -732,14 +725,15 @@ window.renderCerts = () => {
   Object.entries(typed).forEach(([id, v]) => { const el = document.getElementById(id); if (el) el.value = v; });
 };
 
-// AI 항목별 판정(hismile/certCheck.js의 decide). 보류를 검토할 때 어느 항목이 걸렸는지 보이게 한다.
-const CHECK_LABELS = { date_ok: '날짜', in_scope: '진도 범위', content_match: '내용 일치', own_work: '직접 공부', is_new: '새 공부', writing_ok: '글' };
+/* AI 항목별 판정(hismile/certCheck.js의 decide). 보류를 검토할 때 어느 항목이 걸렸는지 보이게 한다.
+   이름표는 학생 화면 표와 같은 CHECK_LABELS(certCheck.js)를 쓴다 — 두 곳이 어긋나면
+   선생님이 보는 항목과 학생이 본 항목이 달라진다. */
 function checksLine(checks) {
   if (!checks) return '';
   const mark = { yes: '맞음', no: '아님', unsure: '애매' };
   const color = { yes: 'var(--pass)', no: 'var(--insuf)', unsure: 'var(--warn)' };
-  return '<div class="meta">AI 판정 · ' + Object.keys(CHECK_LABELS).map(k =>
-    `${CHECK_LABELS[k]} <b style="color:${color[checks[k]] || 'inherit'}">${mark[checks[k]] || '-'}</b>`).join(' · ') + '</div>';
+  return '<div class="meta">AI 판정 · ' + Object.entries(CHECK_LABELS).map(([k, label]) =>
+    `${label.join(' ')} <b style="color:${color[checks[k]] || 'inherit'}">${mark[checks[k]] || '-'}</b>`).join(' · ') + '</div>';
 }
 
 window.clearCertsFilter = () => {
@@ -758,8 +752,8 @@ window.showPhoto = (url) => {
 // 보류를 승인해도 경험치가 안 들어가고 통과를 취소해도 경험치가 남았다.
 window.overrideCert = async (certId, newResult) => {
   const cert = allCerts.find(c => c.id === certId);
-  if (!cert || (cert.result || 'fail') === newResult) return;
-  const resultLabel = newResult === 'pass' ? '통과' : newResult === 'pending' ? '보류' : '실패';
+  if (!cert || (cert.result === 'pass' ? 'pass' : 'pending') === newResult) return;
+  const resultLabel = newResult === 'pass' ? '통과' : '보류';
   let xp = null;
   if (newResult === 'pass') {
     const raw = document.getElementById(`xp-give-${certId}`)?.value;
@@ -786,7 +780,7 @@ function escHtml(s) {
 {
   const qp = new URLSearchParams(location.search);
   const r = qp.get('r');
-  if (['pass', 'pending', 'fail'].includes(r)) {
+  if (['pass', 'pending'].includes(r)) {
     certTab = r;
     document.querySelectorAll('#cert-subtabs .cert-subtab').forEach(b => b.classList.toggle('active', b.dataset.r === r));
   }

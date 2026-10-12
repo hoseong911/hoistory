@@ -2,7 +2,12 @@
 //
 // AI에게 맡기기 전에 기계적으로 가를 수 있는 것(같은 사진, 같은 글)은 여기서 먼저 거른다.
 // AI에게는 지난 인증 몇 건과 관리자가 정한 수업 진도를 같이 보여 주고,
-// 판정은 항목별 yes / no / unsure만 받아 통과·실패·보류를 코드에서 정한다(AI가 쓴 pass를 그대로 믿지 않는다).
+// 판정은 항목별 yes / no / unsure만 받아 통과·보류를 코드에서 정한다(AI가 쓴 pass를 그대로 믿지 않는다).
+//
+// 판정 결과는 통과(pass)와 보류(pending) **둘뿐이다**(2026-10-12). 예전에는 항목 하나라도 no면
+// 실패로 떨어뜨렸는데, 기계가 잘못 본 것을 학생이 되돌릴 길이 없었다. 지금은 못 미친 항목이
+// 있으면 전부 선생님 검토(보류)로 넘기고, 어느 항목이 걸렸는지는 checks로 학생에게 보여 준다.
+// 실패 상태를 다시 만들지 말 것.
 
 // ── 사진 지문 ──────────────────────────────────────────────
 
@@ -84,10 +89,10 @@ export function precheck({ certs, me, photoHash, photoDHash, content, feeling })
   const others = live.filter(c => String(c.studentNum) !== me);
 
   if (mine.some(c => c.photoHash === photoHash)) {
-    return { result: 'fail', reason: '예전에 인증한 사진과 같은 사진입니다', icon: 'file-text' };
+    return { result: 'pending', reason: '예전에 인증한 사진과 같은 사진으로 보여 선생님 확인 대기', icon: 'file-text' };
   }
   if (others.some(c => c.photoHash === photoHash)) {
-    return { result: 'fail', reason: '다른 학생이 인증한 사진과 같은 사진입니다', icon: 'file-text' };
+    return { result: 'pending', reason: '다른 학생이 인증한 사진과 같은 사진으로 보여 선생님 확인 대기', icon: 'file-text' };
   }
   // 지문이 아주 가깝지만 파일은 다른 경우 — 다시 저장한 같은 사진일 가능성이 높지만 단정하지 않고 선생님께 넘긴다.
   const near = live.find(c => c.photoDHash && hamming(c.photoDHash, photoDHash) <= LIMITS.dhashSame);
@@ -99,13 +104,13 @@ export function precheck({ certs, me, photoHash, photoDHash, content, feeling })
   for (const c of mine) {
     if (textSimilarity(c.studyContent, content) >= LIMITS.textOwnSame ||
         textSimilarity(c.studyFeeling, feeling) >= LIMITS.textOwnSame) {
-      return { result: 'fail', reason: `${c.date} 인증과 글이 거의 같습니다. 오늘 공부한 내용을 새로 적어 주세요`, icon: 'file-text' };
+      return { result: 'pending', reason: `${c.date} 인증과 글이 거의 같아 선생님 확인 대기. 오늘 공부한 내용으로 새로 써서 다시 내도 됩니다`, icon: 'file-text' };
     }
   }
   for (const c of others) {
     if (textSimilarity(c.studyContent, content) >= LIMITS.textOtherSame ||
         textSimilarity(c.studyFeeling, feeling) >= LIMITS.textOtherSame) {
-      return { result: 'fail', reason: '다른 학생이 쓴 글과 거의 같습니다', icon: 'file-text' };
+      return { result: 'pending', reason: '다른 학생이 쓴 글과 거의 같아 선생님 확인 대기', icon: 'file-text' };
     }
   }
   return null;
@@ -168,9 +173,9 @@ ${pastText}
 3. content_match — 학생이 적은 "공부한 내용"이 사진에서 실제로 확인된다. 사진과 무관하게 거창하게 지어낸 글이면 "no".
 4. own_work — 학생이 직접 손으로 공부한 흔적(손필기, 밑줄, 문제 풀이, 요약 정리)이 사진에 보인다. 모니터·태블릿·휴대폰 화면을 찍거나 캡처한 것, 인쇄물이나 남의 필기를 찍기만 한 것, 교과서·문제집을 깨끗한 채로 펼쳐 놓기만 한 것은 "no".
 5. is_new — 지난 인증 사진들과 다른 새 공부다. 같은 노트 페이지·같은 문제지를 각도, 조명, 타임스탬프만 바꿔 다시 찍었거나, 지난 인증 글과 사실상 같은 내용이면 "no". 지난 인증이 없으면 "yes".
-6. writing_ok — 학생 글이 오늘 공부를 제대로 설명한다. 둘 다 맞아야 "yes".
-   - 공부한 내용: 사진 속 구체적인 개념·사건·인물·제도 이름을 2개 이상 들어, 무엇을 알게 됐는지 문장으로 설명한다. "24강 복습", "기출문제를 풀었다", "왜란을 공부했다"처럼 단원명이나 활동만 적은 글은 "no".
-   - 느낀 점: 오늘 공부한 내용과 이어진 생각(새로 안 점, 헷갈린 점, 궁금해진 점, 이전과 달라진 이해)이 드러난다. "뿌듯했다", "재미있었다", "모르는 부분을 점검했다", "더 열심히 해야겠다"처럼 어느 날에나 쓸 수 있는 말뿐이면 "no".
+6. writing_ok — 학생 글로 오늘 무엇을 공부했는지 알아볼 수 있다. 이 항목은 **넉넉하게** 보고, 애매하면 "yes"로 한다. 글솜씨를 보는 자리가 아니라 아무 내용 없이 칸만 채운 글을 걸러 내는 자리다. 아래 둘을 다 지키면 "yes".
+   - 공부한 내용: 사진 속 개념·사건·인물·제도 이름이 **하나라도** 들어 있다. 이름이 하나도 없이 "24강 복습", "기출문제를 풀었다"처럼 단원명이나 활동만 적은 글만 "no".
+   - 느낀 점: 오늘 공부한 것과 이어진 말이 한 마디라도 있다. 짧아도 무엇에 대한 느낌인지 알 수 있으면 "yes". 공부한 내용을 가리키는 말이 전혀 없이 "뿌듯했다", "재미있었다", "더 열심히 해야겠다"뿐이면 "no".
    글을 대신 고쳐 쓰지 말고, "no"면 무엇이 빠졌는지만 writing_feedback에 적는다.
 
 JSON 한 줄만 반환하세요:
@@ -178,7 +183,19 @@ JSON 한 줄만 반환하세요:
   return blocks;
 }
 
-const CHECK_FAIL = {
+/* 학생 화면 판정 표의 머리글. 가로 6칸에 들어가도록 두 토막으로 끊어 둔다.
+   순서가 곧 표의 칸 순서이자 아래 CHECK_NOTE에서 첫 미흡 항목을 고르는 순서다. */
+export const CHECK_LABELS = {
+  date_ok:       ['오늘', '날짜'],
+  in_scope:      ['진도', '범위'],
+  content_match: ['내용', '일치'],
+  own_work:      ['직접', '필기'],
+  is_new:        ['새',   '공부'],
+  writing_ok:    ['글',   '충실'],
+};
+
+// 못 미친 항목을 학생에게 한 줄로 알려 주는 문구(판정은 보류다 — 다시 내도 되고 그냥 두면 선생님이 본다).
+const CHECK_NOTE = {
   date_ok:       r => ({ reason: r.photo_date
                            ? `사진 날짜가 오늘이 아닙니다 (${r.photo_date})`
                            : '타임스탬프 앱 날짜가 없습니다. 손으로 쓴 날짜는 인정되지 않아요', icon: 'calendar-days' }),
@@ -187,16 +204,18 @@ const CHECK_FAIL = {
   own_work:      () => ({ reason: '직접 필기·풀이한 흔적이 보이지 않습니다', icon: 'pencil' }),
   is_new:        () => ({ reason: '지난 인증과 같은 공부 자료입니다', icon: 'file-text' }),
   // 사진 쪽 문제를 먼저 알려 주도록 글 항목은 맨 뒤에 둔다(decide는 이 순서로 첫 실패를 고른다).
-  writing_ok:    r => ({ reason: '글을 더 구체적으로 써 주세요. ' + (r.writing_feedback || '배운 개념·사건과 그에 대한 생각을 적어 주세요'), icon: 'pencil' }),
+  writing_ok:    r => ({ reason: '글을 조금 더 자세히 써 주세요. ' + (r.writing_feedback || '배운 개념이나 사건 이름을 넣어 주세요'), icon: 'pencil' }),
 };
 
-// AI 응답(JSON)을 통과·실패·보류로. 하나라도 no면 실패, no 없이 unsure가 있으면 보류, 전부 yes면 통과.
+// AI 응답(JSON)을 통과·보류로. 전부 yes면 통과, 그 밖에는 모두 보류다.
+// 못 미친 항목(no)이 있으면 그 항목의 안내 문구를 함께 돌려주어 학생이 무엇을 고치면 되는지 알게 한다.
+// 미흡을 실패로 떨어뜨리지 않는 것이 의도다 — 기계가 잘못 봐도 선생님이 되돌릴 수 있어야 한다.
 export function decide(r) {
-  const keys = Object.keys(CHECK_FAIL);
+  const keys = Object.keys(CHECK_NOTE);
   const checks = {};
   keys.forEach(k => { checks[k] = ['yes', 'no', 'unsure'].includes(r?.[k]) ? r[k] : 'unsure'; });
   const no = keys.find(k => checks[k] === 'no');
-  if (no) return { result: 'fail', checks, ...CHECK_FAIL[no](r || {}) };
+  if (no) return { result: 'pending', checks, ...CHECK_NOTE[no](r || {}) };
   if (keys.some(k => checks[k] === 'unsure')) {
     return { result: 'pending', checks, reason: (r && r.reason) || '판단이 어려워 선생님 검토 대기', icon: 'hourglass' };
   }
