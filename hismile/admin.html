@@ -595,7 +595,7 @@ function renderStudentModalBody(studentId) {
   const days = mileage[studentId] || 0;
   const certs = allCerts
     .filter(c => String(c.studentNum) === studentId && c.result === 'pass')
-    .sort((a, b) => b.id.localeCompare(a.id)); // Firebase push id는 시간순 정렬이 보장되어 최신이 먼저 오도록 내림차순 비교
+    .sort(byIdDesc); // 최신이 먼저(위의 byIdDesc 주석 참고 — localeCompare를 쓰면 안 된다)
 
   const certsHtml = certs.length
     ? certs.map(c => `
@@ -664,9 +664,13 @@ function updateCertsStats() {
    옛 기록에 result가 없거나 'fail'로 남아 있어도 보류로 본다 — 'pass'가 아니면 전부 보류다. */
 let certTab = 'pending';
 
-/* 목록 정렬. 'recent'는 push id 역순(최신이 위), 'num'은 학번 오름차순이고 같은 학생 안에서는
-   다시 최신이 위로 온다. push id는 생성 순서대로 커지는 문자열이라 시각 문자열(time)을 다시
-   파싱하는 것보다 안정적이다. */
+/* push id를 시간순으로 비교한다. 코드 단위로 비교해야 한다 — localeCompare는 로캘 규칙을
+   따르느라 id에 섞인 '-' '_' 를 무시하고 대소문자를 알파벳 순으로 묶어 버려서, 실제 기록
+   258건으로 재어 보니 전체 쌍의 약 6%가 생성 순서와 어긋났다(10/11 제출이 10/08 아래로
+   내려가는 식). Firebase push id는 코드 단위 비교로만 생성 순서가 보장된다. */
+const byIdDesc = (a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0);
+
+/* 목록 정렬. 'recent'는 최신이 위, 'num'은 학번 오름차순이고 같은 학생 안에서는 다시 최신이 위다. */
 let certSort = 'recent';
 window.setCertSort = (sort) => {
   certSort = sort;
@@ -675,10 +679,10 @@ window.setCertSort = (sort) => {
 };
 function certSorter(a, b) {
   if (certSort === 'num') {
-    const d = String(a.studentNum || '').localeCompare(String(b.studentNum || ''));
-    if (d) return d;
+    const x = String(a.studentNum || ''), y = String(b.studentNum || '');
+    if (x !== y) return x < y ? -1 : 1;
   }
-  return b.id.localeCompare(a.id);
+  return byIdDesc(a, b);
 }
 window.setCertTab = (r) => {
   certTab = r;
