@@ -9,7 +9,7 @@ import { initAuth, verifyStudentId, verifyStudentName, isStudentMapLoaded } from
 import "../shared/offline.js";
 import { firebaseConfig } from "../shared/firebase-config.js";
 import { initXP, onXPChange, checkAndAddAttendance, calcLevel,
-         addAnnCommentXP, addAnnLikeXP, addLotteryXP, getLotteryToday } from "../shared/xp.js";
+         addAnnCommentXP, addAnnLikeXP, addLotteryXP, getLotteryToday, lotteryStateFrom } from "../shared/xp.js?v=20261012";
 import { findBadWord } from "../shared/profanity.js";
 import { icon } from "../shared/icons.js?v=20260918";
 import { blockPaste } from "../shared/textLimit.js?v=20260901";
@@ -1259,7 +1259,7 @@ function renderLotteryBanner() {
   document.getElementById('lbIcon').innerHTML = icon(done ? 'clock' : 'gift', 22);
   document.getElementById('lbSub').textContent = done
     ? (_ltState.last ? `오늘은 ${ltRankLabel(_ltState.last.rank)}` : '내일 다시')
-    : `남은 ${remain}회` + (ltTodoText() ? ' · ' + ltTodoText() : '');
+    : `남은 ${remain}회` + (ltTodoText() ? ', ' + ltTodoText() : '');
   document.getElementById('lbBadge').textContent = done ? '내일 다시' : '뽑으러 가기';
 }
 
@@ -1329,13 +1329,21 @@ function ltSyncFoot() {
                  : (remain > 1 ? `뽑기 (남은 ${remain}회)` : '뽑기');
 }
 
+/* 모달이 열려 있는 동안에도 남은 횟수가 바뀔 수 있다(다른 탭·iframe에서 활동을 끝낸 경우).
+   열려 있을 때만 머리말을 다시 쓴다. */
+function ltSyncHead() {
+  const el = document.getElementById('ltHeadSub');
+  if (!el || !document.getElementById('lotteryModal')?.classList.contains('open')) return;
+  const remain = ltRemain();
+  el.textContent = remain > 0 ? `남은 ${remain}회` + (ltTodoText() ? ', ' + ltTodoText() : '')
+                              : '내일 다시';
+}
+
 function ltOpen() {
   document.getElementById('lotteryModal').classList.add('open');
   document.getElementById('ltHeadIcon').innerHTML = icon('gift', 22);
   const remain = ltRemain();
-  document.getElementById('ltHeadSub').textContent =
-    remain > 0 ? `남은 ${remain}회` + (ltTodoText() ? ' · ' + ltTodoText() : '')
-               : '내일 다시';
+  ltSyncHead();
   // 아직 뽑을 수 있으면 '?' 칸으로 두고, 다 썼으면 마지막 결과를 그대로 보여 준다.
   if (remain <= 0 && _ltState.last) {
     ltPaintResult(_ltState.last.rank, _ltState.last.pt);
@@ -1383,6 +1391,19 @@ async function ltDraw() {
 async function initLottery() {
   _ltState = await getLotteryToday();
   renderLotteryBanner();
+  /* 복습 활동으로 늘어난 뽑기 횟수가 이 페이지에 안 나타나던 문제(2026-10-12).
+     OX 퀴즈·마일리지는 모달 iframe에서, 타이핑 복습은 새 탭(lecture.html)에서 끝나므로
+     이 페이지는 다시 로드되지 않는다 — 한 번 읽어 둔 현황으로는 "오늘은 다 뽑았습니다"가
+     그대로 남아 있었다. xp 학생 노드 구독에 걸어, 티켓이 찍히는 순간 남은 횟수가 따라온다. */
+  onXPChange(state => {
+    _ltState = lotteryStateFrom(state);
+    if (_ltBusy) return;            // 릴이 도는 중엔 결과를 미리 칠하지 않는다
+    renderLotteryBanner();
+    ltSyncFoot();
+    ltSyncHead();
+    // 다 뽑은 줄 알고 결과를 띄워 둔 화면에 티켓이 들어왔으면 '?' 칸으로 되돌린다.
+    if (ltRemain() > 0 && document.getElementById('ltStage')?.classList.contains('done')) ltPaintReady();
+  });
 }
 
 document.getElementById('lotteryBanner')?.addEventListener('click', ltOpen);

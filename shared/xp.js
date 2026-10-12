@@ -359,22 +359,30 @@ export async function addLotteryXP(rank, pt, label) {
            used: result.used, max: result.max, remain: result.max - result.used };
 }
 
-/* 오늘 뽑기 현황.
+/* 오늘 뽑기 현황 — 학생 노드(raw) 하나만 보고 셈하는 순수 함수다.
    { used, max, remain, tickets: {활동: true}, last: { day, rank, pt } | null }
-   last는 마지막으로 뽑은 결과다 — 남은 횟수가 있어도 직전 결과를 그대로 보여 주려고 든다. */
-export async function getLotteryToday() {
-  if (!_rtdb || !_sid) return { used: 0, max: 1, remain: 1, tickets: {}, last: null };
+   last는 마지막으로 뽑은 결과다 — 남은 횟수가 있어도 직전 결과를 그대로 보여 주려고 든다.
+   화면 쪽은 이 함수를 onXPChange 구독에 걸어 쓴다. 복습 활동은 다른 탭(lecture.html)이나
+   모달 iframe(마일리지·OX 퀴즈)에서 끝나므로, 페이지가 한 번 읽어 둔 값만 들고 있으면
+   활동으로 늘어난 횟수가 그 페이지에 영영 나타나지 않는다(2026-10-12에 고쳤다). */
+export function lotteryStateFrom(raw) {
+  const cur   = raw || {};
   const today = _today();
+  const max   = _lotteryMax(cur, today);
+  const used  = (cur.lotteryUsed && cur.lotteryUsed.day === today) ? (Number(cur.lotteryUsed.n) || 0) : 0;
+  const tickets = {};
+  LOTTERY_TICKET_SOURCES.forEach(k => { if ((cur.lotteryTickets || {})[k] === today) tickets[k] = true; });
+  const last = (cur.lottery && cur.lottery.day === today) ? cur.lottery : null;
+  return { used, max, remain: Math.max(0, max - used), tickets, last };
+}
+
+// 한 번 읽어 같은 셈을 한다(구독이 붙기 전 첫 화면용).
+export async function getLotteryToday() {
+  if (!_rtdb || !_sid) return lotteryStateFrom(null);
   try {
     const snap = await _fb.get(_fb.ref(_rtdb, `${XP_ROOT}/students/${_sid}`));
-    const cur  = snap.exists() ? (snap.val() || {}) : {};
-    const max  = _lotteryMax(cur, today);
-    const used = (cur.lotteryUsed && cur.lotteryUsed.day === today) ? (Number(cur.lotteryUsed.n) || 0) : 0;
-    const tickets = {};
-    LOTTERY_TICKET_SOURCES.forEach(k => { if ((cur.lotteryTickets || {})[k] === today) tickets[k] = true; });
-    const last = (cur.lottery && cur.lottery.day === today) ? cur.lottery : null;
-    return { used, max, remain: Math.max(0, max - used), tickets, last };
-  } catch (e) { return { used: 0, max: 1, remain: 1, tickets: {}, last: null }; }
+    return lotteryStateFrom(snap.exists() ? (snap.val() || {}) : {});
+  } catch (e) { return lotteryStateFrom(null); }
 }
 
 // ── 어드민 전용 ──
