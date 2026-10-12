@@ -9,7 +9,7 @@ import { initAuth, verifyStudentId, verifyStudentName, isStudentMapLoaded } from
 import "../shared/offline.js";
 import { firebaseConfig } from "../shared/firebase-config.js";
 import { initXP, onXPChange, checkAndAddAttendance, calcLevel,
-         addAnnCommentXP, addAnnLikeXP, addLotteryXP, getLotteryToday, lotteryStateFrom } from "../shared/xp.js?v=20261012";
+         addAnnCommentXP, addAnnLikeXP, addLotteryXP, getLotteryToday, lotteryStateFrom } from "../shared/xp.js?v=20261012b";
 import { findBadWord } from "../shared/profanity.js";
 import { icon } from "../shared/icons.js?v=20260918";
 import { blockPaste } from "../shared/textLimit.js?v=20260901";
@@ -1237,7 +1237,7 @@ function ltDrawOnce() {
 }
 
 /* 오늘 뽑기 현황 { used, max, remain, tickets, last } — xp.js의 getLotteryToday가 준다. */
-let _ltState = { used: 0, max: 1, remain: 1, tickets: {}, last: null };
+let _ltState = { used: 0, max: 1, bonus: 0, remain: 1, tickets: {}, last: null };
 let _ltBusy  = false;
 
 const ltRemain = () => _ltState.remain;
@@ -1335,8 +1335,11 @@ function ltSyncHead() {
   const el = document.getElementById('ltHeadSub');
   if (!el || !document.getElementById('lotteryModal')?.classList.contains('open')) return;
   const remain = ltRemain();
-  el.textContent = remain > 0 ? `남은 ${remain}회` + (ltTodoText() ? ', ' + ltTodoText() : '')
-                              : '내일 다시';
+  const bonus  = _ltState.bonus || 0;
+  el.textContent = remain > 0
+    ? `남은 ${remain}회` + (bonus ? ` (보너스 ${bonus}회 포함)` : '')
+                        + (ltTodoText() ? ', ' + ltTodoText() : '')
+    : '내일 다시';
 }
 
 function ltOpen() {

@@ -101,7 +101,12 @@ export function calcNextThreshold(total, levels, formula) {
    기본 1회에 더해, 아래 활동을 그날 처음 해내면 뽑기를 한 번씩 더 준다.
    저장 위치: xp/students/{sid}/lotteryTickets/{활동} = 티켓을 딴 날짜
    날짜를 값으로 들고 있으므로 다음 날이 되면 자동으로 무효가 된다(따로 청소할 게 없다).
-   실제로 몇 번 썼는지는 lotteryUsed = { day, n }이 센다. */
+   실제로 몇 번 썼는지는 lotteryUsed = { day, n }이 센다.
+
+   이와 별도로 lotteryBonus(숫자)는 "날짜와 무관하게 남아 있는 추가 뽑기"다. 오늘치를
+   다 쓴 뒤에만 한 장씩 꺼내 쓰고 쓸 때마다 1씩 줄어든다 — 날짜가 없으므로 다음 날로
+   넘어가도 사라지지 않는다. 뒤늦게 보상할 때(2026-10-12에 못 쓴 횟수를 돌려줬다)
+   쓰려고 만들었다. */
 export const LOTTERY_TICKET_SOURCES = ['oxQuiz', 'mileage', 'typingReview'];
 
 // 트랜잭션 안에서 쓰는 순수 함수 — cur를 건드리지 않고 오늘치 티켓 수만 센다.
@@ -111,6 +116,28 @@ function _ticketCount(cur, today) {
 }
 // 오늘 뽑을 수 있는 총 횟수(기본 1 + 활동 보너스).
 function _lotteryMax(cur, today) { return 1 + _ticketCount(cur, today); }
+// 오늘 이미 쓴 횟수. lotteryUsed는 날짜를 함께 들고 있어 어제 것은 0으로 본다.
+function _usedToday(cur, today) {
+  return (cur && cur.lotteryUsed && cur.lotteryUsed.day === today) ? (Number(cur.lotteryUsed.n) || 0) : 0;
+}
+
+/* 경험치 없이 뽑기 티켓만 찍는다.
+   활동은 해냈는데 경험치 쪽 상한에 막혀 지급이 없는 경우를 위한 길이다 — 타이핑 복습은
+   한 강의로 받을 수 있는 횟수(perLectureMax)를 다 쓰면 XP가 안 붙지만, 복습을 한 것은
+   사실이므로 뽑기 한 번은 준다(2026-10-12 결정).
+   값이 날짜라 하루에 여러 번 해도 한 장이고, 다음 날이면 저절로 무효가 된다. */
+export async function addLotteryTicket(source) {
+  if (!_rtdb || !_sid || !LOTTERY_TICKET_SOURCES.includes(source)) return null;
+  const today = _today();
+  let stamped = false;
+  const txRes = await _fb.runTransaction(_fb.ref(_rtdb, `${XP_ROOT}/students/${_sid}`), cur => {
+    cur = cur || {};
+    if ((cur.lotteryTickets || {})[source] === today) return; // 이미 오늘 받음 → 중단
+    stamped = true;
+    return { ...cur, name: _sname, lotteryTickets: { ...(cur.lotteryTickets || {}), [source]: today } };
+  });
+  return (txRes.committed && stamped) ? { ticket: source, day: today } : null;
+}
 
 // ── XP 적립 ──
 // gate를 주면 "읽고→확인→쓰기" 사이 시간차로 같은 지급이 여러 번 통과하는 레이스 컨디션을
@@ -182,15 +209,22 @@ export async function addTypingReviewXP(lectureNum) {
   const act = _config?.activities?.typingReview;
   if (!act?.enabled) return null;
   const key = _lectureKey(lectureNum);
-  if (!key) return null; // 강의 번호를 모르면 어느 강의 몫인지 셀 수 없으므로 지급하지 않는다
   const max = Number(act.perLectureMax ?? DEFAULT_ACTIVITIES.typingReview.perLectureMax) || 0;
-  if (max <= 0) return null;
 
   //  몇 강을 복습했는지 기록에 남긴다. 예전엔 그냥 '타이핑 복습'이라 어드민 기록에서
   //  어느 강의였는지 알 수 없었다(2026-09-03). 어드민은 이 lec을 보고 "타이핑 복습(28강)"으로 적는다.
-  const res = await addXP('typingReview', act.pt ?? 20, '타이핑 복습',
-    { day: 'lastTypingReview', map: 'typingReviewCounts', key, max }, { lec: key }, 'typingReview');
+  //  강의 번호를 모르거나(key 없음) 상한이 0이면 어느 강의 몫인지 셀 수 없어 지급하지 않는다.
+  const res = (key && max > 0)
+    ? await addXP('typingReview', act.pt ?? 20, '타이핑 복습',
+        { day: 'lastTypingReview', map: 'typingReviewCounts', key, max }, { lec: key }, 'typingReview')
+    : null;
   if (res) return res;
+
+  /* 지급이 막혔어도(강의 상한 소진·오늘 이미 받음) 복습을 한 것은 사실이므로 뽑기 티켓은
+     따로 찍는다 — 경험치는 주지 않는다. 호출부(lecture.html)가 정답률 90%를 넘겨야만
+     여기까지 오므로, 이 자리가 곧 "복습을 해냈다"는 뜻이다. */
+  await addLotteryTicket('typingReview').catch(() => null);
+  if (!key || max <= 0) return null;
 
   // 못 받았을 때 "오늘 이미 받음"인지 "이 강의 상한 소진"인지 구분해서 알려준다
   // (안내 문구가 달라야 하므로 한 번 더 읽는다).
@@ -338,17 +372,25 @@ export async function addLotteryXP(rank, pt, label) {
   let result = null;
   const txRes = await _fb.runTransaction(_fb.ref(_rtdb, base), cur => {
     cur = cur || {};
-    const max  = _lotteryMax(cur, today);
-    const used = (cur.lotteryUsed && cur.lotteryUsed.day === today) ? (Number(cur.lotteryUsed.n) || 0) : 0;
-    if (used >= max) return;                                // 남은 횟수 없음 → 중단
+    const max   = _lotteryMax(cur, today);
+    const used  = _usedToday(cur, today);
+    const bonus = Number(cur.lotteryBonus) || 0;
+    const daily = Math.max(0, max - used);                  // 오늘치로 남은 횟수
+    if (daily <= 0 && bonus <= 0) return;                   // 남은 횟수 없음 → 중단
+    // 오늘치를 먼저 쓰고, 다 썼으면 보너스에서 한 장 꺼낸다(보너스는 날짜와 무관하다).
+    const useBonus  = daily <= 0;
+    const nextUsed  = useBonus ? used : used + 1;
+    const nextBonus = useBonus ? bonus - 1 : bonus;
     const prevTotal = cur.total || 0;
     const newTotal  = Math.max(0, prevTotal + pt);
     const real      = newTotal - prevTotal;
     const newLevel  = calcLevel(newTotal);
-    result = { newTotal, newLevel, wasLevel: calcLevel(prevTotal), real, used: used + 1, max };
+    result = { newTotal, newLevel, wasLevel: calcLevel(prevTotal), real,
+               used: nextUsed, max, remain: Math.max(0, max - nextUsed) + nextBonus };
     const next = { ...cur, total: newTotal, level: newLevel, name: _sname };
-    next.lottery     = { day: today, rank, pt: real };      // 마지막으로 뽑은 결과(화면 복원용)
-    next.lotteryUsed = { day: today, n: used + 1 };
+    next.lottery      = { day: today, rank, pt: real };     // 마지막으로 뽑은 결과(화면 복원용)
+    next.lotteryUsed  = { day: today, n: nextUsed };
+    next.lotteryBonus = nextBonus;
     next.history = { ...(cur.history || {}),
       [histKey]: { type: 'lottery', pt: real, note: `일일 뽑기 ${rank === 0 ? '꽝' : (rank === 'S' ? '스페셜 S' : rank + '등')}`, ts: Date.now() } };
     return next;
@@ -356,7 +398,7 @@ export async function addLotteryXP(rank, pt, label) {
   if (!txRes.committed || !result) return null;
   return { rank, pt: result.real, newTotal: result.newTotal, newLevel: result.newLevel,
            levelUp: result.newLevel > result.wasLevel,
-           used: result.used, max: result.max, remain: result.max - result.used };
+           used: result.used, max: result.max, remain: result.remain };
 }
 
 /* 오늘 뽑기 현황 — 학생 노드(raw) 하나만 보고 셈하는 순수 함수다.
@@ -369,11 +411,12 @@ export function lotteryStateFrom(raw) {
   const cur   = raw || {};
   const today = _today();
   const max   = _lotteryMax(cur, today);
-  const used  = (cur.lotteryUsed && cur.lotteryUsed.day === today) ? (Number(cur.lotteryUsed.n) || 0) : 0;
+  const used  = _usedToday(cur, today);
+  const bonus = Math.max(0, Number(cur.lotteryBonus) || 0);
   const tickets = {};
   LOTTERY_TICKET_SOURCES.forEach(k => { if ((cur.lotteryTickets || {})[k] === today) tickets[k] = true; });
   const last = (cur.lottery && cur.lottery.day === today) ? cur.lottery : null;
-  return { used, max, remain: Math.max(0, max - used), tickets, last };
+  return { used, max, bonus, remain: Math.max(0, max - used) + bonus, tickets, last };
 }
 
 // 한 번 읽어 같은 셈을 한다(구독이 붙기 전 첫 화면용).
