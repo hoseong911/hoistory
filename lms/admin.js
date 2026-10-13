@@ -556,21 +556,8 @@ async function dbLoad() {
        아직 못 받은 칸은 "…"로 둔다(dbWait). */
     const done = key => { _dbPending.delete(key); dbRenderSoon(); };
     await Promise.all([
-      // 오늘 출석·복습·뽑기 — 경험치 전체(학생별 기록 포함)를 받아야 해서 무겁다
-      dbSafe(get(ref(rtdb, `${XP_ROOT}/students`)), null).then(xpSnap => {
-        if (!xpSnap) _dbLate.push('오늘 집계');
-        const xp = xpSnap && xpSnap.exists() ? (xpSnap.val() || {}) : {};
-        // 뽑기는 하루 한 번이라 lottery.day가 오늘이면 그 학생이 오늘 참여한 것이다(shared/xp.js).
-        let attend = 0, review = 0, lottery = 0;
-        Object.entries(xp).forEach(([sid, x]) => {
-          if (!x || isTestId(sid)) return;
-          if (x.lastAttendance === today) attend++;
-          if (x.lastTypingReview === today) review++;
-          if (x.lottery && x.lottery.day === today) lottery++;
-        });
-        if (xpSnap) _dbToday = { attend, review, lottery };
-        done('today');
-      }),
+      // 오늘 출석·복습·뽑기
+      dbSafe(dbLoadToday(today), false, 20000).then(ok => { if (!ok) _dbLate.push('오늘 집계'); done('today'); }),
       dbSafe(dbLoadThinkUngraded(), false, 20000).then(ok => { if (!ok) _dbLate.push('제출 현황'); done('grade'); }),
       // 조회수·좋아요·댓글. 댓글 줄의 [차단]/[해제]가 맞게 뜨도록 차단 명단도 같이 읽는다.
       Promise.all([dbLoadAnnReads(), dbSafe(noticeLoadComments(), null), noticeLoadBans()])
@@ -586,6 +573,29 @@ async function dbLoad() {
   } finally {
     _dbLoading = false;
   }
+}
+
+/* 오늘 출석·복습·뽑기 학생 수. 예전에는 경험치 전체(xp/students, 학생별 적립 기록까지
+   0.9MB)를 받아 날짜 칸 세 개만 봤다. 모바일 데이터에선 이것 하나로 몇 초가 걸렸다.
+   이제 명단의 학생마다 그 세 칸만 따로 묻는다. 요청 수는 많아도(학생 수 × 3) 한 연결로
+   몰아 보내고 응답이 날짜 한 줄이라 다 합쳐도 수십 KB다.
+   (orderByChild 조회는 database.rules.json에 .indexOn이 없어 서버가 전체를 보낸다.) */
+async function dbLoadToday(today) {
+  const ids = _dbStudents.map(s => s.studentId).filter(sid => !isTestId(sid));
+  const val = async path => { const s = await get(ref(rtdb, path)); return s.exists() ? s.val() : null; };
+  const rows = await Promise.all(ids.map(sid => {
+    const base = `${XP_ROOT}/students/${sid}`;
+    // 뽑기는 하루 한 번이라 lottery.day가 오늘이면 그 학생이 오늘 참여한 것이다(shared/xp.js).
+    return Promise.all([val(`${base}/lastAttendance`), val(`${base}/lastTypingReview`), val(`${base}/lottery/day`)]);
+  }));
+  let attend = 0, review = 0, lottery = 0;
+  rows.forEach(([a, r, l]) => {
+    if (a === today) attend++;
+    if (r === today) review++;
+    if (l === today) lottery++;
+  });
+  _dbToday = { attend, review, lottery };
+  return true;
 }
 
 /* 생각 체크 강의별 미채점 수. 예전에는 제출물 전체(1천 건 넘게, 수 MB)를 받아 셌다.
@@ -615,20 +625,42 @@ async function dbLoadThinkUngraded() {
   _dbThink.forEach((t, i) => { t.ungraded = Math.max(0, counts[i] - (testUngraded[t.docId] || 0)); });
   dbRenderSoon();
 
+  // 반을 찾는 데는 학번·채점 여부·제출 시각 세 칸이면 된다. 웹 SDK는 필드를 골라 받을 수
+  // 없어 제출물 전체(강의당 0.25MB, 글 본문과 AI 결과 포함)를 받았으므로 REST의 select로
+  // 세 칸만 받는다(강의당 압축 6KB 안팎).
   await Promise.all(_dbThink.filter(t => t.ungraded > 0).map(async t => {
-    const snap = await getDocs(query(col, where('lectureDocId', '==', t.docId)));
+    const subs = await fsSelectWhere('think_submissions', 'lectureDocId', t.docId, ['id', 'thGraded', 'createdAt']);
     let best = null;
-    snap.docs.forEach(d => {
-      const s = d.data();
-      if (s.thGraded === true || isTestId(s.id)) return;
-      const cls = parseInt(String(s.id || '').slice(1, 3), 10); // 학번 2~3번째 자리가 반
-      const secs = s.createdAt?.seconds || 0;
-      if (cls >= 1 && cls <= 9 && (!best || secs > best.secs)) best = { secs, cls };
+    subs.forEach(f => {
+      const sid = f.id?.stringValue ?? String(f.id?.integerValue ?? '');
+      if (f.thGraded?.booleanValue === true || isTestId(sid)) return;
+      const cls = parseInt(sid.slice(1, 3), 10); // 학번 2~3번째 자리가 반
+      const at = f.createdAt?.timestampValue || '';  // ISO 문자열이라 글자 순서가 곧 시간 순서
+      if (cls >= 1 && cls <= 9 && (!best || at > best.at)) best = { at, cls };
     });
     t.ungradedCls = best ? best.cls : 0;
   }));
   _dbThink.filter(t => !t.ungraded).forEach(t => { t.ungradedCls = 0; });
   return true;
+}
+
+/* 파이어스토어 REST로 "field == value"인 문서들의 몇 칸만 받는다. 돌려주는 것은 REST 형식
+   fields 목록이다({ id: { stringValue }, ... }). 로그인한 선생님 토큰을 실어 보내므로
+   규칙은 SDK로 읽을 때와 같다. */
+async function fsSelectWhere(collectionId, field, value, fields) {
+  const token = auth.currentUser ? await auth.currentUser.getIdToken() : '';
+  const url = `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)/documents:runQuery`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({ structuredQuery: {
+      from: [{ collectionId }],
+      select: { fields: fields.map(f => ({ fieldPath: f })) },
+      where: { fieldFilter: { field: { fieldPath: field }, op: 'EQUAL', value: { stringValue: value } } },
+    } }),
+  });
+  if (!res.ok) throw new Error(`REST ${res.status}`);
+  return (await res.json()).filter(r => r.document).map(r => r.document.fields || {});
 }
 
 // 2단계 집계가 하나씩 끝날 때마다 다시 그린다. 한꺼번에 몰려도 한 번만 그린다.
@@ -906,8 +938,7 @@ window.dbMoreComments = function(annId) {
 function annTableHTML(head, showComments) {
   if (!_dbAnnList.length) return '<p class="ann-empty">등록된 공지가 없습니다.</p>';
   const row = a => {
-    const rows  = _dbAnnReads[a.docId] || [];
-    const likes = rows.filter(r => r.liked).length;
+    const st = _dbAnnReads[a.docId] || { reads: 0, likes: 0 };
     const stat = n =>
       `<button class="ann-stat" onclick="openAnnStats('${a.docId}')" title="누가 읽었는지 봅니다">${dbWait('ann', n)}</button>`;
     // 댓글 수는 두 화면 모두 보인다. 누르면 설정 NOTICE는 댓글만 그 아래로 펼치고,
@@ -924,8 +955,8 @@ function annTableHTML(head, showComments) {
     return `<div class="ann-row has-cm${a.docId === _dbAnnEditId ? ' editing' : ''}${a.pinned ? ' pinned' : ''}">
       <span class="ann-c-title" title="${esc(a.title || '')}">${a.pinned ? `<span class="ann-pin" title="상단 고정">${icon('pin', 13)}</span>` : ''}<button class="ann-title-btn${openBody ? ' open' : ''}" onclick="noticeToggleBody('${a.docId}')" title="본문 보기">${icon('chevron-right', 13)}<span>${esc(a.title || '(제목 없음)')}</span></button></span>
       <span class="ann-c-date">${dbAnnDate(a.createdAt)}</span>
-      <span class="ann-c-num">${stat(rows.length)}</span>
-      <span class="ann-c-num">${stat(likes)}</span>
+      <span class="ann-c-num">${stat(st.reads)}</span>
+      <span class="ann-c-num">${stat(st.likes)}</span>
       ${cmCell}
       <span class="ann-c-btns">
         <button class="stu-btn stu-btn-edit" onclick="dbEditAnnouncement('${a.docId}')">수정</button>
@@ -1162,28 +1193,58 @@ function annRefreshViews() {
 /* ── 공지 열람 명단 · 좋아요 ──
    학생 화면에서 글을 열면 announcement_reads에 "공지ID_학번" 문서가 한 건 남고,
    좋아요를 누르면 그 문서의 liked가 켜진다. 여기서는 그 기록을 공지별로 모아
-   읽음/좋아요 수를 목록에 붙이고, 눌렀을 때 명단(안 읽은 학생 포함)을 보여 준다. */
-let _dbAnnReads = {}; // { [공지ID]: [{ studentId, studentName, liked }] }
+   읽음/좋아요 수를 목록에 붙이고, 눌렀을 때 명단(안 읽은 학생 포함)을 보여 준다.
+   목록의 숫자는 공지마다 서버에서 개수만 센다(getCountFromServer). 예전에는 열람 기록
+   전체(수천 건, 0.8MB)를 받아 셌는데, 명단은 숫자를 눌렀을 때 그 공지 것만 받으면 된다. */
+let _dbAnnReads = {}; // { [공지ID]: { reads, likes } } — 테스트 학생 제외
 
 async function dbLoadAnnReads() {
   try {
-    const snap = await dbSafe(getDocs(collection(db, 'announcement_reads')), null);
-    if (!snap) return;
-    const by = {};
-    snap.docs.forEach(d => {
+    const col = collection(db, 'announcement_reads');
+    // 테스트 학생 기록은 그 학생들 것만 받아 공지별로 뺀다('in'은 30개까지).
+    const testIds = [..._testIds].slice(0, 30);
+    const [counts, testSnap] = await Promise.all([
+      dbSafe(Promise.all(_dbAnnList.map(a => Promise.all([
+        getCountFromServer(query(col, where('annId', '==', a.docId))),
+        getCountFromServer(query(col, where('annId', '==', a.docId), where('liked', '==', true))),
+      ]))), null),
+      testIds.length ? dbSafe(getDocs(query(col, where('studentId', 'in', testIds))), null) : null,
+    ]);
+    if (!counts) return;
+    const test = {};
+    (testSnap ? testSnap.docs : []).forEach(d => {
       const v = d.data();
-      if (!v.annId || isTestId(v.studentId)) return;
-      (by[v.annId] || (by[v.annId] = [])).push({
-        studentId: String(v.studentId || ''), studentName: v.studentName || '', liked: v.liked === true,
-      });
+      const t = test[v.annId] || (test[v.annId] = { reads: 0, likes: 0 });
+      t.reads++; if (v.liked === true) t.likes++;
+    });
+    const by = {};
+    _dbAnnList.forEach((a, i) => {
+      const t = test[a.docId] || { reads: 0, likes: 0 };
+      by[a.docId] = {
+        reads: Math.max(0, counts[i][0].data().count - t.reads),
+        likes: Math.max(0, counts[i][1].data().count - t.likes),
+      };
     });
     _dbAnnReads = by;
   } catch (_) {}
 }
 
-window.openAnnStats = function(annId) {
+window.openAnnStats = async function(annId) {
   const ann  = _dbAnnList.find(a => a.docId === annId);
-  const rows = _dbAnnReads[annId] || [];
+  document.getElementById('annStatsTitle').textContent = `${ann?.title || '공지'} · 열람 현황`;
+  const body = document.getElementById('annStatsBody');
+  body.innerHTML = '<div class="ann-summary">불러오는 중...</div>';
+  document.getElementById('annStatsBackdrop').classList.add('open');
+  let rows;
+  try {
+    const snap = await getDocs(query(collection(db, 'announcement_reads'), where('annId', '==', annId)));
+    rows = snap.docs.map(d => d.data()).filter(v => !isTestId(v.studentId)).map(v => ({
+      studentId: String(v.studentId || ''), studentName: v.studentName || '', liked: v.liked === true,
+    }));
+  } catch (e) {
+    body.innerHTML = `<div class="ann-summary">명단을 불러오지 못했습니다: ${esc(e.message)}</div>`;
+    return;
+  }
   const readIds = new Set(rows.map(r => r.studentId));
   const all = _dbStudents.filter(s => !isTestId(s.studentId));
   const unread = all.filter(s => !readIds.has(s.studentId));
@@ -1196,13 +1257,11 @@ window.openAnnStats = function(annId) {
       <div>${list.length ? list.join('') : '<span class="ann-empty">없음</span>'}</div>
     </div>`;
 
-  document.getElementById('annStatsTitle').textContent = `${ann?.title || '공지'} · 열람 현황`;
-  document.getElementById('annStatsBody').innerHTML =
+  body.innerHTML =
       `<div class="ann-summary">전체 ${all.length}명 중 <strong>${rows.length}명</strong>이 읽었고, <strong>${liked.length}명</strong>이 좋아요를 눌렀습니다.</div>`
     + group('♥ 좋아요', liked.sort((a,b)=>a.studentId.localeCompare(b.studentId)).map(r => chip(r.studentId, r.studentName, 'ann-chip-like')), 'like')
     + group('읽음', rows.sort((a,b)=>a.studentId.localeCompare(b.studentId)).map(r => chip(r.studentId, r.studentName, 'ann-chip-read')), 'read')
     + group('아직 안 읽음', unread.map(s => chip(s.studentId, s.name, 'ann-chip-unread')), 'unread');
-  document.getElementById('annStatsBackdrop').classList.add('open');
 };
 window.closeAnnStats = function() {
   document.getElementById('annStatsBackdrop').classList.remove('open');

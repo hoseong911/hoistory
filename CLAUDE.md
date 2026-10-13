@@ -522,3 +522,8 @@ LMS 허브의 **각종 콘텐츠**에서 들어가는 복습용 OX 퀴즈. `apps
 - **2단계**: 오늘 집계(경험치), 채점 대기, 공지 조회·댓글, 열공 마일리지 건수, 수업일 자동 공개를 따로 받아 끝나는 대로 그 칸만 채운다(`dbRenderSoon`). 아직인 칸은 "…"(`dbWait`).
 - **채점 대기는 제출물을 다 받지 않는다.** 강의마다 `getCountFromServer`로 "전체 − thGraded==true"를 센다(채점 전 제출물엔 thGraded 필드가 없어 미채점만 바로 고를 수 없다). 테스트 학생 제출은 `id in testIds`로 받아 빼고, 미채점이 남은 강의만 제출물을 받아 가장 최근 반(`ungradedCls`)을 찾는다.
 - 다시 그릴 때 학생 검색 칸 입력과 결과는 살려 둔다. 새로고침 때는 기존 화면을 둔 채 바꾼다.
+- **모바일에서 느렸던 2단계를 가볍게(2026-10-13)**: 오늘 집계는 경험치 전체(0.94MB) 대신 명단 학생마다 `lastAttendance`/`lastTypingReview`/`lottery/day` 세 칸만 묻는다(`dbLoadToday`). RTDB `orderByChild`는 `database.rules.json`에 `.indexOn`이 없어 서버가 전체를 보내므로 쓰지 않았다. 공지 조회/좋아요는 열람 기록 전체(0.8MB) 대신 공지마다 `getCountFromServer`로 개수만 세고, 명단은 숫자를 눌렀을 때 그 공지 것만 받는다(`openAnnStats`). 미채점 반 찾기는 제출물 전체(강의당 0.25MB) 대신 REST `runQuery`의 `select`로 학번, 채점 여부, 제출 시각만 받는다(`fsSelectWhere`, 압축 6KB 안팎). 웹 SDK는 필드를 골라 받지 못한다.
+
+## LMS 학생 화면이 깨져 보이지 않게 (2026-10-13)
+
+접속이 불안정하면 HTML만 들어오고 `index.css`/`index.js`가 빠져, 로그인, 동의, 뽑기, 레벨 업 창이 꾸밈 없이 한 줄로 다 펼쳐진 화면이 떴다(서비스워커는 새 `?v=` 파일을 못 받으면 빈손으로 끝난다). 이제 `lms/index.html` 머리의 인라인 style이 html에 `lms-ready`가 붙기 전까지 본문을 숨긴다. `index.js`는 첫 줄에서 `index.css`의 `--lms-css-ok:1`을 확인해 `lms-ready`를 붙이고, 디자인이 빠졌으면 `lms-fail`을 붙인다. JS가 안 돌면 인라인 스크립트가 load 뒤 1.5초(또는 20초)에 `lms-fail`을 붙인다. `lms-fail`이면 "접속이 불안정합니다. 새로고침하여 재접속해 주세요."와 [새로고침]만 보인다. `--lms-css-ok`를 지우지 말 것.
