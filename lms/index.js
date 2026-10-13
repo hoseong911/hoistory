@@ -1905,6 +1905,7 @@ async function openThinkModal(item) {
   _thinkPasteTry = 0; _thinkMaxJump = 0; _thinkLastLen = 0;
   _thinkDelCount = 0; _thinkDelChars = 0;
   _thinkPauseCount = 0; _thinkMaxPause = 0; _thinkOddInsert = 0; _thinkLastInputAt = 0;
+  _thinkBlurCount = 0;
   document.getElementById('thinkModalTitle').textContent    = stripEmph(item.lectureTitle);
   document.getElementById('thinkModalQuestion').textContent = stripEmph(item.question);
   const refEl = document.getElementById('thinkModalRef');
@@ -1950,7 +1951,7 @@ async function openThinkModal(item) {
                      pasteTry: prev.pasteTry || 0, maxJump: prev.maxJump || 0,
                      delCount: prev.delCount || 0, delChars: prev.delChars || 0,
                      pauseCount: prev.pauseCount || 0, maxPause: prev.maxPause || 0,
-                     oddInsert: prev.oddInsert || 0 };
+                     oddInsert: prev.oddInsert || 0, blurCount: prev.blurCount || 0 };
 
       if (prev.thGraded === true) {
         // 채점 끝 — 읽기 전용
@@ -2063,6 +2064,26 @@ function updateThinkMeta() {
 }
 
 document.addEventListener('visibilitychange', () => { if (_thinkItem && document.hidden) _thinkCheat++; });
+
+/* 화면 분할과 떠 있는 창 — 위의 이탈(visibilitychange)은 화면이 통째로 가려질 때만 잡힌다.
+   AI 앱을 화면 분할이나 팝업 창으로 옆에 띄우면 이 화면은 계속 보이므로 이탈로 안 잡히는데,
+   그 창을 누르는 순간 이 창이 포커스를 잃는다(window blur). 그중 화면이 가려지지 않은
+   것만 따로 센다 — 가려진 것은 이미 이탈로 셌다. visibilitychange가 blur보다 늦게 오는
+   기기가 있어 조금 기다렸다가 판정한다.
+   알림창을 내리는 것처럼 엉뚱한 일로도 찍힐 수 있어 채점에는 넣지 않고 참고로만 보여 준다.
+   우리 쪽 confirm/alert도 포커스를 가져가므로 thinkDialog로 감싸 그동안은 세지 않는다. */
+let _thinkBlurCount = 0, _thinkInDialog = false;
+function thinkDialog(fn) {
+  _thinkInDialog = true;
+  try { return fn(); } finally { setTimeout(() => { _thinkInDialog = false; }, 600); }
+}
+window.addEventListener('blur', () => {
+  if (!_thinkItem || _thinkInDialog) return;
+  if (document.getElementById('thinkWriteArea').style.display === 'none') return;   // 제출 끝난 화면
+  setTimeout(() => {
+    if (_thinkItem && !_thinkInDialog && !document.hidden) _thinkBlurCount++;
+  }, 400);
+});
 
 // ── 프록시 호출 공통 ──
 async function thinkAskClaude(prompt, maxTokens) {
@@ -2184,6 +2205,7 @@ async function doThinkSubmit(triggerId) {
       pasteTry: _thinkPasteTry, maxJump: _thinkMaxJump,
       delCount: _thinkDelCount, delChars: _thinkDelChars,
       pauseCount: _thinkPauseCount, maxPause: _thinkMaxPause, oddInsert: _thinkOddInsert,
+      blurCount: _thinkBlurCount,   // 화면은 보이는데 다른 창(화면 분할/떠 있는 창)으로 넘어간 횟수
       source: 'lms',
     };
     if (_thinkPrev) {
@@ -2200,6 +2222,7 @@ async function doThinkSubmit(triggerId) {
         pauseCount: (_thinkPrev.pauseCount || 0) + _thinkPauseCount,
         maxPause: Math.max(_thinkPrev.maxPause || 0, _thinkMaxPause),
         oddInsert: (_thinkPrev.oddInsert || 0) + _thinkOddInsert,
+        blurCount: (_thinkPrev.blurCount || 0) + _thinkBlurCount,
         editCount: (_thinkPrev.editCount || 0) + 1,
         editedAt: serverTimestamp(),
       };
@@ -2209,9 +2232,14 @@ async function doThinkSubmit(triggerId) {
         // 부정행위 참고 기록은 보안 규칙의 허용 목록에 뒤늦게 넣은 필드들이다. 규칙이
         // 아직 배포되지 않았으면 이것들 때문에 고쳐 쓰기가 통째로 막힌다. 학생의 글을
         // 못 내는 것보다는 참고 기록을 버리는 편이 낫다 — 빼고 한 번 더 시도한다.
-        const { pasteTry, maxJump, delCount, delChars,
-                pauseCount, maxPause, oddInsert, ...safe } = editPayload;
-        await withTimeout(updateDoc(docRef, safe), 20000);
+        // blurCount는 가장 늦게(2026-10-13) 넣은 필드라 그것만 빼고 먼저 다시 해 본다.
+        const { blurCount, ...noBlur } = editPayload;
+        try { await withTimeout(updateDoc(docRef, noBlur), 20000); }
+        catch (e2) {
+          const { pasteTry, maxJump, delCount, delChars,
+                  pauseCount, maxPause, oddInsert, ...safe } = noBlur;
+          await withTimeout(updateDoc(docRef, safe), 20000);
+        }
       }
     } else {
       await withTimeout(setDoc(docRef, {
@@ -2228,9 +2256,9 @@ async function doThinkSubmit(triggerId) {
   } catch(err) {
     btns.forEach(b => b.disabled = false);
     activeBtn.textContent = activeLabel;
-    alert(err && err.message === 'timeout'
+    thinkDialog(() => alert(err && err.message === 'timeout'
       ? '네트워크가 느려 제출이 끝나지 않았습니다.\n인터넷 연결을 확인하고 제출하기를 다시 눌러주세요. (여러 번 눌러도 중복 제출되지 않습니다)'
-      : '제출 중 오류가 발생했습니다. 다시 시도해 주세요.');
+      : '제출 중 오류가 발생했습니다. 다시 시도해 주세요.'));
   }
 }
 
@@ -2252,7 +2280,7 @@ document.getElementById('thinkSubmitBtn').addEventListener('click', () => {
   if (!_thinkItem) return;
   if (textLength > THINK_MAX_CHARS) return;
   if (textLength < 50 &&
-      !confirm('50자 미만은 미흡으로 처리되어 포인트를 받지 못합니다.\n그래도 제출하시겠습니까?')) return;
+      !thinkDialog(() => confirm('50자 미만은 미흡으로 처리되어 포인트를 받지 못합니다.\n그래도 제출하시겠습니까?'))) return;
   doThinkSubmit();
 });
 

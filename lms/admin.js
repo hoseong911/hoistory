@@ -8430,6 +8430,8 @@ watchButtonWidths(); // 버튼 문구가 바뀌어도 폭이 흔들리지 않게
     if ((d.pasteTry  || 0) > 0)   out.push(`붙여넣기 ${d.pasteTry}회`);
     if ((d.maxJump   || 0) >= 30) out.push(`한번에 ${d.maxJump}자`);
     if ((d.oddInsert || 0) > 0)   out.push(`자동입력 ${d.oddInsert}회`);
+    // 화면 분할/떠 있는 창으로 다른 앱을 누른 횟수. 알림창을 내려도 찍힐 수 있어 참고만 한다.
+    if ((d.blurCount || 0) > 0)   out.push(`다른 창 ${d.blurCount}회`);
     /* 아래 둘은 "다른 데 있는 글을 보고 옮겨 적었나"를 보는 눈이다. 스스로 생각하며
        쓴 글에는 지운 자국과 멈칫한 구간이 반드시 남는다. 완성된 글을 보고 치면 둘 다
        거의 남지 않는다. 짧은 답은 원래 고칠 것도 멈출 것도 없으니 100자부터 본다.
