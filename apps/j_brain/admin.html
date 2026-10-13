@@ -246,6 +246,7 @@ body{
       </div>
       <div class="adm-action-row">
         <button class="btn btn-primary btn-sm" id="autoscore-btn">자동 채점</button>
+        <button class="btn btn-ghost btn-sm" id="rescore-btn" title="지금 보이는 학생의 판정을 지우고 기준대로 다시 매깁니다">재채점</button>
         <button class="btn btn-ghost btn-sm" id="aireview-btn">까닭 자동 검토</button>
         <div class="thr-box" title="미흡 도장은 키워드 분류로만 찍습니다(임금마다 따로 보고, 함정은 한 개도 봐주지 않습니다). 까닭의 질은 AI 검토가 보고, 미흡이면 도장 없이 보류해 선생님께 넘깁니다.">임금별 정답 <input type="number" class="thr-in" id="thr-rate" value="75" min="0" max="100">% 이상 · 함정 0 → 미흡 · 까닭은 AI가 보고 보류</div>
         <div class="ans-right-group">
@@ -703,6 +704,31 @@ $('autoscore-btn').addEventListener('click', async () => {
     alert(nHold ? `${done}\n\n보류한 ${nHold}명은 도장을 비워 두고 카드를 노랗게 표시했어요. 열어서 까닭을 읽고 직접 눌러 주세요.` : done);
   }
   catch(e){ alert('채점을 저장하지 못했어요.'); }
+});
+
+/* 재채점 — 자동 채점과 달리 선생님이 이미 누른 판정도 지우고, 지금 보이는 학생 전부를
+   지금 기준(키워드 정답표, 임계값, 까닭 검토 결과)으로 다시 매긴다. 보류가 나온 학생은
+   status를 지워 미채점으로 되돌린다 — 자동 채점의 보류와 같은 뜻(선생님이 읽고 누름). */
+$('rescore-btn').addEventListener('click', async () => {
+  const rate = Math.max(0, Math.min(100, +$('thr-rate').value || 0));
+  const targets = works.filter(inFilter);
+  if (!targets.length){ alert('재채점할 학생이 없어요.'); return; }
+  const marked = targets.filter(w => w.status === 'pass' || w.status === 'fail').length;
+  if (!confirm(`지금 보이는 ${targets.length}명을 다시 채점할까요?\n이미 통과나 미흡을 누른 ${marked}명의 판정도 지우고 기준대로 다시 매깁니다.`)) return;
+  const batch = writeBatch(db);
+  let nPass = 0, nFail = 0, nHold = 0;
+  targets.forEach(w => {
+    const g = gradeWork(w, CFG.keywords, { ai: aiOf(w), rate });
+    if (g.result === 'hold') nHold++; else if (g.result === 'pass') nPass++; else nFail++;
+    const next = g.result === 'hold' ? null : g.result;
+    if ((w.status || null) === next) return;   // 그대로인 학생은 쓰지 않는다
+    batch.update(doc(db,'j_brain_works', w.studentId), { status: next === null ? deleteField() : next });
+  });
+  try{
+    await batch.commit();
+    alert(`재채점했어요. 통과 ${nPass}명, 미흡 ${nFail}명, 보류 ${nHold}명` + (nHold ? `\n\n보류한 ${nHold}명은 카드가 노랗게 표시돼요. 열어서 까닭을 읽고 직접 눌러 주세요.` : ''));
+  }
+  catch(e){ alert('재채점을 저장하지 못했어요.'); }
 });
 
 /* 임계값은 기준표(brain.js GRADE)에서 가져온다 — HTML에 숫자를 따로 적어 두면
