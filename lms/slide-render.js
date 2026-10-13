@@ -354,8 +354,9 @@
        · 줄 맨 앞의 '>' → 그 줄만 한 수준 작게
        · 줄 끝의 (연도) 같은 괄호 → 아랫줄에 작게 분리
        · 공백 포함 6자를 넘으면 6자 안쪽 마지막 빈칸에서 끊는다(빈칸이 없으면 6자에서)
-     narrow가 거짓이면(라벨 상단 배치) 괄호 분리와 줄바꿈은 하지 않는다 — 칸이 화면
-     폭을 다 쓰므로 줄을 나눌 이유가 없다.
+     narrow가 거짓이면(라벨 상단 배치) 6자 줄바꿈은 하지 않는다 — 칸이 화면 폭을 다
+     쓰므로 줄을 나눌 이유가 없다. 끝 괄호는 상단 배치에서도 떼어 작게 하지만, CSS가
+     낮춘 줄을 같은 줄에 이어 붙이므로 "홍경래의 난 (1811)"처럼 옆에 작게 붙는다.
      돌려주는 것은 [{ t, sub }] 목록이다. */
   function labelLines(raw, narrow) {
     const lines = [];
@@ -364,7 +365,7 @@
       if (!t) return;
       let sub = false;
       if (t[0] === '>') { sub = true; t = t.slice(1).trim(); }
-      const m = narrow ? t.match(/^(.*\S)\s*(\([^()]*\))$/) : null;
+      const m = t.match(/^(.*\S)\s*(\([^()]*\))$/);
       if (m && m[1]) { lines.push({ t: m[1].trim(), sub }); lines.push({ t: m[2], sub: true, paren: true }); }
       else if (t) lines.push({ t, sub });
     });
@@ -526,8 +527,8 @@
     let labelHtml = '';
     if (hasLabel) {
       // 규칙은 labelLines가 쥐고 있다 — 연표(세로)의 라벨도 같은 것을 쓴다.
-      // 좁은 좌측 라벨일 때만 괄호 분리와 6자 줄바꿈이 걸리고, 상단 배치는 칸이 화면
-      // 폭을 다 쓰므로 줄을 나누지 않는다(엔터로 나뉜 조각도 한 줄에 이어서 보인다).
+      // 좁은 좌측 라벨일 때만 6자 줄바꿈이 걸리고, 상단 배치는 칸이 화면 폭을 다 쓰므로
+      // 줄을 나누지 않는다(엔터로 나뉜 조각과 끝 괄호도 한 줄에 이어서 보인다).
       // 줄바꿈되면 라벨을 우측정렬(.multi).
       const lines = labelLines(row.label, labelPos === 'left');
       const multiCls = (labelPos === 'left' && lines.length > 1) ? ' multi' : '';
