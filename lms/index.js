@@ -1916,6 +1916,7 @@ async function openThinkModal(item) {
   const draft = loadThinkDraft(item.lectureDocId);
   ta.value = draft;
   _thinkLastLen = draft.length;   // 되살린 글은 방금 밀어 넣은 것이 아니다
+  _thinkLastValue = draft; _thinkLastInputType = '';
   const draftNote = document.getElementById('thinkDraftNote');
   if (draftNote) draftNote.style.display = draft ? '' : 'none';
   const editNoteEl = document.getElementById('thinkEditNote');
@@ -1967,6 +1968,7 @@ async function openThinkModal(item) {
         // 다음 한 글자를 치는 순간 늘어난 폭이 "0자 → 이전 답 길이"로 잡혀 "한 번에 N자
         // 입력"이라는 없는 부정행위가 기록된다(임시 저장본 쪽은 위에서 이미 맞춰 두었다).
         _thinkLastLen = ta.value.length;
+        _thinkLastValue = ta.value;
         const editNote = document.getElementById('thinkEditNote');
         if (editNote) editNote.style.display = '';
         document.getElementById('thinkSubmitBtn').textContent = '수정해서 다시 제출';
@@ -1987,6 +1989,10 @@ document.getElementById('thinkModal').addEventListener('click', e => { if (e.tar
 
 const thinkTextarea = document.getElementById('thinkTextarea');
 const THINK_MAX_CHARS = 1000;
+// 한 번에 이만큼 넘게 늘면 붙여넣은 것으로 보고 되돌린다(아래 input 처리 참고).
+const THINK_JUMP_BLOCK = 20;
+const THINK_UNDO_INPUT_TYPES = ['historyUndo', 'historyRedo'];
+let _thinkLastValue = '', _thinkLastInputType = '';
 thinkTextarea.addEventListener('input', () => {
   // 앞 입력과 얼마나 벌어졌는지 — 2초 이상이면 한 번 멈춘 것으로 센다.
   // 첫 입력은 모달을 열고 질문을 읽는 시간이라 세지 않는다.
@@ -2002,7 +2008,25 @@ thinkTextarea.addEventListener('input', () => {
   const jump = len - _thinkLastLen;
   if (jump > _thinkMaxJump) _thinkMaxJump = jump;
   else if (jump < 0) { _thinkDelCount++; _thinkDelChars += -jump; }
+
+  /* 한꺼번에 밀려 들어온 글은 되돌린다. 휴대폰 키보드의 클립보드 칩은 paste도
+     insertFromPaste도 거치지 않고 평범한 타이핑(insertText/조합 입력)인 척 들어와서
+     위의 붙여넣기 차단으로는 못 막는다. 남는 흔적은 "한 번에 늘어난 글자수"뿐이라
+     그걸로 막는다. 손으로 치면 한두 자, 추천 단어를 눌러도 열 자 안쪽이다.
+     실행 취소(되돌리기)는 학생이 지웠던 자기 글을 살리는 것이라 막지 않는다.
+     값을 코드로 되돌리면 브라우저 실행 취소 목록도 비워져, 막힌 글을 되살릴 수 없다. */
+  const wasUndo = THINK_UNDO_INPUT_TYPES.includes(_thinkLastInputType);
+  _thinkLastInputType = '';   // beforeinput 없이 오는 입력이 지난 값을 물려받지 않게
+  if (jump >= THINK_JUMP_BLOCK && !wasUndo) {
+    const caret = Math.max(0, thinkTextarea.selectionEnd - jump);
+    thinkTextarea.value = _thinkLastValue;
+    thinkTextarea.setSelectionRange(caret, caret);
+    blockThinkInsert(null, '한꺼번에 들어온 글은 쓸 수 없어요. 직접 써 주세요.');
+    updateThinkMeta();
+    return;
+  }
   _thinkLastLen = len;
+  _thinkLastValue = thinkTextarea.value;
   updateThinkMeta(); saveThinkDraft();
 });
 // 창을 닫거나 앱이 백그라운드로 넘어가는 순간에도 한 번 더 확실히 저장한다.
@@ -2010,10 +2034,10 @@ window.addEventListener('pagehide', saveThinkDraft);
 document.addEventListener('visibilitychange', () => { if (document.hidden) saveThinkDraft(); });
 // 붙여넣기와 드래그해서 떨어뜨리기를 둘 다 막는다. 문서 전체에도 blockPaste가 걸려
 // 있지만, 여기서는 왜 안 되는지 그 자리에서 알려 주려고 따로 잡는다.
-function blockThinkInsert(e) {
-  e.preventDefault();
+function blockThinkInsert(e, msg) {
+  if (e) e.preventDefault();
   _thinkPasteTry++;
-  showToast('생각 체크는 직접 써야 해요. 붙여넣기는 쓸 수 없어요.', 3000, 'pencil');
+  showToast(msg || '생각 체크는 직접 써야 해요. 붙여넣기는 쓸 수 없어요.', 3000, 'pencil');
 }
 thinkTextarea.addEventListener('paste', blockThinkInsert);
 thinkTextarea.addEventListener('drop', blockThinkInsert);
@@ -2022,6 +2046,7 @@ thinkTextarea.addEventListener('drop', blockThinkInsert);
    한 번 더 걸러 준다(막힌 것은 위와 똑같이 붙여넣기 시도로 기록된다).                */
 const THINK_PASTE_INPUT_TYPES = ['insertFromPaste', 'insertFromPasteAsQuotation', 'insertFromDrop', 'insertFromYank'];
 thinkTextarea.addEventListener('beforeinput', e => {
+  _thinkLastInputType = e.inputType || '';   // 뒤따르는 input에서 실행 취소인지 가린다
   if (THINK_PASTE_INPUT_TYPES.includes(e.inputType)) { blockThinkInsert(e); return; }
   // 자동수정·음성 입력. 막지는 않는다 — 오타 교정까지 막으면 쓰기가 괴로워진다.
   // 횟수만 남겨 선생님이 보고 판단하게 한다.
