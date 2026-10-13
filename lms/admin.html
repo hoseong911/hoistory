@@ -11,7 +11,7 @@
 <!-- 개념 체크 미리보기가 학생 화면(class/lesson.html)과 100% 동일하게 렌더링되도록 공용 슬라이드 스타일을 그대로 불러온다.
      이 파일의 :root 변수 중 --text/--border는 아래 이 페이지 자체 :root 선언이 나중에 와서 재정의하므로 전역 충돌은 없다. -->
 <link rel="stylesheet" href="slide-style.css?v=20261001a">
-<link rel="stylesheet" href="admin.css?v=20261010e">
+<link rel="stylesheet" href="admin.css?v=20261013a">
 <!-- 관리자 모드는 학생 LMS와 별개의 앱으로 홈 화면에 올라간다(이름 "LMS 관리자 모드").
      pwa.js는 "이미 있으면 건너뜀"이라, 여기 먼저 걸어 둔 것들이 루트 매니페스트·메타를 대신한다. -->
 <link rel="manifest" href="/hoistory/lms/admin.manifest.json">
@@ -122,6 +122,7 @@
         <div class="nav-sub" id="subnav-xp" data-title="경험치 관리">
           <div class="nav-sub-item" data-subnav="xp-award">POINTS</div>
           <div class="nav-sub-item" data-subnav="xp-ranking">RANKING</div>
+          <div class="nav-sub-item" data-subnav="xp-lottery">LOTTERY</div>
           <div class="nav-sub-item" data-subnav="xp-settings">SETTINGS</div>
         </div>
       </div>
@@ -1057,6 +1058,88 @@
     </div>
   </div>
 
+  <!-- ── 경험치 · 뽑기 현황 ──
+       따로 쌓는 기록은 없다. 학생마다 history에 남는 type:'lottery' 기록을 모아서 보여 준다(admin.js의 lt* 함수). -->
+  <div class="adm-panel" id="panel-xp-lottery">
+    <div class="panel-top"><div class="panel-title">뽑기 현황</div></div>
+
+    <!-- 기간과 반은 아래 네 칸(요약, 등수별, 최근, 학생별)에 모두 걸린다. -->
+    <div class="xp-rank-toolbar xp-rank-oneline lt-toolbar">
+      <div class="xp-sort-group" id="lt-period">
+        <button class="xp-sort-btn active" data-period="today" onclick="ltSetPeriod('today')">오늘</button>
+        <button class="xp-sort-btn" data-period="week" onclick="ltSetPeriod('week')">최근 7일</button>
+        <button class="xp-sort-btn" data-period="all" onclick="ltSetPeriod('all')">전체</button>
+      </div>
+      <span class="xp-rank-divider"></span>
+      <div class="stu-cls-tags" id="lt-cls-tags">
+        <button class="stu-cls-tag active" data-cls="" onclick="ltSetCls('')">전체</button>
+        <button class="stu-cls-tag" data-cls="1" onclick="ltSetCls('1')">1반</button>
+        <button class="stu-cls-tag" data-cls="2" onclick="ltSetCls('2')">2반</button>
+        <button class="stu-cls-tag" data-cls="3" onclick="ltSetCls('3')">3반</button>
+        <button class="stu-cls-tag" data-cls="4" onclick="ltSetCls('4')">4반</button>
+        <button class="stu-cls-tag" data-cls="5" onclick="ltSetCls('5')">5반</button>
+        <button class="stu-cls-tag" data-cls="6" onclick="ltSetCls('6')">6반</button>
+      </div>
+      <button class="xp-ghost-btn" onclick="ltLoad()"><span data-icon="rotate-ccw" data-icon-size="14"></span>새로고침</button>
+    </div>
+
+    <div class="db-summary-row" id="lt-summary"></div>
+
+    <div class="stu-card">
+      <div class="stu-card-head">등수별 통계</div>
+      <div class="stu-card-body">
+        <div class="stu-table-wrap">
+          <table class="stu-table lt-table">
+            <thead><tr><th>등수</th><th>점수</th><th>설정 확률</th><th>나온 횟수</th><th>실제 비율</th><th>포인트 합계</th></tr></thead>
+            <tbody id="lt-rank-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="stu-card">
+      <div class="stu-card-head">최근 뽑기</div>
+      <div class="stu-card-body">
+        <div class="stu-table-wrap">
+          <table class="stu-table lt-table">
+            <thead><tr><th>시각</th><th>학번</th><th>이름</th><th>등수</th><th>점수</th></tr></thead>
+            <tbody id="lt-recent-body"></tbody>
+          </table>
+        </div>
+        <div class="lt-more" id="lt-recent-more"></div>
+      </div>
+    </div>
+
+    <div class="stu-card">
+      <div class="stu-card-head">학생별 참여</div>
+      <div class="stu-card-body">
+        <div class="stu-table-wrap">
+          <table class="stu-table lt-table">
+            <thead><tr><th>순위</th><th>학번</th><th>이름</th><th>뽑은 횟수</th><th>포인트 합계</th><th>최고 등수</th></tr></thead>
+            <tbody id="lt-stu-body"></tbody>
+          </table>
+        </div>
+        <div class="lt-more" id="lt-stu-more"></div>
+      </div>
+    </div>
+
+    <!-- 일일 뽑기 기록 초기화. 위는 "오늘 한 번 더", 아래는 "없던 일로". (SETTINGS에 있던 것을 옮겨 왔다) -->
+    <div class="stu-card">
+      <div class="stu-card-head">일일 뽑기 기록 초기화</div>
+      <div class="stu-card-body">
+        <div class="xp-level-actions" style="margin-top:0">
+          <button class="xp-sort-btn" onclick="xpResetLotteryToday()">오늘 기록만 지우기</button>
+          <button class="xp-sort-btn" onclick="xpResetLotteryAll()">뽑기 내역 전체 되돌리기</button>
+        </div>
+        <p class="xp-help" style="margin-top:10px">
+          <b>오늘 기록만 지우기</b> — 얻은 경험치는 그대로 두고 오늘 뽑기만 다시 열어 줍니다.<br>
+          <b>뽑기 내역 전체 되돌리기</b> — 지금까지 뽑기로 오르내린 경험치를 모두 빼고 기록도 지웁니다.
+        </p>
+        <div id="xp-lottery-msg" style="margin-top:8px;font-size:12.5px;font-weight:700;color:var(--sub)"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── 경험치 · 설정 ── -->
   <div class="adm-panel" id="panel-xp-settings">
     <div class="panel-top"><div class="panel-title">경험치 설정</div></div>
@@ -1071,22 +1154,6 @@
           </table>
         </div>
         <button class="add-btn" style="margin-top:12px" onclick="xpSaveActivities()">활동 설정 저장</button>
-      </div>
-    </div>
-
-    <!-- 일일 뽑기 기록 초기화. 위는 "오늘 한 번 더", 아래는 "없던 일로". -->
-    <div class="stu-card">
-      <div class="stu-card-head">일일 뽑기 기록</div>
-      <div class="stu-card-body">
-        <div class="xp-level-actions" style="margin-top:0">
-          <button class="xp-sort-btn" onclick="xpResetLotteryToday()">오늘 기록만 지우기</button>
-          <button class="xp-sort-btn" onclick="xpResetLotteryAll()">뽑기 내역 전체 되돌리기</button>
-        </div>
-        <p class="xp-help" style="margin-top:10px">
-          <b>오늘 기록만 지우기</b> — 얻은 경험치는 그대로 두고 오늘 뽑기만 다시 열어 줍니다.<br>
-          <b>뽑기 내역 전체 되돌리기</b> — 지금까지 뽑기로 오르내린 경험치를 모두 빼고 기록도 지웁니다.
-        </p>
-        <div id="xp-lottery-msg" style="margin-top:8px;font-size:12.5px;font-weight:700;color:var(--sub)"></div>
       </div>
     </div>
 
@@ -1385,6 +1452,6 @@
 <!-- hwpx 파일(zip+xml) 압축 해제용: 활동지 업로드로 새 강의 자동 생성 기능에 사용 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="slide-render.js?v=20261013a"></script>
-<script type="module" src="admin.js?v=20261013a"></script>
+<script type="module" src="admin.js?v=20261013b"></script>
 </body>
 </html>

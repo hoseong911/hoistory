@@ -270,7 +270,7 @@ function initSidebar() {
 const SUBNAV_MAP = {
   concept: ['concept-content', 'concept-design'],
   grade: ['grade-check', 'grade-grade', 'grade-setting'],
-  xp: ['xp-award', 'xp-ranking', 'xp-settings'],
+  xp: ['xp-award', 'xp-ranking', 'xp-lottery', 'xp-settings'],
   settings: ['settings-notice', 'settings-schedule', 'settings-student', 'settings-system']
 };
 
@@ -413,6 +413,7 @@ function switchNav(nav, fromHistory) {
   // XP 패널 진입 시 데이터 로드
   if (panelId === 'panel-xp-award'    && typeof xpManualLoadStudents === 'function') { xpEnsureConfig(); xpManualLoadStudents(); }
   if (panelId === 'panel-xp-ranking'  && typeof xpLoadStatus         === 'function') xpLoadStatus();
+  if (panelId === 'panel-xp-lottery') ltLoad();
   if (panelId === 'panel-settings-student' && typeof stRenderTestIds === 'function') stRenderTestIds();
   if (panelId === 'panel-xp-settings' && typeof xpLoadSettings       === 'function') xpLoadSettings();
   if (panelId === 'panel-settings-schedule' && typeof plLoad         === 'function') plLoad();
@@ -9381,6 +9382,7 @@ window.xpResetLotteryToday = async function() {
   if (!confirm('오늘 뽑기 기록을 지울까요?\n모든 학생이 오늘 한 번 더 뽑을 수 있게 됩니다. 이미 받은 경험치는 그대로 둡니다.')) return;
   try { await xpLotteryReset(false); }
   catch (e) { alert('초기화 실패: ' + e.message); }
+  ltLoad();
 };
 
 window.xpResetLotteryAll = async function() {
@@ -9388,7 +9390,172 @@ window.xpResetLotteryAll = async function() {
   if (val !== '초기화') return;
   try { await xpLotteryReset(true); }
   catch (e) { alert('초기화 실패: ' + e.message); }
+  ltLoad();
 };
+
+/* ── LOTTERY: 뽑기 현황 ────────────────────────────────────────────
+   뽑기만을 위한 기록은 따로 없다. addLotteryXP(shared/xp.js)가 뽑을 때마다
+   history에 { type:'lottery', pt, note:'일일 뽑기 3등', ts }를 남기므로 그걸 모아서 본다.
+   ─ 등수는 note 글자에서 읽는다(history에 rank 필드가 없다). 못 읽으면 점수로 짐작한다.
+   ─ pt는 실제로 오간 점수다. 꽝은 가진 만큼만 깎이므로 -50이 아닐 수 있다.
+   ─ 학생 전체 history를 읽는 무거운 조회라 패널을 열 때와 새로고침 때만 읽는다.
+   ─ "뽑기 내역 전체 되돌리기"를 하면 그 전 기록은 history에서 지워져 여기에도 안 나온다. */
+// 학생 화면(lms/index.js)의 LOTTERY 표를 옮겨 적은 것이다. 저쪽 확률을 바꾸면 여기도 같이 고친다.
+// 표의 합은 2000, 스페셜 S는 LT_SPECIAL_UNTIL까지만 있다(지나면 그 한 장이 10등으로 간다).
+const LT_ADMIN_TABLE = [
+  { rank:'S', tickets:1,   pt:1000 },
+  { rank:1,   tickets:2,   pt:200 },
+  { rank:2,   tickets:44,  pt:50 },
+  { rank:3,   tickets:88,  pt:35 },
+  { rank:4,   tickets:132, pt:25 },
+  { rank:5,   tickets:176, pt:18 },
+  { rank:6,   tickets:222, pt:12 },
+  { rank:7,   tickets:266, pt:8 },
+  { rank:8,   tickets:310, pt:5 },
+  { rank:9,   tickets:354, pt:3 },
+  { rank:10,  tickets:403, pt:1 },
+  { rank:0,   tickets:2,   pt:-50 },
+];
+const LT_ADMIN_SPECIAL_UNTIL = '2026-11-01';
+const ltAdminLabel = r => (r === 0 ? '꽝' : (r === 'S' ? '스페셜 S' : (r == null ? '기타' : `${r}등`)));
+function ltParseRank(h) {
+  const n = String(h.note || '');
+  if (n.includes('스페셜')) return 'S';
+  if (n.includes('꽝')) return 0;
+  const m = n.match(/(\d+)\s*등/);
+  if (m) return +m[1];
+  const byPt = LT_ADMIN_TABLE.find(o => o.pt === h.pt);
+  return byPt ? byPt.rank : null;
+}
+// 표에서 위쪽일수록 귀하다(S, 1등 …). 꽝과 기타는 맨 아래로.
+const ltRankOrder = r => { const i = LT_ADMIN_TABLE.findIndex(o => o.rank === r); return (r === 0 || i < 0) ? 99 : i; };
+const ltIsRare = r => r === 'S' || r === 1;
+
+let _ltDraws = [];          // [{ sid, name, rank, pt, ts, day }] 최신순
+let _ltPeriod = 'today', _ltCls = '';
+let _ltRecentN = 50, _ltStuN = 20;
+
+async function ltLoad() {
+  const body = document.getElementById('lt-recent-body');
+  if (!body) return;
+  body.innerHTML = '<tr><td colspan="5" class="lt-empty">불러오는 중…</td></tr>';
+  try {
+    const snap = await get(ref(rtdb, `${XP_ROOT}/students`));
+    const all = snap.exists() ? (snap.val() || {}) : {};
+    const list = [];
+    Object.entries(all).forEach(([sid, s]) => {
+      if (!s || typeof s !== 'object' || isTestId(sid)) return;
+      Object.values(s.history || {}).forEach(h => {
+        if (!h || h.type !== 'lottery' || !h.ts) return;
+        list.push({ sid, name: s.name || '', rank: ltParseRank(h), pt: Number(h.pt) || 0, ts: h.ts, day: kstDate(h.ts) });
+      });
+    });
+    list.sort((a, b) => b.ts - a.ts);
+    _ltDraws = list;
+    ltRender();
+  } catch (e) {
+    body.innerHTML = `<tr><td colspan="5" class="lt-empty">불러오지 못했습니다: ${esc(e.message)}</td></tr>`;
+  }
+}
+window.ltLoad = ltLoad;
+
+window.ltSetPeriod = function(p) {
+  _ltPeriod = p; _ltRecentN = 50; _ltStuN = 20;
+  document.querySelectorAll('#lt-period .xp-sort-btn').forEach(b => b.classList.toggle('active', b.dataset.period === p));
+  ltRender();
+};
+window.ltSetCls = function(c) {
+  _ltCls = c; _ltRecentN = 50; _ltStuN = 20;
+  document.querySelectorAll('#lt-cls-tags .stu-cls-tag').forEach(b => b.classList.toggle('active', b.dataset.cls === c));
+  ltRender();
+};
+window.ltMoreRecent = function() { _ltRecentN += 50; ltRender(); };
+window.ltMoreStu    = function() { _ltStuN += 20; ltRender(); };
+
+function ltFiltered() {
+  const today = kstDate();
+  const weekFrom = kstDate(Date.now() - 6 * 86400000);   // 오늘 포함 7일
+  return _ltDraws.filter(d => {
+    if (_ltCls && xpClassNum(d.sid) !== +_ltCls) return false;
+    if (_ltPeriod === 'today') return d.day === today;
+    if (_ltPeriod === 'week')  return d.day >= weekFrom;
+    return true;
+  });
+}
+
+function ltTimeText(ts) {
+  const iso = new Date(ts + 9 * 3600 * 1000).toISOString();   // KST
+  return `${+iso.slice(5, 7)}/${+iso.slice(8, 10)} ${iso.slice(11, 16)}`;
+}
+const ltPtText = pt => (pt > 0 ? `+${pt}` : String(pt));
+const ltRowCls = r => (ltIsRare(r) ? 'lt-rare' : (r === 0 ? 'lt-miss' : ''));
+
+function ltRender() {
+  const draws = ltFiltered();
+  const periodName = { today: '오늘', week: '최근 7일', all: '전체' }[_ltPeriod];
+
+  // 1) 요약
+  const stuSet = new Set(draws.map(d => d.sid));
+  const net = draws.reduce((n, d) => n + d.pt, 0);
+  const rare = draws.filter(d => ltIsRare(d.rank)).length;
+  const miss = draws.filter(d => d.rank === 0).length;
+  const card = (label, val) => `<div class="db-summary-card"><div class="db-summary-label">${label}</div><div class="db-summary-val">${val}</div></div>`;
+  document.getElementById('lt-summary').innerHTML =
+    card(`${periodName} 뽑기`, `${draws.length}회`) +
+    card('참여 학생', `${stuSet.size}명`) +
+    card('순 포인트', `${ltPtText(net)}pt`) +
+    card('1등 이상 / 꽝', `${rare}회 / ${miss}회`);
+
+  // 2) 등수별 통계 — 설정 확률은 지금 표 기준(스페셜 기간이 지났으면 S는 0%, 10등이 한 장 늘어난다)
+  const specialOn = kstDate() <= LT_ADMIN_SPECIAL_UNTIL;
+  const byRank = new Map();
+  draws.forEach(d => {
+    const k = d.rank == null ? 'etc' : d.rank;
+    const e = byRank.get(k) || { n: 0, pt: 0 };
+    e.n++; e.pt += d.pt; byRank.set(k, e);
+  });
+  const pct = (x, digits) => `${(x * 100).toFixed(digits)}%`;
+  const rows = LT_ADMIN_TABLE.map(o => {
+    let t = o.tickets;
+    if (!specialOn && o.rank === 'S') t = 0;
+    if (!specialOn && o.rank === 10) t += 1;
+    const e = byRank.get(o.rank) || { n: 0, pt: 0 };
+    return `<tr class="${ltRowCls(o.rank)}"><td><b>${ltAdminLabel(o.rank)}</b></td><td>${ltPtText(o.pt)}</td>`
+      + `<td>${pct(t / 2000, 2)}</td><td>${e.n}회</td>`
+      + `<td>${draws.length ? pct(e.n / draws.length, 1) : '-'}</td><td>${ltPtText(e.pt)}pt</td></tr>`;
+  });
+  const etc = byRank.get('etc');
+  if (etc) rows.push(`<tr><td><b>기타</b></td><td>-</td><td>-</td><td>${etc.n}회</td><td>${pct(etc.n / draws.length, 1)}</td><td>${ltPtText(etc.pt)}pt</td></tr>`);
+  document.getElementById('lt-rank-body').innerHTML = rows.join('');
+
+  // 3) 최근 뽑기
+  const recent = draws.slice(0, _ltRecentN);
+  document.getElementById('lt-recent-body').innerHTML = recent.length
+    ? recent.map(d => `<tr class="${ltRowCls(d.rank)}"><td>${ltTimeText(d.ts)}</td><td>${esc(d.sid)}</td><td>${esc(d.name)}</td>`
+        + `<td><b>${ltAdminLabel(d.rank)}</b></td><td>${ltPtText(d.pt)}</td></tr>`).join('')
+    : `<tr><td colspan="5" class="lt-empty">${periodName} 뽑기 기록이 없습니다.</td></tr>`;
+  document.getElementById('lt-recent-more').innerHTML = draws.length > _ltRecentN
+    ? `<button class="xp-sort-btn" onclick="ltMoreRecent()">더 보기 (${draws.length - _ltRecentN}건 남음)</button>` : '';
+
+  // 4) 학생별 참여 — 많이 뽑은 순, 같으면 포인트 합이 큰 순, 그다음 학번순
+  const per = new Map();
+  draws.forEach(d => {
+    const e = per.get(d.sid) || { sid: d.sid, name: d.name, n: 0, pt: 0, best: null };
+    e.n++; e.pt += d.pt;
+    if (e.best === null || ltRankOrder(d.rank) < ltRankOrder(e.best)) e.best = d.rank;
+    per.set(d.sid, e);
+  });
+  const stus = [...per.values()].sort((a, b) =>
+    (b.n - a.n) || (b.pt - a.pt) || a.sid.localeCompare(b.sid, undefined, { numeric: true }));
+  let prev = null;
+  stus.forEach((s, i) => { s.place = (prev && prev.n === s.n && prev.pt === s.pt) ? prev.place : i + 1; prev = s; });
+  document.getElementById('lt-stu-body').innerHTML = stus.length
+    ? stus.slice(0, _ltStuN).map(s => `<tr><td>${s.place}</td><td>${esc(s.sid)}</td><td>${esc(s.name)}</td>`
+        + `<td>${s.n}회</td><td>${ltPtText(s.pt)}pt</td><td>${ltAdminLabel(s.best)}</td></tr>`).join('')
+    : `<tr><td colspan="6" class="lt-empty">${periodName} 뽑은 학생이 없습니다.</td></tr>`;
+  document.getElementById('lt-stu-more').innerHTML = stus.length > _ltStuN
+    ? `<button class="xp-sort-btn" onclick="ltMoreStu()">더 보기 (${stus.length - _ltStuN}명 남음)</button>` : '';
+}
 
 // ── SETTINGS ──
 async function xpLoadSettings() {
