@@ -824,9 +824,12 @@ function dbRender() {
 /* ── 열공 마일리지 검토 칩 (대시보드 상단 통계 줄) ─────────────────
    목록은 hismile 어드민 CERTS에서 본다. 여기서는 보류·실패 건수만 보여 주고,
    누르면 그 서브메뉴로 바로 연다. 마지막으로 열어 본 뒤 새로 들어온 인증이 있으면
-   점을 찍는다 — 기준은 이 브라우저에 적어 둔 "마지막으로 본 인증 id"다
-   (push id는 생성 순서대로 커지므로 그보다 큰 id가 있으면 새 것이다). */
-let _dbCerts = [];   // [{ id, result }]
+   점을 찍는다 — 기준은 이 브라우저에 적어 둔 "마지막으로 본 제출 시각(ts)"이다.
+   2026-10-15 이전에는 push id 문자열을 기준으로 삼았는데, 인증 키가 '학번_날짜' 고정
+   키로 바뀌어(같은 날 덮어쓰기) id가 더는 생성 순서대로 커지지 않아 ts로 옮겼다.
+   덮어쓰기로 ts가 새로 찍히면 다시 새 것으로 뜬다 — 고쳐서 낸 건은 다시 봐야 하므로
+   그게 맞는 동작이다. */
+let _dbCerts = [];   // [{ id, result, ts }]
 const DB_CERT_SEEN_KEY = 'lms_db_cert_seen';
 
 async function dbLoadCerts() {
@@ -835,23 +838,29 @@ async function dbLoadCerts() {
   _dbCerts = Object.entries(v)
     .filter(([, c]) => c && !isTestId(c.studentNum))
     // 상태는 통과·보류 둘뿐이다(2026-10-12에 실패를 없앴다). 옛 기록도 'pass'가 아니면 보류로 본다.
-    .map(([id, c]) => ({ id, result: c.result === 'pass' ? 'pass' : 'pending' }));
+    .map(([id, c]) => ({ id, result: c.result === 'pass' ? 'pass' : 'pending', ts: Number(c.ts) || 0 }));
   // 이 브라우저에서 처음 여는 거면 지금을 기준으로 잡는다(지금까지 쌓인 전부가 새 것으로 뜨지 않게).
-  if (!dbCertSeen().pending) dbCertMarkSeen(['pending']);
+  if (!('pending' in dbCertSeen())) dbCertMarkSeen(['pending']);
 }
 
+/* 적어 둔 기준값. ts로 옮기기 전에는 push id 문자열이 들어 있었으므로 숫자가 아닌 값은
+   기준이 없는 것으로 본다(그러면 다음 줄에서 지금 시점으로 다시 잡는다). */
 function dbCertSeen() {
-  try { return JSON.parse(localStorage.getItem(DB_CERT_SEEN_KEY) || '{}') || {}; } catch (e) { return {}; }
+  try {
+    const v = JSON.parse(localStorage.getItem(DB_CERT_SEEN_KEY) || '{}') || {};
+    Object.keys(v).forEach(k => { if (typeof v[k] !== 'number') delete v[k]; });
+    return v;
+  } catch (e) { return {}; }
 }
 
-function dbCertLastId(r) {
-  return _dbCerts.filter(c => c.result === r).reduce((m, c) => (c.id > m ? c.id : m), '');
+function dbCertLastTs(r) {
+  return _dbCerts.filter(c => c.result === r).reduce((m, c) => Math.max(m, c.ts), 0);
 }
 
 function dbCertMarkSeen(results) {
   try {
     const seen = dbCertSeen();
-    results.forEach(r => { seen[r] = dbCertLastId(r) || seen[r] || ''; });
+    results.forEach(r => { seen[r] = Math.max(dbCertLastTs(r), Number(seen[r]) || 0); });
     localStorage.setItem(DB_CERT_SEEN_KEY, JSON.stringify(seen));
   } catch (e) {}
 }
@@ -859,8 +868,8 @@ function dbCertMarkSeen(results) {
 // 보류 한 칸. 마지막으로 열어 본 뒤 새로 들어온 인증이 있으면 빨간 점과 개수를 붙인다.
 function dbCertPart(r, label) {
   const rows = _dbCerts.filter(c => c.result === r);
-  const seen = dbCertSeen()[r] || '';
-  const fresh = rows.filter(c => c.id > seen).length;
+  const seen = Number(dbCertSeen()[r]) || 0;
+  const fresh = rows.filter(c => c.ts > seen).length;
   return `<button class="db-cert-part" title="${label} 목록 열기" onclick="dbOpenCerts('${r}')">
     ${label} <b>${rows.length}</b>${fresh ? `<span class="db-cert-new" title="새로 들어온 인증">+${fresh}</span>` : ''}
   </button>`;
@@ -874,7 +883,7 @@ function dbCertChipHTML() {
   </div>`;
 }
 
-// 누르면 그 결과의 마지막 id를 본 것으로 적고 hismile 어드민 CERTS의 해당 서브메뉴를 연다.
+// 누르면 그 결과의 마지막 제출 시각을 본 것으로 적고 hismile 어드민 CERTS의 해당 서브메뉴를 연다.
 window.dbOpenCerts = function(r) {
   dbCertMarkSeen([r]);
   dbRender();

@@ -81,12 +81,19 @@ export const LIMITS = {
   pastForAi:      3,    // AI에게 같이 보여 줄 내 지난 통과 인증 수
 };
 
-// AI를 부르기 전에 걸러 낸다. 걸리면 { result, reason, icon }을, 아니면 null을 돌려준다.
-//   certs: historyMileage/studyCert 전체 값 배열, me: 학번 문자열
-export function precheck({ certs, me, photoHash, photoDHash, content, feeling }) {
+/* AI를 부르기 전에 걸러 낸다. 걸리면 { result, reason, icon }을, 아니면 null을 돌려준다.
+     certs: historyMileage/studyCert 전체 값 배열, me: 학번 문자열, today: 오늘 날짜(KST 'YYYY-MM-DD')
+
+   today를 주면 **오늘 낸 내 기록은 비교 대상에서 뺀다**(2026-10-15). 보류 안내를 보고 사진은
+   그대로 두고 글만 고쳐 다시 내면, 방금 남은 내 보류의 photoHash에 걸려 '같은 사진' 보류가
+   또 떴다. 학생은 고쳤는데 더 엉뚱한 사유가 나오니 계속 바꿔 가며 다시 내게 됐고, 그게
+   하루에 보류가 열 몇 건씩 쌓인 큰 이유였다. 어제 이전 내 기록과 다른 학생 기록은 그대로
+   본다 — 막아야 할 것은 그쪽이고, 같은 날 안에서 고쳐 내는 것은 막을 일이 아니다. */
+export function precheck({ certs, me, photoHash, photoDHash, content, feeling, today }) {
   const live = certs.filter(c => c.result === 'pass' || c.result === 'pending');
-  const mine = live.filter(c => String(c.studentNum) === me);
+  const mine = live.filter(c => String(c.studentNum) === me && c.date !== today);
   const others = live.filter(c => String(c.studentNum) !== me);
+  const pool = [...mine, ...others];
 
   if (mine.some(c => c.photoHash === photoHash)) {
     return { result: 'pending', reason: '예전에 인증한 사진과 같은 사진으로 보여 선생님 확인 대기', icon: 'file-text' };
@@ -95,7 +102,7 @@ export function precheck({ certs, me, photoHash, photoDHash, content, feeling })
     return { result: 'pending', reason: '다른 학생이 인증한 사진과 같은 사진으로 보여 선생님 확인 대기', icon: 'file-text' };
   }
   // 지문이 아주 가깝지만 파일은 다른 경우 — 다시 저장한 같은 사진일 가능성이 높지만 단정하지 않고 선생님께 넘긴다.
-  const near = live.find(c => c.photoDHash && hamming(c.photoDHash, photoDHash) <= LIMITS.dhashSame);
+  const near = pool.find(c => c.photoDHash && hamming(c.photoDHash, photoDHash) <= LIMITS.dhashSame);
   if (near) {
     const who = String(near.studentNum) === me ? '예전 내 인증' : '다른 학생 인증';
     return { result: 'pending', reason: `${who}(${near.date}) 사진과 매우 비슷해 선생님 확인 대기`, icon: 'search' };

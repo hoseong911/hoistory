@@ -270,6 +270,7 @@ body.embedded .adm-logo,body.embedded .adm-logout{display:none}
       <div class="filter-row split">
         <input type="date" id="certs-date-filter" onchange="window.renderCerts()">
         <button class="btn btn-ghost btn-sm" onclick="window.clearCertsFilter()">필터 초기화</button>
+        <button class="btn btn-ghost btn-sm" onclick="window.cleanDupCerts()">같은 날 중복 정리</button>
         <div class="row-right sort-toggle" id="certs-sort-toggle">
           <button class="active" data-sort="recent" onclick="window.setCertSort('recent')">최신순</button>
           <button data-sort="num" onclick="window.setCertSort('num')">학번순</button>
@@ -328,7 +329,7 @@ import { getFirestore, collection, getDocs } from "https://www.gstatic.com/fireb
 import { firebaseConfig } from "../shared/firebase-config.js";
 import { loadXPConfig } from "../shared/xp.js";
 import { reviewCert, reviewSummary, defaultPassXp } from "./certReview.js?v=20261012a";
-import { CHECK_LABELS } from "./certCheck.js?v=20261012a";
+import { CHECK_LABELS } from "./certCheck.js?v=20261015a";
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
@@ -664,11 +665,21 @@ function updateCertsStats() {
    옛 기록에 result가 없거나 'fail'로 남아 있어도 보류로 본다 — 'pass'가 아니면 전부 보류다. */
 let certTab = 'pending';
 
-/* push id를 시간순으로 비교한다. 코드 단위로 비교해야 한다 — localeCompare는 로캘 규칙을
-   따르느라 id에 섞인 '-' '_' 를 무시하고 대소문자를 알파벳 순으로 묶어 버려서, 실제 기록
-   258건으로 재어 보니 전체 쌍의 약 6%가 생성 순서와 어긋났다(10/11 제출이 10/08 아래로
-   내려가는 식). Firebase push id는 코드 단위 비교로만 생성 순서가 보장된다. */
-const byIdDesc = (a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0);
+/* 최신이 위로 오게 비교한다.
+   2026-10-15부터 인증 키는 push id가 아니라 '학번_날짜' 고정 키이고(같은 날 덮어쓰기),
+   제출 시각은 ts(ms)에 적힌다. 그래서 ts가 있으면 ts로 비교한다.
+   ts가 없는 옛 기록은 전부 이 변경 이전 것이므로 새 기록보다 아래에 두고, 옛 기록끼리는
+   예전 그대로 push id를 **코드 단위로** 비교한다 — localeCompare는 로캘 규칙을 따르느라
+   id에 섞인 '-' '_' 를 무시하고 대소문자를 알파벳 순으로 묶어 버려서, 실제 기록 258건으로
+   재어 보니 전체 쌍의 약 6%가 생성 순서와 어긋났다(10/11 제출이 10/08 아래로 내려가는 식).
+   Firebase push id는 코드 단위 비교로만 생성 순서가 보장된다. */
+const byIdDesc = (a, b) => {
+  const ta = Number(a.ts), tb = Number(b.ts);
+  const ha = Number.isFinite(ta), hb = Number.isFinite(tb);
+  if (ha && hb) return tb - ta;
+  if (ha !== hb) return ha ? -1 : 1;
+  return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
+};
 
 /* 목록 정렬. 'recent'는 최신이 위, 'num'은 학번 오름차순이고 같은 학생 안에서는 다시 최신이 위다. */
 let certSort = 'recent';
@@ -737,6 +748,7 @@ window.renderCerts = () => {
         ${c.studyFeeling ? `<div class="content" style="color:var(--sub)">느낀 점: "${escHtml(c.studyFeeling)}"</div>` : ''}
         <div class="meta">${c.time || ''} · ${escHtml(c.reason || '-')}</div>
         ${checksLine(c.checks)}
+        ${Number(c.tries) > 1 ? `<div class="meta">그날 ${Number(c.tries)}번째 제출입니다</div>` : ''}
         ${c.revoked ? `<div class="cert-audit">통과됐다가 회수됨: 누적 -1일, 경험치 -${Number(c.revoked.xp) || 0}pt${c.audit ? ' · ' + escHtml(c.audit.note) : ''}. 경험치 칸에 회수했던 금액이 들어 있으니 필요하면 고쳐서 승인하세요.</div>` : ''}
         <div class="actions">
           ${photoBtn}
@@ -793,6 +805,43 @@ window.overrideCert = async (certId, newResult) => {
   try {
     await reviewCert(db, rtdbFns, certId, cert, newResult, { xp });
   } catch (e) { alert('변경 실패: ' + e.message); }
+};
+
+/* 같은 날 중복으로 쌓인 보류 정리 (2026-10-15).
+   그전에는 학생이 하루에 여러 번 내면 제출마다 새 push 기록이 쌓였다(학생에게 삭제 권한이
+   없어 학생 화면의 정리 코드가 규칙에 막혀 한 번도 돌지 않았다). 지금은 '학번_날짜' 고정
+   키로 덮어쓰므로 더 생기지 않지만, 그때 쌓인 기록은 그대로 남아 있어 한 번 걷어낸다.
+   학번과 날짜로 묶어서
+     - 통과가 있는 묶음: 그 묶음의 보류를 전부 지운다(결과가 났으니 검토할 것이 없다)
+     - 전부 보류인 묶음: 가장 최근 한 건만 남기고 지운다
+   통과 기록은 어떤 경우에도 지우지 않는다(누적 일수와 경험치가 걸려 있다). */
+window.cleanDupCerts = async () => {
+  const groups = new Map();
+  allCerts.forEach(c => {
+    const key = `${c.studentNum}|${c.date}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(c);
+  });
+
+  const victims = [];
+  groups.forEach(rows => {
+    if (rows.length < 2) return;
+    const pendings = rows.filter(c => c.result !== 'pass').sort(byIdDesc);
+    const hasPass = rows.some(c => c.result === 'pass');
+    victims.push(...(hasPass ? pendings : pendings.slice(1)));
+  });
+
+  if (!victims.length) { alert('같은 날 중복으로 쌓인 보류가 없습니다.'); return; }
+  const names = [...new Set(victims.map(c => `${c.studentName || '?'}(${c.studentNum})`))];
+  const who = names.slice(0, 12).join(', ') + (names.length > 12 ? ` 외 ${names.length - 12}명` : '');
+  if (!confirm(`같은 날 중복으로 쌓인 보류 ${victims.length}건을 지웁니다.\n\n${who}\n\n학생마다 그날의 마지막 한 건은 남깁니다. 통과 기록은 지우지 않고, 누적 일수와 경험치도 바뀌지 않습니다.`)) return;
+
+  const updates = {};
+  victims.forEach(c => { updates[`historyMileage/studyCert/${c.id}`] = null; });
+  try {
+    await update(ref(db), updates);
+    alert(`${victims.length}건을 정리했습니다.`);
+  } catch (e) { alert('정리 실패: ' + e.message); }
 };
 
 window.deleteCert = async (certId) => {
