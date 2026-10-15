@@ -1211,17 +1211,19 @@ function renderAnnounceList() {
    몇으로는 못 적어서 전부 2배로 늘렸다(각 등수의 확률은 그대로다).
    2026-10-15에 확률을 손봤다 — S 0.1%(2장), 1등 0.45%(9장), 꽝은 1등과 같은 0.45%(9장).
    S·1등·꽝에 20장을 쓰고 남은 1980장이 2~10등 피라미드(44 × 1:2:…:9)에 딱 맞으므로,
-   예전처럼 나머지를 10등에 붙이는 보정이 없다. */
+   예전처럼 나머지를 10등에 붙이는 보정이 없다.
+   점수는 두 자리부터 10단위로 맞춘 사다리다 — 1000, 200, 50, 40, 30, 20, 10, 8, 5, 3, 2.
+   한 자리(7~10등 8·5·3·2)는 그대로 둔다 — 10단위로 올리면 6등을 넘어서기 때문이다. */
 const LT_SPECIAL = { rank:'S', tickets:2, pt:1000, label:'스페셜' };
 const LT_SPECIAL_UNTIL = '2026-11-01';   // 이 날까지만 나온다(KST). 지나면 표에서 저절로 빠진다.
 const LOTTERY = [
   LT_SPECIAL,
   { rank:1,  tickets:9,   pt:200, label:'대박' },
   { rank:2,  tickets:44,  pt:50,  label:'좋음' },
-  { rank:3,  tickets:88,  pt:35,  label:'좋음' },
-  { rank:4,  tickets:132, pt:25,  label:'괜찮음' },
-  { rank:5,  tickets:176, pt:18,  label:'괜찮음' },
-  { rank:6,  tickets:220, pt:12,  label:'무난' },
+  { rank:3,  tickets:88,  pt:40,  label:'좋음' },
+  { rank:4,  tickets:132, pt:30,  label:'괜찮음' },
+  { rank:5,  tickets:176, pt:20,  label:'괜찮음' },
+  { rank:6,  tickets:220, pt:10,  label:'무난' },
   { rank:7,  tickets:264, pt:8,   label:'무난' },
   { rank:8,  tickets:308, pt:5,   label:'참가' },
   { rank:9,  tickets:352, pt:3,   label:'참가' },
