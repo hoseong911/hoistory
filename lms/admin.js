@@ -9412,20 +9412,20 @@ window.xpResetLotteryAll = async function() {
    ─ 학생 전체 history를 읽는 무거운 조회라 패널을 열 때와 새로고침 때만 읽는다.
    ─ "뽑기 내역 전체 되돌리기"를 하면 그 전 기록은 history에서 지워져 여기에도 안 나온다. */
 // 학생 화면(lms/index.js)의 LOTTERY 표를 옮겨 적은 것이다. 저쪽 확률을 바꾸면 여기도 같이 고친다.
-// 표의 합은 2000, 스페셜 S는 LT_SPECIAL_UNTIL까지만 있다(지나면 그 한 장이 10등으로 간다).
+// 표의 합은 2000, 스페셜 S는 LT_SPECIAL_UNTIL까지만 있다(지나면 그 두 장이 10등으로 간다).
 const LT_ADMIN_TABLE = [
-  { rank:'S', tickets:1,   pt:1000 },
-  { rank:1,   tickets:2,   pt:200 },
+  { rank:'S', tickets:2,   pt:1000 },
+  { rank:1,   tickets:9,   pt:200 },
   { rank:2,   tickets:44,  pt:50 },
   { rank:3,   tickets:88,  pt:35 },
   { rank:4,   tickets:132, pt:25 },
   { rank:5,   tickets:176, pt:18 },
-  { rank:6,   tickets:222, pt:12 },
-  { rank:7,   tickets:266, pt:8 },
-  { rank:8,   tickets:310, pt:5 },
-  { rank:9,   tickets:354, pt:3 },
-  { rank:10,  tickets:403, pt:1 },
-  { rank:0,   tickets:2,   pt:-50 },
+  { rank:6,   tickets:220, pt:12 },
+  { rank:7,   tickets:264, pt:8 },
+  { rank:8,   tickets:308, pt:5 },
+  { rank:9,   tickets:352, pt:3 },
+  { rank:10,  tickets:396, pt:2 },
+  { rank:0,   tickets:9,   pt:-50 },
 ];
 const LT_ADMIN_SPECIAL_UNTIL = '2026-11-01';
 const ltAdminLabel = r => (r === 0 ? '꽝' : (r === 'S' ? '스페셜 S' : (r == null ? '기타' : `${r}등`)));
@@ -9517,7 +9517,7 @@ function ltRender() {
     card('순 포인트', `${ltPtText(net)}pt`) +
     card('1등 이상 / 꽝', `${rare}회 / ${miss}회`);
 
-  // 2) 등수별 통계 — 설정 확률은 지금 표 기준(스페셜 기간이 지났으면 S는 0%, 10등이 한 장 늘어난다)
+  // 2) 등수별 통계 — 설정 확률은 지금 표 기준(스페셜 기간이 지났으면 S는 0%, 10등이 두 장 늘어난다)
   const specialOn = kstDate() <= LT_ADMIN_SPECIAL_UNTIL;
   const byRank = new Map();
   draws.forEach(d => {
@@ -9529,7 +9529,7 @@ function ltRender() {
   const rows = LT_ADMIN_TABLE.map(o => {
     let t = o.tickets;
     if (!specialOn && o.rank === 'S') t = 0;
-    if (!specialOn && o.rank === 10) t += 1;
+    if (!specialOn && o.rank === 10) t += 2;
     const e = byRank.get(o.rank) || { n: 0, pt: 0 };
     return `<tr class="${ltRowCls(o.rank)}"><td><b>${ltAdminLabel(o.rank)}</b></td><td>${ltPtText(o.pt)}</td>`
       + `<td>${pct(t / 2000, 2)}</td><td>${e.n}회</td>`

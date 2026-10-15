@@ -1199,39 +1199,41 @@ function renderAnnounceList() {
   });
 }
 /* ══ 일일 뽑기 ═══════════════════════════════════════════════════
-   1000장 중 몇 장인지가 곧 확률이다(개인별 독립 시행 — 상자를 비우는 방식이 아니라,
-   학생마다 1000장짜리 통에서 한 장을 뽑는다). 장수 합이 1000이라야 표의 % 표시가 맞다.
-   1등과 꽝을 각각 1장(0.1%)으로 못 박고, 나머지 998장을 2~10등에 피라미드로 나눈다
-   (아래로 갈수록 넓어진다 — 가중치 1:2:3…9). 등수를 고르는 일은 여기에 있고,
+   2000장 중 몇 장인지가 곧 확률이다(개인별 독립 시행 — 상자를 비우는 방식이 아니라,
+   학생마다 2000장짜리 통에서 한 장을 뽑는다). 장수 합이 2000이라야 표의 % 표시가 맞다.
+   S·1등·꽝에 쓰는 20장을 먼저 떼고, 남은 1980장을 2~10등에 피라미드로 나눈다
+   (아래로 갈수록 넓어진다 — 가중치 1:2:3…9에 44장씩). 등수를 고르는 일은 여기에 있고,
    경험치를 적는 일은 shared/xp.js의 addLotteryXP가 한다.
    ─ 하루 한 번: xp/students/{학번}/lottery.day 를 트랜잭션에서 검사한다(연타·다중 탭 방지).
    ─ 꽝(-50)은 가진 만큼만 깎인다. RTDB 규칙이 total >= 0을 요구하기 때문이다.
    ─ 꽝은 rank 0으로 적는다(등수가 아니라는 뜻). 화면에도 '꽝'으로 나간다. */
-/* 표의 합은 2000이라야 한다. 예전엔 1000이었는데, 0.05%짜리 S등을 넣으려면
-   1000분의 0.5가 되어 버려 전부 2배로 늘렸다(각 등수의 확률은 그대로다).
-   S 한 장을 끼우는 대신 10등에서 한 장을 뺐다 — 그래야 합이 2000으로 맞는다. */
-const LT_SPECIAL = { rank:'S', tickets:1, pt:1000, label:'스페셜' };
+/* 표의 합은 2000이라야 한다. 예전엔 1000이었는데, 소수점 확률(S등·1등)을 1000분의
+   몇으로는 못 적어서 전부 2배로 늘렸다(각 등수의 확률은 그대로다).
+   2026-10-15에 확률을 손봤다 — S 0.1%(2장), 1등 0.45%(9장), 꽝은 1등과 같은 0.45%(9장).
+   S·1등·꽝에 20장을 쓰고 남은 1980장이 2~10등 피라미드(44 × 1:2:…:9)에 딱 맞으므로,
+   예전처럼 나머지를 10등에 붙이는 보정이 없다. */
+const LT_SPECIAL = { rank:'S', tickets:2, pt:1000, label:'스페셜' };
 const LT_SPECIAL_UNTIL = '2026-11-01';   // 이 날까지만 나온다(KST). 지나면 표에서 저절로 빠진다.
 const LOTTERY = [
   LT_SPECIAL,
-  { rank:1,  tickets:2,   pt:200, label:'대박' },
+  { rank:1,  tickets:9,   pt:200, label:'대박' },
   { rank:2,  tickets:44,  pt:50,  label:'좋음' },
   { rank:3,  tickets:88,  pt:35,  label:'좋음' },
   { rank:4,  tickets:132, pt:25,  label:'괜찮음' },
   { rank:5,  tickets:176, pt:18,  label:'괜찮음' },
-  { rank:6,  tickets:222, pt:12,  label:'무난' },
-  { rank:7,  tickets:266, pt:8,   label:'무난' },
-  { rank:8,  tickets:310, pt:5,   label:'참가' },
-  { rank:9,  tickets:354, pt:3,   label:'참가' },
-  { rank:10, tickets:403, pt:1,   label:'참가' },
-  { rank:0,  tickets:2,   pt:-50, label:'꽝' },
+  { rank:6,  tickets:220, pt:12,  label:'무난' },
+  { rank:7,  tickets:264, pt:8,   label:'무난' },
+  { rank:8,  tickets:308, pt:5,   label:'참가' },
+  { rank:9,  tickets:352, pt:3,   label:'참가' },
+  { rank:10, tickets:396, pt:2,   label:'참가' },
+  { rank:0,  tickets:9,   pt:-50, label:'꽝' },
 ];
-// 기간이 지나면 S를 빼고 그 한 장을 10등에 돌려준다 — 합은 언제나 2000이다.
+// 기간이 지나면 S를 빼고 그 장수를 10등에 돌려준다 — 합은 언제나 2000이다.
 const ltSpecialOn = () => kstDate() <= LT_SPECIAL_UNTIL;
 function ltTable() {
   if (ltSpecialOn()) return LOTTERY;
   return LOTTERY.filter(o => o.rank !== 'S')
-                .map(o => (o.rank === 10 ? { ...o, tickets: o.tickets + 1 } : o));
+                .map(o => (o.rank === 10 ? { ...o, tickets: o.tickets + LT_SPECIAL.tickets } : o));
 }
 const ltById = r => LOTTERY.find(o => o.rank === r) || LOTTERY[LOTTERY.length - 1];
 const ltRankLabel = r => (r === 0 ? '꽝' : (r === 'S' ? '스페셜 S' : `${r}등`));
