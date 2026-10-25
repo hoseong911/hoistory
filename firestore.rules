@@ -438,11 +438,57 @@ service cloud.firestore {
       );
     }
 
+    // ── 2027 LMS (lms2027/model.js, LMS2027.md) ──
+    // 반은 1년 단위로 개설한다. 반 문서 id는 y2027g1c3, 명단·비밀번호·동의 문서 id는
+    // 모두 "반id_학번"으로 같은 꼴이라, 비밀번호와 동의 규칙이 같은 id로 명단을 찾아본다.
+    // 학생은 Firebase Auth를 쓰지 않는다(2026-10-23 선생님 결정) — 그래서 "본인 것만"은
+    // 쓸 수 없고, 대신 명단에 있는 학생만, 처음 한 번만 쓸 수 있게 좁힌다.
+
+    function onRoster(id) {
+      return exists(/databases/$(database)/documents/course_students/$(id));
+    }
+
+    // 반, 명단, 반별 강의, 강의 라이브러리 — 학생은 읽기만, 쓰기는 선생님만.
+    // 명단 읽기는 로그인 화면이 그 해 명단 전체를 한 번에 받으므로(loadYearRoster) list까지 연다.
+    match /courses/{id}                        { allow read: if true; allow write: if isAdmin(); }
+    match /course_students/{id}                { allow read: if true; allow write: if isAdmin(); }
+    match /course_lessons/{id}                 { allow read: if true; allow write: if isAdmin(); }
+    match /lesson_library/{id}                 { allow read: if true; allow write: if isAdmin(); }
+
+    // 비밀번호 — create 전용. 한 번 정한 비밀번호를 남이 덮어써서 그 학생으로 들어가는 길을 막는다.
+    // 초기화는 선생님이 문서를 지우는 것(clearPw)이고, 그러면 학생이 다시 create 한다.
+    // 학생 화면은 문서 하나만 읽으므로(getDoc) get만 열고, 해시를 통째로 긁어 가는 list는 닫는다.
+    match /course_auth/{id} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if isAdmin() || (
+        onRoster(id) &&
+        request.resource.data.keys().hasOnly(['pw']) &&
+        request.resource.data.pw is string &&
+        request.resource.data.pw.matches('^[0-9a-f]{64}$')
+      );
+      allow update, delete: if isAdmin();
+    }
+
+    // 개인정보 동의 — 명단에 있는 학생만 한 번 남긴다.
+    match /course_consent/{id} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if isAdmin() || (
+        onRoster(id) &&
+        request.resource.data.keys().hasOnly(['agreedAt', 'name']) &&
+        request.resource.data.agreedAt == request.time &&
+        request.resource.data.name is string && request.resource.data.name.size() <= 50
+      );
+      allow update, delete: if isAdmin();
+    }
+
     // ── 그 외 모든 경로(레거시/미사용 컬렉션 포함): 읽기는 공개, 쓰기는 관리자만.
     //    위에서 create/update만 허용한 학생 자가제출 컬렉션의 delete도 여기로 떨어져
     //    관리자 전용이 된다.
-    match /{document=**} {
-      allow read: if true;
+    //    규칙은 겹치면 OR로 합쳐지므로, 위에서 list를 닫은 컬렉션은 여기서 빼야 실제로 닫힌다.
+    match /{coll}/{document=**} {
+      allow read: if !(coll in ['course_auth', 'course_consent']);
       allow write: if isAdmin();
     }
   }
