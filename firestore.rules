@@ -439,13 +439,18 @@ service cloud.firestore {
     }
 
     // ── 2027 LMS (별도 레포 hoseong911/lms2027의 model.js, LMS2027.md) ──
-    // 반은 1년 단위로 개설한다. 반 문서 id는 자동 id, 명단·비밀번호·동의 문서 id는
-    // 모두 "반id_학번"으로 같은 꼴이라, 비밀번호와 동의 규칙이 같은 id로 명단을 찾아본다.
+    // 반은 1년 단위로 개설한다. 반 문서 id는 자동 id, 명단 문서 id는 "반id_학번".
+    // 비밀번호와 동의 문서 id는 "학년도_학번"이다 — 한 학생이 여러 반(사회 반, 역사 반)에 들 수
+    // 있어서 반이 아니라 학년도에 붙였다(2026-10-25). 문서에 학생이 든 반 하나(courseId)를 같이 적고,
+    // 규칙은 그 반 명단에 이 학번이 있는지, 그 반이 이 학년도 반인지를 본다.
     // 학생은 Firebase Auth를 쓰지 않는다(2026-10-23 선생님 결정) — 그래서 "본인 것만"은
     // 쓸 수 없고, 대신 명단에 있는 학생만, 처음 한 번만 쓸 수 있게 좁힌다.
 
-    function onRoster(id) {
-      return exists(/databases/$(database)/documents/course_students/$(id));
+    function onYearRoster(id, cid) {
+      let parts = id.split('_');
+      return parts.size() == 2 && cid is string && cid.size() > 0 &&
+        exists(/databases/$(database)/documents/course_students/$(cid + '_' + parts[1])) &&
+        get(/databases/$(database)/documents/courses/$(cid)).data.year == int(parts[0]);
     }
 
     // 반, 명단, 반별 강의, 강의 라이브러리 — 학생은 읽기만, 쓰기는 선생님만.
@@ -463,21 +468,21 @@ service cloud.firestore {
       allow get: if true;
       allow list: if isAdmin();
       allow create: if isAdmin() || (
-        onRoster(id) &&
-        request.resource.data.keys().hasOnly(['pw']) &&
+        request.resource.data.keys().hasOnly(['pw', 'courseId']) &&
+        onYearRoster(id, request.resource.data.courseId) &&
         request.resource.data.pw is string &&
         request.resource.data.pw.matches('^[0-9a-f]{64}$')
       );
       allow update, delete: if isAdmin();
     }
 
-    // 개인정보 동의 — 명단에 있는 학생만 한 번 남긴다.
+    // 개인정보 동의 — 명단에 있는 학생만 학년도에 한 번 남긴다.
     match /course_consent/{id} {
       allow get: if true;
       allow list: if isAdmin();
       allow create: if isAdmin() || (
-        onRoster(id) &&
-        request.resource.data.keys().hasOnly(['agreedAt', 'name']) &&
+        request.resource.data.keys().hasOnly(['agreedAt', 'name', 'courseId']) &&
+        onYearRoster(id, request.resource.data.courseId) &&
         request.resource.data.agreedAt == request.time &&
         request.resource.data.name is string && request.resource.data.name.size() <= 50
       );
