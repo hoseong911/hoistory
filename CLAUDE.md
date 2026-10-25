@@ -6,6 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A static web app suite for 김호성 선생님 (Korean history teacher), branded "Dive into HISTORY." It's deployed via GitHub Pages (`.nojekyll` present). No build system — pure vanilla HTML/CSS/JS loaded directly in the browser.
 
+## 2027 LMS는 별도 레포 (2026-10-25)
+
+2027학년도 LMS는 **`hoseong911/lms2027`** 레포(로컬 `C:\Users\ho091\lms2027`, 주소 `https://hoseong911.github.io/lms2027/`)에서 만든다. 예전 `hoistory/lms2027/` 폴더와 `LMS2027*.md` 문서는 그 레포로 옮겼다.
+- 같은 Firebase 프로젝트를 쓰므로 **2027 컬렉션 규칙도 이 레포의 `firestore.rules`("2027 LMS" 구역)에 있다.** 규칙 파일은 프로젝트에 하나뿐이다. 2027 작업 중 규칙을 바꾸면 여기서 배포하고 여기에도 커밋한다.
+- 2026 `lms/`는 그대로다.
+
 ## Deployment
 
 Push to `main` → GitHub Pages auto-deploys. No build step. Open any `.html` file directly in a browser to test locally.
