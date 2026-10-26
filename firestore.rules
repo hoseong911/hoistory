@@ -460,6 +460,45 @@ service cloud.firestore {
     match /course_students/{id}                { allow read: if true; allow write: if isAdmin(); }
     match /course_lessons/{id}                 { allow read: if true; allow write: if isAdmin(); }
     match /lesson_library/{id}                 { allow read: if true; allow write: if isAdmin(); }
+    match /mission_library/{id}                { allow read: if true; allow write: if isAdmin(); }
+    match /course_missions/{id}                { allow read: if true; allow write: if isAdmin(); }
+
+    // ── 미션 제출 요약 (2026-10-26) ──
+    // 미션 앱이 "냈다"를 남기는 **공용** 컬렉션이다. 앱마다 컬렉션을 새로 파지 않는다.
+    // 문서 id는 "앱키_학년도_학번"이라 한 앱에 한 학생이 한 줄이고, 다시 내면 같은 줄을 고친다.
+    //
+    // 학생은 Firebase Auth를 쓰지 않으므로 "본인 것만"을 증명할 길이 없다. 대신
+    //   - 문서 id가 학번을 품고 있어 자기 자리에만 쓸 수 있게 묶고(idMatchesStudent)
+    //   - 그 학번이 그 반 명단에 실제로 있는지 보고(onYearRoster)
+    //   - **채점 칸(status, gradedAt)은 학생이 아예 못 싣게** 막는다.
+    // 처음 적힌 submittedAt은 기한 판정의 기준이라 학생이 **나중에 바꾸지 못한다**
+    // (2026 네컷에서 다시 낼 때마다 제출 시각이 덮어써져 기한이 지각으로 뒤집힌 적이 있다).
+    function missionIdOk(id, data) {
+      let parts = id.split('_');
+      // 앱 키에 밑줄이 들어가므로(j_interview) 뒤에서 두 칸이 학년도와 학번이다.
+      return parts.size() >= 3 &&
+        data.studentId is string && data.studentId == parts[parts.size() - 1] &&
+        data.year is int && string(data.year) == parts[parts.size() - 2] &&
+        data.appKey is string && data.appKey.size() > 0;
+    }
+    match /mission_submissions/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        missionIdOk(id, request.resource.data) &&
+        onYearRoster(string(request.resource.data.year) + '_' + request.resource.data.studentId,
+                     request.resource.data.courseId) &&
+        !request.resource.data.keys().hasAny(['status', 'gradedAt'])
+      );
+      allow update: if isAdmin() || (
+        missionIdOk(id, request.resource.data) &&
+        request.resource.data.studentId == resource.data.studentId &&
+        request.resource.data.appKey == resource.data.appKey &&
+        request.resource.data.year == resource.data.year &&
+        // 채점 칸과 처음 제출 시각은 학생이 건드리지 못한다.
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'gradedAt', 'submittedAt'])
+      );
+      allow delete: if isAdmin();
+    }
 
     // 비밀번호 — create 전용. 한 번 정한 비밀번호를 남이 덮어써서 그 학생으로 들어가는 길을 막는다.
     // 초기화는 선생님이 문서를 지우는 것(clearPw)이고, 그러면 학생이 다시 create 한다.
