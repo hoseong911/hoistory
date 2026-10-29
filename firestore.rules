@@ -449,19 +449,18 @@ service cloud.firestore {
     function onYearRoster(id, cid) {
       let parts = id.split('_');
       return parts.size() == 2 && cid is string && cid.size() > 0 &&
-        exists(/databases/$(database)/documents/course_students/$(cid + '_' + parts[1])) &&
-        get(/databases/$(database)/documents/courses/$(cid)).data.year == int(parts[0]);
+        exists(/databases/$(database)/documents/hoclass_course_students/$(cid + '_' + parts[1])) &&
+        get(/databases/$(database)/documents/hoclass_courses/$(cid)).data.year == int(parts[0]);
     }
 
     // 반, 명단, 반별 강의, 강의 라이브러리 — 학생은 읽기만, 쓰기는 선생님만.
     // 명단 읽기는 로그인 화면이 그 해 명단 전체를 한 번에 받으므로(loadYearRoster) list까지 연다.
-    match /school_years/{id}                   { allow read: if true; allow write: if isAdmin(); }
-    match /courses/{id}                        { allow read: if true; allow write: if isAdmin(); }
-    match /course_students/{id}                { allow read: if true; allow write: if isAdmin(); }
-    match /course_lessons/{id}                 { allow read: if true; allow write: if isAdmin(); }
-    match /lesson_library/{id}                 { allow read: if true; allow write: if isAdmin(); }
-    match /mission_library/{id}                { allow read: if true; allow write: if isAdmin(); }
-    match /course_missions/{id}                { allow read: if true; allow write: if isAdmin(); }
+    // 2026-10-29: 전 컬렉션 hoclass_ 접두어로 통일(구 LMS lms_* 및 아카이브와 완전 분리).
+    match /hoclass_school_years/{id}           { allow read: if true; allow write: if isAdmin(); }
+    match /hoclass_courses/{id}                { allow read: if true; allow write: if isAdmin(); }
+    match /hoclass_course_students/{id}        { allow read: if true; allow write: if isAdmin(); }
+    match /hoclass_course_lessons/{id}         { allow read: if true; allow write: if isAdmin(); }
+    match /hoclass_lessons/{id}                { allow read: if true; allow write: if isAdmin(); }
 
     // ── 미션 제출 요약 (2026-10-26) ──
     // 미션 앱이 "냈다"를 남기는 **공용** 컬렉션이다. 앱마다 컬렉션을 새로 파지 않는다.
@@ -503,7 +502,7 @@ service cloud.firestore {
     // 비밀번호 — create 전용. 한 번 정한 비밀번호를 남이 덮어써서 그 학생으로 들어가는 길을 막는다.
     // 초기화는 선생님이 문서를 지우는 것(clearPw)이고, 그러면 학생이 다시 create 한다.
     // 학생 화면은 문서 하나만 읽으므로(getDoc) get만 열고, 해시를 통째로 긁어 가는 list는 닫는다.
-    match /course_auth/{id} {
+    match /hoclass_course_auth/{id} {
       allow get: if true;
       allow list: if isAdmin();
       allow create: if isAdmin() || (
@@ -516,7 +515,7 @@ service cloud.firestore {
     }
 
     // 개인정보 동의 — 명단에 있는 학생만 학년도에 한 번 남긴다.
-    match /course_consent/{id} {
+    match /hoclass_course_consent/{id} {
       allow get: if true;
       allow list: if isAdmin();
       allow create: if isAdmin() || (
@@ -533,7 +532,7 @@ service cloud.firestore {
     //    관리자 전용이 된다.
     //    규칙은 겹치면 OR로 합쳐지므로, 위에서 list를 닫은 컬렉션은 여기서 빼야 실제로 닫힌다.
     match /{coll}/{document=**} {
-      allow read: if !(coll in ['course_auth', 'course_consent']);
+      allow read: if !(coll in ['hoclass_course_auth', 'hoclass_course_consent']);
       allow write: if isAdmin();
     }
   }
