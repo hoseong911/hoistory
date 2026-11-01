@@ -52,7 +52,7 @@ export function isRestDay(ms = Date.now(), holidays = DEFAULT_HOLIDAYS) {
 // 이용 시간이 아니면 안내 문구를, 이용 가능하면 null을 돌려준다.
 // ms는 가급적 서버 시각(Date.now() + RTDB serverTimeOffset)을 넘겨 기기 시계 조작을 무디게 한다.
 export function studyClosedReason(ms = Date.now(), holidays = DEFAULT_HOLIDAYS) {
-  if (studySuspended(ms)) return '시험이 끝나 열공 활동은 잠시 쉬어갑니다';
+  if (studySuspended(ms)) return '열공 활동은 잠시 쉬어갑니다';
   const rest = isRestDay(ms, holidays);
   const hour = new Date(ms + 9 * 3600 * 1000).getUTCHours();
   if (hour >= (rest ? STUDY_OPEN.restDay : STUDY_OPEN.weekday)) return null;

@@ -13,7 +13,7 @@ import { initXP, onXPChange, checkAndAddAttendance, calcLevel,
 import { findBadWord } from "../shared/profanity.js";
 import { icon } from "../shared/icons.js?v=20260918";
 import { blockPaste } from "../shared/textLimit.js?v=20260901";
-import { studyClosedReason, studySuspended, loadHolidays, kstDate } from "../shared/util.js?v=20261101";
+import { studyClosedReason, studySuspended, loadHolidays, kstDate } from "../shared/util.js?v=20261101b";
 
 // 여기까지 왔으면 모듈은 다 받았다. 디자인(index.css)도 들어왔는지 확인해서 본문을 연다.
 // 디자인이 빠졌으면 깨진 화면 대신 새로고침 안내를 띄운다(index.html의 bootFail).

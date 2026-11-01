@@ -20,7 +20,7 @@ const db   = initializeFirestore(app, { experimentalAutoDetectLongPolling: true 
 const rtdb = getDatabase(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
-import { CLAUDE_PROXY_URL, kstDate, loadHolidays, isRestDay, studyClosedReason } from '../shared/util.js?v=20261101';
+import { CLAUDE_PROXY_URL, kstDate, loadHolidays, isRestDay, studyClosedReason } from '../shared/util.js?v=20261101b';
 
 /* ── 마지막으로 보던 화면 기억하기 ──
    새로고침하면 늘 대시보드로 돌아가 버려서, 한 화면을 고쳐가며 확인할 때 매번 다시
