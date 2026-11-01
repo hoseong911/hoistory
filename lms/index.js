@@ -1466,7 +1466,6 @@ async function toggleAnnounceLike(annId) {
     if (next) {
       const res = await addAnnLikeXP(annId);
       if (res) showToast(`좋아요 +${res.pt}pt`, 3500, 'heart');
-      renderAnnounceEarnNote(annId);
     }
   } catch (_) {
     _annMyReads[annId] = { ...(_annMyReads[annId] || {}), liked: !next }; // 실패하면 되돌린다
@@ -1611,7 +1610,6 @@ async function postAnnComment() {
       const res = await addAnnCommentXP(annId);
       if (res) { msg.textContent = `+${res.pt}pt 받았어요`; showToast(`댓글 +${res.pt}pt`, 3500, 'message-circle'); }
     }
-    renderAnnounceEarnNote(annId);
   } catch (e) {
     msg.textContent = '등록에 실패했어요. 잠시 뒤 다시 시도해 주세요.';
   } finally { btn.disabled = false; }
@@ -1622,19 +1620,13 @@ async function deleteAnnComment(id) {
   try { await deleteDoc(doc(db, 'announcement_comments', id)); } catch (_) {}
 }
 
-/* 좋아요 줄 오른쪽의 안내. 글마다 한 번씩만 주므로 문구는 늘 같다. */
-function renderAnnounceEarnNote(annId) {
-  const el = document.getElementById('announceEarnNote');
-  if (!el) return;
-  el.textContent = '좋아요 +2pt, 댓글 +5pt (글마다 한 번)';
-}
-
 function renderAnnounceLike(annId) {
   const btn = document.getElementById('announceLikeBtn');
   if (!btn) return;
   const liked = _annMyReads[annId]?.liked === true;
   btn.classList.toggle('liked', liked);
-  btn.querySelector('.alb-txt').textContent = liked ? '좋아요 취소' : '좋아요';
+  const lbl = liked ? '좋아요 취소' : '좋아요';
+  btn.setAttribute('aria-label', lbl); btn.title = lbl;
 }
 
 /* 공지 본문 서식.
@@ -1677,7 +1669,6 @@ function openAnnounceDetail(id) {
   document.getElementById('announceDetailModal').style.display = 'flex';
   _annOpenId = id;
   renderAnnounceLike(id);
-  renderAnnounceEarnNote(id);
   const likeBtn = document.getElementById('announceLikeBtn');
   if (likeBtn) likeBtn.onclick = () => toggleAnnounceLike(id);
   const cmWrap = document.getElementById('annCommentsWrap');
