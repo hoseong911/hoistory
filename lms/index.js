@@ -13,7 +13,7 @@ import { initXP, onXPChange, checkAndAddAttendance, calcLevel,
 import { findBadWord } from "../shared/profanity.js";
 import { icon } from "../shared/icons.js?v=20260918";
 import { blockPaste } from "../shared/textLimit.js?v=20260901";
-import { studyClosedReason, loadHolidays, kstDate } from "../shared/util.js?v=20261009";
+import { studyClosedReason, studySuspended, loadHolidays, kstDate } from "../shared/util.js?v=20261101";
 
 // 여기까지 왔으면 모듈은 다 받았다. 디자인(index.css)도 들어왔는지 확인해서 본문을 연다.
 // 디자인이 빠졌으면 깨진 화면 대신 새로고침 안내를 띄운다(index.html의 bootFail).
@@ -1215,7 +1215,7 @@ function renderAnnounceList() {
    점수는 두 자리부터 10단위로 맞춘 사다리다 — 1000, 200, 50, 40, 30, 20, 10, 8, 5, 3, 2.
    한 자리(7~10등 8·5·3·2)는 그대로 둔다 — 10단위로 올리면 6등을 넘어서기 때문이다. */
 const LT_SPECIAL = { rank:'S', tickets:2, pt:1000, label:'스페셜' };
-const LT_SPECIAL_UNTIL = '2026-11-01';   // 이 날까지만 나온다(KST). 지나면 표에서 저절로 빠진다.
+const LT_SPECIAL_UNTIL = '2026-11-03';   // 이 날까지만 나온다(KST). 지나면 표에서 저절로 빠진다.
 const LOTTERY = [
   LT_SPECIAL,
   { rank:1,  tickets:9,   pt:200, label:'대박' },
@@ -1256,6 +1256,7 @@ const ltRemain = () => _ltState.remain;
 /* 보너스를 어떻게 더 받는지 한 줄로 안내한다. 안 한 활동만 적어야 쓸모가 있다. */
 const LT_TICKET_LABELS = { oxQuiz: 'OX 퀴즈', mileage: '히스토리 마일리지', typingReview: '타이핑 복습' };
 function ltTodoText() {
+  if (studySuspended()) return '';   // 열공 활동이 중단된 기간엔 추천하지 않는다
   const todo = Object.keys(LT_TICKET_LABELS).filter(k => !_ltState.tickets[k]);
   if (!todo.length) return '';
   return todo.map(k => LT_TICKET_LABELS[k]).join(', ') + '을 하면 한 번씩 더 뽑아요';

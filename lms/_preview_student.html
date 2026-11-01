@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>학생 화면 프리뷰 (허브 + 모달)</title>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link rel="stylesheet" href="index.css?v=20260819c">
+<style>
+  /* 프리뷰 전용: 실제 index.js 없이 허브만 강제 표시 */
+  html,body{margin:0}
+  #mainHub{display:flex !important}
+  /* 세부 채점 내역: 강의(숫자) 칸 + 개념/미션/생각 3칸 균등 폭 */
+  #gradeDetailContent .gd-table{table-layout:fixed}
+  #gradeDetailContent .gd-table th:first-child,
+  #gradeDetailContent .gd-table td:first-child{width:34%;text-align:center;font-weight:700}
+  #gradeDetailContent .gd-table th:nth-child(n+2),
+  #gradeDetailContent .gd-table td:nth-child(n+2){width:22%}
+  .gd-half{color:#E6A700;font-weight:800;font-size:16px}
+</style>
+</head>
+<body>
+
+<div id="mainHub">
+  <header class="hub-header">
+    <div class="hub-logo-wrap">
+      <div class="hub-logo">DIVE INTO HISTORY</div>
+      <div class="hub-logo-sub">LMS</div>
+    </div>
+    <div class="header-right">
+      <span class="student-chip"><span class="chip-id">30600</span><span class="chip-name">김호성</span></span>
+      <button class="logout-btn">나가기</button>
+    </div>
+  </header>
+  <div class="hub-body">
+    <div class="hub-welcome">김호성 학생, 오늘도 즐거운 역사 학습!</div>
+
+    <button class="hub-chip" id="xpWidget" type="button" onclick="openXp()">
+      <span class="hub-chip-title">내 경험치</span>
+    </button>
+    <button class="hub-chip" id="gradeBlock" type="button" onclick="openGradeSummary()">
+      <span class="hub-chip-title">성적 Check</span>
+    </button>
+    <button class="hub-chip" id="mileageBlock" type="button" onclick="openMileage()">
+      <span class="hub-chip-title">열공 마일리지</span>
+    </button>
+    <button class="hub-chip" id="contentsBlock" type="button" onclick="openList('contents')">
+      <span class="hub-chip-title">각종 콘텐츠</span>
+    </button>
+
+    <div class="announce-banner" id="announceBanner"></div>
+    <div class="sec-card s-concept" id="secConcept"></div>
+    <div class="sec-card s-mission" id="secMission"></div>
+    <div class="sec-card s-think" id="secThink"></div>
+  </div>
+</div>
+
+<!-- ── 경험치 내역 모달 ── -->
+<div id="xpHistoryModal" onclick="if(event.target===this)closeXp()">
+  <div class="xp-hist-box">
+    <div class="xp-hist-head">
+      <div class="xp-hist-title">경험치 내역</div>
+      <div class="xp-hist-summary">
+        <div class="xp-hist-stat"><div class="xp-hist-stat-val">1,240 pt</div><div class="xp-hist-stat-label">총 경험치</div></div>
+        <div class="xp-hist-stat"><div class="xp-hist-stat-val">Lv.6</div><div class="xp-hist-stat-label">현재 레벨</div></div>
+        <div class="xp-hist-stat"><div class="xp-hist-stat-val">5위</div><div class="xp-hist-stat-label">현재 랭킹</div></div>
+      </div>
+    </div>
+    <div class="xp-hist-list" id="xpHistList"></div>
+  </div>
+</div>
+
+<!-- ── 성적 요약 모달 ── -->
+<div id="gradeSummaryModal" class="grade-modal">
+  <div class="gd-box">
+    <div class="gd-head"><div class="gd-title">성적 Check</div><button class="gd-close" onclick="hide('gradeSummaryModal')">✕</button></div>
+    <div id="gradeSummaryContent"></div>
+  </div>
+</div>
+
+<!-- ── 성적 세부 모달 ── -->
+<div id="gradeDetailModal" class="grade-modal">
+  <div class="gd-box">
+    <div class="gd-head"><div class="gd-title">세부 채점 내역</div><button class="gd-close" onclick="hide('gradeDetailModal')">✕</button></div>
+    <div id="gradeDetailContent"></div>
+  </div>
+</div>
+
+<!-- ── 선생님 피드백 모달 ── -->
+<div id="gradeFeedbackModal" class="grade-modal">
+  <div class="gd-box">
+    <div class="gd-head"><div class="gd-title">선생님 피드백</div><button class="gd-close" onclick="hide('gradeFeedbackModal')">✕</button></div>
+    <div id="gradeFeedbackContent"></div>
+  </div>
+</div>
+
+<!-- ── 섹션 목록 모달 (콘텐츠/모바일 개념·미션·생각) ── -->
+<div id="sectionListModal" class="grade-modal">
+  <div class="gd-box">
+    <div class="gd-head"><div class="gd-title" id="sectionListTitle"></div><button class="gd-close" onclick="hide('sectionListModal')">✕</button></div>
+    <div id="sectionListBody"></div>
+  </div>
+</div>
+
+<!-- ── 마일리지(안내) 모달 ── -->
+<div id="mileageModal" class="grade-modal">
+  <div class="gd-box">
+    <div class="gd-head"><div class="gd-title">열공 마일리지</div><button class="gd-close" onclick="hide('mileageModal')">✕</button></div>
+    <div style="padding:22px 20px;text-align:center">
+      <div style="font-family:'Paperlogy',sans-serif;font-weight:900;font-size:34px;color:var(--rose)">14일</div>
+      <div style="font-size:14px;color:var(--m-ink-soft);margin-top:6px">연속 열공 중</div>
+      <p style="font-size:13px;color:var(--m-ink-faint);line-height:1.7;margin-top:16px">실제 앱에서는 이 버튼을 누르면 열공 마일리지(hismile) 앱이 팝업으로 열립니다. 프리뷰에서는 누적 일수만 표시합니다.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── 목업 데이터 (임의값, 30600 김호성) ── */
+var SVG = {
+  clapperboard:'<path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z"/><path d="m6.2 5.3 3.1 3.9"/><path d="m12.4 3.4 3.1 4"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',
+  feather:'<path d="M20 3v4a10 10 0 0 1-10 10H4a8 8 0 0 1 8-8h4"/><path d="M20 3a10 10 0 0 0-9.5 6.9"/><path d="M2 21c3-3 5.5-4.5 9-6"/>',
+  swords:'<polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" y1="19" x2="19" y2="13"/><line x1="16" y1="16" x2="20" y2="20"/><line x1="19" y1="21" x2="21" y2="19"/><polyline points="14.5 6.5 18 3 21 3 21 6 17.5 9.5"/><line x1="5" y1="14" x2="9" y2="18"/><line x1="7" y1="17" x2="4" y2="20"/><line x1="3" y1="19" x2="5" y2="21"/>',
+  landmark:'<line x1="3" y1="22" x2="21" y2="22"/><line x1="6" y1="18" x2="6" y2="11"/><line x1="10" y1="18" x2="10" y2="11"/><line x1="14" y1="18" x2="14" y2="11"/><line x1="18" y1="18" x2="18" y2="11"/><polygon points="12 2 20 7 4 7"/>',
+  scroll:'<path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/>',
+  'calendar-days':'<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/>',
+  'message-circle':'<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+  'book-open':'<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
+  footprints:'<path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.68V16a2 2 0 1 1-4 0Z"/><path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.68V20a2 2 0 1 0 4 0Z"/><path d="M16 17h4"/><path d="M4 13h4"/>',
+  'circle-help':'<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+  pencil:'<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>',
+  candy:'<path d="m9.5 7.5-2 2a4.95 4.95 0 1 0 7 7l2-2a4.95 4.95 0 1 0-7-7Z"/><path d="M14 6.5v10"/><path d="M10 7.5v10"/><path d="m16 7 1-5 1.37.68A3 3 0 0 0 19.7 3H21v1.3c0 .46.1.92.32 1.33L22 7l-5 1"/><path d="m8 17-1 5-1.37-.68A3 3 0 0 0 4.3 21H3v-1.3a3 3 0 0 0-.32-1.33L2 17l5-1"/>'
+};
+function svg(name, sz){ sz=sz||16; return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:'+sz+'px;height:'+sz+'px">'+(SVG[name]||'')+'</svg>'; }
+
+var CONCEPT = [
+  { num:'31', label:'흥선대원군의 개혁 정치' },
+  { num:'29', label:'조선 후기 사회 변동' },
+  { num:'28', label:'임진왜란과 병자호란' },
+  { num:'27', label:'조선의 건국과 통치 체제' },
+  { num:'25', label:'고려의 성립과 발전' },
+  { num:'OT', label:'오리엔테이션' }
+];
+var MISSION = [
+  { svg:'clapperboard', label:'네 컷 만화로 보는 개항기' },
+  { svg:'feather',      label:'역사 인터뷰: 3사 관원' },
+  { svg:'swords',       label:'사화에서 살아남기' }
+];
+var THINK = [
+  { num:'29', label:'붕당 정치를 어떻게 볼까?' },
+  { num:'31', label:'개항은 기회였나 위기였나' }
+];
+var CONTENTS = [
+  { svg:'scroll',   label:'사료로 읽는 조선' },
+  { svg:'landmark', label:'한국사 연표' }
+];
+var LISTS = { concept:CONCEPT, mission:MISSION, think:THINK, contents:CONTENTS };
+var LIST_NAMES = { concept:'개념 Check', mission:'미션 Check', think:'생각 Check', contents:'각종 콘텐츠' };
+
+/* 성적 목업 (실제 sectionData.grade 구조와 동일) */
+var G = {
+  total:87, max:100,
+  concept:{ total:10, achieved:9, pct:90, score:36 },
+  mission:{ total:5,  achieved:4, pct:80, score:16 },
+  think:  { total:4,  achieved:3, pct:75, score:35 },
+  // 개념/미션/생각은 각각 체크 2개: 2=둘 다(●), 1=하나(△), 0=없음(✗), null=미실시(–)
+  lectureDetails:[
+    { num:'31', title:'31강. 흥선대원군의 개혁 정치', concept:2, mission:2, think:1, feedback:'대원군의 정책을 원인과 결과로 잘 정리했어요. 생각 Check는 근거를 하나 더 들면 좋겠어요.' },
+    { num:'29', title:'29강. 조선 후기 사회 변동',   concept:2, mission:null, think:2, feedback:'' },
+    { num:'28', title:'28강. 임진왜란과 병자호란',   concept:2, mission:1, think:null, feedback:'표를 꼼꼼히 채웠습니다. 두 전란의 차이를 비교한 부분이 특히 좋아요.' },
+    { num:'27', title:'27강. 조선의 건국과 통치 체제', concept:2, mission:2, think:2, feedback:'' },
+    { num:'25', title:'25강. 고려의 성립과 발전',     concept:1, mission:0, think:1, feedback:'' }
+  ]
+};
+
+/* XP 내역 목업 */
+var XP = [
+  { ic:'calendar-days', note:'출석 체크', date:'8/19 09:02', pt:5 },
+  { ic:'message-circle', note:'생각 체크: 붕당 정치를 어떻게 볼까?', date:'8/18 14:20', pt:30, snack:true },
+  { ic:'book-open', note:'개념 체크 복습: 조선의 통치 체제', date:'8/18 13:40', pt:10 },
+  { ic:'footprints', note:'열공 마일리지', date:'8/18 08:55', pt:5 },
+  { ic:'circle-help', note:'OX 퀴즈', date:'8/17 15:10', pt:10 },
+  { ic:'pencil', note:'선생님 지급', date:'8/15 11:00', pt:20 }
+];
+
+/* ── 렌더 헬퍼 ── */
+function sizeClassFor(txt){ var s=String(txt).trim(); return s.length<=2?'size-md':(s.length<=3?'size-sm':(s.length<=5?'size-lg':'size-xl')); }
+function iconItem(it){
+  var box = it.svg ? '<div class="icon-box size-svg">'+svg(it.svg,26)+'</div>'
+                   : '<div class="icon-box '+sizeClassFor(it.num)+'">'+it.num+'</div>';
+  return '<a class="icon-item" href="javascript:void(0)">'+box+'<div class="icon-label">'+it.label+'</div></a>';
+}
+function gridHTML(items){ return '<div class="icon-grid">'+items.map(iconItem).join('')+'</div>'; }
+function gridCard(nodeId, name, items){
+  document.getElementById(nodeId).innerHTML =
+    '<div class="sec-head"><div class="sec-name">'+name+'</div></div>'+
+    '<hr class="sec-divider"><div class="sec-body">'+gridHTML(items)+'</div>';
+}
+function chipCard(nodeId, name, key){
+  var el=document.getElementById(nodeId);
+  el.innerHTML = '<button class="sec-chip" type="button"><span class="chip-name">'+name+'</span></button>';
+  el.querySelector('.sec-chip').onclick=function(){ openList(key); };
+}
+function renderAnnounce(){
+  var el=document.getElementById('announceBanner');
+  el.innerHTML =
+    '<div class="sec-head announce-head"><div class="sec-name">공지사항</div><span class="announce-unread">2</span></div>'+
+    '<hr class="sec-divider"><div class="announce-list">'+
+      '<button type="button" class="announce-item unread"><span class="announce-item-title">2학기 수행평가 안내</span><span class="announce-item-date">8.19</span></button>'+
+      '<button type="button" class="announce-item unread"><span class="announce-item-title">생각 Check 채점 완료</span><span class="announce-item-date">8.18</span></button>'+
+      '<button type="button" class="announce-item"><span class="announce-item-title">개념 Check 31강 공개</span><span class="announce-item-date">8.15</span></button>'+
+    '</div>';
+  el.style.display='block';
+}
+var mq = window.matchMedia('(max-width:960px)');
+function renderHub(){
+  renderAnnounce();
+  if(mq.matches){
+    chipCard('secConcept','개념 Check','concept');
+    chipCard('secMission','미션 Check','mission');
+    chipCard('secThink','생각 Check','think');
+  } else {
+    gridCard('secConcept','개념 Check', CONCEPT);
+    gridCard('secMission','미션 Check', MISSION);
+    gridCard('secThink','생각 Check', THINK);
+  }
+}
+mq.addEventListener('change', renderHub);
+
+/* ── 모달 열고닫기 ── */
+function show(id){ document.getElementById(id).style.display='flex'; }
+function hide(id){ document.getElementById(id).style.display='none'; }
+window.hide=hide;
+
+function openXp(){
+  document.getElementById('xpHistList').innerHTML = XP.map(function(r){
+    return '<div class="xp-hist-item"><div class="xp-hist-icon">'+svg(r.ic,15)+'</div>'+
+      '<div class="xp-hist-info"><div class="xp-hist-note">'+r.note+'</div><div class="xp-hist-date">'+r.date+'</div>'+
+      (r.snack?'<div class="xp-hist-snack">선생님께 간식을 받으러 오세요</div>':'')+
+      '</div><div class="xp-hist-pt">+'+r.pt+' pt</div></div>';
+  }).join('');
+  document.getElementById('xpHistoryModal').classList.add('open');
+}
+function closeXp(){ document.getElementById('xpHistoryModal').classList.remove('open'); }
+window.openXp=openXp; window.closeXp=closeXp;
+
+function gradeCol(label, cls, d){
+  return '<div class="grade-col"><span class="grade-col-label '+cls+'">'+label+'</span>'+
+    '<span class="grade-col-frac">'+(d.total?d.achieved+'/'+d.total:'—')+'</span>'+
+    '<span class="grade-col-pct">'+(d.total?d.pct+'%':'—')+'</span>'+
+    '<div style="display:flex;align-items:baseline;gap:2px"><span class="grade-col-score">'+(d.total?d.score:'—')+'</span><span class="grade-col-score-unit">점</span></div></div>';
+}
+function openGradeSummary(){
+  var html='<div class="grade-summary">'+
+    '<div class="grade-cols">'+gradeCol('개념','c1',G.concept)+gradeCol('미션','c2',G.mission)+gradeCol('생각','c3',G.think)+'</div>'+
+    '<div class="grade-sum-total"><span>총점</span><span><strong>'+G.total+'</strong> / '+G.max+'점</span></div>'+
+    '<div class="grade-btns"><button class="btn-grade-detail" onclick="openGradeDetail()">세부 채점 내역</button>'+
+    '<button class="btn-grade-detail" onclick="openGradeFeedback()">선생님 피드백</button></div>'+
+    '</div><div class="grade-caption">채점 기준에 따른 실시간 점수를 제공합니다. 최종 점수는 학기말에 별도로 안내됩니다.</div>';
+  document.getElementById('gradeSummaryContent').innerHTML=html;
+  show('gradeSummaryModal');
+}
+window.openGradeSummary=openGradeSummary;
+window.openGradeDetail=function(){
+  // 2=둘 다 체크(●), 1=하나(△), 0=없음(✗), null=미실시(–)
+  function mark(v){
+    if(v===null||v===undefined) return '<span class="gd-na">–</span>';
+    if(v>=2) return '<span class="gd-ok">●</span>';
+    if(v===1) return '<span class="gd-half">△</span>';
+    return '<span class="gd-no">✗</span>';
+  }
+  var rows=G.lectureDetails.map(function(d){
+    return '<tr><td>'+d.num+'</td><td>'+mark(d.concept)+'</td><td>'+mark(d.mission)+'</td><td>'+mark(d.think)+'</td></tr>';
+  }).join('');
+  document.getElementById('gradeDetailContent').innerHTML=
+    '<table class="gd-table"><thead><tr><th>강의</th><th>개념</th><th>미션</th><th>생각</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  show('gradeDetailModal');
+};
+window.openGradeFeedback=function(){
+  var withFb=G.lectureDetails.filter(function(d){ return d.feedback; });
+  var body=withFb.map(function(d){ return '<div class="feedback-card"><div class="feedback-lec">'+d.title+'</div><div class="feedback-text">'+d.feedback+'</div></div>'; }).join('');
+  document.getElementById('gradeFeedbackContent').innerHTML=
+    '<div class="feedback-snack">생각 체크 만점! 선생님께 간식을 받으러 오세요</div>'+body;
+  show('gradeFeedbackModal');
+};
+
+function openList(key){
+  document.getElementById('sectionListTitle').textContent = LIST_NAMES[key]||'';
+  document.getElementById('sectionListBody').innerHTML = gridHTML(LISTS[key]||[]);
+  show('sectionListModal');
+}
+window.openList=openList;
+window.openMileage=function(){ show('mileageModal'); };
+
+/* ── 초기 렌더 + ?open= 로 특정 모달 미리 열기 ── */
+renderHub();
+var openParam = new URLSearchParams(location.search).get('open');
+if(openParam==='xp') openXp();
+else if(openParam==='grade') openGradeSummary();
+else if(openParam==='grade-detail') openGradeDetail();
+else if(openParam==='feedback') openGradeFeedback();
+else if(openParam==='mileage') window.openMileage();
+else if(['concept','mission','think','contents'].indexOf(openParam)>=0) openList(openParam);
+</script>
+</body>
+</html>

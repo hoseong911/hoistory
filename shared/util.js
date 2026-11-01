@@ -16,6 +16,13 @@ export function kstDate(ms = Date.now()) {
 // 그 문서가 아직 없으면 DEFAULT_HOLIDAYS를 쓴다(어드민에서 한 번 저장하면 그때부터는 문서가 기준).
 export const STUDY_OPEN = { weekday: 15, restDay: 6 };
 
+// 시험 종료 등으로 열공 활동(히스토리 마일리지·타이핑 복습·OX 퀴즈)을 잠시 멈출 때 쓴다.
+// 이 날짜(KST, YYYY-MM-DD)부터 세 활동이 모두 닫힌다. 다시 열려면 null로 바꾼다.
+export const STUDY_SUSPEND_FROM = '2026-11-04';
+export function studySuspended(ms = Date.now()) {
+  return !!STUDY_SUSPEND_FROM && kstDate(ms) >= STUDY_SUSPEND_FROM;
+}
+
 // 2026년 법정 공휴일(대체공휴일 포함) + 재량휴업일(11/19, 11/20)
 export const DEFAULT_HOLIDAYS = [
   '2026-01-01', '2026-02-16', '2026-02-17', '2026-02-18', '2026-03-01', '2026-03-02',
@@ -45,6 +52,7 @@ export function isRestDay(ms = Date.now(), holidays = DEFAULT_HOLIDAYS) {
 // 이용 시간이 아니면 안내 문구를, 이용 가능하면 null을 돌려준다.
 // ms는 가급적 서버 시각(Date.now() + RTDB serverTimeOffset)을 넘겨 기기 시계 조작을 무디게 한다.
 export function studyClosedReason(ms = Date.now(), holidays = DEFAULT_HOLIDAYS) {
+  if (studySuspended(ms)) return '시험이 끝나 열공 활동은 잠시 쉬어갑니다';
   const rest = isRestDay(ms, holidays);
   const hour = new Date(ms + 9 * 3600 * 1000).getUTCHours();
   if (hour >= (rest ? STUDY_OPEN.restDay : STUDY_OPEN.weekday)) return null;
