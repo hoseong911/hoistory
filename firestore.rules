@@ -462,6 +462,43 @@ service cloud.firestore {
     match /hoclass_course_lessons/{id}         { allow read: if true; allow write: if isAdmin(); }
     match /hoclass_lessons/{id}                { allow read: if true; allow write: if isAdmin(); }
 
+    // ── HOCLASS 공지 소셜 (2026-11-01): 열람·좋아요·댓글. 학생은 Firebase Auth가 없어 비인증 쓰기이므로 필드를 검증한다. ──
+    //    열람+좋아요: 문서 id = 공지id_학번. 누구 기록인지(studentNo)는 수정 시 고정.
+    match /hoclass_notice_reads/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.studentNo is string &&
+        request.resource.data.noticeId is string &&
+        request.resource.data.liked is bool &&
+        request.resource.data.name is string && request.resource.data.name.size() <= 50
+      );
+      allow update: if isAdmin() || (
+        request.resource.data.studentNo == resource.data.studentNo &&
+        request.resource.data.noticeId == resource.data.noticeId &&
+        request.resource.data.liked is bool &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['liked', 'likedAt', 'readAt', 'name'])
+      );
+    }
+    //    댓글: 글자 수·필드를 묶고, 차단된 학생(hoclass_notice_bans/{학번})이나 댓글 막은 글(commentsOff)엔 못 쓴다.
+    //    고치는 길은 없다(지우고 다시). 삭제는 교사와 글쓴이 본인.
+    match /hoclass_notice_comments/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.noticeId is string &&
+        request.resource.data.studentNo is string && request.resource.data.studentNo.size() <= 10 &&
+        request.resource.data.name is string && request.resource.data.name.size() <= 50 &&
+        request.resource.data.text is string &&
+        request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 300 &&
+        request.resource.data.keys().hasOnly(['noticeId', 'studentNo', 'name', 'text', 'createdAt']) &&
+        !exists(/databases/$(database)/documents/hoclass_notice_bans/$(request.resource.data.studentNo)) &&
+        get(/databases/$(database)/documents/hoclass_notices/$(request.resource.data.noticeId)).data.get('commentsOff', false) != true
+      );
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || resource.data.studentNo is string;
+    }
+    //    댓글 작성 차단 명단(문서 id = 학번). 학생 화면이 자기 차단 여부를 읽으므로 읽기는 열고, 걸고 푸는 건 교사만.
+    match /hoclass_notice_bans/{studentNo}     { allow read: if true; allow write: if isAdmin(); }
+
     // ── 미션 제출 요약 (2026-10-26) ──
     // 미션 앱이 "냈다"를 남기는 **공용** 컬렉션이다. 앱마다 컬렉션을 새로 파지 않는다.
     // 문서 id는 "앱키_학년도_학번"이라 한 앱에 한 학생이 한 줄이고, 다시 내면 같은 줄을 고친다.
