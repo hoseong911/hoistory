@@ -584,8 +584,8 @@ const DEFAULT_CONFIG_2026_2 = {
     {
       id: 'sec3', title: '지필/수행평가',
       questions: [
-        { id:'s3q1', text:'2학기 1회시험의 난도는 어땠나요?', type:'scale', options:DIFF5, required:true },
-        { id:'s3q2', text:'2학기 2회시험의 난도는 어땠나요?', type:'scale', options:DIFF5, required:true },
+        // 2학기 지필평가는 한 번뿐이라 s3q2(2회시험)는 두지 않는다
+        { id:'s3q1', text:'2학기 지필평가의 난도는 어땠나요?', type:'scale', options:DIFF5, required:true },
         { id:'s3q3', text:'2학기 수행평가 중 논술형 수행평가의 난도는 어땠나요?', type:'scale', options:DIFF5, required:true },
         { id:'s3q4', text:'2학기 수행평가 중 포트폴리오의 난도는 어땠나요?', type:'scale', options:DIFF5, required:true },
         { id:'s3q5', text:'2학기 지필평가와 관련해서 배부된 총정리 자료에 대한 전반적인 만족도는 어땠나요?', type:'scale', options:HELPED5, required:true },
@@ -600,15 +600,14 @@ const DEFAULT_CONFIG_2026_2 = {
         { id:'s4q1a', text:'위 답변을 선택한 이유를 작성해주세요. 더불어 개념 체크(개념 정리 활동)에 대한 의견을 남겨주셔도 좋습니다.', type:'text', required:true },
         { id:'s4q2', text:'매 수업 시간에 했던 생각 체크의 난도는 어땠나요?', type:'scale', options:DIFF5, required:true },
         { id:'s4q2a', text:'위 답변을 선택한 이유를 작성해주세요. 더불어 생각 체크(수업 성찰 활동)에 대한 의견을 남겨주셔도 좋습니다.', type:'text', required:true },
-        // 선택지는 LMS 미션 카드(2학기 강의 25강 이후) 순서대로
+        // 선택지는 2학기(24강~) 강의에 연결된 LMS 미션 카드 제목 그대로, 연결 강의번호 순서
         { id:'s4q3', text:'기억에 남거나 가장 재밌었던 미션 체크 활동을 골라주세요. (중복 가능)', type:'checkbox', options:[
-          '조선의 기틀을 만든 자들 (인물 인터뷰)',
-          '유교로 나라를 다스린다는 것',
-          '사화 네컷 만들기',
-          '사화에서 살아남기',
-          '전란의 도미노',
-          '영조와 정조의 머릿속을 들여다보기',
-          '각종 사료 읽고 답변하기 활동',
+          '조선의 기틀을 만든 자들',             // 25강
+          '유교적 통치 이념',                    // 27강
+          '사화 네컷',                           // 28강
+          '사화에서 살아남기',                   // 29강
+          '전란의 도미노',                       // 32강
+          '영조와 정조의 머릿속을 들여다보다',   // 35강
         ], required:true },
         { id:'s4q3a', text:'위 답변을 선택한 이유를 작성해주세요. 더불어 미션 체크(학생 중심 수업활동)에 대한 의견을 남겨주셔도 좋습니다.', type:'text', required:true },
         { id:'s4q3b', text:'미션 체크나 수행평가 등을 실시할 때 모둠별로 하는 것에 대해 어떻게 생각하십니까?', type:'text', required:true },
@@ -635,14 +634,16 @@ const DEFAULT_CONFIG_2026_2 = {
 };
 
 // ── 설문 목록 ──
-// 주소의 ?s=로 고른다(없으면 1학기 'main'). 문서 id가 곧 survey_config 문서이고,
-// 응답은 같은 survey_responses에 surveyId 필드로 구분한다. 1학기 응답은 이 필드가 없으므로 'main'으로 본다.
+// 주소의 ?s=로 고르고, 없으면 지금 진행 중인 설문(CURRENT_SURVEY)을 띄운다. 지난 설문은 ?s=로 연다(1학기는 ?s=main).
+// 설문 id가 곧 survey_config 문서 id이고, 응답은 같은 survey_responses에 surveyId 필드로 구분한다.
+// 1학기 응답은 이 필드가 없으므로 'main'으로 본다.
 const SURVEYS = {
   'main':   { term: '1학기', title: '2026학년도 3학년 1학기 역사 수업 설문조사', defaults: DEFAULT_CONFIG },
   '2026-2': { term: '2학기', title: '2026학년도 3학년 2학기 역사 수업 설문조사', defaults: DEFAULT_CONFIG_2026_2 },
 };
+const CURRENT_SURVEY = '2026-2';
 const surveyParam = new URLSearchParams(location.search).get('s');
-const SURVEY_ID = SURVEYS[surveyParam] ? surveyParam : 'main';
+const SURVEY_ID = SURVEYS[surveyParam] ? surveyParam : CURRENT_SURVEY;
 const SURVEY = SURVEYS[SURVEY_ID];
 const isThisSurvey = r => (r.surveyId || 'main') === SURVEY_ID;
 document.title = SURVEY.title;
