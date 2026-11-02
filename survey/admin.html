@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>수업 설문조사 - 관리자 모드</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <style>
+/* 공통 스크롤바: 화살표 없이 얇고 잘 보이지 않는 연한 회색 바(shared/theme.css와 같은 규칙).
+   표준 속성(scrollbar-width/color)을 함께 걸면 Chrome 121+가 webkit 규칙을 무시하므로 표준 속성은 Firefox에만 건다. */
+*::-webkit-scrollbar{width:8px;height:8px}
+*::-webkit-scrollbar-track{background:transparent;margin:10px}
+html::-webkit-scrollbar-track,body::-webkit-scrollbar-track{margin:0}
+*::-webkit-scrollbar-button{display:none;width:0;height:0}
+*::-webkit-scrollbar-thumb{background:rgba(128,128,128,.2);border-radius:4px}
+*::-webkit-scrollbar-thumb:hover{background:rgba(128,128,128,.38)}
+*::-webkit-scrollbar-corner{background:transparent}
+@supports (-moz-appearance:none){*{scrollbar-width:thin;scrollbar-color:rgba(128,128,128,.22) transparent}}
+    :root {
+      --green: #1ed760;
+      --green-hover: #1db954;
+      --green-dim: rgba(30, 215, 96, 0.12);
+      --bg: #121212;
+      --surface: #181818;
+      --interactive: #252525;
+      --border: #3a3a3a;
+      --text: #ffffff;
+      --sub: #a0a0a0;
+      --danger: #f3727f;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 80px;
+    }
+    .form-label { font-size: 13px; font-weight: 700; color: var(--sub); margin-bottom: 7px; letter-spacing: 0.8px; text-transform: uppercase; }
+    .form-input {
+      width: 100%; padding: 14px 16px;
+      border: 1px solid var(--border); border-radius: 12px; background: var(--interactive);
+      font-family: inherit; font-size: 18px; color: var(--text);
+      margin-bottom: 16px; transition: border-color 0.12s;
+    }
+    .form-input:focus { outline: none; border-color: var(--green); }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      width: 100%; padding: 16px; background: var(--green); color: #000;
+      border: none; border-radius: 500px; font-size: 18px; font-weight: 800;
+      cursor: pointer; font-family: inherit; transition: all 0.15s;
+    }
+    .btn-primary:hover { background: var(--green-hover); transform: scale(1.01); }
+    .btn-primary:active { transform: scale(0.98); }
+    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+    .nav-wrap { display: flex; gap: 10px; margin: 14px 14px 0; }
+    .btn-nav {
+      flex: 1; padding: 15px; border: 1px solid var(--border); border-radius: 500px;
+      background: var(--surface); font-size: 17px; font-weight: 700; cursor: pointer;
+      color: var(--text); font-family: inherit; transition: all 0.15s;
+    }
+    .btn-nav:hover { border-color: var(--green); color: var(--green); }
+    .btn-nav.fill { background: var(--green); color: #000; border-color: var(--green); }
+    .btn-nav.fill:hover { background: var(--green-hover); border-color: var(--green-hover); color: #000; }
+
+    /* ══ ADMIN OVERLAY ══ */
+    #adminOverlay {
+      display: none; position: fixed; inset: 0;
+      background: var(--bg); overflow-y: auto; z-index: 200;
+    }
+    .adm-top {
+      background: var(--surface); color: var(--text);
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px; position: sticky; top: 0; z-index: 10;
+    }
+    .adm-top-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 0 0;
+    }
+    .adm-top-title { font-size: 17px; font-weight: 800; }
+    .adm-close {
+      background: none; border: none; color: var(--text);
+      font-size: 22px; cursor: pointer; opacity: 0.6; padding: 4px;
+    }
+    .adm-close:hover { opacity: 1; }
+    .adm-tabs { display: flex; padding-top: 8px; }
+    .adm-tab {
+      padding: 9px 16px; font-size: 15px;
+      color: var(--sub); cursor: pointer;
+      border-bottom: 2px solid transparent; transition: all 0.12s;
+    }
+    .adm-tab.active { color: var(--text); border-bottom-color: var(--green); }
+    .adm-body { max-width: 720px; margin: 0 auto; padding: 16px 14px 40px; }
+
+    .adm-save-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--surface); border-radius: 12px; padding: 12px 16px;
+      margin-bottom: 12px; border: 1px solid var(--border);
+    }
+    .adm-save-msg { font-size: 14px; color: var(--sub); }
+    .btn-adm-save {
+      padding: 8px 20px; background: var(--green); color: #000;
+      border: none; border-radius: 500px; font-size: 15px; font-weight: 800;
+      cursor: pointer; font-family: inherit;
+    }
+    .btn-adm-save:hover { background: var(--green-hover); }
+
+    .adm-sec-block {
+      background: var(--surface); border-radius: 12px; margin-bottom: 10px;
+      border: 1px solid var(--border); overflow: hidden;
+    }
+    .adm-sec-hd {
+      padding: 12px 16px; background: var(--green-dim); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .adm-sec-num {
+      background: var(--green); color: #000; border-radius: 20px; padding: 2px 9px;
+      font-size: 13px; font-weight: 800; flex-shrink: 0;
+    }
+    .adm-sec-title-inp {
+      flex: 1; border: 1px solid transparent; background: transparent;
+      font-size: 16px; font-weight: 700; color: var(--green);
+      padding: 4px 8px; border-radius: 6px; font-family: inherit;
+    }
+    .adm-sec-title-inp:focus { outline: none; border-color: var(--green); background: var(--interactive); }
+    .adm-q-list { padding: 10px 16px; }
+    .adm-q-item { padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .adm-q-item:last-child { border-bottom: none; }
+    .adm-q-meta { font-size: 12px; color: var(--sub); font-weight: 700; margin-bottom: 5px; }
+    .adm-q-inp {
+      width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px;
+      font-family: inherit; font-size: 15px; color: var(--text);
+      background: var(--interactive); resize: vertical; min-height: 34px; transition: border-color 0.12s;
+    }
+    .adm-q-inp:focus { outline: none; border-color: var(--green); }
+    .adm-opts-label { font-size: 12px; color: var(--sub); font-weight: 700; margin: 8px 0 4px; }
+    .adm-opt-row { display: flex; gap: 5px; margin-bottom: 4px; }
+    .adm-opt-inp {
+      flex: 1; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
+      font-family: inherit; font-size: 14px; background: var(--interactive); color: var(--text); transition: border-color 0.12s;
+    }
+    .adm-opt-inp:focus { outline: none; border-color: var(--green); }
+    .adm-opt-del {
+      padding: 5px 9px; background: none; border: 1px solid var(--border); border-radius: 6px;
+      cursor: pointer; color: var(--sub); font-size: 14px; transition: all 0.12s;
+    }
+    .adm-opt-del:hover { border-color: var(--danger); color: var(--danger); }
+    .adm-opt-add {
+      font-size: 14px; color: var(--green); background: none;
+      border: 1px dashed var(--green); border-radius: 6px;
+      padding: 5px 12px; cursor: pointer; margin-top: 2px; font-family: inherit;
+    }
+    .adm-opt-add:hover { background: var(--green-dim); }
+
+    .stat-card {
+      background: var(--surface); border-radius: 12px; padding: 16px; margin-bottom: 10px;
+      border: 1px solid var(--border);
+    }
+    .stat-sec-label { font-size: 16px; font-weight: 800; color: var(--green); margin: 16px 0 8px; }
+    .stat-sec-label:first-child { margin-top: 0; }
+    .stat-q-text { font-size: 15px; font-weight: 600; margin-bottom: 10px; line-height: 1.5; }
+    .stat-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .stat-bar-lbl { min-width: 90px; font-size: 13px; color: var(--sub); text-align: right; }
+    .stat-bar-track { flex: 1; height: 13px; background: var(--interactive); border-radius: 6px; overflow: hidden; }
+    .stat-bar-fill { height: 100%; background: var(--green); border-radius: 6px; transition: width 0.5s ease; }
+    .stat-bar-cnt { min-width: 22px; font-size: 14px; font-weight: 600; color: var(--text); }
+    .stat-avg { font-size: 13px; color: var(--sub); margin-top: 6px; }
+    .stat-text-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+    .stat-text-item {
+      background: var(--interactive); border-radius: 8px; padding: 8px 11px;
+      font-size: 14px; line-height: 1.55;
+    }
+    .stat-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--green-dim); color: var(--green);
+      border-radius: 500px; padding: 4px 14px;
+      font-size: 15px; font-weight: 800; margin-bottom: 14px;
+    }
+    .adm-top-bar {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+    }
+    .btn-reset {
+      padding: 7px 14px; background: none; border: 1px solid var(--danger);
+      border-radius: 500px; color: var(--danger); font-size: 14px; font-weight: 700;
+      cursor: pointer; font-family: inherit; transition: all 0.12s;
+    }
+    .btn-reset:hover { background: var(--danger); color: #000; }
+
+    .resp-card {
+      background: var(--surface); border-radius: 12px; padding: 14px 16px;
+      margin-bottom: 8px; border: 1px solid var(--border);
+    }
+    .resp-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      padding-bottom: 10px; border-bottom: 1px solid var(--border); margin-bottom: 10px;
+    }
+    .resp-name { font-size: 17px; font-weight: 700; }
+    .resp-id { font-size: 14px; color: var(--sub); margin-top: 1px; }
+    .resp-header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+    .resp-date { font-size: 13px; color: var(--sub); }
+    .btn-del-resp {
+      padding: 4px 10px; background: none; border: 1px solid var(--border);
+      border-radius: 6px; font-size: 13px; color: var(--sub); cursor: pointer; font-family: inherit;
+      transition: all 0.12s;
+    }
+    .btn-del-resp:hover { border-color: var(--danger); color: var(--danger); }
+    .resp-q { margin-bottom: 8px; }
+    .resp-q-text { font-size: 13px; color: var(--sub); margin-bottom: 2px; line-height: 1.4; }
+    .resp-q-ans { font-size: 15px; color: var(--text); }
+    .empty-state { text-align: center; padding: 44px 20px; color: var(--sub); font-size: 16px; }
+    .resp-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; border: 1px solid var(--border); }
+    .resp-table td { padding: 12px 12px; font-size: 14px; vertical-align: top; border: 1px solid var(--border); }
+    .resp-table td.resp-table-sec {
+      color: var(--green); font-weight: 800; font-size: 13px;
+      width: 20%; vertical-align: middle; text-align: center;
+    }
+    .resp-table td.resp-table-q { color: var(--sub); width: 48%; line-height: 1.4; }
+    .resp-table td.resp-table-q.resp-table-q-narrow { width: 30%; }
+    .resp-table td.resp-table-a { font-weight: 700; text-align: right; line-height: 1.5; }
+    .resp-text-heading {
+      font-size: 15px; font-weight: 800; color: var(--green);
+      margin: 18px 0 10px; padding-top: 14px; border-top: 1px solid var(--border);
+    }
+    .resp-text-sec { font-size: 13px; font-weight: 700; color: var(--sub); margin: 12px 0 6px; }
+    .resp-text-sec:first-child { margin-top: 0; }
+    .resp-pager { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+    .resp-pager .btn-nav { flex: none; padding: 10px 20px; }
+    .resp-pager .btn-nav:disabled { opacity: 0.35; cursor: not-allowed; }
+    .resp-pager-count { flex: 1; text-align: center; font-size: 15px; font-weight: 700; color: var(--sub); }
+
+    /* ── Response filter tags / sort ── */
+    .resp-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .resp-tag {
+      padding: 7px 16px; border-radius: 500px; font-size: 15px; font-weight: 700;
+      border: 1px solid var(--border); background: var(--interactive); color: var(--sub);
+      cursor: pointer; transition: all 0.12s; user-select: none;
+    }
+    .resp-tag:hover { border-color: var(--green); color: var(--green); }
+    .resp-tag.active { background: var(--green); border-color: var(--green); color: #000; }
+    .resp-sort-row { display: flex; gap: 8px; margin-bottom: 12px; }
+    .resp-sort-btn {
+      padding: 7px 16px; border-radius: 500px; font-size: 15px; font-weight: 700;
+      border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      cursor: pointer; font-family: inherit; transition: all 0.12s;
+    }
+    .resp-sort-btn:hover { border-color: var(--green); color: var(--green); }
+    .resp-sort-btn.active { background: var(--green); border-color: var(--green); color: #000; }
+
+    /* ── Response list modal ── */
+    #respListModal {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      z-index: 300; align-items: center; justify-content: center; padding: 20px;
+    }
+    #respListModal.open { display: flex; }
+    .rlm-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      max-width: 380px; width: 100%; max-height: 70vh; display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .rlm-hd {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 18px; border-bottom: 1px solid var(--border);
+    }
+    .rlm-title { font-size: 16px; font-weight: 800; color: var(--green); }
+    .rlm-close { background: none; border: none; color: var(--text); font-size: 20px; cursor: pointer; opacity: 0.6; padding: 4px; }
+    .rlm-close:hover { opacity: 1; }
+    .rlm-body { overflow-y: auto; padding: 8px 10px; }
+    .rlm-empty { text-align: center; color: var(--sub); font-size: 15px; padding: 30px 10px; }
+    .rlm-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 8px; font-size: 15px; }
+    .rlm-item:nth-child(odd) { background: var(--interactive); }
+    .rlm-item-name { font-weight: 700; }
+    .rlm-item-id { color: var(--sub); font-size: 14px; }
+    .stat-bar-cnt.clickable-cnt { cursor: pointer; text-decoration: underline; text-decoration-style: dotted; }
+    .stat-bar-cnt.clickable-cnt:hover { color: var(--green); }
+
+    /* ── Admin login modal ── */
+    #adminLoginModal {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+      z-index: 300; align-items: center; justify-content: center; padding: 20px;
+    }
+    #adminLoginModal.open { display: flex; }
+    .alm-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      max-width: 340px; width: 100%; padding: 26px 22px;
+    }
+    .alm-title { font-size: 17px; font-weight: 800; margin-bottom: 18px; text-align: center; }
+    .alm-error {
+      display: none; font-size: 13px; color: var(--danger); margin: -8px 0 14px; text-align: center;
+    }
+    .alm-btn-row { display: flex; gap: 8px; margin-top: 4px; }
+    .alm-btn-row .btn-nav { margin: 0; }
+
+    /* ── 어드민 전용 보정: 설문 화면이 아니라 어드민이 본체인 페이지 ── */
+    body { padding-bottom: 0; }
+    #adminOverlay { display: block; position: static; inset: auto; overflow: visible; }
+    .adm-top-row { padding: 14px 0 0; gap: 10px; }
+    .adm-top-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .adm-survey-sel {
+      background: var(--interactive); border: 1px solid var(--border); border-radius: 8px;
+      color: var(--text); font-family: inherit; font-size: 14px; font-weight: 700; padding: 6px 8px;
+    }
+    .adm-top-link {
+      background: none; border: 1px solid var(--border); border-radius: 500px;
+      color: var(--sub); font-family: inherit; font-size: 13px; font-weight: 700;
+      padding: 6px 14px; cursor: pointer; text-decoration: none; transition: all .12s;
+    }
+    .adm-top-link:hover { border-color: var(--green); color: var(--green); }
+    .adm-tabs { overflow-x: auto; }
+    .adm-tab { white-space: nowrap; }
+
+    /* ── 로그인 게이트: 로그인 전에는 본문 대신 이것만 보인다 ── */
+    #gate { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    #gate .alm-card { max-width: 360px; }
+    .gate-sub { font-size: 13px; color: var(--sub); text-align: center; line-height: 1.7; margin-bottom: 18px; }
+
+    /* ── 미리보기 탭 ── */
+    .pv-bar {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 12px 14px; margin-bottom: 12px;
+    }
+    .pv-msg { font-size: 14px; color: var(--sub); flex: 1; min-width: 180px; line-height: 1.5; }
+    .pv-jump { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .pv-jump button {
+      padding: 7px 14px; border-radius: 500px; font-size: 14px; font-weight: 700;
+      border: 1px solid var(--border); background: var(--interactive); color: var(--sub);
+      cursor: pointer; font-family: inherit; transition: all .12s;
+    }
+    .pv-jump button:hover { border-color: var(--green); color: var(--green); }
+    .pv-jump button.active { background: var(--green); border-color: var(--green); color: #000; }
+    .pv-chk {
+      display: flex; align-items: center; gap: 6px; cursor: pointer;
+      font-size: 13px; font-weight: 700; color: var(--sub); white-space: nowrap;
+    }
+    .pv-stage { display: flex; justify-content: center; }
+    .pv-frame {
+      width: 100%; max-width: 420px; height: 72vh; min-height: 420px;
+      border: 1px solid var(--border); border-radius: 18px; background: #121212;
+      overflow: hidden;
+    }
+    .pv-frame.wide { max-width: 100%; }
+    .pv-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+  </style>
+  <script src="/hoistory/pwa.js"></script>
+</head>
+<body>
+
+<!-- ══ 로그인 게이트 ══ -->
+<div id="gate">
+  <div class="alm-card">
+    <div class="alm-title">설문 관리자</div>
+    <div class="gate-sub" id="gateSub">관리자 계정으로 로그인하세요.</div>
+    <div class="alm-error" id="loginError">이메일 또는 비밀번호가 틀렸습니다.</div>
+    <input class="form-input" id="loginEmail" type="email" autocomplete="username" placeholder="이메일">
+    <input class="form-input" id="loginPw" type="password" autocomplete="current-password" placeholder="비밀번호">
+    <div class="alm-btn-row">
+      <a class="btn-nav" href="index.html" style="text-align:center;text-decoration:none;line-height:1.3">설문으로</a>
+      <button class="btn-nav fill" id="loginBtn">로그인</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 어드민 본문 ══ -->
+<div id="adminOverlay" style="display:none">
+  <div class="adm-top">
+    <div class="adm-top-row">
+      <div class="adm-top-left">
+        <span class="adm-top-title" id="admTopTitle">관리자 패널</span>
+        <select class="adm-survey-sel" id="surveySel"></select>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <a class="adm-top-link" id="goSurvey" href="index.html">설문 열기</a>
+        <button class="adm-top-link" id="logoutBtn">로그아웃</button>
+      </div>
+    </div>
+    <div class="adm-tabs">
+      <div class="adm-tab active" data-tab="edit">설문 편집</div>
+      <div class="adm-tab" data-tab="preview">미리보기</div>
+      <div class="adm-tab" data-tab="stats">응답 통계</div>
+      <div class="adm-tab" data-tab="responses">개별 응답</div>
+    </div>
+  </div>
+  <div class="adm-body" id="admBody"></div>
+</div>
+
+<!-- ══ 응답자 명단 모달 ══ -->
+<div id="respListModal">
+  <div class="rlm-card">
+    <div class="rlm-hd">
+      <span class="rlm-title" id="rlmTitle"></span>
+      <button class="rlm-close" id="rlmCloseBtn">✕</button>
+    </div>
+    <div class="rlm-body" id="rlmBody"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script type="module" src="admin.js?v=20261102a"></script>
+</body>
+</html>
