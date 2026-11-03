@@ -8,6 +8,16 @@ export function kstDate(ms = Date.now()) {
   return new Date(ms + 9 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
+/* 각종 콘텐츠 카드의 공개일(openAt, 'YYYY-MM-DD') 판정.
+   날짜가 적혀 있지 않거나 형식이 아니면 늘 열려 있다(예전 카드는 영향이 없다).
+   적혀 있으면 그날 0시(KST)부터 열린다. 학생 화면(lms/index.js)은 서버와의 시차를 반영한
+   시각을 넣어 부르고, 어드민(lms/admin.js)은 목록에 "공개 예정"을 적을 때 쓴다. */
+export function cardOpenAtPassed(openAt, ms = Date.now()) {
+  const d = String(openAt || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return true;
+  return kstDate(ms) >= d; // 같은 YYYY-MM-DD 형식이라 글자 비교가 곧 날짜 비교다
+}
+
 // ── 학습 활동 이용 시간 (히스토리 마일리지 / 타이핑 복습 / OX 퀴즈) ──
 // 수업 시간 딴짓과 늦은 밤 이용을 함께 막는다. 시각은 언제나 한국시간(KST)으로 판정한다.
 //   평일          15:00 ~ 24:00

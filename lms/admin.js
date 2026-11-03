@@ -20,7 +20,7 @@ const db   = initializeFirestore(app, { experimentalAutoDetectLongPolling: true 
 const rtdb = getDatabase(app);
 const auth = getAuth(app);
 const storage = getStorage(app);
-import { CLAUDE_PROXY_URL, kstDate, loadHolidays, isRestDay, studyClosedReason } from '../shared/util.js?v=20261101b';
+import { CLAUDE_PROXY_URL, kstDate, loadHolidays, isRestDay, studyClosedReason, cardOpenAtPassed } from '../shared/util.js?v=20261103a';
 
 /* ── 마지막으로 보던 화면 기억하기 ──
    새로고침하면 늘 대시보드로 돌아가 버려서, 한 화면을 고쳐가며 확인할 때 매번 다시
@@ -4058,11 +4058,6 @@ window.missionMoveCard = async function(docId, dir, idx) {
 // ══════════ 각종 콘텐츠 ══════════
 let contentsSelectedSvg = '';
 
-// 공개일 비교용 오늘 날짜(KST, YYYY-MM-DD). 학생 화면의 cardOpenNow와 같은 기준이다.
-function contentsTodayKST() {
-  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
-}
-
 async function initContentsTab() {
   let cat = '';
   try {
@@ -4154,7 +4149,7 @@ async function renderContentsPreview(cat) {
       const isLocked = !!item.locked;
       // 공개일이 아직 안 지났으면 학생 화면에는 안 보인다 — 눈이 떠 있어도 그렇다는 것을 적어 준다.
       const openAt = String(item.openAt || '').trim();
-      const waiting = openAt && contentsTodayKST() < openAt;
+      const waiting = openAt && !cardOpenAtPassed(openAt);
       row.innerHTML = `
         <div class="item-icon-preview preview-contents">${isSvg ? iconStr : esc(iconStr) || '—'}</div>
         <div class="item-info">
