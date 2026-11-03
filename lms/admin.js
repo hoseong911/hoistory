@@ -4058,6 +4058,11 @@ window.missionMoveCard = async function(docId, dir, idx) {
 // ══════════ 각종 콘텐츠 ══════════
 let contentsSelectedSvg = '';
 
+// 공개일 비교용 오늘 날짜(KST, YYYY-MM-DD). 학생 화면의 cardOpenNow와 같은 기준이다.
+function contentsTodayKST() {
+  return new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
 async function initContentsTab() {
   let cat = '';
   try {
@@ -4082,6 +4087,7 @@ async function initContentsTab() {
     const url      = document.getElementById('contentsCardUrl').value.trim();
     const adminUrl = document.getElementById('contentsCardAdminUrl').value.trim();
     const openInModal = document.getElementById('contentsCardModal').checked;
+    const openAt   = document.getElementById('contentsCardOpenAt').value.trim();
     if (!title || !url) { alert('제목과 웹앱 주소를 입력해 주세요.'); return; }
     const btn = document.getElementById('contentsAddCardBtn');
     btn.disabled = true;
@@ -4090,6 +4096,8 @@ async function initContentsTab() {
       const order = snap.docs.length ? Math.max(...snap.docs.map(d => d.data().order || 0)) + 1 : 0;
       const cardData = { emoji, title, desc: '', url, category: cat, locked: false, order, openInModal };
       if (adminUrl) cardData.adminUrl = adminUrl;
+      // 공개일을 적으면 그날 0시(KST)까지 학생 허브에 안 나온다(index.js cardOpenNow).
+      if (openAt) cardData.openAt = openAt;
       await addDoc(collection(db, 'cards'), cardData);
       contentsSelectedSvg = '';
       const prev = document.getElementById('contentsIconPreview');
@@ -4097,6 +4105,7 @@ async function initContentsTab() {
       document.getElementById('contentsCardTitle').value = '';
       document.getElementById('contentsCardUrl').value = '';
       document.getElementById('contentsCardAdminUrl').value = '';
+      document.getElementById('contentsCardOpenAt').value = '';
       document.getElementById('contentsCardModal').checked = false;
       renderContentsPreview(cat);
       alert('카드가 추가되었습니다.');
@@ -4143,10 +4152,16 @@ async function renderContentsPreview(cat) {
       const iconStr = String(item.emoji||'');
       const isSvg = iconStr.startsWith('<svg');
       const isLocked = !!item.locked;
+      // 공개일이 아직 안 지났으면 학생 화면에는 안 보인다 — 눈이 떠 있어도 그렇다는 것을 적어 준다.
+      const openAt = String(item.openAt || '').trim();
+      const waiting = openAt && contentsTodayKST() < openAt;
       row.innerHTML = `
         <div class="item-icon-preview preview-contents">${isSvg ? iconStr : esc(iconStr) || '—'}</div>
         <div class="item-info">
           <div class="item-label">${esc(item.title||'')}</div>
+          ${openAt ? `<div class="item-sublabel">${waiting
+              ? `<span style="color:#DC2626;font-weight:700">${esc(openAt)} 공개 예정 · 아직 학생에게 안 보입니다</span>`
+              : `${esc(openAt)}부터 공개`}</div>` : ''}
         </div>
         <div class="item-meta">
           <button class="mi-act ${isLocked?'locked':'open'}" title="${isLocked?'비공개 (클릭 시 공개)':'공개 (클릭 시 비공개)'}" onclick="contentsToggleLocked('${item.docId}',${isLocked})">${isLocked?S.eyeOff:S.eye}</button>
@@ -4176,6 +4191,7 @@ window.contentsStartEdit = function(docId) {
       <input id="ce-title-${docId}" class="form-input" value="${esc(item.title||'')}" placeholder="제목" style="flex:1;min-width:100px">
       <input id="ce-url-${docId}" class="form-input" value="${esc(item.url||'')}" placeholder="웹앱 URL" style="flex:2;min-width:140px">
       <input id="ce-adminurl-${docId}" class="form-input" value="${esc(item.adminUrl||'')}" placeholder="어드민 URL (선택)" style="flex:2;min-width:140px">
+      <input id="ce-openat-${docId}" class="form-input" type="date" value="${esc(String(item.openAt||''))}" title="공개일" style="flex:none;width:150px">
       <label class="grade-na-toggle"><input type="checkbox" id="ce-modal-${docId}" ${item.openInModal?'checked':''}> 팝업으로 열기</label>
       <button class="btn-save" style="flex:none;padding:7px 16px;background:var(--c3)" onclick="contentsSaveEdit('${docId}')">저장</button>
       <button class="btn-cancel" onclick="renderContentsPreview(window._contentsCat)">취소</button>
@@ -4200,9 +4216,10 @@ window.contentsSaveEdit = async function(docId) {
   const url      = document.getElementById(`ce-url-${docId}`)?.value.trim();
   const adminUrl = document.getElementById(`ce-adminurl-${docId}`)?.value.trim() || '';
   const openInModal = document.getElementById(`ce-modal-${docId}`)?.checked || false;
+  const openAt = document.getElementById(`ce-openat-${docId}`)?.value.trim() || '';
   if (!title) { alert('제목을 입력하세요.'); return; }
   try {
-    await updateDoc(doc(db, 'cards', docId), { emoji, title, url, adminUrl, openInModal });
+    await updateDoc(doc(db, 'cards', docId), { emoji, title, url, adminUrl, openInModal, openAt });
     renderContentsPreview(window._contentsCat);
   } catch(e) { alert('저장 실패: ' + e.message); }
 };

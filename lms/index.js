@@ -822,7 +822,7 @@ function startListening() {
     onSnapshot(query(collection(db, 'cards'), where('category','==', cat)), snap => {
       sectionData.contents = snap.docs
         .map(d => { const data = d.data(); return { docId: d.id, ...data, label: data.title || data.label, url: withStudentParams(resolveAppUrl(data.url)), openInModal: !!data.openInModal }; })
-        .filter(x => notHismile(x) && x.locked !== true) // 비공개(locked)는 생각 체크처럼 허브에서 숨긴다
+        .filter(x => notHismile(x) && x.locked !== true && cardOpenNow(x)) // 비공개(locked)·공개일 전은 생각 체크처럼 허브에서 숨긴다
         .sort((a, b) => (b.order ?? -1) - (a.order ?? -1)); // 최신순 — 새 카드는 order=최댓값+1로 붙는다
       renderAll();
     });
@@ -1114,6 +1114,18 @@ function renderGradeSummaryHTML(g) {
 
 // ── 렌더 공통 조각 ──
 const LOADING_HTML = '<div class="loading-dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+/* 각종 콘텐츠 카드의 공개일(openAt, 'YYYY-MM-DD'). 그날 0시(KST)가 지나야 허브에 나온다.
+   비워 두면 예전처럼 바로 나오므로 이미 있는 카드는 영향이 없다. 공개일을 쓰는 카드도
+   어드민에서 공개(눈 뜬 상태)로 두어야 한다 — 비공개는 날짜와 무관하게 먼저 걸러진다.
+   날짜는 서버와의 시차를 반영한 serverNow로 잰다. 다만 그 시차를 RTDB에서 받기 전
+   아주 짧은 동안은 기기 시계를 쓰므로, 하루라도 일찍 보면 안 되는 것에는 쓰지 않는다.
+   이미 열어 둔 화면은 자정이 지나도 그대로다(다시 들어오면 보인다). */
+function cardOpenNow(card) {
+  const d = String(card.openAt || '').trim();
+  if (!/^d{4}-d{2}-d{2}$/.test(d)) return true;
+  return kstDate(serverNow()) >= d; // 같은 YYYY-MM-DD 형식이라 글자 비교가 곧 날짜 비교다
+}
+
 const SEC_CLS    = { concept:'s-concept', mission:'s-mission', think:'s-think', contents:'s-contents' };
 /* 개념·미션·생각은 강의가 쌓일수록 목록이 길어져 모바일에서 스크롤만 하게 된다.
    최신 6개만 펴 두고 나머지는 [+ 더보기] 뒤에 둔다(각종 콘텐츠는 개수가 적어 그대로).
