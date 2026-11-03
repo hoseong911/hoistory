@@ -12,7 +12,7 @@ import { addDoc, collection } from "https://www.gstatic.com/firebasejs/10.12.2/f
 import "../shared/offline.js";
 import {
   db, SURVEYS, resolveSurveyId, loadConfig, esc, isValidStudentId,
-} from "./survey-core.js?v=20261102a";
+} from "./survey-core.js?v=20261103a";
 
 const params    = new URLSearchParams(location.search);
 const SURVEY_ID = resolveSurveyId();
@@ -144,6 +144,8 @@ function renderStep(pushHistory = true) {
   tellParentStep();
 }
 
+const allRequired = () => config.sections.every(s => s.questions.every(q => q.required));
+
 function renderIntroHTML() {
   const idForm = PREVIEW ? '' : `
       <div class="form-label">학번 (5자리)</div>
@@ -156,7 +158,9 @@ function renderIntroHTML() {
       <div class="intro-desc">
         이 설문은 ${SURVEY.term} 역사 수업에 대한 여러분의 솔직한 의견을 듣기 위한 것입니다.<br><br>
         총 ${config.sections.length}개 섹션으로 구성되어 있으며 약 5~10분 소요됩니다.<br>
-        모든 항목이 필수이니 성실하게 답해주세요 :)
+        ${allRequired()
+          ? '모든 항목이 필수이니 성실하게 답해주세요 :)'
+          : '(선택) 표시가 없는 항목은 모두 필수이니 성실하게 답해주세요 :)'}
       </div>
       ${idForm}
       <button class="btn-primary" id="startBtn">시작하기</button>
@@ -168,7 +172,9 @@ function renderSectionHTML(sec) {
   const qs = sec.questions.map(q => {
     if (q.type === 'scale') qNum++;
     const prefix = q.type === 'scale' ? `<span class="q-num">${qNum}.</span>` : '';
-    const label = `<div class="q-label">${prefix}${esc(q.text)}</div>`;
+    // 어드민에서 "필수"를 끈 문항에만 (선택)을 붙인다
+    const opt = q.required ? '' : '<span class="q-opt">(선택)</span>';
+    const label = `<div class="q-label">${prefix}${esc(q.text)}${opt}</div>`;
 
     if (q.type === 'scale') {
       const sel = answers[q.id];

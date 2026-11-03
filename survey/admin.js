@@ -10,9 +10,9 @@ import { signInWithEmailAndPassword, onAuthStateChanged, signOut }
 
 import "../shared/offline.js";
 import {
-  db, auth, SURVEYS, resolveSurveyId, loadConfig, matchesSurvey,
+  db, auth, SURVEYS, SCALE_PRESETS, resolveSurveyId, loadConfig, matchesSurvey,
   esc, getClassNum,
-} from "./survey-core.js?v=20261102a";
+} from "./survey-core.js?v=20261103a";
 
 // ── 지금 보고 있는 설문 ──
 const SURVEY_ID = resolveSurveyId();
@@ -98,73 +98,243 @@ function renderTab() {
 }
 
 // ════════ 설문 편집 ════════
-function renderEdit() {
+// 섹션·문항을 더하고, 지우고, 순서를 바꾸고, 필수 여부를 고른다. [저장하기]를 누르기 전까지는
+// 메모리의 config만 바뀐다(미리보기 탭에는 저장 전에도 비친다).
+//
+// 문항 id 규칙 — 응답은 answers[문항 id]로 저장되고 통계도 id로 묶는다.
+//  · 기존 문항의 id는 절대 바꾸지 않는다(학기끼리 비교하려고 같은 질문은 같은 id를 쓴다).
+//  · 새로 만드는 문항/섹션은 시각 기반의 겹치지 않는 id를 받는다. 지운 문항의 id를 다시 쓰면
+//    예전에 받은 응답이 엉뚱한 새 문항의 답으로 잡히므로, "s4q8"처럼 번호를 이어 붙이지 않는다.
+//  · 문항 유형은 만들 때만 고른다. 이미 응답이 쌓인 문항의 유형을 바꾸면 저장된 답(숫자/배열/글)과 어긋난다.
+const TYPE_LABEL = { scale: '5점 척도', checkbox: '복수 선택', text: '주관식' };
+let dirty    = false;          // 저장하지 않은 변경이 있는가
+const fresh  = new Set();      // 이번에 새로 만든(아직 응답이 있을 수 없는) 섹션·문항 id
+
+let idSeq = 0;
+const newId = prefix => `${prefix}${Date.now().toString(36)}${(idSeq++).toString(36)}`;
+
+function makeQuestion(type) {
+  const q = { id: newId('q_'), text: '', type, required: true };
+  if (type === 'scale')    q.options = SCALE_PRESETS[0].options.slice();
+  if (type === 'checkbox') q.options = ['옵션 1', '옵션 2'];
+  return q;
+}
+
+function markDirty() {
+  dirty = true;
+  const msg = $('admSaveMsg');
+  if (msg) { msg.textContent = '저장하지 않은 변경사항이 있습니다.'; msg.classList.add('dirty'); }
+}
+window.addEventListener('beforeunload', e => {
+  if (dirty) { e.preventDefault(); e.returnValue = ''; }
+});
+
+function moveItem(arr, from, to) {
+  if (to < 0 || to >= arr.length) return false;
+  [arr[from], arr[to]] = [arr[to], arr[from]];
+  return true;
+}
+
+function renderEdit(focusSel) {
   const body = $('admBody');
-  let html = `<div class="adm-save-bar">
-    <span class="adm-save-msg">변경사항을 저장하면 즉시 반영됩니다.</span>
-    <button class="btn-adm-save" id="admSaveBtn">저장하기</button>
+  const nSec = config.sections.length;
+
+  // 리스너는 매번 새로 만들어지는 #admEdit에 단다(#admBody는 탭끼리 같이 쓰므로 거기 달면 쌓인다)
+  let html = `<div id="admEdit">
+  <div class="adm-save-bar">
+    <span class="adm-save-msg${dirty ? ' dirty' : ''}" id="admSaveMsg">${dirty ? '저장하지 않은 변경사항이 있습니다.' : '변경사항을 저장하면 즉시 반영됩니다.'}</span>
+    <button class="btn-adm-save" data-act="save">저장하기</button>
   </div>`;
 
   config.sections.forEach((sec, si) => {
+    const nQ = sec.questions.length;
     let qHtml = '';
     sec.questions.forEach((q, qi) => {
-      const typeLbl = q.type === 'scale' ? '5점 척도' : q.type === 'checkbox' ? '복수 선택' : '주관식';
+      const at = `data-si="${si}" data-qi="${qi}"`;
       let optsHtml = '';
-      if (q.type === 'scale' || q.type === 'checkbox') {
+      if (q.type === 'scale') {
         const rows = q.options.map((opt, oi) => `
           <div class="adm-opt-row">
-            <input class="adm-opt-inp opt-inp" value="${esc(opt)}" data-si="${si}" data-qi="${qi}" data-oi="${oi}">
-            ${q.type === 'checkbox' ? `<button class="adm-opt-del del-opt-btn" data-si="${si}" data-qi="${qi}" data-oi="${oi}">✕</button>` : ''}
+            <span class="adm-opt-no">${oi + 1}</span>
+            <input class="adm-opt-inp" data-f="opt" ${at} data-oi="${oi}" value="${esc(opt)}">
+          </div>`).join('');
+        const presets = SCALE_PRESETS.map((p, pi) =>
+          `<button class="adm-chip" data-act="preset" ${at} data-pi="${pi}" title="${esc(p.options.join(' / '))}">${esc(p.name)}</button>`).join('');
+        optsHtml = `
+          <div class="adm-opts-label">선택지 라벨 (1→5 순서) <span class="adm-presets">세트로 바꾸기: ${presets}</span></div>
+          <div>${rows}</div>`;
+      } else if (q.type === 'checkbox') {
+        const rows = q.options.map((opt, oi) => `
+          <div class="adm-opt-row">
+            <input class="adm-opt-inp" data-f="opt" ${at} data-oi="${oi}" value="${esc(opt)}">
+            <button class="adm-opt-del" data-act="delOpt" ${at} data-oi="${oi}" title="옵션 삭제">✕</button>
           </div>`).join('');
         optsHtml = `
-          <div class="adm-opts-label">${q.type === 'scale' ? '선택지 라벨 (1→5 순서)' : '선택지 목록'}</div>
+          <div class="adm-opts-label">선택지 목록</div>
           <div>${rows}</div>
-          ${q.type === 'checkbox' ? `<button class="adm-opt-add add-opt-btn" data-si="${si}" data-qi="${qi}">+ 옵션 추가</button>` : ''}`;
+          <button class="adm-opt-add" data-act="addOpt" ${at}>+ 옵션 추가</button>`;
       }
-      qHtml += `<div class="adm-q-item">
-        <div class="adm-q-meta">Q${qi + 1} · ${typeLbl} · 필수</div>
-        <textarea class="adm-q-inp q-text-inp" rows="2" data-si="${si}" data-qi="${qi}">${esc(q.text)}</textarea>
+      qHtml += `<div class="adm-q-item${fresh.has(q.id) ? ' is-new' : ''}">
+        <div class="adm-q-top">
+          <span class="adm-q-meta">Q${qi + 1} · ${TYPE_LABEL[q.type] || q.type}${fresh.has(q.id) ? ' · 새 문항' : ''}</span>
+          <label class="adm-req"><input type="checkbox" data-f="req" ${at}${q.required ? ' checked' : ''}> 필수</label>
+          <span class="adm-tools">
+            <button class="adm-icon" data-act="qUp" ${at} title="위로"${qi === 0 ? ' disabled' : ''}>↑</button>
+            <button class="adm-icon" data-act="qDown" ${at} title="아래로"${qi === nQ - 1 ? ' disabled' : ''}>↓</button>
+            <button class="adm-icon danger" data-act="qDel" ${at} title="문항 삭제">✕</button>
+          </span>
+        </div>
+        <textarea class="adm-q-inp" rows="2" data-f="qText" ${at} data-qid="${esc(q.id)}" placeholder="질문을 입력하세요">${esc(q.text)}</textarea>
         ${optsHtml}
       </div>`;
     });
+    if (!nQ) qHtml = '<div class="adm-q-empty">문항이 없습니다. 아래에서 문항을 추가하세요.</div>';
+
     html += `<div class="adm-sec-block">
       <div class="adm-sec-hd">
         <span class="adm-sec-num">${si + 1}</span>
-        <input class="adm-sec-title-inp sec-title-inp" value="${esc(sec.title)}" data-si="${si}">
+        <input class="adm-sec-title-inp" data-f="secTitle" data-si="${si}" data-secid="${esc(sec.id)}" value="${esc(sec.title)}" placeholder="섹션 제목">
+        <span class="adm-tools">
+          <button class="adm-icon" data-act="secUp" data-si="${si}" title="섹션을 위로"${si === 0 ? ' disabled' : ''}>↑</button>
+          <button class="adm-icon" data-act="secDown" data-si="${si}" title="섹션을 아래로"${si === nSec - 1 ? ' disabled' : ''}>↓</button>
+          <button class="adm-icon danger" data-act="secDel" data-si="${si}" title="섹션 삭제"${nSec <= 1 ? ' disabled' : ''}>✕</button>
+        </span>
       </div>
       <div class="adm-q-list">${qHtml}</div>
+      <div class="adm-add-q">
+        <span class="adm-add-q-lbl">+ 문항 추가</span>
+        <button class="adm-chip" data-act="addQ" data-si="${si}" data-type="scale">5점 척도</button>
+        <button class="adm-chip" data-act="addQ" data-si="${si}" data-type="checkbox">복수 선택</button>
+        <button class="adm-chip" data-act="addQ" data-si="${si}" data-type="text">주관식</button>
+      </div>
     </div>`;
   });
 
+  html += `<button class="adm-add-sec" data-act="addSec">+ 섹션 추가</button></div>`;
   body.innerHTML = html;
 
-  body.querySelectorAll('.sec-title-inp').forEach(inp => {
-    inp.addEventListener('input', () => { config.sections[+inp.dataset.si].title = inp.value; });
+  const root = body.querySelector('#admEdit');
+  // 글자 입력은 다시 그리지 않고 config만 고친다(커서가 튀지 않게)
+  root.addEventListener('input', e => {
+    const t = e.target, f = t.dataset.f;
+    if (!f) return;
+    const sec = config.sections[+t.dataset.si];
+    if (f === 'secTitle') sec.title = t.value;
+    else if (f === 'qText') sec.questions[+t.dataset.qi].text = t.value;
+    else if (f === 'opt')   sec.questions[+t.dataset.qi].options[+t.dataset.oi] = t.value;
+    else if (f === 'req')   sec.questions[+t.dataset.qi].required = t.checked;
+    markDirty();
   });
-  body.querySelectorAll('.q-text-inp').forEach(ta => {
-    ta.addEventListener('input', () => { config.sections[+ta.dataset.si].questions[+ta.dataset.qi].text = ta.value; });
-  });
-  body.querySelectorAll('.opt-inp').forEach(inp => {
-    inp.addEventListener('input', () => { config.sections[+inp.dataset.si].questions[+inp.dataset.qi].options[+inp.dataset.oi] = inp.value; });
-  });
-  body.querySelectorAll('.del-opt-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      config.sections[+btn.dataset.si].questions[+btn.dataset.qi].options.splice(+btn.dataset.oi, 1);
-      renderEdit();
-    });
-  });
-  body.querySelectorAll('.add-opt-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      config.sections[+btn.dataset.si].questions[+btn.dataset.qi].options.push('새 옵션');
-      renderEdit();
-    });
-  });
-  body.querySelector('#admSaveBtn').addEventListener('click', async () => {
-    try {
-      await setDoc(doc(db, 'survey_config', SURVEY_ID), config);
-      alert('저장되었습니다.');
-    } catch (e) { alert('저장 실패: ' + e.message); }
-  });
+  root.addEventListener('click', onEditClick);
+
+  if (focusSel) {
+    const el = root.querySelector(focusSel);
+    if (el) { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.focus({ preventScroll: true }); }
+  }
+}
+
+async function onEditClick(e) {
+  const btn = e.target.closest('[data-act]');
+  if (!btn || btn.disabled) return;
+  const act = btn.dataset.act;
+  const si  = +btn.dataset.si, qi = +btn.dataset.qi;
+  const sec = config.sections[si];
+  const q   = sec?.questions[qi];
+  let focus = null;
+
+  switch (act) {
+    case 'save': return saveConfig();
+
+    case 'addSec': {
+      const s = { id: newId('sec_'), title: '새 섹션', questions: [] };
+      fresh.add(s.id);
+      config.sections.push(s);
+      focus = `[data-secid="${s.id}"]`;
+      break;
+    }
+    case 'secUp':   if (!moveItem(config.sections, si, si - 1)) return; break;
+    case 'secDown': if (!moveItem(config.sections, si, si + 1)) return; break;
+    case 'secDel': {
+      if (config.sections.length <= 1) return;
+      const hasOld = sec.questions.some(x => !fresh.has(x.id));
+      const msg = hasOld
+        ? `${si + 1}번 섹션 "${sec.title}"과 그 안의 문항 ${sec.questions.length}개를 지울까요?\n이미 받은 응답 속 이 문항들의 답은 지워지지 않지만, 통계와 개별 응답 화면에서 더 이상 보이지 않습니다.`
+        : `${si + 1}번 섹션 "${sec.title}"을 지울까요?`;
+      if (!confirm(msg)) return;
+      config.sections.splice(si, 1);
+      break;
+    }
+
+    case 'addQ': {
+      const nq = makeQuestion(btn.dataset.type);
+      fresh.add(nq.id);
+      sec.questions.push(nq);
+      focus = `[data-qid="${nq.id}"]`;
+      break;
+    }
+    case 'qUp':   if (!moveItem(sec.questions, qi, qi - 1)) return; break;
+    case 'qDown': if (!moveItem(sec.questions, qi, qi + 1)) return; break;
+    case 'qDel': {
+      if (!fresh.has(q.id)) {
+        const preview = q.text.length > 40 ? q.text.slice(0, 40) + '…' : q.text;
+        if (!confirm(`이 문항을 지울까요?\n"${preview}"\n\n이미 받은 응답 속 이 문항의 답은 지워지지 않지만, 통계와 개별 응답 화면에서 더 이상 보이지 않습니다.`)) return;
+      }
+      sec.questions.splice(qi, 1);
+      break;
+    }
+
+    case 'preset': {
+      const p = SCALE_PRESETS[+btn.dataset.pi];
+      q.options = p.options.slice();
+      break;
+    }
+    case 'addOpt':
+      q.options.push(`옵션 ${q.options.length + 1}`);
+      focus = `[data-f="opt"][data-si="${si}"][data-qi="${qi}"][data-oi="${q.options.length - 1}"]`;
+      break;
+    case 'delOpt':
+      if (q.options.length <= 1) { alert('복수 선택 문항에는 선택지가 하나 이상 있어야 합니다.'); return; }
+      q.options.splice(+btn.dataset.oi, 1);
+      break;
+    default: return;
+  }
+  markDirty();
+  renderEdit(focus);
+}
+
+/* 저장 전에 학생 화면이 깨질 만한 것을 막는다. 문제가 있으면 첫 번째 것을 알려 준다. */
+function validateConfig() {
+  if (!config.sections.length) return '섹션이 하나 이상 있어야 합니다.';
+  for (const [si, sec] of config.sections.entries()) {
+    const where = `${si + 1}번 섹션`;
+    if (!sec.title.trim()) return `${where}의 제목이 비어 있습니다.`;
+    if (!sec.questions.length) return `${where} "${sec.title}"에 문항이 없습니다. 문항을 추가하거나 섹션을 지워 주세요.`;
+    for (const [qi, q] of sec.questions.entries()) {
+      const qw = `${where} "${sec.title}"의 Q${qi + 1}`;
+      if (!q.text.trim()) return `${qw} 질문이 비어 있습니다.`;
+      if (q.type === 'scale') {
+        if (q.options.length !== 5 || q.options.some(o => !o.trim())) return `${qw}: 5점 척도 라벨 다섯 칸을 모두 채워 주세요.`;
+      } else if (q.type === 'checkbox') {
+        if (!q.options.length) return `${qw}: 선택지가 하나 이상 있어야 합니다.`;
+        if (q.options.some(o => !o.trim())) return `${qw}: 비어 있는 선택지가 있습니다.`;
+        // 응답은 선택지 글자 그대로 저장되므로 같은 글자가 둘이면 통계에서 구분이 안 된다
+        if (new Set(q.options.map(o => o.trim())).size !== q.options.length) return `${qw}: 똑같은 선택지가 두 개 있습니다.`;
+      }
+    }
+  }
+  return null;
+}
+
+async function saveConfig() {
+  const err = validateConfig();
+  if (err) { alert('저장할 수 없습니다.\n' + err); return; }
+  try {
+    await setDoc(doc(db, 'survey_config', SURVEY_ID), config);
+    dirty = false;
+    fresh.clear();   // 저장했으니 이제 학생 응답이 붙을 수 있다 — 지울 때 확인을 받는다
+    if (currentTab === 'edit') renderEdit();
+    alert('저장되었습니다.');
+  } catch (e) { alert('저장 실패: ' + e.message); }
 }
 
 // ════════ 미리보기 ════════

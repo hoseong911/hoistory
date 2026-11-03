@@ -1,9 +1,9 @@
 /* ════════════════════════════════════════════════════════════════
    설문 공통 모듈 — 학생 화면(index.html)과 어드민(admin.html)이 같이 쓴다.
    · Firebase 연결, 설문 목록과 기본 문항, 저장된 설정 불러오기, 잡다한 도우미.
-   · 문항을 새로 추가하거나 지우려면 아래 DEFAULT_CONFIG_* 를 고친다.
-     단, 어드민 "설문 편집"에서 한 번이라도 저장했다면 Firestore의
-     survey_config/<설문id> 문서가 우선이라 여기를 고쳐도 화면은 안 바뀐다.
+   · 문항·섹션 추가/삭제/순서 변경은 어드민 "설문 편집"에서 한다(2026-11-03~).
+     아래 DEFAULT_CONFIG_* 는 survey_config/<설문id> 문서가 아직 없을 때만 쓰인다.
+     한 번이라도 저장했다면 Firestore 문서가 우선이라 여기를 고쳐도 화면은 안 바뀐다.
    ════════════════════════════════════════════════════════════════ */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -79,6 +79,12 @@ export const DEFAULT_CONFIG = {
 const AGREE5  = ['전혀 그렇지 않다','그렇지 않다','보통이다','그렇다','매우 그렇다'];
 const DIFF5   = ['매우 쉬웠다','쉬웠다','적당했다','어려웠다','매우 어려웠다'];
 const HELPED5 = ['매우 도움이 되지 않았다','도움이 되지 않았다','보통이다','도움이 되었다','매우 도움이 되었다'];
+// 어드민에서 5점 척도 문항을 새로 만들거나 라벨을 통째로 바꿀 때 고르는 세트
+export const SCALE_PRESETS = [
+  { name: '동의 정도', options: AGREE5 },
+  { name: '난도',      options: DIFF5 },
+  { name: '도움 정도', options: HELPED5 },
+];
 export const DEFAULT_CONFIG_2026_2 = {
   sections: [
     {
