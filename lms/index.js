@@ -821,7 +821,7 @@ function startListening() {
     if (!cat) { sectionData.contents = []; renderAll(); return; }
     onSnapshot(query(collection(db, 'cards'), where('category','==', cat)), snap => {
       sectionData.contents = snap.docs
-        .map(d => { const data = d.data(); return { docId: d.id, ...data, label: data.title || data.label, url: resolveAppUrl(data.url), openInModal: !!data.openInModal }; })
+        .map(d => { const data = d.data(); return { docId: d.id, ...data, label: data.title || data.label, url: withStudentParams(resolveAppUrl(data.url)), openInModal: !!data.openInModal }; })
         .filter(x => notHismile(x) && x.locked !== true) // 비공개(locked)는 생각 체크처럼 허브에서 숨긴다
         .sort((a, b) => (b.order ?? -1) - (a.order ?? -1)); // 최신순 — 새 카드는 order=최댓값+1로 붙는다
       renderAll();
@@ -2282,6 +2282,17 @@ document.getElementById('thinkSubmitBtn').addEventListener('click', () => {
 
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* 각종 콘텐츠 앱에 로그인한 학생을 그대로 넘긴다(마일리지 모달과 같은 규약:
+   embed=1&sid=학번&sn=이름). 앱이 학번을 다시 묻지 않게 하려는 것이고,
+   이 셋을 모르는 앱(OX 퀴즈 등)은 그냥 무시하므로 붙여도 탈이 없다.
+   바깥 주소에는 붙이지 않는다 — 학번·이름을 남의 서버로 보낼 일은 없다. */
+function withStudentParams(u) {
+  if (!u || !currentStudentId) return u;
+  if (u.includes('://') || u.startsWith('//')) return u;
+  const sep = u.includes('?') ? '&' : '?';
+  return u + sep + 'embed=1&sid=' + encodeURIComponent(currentStudentId) + '&sn=' + encodeURIComponent(currentStudentName);
 }
 
 // 미션 카드 URL은 hoistory 루트 기준 상대경로(예: interview/index.html)로 입력받는다.

@@ -6,6 +6,9 @@
      · 답을 하지 않아도 이전/다음으로 모든 화면을 넘겨볼 수 있다
      · 제출 버튼을 눌러도 저장되지 않고 완료 화면만 보여 준다
      · 어드민 미리보기 탭 안에서 열렸으면, 아직 저장하지 않은 문항도 받아서 비춘다
+   LMS에서 열면 주소에 embed=1&sid=학번&sn=이름 이 붙어 온다(hismile와 같은 방식):
+     · 학번과 이름을 다시 묻지 않고 시작 화면에 확인 문구만 보여 준다
+     · 학생 화면 맨 아래 "관리자" 링크를 숨긴다
    ════════════════════════════════════════════════════════════════ */
 import { addDoc, collection } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -18,12 +21,21 @@ const params    = new URLSearchParams(location.search);
 const SURVEY_ID = resolveSurveyId();
 const SURVEY    = SURVEYS[SURVEY_ID];
 const PREVIEW   = params.get('preview') === '1';
+const EMBED     = !PREVIEW && params.get('embed') === '1';
+
+// LMS가 넘겨 준 학번·이름. 학번 형식이 맞고 이름이 있을 때만 믿는다 —
+// 하나라도 어긋나면 평소처럼 학생에게 직접 묻는다.
+const LMS_ID    = (params.get('sid') || '').trim();
+const LMS_NAME  = (params.get('sn')  || '').trim();
+const PREFILLED = !PREVIEW && LMS_ID.length === 5 && isValidStudentId(LMS_ID) && !!LMS_NAME;
 
 document.title = PREVIEW ? `${SURVEY.title} (미리보기)` : SURVEY.title;
 document.getElementById('surveyTitle').textContent = SURVEY.title;
 if (PREVIEW) document.body.classList.add('preview-mode');
-// 보고 있던 학기 그대로 어드민을 연다
-document.getElementById('adminLink').href = `admin.html?s=${encodeURIComponent(SURVEY_ID)}`;
+// 보고 있던 학기 그대로 어드민을 연다. LMS 안에서는 학생에게 보일 자리가 아니라 숨긴다.
+const adminLink = document.getElementById('adminLink');
+adminLink.href = `admin.html?s=${encodeURIComponent(SURVEY_ID)}`;
+if (EMBED) { const ft = adminLink.closest('.app-footer'); if (ft) ft.style.display = 'none'; }
 
 // ── 상태 ──
 let config = null;
@@ -75,6 +87,9 @@ async function init() {
   }
 
   loadSession();
+  // LMS에서 왔으면 세션에 남은 값보다 LMS가 넘겨 준 쪽을 믿는다.
+  // (같은 탭에서 다른 학생이 이어 열었을 때 앞 사람 이름으로 제출되는 것을 막는다.)
+  if (PREFILLED) { studentId = LMS_ID; studentName = LMS_NAME; }
   history.replaceState({ surveyStep: step }, '');
   renderStep(false);
 }
@@ -132,8 +147,8 @@ function renderStep(pushHistory = true) {
     el.querySelector('#homeBtn').addEventListener('click', () => {
       step = 0;
       answers = {};
-      studentId = '';
-      studentName = '';
+      studentId = PREFILLED ? LMS_ID : '';
+      studentName = PREFILLED ? LMS_NAME : '';
       clearSession();
       renderStep();
     });
@@ -147,11 +162,15 @@ function renderStep(pushHistory = true) {
 const allRequired = () => config.sections.every(s => s.questions.every(q => q.required));
 
 function renderIntroHTML() {
-  const idForm = PREVIEW ? '' : `
+  const idForm = (PREVIEW || PREFILLED) ? '' : `
       <div class="form-label">학번 (5자리)</div>
       <input class="form-input" id="inpId" type="text" inputmode="numeric" maxlength="5" placeholder="예: 30101" value="${esc(studentId)}">
       <div class="form-label">이름</div>
       <input class="form-input" id="inpName" type="text" placeholder="이름을 입력하세요" value="${esc(studentName)}">`;
+  // LMS에서 넘어왔으면 학번을 다시 받지 않고, 누구로 참여하는지만 보여 준다.
+  const whoLine = PREFILLED
+    ? `<div class="intro-who">${esc(studentId)} ${esc(studentName)} 학생으로 참여합니다.</div>`
+    : '';
   return `
     <div class="card intro-card">
       <div class="intro-title">안녕하세요!</div>
@@ -162,6 +181,7 @@ function renderIntroHTML() {
           ? '모든 항목이 필수이니 성실하게 답해주세요 :)'
           : '(선택) 표시가 없는 항목은 모두 필수이니 성실하게 답해주세요 :)'}
       </div>
+      ${whoLine}
       ${idForm}
       <button class="btn-primary" id="startBtn">시작하기</button>
     </div>`;
@@ -303,6 +323,7 @@ function attachNavListeners(el, isLast) {
 // ── 흐름 ──
 function startSurvey() {
   if (PREVIEW) { step = 1; renderStep(false); return; }
+  if (PREFILLED) { step = 1; saveSession(); renderStep(); return; }
   const id   = document.getElementById('inpId').value.trim();
   const name = document.getElementById('inpName').value.trim();
   if (!id || id.length !== 5 || !/^\d+$/.test(id)) { alert('학번을 5자리 숫자로 입력해주세요.'); return; }
