@@ -6,6 +6,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A static web app suite for 김호성 선생님 (Korean history teacher), branded "Dive into HISTORY." It's deployed via GitHub Pages (`.nojekyll` present). No build system — pure vanilla HTML/CSS/JS loaded directly in the browser.
 
+## 감사편지 트리도 별도 레포 (2026-11-05)
+
+학교 축제용 **감사편지 트리**는 **`hoseong911/xmas`** 레포(로컬 `C:\Users\USER\Desktop\xmas`, 주소 `https://hoseong911.github.io/xmas/`)에서 만든다. 예전 `hoistory/xmas/` 폴더와 `test/xmas.test.mjs`, `shared/theme.css`의 `hi-preset-xmas`는 그 레포로 옮겼다. (2026-11-05 커밋 92c1314에서 여기 만들었다가 바로 떼어 냈다 — 지난 코드가 필요하면 그 커밋을 본다.)
+
+- **같은 Firebase 프로젝트를 쓴다.** 컬렉션은 `xmas_letters` / `xmas_ornaments` / `xmas_teachers` / `xmas_teacher_pins` 와 `settings/xmas_config`.
+- 그래서 **보안 규칙과 Cloud Function은 여기 남아 있다.** 규칙 파일은 프로젝트에 하나뿐이라 저쪽에도 두면 한쪽 배포가 다른 쪽을 덮어쓴다.
+  - `firestore.rules`의 "감사편지 트리" 구역. **맨 아래 catch-all의 읽기 제외 목록에 `xmas_letters`와 `xmas_teacher_pins`가 들어 있다** — 규칙은 겹치면 OR로 합쳐지므로 거기서 빼지 않으면 위에서 닫아도 실제로는 열려 있다.
+  - `functions/index.js`의 `xmasLetters`(선생님이 네 자리 번호로 자기 편지만 받아 가는 중개). 이 함수를 넣으면서 `functions/package.json` 런타임을 Node 22로 올렸다.
+  - 배포: `firebase deploy --only firestore:rules --project ho0911seong-56638` / `firebase deploy --only functions:xmasLetters --project ho0911seong-56638`
+- 앱이 왜 그렇게 생겼는지(데이터를 둘로 나눈 까닭 등)는 **저쪽 레포의 `CLAUDE.md`**에 있다.
+- `shared/icons.js`에 그때 보탠 Lucide 아이콘 15개(send, mail, lock, user, heart 등)는 두루 쓸 만해서 여기에도 그대로 남겨 두었다.
+
 ## 2027 LMS는 별도 레포 (2026-10-25)
 
 2027학년도 LMS는 **`hoseong911/lms2027`** 레포(로컬 `C:\Users\ho091\lms2027`, 주소 `https://hoseong911.github.io/lms2027/`)에서 만든다. 예전 `hoistory/lms2027/` 폴더와 `LMS2027*.md` 문서는 그 레포로 옮겼다.
@@ -51,7 +63,7 @@ All modules are ES modules imported with a CDN-versioned Firebase path:
 
 | File | Purpose |
 |------|---------|
-| `theme.css` | Design system. Apply via `<body class="hi-preset-XXX">`. Presets: `hi-preset-admin`, `hi-preset-blind`, `hi-preset-paper`, `hi-preset-mono-dark`, `hi-preset-naver`, `hi-preset-gallery`, `hi-preset-lms`, `hi-preset-xmas`. Token names use `--hi-*` prefix. |
+| `theme.css` | Design system. Apply via `<body class="hi-preset-XXX">`. Presets: `hi-preset-admin`, `hi-preset-blind`, `hi-preset-paper`, `hi-preset-mono-dark`, `hi-preset-naver`, `hi-preset-gallery`, `hi-preset-lms`. Token names use `--hi-*` prefix. |
 | `auth.js` | Student roster load + ID/name verification. Call `initAuth(db)` once, then `mountLoginVerification({...})` to wire up login UI. Caches roster in localStorage for 24h. |
 | `toast.js` | Three notification styles: `showToast()` (simple pill), `showRichToast()` (icon+title card), `showCelebration()` (big center popup). Also `subscribePickChannel()` for real-time teacher-pick events. |
 | `profanity.js` | `containsBadWord(text)` — checks Korean/English profanity for student text submissions. |
@@ -624,51 +636,3 @@ LMS 허브의 **각종 콘텐츠**에서 들어가는 복습용 OX 퀴즈. `apps
 - 미리보기는 sessionStorage에 아무것도 쓰지 않는다(학생 진행 상황을 덮어쓰지 않게).
 - `survey/_preview.html`은 PC 1440 / 패드 820 / 폰 390을 한 화면에 나란히 띄우는 개발용 도구다(`npm run preview` 뒤 `/hoistory/survey/_preview.html`).
 
-## 감사편지 트리 (`xmas/`, 2026-11-05)
-
-학교 축제용. 학생이 태블릿에서 선생님께 감사편지를 쓰면 큰 화면의 크리스마스트리에 오너먼트로 걸린다. LMS와 전혀 엮이지 않는 독립 앱이라 `apps/` 가 아니라 루트에 둔다(`hismile/`, `survey/`, `ox/` 와 같은 자리).
-
-| 파일 | 하는 일 |
-|------|---------|
-| `index.html` | 학생 작성(공용 태블릿). 학번·이름 → 선생님 → 편지 → 오너먼트 → 달기 |
-| `tree.html` | 전시용 트리. 실시간으로 오너먼트가 늘어난다 |
-| `teacher.html` | 선생님이 이름을 고르고 네 자리 번호로 자기 편지를 읽는다 |
-| `admin.html` | 선생님 등록과 번호 발급, 편지 숨기기, 공개일 설정 |
-| `xmas-core.js` | Firebase 연결, 설정, 서버 시각, 눈 내리기 |
-| `ornaments.js` | 오너먼트 그림 10종 |
-| `tree-layout.js` | 트리에 거는 자리 계산 (테스트: `test/xmas.test.mjs`) |
-| `_preview.html` | PC/패드/폰 동시 미리보기 (`npm run preview` 뒤 `/hoistory/xmas/_preview.html`) |
-
-### 데이터를 둘로 나눈 까닭 — 여기가 이 앱의 핵심이다
-
-선생님이 고른 공개 범위는 **학생이 보는 트리는 완전 익명, 선생님만 자기 편지를 읽는다**이다. 학생도 선생님도 Firebase Auth로 로그인하지 않기 때문에(선생님은 네 자리 번호뿐) 보안 규칙으로는 번호를 확인해 줄 수 없다. 그래서 **애초에 클라이언트가 받을 수 있는 것을 줄이는 쪽으로** 설계했다.
-
-| 컬렉션 | 내용 | 읽기 |
-|--------|------|------|
-| `xmas_letters/{id}` | 학번, 이름, 받는 선생님, 내용, 오너먼트, `hidden` | **관리자만.** 선생님 화면은 Cloud Function을 거친다 |
-| `xmas_ornaments/{id}` | `ornament`, `createdAt` 뿐 | 누구나(트리 화면) |
-| `xmas_teachers/{id}` | 이름, 담당, 순서 | 누구나(학생이 고른다) |
-| `xmas_teacher_pins/{id}` | 네 자리 번호, 실패 횟수, 잠금 시각 | **관리자만** |
-| `settings/xmas_config` | 제목, 안내 문구, `openAt`, `closed`, 글자 수 | 누구나 |
-
-- **두 문서의 id가 같다.** 학생이 보낼 때 id를 먼저 만들어 `writeBatch`로 편지와 오너먼트를 함께 쓴다. id가 같아야 선생님 화면이 "내 편지가 트리 어디에 걸렸는지"를 찾을 수 있다.
-- **`xmas_ornaments`에 `teacherId`를 넣지 말 것.** 넣으면 통신을 들여다보는 것만으로 어느 오너먼트가 누구 앞으로 간 편지인지 드러난다. 선생님별 보기는 Cloud Function이 돌려주는 편지 id 목록으로 한다.
-- **`firestore.rules` 맨 아래 catch-all의 제외 목록에 `xmas_letters`와 `xmas_teacher_pins`가 들어 있다.** 규칙은 겹치면 OR로 합쳐지므로 거기서 빼지 않으면 위에서 닫아도 실제로는 열려 있다. 규칙을 손볼 때 이 목록을 같이 보라.
-
-### Cloud Function `xmasLetters` (`functions/index.js`)
-
-`POST { teacherId, pin }` → 번호를 확인하고 그 선생님 편지만 돌려준다. `asia-northeast3`, CORS는 `claudeProxy`와 같은 `ALLOWED_ORIGINS`를 쓴다.
-- 번호 확인과 실패 횟수 기록을 한 트랜잭션에서 한다. 8번 틀리면 10분 잠근다.
-- **공개일(`openAt`) 전에는 내용을 주지 않는다** — `{ locked: true, count, letterIds }` 만 돌려줘서 "N통 도착, 12월 24일에 열립니다"와 트리에서 빛내기만 되게 한다.
-- 돌려주는 편지에는 `teacherId`와 `hidden`을 담지 않는다(필요 없는 것은 내보내지 않는다).
-- 이 함수를 추가하면서 `functions/package.json`에 `firebase-admin`을 넣고 런타임을 **Node 22**로 올렸다(Node 20은 2026-10-30에 수명이 끝나 배포가 막힌다).
-
-### 화면에서 지킨 것
-
-- **공용 태블릿이라 아무것도 남기지 않는다.** 입력은 메모리 변수에만 두고 sessionStorage/localStorage를 쓰지 않는다. 보내면 바로 비우고 첫 화면으로 가며, 2분 30초 동안 아무 동작이 없으면 물어본 뒤(15초) 지운다. 어드민에서 받기를 멈춰도 쓰던 내용이 지워진다.
-- **오너먼트는 `shared/icons.js`로 못 만든다.** 그쪽 `icon()`은 바깥 `<svg>`에 `fill="none" stroke="currentColor"`를 박는 한 색 선 아이콘 전용이다. 오너먼트는 색을 채운 콘텐츠 그림이라 `ornaments.js`에 따로 뒀다(j_brain 머리 그림과 같은 취급). **화면의 UI 아이콘은 그대로 `shared/icons.js`를 쓴다.**
-- 오너먼트 SVG에 `id`나 `<defs>`를 쓰지 않는다 — 한 화면에 수백 개가 뜨므로 id가 겹쳐 그라데이션이 엉킨다. 그래서 납작한 색 + 하이라이트로만 그린다.
-- 트리에 거는 자리는 `tree-layout.js`가 정한다. 편지가 늘면 줄 수가 늘고 오너먼트가 작아지며, 이미 걸린 것도 새 자리로 미끄러져 간다(CSS transition). 자리는 편지 id에서 뽑은 고정 난수로 흔들어 격자 티를 없앤다 — **흔드는 폭은 트리 너비가 아니라 칸 간격에 맞춰야 한다**(트리 너비에 맞추면 아래 줄에서 옆칸까지 넘어가 포개진다).
-- `tree.html`의 트리 그림을 고치면 `tree-layout.js`의 `TREE` 상수(`apexY`/`baseY`/`baseHalf`)도 같이 맞춰야 오너먼트가 가지 밖으로 나가지 않는다.
-- **`canvas.xm-snow`에는 `width:100%; height:100%`를 꼭 적는다.** canvas는 대체 요소라 `position:fixed; inset:0`만으로는 고유 크기(300x150)에 머물러 눈이 왼쪽 위 구석에만 내린다.
-- 글자 수 조건은 화면에 문구로 안내하지 않고 버튼이 켜지는 것으로만 알린다(규칙을 알려 주면 그 선까지 긁어 보게 된다).
