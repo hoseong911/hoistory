@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>감사편지 트리 미리보기 (PC + 패드 + 폰)</title>
+<style>
+  :root{ --bg:#11131a; --panel:#1b1e27; --line:#2c303c; --text:#e8eaf0; --sub:#9aa0b0; --accent:#d9a832; }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--text);font-family:'Pretendard',system-ui,sans-serif;display:flex;flex-direction:column;overflow:hidden}
+  header.bar{flex:none;display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .bar-title{font-weight:800;font-size:15px}
+  .bar-title span{font-weight:600;font-size:12px;color:var(--sub);margin-left:6px}
+  .seg{display:flex;gap:2px;background:#0d0f15;border:1px solid var(--line);border-radius:9px;padding:3px}
+  .seg button{background:none;border:none;color:var(--sub);font-family:inherit;font-size:13px;font-weight:700;padding:5px 12px;border-radius:6px;cursor:pointer}
+  .seg button.on{background:var(--accent);color:#231a07}
+  .btn{background:var(--accent);border:none;color:#231a07;font-family:inherit;font-size:13px;font-weight:800;padding:7px 14px;border-radius:8px;cursor:pointer}
+  .btn:hover{filter:brightness(1.08)}
+  .path{background:#0d0f15;border:1px solid var(--line);border-radius:8px;color:var(--text);font-family:inherit;font-size:13px;padding:6px 10px;width:230px}
+  main{flex:1;min-height:0;overflow:hidden;display:flex;align-items:flex-start;justify-content:center}
+  /* 세 기기를 실제 크기로 나란히 놓고, 전체를 transform:scale로 통째로 줄인다.
+     iframe 안쪽 폭은 진짜 기기 그대로라 반응형 분기점이 실제와 같게 걸린다. */
+  #stage{transform-origin:top center;display:flex;gap:28px;align-items:flex-start;padding:16px 0}
+  .dev{display:flex;flex-direction:column;flex:none}
+  .head{font-size:15px;font-weight:800;color:var(--sub);padding:0 4px 10px}
+  .head b{color:var(--text)}
+  .wrap{overflow:hidden;background:#0a1622;border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
+  .wrap.pad{border-radius:20px}
+  .wrap.phone{border-radius:28px}
+  .wrap iframe{display:block;border:0;background:#0a1622}
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="bar-title">감사편지 트리 미리보기<span>PC 1440, 패드 820, 폰 390 동시. 새로고침을 누르면 셋 다 갱신됩니다.</span></div>
+  <div class="seg" id="pages">
+    <button data-page="index.html" class="on">학생 쓰기</button>
+    <button data-page="tree.html">트리</button>
+    <button data-page="teacher.html">선생님</button>
+    <button data-page="admin.html">관리</button>
+  </div>
+  <input id="customPath" class="path" placeholder="직접 경로 (예: tree.html)">
+  <button id="reload" class="btn">새로고침</button>
+</header>
+
+<main id="main">
+  <div id="stage">
+    <div class="dev">
+      <div class="head">PC <b>1440 × 900</b></div>
+      <div class="wrap"><iframe id="fPc" width="1440" height="900" title="PC 미리보기"></iframe></div>
+    </div>
+    <div class="dev">
+      <div class="head">패드 <b>820 × 1180</b></div>
+      <div class="wrap pad"><iframe id="fPad" width="820" height="1180" title="패드 미리보기"></iframe></div>
+    </div>
+    <div class="dev">
+      <div class="head">폰 <b>390 × 844</b></div>
+      <div class="wrap phone"><iframe id="fMo" width="390" height="844" title="폰 미리보기"></iframe></div>
+    </div>
+  </div>
+</main>
+
+<script>
+const BASE = '/hoistory/xmas/';
+let page = 'index.html';
+
+function load(){
+  const custom = document.getElementById('customPath').value.trim();
+  const p = custom || page;
+  const sep = p.includes('?') ? '&' : '?';
+  ['fPc','fPad','fMo'].forEach(id => {
+    document.getElementById(id).src = BASE + p + sep + '_t=' + Date.now();
+  });
+}
+
+function fit(){
+  const stage = document.getElementById('stage');
+  const main  = document.getElementById('main');
+  const natW = 1440 + 820 + 390 + 28*2 + 48; // 기기 셋 + 사이 여백 + 좌우 여유
+  const natH = 1180 + 25 + 32;               // 가장 높은 기기(패드) + 라벨 + 패딩
+  const s = Math.min(main.clientWidth / natW, main.clientHeight / natH, 1);
+  stage.style.transform = 'scale(' + s + ')';
+}
+
+document.querySelectorAll('#pages button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#pages button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    page = b.dataset.page;
+    document.getElementById('customPath').value = '';
+    load();
+  });
+});
+document.getElementById('reload').addEventListener('click', load);
+document.getElementById('customPath').addEventListener('keydown', e => { if (e.key === 'Enter') load(); });
+window.addEventListener('resize', fit);
+fit(); load();
+</script>
+</body>
+</html>

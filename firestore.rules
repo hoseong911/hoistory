@@ -564,12 +564,64 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // ── 감사편지 트리 (xmas/) ──────────────────────────────────────────
+    //  학생도 선생님도 Firebase Auth로 로그인하지 않는다. 규칙은 "누가 요청했는지"만
+    //  볼 수 있어 선생님의 네 자리 번호를 확인해 줄 수 없다. 그래서 익명을 규칙으로
+    //  지키려고 데이터를 둘로 나눴다.
+    //    xmas_letters    편지 전부(학번, 이름, 받는 분, 내용) → 클라이언트는 못 읽는다.
+    //                    선생님 화면은 Cloud Function(xmasLetters)이 번호를 확인한 뒤
+    //                    Admin SDK로 읽어 그 선생님 몫만 돌려준다.
+    //    xmas_ornaments  모양과 시각뿐 → 트리 화면이 읽는다. 받는 선생님도 넣지 않았으므로
+    //                    통신을 들여다봐도 누가 누구에게 썼는지 알 수 없다.
+    //  **아래 catch-all의 제외 목록에 xmas_letters와 xmas_teacher_pins를 넣어 두었다.**
+    //  규칙은 OR로 합쳐지므로 거기서 빼지 않으면 여기서 닫아도 실제로는 열려 있다.
+    match /xmas_letters/{id} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() || (
+        request.resource.data.keys().hasOnly([
+          'studentId', 'studentName', 'teacherId', 'teacherName', 'body', 'ornament', 'hidden', 'createdAt'
+        ]) &&
+        request.resource.data.studentId is string &&
+        request.resource.data.studentId.matches('^[0-9]{5}$') &&
+        request.resource.data.studentName is string &&
+        request.resource.data.studentName.size() > 0 && request.resource.data.studentName.size() <= 20 &&
+        request.resource.data.teacherId is string && request.resource.data.teacherId.size() <= 200 &&
+        request.resource.data.teacherName is string && request.resource.data.teacherName.size() <= 30 &&
+        // 화면의 글자 수 상한은 설정으로 바뀌므로 여기는 넉넉한 하드 캡만 둔다
+        request.resource.data.body is string &&
+        request.resource.data.body.size() > 0 && request.resource.data.body.size() <= 2000 &&
+        request.resource.data.ornament is string && request.resource.data.ornament.size() <= 20 &&
+        request.resource.data.hidden == false &&
+        request.resource.data.createdAt == request.time
+      );
+      // 쓴 뒤에는 학생이 고치거나 지울 수 없다(공용 태블릿이라 본인 확인이 안 된다).
+      allow update, delete: if isAdmin();
+    }
+
+    match /xmas_ornaments/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.keys().hasOnly(['ornament', 'createdAt']) &&
+        request.resource.data.ornament is string && request.resource.data.ornament.size() <= 20 &&
+        request.resource.data.createdAt == request.time
+      );
+      allow update, delete: if isAdmin();
+    }
+
+    // 학생이 받는 분을 고르려면 목록은 보여야 한다. 번호는 여기에 두지 않는다.
+    match /xmas_teachers/{id}     { allow read: if true; allow write: if isAdmin(); }
+    // 네 자리 번호. 읽을 수 있으면 확인 절차 자체가 의미가 없으므로 관리자만 본다.
+    match /xmas_teacher_pins/{id} { allow read, write: if isAdmin(); }
+
     // ── 그 외 모든 경로(레거시/미사용 컬렉션 포함): 읽기는 공개, 쓰기는 관리자만.
     //    위에서 create/update만 허용한 학생 자가제출 컬렉션의 delete도 여기로 떨어져
     //    관리자 전용이 된다.
     //    규칙은 겹치면 OR로 합쳐지므로, 위에서 list를 닫은 컬렉션은 여기서 빼야 실제로 닫힌다.
     match /{coll}/{document=**} {
-      allow read: if !(coll in ['hoclass_course_auth', 'hoclass_course_consent']);
+      allow read: if !(coll in [
+        'hoclass_course_auth', 'hoclass_course_consent',
+        'xmas_letters', 'xmas_teacher_pins'
+      ]);
       allow write: if isAdmin();
     }
   }
