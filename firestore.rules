@@ -581,8 +581,15 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if isAdmin() || (
         request.resource.data.keys().hasOnly([
-          'studentId', 'studentName', 'teacherId', 'teacherName', 'body', 'ornament', 'hidden', 'createdAt'
+          'studentId', 'studentName', 'teacherId', 'teacherName', 'body', 'ornament', 'hidden', 'createdAt',
+          // 학생이 트리에서 직접 고른 자리(트리 그림의 viewBox 단위, 가로 100 세로 130).
+          // 숨겼다 다시 달 때 같은 자리로 되살리려고 편지 쪽에도 적어 둔다.
+          'x', 'y'
         ]) &&
+        request.resource.data.x is number &&
+        request.resource.data.x >= 0 && request.resource.data.x <= 100 &&
+        request.resource.data.y is number &&
+        request.resource.data.y >= 0 && request.resource.data.y <= 130 &&
         request.resource.data.studentId is string &&
         request.resource.data.studentId.matches('^[0-9]{5}$') &&
         request.resource.data.studentName is string &&
@@ -603,8 +610,14 @@ service cloud.firestore {
     match /xmas_ornaments/{id} {
       allow read: if true;
       allow create: if isAdmin() || (
-        request.resource.data.keys().hasOnly(['ornament', 'createdAt']) &&
+        request.resource.data.keys().hasOnly(['ornament', 'createdAt', 'x', 'y']) &&
         request.resource.data.ornament is string && request.resource.data.ornament.size() <= 20 &&
+        // 학생이 고른 자리. 트리 화면이 읽는 것은 여전히 모양과 시각과 이 좌표뿐이라
+        // 누가 누구에게 썼는지는 들어 있지 않다.
+        request.resource.data.x is number &&
+        request.resource.data.x >= 0 && request.resource.data.x <= 100 &&
+        request.resource.data.y is number &&
+        request.resource.data.y >= 0 && request.resource.data.y <= 130 &&
         request.resource.data.createdAt == request.time
       );
       allow update, delete: if isAdmin();
