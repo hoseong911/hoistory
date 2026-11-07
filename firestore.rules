@@ -628,6 +628,38 @@ service cloud.firestore {
     // 네 자리 번호. 읽을 수 있으면 확인 절차 자체가 의미가 없으므로 관리자만 본다.
     match /xmas_teacher_pins/{id} { allow read, write: if isAdmin(); }
 
+    // ── HOCLASS 열공 마일리지 (2026-11-08): 학생이 하루 1건 공부 인증을 낸다. ──
+    //    학생은 Firebase Auth가 없어 비인증 쓰기다. 문서 id가 subject__학번__날짜라 자기 자리에만 쓰고,
+    //    다시 내면(update) 같은 자리를 덮어쓴다(하루 1건). 사진·글 크기를 묶고, 교사가 못박는
+    //    통과/보류(verdict)는 학생이 만들거나 바꾸지 못하게 한다(교사 검토의 마지막 말을 지킨다).
+    //    설정(hoclass_mileage_config)은 교사만 쓰므로 아래 catch-all(쓰기=관리자)에 맡긴다.
+    match /hoclass_mileage_certs/{id} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        id == request.resource.data.subject + '__' + request.resource.data.studentNo + '__' + request.resource.data.date &&
+        request.resource.data.studentNo is string && request.resource.data.studentNo.matches('^[0-9]{3,6}$') &&
+        request.resource.data.subject is string && request.resource.data.subject.size() > 0 && request.resource.data.subject.size() <= 20 &&
+        request.resource.data.date is string && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        request.resource.data.name is string && request.resource.data.name.size() <= 50 &&
+        request.resource.data.content is string && request.resource.data.content.size() <= 2000 &&
+        request.resource.data.feeling is string && request.resource.data.feeling.size() <= 2000 &&
+        request.resource.data.result in ['pass', 'pending'] &&
+        request.resource.data.photoURL is string && request.resource.data.photoURL.size() <= 900000 &&
+        !request.resource.data.keys().hasAny(['verdict'])
+      );
+      allow update: if isAdmin() || (
+        request.resource.data.subject == resource.data.subject &&
+        request.resource.data.studentNo == resource.data.studentNo &&
+        request.resource.data.date == resource.data.date &&
+        request.resource.data.content is string && request.resource.data.content.size() <= 2000 &&
+        request.resource.data.feeling is string && request.resource.data.feeling.size() <= 2000 &&
+        request.resource.data.result in ['pass', 'pending'] &&
+        request.resource.data.photoURL is string && request.resource.data.photoURL.size() <= 900000 &&
+        request.resource.data.get('verdict', null) == resource.data.get('verdict', null)
+      );
+      allow delete: if isAdmin();
+    }
+
     // ── 그 외 모든 경로(레거시/미사용 컬렉션 포함): 읽기는 공개, 쓰기는 관리자만.
     //    위에서 create/update만 허용한 학생 자가제출 컬렉션의 delete도 여기로 떨어져
     //    관리자 전용이 된다.
