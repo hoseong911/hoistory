@@ -672,12 +672,33 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ── 나의 책상(교사용 수첩, hoclass/desk/). 학생이 보는 자료가 아니다.
+    //    상담·민원·학생 메모가 들어 있어서 로그인한 교사만 읽고 쓴다.
+    //    그 위에 한 겹 더, 내용은 수첩 비밀번호로 암호화해서 저장한다.
+    //    꼬리표(year, room, date)만 평문이다(찾기용).
+    //    아래 catch-all의 read 조건에서도 desk_* 를 빼 두어야 실제로 닫힌다.
+    match /desk_settings/{id}                      { allow read, write: if isAdmin(); }
+    match /desk_years/{id}                         { allow read, write: if isAdmin(); }
+    match /desk_calendar/{id}                      { allow read, write: if isAdmin(); }
+    match /desk_todos/{id}                         { allow read, write: if isAdmin(); }
+    match /desk_ddays/{id}                         { allow read, write: if isAdmin(); }
+    match /desk_memo/{id}                          { allow read, write: if isAdmin(); }
+    match /desk_crypto/{id}                        { allow read, write: if isAdmin(); }
+    match /desk_att/{id}                           { allow read, write: if isAdmin(); }
+    match /desk_roster/{id}                        { allow read, write: if isAdmin(); }
+    match /desk_collects/{id}                      { allow read, write: if isAdmin(); }
+    match /desk_notices/{id}                       { allow read, write: if isAdmin(); }
+    match /desk_students/{id}                      { allow read, write: if isAdmin(); }
+    match /desk_consults/{id}                      { allow read, write: if isAdmin(); }
+    match /desk_lessons/{id}                       { allow read, write: if isAdmin(); }
+    match /desk_works/{id}                         { allow read, write: if isAdmin(); }
+
     // ── 그 외 모든 경로(레거시/미사용 컬렉션 포함): 읽기는 공개, 쓰기는 관리자만.
     //    위에서 create/update만 허용한 학생 자가제출 컬렉션의 delete도 여기로 떨어져
     //    관리자 전용이 된다.
     //    규칙은 겹치면 OR로 합쳐지므로, 위에서 list를 닫은 컬렉션은 여기서 빼야 실제로 닫힌다.
     match /{coll}/{document=**} {
-      allow read: if !(coll in [
+      allow read: if !coll.matches('desk_.*') && !(coll in [
         'hoclass_course_auth', 'hoclass_course_consent',
         'xmas_letters', 'xmas_teacher_pins'
       ]);
