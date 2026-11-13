@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>사초를 찾아라</title>
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#14130F; --bg2:#191711; --card:#1E1B14; --line:#2E2A22;
+  --txt:#E9E1CE; --dim:#9A9079;
+  --gold:#E8B84B; --gold-d:#C9922C;
+  --teal:#6FB3A8; --teal-d:#3E7F76;
+  --red:#C2705C;
+}
+html,body{height:100%}
+body{
+  font-family:'Pretendard',-apple-system,system-ui,sans-serif;
+  background:var(--bg); color:var(--txt);
+  display:flex; align-items:center; justify-content:center;
+  padding:0; overflow:hidden;
+}
+#app{
+  width:100%; max-width:460px; height:100%; max-height:900px;
+  display:flex; flex-direction:column; position:relative;
+  background:var(--bg); overflow:hidden;
+}
+@media(min-width:480px){ #app{border:1px solid var(--line);border-radius:18px;height:min(900px,100%)} }
+
+.scr{display:none; flex-direction:column; height:100%; overflow-y:auto; overscroll-behavior:contain}
+.scr.on{display:flex}
+
+/* ── 공통 ── */
+.btn{
+  display:block;width:100%;padding:14px;border:0;border-radius:11px;
+  font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;
+  background:var(--gold);color:#241F16;transition:filter .15s,opacity .15s;
+}
+.btn:disabled{opacity:.35;cursor:default}
+.btn:not(:disabled):hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;color:var(--dim);border:1px solid var(--line)}
+.btn.ghost:hover{color:var(--txt)}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+
+/* ── 로그인 ── */
+#login{justify-content:center;padding:28px 24px;gap:0}
+.brand{font-size:11px;letter-spacing:.22em;color:var(--dim);text-align:center}
+.title{font-size:34px;font-weight:900;letter-spacing:-.02em;text-align:center;margin:10px 0 4px}
+.title em{font-style:normal;color:var(--gold)}
+.tagline{font-size:13px;color:var(--dim);text-align:center;margin-bottom:30px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;color:var(--dim);margin-bottom:6px;letter-spacing:.04em}
+.inp{
+  width:100%;padding:13px 14px;border-radius:10px;border:1px solid var(--line);
+  background:var(--bg2);color:var(--txt);font-family:inherit;font-size:16px;
+}
+.inp:disabled{opacity:.4}
+.msg{font-size:12px;margin-top:5px;min-height:16px;color:var(--dim)}
+.msg.ok{color:var(--teal)} .msg.err{color:var(--red)}
+.pickrow{display:flex;gap:9px;margin-top:7px;flex-wrap:wrap}
+.sw{width:34px;height:34px;border-radius:9px;border:2px solid transparent;cursor:pointer}
+.sw[aria-pressed="true"]{border-color:var(--gold)}
+.foot{margin-top:26px;text-align:center;font-size:11px;color:#55503F}
+
+/* ── 아바타 ── */
+.stage{
+  position:relative;flex:none;height:186px;
+  background:radial-gradient(150px 100px at 50% 97%,rgba(232,184,75,.22),transparent 70%),
+             linear-gradient(#241F16,#15130E);
+  display:flex;align-items:flex-end;justify-content:center;overflow:hidden;
+}
+.stage svg{display:block;margin-bottom:6px;transition:transform .25s}
+.stage.sad svg{transform:translateY(5px) rotate(-3deg)}
+.stage.glad svg{transform:translateY(-4px)}
+.bubble{
+  position:absolute;left:14px;right:14px;top:12px;
+  background:rgba(30,27,20,.94);border:1px solid var(--line);border-radius:11px;
+  padding:10px 13px;font-size:13px;line-height:1.55;color:var(--txt);
+  opacity:0;transform:translateY(-6px);transition:opacity .2s,transform .2s;pointer-events:none;
+}
+.bubble.on{opacity:1;transform:none}
+.lampglow{transition:opacity .25s}
+.stage.glad .lampglow{opacity:1}
+
+/* ── 상단바 / 상태 ── */
+.topbar{
+  flex:none;display:flex;justify-content:space-between;align-items:center;
+  padding:12px 16px;border-bottom:1px solid var(--line);background:var(--bg2);
+  font-size:12px;letter-spacing:.05em;color:var(--dim);
+}
+.topbar .clock{font-variant-numeric:tabular-nums;font-weight:800;font-size:15px;color:var(--gold)}
+.topbar .clock.over{color:var(--red)}
+.stats{flex:none;display:grid;gap:8px;padding:12px 16px;background:var(--bg2);border-bottom:1px solid var(--line)}
+.stat{display:grid;grid-template-columns:50px 1fr 54px;gap:10px;align-items:center;font-size:11px;color:var(--dim)}
+.track{height:7px;border-radius:4px;background:#2B2721;overflow:hidden}
+.fill{display:block;height:100%;border-radius:4px;transition:width .4s}
+.stat .v{text-align:right;font-size:11.5px;color:var(--txt);font-variant-numeric:tabular-nums}
+
+/* ── 카드 목록 ── */
+.list{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:9px}
+.card{
+  display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;
+  background:var(--card);border:1px solid var(--line);border-radius:10px;
+  padding:13px 13px;cursor:pointer;text-align:left;font-family:inherit;color:inherit;
+  transition:border-color .15s,transform .1s;
+}
+.card:hover{border-color:#443F33}
+.card:active{transform:scale(.99)}
+.card.lock{background:rgba(232,184,75,.07)}
+.card.done{opacity:.42;cursor:default}
+.card.done:hover{border-color:var(--line)}
+.card b{display:block;font-size:14.5px;font-weight:700}
+.card em{display:block;font-style:normal;font-size:11.5px;color:var(--dim);margin-top:2px}
+.pill{font-size:10.5px;letter-spacing:.04em;padding:3px 8px;border-radius:5px;border:1px solid #3A352B;color:#A79B80;white-space:nowrap}
+
+/* ── 퍼즐 시트 ── */
+.sheet{
+  position:absolute;inset:0;background:var(--bg);z-index:30;
+  display:none;flex-direction:column;
+}
+.sheet.on{display:flex;animation:up .22s ease-out}
+@keyframes up{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
+.sheet-top{
+  flex:none;display:flex;align-items:center;gap:10px;
+  padding:13px 14px;border-bottom:1px solid var(--line);background:var(--bg2);
+}
+.sheet-top .x{
+  flex:none;width:30px;height:30px;border-radius:8px;border:1px solid var(--line);
+  background:transparent;color:var(--dim);font-size:16px;cursor:pointer;line-height:1;
+}
+.sheet-top b{font-size:14.5px;flex:1}
+.sheet-body{flex:1;overflow-y:auto;padding:16px 14px 10px}
+.sheet-foot{flex:none;padding:12px 14px 16px;display:flex;gap:9px;border-top:1px solid var(--line)}
+.sheet-foot .btn{flex:1}
+.prompt{font-size:14.5px;line-height:1.7;margin-bottom:16px}
+.prompt .q{color:var(--gold)}
+.hintbox{
+  margin-top:14px;padding:11px 13px;border-radius:9px;
+  background:rgba(232,184,75,.08);border:1px solid rgba(232,184,75,.25);
+  font-size:13px;line-height:1.6;color:#E2D4B2;
+}
+.hintbox + .hintbox{margin-top:8px}
+
+/* ── 퍼즐: bins ── */
+.tray{display:flex;flex-wrap:wrap;gap:8px;min-height:50px;padding:10px;border-radius:10px;
+  background:var(--bg2);border:1px dashed var(--line);margin-bottom:14px}
+.bins{display:grid;gap:10px}
+.bin{
+  border:1px solid var(--line);border-radius:10px;background:var(--card);padding:10px 11px;
+  transition:border-color .12s,background .12s;
+}
+.bin.hot{border-color:var(--gold);background:rgba(232,184,75,.07)}
+.bin .bl{font-size:11.5px;color:var(--dim);letter-spacing:.04em;margin-bottom:7px}
+.bin .drop{display:flex;flex-wrap:wrap;gap:7px;min-height:38px;align-content:flex-start}
+.tok{
+  padding:9px 12px;border-radius:9px;background:#2A2619;border:1px solid #3C3626;
+  font-size:13.5px;font-weight:600;cursor:grab;touch-action:none;user-select:none;
+}
+.tok.sel{border-color:var(--gold);background:rgba(232,184,75,.14)}
+.tok.ghost{opacity:.25}
+.tok.float{position:fixed;z-index:99;pointer-events:none;cursor:grabbing;box-shadow:0 10px 24px rgba(0,0,0,.5)}
+.tok.bad{animation:shake .32s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+/* ── 퍼즐: pick / order ── */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.opt{
+  padding:13px 11px;border-radius:10px;background:var(--card);border:1px solid var(--line);
+  font-family:inherit;font-size:13.5px;font-weight:600;color:var(--txt);cursor:pointer;
+  text-align:center;line-height:1.45;transition:border-color .12s,background .12s;
+}
+.opt[aria-pressed="true"]{border-color:var(--gold);background:rgba(232,184,75,.12)}
+.opt.ok{border-color:var(--teal);background:rgba(111,179,168,.12);color:var(--teal);cursor:default}
+.opt .seq{display:block;font-size:11px;color:var(--gold);margin-top:3px}
+
+/* ── 퍼즐: 자물쇠 ── */
+.code{display:flex;justify-content:center;gap:9px;margin:6px 0 20px}
+.code span{
+  width:46px;height:58px;border-radius:10px;background:var(--bg2);border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums;
+}
+.code.bad span{border-color:var(--red);animation:shake .32s}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;max-width:300px;margin:0 auto}
+.key{
+  padding:16px 0;border-radius:11px;background:var(--card);border:1px solid var(--line);
+  font-family:inherit;font-size:21px;font-weight:700;color:var(--txt);cursor:pointer;
+}
+.key:active{background:#2A2619}
+.key.sm{font-size:12.5px;color:var(--dim);line-height:1.3}
+
+/* ── 결과 ── */
+#ending{padding:30px 22px;justify-content:center;gap:0}
+.rtitle{font-size:28px;font-weight:900;text-align:center;letter-spacing:-.01em}
+.rsub{font-size:13px;color:var(--dim);text-align:center;margin:6px 0 26px}
+.rtable{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:12px}
+.rrow{display:flex;justify-content:space-between;padding:11px 14px;font-size:13.5px;border-bottom:1px solid var(--line);background:var(--card)}
+.rrow:last-child{border-bottom:0}
+.rrow span:last-child{font-variant-numeric:tabular-nums;font-weight:700;color:var(--gold)}
+.rnote{font-size:12px;color:var(--dim);text-align:center;line-height:1.7;margin:14px 0 20px}
+
+.toast{
+  position:absolute;left:50%;bottom:22px;transform:translate(-50%,10px);
+  background:#2A2619;border:1px solid #3C3626;border-radius:10px;
+  padding:11px 16px;font-size:13px;z-index:60;opacity:0;transition:.2s;pointer-events:none;max-width:88%;
+}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+</style>
+<script src="/hoistory/pwa.js"></script>
+</head>
+<body>
+<div id="app">
+
+<!-- ════ 로그인 ════ -->
+<section class="scr on" id="login">
+  <div class="brand">DIVE INTO HISTORY</div>
+  <h1 class="title">사초를 <em>찾아라</em></h1>
+  <p class="tagline">국사편찬위원회 지하 서고, 30분</p>
+
+  <div class="field">
+    <label for="inId">학번</label>
+    <input class="inp" id="inId" inputmode="numeric" maxlength="5" placeholder="학번 5자리" autocomplete="off">
+    <div class="msg" id="idMsg"></div>
+  </div>
+  <div class="field">
+    <label for="inName">이름</label>
+    <input class="inp" id="inName" placeholder="이름" disabled autocomplete="off">
+    <div class="msg" id="nameMsg"></div>
+  </div>
+  <div class="field">
+    <label>내 모습</label>
+    <div class="pickrow" id="swJacket"></div>
+    <div class="pickrow" id="swHair" style="margin-top:9px"></div>
+  </div>
+  <button class="btn" id="goBtn" disabled style="margin-top:12px">서고로 내려간다</button>
+  <div class="foot">역사는 즐겁다 ✦ Dive into HISTORY</div>
+</section>
+
+<!-- ════ 인트로 ════ -->
+<section class="scr" id="intro">
+  <div class="stage" id="introStage"></div>
+  <div style="flex:1;overflow-y:auto;padding:22px 20px">
+    <p style="font-size:15px;line-height:1.85;color:var(--txt)" id="introText"></p>
+  </div>
+  <div style="flex:none;padding:14px 18px 20px">
+    <button class="btn" id="startBtn">등불을 켠다</button>
+  </div>
+</section>
+
+<!-- ════ 게임 ════ -->
+<section class="scr" id="game">
+  <div class="topbar">
+    <span id="roomName">유물 창고</span>
+    <span class="clock" id="clock">30:00</span>
+  </div>
+  <div class="stage" id="stage">
+    <div class="bubble" id="bubble"></div>
+    <div id="av"></div>
+  </div>
+  <div class="stats">
+    <div class="stat"><span>등불</span><span class="track"><b class="fill" id="fLamp" style="width:100%;background:linear-gradient(90deg,var(--gold),var(--gold-d))"></b></span><span class="v" id="vLamp">30:00</span></div>
+    <div class="stat"><span>복원도</span><span class="track"><b class="fill" id="fProg" style="width:0%;background:linear-gradient(90deg,var(--teal),var(--teal-d))"></b></span><span class="v" id="vProg">0 / 5</span></div>
+    <div class="stat"><span>실마리</span><span class="track"><b class="fill" id="fHint" style="width:100%;background:linear-gradient(90deg,#B4624F,#8E4234)"></b></span><span class="v" id="vHint">● ● ●</span></div>
+  </div>
+  <div class="list" id="cardList"></div>
+
+  <!-- 퍼즐 시트 -->
+  <div class="sheet" id="sheet">
+    <div class="sheet-top">
+      <button class="x" id="sheetClose" aria-label="닫기">✕</button>
+      <b id="sheetTitle"></b>
+      <button class="x" id="hintBtn" aria-label="실마리 쓰기" title="실마리 쓰기">?</button>
+    </div>
+    <div class="sheet-body" id="sheetBody"></div>
+    <div class="sheet-foot" id="sheetFoot"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</section>
+
+<!-- ════ 결과 ════ -->
+<section class="scr" id="ending">
+  <div class="rtitle" id="rTitle">사초를 되찾았다</div>
+  <div class="rsub" id="rSub"></div>
+  <div class="rtable" id="rTable"></div>
+  <div class="rnote" id="rNote"></div>
+  <button class="btn ghost" onclick="location.href='index.html'">다른 방탈출 보기</button>
+</section>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getDatabase } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { firebaseConfig } from "../../shared/firebase-config.js";
+import { initAuth, mountLoginVerification } from "../../shared/auth.js";
+
+const app = initializeApp(firebaseConfig);
+const db   = getFirestore(app);
+const rtdb = getDatabase(app);
+initAuth(rtdb);                         // 학생 명단은 RTDB students/ 에 있다
+
+/* ══════════ 정답 가리기 ══════════
+   소스를 열어 Ctrl+F로 정답을 바로 찾는 것만 막는다. 완전한 보안은 아니다.
+   shortcut: 서버 검증 없음 — 시험으로 쓸 일이 생기면 Cloud Function으로 옮긴다. */
+const _K = 73;
+const enc = s => btoa(unescape(encodeURIComponent([...s].map(c=>String.fromCharCode(c.charCodeAt(0)^_K)).join(''))));
+const dec = s => [...decodeURIComponent(escape(atob(s)))].map(c=>String.fromCharCode(c.charCodeAt(0)^_K)).join('');
+
+/* ══════════ 게임 내용 ══════════ */
+const TOTAL_SEC = 30 * 60;
+
+const ROOMS = [
+ {
+  no:'一', name:'유물 창고', unit:'1단원 선사 문화와 고대 국가의 형성',
+  scene:'선반 위에 먼지가 손가락 한 마디만큼 쌓였다. 누군가 아주 오래전에 여기를 떠났다.',
+  puzzles:[
+   { id:'r1p1', t:'bins', title:'먼지 쌓인 선반', hint:'유물이 뒤죽박죽이다',
+     prompt:'유물을 <span class="q">시대별 선반</span>에 끌어다 놓아라. 제자리가 아니면 손에서 미끄러진다.',
+     check:'instant',
+     bins:[{id:'a',label:'구석기'},{id:'b',label:'신석기'},{id:'c',label:'청동기'}],
+     items:[{label:'주먹도끼',bin:'a'},{label:'빗살무늬 토기',bin:'b'},{label:'가락바퀴',bin:'b'},
+            {label:'비파형 동검',bin:'c'},{label:'반달 돌칼',bin:'c'},{label:'슴베찌르개',bin:'a'}],
+     hints:['가락바퀴는 실을 뽑는 도구다. 농사를 짓고 옷을 지어 입기 시작한 시대를 떠올려라.',
+            '교과서 1단원 「선사 문화의 전개」 — 시대별 대표 유물 표를 펴 보라.'] },
+   { id:'r1p2', t:'pick', title:'깨진 법 조각', hint:'글자가 조금씩 읽힌다',
+     prompt:'바닥의 돌조각 가운데 <span class="q">고조선 8조법</span>에 실제로 있던 조문 셋을 골라라.',
+     need:3,
+     options:[{label:'사람을 죽인 자는 사형에 처한다',ok:true},
+              {label:'남을 다치게 한 자는 곡식으로 갚는다',ok:true},
+              {label:'도둑질한 자는 노비로 삼는다',ok:true},
+              {label:'세금은 수확의 10분의 1을 낸다'},
+              {label:'나라에 큰일이 있으면 소를 잡아 점을 친다'},
+              {label:'혼인은 같은 부족끼리 하지 않는다'}],
+     hints:['남은 세 조문은 8조법이 아니라 부여·동예 같은 다른 나라의 풍습이거나 후대의 제도다.',
+            '교과서 1단원 「고조선의 성립과 발전」 — 8조법 자료를 펴 보라.'] }
+  ],
+  lock:{ len:4, code:enc('2333'), label:'서고 문의 자물쇠',
+    prompt:'조각을 맞추자 문장이 드러난다.<br><span class="q">“『삼국유사』가 전하는 고조선 건국의 해를 기원전 ○○○○년이라 하였다.”</span>',
+    hints:['단군왕검이 나라를 세웠다는 그 해다. 네 자리 수다.',
+           '교과서 1단원 「고조선의 성립」 첫 문단에 그대로 적혀 있다.'],
+    got:'첫 번째 사초를 되찾았다.' }
+ },
+ {
+  no:'二', name:'비석과 지도의 방', unit:'2단원 남북국 시대의 전개',
+  scene:'벽 한 면이 통째로 지도다. 바다 쪽에 누군가 손으로 뱃길을 덧그려 놓았다.',
+  puzzles:[
+   { id:'r2p1', t:'order', title:'벽에 걸린 지도', hint:'불빛이 네 곳에서 깜박인다',
+     prompt:'삼국 통일이 이루어진 <span class="q">순서대로</span> 네 곳을 눌러라. 하나라도 틀리면 선이 끊어진다.',
+     options:[{label:'황산벌 전투',note:'660'},{label:'평양성 함락',note:'668'},
+              {label:'매소성 전투',note:'675'},{label:'기벌포 전투',note:'676'}],
+     order:[0,1,2,3],
+     hints:['백제가 먼저 무너지고, 그다음 고구려다. 당을 몰아낸 싸움은 맨 뒤에 온다.',
+            '교과서 2단원 「신라의 삼국 통일」 — 통일 과정 연표를 펴 보라.'] },
+   { id:'r2p2', t:'text', title:'상인의 짐', hint:'젖은 쪽지가 한 장 들어 있다', ph:'이름 세 글자',
+     prompt:'쪽지에 이렇게 적혀 있다.<br><span class="q">“완도에 세운 해상 무역의 본거지 이름을 적어라.”</span>',
+     answers:[enc('청해진'),enc('淸海鎭'),enc('청해진(淸海鎭)')],
+     hints:['장보고가 세웠다. 신라의 배가 당과 일본 사이를 오가는 길목이었다.',
+            '교과서 2단원 「신라 말의 사회 변동」 — 장보고 부분을 펴 보라.'] }
+  ],
+  lock:{ len:3, code:enc('676'), label:'서고 문의 자물쇠',
+    prompt:'지도의 마지막 불빛이 한 해를 비춘다.<br><span class="q">“신라가 당을 몰아내고 삼국을 통일한 해.”</span>',
+    hints:['방금 네가 마지막으로 누른 전투가 일어난 해다. 세 자리 수다.',
+           '교과서 2단원 「신라의 삼국 통일」 연표 맨 끝을 보라.'],
+    got:'두 번째 사초를 되찾았다.' }
+ },
+ {
+  no:'三', name:'금속활자 공방', unit:'3단원 고려의 성립과 변천',
+  scene:'식어 버린 활자 더미에서 아직 먹 냄새가 난다. 누군가 책 한 권을 찍다 말았다.',
+  puzzles:[
+   { id:'r3p1', t:'order', title:'뒤섞인 연표', hint:'종이 네 장이 흩어져 있다',
+     prompt:'고려가 겪은 외침을 <span class="q">일어난 순서대로</span> 눌러라.',
+     options:[{label:'서희의 담판',note:'거란'},{label:'귀주 대첩',note:'거란'},
+              {label:'몽골의 1차 침입',note:'몽골'},{label:'삼별초의 항쟁',note:'몽골'}],
+     order:[0,1,2,3],
+     hints:['거란과의 일이 먼저다. 몽골은 그보다 이백 년쯤 뒤에 온다.',
+            '교과서 3단원 「고려의 대외 관계」 — 거란·여진·몽골 연표를 펴 보라.'] },
+   { id:'r3p2', t:'bins', title:'비어 있는 활자판', hint:'다섯 칸이 비었다',
+     prompt:'활자를 칸에 끼워 책 이름을 완성하라. <span class="q">현재 남아 있는 가장 오래된 금속활자본</span>이다.',
+     check:'submit', layout:'row',
+     bins:[{id:'1',label:'첫째'},{id:'2',label:'둘째'},{id:'3',label:'셋째'},{id:'4',label:'넷째'},{id:'5',label:'다섯째'}],
+     items:[{label:'직',bin:'1'},{label:'지',bin:'2'},{label:'심',bin:'3'},{label:'체',bin:'4'},{label:'요',bin:'5'},
+            {label:'팔',bin:null},{label:'상',bin:null}],
+     hints:['다섯 글자다. 청주 흥덕사에서 찍었고, 지금은 프랑스에 있다. 쓰이지 않는 활자도 섞여 있다.',
+            '교과서 3단원 「고려의 문화」 — 인쇄술 부분을 펴 보라.'] }
+  ],
+  lock:{ len:3, code:enc('918'), label:'서고 문의 자물쇠',
+    prompt:'공방 벽에 못으로 긁어 쓴 글씨.<br><span class="q">“왕건이 나라를 연 해를 적으면 문이 열린다.”</span>',
+    hints:['후삼국이 아직 갈라져 있던 때다. 세 자리 수다.',
+           '교과서 3단원 「고려의 건국」 첫 쪽을 보라.'],
+    got:'세 번째 사초를 되찾았다.' }
+ },
+ {
+  no:'四', name:'집현전', unit:'4단원 조선의 성립과 발전',
+  scene:'책상 위에 붓이 그대로 놓여 있다. 먹이 마르지 않은 것처럼 보인다.',
+  puzzles:[
+   { id:'r4p1', t:'bins', title:'벽에 걸린 조직도', hint:'이름표가 다 떨어졌다',
+     prompt:'조선의 중앙 정치 기구 이름표를 <span class="q">제자리</span>에 끼워라.',
+     check:'instant',
+     bins:[{id:'a',label:'나랏일을 의논해 결정하는 최고 기구'},
+           {id:'b',label:'왕의 명령을 받아 실제 일을 나누어 맡는 여섯 부서'},
+           {id:'c',label:'왕과 신하를 비판하고 견제하는 세 기구'},
+           {id:'d',label:'왕의 비서 기관'}],
+     items:[{label:'의정부',bin:'a'},{label:'6조',bin:'b'},
+            {label:'사헌부',bin:'c'},{label:'사간원',bin:'c'},{label:'홍문관',bin:'c'},
+            {label:'승정원',bin:'d'}],
+     hints:['세 기구가 한 칸에 함께 들어간다. 흔히 「3사」라고 묶어 부른다.',
+            '교과서 4단원 「조선의 통치 체제」 — 중앙 정치 조직도를 펴 보라.'] },
+   { id:'r4p2', t:'order', title:'펼쳐진 해례본', hint:'낱자가 흩어져 있다',
+     prompt:'낱자를 <span class="q">차례대로</span> 눌러 한 낱말을 만들어라. 세종이 이들을 위해 글자를 지었다.',
+     options:[{label:'ㅂ'},{label:'ㅐ'},{label:'ㄱ'},{label:'ㅅ'},{label:'ㅓ'},{label:'ㅇ'}],
+     order:[0,1,2,3,4,5],
+     hints:['두 글자, 여섯 낱자다. 「어린 ○○이 니르고져 홇 배 이셔도…」',
+            '교과서 4단원 「훈민정음의 창제」 — 서문을 펴 보라.'] }
+  ],
+  lock:{ len:4, code:enc('1446'), label:'서고 문의 자물쇠',
+    prompt:'책장이 스르르 열리며 한 쪽이 펼쳐진다.<br><span class="q">“훈민정음을 백성에게 펴낸 해.”</span>',
+    hints:['만든 해(1443)와 펴낸 해가 다르다. 펴낸 해를 적어라.',
+           '교과서 4단원 「훈민정음의 창제와 반포」를 보라.'],
+    got:'네 번째 사초를 되찾았다.' }
+ },
+ {
+  no:'五', name:'장시의 방', unit:'5단원 조선 사회의 변동',
+  scene:'장날의 소리가 벽 너머에서 들린다. 보따리 하나가 풀린 채 쏟아져 있다.',
+  puzzles:[
+   { id:'r5p1', t:'bins', title:'펼쳐진 세금 장부', hint:'칸이 비어 있다',
+     prompt:'조선 후기에 바뀐 <span class="q">세금 제도</span>와 그 내용을 맞추어라.',
+     check:'instant',
+     bins:[{id:'a',label:'영정법'},{id:'b',label:'대동법'},{id:'c',label:'균역법'}],
+     items:[{label:'땅 1결에 쌀 네 말',bin:'a'},
+            {label:'토산물 대신 쌀·베·돈으로',bin:'b'},
+            {label:'군포를 1년에 한 필로',bin:'c'}],
+     hints:['「대동」은 크게 하나로 합친다는 뜻이다. 「균역」은 역의 부담을 고르게 한다는 뜻이다.',
+            '교과서 5단원 「수취 제도의 개편」 — 세 제도를 묶은 표를 펴 보라.'] },
+   { id:'r5p2', t:'pick', title:'쏟아진 보따리', hint:'시대가 뒤섞여 있다',
+     prompt:'보따리에서 <span class="q">조선 후기</span>에 널리 퍼진 것만 모두 골라라.',
+     need:4,
+     options:[{label:'한글 소설',ok:true},{label:'판소리 대본',ok:true},
+              {label:'탈춤 가면',ok:true},{label:'진경산수화',ok:true},
+              {label:'상감 청자'},{label:'팔만대장경 목판'}],
+     hints:['둘은 고려의 것이다. 이 방에 있을 물건이 아니다.',
+            '교과서 5단원 「서민 문화의 발달」을 펴 보라.'] }
+  ],
+  lock:{ len:4, code:enc('1750'), label:'서고 문의 자물쇠',
+    prompt:'장부 맨 뒷장에 붉은 글씨가 있다.<br><span class="q">“영조가 군포를 1년에 한 필로 줄인 그 법이 시행된 해.”</span>',
+    hints:['균역법이다. 18세기 중엽, 1700년대의 한가운데다.',
+           '교과서 5단원 「영조의 개혁 정치」를 보라.'],
+    got:'마지막 사초를 되찾았다.' }
+ }
+];
+
+const FINAL = { len:5, code:enc('36860'), label:'출구의 문',
+  prompt:'다섯 장의 번호판이 손안에서 맞물린다. 문에 글자가 새겨져 있다.<br><span class="q">“각 해의 <b>끝자리</b>만 모으라. 네가 지나온 순서대로.”</span>',
+  hints:['2333, 676, 918, 1446, 1750 — 다섯 수의 맨 끝 숫자를 차례로 이어 적어라.',
+         '첫 번째는 2333의 끝자리 3이다. 나머지 넷도 같은 방법으로 이으면 된다.'] };
+
+const INTRO = `국사편찬위원회 지하 서고.
+
+역사 동아리 자료 정리를 돕다가, 정신을 차려 보니 혼자 남았다. 문은 잠겼고 불은 꺼졌다. 책상 위에 쪽지 한 장이 놓여 있다.
+
+— “이 서고의 다섯 칸에는 사초(史草), 곧 아직 역사책이 되지 못한 날기록이 흩어져 있다. 기록을 제자리에 돌려놓은 사람에게만 문이 열린다.”
+
+손에 잡히는 것은 식어 가는 등불 하나. 그리고 어쩐 일인지 어깨에 걸쳐진, 네 것이 아닌 사관(史官)의 겉옷 한 벌.`;
+
+/* ══════════ 아바타 ══════════ */
+const JACKETS = ['#2F4268','#262522','#5B2B35','#3C4A33'];
+const HAIRS   = ['#1C1813','#2E221A','#4A3524'];
+let avatar = { j:0, h:0 };
+
+function avatarSVG(mood){
+  const j = JACKETS[avatar.j], h = HAIRS[avatar.h];
+  const sad = mood === 'sad', glad = mood === 'glad';
+  return `<svg width="128" height="164" viewBox="0 0 128 164" aria-label="내 아바타">
+  <defs><radialGradient id="lg"><stop offset="0" stop-color="#FFD87A"/><stop offset="1" stop-color="#E8B84B" stop-opacity="0"/></radialGradient></defs>
+  <!-- 사관 겉옷(단령): 어깨에만 어설프게 걸쳐 한쪽이 흘러내렸다 -->
+  <path d="M26 74 L22 150 L50 150 L48 80 Z" fill="#4B6B63" opacity=".92"/>
+  <path d="M102 70 L108 146 L82 150 L84 78 Z" fill="#41605A" opacity=".92"/>
+  <path d="M30 70 Q64 86 98 66 L96 58 Q64 76 32 62 Z" fill="#56776E"/>
+  <!-- 교복 상의 -->
+  <path d="M44 72 Q64 82 84 72 L92 150 L36 150 Z" fill="${j}"/>
+  <path d="M55 72 L64 92 L73 72 Z" fill="#F2EEE4"/>
+  <path d="M61 78 L67 78 L66 94 L62 94 Z" fill="#9E3B36"/>
+  <!-- 목·얼굴 -->
+  <rect x="57" y="58" width="14" height="14" rx="5" fill="#D9BE9C"/>
+  <ellipse cx="64" cy="44" rx="21" ry="23" fill="#E4C9A6"/>
+  <path d="M43 40 Q64 22 85 40 L85 30 Q64 16 43 30 Z" fill="${h}"/>
+  <path d="M43 42 Q50 28 64 27 Q78 28 85 42 Q78 34 64 34 Q50 34 43 42 Z" fill="${h}"/>
+  ${sad
+    ? `<path d="M53 45 q5 4 10 0" stroke="#3A2E22" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+       <path d="M70 45 q5 4 10 0" stroke="#3A2E22" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+       <path d="M56 58 q8 -5 16 0" stroke="#3A2E22" stroke-width="2.2" fill="none" stroke-linecap="round"/>`
+    : glad
+    ? `<path d="M52 46 q6 -5 11 0" stroke="#3A2E22" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+       <path d="M69 46 q6 -5 11 0" stroke="#3A2E22" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+       <path d="M55 55 q9 8 18 0" stroke="#3A2E22" stroke-width="2.4" fill="none" stroke-linecap="round"/>`
+    : `<circle cx="57" cy="47" r="2.6" fill="#3A2E22"/><circle cx="74" cy="47" r="2.6" fill="#3A2E22"/>
+       <path d="M58 57 q6 3 12 0" stroke="#3A2E22" stroke-width="2.2" fill="none" stroke-linecap="round"/>`}
+  <!-- 흑립(갓)을 삐딱하게 눌러썼다 -->
+  <g transform="rotate(-9 64 24)">
+    <ellipse cx="64" cy="26" rx="37" ry="7" fill="#201C16"/>
+    <path d="M50 26 Q50 8 64 8 Q78 8 78 26 Z" fill="#2A2520"/>
+    <ellipse cx="64" cy="26" rx="14" ry="3" fill="#1A1713"/>
+  </g>
+  <!-- 등불 -->
+  <circle class="lampglow" cx="104" cy="104" r="20" fill="url(#lg)" opacity="${glad?1:.55}"/>
+  <line x1="92" y1="96" x2="104" y2="100" stroke="#8A7B5C" stroke-width="2.5" stroke-linecap="round"/>
+  <rect x="97" y="99" width="15" height="17" rx="3" fill="#3A332A" stroke="#6E6148" stroke-width="1.5"/>
+  <ellipse cx="104.5" cy="107.5" rx="4" ry="5.5" fill="#FFD87A"/>
+  </svg>`;
+}
+
+/* ══════════ 상태 ══════════ */
+const S = {
+  id:'', name:'', startMs:0, elapsed:0,
+  room:0, solved:{}, locks:{}, wrong:{}, hintsLeft:3, shown:{},
+  roomSec:[], roomStart:0, cleared:false, finalOpen:false, done:false
+};
+let timerId = null, sheetCtx = null;
+
+const $ = s => document.querySelector(s);
+const el = (t,c,h) => { const n=document.createElement(t); if(c) n.className=c; if(h!=null) n.innerHTML=h; return n; };
+const mmss = s => `${String(Math.floor(Math.abs(s)/60)).padStart(2,'0')}:${String(Math.abs(s)%60).padStart(2,'0')}`;
+const show = id => document.querySelectorAll('.scr').forEach(s => s.classList.toggle('on', s.id===id));
+
+let toastT;
+function toast(msg){
+  const t=$('#toast'); t.textContent=msg; t.classList.add('on');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),1900);
+}
+let moodT;
+function setMood(mood, say){
+  const st=$('#stage');
+  st.className='stage'+(mood?' '+mood:'');
+  $('#stage').firstElementChild?.remove?.();
+  st.insertAdjacentHTML('afterbegin', avatarSVG(mood));
+  if(say){ const b=$('#bubble'); b.textContent=say; b.classList.add('on'); }
+  clearTimeout(moodT);
+  moodT=setTimeout(()=>{ $('#bubble').classList.remove('on'); st.className='stage';
+    st.firstElementChild?.remove(); st.insertAdjacentHTML('afterbegin', avatarSVG()); }, 2600);
+}
+
+/* ══════════ 로그인 ══════════ */
+function paintSwatches(){
+  const jr=$('#swJacket'), hr=$('#swHair');
+  jr.innerHTML=''; hr.innerHTML='';
+  JACKETS.forEach((c,i)=>{
+    const b=el('button','sw'); b.type='button'; b.style.background=c;
+    b.setAttribute('aria-pressed', i===avatar.j); b.setAttribute('aria-label', `교복 색 ${i+1}`);
+    b.onclick=()=>{ avatar.j=i; paintSwatches(); }; jr.appendChild(b);
+  });
+  HAIRS.forEach((c,i)=>{
+    const b=el('button','sw'); b.type='button'; b.style.background=c;
+    b.setAttribute('aria-pressed', i===avatar.h); b.setAttribute('aria-label', `머리 색 ${i+1}`);
+    b.onclick=()=>{ avatar.h=i; paintSwatches(); }; hr.appendChild(b);
+  });
+}
+paintSwatches();
+
+mountLoginVerification({
+  idInput:$('#inId'), nameInput:$('#inName'),
+  idMsgEl:$('#idMsg'), nameMsgEl:$('#nameMsg'),
+  onChange: st => {
+    $('#goBtn').disabled = !st.allValid;
+    if(st.allValid){ S.id=$('#inId').value.trim(); S.name=$('#inName').value.trim(); }
+  }
+});
+
+$('#goBtn').onclick = () => {
+  $('#introStage').innerHTML = avatarSVG();
+  $('#introText').innerHTML = INTRO.trim().split('\n\n').map(p=>`<span style="display:block;margin-bottom:16px">${p}</span>`).join('');
+  show('intro');
+};
+
+$('#startBtn').onclick = () => {
+  S.startMs = Date.now(); S.roomStart = Date.now();
+  show('game'); tick(); timerId = setInterval(tick, 1000);
+  renderRoom();
+};
+
+/* ══════════ 타이머 ══════════ */
+function tick(){
+  S.elapsed = Math.floor((Date.now()-S.startMs)/1000);
+  const left = TOTAL_SEC - S.elapsed;
+  const c=$('#clock');
+  c.textContent = left>=0 ? mmss(left) : '+'+mmss(left);
+  c.classList.toggle('over', left<0);
+  $('#vLamp').textContent = left>=0 ? mmss(left) : '꺼짐';
+  $('#fLamp').style.width = Math.max(0, left/TOTAL_SEC*100)+'%';
+}
+
+/* ══════════ 방 화면 ══════════ */
+function renderRoom(){
+  const r = ROOMS[S.room];
+  const list = $('#cardList');
+  list.innerHTML='';
+  $('#fProg').style.width = (S.room/5*100)+'%';
+  $('#vProg').textContent = `${S.room} / 5`;
+  paintHints();
+
+  if(S.finalOpen){
+    $('#roomName').textContent = '출구';
+    $('#stage').className='stage';
+    $('#stage').innerHTML = `<div class="bubble on" id="bubble">다섯 장이 모두 모였다. 문 앞에 섰다.</div>` + avatarSVG('glad');
+    const c = el('button','card lock');
+    c.innerHTML = `<span><b>${FINAL.label}</b><em>숫자 다섯 칸</em></span><span class="pill">${'0 '.repeat(FINAL.len).trim()}</span>`;
+    c.onclick = () => openLock(FINAL, true);
+    list.appendChild(c);
+    return;
+  }
+
+  $('#roomName').textContent = `${r.no} ${r.name}`;
+  $('#stage').className='stage';
+  $('#stage').innerHTML = `<div class="bubble on" id="bubble">${r.scene}</div>` + avatarSVG();
+  setTimeout(()=>$('#bubble')?.classList.remove('on'), 3800);
+
+  r.puzzles.forEach(p => {
+    const done = !!S.solved[p.id];
+    const c = el('button','card'+(done?' done':''));
+    c.innerHTML = `<span><b>${p.title}</b><em>${done?'해결했다':p.hint}</em></span>
+                   <span class="pill">${done?'완료':labelOf(p.t)}</span>`;
+    if(!done) c.onclick = () => openPuzzle(p);
+    list.appendChild(c);
+  });
+
+  const allDone = r.puzzles.every(p => S.solved[p.id]);
+  const c = el('button','card lock'+(allDone?'':' done'));
+  c.innerHTML = `<span><b>${r.lock.label}</b><em>${allDone?`숫자 ${r.lock.len}칸`:'아직 단서가 모자라다'}</em></span>
+                 <span class="pill">${allDone ? '0 '.repeat(r.lock.len).trim() : '잠김'}</span>`;
+  if(allDone) c.onclick = () => openLock(r.lock, false);
+  list.appendChild(c);
+}
+
+const labelOf = t => ({bins:'끌어놓기', pick:'고르기', order:'순서대로', text:'적기'})[t] || '풀기';
+
+function paintHints(){
+  $('#vHint').textContent = '● '.repeat(S.hintsLeft).trim() || '없음';
+  $('#fHint').style.width = (S.hintsLeft/3*100)+'%';
+}
+
+/* ══════════ 퍼즐 시트 ══════════ */
+function closeSheet(){ $('#sheet').classList.remove('on'); sheetCtx=null; }
+$('#sheetClose').onclick = closeSheet;
+
+$('#hintBtn').onclick = () => {
+  if(!sheetCtx) return;
+  const k = sheetCtx.key, hints = sheetCtx.hints || [];
+  const n = S.shown[k] || 0;
+  if(n >= hints.length){ toast('더 나올 실마리가 없다.'); return; }
+  if(S.hintsLeft <= 0){ toast('실마리를 다 썼다. 틀리다 보면 저절로 열린다.'); return; }
+  S.hintsLeft--; revealHint(1); paintHints();
+};
+
+function revealHint(delta){
+  const k = sheetCtx.key, hints = sheetCtx.hints || [];
+  const n = Math.min((S.shown[k]||0) + delta, hints.length);
+  S.shown[k] = n;
+  const box = $('#sheetBody').querySelector('.hints');
+  box.innerHTML = hints.slice(0,n).map(h => `<div class="hintbox">${h}</div>`).join('');
+}
+
+function bumpWrong(key){
+  S.wrong[key] = (S.wrong[key]||0) + 1;
+  const w = S.wrong[key], shown = S.shown[key]||0;
+  if(w === 3 && shown < 1){ revealHint(1); toast('실마리가 하나 열렸다.'); }
+  if(w === 5 && shown < 2){ revealHint(2 - shown); toast('교과서를 펴 보라는 쪽지가 떨어졌다.'); }
+}
+
+function mountSheet({title, key, prompt, hints, body, foot}){
+  sheetCtx = { key, hints };
+  $('#sheetTitle').textContent = title;
+  const b = $('#sheetBody');
+  b.innerHTML = `<p class="prompt">${prompt}</p>`;
+  b.appendChild(body);
+  b.appendChild(el('div','hints'));
+  $('#sheetFoot').innerHTML=''; (foot||[]).forEach(f => $('#sheetFoot').appendChild(f));
+  revealHint(0);
+  $('#sheet').classList.add('on');
+}
+
+function solved(p){
+  S.solved[p.id] = true;
+  closeSheet();
+  setMood('glad', '맞다. 제자리를 찾았다.');
+  renderRoom();
+}
+
+function openPuzzle(p){
+  ({bins:buildBins, pick:buildPick, order:buildOrder, text:buildText})[p.t](p);
+}
+
+/* ── 끌어놓기 ── */
+function buildBins(p){
+  const wrap = el('div');
+  const tray = el('div','tray');
+  const bins = el('div','bins');
+  if(p.layout==='row') bins.style.gridTemplateColumns = `repeat(${p.bins.length},1fr)`;
+  wrap.append(tray, bins);
+
+  const binEls = {};
+  p.bins.forEach(b => {
+    const n = el('div','bin'); n.dataset.bin = b.id;
+    n.innerHTML = `<div class="bl">${b.label}</div>`;
+    const d = el('div','drop'); n.appendChild(d);
+    binEls[b.id] = d; bins.appendChild(n);
+  });
+
+  const items = p.items.map((it,i) => ({...it, uid:p.id+'_'+i}));
+  shuffle(items).forEach(it => tray.appendChild(makeTok(it)));
+
+  function makeTok(it){
+    const t = el('div','tok', it.label);
+    t.dataset.uid = it.uid; t.dataset.bin = it.bin ?? '';
+    attachDrag(t, tray, binEls, p);
+    return t;
+  }
+
+  const foot = [];
+  if(p.check === 'submit'){
+    const btn = el('button','btn','확인한다');
+    btn.onclick = () => {
+      const ok = p.items.every(() => true) &&
+        Object.entries(binEls).every(([bid, d]) =>
+          [...d.children].length === p.items.filter(x => x.bin === bid).length &&
+          [...d.children].every(c => c.dataset.bin === bid));
+      if(ok) solved(p);
+      else { bumpWrong(p.id); setMood('sad','아니다. 다시 맞춰 보자.'); toast('아직 맞지 않다.'); }
+    };
+    foot.push(btn);
+  }
+  mountSheet({title:p.title, key:p.id, prompt:p.prompt, hints:p.hints, body:wrap, foot});
+}
+
+function checkBinsDone(p, binEls){
+  const need = p.items.filter(x => x.bin).length;
+  const placed = Object.values(binEls).reduce((n,d) => n + d.children.length, 0);
+  if(placed === need) solved(p);
+}
+
+function attachDrag(tok, tray, binEls, p){
+  tok.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    const r = tok.getBoundingClientRect();
+    const ox = e.clientX - r.left, oy = e.clientY - r.top;
+    const sx = e.clientX, sy = e.clientY;
+    let moved = false, hot = null;
+
+    const fly = tok.cloneNode(true);
+    fly.classList.add('float');
+    fly.style.left = r.left+'px'; fly.style.top = r.top+'px'; fly.style.width = r.width+'px';
+    document.body.appendChild(fly);
+    tok.classList.add('ghost');
+
+    const move = ev => {
+      if(!moved && Math.abs(ev.clientX-sx)+Math.abs(ev.clientY-sy) > 6) moved = true;
+      fly.style.left = (ev.clientX-ox)+'px'; fly.style.top = (ev.clientY-oy)+'px';
+      const over = dropAt(ev.clientX, ev.clientY);
+      if(over !== hot){ hot?.classList.remove('hot'); hot = over; hot?.classList.add('hot'); }
+    };
+    const up = ev => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', up);
+      document.removeEventListener('pointercancel', up);
+      fly.remove(); tok.classList.remove('ghost'); hot?.classList.remove('hot');
+      if(!moved){ tok.classList.toggle('sel'); return; }
+      const bin = dropAt(ev.clientX, ev.clientY);
+      place(tok, bin, tray, binEls, p);
+    };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', up);
+    document.addEventListener('pointercancel', up);
+  });
+
+  // 탭해서 고른 뒤 통을 탭하는 방식도 받는다
+  tok.addEventListener('click', e => e.stopPropagation());
+}
+
+function dropAt(x,y){
+  const n = document.elementFromPoint(x,y);
+  return n?.closest?.('.bin') || null;
+}
+
+function place(tok, binNode, tray, binEls, p){
+  if(!binNode){ tray.appendChild(tok); return; }
+  const bid = binNode.dataset.bin;
+  const drop = binEls[bid];
+  const cap = p.items.filter(x => x.bin === bid).length;
+
+  if(p.check === 'instant' && tok.dataset.bin !== bid){
+    tok.classList.add('bad');
+    setTimeout(()=>tok.classList.remove('bad'), 340);
+    tray.appendChild(tok);
+    bumpWrong(p.id); setMood('sad','거기가 아니다.');
+    return;
+  }
+  if(drop.children.length >= cap && !drop.contains(tok)){
+    tray.appendChild(drop.firstElementChild);   // 꽉 찼으면 앞엣것을 밀어낸다
+  }
+  drop.appendChild(tok);
+  tok.classList.remove('sel');
+  if(p.check === 'instant') checkBinsDone(p, binEls);
+}
+
+/* 통을 탭해도 놓이게 한다 */
+document.addEventListener('click', e => {
+  const bin = e.target.closest?.('.bin');
+  if(!bin) return;
+  const sel = $('#sheetBody')?.querySelector('.tok.sel');
+  if(!sel) return;
+  const sheet = $('#sheetBody');
+  const tray = sheet.querySelector('.tray');
+  const binEls = {};
+  sheet.querySelectorAll('.bin').forEach(b => binEls[b.dataset.bin] = b.querySelector('.drop'));
+  const p = currentPuzzle();
+  if(p) place(sel, bin, tray, binEls, p);
+});
+function currentPuzzle(){
+  const k = sheetCtx?.key;
+  for(const r of ROOMS) for(const p of r.puzzles) if(p.id===k) return p;
+  return null;
+}
+
+/* ── 고르기 ── */
+function buildPick(p){
+  const g = el('div','grid2');
+  const chosen = new Set();
+  p.options.forEach((o,i) => {
+    const b = el('button','opt', o.label);
+    b.type='button'; b.setAttribute('aria-pressed','false');
+    b.onclick = () => {
+      const on = chosen.has(i);
+      if(on) chosen.delete(i); else chosen.add(i);
+      b.setAttribute('aria-pressed', String(!on));
+    };
+    g.appendChild(b);
+  });
+  const btn = el('button','btn','확인한다');
+  btn.onclick = () => {
+    const right = new Set(p.options.map((o,i)=>o.ok?i:-1).filter(i=>i>=0));
+    const ok = chosen.size === right.size && [...chosen].every(i => right.has(i));
+    if(ok) solved(p);
+    else { bumpWrong(p.id); setMood('sad','하나가 틀렸다.');
+           toast(chosen.size !== p.need ? `${p.need}개를 골라야 한다.` : '아직 맞지 않다.'); }
+  };
+  mountSheet({title:p.title, key:p.id, prompt:p.prompt, hints:p.hints, body:g, foot:[btn]});
+}
+
+/* ── 순서대로 ── */
+function buildOrder(p){
+  const g = el('div','grid2');
+  let step = 0;
+  const btns = p.options.map((o,i) => {
+    const b = el('button','opt', o.label + (o.note?`<span class="seq">${o.note}</span>`:''));
+    b.type='button';
+    b.onclick = () => {
+      if(b.classList.contains('ok')) return;
+      if(i === p.order[step]){
+        b.classList.add('ok'); step++;
+        if(step === p.order.length) solved(p);
+      } else {
+        bumpWrong(p.id); setMood('sad','순서가 아니다.'); toast('선이 끊어졌다. 처음부터.');
+        step = 0; btns.forEach(x => x.classList.remove('ok'));
+      }
+    };
+    g.appendChild(b); return b;
+  });
+  mountSheet({title:p.title, key:p.id, prompt:p.prompt, hints:p.hints, body:g});
+}
+
+/* ── 적기 ── */
+function buildText(p){
+  const wrap = el('div');
+  const inp = el('input','inp'); inp.placeholder = p.ph || '답'; inp.autocomplete='off';
+  wrap.appendChild(inp);
+  const norm = s => s.replace(/\s+/g,'').toLowerCase();
+  const btn = el('button','btn','적어 넣는다');
+  const submit = () => {
+    const v = norm(inp.value);
+    if(!v) return;
+    if(p.answers.map(a => norm(dec(a))).includes(v)) solved(p);
+    else { bumpWrong(p.id); setMood('sad','이 이름이 아니다.'); toast('다시 생각해 보자.'); }
+  };
+  btn.onclick = submit;
+  inp.addEventListener('keydown', e => { if(e.key==='Enter') submit(); });
+  mountSheet({title:p.title, key:p.id, prompt:p.prompt, hints:p.hints, body:wrap, foot:[btn]});
+  setTimeout(()=>inp.focus(), 80);
+}
+
+/* ── 자물쇠 ── */
+function openLock(lock, isFinal){
+  const key = isFinal ? 'final' : 'lock'+S.room;
+  const wrap = el('div');
+  const disp = el('div','code');
+  const cells = [];
+  for(let i=0;i<lock.len;i++){ const c=el('span','','–'); disp.appendChild(c); cells.push(c); }
+  wrap.appendChild(disp);
+
+  const keys = el('div','keys');
+  let buf = '';
+  const paint = () => cells.forEach((c,i) => c.textContent = buf[i] ?? '–');
+  const push = d => { if(buf.length < lock.len){ buf += d; paint(); if(buf.length===lock.len) setTimeout(verify,180); } };
+  const verify = () => {
+    if(buf === dec(lock.code)){
+      if(isFinal) finish(true);
+      else {
+        S.roomSec[S.room] = Math.floor((Date.now()-S.roomStart)/1000);
+        S.roomStart = Date.now();
+        closeSheet();
+        toast(ROOMS[S.room].lock.got);
+        S.room++;
+        if(S.room >= ROOMS.length) S.finalOpen = true;
+        saveRecord(false);
+        renderRoom();
+      }
+    } else {
+      disp.classList.add('bad'); setTimeout(()=>disp.classList.remove('bad'),340);
+      bumpWrong(key); setMood('sad','열리지 않는다.');
+      buf=''; paint();
+    }
+  };
+  ['1','2','3','4','5','6','7','8','9'].forEach(d => {
+    const b=el('button','key',d); b.type='button'; b.onclick=()=>push(d); keys.appendChild(b);
+  });
+  const bc=el('button','key sm','전체 지움'); bc.type='button'; bc.onclick=()=>{buf='';paint();}; keys.appendChild(bc);
+  const b0=el('button','key','0'); b0.type='button'; b0.onclick=()=>push('0'); keys.appendChild(b0);
+  const bd=el('button','key sm','하나 지움'); bd.type='button'; bd.onclick=()=>{buf=buf.slice(0,-1);paint();}; keys.appendChild(bd);
+  wrap.appendChild(keys);
+
+  mountSheet({title:lock.label, key, prompt:lock.prompt, hints:lock.hints, body:wrap});
+}
+
+/* ══════════ 기록 ══════════ */
+async function saveRecord(done){
+  if(!S.id) return;
+  const wrongTotal = Object.values(S.wrong).reduce((a,b)=>a+b,0);
+  try{
+    await setDoc(doc(db,'escape_records', S.id), {
+      studentId:S.id, studentName:S.name,
+      elapsedSec:S.elapsed, roomSec:S.roomSec,
+      roomsCleared:S.room, wrongTotal, wrong:S.wrong,
+      hintsUsed:3-S.hintsLeft, cleared:done,
+      avatar:`${avatar.j}${avatar.h}`,
+      updatedAt:serverTimestamp()
+    }, { merge:true });
+  }catch(e){ console.warn('[escape] 기록 저장 실패', e); }
+}
+
+function finish(){
+  if(S.done) return;
+  S.done = true; S.cleared = true;
+  S.roomSec[ROOMS.length] = Math.floor((Date.now()-S.roomStart)/1000);
+  clearInterval(timerId);
+  saveRecord(true);
+
+  const wrongTotal = Object.values(S.wrong).reduce((a,b)=>a+b,0);
+  const over = S.elapsed > TOTAL_SEC;
+  $('#rSub').textContent = `${S.name}, ${mmss(S.elapsed)} 만에 서고를 나왔다`;
+  $('#rTitle').textContent = over ? '등불은 꺼졌지만, 문은 열렸다' : '사초를 되찾았다';
+  $('#rTable').innerHTML =
+    ROOMS.map((r,i)=>`<div class="rrow"><span>${r.no} ${r.name}</span><span>${mmss(S.roomSec[i]||0)}</span></div>`).join('')
+    + `<div class="rrow"><span>출구의 문</span><span>${mmss(S.roomSec[ROOMS.length]||0)}</span></div>`
+    + `<div class="rrow"><span>틀린 횟수</span><span>${wrongTotal}회</span></div>`
+    + `<div class="rrow"><span>쓴 실마리</span><span>${3-S.hintsLeft}개</span></div>`;
+  $('#rNote').innerHTML = over
+    ? '30분을 넘겼지만 끝까지 풀었다. 기록은 그대로 남는다.'
+    : '기록이 선생님께 전해졌다.';
+  show('ending');
+}
+</script>
+</body>
+</html>
