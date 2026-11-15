@@ -472,6 +472,8 @@ service cloud.firestore {
     match /hoclass_course_students/{id}        { allow read: if true; allow write: if isAdmin(); }
     match /hoclass_course_lessons/{id}         { allow read: if true; allow write: if isAdmin(); }
     match /hoclass_lessons/{id}                { allow read: if true; allow write: if isAdmin(); }
+    // 세부 특기사항과 메모(2026-11-15, 어드민 학생 관리와 교무수첩이 같이 쓴다): 교사만. 아래 catch-all 읽기에서도 뺐다
+    match /hoclass_student_notes/{id}          { allow read, write: if isAdmin(); }
 
     // ── HOCLASS 공지 소셜 (2026-11-01): 열람·좋아요·댓글. 학생은 Firebase Auth가 없어 비인증 쓰기이므로 필드를 검증한다. ──
     //    열람+좋아요: 문서 id = 공지id_학번. 누구 기록인지(studentNo)는 수정 시 고정.
@@ -711,7 +713,7 @@ service cloud.firestore {
     //    규칙은 겹치면 OR로 합쳐지므로, 위에서 list를 닫은 컬렉션은 여기서 빼야 실제로 닫힌다.
     match /{coll}/{document=**} {
       allow read: if !coll.matches('desk_.*') && !(coll in [
-        'hoclass_course_auth', 'hoclass_course_consent',
+        'hoclass_course_auth', 'hoclass_course_consent', 'hoclass_student_notes',
         'xmas_letters', 'xmas_teacher_pins'
       ]);
       allow write: if isAdmin();
