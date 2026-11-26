@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>국립중앙박물관 관람 활동지 : 관리자 모드</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet">
+<link rel="stylesheet" href="../../shared/theme.css">
+<link rel="stylesheet" href="../../shared/admin-base.css">
+<script>if(window.self!==window.top){document.documentElement.classList.add('in-iframe');document.documentElement.classList.add('has-own-back');}</script>
+<style>
+/* 다른 미션 앱 어드민과 같은 오렌지 주 + 네이비 보조 */
+body{
+  --bp-primary:#FF6B3D;--bp-primary-soft:rgba(255,107,61,.12);--bp-primary-deep:#E24E1B;
+  --bp-pass:#22c55e;--bp-pass-l:rgba(34,197,94,.12);
+  --bp-fail:var(--hi-negative);--bp-fail-l:rgba(243,114,127,.1);
+}
+.ans-head{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.ans-head .class-filter,.ans-head .stats-row{margin-bottom:0}
+.stats-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;align-items:center}
+.stat-chip{background:var(--hi-bg-card);border:1px solid var(--hi-border);border-radius:12px;padding:10px 16px;font-size:14px;color:var(--hi-text-muted);text-align:center;white-space:nowrap}
+.stat-combo{display:inline-flex;align-items:baseline;gap:6px}
+.stat-combo b{display:inline-block;min-width:2.4ch;text-align:center;font-variant-numeric:tabular-nums;font-size:18px;font-weight:800}
+.c-o{color:var(--bp-primary)}.c-g{color:#0E9F6E}.c-r{color:#DC2626}
+.c-sep{font-size:16px;font-weight:700;color:var(--hi-border)}
+.adm-action-row{display:flex;justify-content:flex-end;margin-bottom:12px}
+
+.std-card-head{display:flex;align-items:center;gap:10px;padding:11px 14px 9px;cursor:pointer;flex-wrap:wrap}
+.std-who{flex-shrink:0;display:flex;align-items:baseline;gap:6px}
+.std-who .std-sid{font-size:11px;font-weight:700;color:var(--hi-text-muted)}
+.std-who .std-name{font-size:14px;font-weight:700;color:var(--hi-text);white-space:nowrap;margin:0}
+.std-mid{flex:1;min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:6px}
+.ph{padding:3px 8px;border-radius:6px;font-size:11.5px;font-weight:800;background:var(--hi-bg-mid);color:var(--hi-text-muted)}
+.ph.on{background:var(--bp-pass-l);color:#15803d}
+.mode-t{font-size:12px;color:var(--hi-text-muted)}
+.time-t{font-size:11px;color:var(--hi-text-muted)}
+.status-badge{flex-shrink:0;padding:4px 10px;border-radius:7px;font-size:12px;font-weight:800}
+.sb-pending{background:var(--hi-bg-mid);color:var(--hi-text-muted)}
+.sb-pass{background:var(--bp-pass-l);color:#15803d}
+.sb-fail{background:var(--bp-fail-l);color:var(--bp-fail)}
+.card-body-open{display:none;padding:12px 16px 10px;border-top:1px solid var(--hi-border)}
+.std-card.open .card-body-open{display:block}
+.ph-block{margin-bottom:14px}
+.ph-title{font-size:13px;font-weight:800;color:var(--hi-text);margin:4px 0 8px}
+.qa{display:grid;grid-template-columns:minmax(0,220px) minmax(0,1fr);gap:4px 14px;padding:7px 0;border-top:1px solid var(--hi-border-faint);font-size:13px;line-height:1.6}
+.qa .q{color:var(--hi-text-muted);font-weight:700}
+.qa .a{color:var(--hi-text);white-space:pre-wrap;word-break:break-word}
+.qa .a.none{color:var(--hi-text-muted)}
+.qa img{max-width:260px;max-height:220px;border-radius:8px;display:block;background:var(--hi-bg-mid)}
+@media(max-width:640px){.qa{grid-template-columns:1fr}}
+.score-btns{display:flex;gap:6px;justify-content:center;margin:12px 0 4px}
+.ssb{padding:7px 18px;border-radius:8px;font-family:inherit;font-size:13px;font-weight:700;border:1.5px solid transparent;cursor:pointer}
+.ssb-pass{background:var(--bp-pass-l);color:#15803d;border-color:rgba(22,163,74,.2)}.ssb-pass.active,.ssb-pass:hover{background:var(--bp-pass);color:#fff}
+.ssb-fail{background:var(--bp-fail-l);color:var(--bp-fail);border-color:rgba(220,38,38,.2)}.ssb-fail.active,.ssb-fail:hover{background:var(--bp-fail);color:#fff}
+.no-data{text-align:center;padding:40px 20px;color:var(--hi-text-muted);font-size:14px}
+</style>
+<script src="/hoistory/pwa.js"></script>
+</head>
+<body>
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-title">국립중앙박물관 관람 활동지</div>
+    <div class="login-sub">관리자 모드</div>
+    <div class="field-group" style="text-align:left;margin:14px 0">
+      <label class="form-label">이메일</label>
+      <input type="email" class="hi-input" id="gate-email" placeholder="이메일">
+    </div>
+    <div class="field-group" style="text-align:left;margin-bottom:14px">
+      <label class="form-label">비밀번호</label>
+      <input type="password" class="hi-input" id="gate-pw" placeholder="비밀번호">
+    </div>
+    <div class="login-err" id="gate-err"></div>
+    <button class="login-btn" id="gate-login-btn">접속하기</button>
+  </div>
+</div>
+
+<div id="adminApp">
+  <header class="adm-header">
+    <div class="adm-logo">국립중앙박물관 관람 활동지<span class="adm-badge">관리자 모드</span></div>
+    <div class="adm-tabs">
+      <button class="adm-tab active" data-tab="answer">ANSWER</button>
+    </div>
+    <button class="adm-logout" id="logout-btn">로그아웃</button>
+    <button class="adm-back" id="back-btn">목록으로</button>
+  </header>
+
+  <div class="adm-body">
+  <div class="admin-container">
+    <div class="tab-panel active" id="tab-answer">
+      <div class="ans-head">
+        <div class="class-filter" id="class-filter"></div>
+        <div class="stats-row">
+          <div class="stat-chip stat-combo" title="전체 / 제출 / 통과 / 미흡">
+            <b class="c-o" id="s-total">0</b><span class="c-sep">/</span><b class="c-o" id="s-sub">0</b><span class="c-sep">/</span><b class="c-g" id="s-pass">0</b><span class="c-sep">/</span><b class="c-r" id="s-fail">0</b>
+          </div>
+        </div>
+      </div>
+      <div class="adm-action-row">
+        <div class="sort-box">
+          <button class="sort-btn active" id="sort-newest">최신순</button>
+          <button class="sort-btn" id="sort-sid">학번순</button>
+        </div>
+      </div>
+      <div class="std-list" id="result-list"></div>
+    </div>
+  </div>
+  </div>
+</div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import{getFirestore,doc,getDoc,updateDoc,deleteField,collection,onSnapshot}
+  from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import{getAuth,signInWithEmailAndPassword,signOut,onAuthStateChanged}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import{getDatabase,ref,get}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { firebaseConfig } from "../../shared/firebase-config.js";
+import { PHASES, MODES } from "./missions.js";
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const auth = getAuth(app);
+const rtdb = getDatabase(app);
+const WORKS = 'museum_works';
+const PHOTOS = 'museum_photos';
+
+let roster = [], works = [];
+let currentFilter = '전체';
+let answerSort = 'newest';
+let worksUnsub = null;
+const openSet = new Set();
+const isEmbedded = window.self !== window.top;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+function classNumOf(sid){ sid = String(sid || ''); if (sid.length < 3) return null; const c = parseInt(sid.slice(1,3),10); return isNaN(c) ? null : c; }
+
+/* ── 진입 ── */
+async function initAdmin(){
+  $('loginScreen').style.display = 'none';
+  $('adminApp').classList.add('show');
+  await loadRoster();
+  startListener();
+}
+if (isEmbedded){ document.body.classList.add('embedded'); initAdmin(); }
+else{
+  onAuthStateChanged(auth, user => {
+    if (user) initAdmin();
+    else{
+      $('loginScreen').style.display = '';
+      $('adminApp').classList.remove('show');
+      if (worksUnsub){ worksUnsub(); worksUnsub = null; }
+    }
+  });
+}
+$('gate-login-btn').addEventListener('click', async () => {
+  const errEl = $('gate-err'); errEl.classList.remove('show');
+  try{ await signInWithEmailAndPassword(auth, $('gate-email').value.trim(), $('gate-pw').value); }
+  catch(e){ errEl.textContent = '이메일 또는 비밀번호를 확인해 주세요.'; errEl.classList.add('show'); }
+});
+$('gate-pw').addEventListener('keydown', e => { if (e.key === 'Enter') $('gate-login-btn').click(); });
+$('logout-btn').addEventListener('click', () => signOut(auth));
+$('back-btn').addEventListener('click', () => { if (window.parent.closeAppAdmin) window.parent.closeAppAdmin(); });
+$('sort-newest').addEventListener('click', () => { answerSort = 'newest'; markSort(); renderResults(); });
+$('sort-sid').addEventListener('click', () => { answerSort = 'sid'; markSort(); renderResults(); });
+function markSort(){
+  $('sort-newest').classList.toggle('active', answerSort === 'newest');
+  $('sort-sid').classList.toggle('active', answerSort === 'sid');
+}
+
+/* 명단은 RTDB /students. 키가 학번이 아니라 값 안의 studentId(또는 id)가 학번이다. */
+async function loadRoster(){
+  try{
+    const snap = await get(ref(rtdb,'students'));
+    roster = Object.values(snap.val() || {}).filter(Boolean)
+      .map(s => ({ studentId: String(s.studentId || s.id || '').trim(), name: s.name || '' }))
+      .filter(s => s.studentId)
+      .map(s => ({ ...s, classNum: classNumOf(s.studentId) }))
+      .filter(s => s.classNum !== 0);
+  }catch(e){ roster = []; }
+}
+function startListener(){
+  if (worksUnsub) worksUnsub();
+  worksUnsub = onSnapshot(collection(db, WORKS), snap => {
+    works = [];
+    snap.forEach(d => { const v = d.data(); if (v.submittedAt) works.push({ id: d.id, ...v }); });
+    renderClassFilter(); renderResults();
+  });
+}
+
+function classList(){
+  const set = new Set();
+  roster.forEach(s => { if (s.classNum) set.add(s.classNum); });
+  works.forEach(w => { const c = w.classNum || classNumOf(w.studentId); if (c) set.add(c); });
+  return [...set].sort((a,b) => a - b);
+}
+function renderClassFilter(){
+  const list = ['전체', ...classList().map(c => c + '반')];
+  $('class-filter').innerHTML = list.map(c => `<button class="cf-btn${c === currentFilter ? ' active' : ''}" data-c="${c}">${c}</button>`).join('');
+  $('class-filter').querySelectorAll('.cf-btn').forEach(b => b.addEventListener('click', () => {
+    currentFilter = b.dataset.c; renderClassFilter(); renderResults();
+  }));
+}
+function inFilter(w){
+  if (currentFilter === '전체') return true;
+  return ((w.classNum || classNumOf(w.studentId)) + '반') === currentFilter;
+}
+function msOf(t){ if (!t) return 0; if (typeof t.toMillis === 'function') return t.toMillis(); if (t.seconds) return t.seconds * 1000; return 0; }
+const lastOf = w => msOf(w.updatedAt) || msOf(w.submittedAt);
+function timeText(ms){
+  if (!ms) return '';
+  const d = new Date(ms), p = n => String(n).padStart(2,'0');
+  return `${d.getMonth()+1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+function renderResults(){
+  const list = works.filter(inFilter).slice();
+  list.sort((a,b) => answerSort === 'sid' ? String(a.studentId).localeCompare(String(b.studentId)) : lastOf(b) - lastOf(a));
+  const total = currentFilter === '전체' ? roster.length : roster.filter(s => (s.classNum + '반') === currentFilter).length;
+  $('s-total').textContent = total || list.length;
+  $('s-sub').textContent = list.length;
+  $('s-pass').textContent = list.filter(w => w.status === 'pass').length;
+  $('s-fail').textContent = list.filter(w => w.status === 'fail').length;
+
+  if (!list.length){ $('result-list').innerHTML = '<div class="no-data">아직 낸 학생이 없습니다</div>'; return; }
+
+  $('result-list').innerHTML = list.map(w => {
+    const ph = w.phases || {};
+    const badge = w.status === 'pass' ? '<span class="status-badge sb-pass">통과</span>'
+                : w.status === 'fail' ? '<span class="status-badge sb-fail">미흡</span>'
+                : '<span class="status-badge sb-pending">미채점</span>';
+    const mode = w.mode === 'group' ? `${MODES.group.label} ${esc(w.group || '')} (${esc(w.role || '')})` : MODES.solo.label;
+    return `<div class="std-card${openSet.has(w.studentId) ? ' open' : ''}" data-sid="${esc(w.studentId)}">
+      <div class="std-card-head">
+        <div class="std-who"><span class="std-sid">${esc(w.studentId)}</span><span class="std-name">${esc(w.name)}</span></div>
+        <div class="std-mid">
+          ${PHASES.map(p => `<span class="ph${ph[p.id] ? ' on' : ''}">${esc(p.label)}</span>`).join('')}
+          <span class="mode-t">${mode}</span>
+          <span class="time-t">${timeText(lastOf(w))}</span>
+        </div>
+        ${badge}
+      </div>
+      <div class="card-body-open"></div>
+    </div>`;
+  }).join('');
+
+  $('result-list').querySelectorAll('.std-card').forEach(card => {
+    card.querySelector('.std-card-head').addEventListener('click', () => {
+      const sid = card.dataset.sid;
+      if (card.classList.toggle('open')){ openSet.add(sid); drawCard(card); } else openSet.delete(sid);
+    });
+    if (card.classList.contains('open')) drawCard(card);
+  });
+}
+
+function answerText(f, v){
+  if (Array.isArray(v)) return v.join(', ');
+  if (f.type === 'rating') return v + '점';
+  return String(v);
+}
+
+/* 펼칠 때만 그린다. 사진은 따로 둔 문서라 이때 받아 온다. */
+function drawCard(card){
+  const sid = card.dataset.sid;
+  const w = works.find(x => x.studentId === sid);
+  if (!w) return;
+  const a = w.answers || {}, photos = w.photos || {};
+  const body = card.querySelector('.card-body-open');
+  let html = '';
+  PHASES.forEach(p => {
+    const rows = [];
+    p.sections.forEach(s => {
+      if (s.modes && !s.modes.includes(w.mode)) return;
+      s.fields.forEach(f => {
+        if (f.type === 'timer') return;
+        if (f.modes && !f.modes.includes(w.mode)) return;
+        if (f.type === 'photo'){
+          if (photos[f.id]) rows.push(`<div class="qa"><div class="q">${esc(s.title)}: ${esc(f.label)}</div><div class="a"><img data-photo="${esc(sid + '_' + f.id)}" alt=""></div></div>`);
+          return;
+        }
+        if (a[f.id] == null || a[f.id] === '' || (Array.isArray(a[f.id]) && !a[f.id].length)) return;
+        rows.push(`<div class="qa"><div class="q">${esc(s.title)}: ${esc(f.label)}</div><div class="a">${esc(answerText(f, a[f.id]))}</div></div>`);
+      });
+    });
+    const when = (w.phases || {})[p.id];
+    html += `<div class="ph-block"><div class="ph-title">${esc(p.label)} ${when ? timeText(when) : '(아직 내지 않음)'}</div>${rows.join('')}</div>`;
+  });
+  if (w.mode === 'group' && w.members) html = `<div class="qa"><div class="q">모둠원</div><div class="a">${esc(w.members)}</div></div>` + html;
+  html += `<div class="score-btns">
+    <button class="ssb ssb-pass${w.status === 'pass' ? ' active' : ''}" data-mark="pass">통과</button>
+    <button class="ssb ssb-fail${w.status === 'fail' ? ' active' : ''}" data-mark="fail">미흡</button>
+  </div>`;
+  body.innerHTML = html;
+
+  body.querySelectorAll('img[data-photo]').forEach(async img => {
+    try{ const snap = await getDoc(doc(db, PHOTOS, img.dataset.photo)); if (snap.exists()) img.src = snap.data().image; }catch(e){}
+  });
+  body.querySelectorAll('[data-mark]').forEach(b => b.addEventListener('click', async e => {
+    e.stopPropagation();
+    const want = b.dataset.mark;
+    const next = w.status === want ? null : want;   // 같은 것을 다시 누르면 미채점으로
+    try{ await updateDoc(doc(db, WORKS, sid), { status: next === null ? deleteField() : next }); }catch(err){}
+  }));
+}
+</script>
+</body>
+</html>

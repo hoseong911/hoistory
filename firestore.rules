@@ -449,6 +449,32 @@ service cloud.firestore {
       );
     }
 
+    // ── 국립중앙박물관 관람 활동지 (museum): 사전, 현장, 사후 답과 사진 ──
+    // status(통과/미흡)는 선생님만 쓴다. 학생이 다시 내도 그 칸은 못 건드린다.
+    match /museum_works/{studentId} {
+      allow read: if true;
+      allow create: if isAdmin() || (
+        request.resource.data.studentId == studentId &&
+        request.resource.data.answers is map &&
+        !('status' in request.resource.data)
+      );
+      allow update: if isAdmin() || (
+        request.resource.data.studentId == studentId &&
+        request.resource.data.answers is map &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status'])
+      );
+    }
+
+    // 사진은 작품 문서와 따로 둔다(어드민 목록이 그림까지 통째로 받지 않게). 문서 id는 "학번_문항".
+    match /museum_photos/{id} {
+      allow read: if true;
+      allow create, update: if isAdmin() || (
+        id == request.resource.data.studentId + '_' + request.resource.data.fieldId &&
+        request.resource.data.image is string &&
+        request.resource.data.image.size() < 900000
+      );
+    }
+
     // ── 2027 LMS (별도 레포 hoseong911/lms2027의 model.js, LMS2027.md) ──
     // 반은 1년 단위로 개설한다. 반 문서 id는 자동 id, 명단 문서 id는 "반id_학번".
     // 비밀번호와 동의 문서 id는 "학년도_학번"이다 — 한 학생이 여러 반(사회 반, 역사 반)에 들 수

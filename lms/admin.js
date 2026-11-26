@@ -4774,6 +4774,7 @@ const MISSION_SOURCES = {
   // 네컷은 작품 문서(fourcut_works)에 base64 이미지가 통째로 들어 있어 전량 조회가 너무 무겁다.
   // 네컷 어드민이 통과/미흡을 누를 때 학번당 1문서로 합산해 두는 요약 문서만 읽는다.
   j_4cut:        { coll: 'fourcut_submissions',      timeFields: ['createdAt'],              graded: true  },
+  museum:        { coll: 'museum_works',             timeFields: ['submittedAt'],            graded: true  },
 };
 
 // 미션 카드 url("apps/j_interview/index.html")에서 앱 폴더 이름을 뽑는다.

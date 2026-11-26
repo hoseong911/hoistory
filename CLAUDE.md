@@ -38,7 +38,7 @@ Each lives in its own folder with a consistent pattern:
 - `<folder>/index.html` — Student view (requires student ID + name login)
 - `<folder>/admin.html` — Teacher view (password-gated)
 
-Current sub-apps (LMS 미션 체크 연결, `apps/` 하위): `blind_ryeo/`, `escape/`, `goryeo_choice/`, `j_brain/`, `j_yugyo/`, `j_interview/`, `j_science/`, `j_wartimeline/`, `s_threads/`, `sillaver/`, `samguk_goods/`
+Current sub-apps (LMS 미션 체크 연결, `apps/` 하위): `blind_ryeo/`, `escape/`, `goryeo_choice/`, `j_brain/`, `j_yugyo/`, `j_interview/`, `j_science/`, `j_wartimeline/`, `s_threads/`, `sillaver/`, `samguk_goods/`, `museum/`
 루트 앱 (LMS 연동이지만 미션 체크 앱 아님): `hismile/`, `survey/`, `ox/`
 루트 앱 (LMS와 무관): `xmas/` (학교 축제용 감사편지 트리, 2026-11-05)
 
@@ -199,8 +199,24 @@ LMS에서 미션 카드를 만들고 공개(잠금 해제)하면, 같은 Firesto
   - **웹앱 어드민의 채점이 언제나 기준이다.** 자동 감지를 막는 건 (a) 결석 처리된 학생, (b) 이번 세션에 표에서 직접 만진 칸 두 가지뿐이다(`gradeCanAutoApply(sid, block)` / `_gradeManualEdit`, 열쇠는 `sid|mission` 형태로 **항목별**).
   - **예전 규칙(제거됨)**: "이미 저장된 채점 기록이 있는 학생(`savedSet`)은 덮어쓰지 않는다". 저장은 개념/미션/생각을 학생 전원에 대해 한꺼번에 쓰기 때문에, [성적 반영]을 한 번이라도 누른 강의는 그 순간부터 자동 감지가 영구히 죽는 버그가 있었다. 다시 넣지 말 것.
 - **반영 시점**: 표를 열어 둔 채 채점이 바뀌면 실시간으로 따라오고(`startMissionLive`), [불러오기] 때 저장값과 달라진 학생은 **이미 반영(공개)한 반에 한해** 학생 성적 문서까지 바로 갱신한다(`gradePushLive`). 아직 반영하지 않은 반은 표만 바뀐다 — 공개 시점은 선생님이 정하는 것이므로.
-- **연동된 앱**: `j_interview`(interview_joseon_answers), `j_wartimeline`(j_wartimeline_results), `j_brain`(j_brain_works), `j_4cut`(fourcut_submissions).
+- **연동된 앱**: `j_interview`(interview_joseon_answers), `j_wartimeline`(j_wartimeline_results), `j_brain`(j_brain_works), `j_4cut`(fourcut_submissions), `museum`(museum_works).
 - **`fourcut_submissions` 예외**: 학번당 1문서짜리 가벼운 요약 컬렉션을 따로 둔다 — 학생이 공유할 때 제출 사실·시각을 남기고(`apps/j_4cut/index.html`의 `saveSubmissionMark`), 선생님이 작품별 통과/미흡을 누를 때 합산 `status`를 써 넣는다(`apps/j_4cut/admin.html`의 `syncSubmissionSummary`). **채점 결과를 제출 문서 자신에 둔다는 표준 스키마의 유일한 예외**이며, 이유는 오직 이미지 용량이다. 작품별 `status`는 표준대로 `fourcut_works` 문서에 그대로 남는다.
+
+## 국립중앙박물관 관람 활동지 (`apps/museum`, 2026-11-26)
+
+중3 창체(역사와 미술) 박물관 관람용 모바일 활동지. 사전(교실), 현장(박물관), 사후(교실) 세 단계를 단계마다 따로 낸다.
+처음 화면에서 모둠 관람과 개인 관람 중 하나를 고르면 그에 맞는 미션이 보인다(`missions.js`의 `modes`).
+
+- **문항은 `missions.js` 한 곳에 있고 학생 화면과 어드민이 같이 읽는다.** 문항 id가 `answers`의 열쇠이므로 이미 낸 답이 있으면 id를 바꾸지 않는다.
+- 학생 신원은 j_brain처럼 LMS가 남긴 `lms_sid`, `lms_sname`을 읽는다. 없으면 "수업 홈에서 들어와 주세요" 화면만 뜬다.
+- `museum_works/{학번}`: `answers`(단계 구분 없이 문항 id별), `phases`(단계별 마지막 제출 시각 ms), `photos`(문항 id별 사진 있음 여부), `mode`, `group`, `members`, `role`, `status`.
+  `submittedAt`은 **처음 낸 시각이라 다시 내도 바뀌지 않는다**(성적 체크의 기한 판정 기준). 낼 때마다 바뀌는 것은 `updatedAt`.
+- 사진은 `museum_photos/{학번}_{문항id}`에 따로 둔다(어드민 목록이 사진까지 통째로 받지 않게). 기기에서 긴 변 1280px JPEG로 줄여 600KB 안으로 맞춘다. 제출은 사진 먼저, 작품 문서 나중.
+- 쓰는 중인 글은 localStorage(`museum_draft_학번`), 사진은 IndexedDB에 임시로 둔다. 다른 기기에서 열면 서버에 낸 것을 채워 준다.
+- 어드민은 ANSWER 한 탭이다. 학생 카드를 펼치면 단계별 답과 사진이 보이고 통과와 미흡을 누른다(같은 것을 다시 누르면 미채점).
+- 박물관 휴실(2027-01-28까지 2층 불교회화실, 목칠공예실, 서화실 3실과 4실 / 3층 불교조각실, 금속공예실)은 미션에서 뺐다. 휴실이 끝나거나 전시가 바뀌면 `missions.js`의 `ROOMS`, `CLOSED_NOTE`를 고친다.
+- 갤러리 이름 "선사·고대관", "중·근세관", "분청사기·백자실"의 가운뎃점은 박물관의 고유명사라 그대로 둔다.
+- **규칙(`museum_works`, `museum_photos`)은 `firebase deploy --only firestore:rules --project ho0911seong-56638`로 배포해야 학생 제출이 들어간다.**
 
 ## 뇌구조도 머리 그림과 글자 자리 (j_brain, 2026-09-21)
 
